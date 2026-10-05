@@ -20,6 +20,9 @@ const MARGIN = 15;
 const PT = 25.4 / 72; // mm per point
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
+// Snap lines on the page: the margins and the centre.
+const XS = [MARGIN, W / 2, W - MARGIN];
+const YS = [MARGIN, H / 2, H - MARGIN];
 const SHAPES: [Kind, string][] = [["rect", "Rechteck"], ["rounded", "Abgerundet"], ["circle", "Kreis"], ["line", "Linie"], ["arrow", "Pfeil"]];
 const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
 
@@ -169,13 +172,32 @@ export default function Sheets() {
     );
   }
 
+  // Moveable snaps to within a pixel of a guide. These put an edge, or an edge or centre, that close exactly on it.
+  const edge = (at: number, guides: number[]) => guides.find((g) => Math.abs(g - at) < 1 / k) ?? at;
+  const settle = (at: number, size: number, guides: number[]) => {
+    const part = [0, size / 2, size].find((part) => edge(at + part, guides) !== at + part);
+    return round(part === undefined ? at : edge(at + part, guides) - part);
+  };
+
   // Moveable reports px, the document keeps mm. It reads the new size back at once, so render before returning.
   const drag = (events: OnDrag[]) =>
-    flushSync(() => place(events.map((e) => [idOf(e.target), { x: round(e.left / k), y: round(e.top / k) }]), "drag"));
+    flushSync(() =>
+      place(
+        events.map((e) => {
+          const b = blocks.find((b) => b.id === idOf(e.target))!;
+          return [b.id, { x: settle(e.left / k, b.w, XS), y: settle(e.top / k, b.h, YS) }];
+        }),
+        "drag",
+      ),
+    );
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
-        events.map((e) => [idOf(e.target), { x: round(e.drag.left / k), y: round(e.drag.top / k), w: round(e.width / k), h: round(e.height / k) }]),
+        events.map((e) => {
+          const [x, y] = [edge(e.drag.left / k, XS), edge(e.drag.top / k, YS)];
+          const box = { x: round(x), y: round(y), w: round(edge(x + e.width / k, XS) - x), h: round(edge(y + e.height / k, YS) - y) };
+          return [idOf(e.target), box];
+        }),
         "drag",
       ),
     );
@@ -345,8 +367,8 @@ export default function Sheets() {
             snapDirections={SIDES}
             elementSnapDirections={SIDES}
             elementGuidelines={[".block:not(.sel)"]}
-            verticalGuidelines={[MARGIN, W / 2, W - MARGIN].map((mm) => mm * k)}
-            horizontalGuidelines={[MARGIN, H / 2, H - MARGIN].map((mm) => mm * k)}
+            verticalGuidelines={XS.map((mm) => mm * k)}
+            horizontalGuidelines={YS.map((mm) => mm * k)}
             // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
             onClick={(e) => touch.current && pick(e.inputTarget, false)}
             onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
