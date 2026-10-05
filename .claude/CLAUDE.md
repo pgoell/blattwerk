@@ -4,7 +4,8 @@ Worksheet tool for Grundschule teachers
 
 ## Layout
 
-- `src/blattwerk/`: the package
+- `src/blattwerk/`: FastAPI backend (accounts, feedback, SQLite), serves the built frontend from `static/`
+- `frontend/`: React, TypeScript, Vite
 - `tests/`: pytest
 
 ## Commands
@@ -13,7 +14,10 @@ mise owns every command. `mise tasks` lists them.
 
 ```sh
 mise run test           # pytest
-mise run lint           # ruff check, ruff format --check, ty check
+mise run lint           # ruff check, ruff format --check, ty check, tsc
+mise run dev:api        # backend on :8000
+mise run dev:web        # frontend dev server, proxies /api
+mise run build          # frontend into src/blattwerk/static
 mise run fmt            # ruff format
 mise run check-commits  # cocogitto on unpushed commits
 ```

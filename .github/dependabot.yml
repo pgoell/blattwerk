@@ -11,6 +11,17 @@ updates:
     labels:
       - dependencies
 
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    labels:
+      - dependencies
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

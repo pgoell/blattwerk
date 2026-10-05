@@ -20,3 +20,7 @@ dist/
 
 # Submissions
 data/
+
+# Frontend
+node_modules/
+src/blattwerk/static/
