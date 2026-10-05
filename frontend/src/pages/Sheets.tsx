@@ -43,6 +43,8 @@ const span = (boxes: Box[], axis: Axis) => {
   const size = axis === "x" ? "w" : "h";
   return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
 };
+// A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
+const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 
 export default function Sheets() {
   const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
@@ -152,24 +154,32 @@ export default function Sheets() {
     setHist((h) => (h.future.length ? { past: [...h.past, h.blocks], blocks: h.future[0], future: h.future.slice(1) } : h));
   }
 
+  // Moves new blocks as one onto the page, then in steps clear of a block already at that spot.
+  function land<T extends Box>(boxes: T[]) {
+    const [x, right] = span(boxes, "x");
+    const [y, bottom] = span(boxes, "y");
+    const [maxX, maxY] = [Math.max(0, W - right + x), Math.max(0, H - bottom + y)];
+    let [dx, dy] = [Math.max(0, Math.min(x, maxX)) - x, Math.max(0, Math.min(y, maxY)) - y];
+    const taken = () => blocks.some((b) => b.x === round(boxes[0].x + dx) && b.y === round(boxes[0].y + dy));
+    // A step for each block is enough to find a free spot, unless the page has none.
+    for (let n = 0; n < blocks.length && taken(); n++) {
+      dx = step(x + dx, maxX) - x;
+      dy = step(y + dy, maxY) - y;
+    }
+    return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
+  }
   function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
     const id = crypto.randomUUID();
-    let x = (W - w) / 2;
-    let y = Math.min(round(desk.current!.scrollTop / k) + MARGIN, H - h);
-    // Step clear of a block already at that spot, as far as the page allows.
-    while (blocks.some((b) => b.x === x && b.y === y) && x + w + 5 <= W && y + h + 5 <= H) {
-      x += 5;
-      y += 5;
-    }
-    const block = { id, x, y, w, h, z: top + 1, locked: false, ...rest };
+    const y = round(desk.current!.scrollTop / k) + MARGIN;
+    const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
     change((bs) => [...bs, block]);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
   }
   function put(from: Block[]) {
-    const copies = [...from]
-      .sort((a, b) => a.z - b.z)
-      .map((b, i) => ({ ...b, id: crypto.randomUUID(), x: b.x + 5, y: b.y + 5, z: top + 1 + i }));
+    const copies = land(
+      [...from].sort((a, b) => a.z - b.z).map((b, i) => ({ ...b, id: crypto.randomUUID(), x: b.x + 5, y: b.y + 5, z: top + 1 + i })),
+    );
     change((bs) => [...bs, ...copies]);
     setIds(copies.map((b) => b.id));
     return copies;
