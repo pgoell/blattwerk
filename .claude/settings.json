@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "emil@pgoell-claude-tools": true,
+    "vercel@pgoell-claude-tools": true
+  }
+}
