@@ -1,4 +1,4 @@
-"""Interview form: one page of questions plus voice notes, saved to disk."""
+"""Interview form and photo upload: answers, voice notes and photos, saved to disk."""
 
 import json
 import os
@@ -13,7 +13,16 @@ from starlette.datastructures import UploadFile
 
 TOKEN = os.environ.get("BLATTWERK_TOKEN", "")
 DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
-AUDIO_TYPES = {"audio/webm": "webm", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/wav": "wav"}
+FILE_TYPES = {
+    "audio/webm": "webm",
+    "audio/mp4": "m4a",
+    "audio/ogg": "ogg",
+    "audio/wav": "wav",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/heic": "heic",
+    "image/webp": "webp",
+}
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -30,7 +39,14 @@ def form(token: str) -> str:
     return files("blattwerk").joinpath("form.html").read_text(encoding="utf-8")
 
 
+@app.get("/i/{token}/fotos", response_class=HTMLResponse)
+def photos(token: str) -> str:
+    check(token)
+    return files("blattwerk").joinpath("photos.html").read_text(encoding="utf-8")
+
+
 @app.post("/i/{token}")
+@app.post("/i/{token}/fotos")
 async def submit(token: str, request: Request) -> dict[str, str]:
     check(token)
     form = await request.form()
@@ -39,11 +55,14 @@ async def submit(token: str, request: Request) -> dict[str, str]:
     out.mkdir(parents=True)
 
     answers = {k: v for k, v in form.multi_items() if isinstance(v, str)}
-    clips = [v for k, v in form.multi_items() if k == "audio" and isinstance(v, UploadFile)]
-    for i, clip in enumerate(clips, 1):
-        base = (clip.content_type or "").split(";")[0]
-        ext = AUDIO_TYPES.get(base, "bin")
-        (out / f"audio-{i}.{ext}").write_bytes(await clip.read())
+    # One counter per field, so a send's files read audio-1, photo-1, photo-2.
+    counts: dict[str, int] = {}
+    for field, upload in form.multi_items():
+        if not isinstance(upload, UploadFile) or field not in ("audio", "photo"):
+            continue
+        counts[field] = counts.get(field, 0) + 1
+        ext = FILE_TYPES.get((upload.content_type or "").split(";")[0], "bin")
+        (out / f"{field}-{counts[field]}.{ext}").write_bytes(await upload.read())
 
     (out / "answers.json").write_text(
         json.dumps(answers, ensure_ascii=False, indent=2), encoding="utf-8"

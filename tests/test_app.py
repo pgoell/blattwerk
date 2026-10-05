@@ -41,3 +41,21 @@ def test_submit_saves_answers_and_audio(client, tmp_path):
     }
     assert (out / "audio-1.webm").read_bytes() == b"one"
     assert (out / "audio-2.m4a").read_bytes() == b"two"
+
+
+def test_photo_page_saves_pages_in_order(client, tmp_path):
+    assert client.get("/i/secret/fotos").status_code == 200
+    assert client.get("/i/wrong/fotos").status_code == 404
+    res = client.post(
+        "/i/secret/fotos",
+        data={"titel": "Klassenarbeit Mathe"},
+        files=[
+            ("photo", ("photo", b"page1", "image/jpeg")),
+            ("photo", ("photo", b"page2", "image/jpeg")),
+            ("other", ("x", b"ignored", "image/jpeg")),
+        ],
+    )
+    out = tmp_path / res.json()["saved"]
+    assert (out / "photo-1.jpg").read_bytes() == b"page1"
+    assert (out / "photo-2.jpg").read_bytes() == b"page2"
+    assert sorted(p.name for p in out.iterdir()) == ["answers.json", "photo-1.jpg", "photo-2.jpg"]
