@@ -33,6 +33,11 @@ const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX)
 const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
+// The box around several blocks.
+const bounds = (bs: Box[]) => {
+  const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
+  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+};
 
 export default function Sheets() {
   const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
@@ -52,6 +57,7 @@ export default function Sheets() {
   const hold = useRef(0);
   const held = useRef(false);
   const grab = useRef([0, 0]);
+  const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { blocks } = hist;
@@ -62,6 +68,8 @@ export default function Sheets() {
   const shapes = sel.filter((b) => b.type === "shape");
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
+  // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
+  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
 
   useLayoutEffect(() => {
@@ -207,19 +215,35 @@ export default function Sheets() {
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
     e.currentTarget.setPointerCapture(e.pointerId);
   }
+  // Where on the page, in mm, the pointer puts the handle it holds.
+  function point(e: PointerEvent) {
+    const page = sheet.current!.getBoundingClientRect();
+    return [(e.clientX - grab.current[0] - page.left) / k, (e.clientY - grab.current[1] - page.top) / k];
+  }
   // Moves one end of a line with the pointer; the other end stays. Near level or upright it snaps straight.
   function stretch(e: PointerEvent, b: ShapeBlock, end: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const page = sheet.current!.getBoundingClientRect();
     const fx = b.x + (far(b, 1, !end) ? b.w : 0);
     const fy = b.y + (far(b, 0, !end) ? b.h : 0);
-    let px = (e.clientX - grab.current[0] - page.left) / k;
-    let py = (e.clientY - grab.current[1] - page.top) / k;
+    let [px, py] = point(e);
     if (Math.abs(px - fx) < 6 / k) px = fx;
     if (Math.abs(py - fy) < 6 / k) py = fy;
     const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
+  }
+  // Resizes a group from the boxes it began with. The corner opposite the dragged one stays and the group keeps
+  // its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a tenth, not flip.
+  function scale(e: PointerEvent, right: boolean, low: boolean) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const { x, y, w, h } = bounds(start.current);
+    const [px, py] = point(e);
+    const [fx, fy] = [right ? x : x + w, low ? y : y + h];
+    const s = Math.max(0.1, w && (px - fx) / (right ? w : -w), h && (py - fy) / (low ? h : -h));
+    place(
+      start.current.map((b) => [b.id, { x: round(fx + (b.x - fx) * s), y: round(fy + (b.y - fy) * s), w: round(b.w * s), h: round(b.h * s) }]),
+      "drag",
+    );
   }
 
   // `press` is the mouse press that selects, so the same press can drag.
@@ -353,6 +377,19 @@ export default function Sheets() {
                 ))}
             </div>
           ))}
+          {group &&
+            [0, 1, 2, 3].map((i) => (
+              <i
+                key={i}
+                className="end"
+                style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
+                onPointerDown={(e) => {
+                  grip(e);
+                  start.current = free;
+                }}
+                onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
+              />
+            ))}
           <Moveable
             ref={moveable}
             target={targets}
@@ -388,7 +425,7 @@ export default function Sheets() {
         selectByClick={false}
         onDragStart={(e) => {
           const el = e.inputEvent.target as Element;
-          if (e.inputEvent.type === "touchstart" || el.closest(".block") || moveable.current!.isMoveableElement(el)) e.stop();
+          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.map(idOf)])])}
       />

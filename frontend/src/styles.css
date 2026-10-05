@@ -183,7 +183,9 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .block:has(> svg) { min-width: 0; min-height: 0; pointer-events: none; }
 .block svg { width: 1px; height: 1px; overflow: visible; }
 .block svg *, .block .end { pointer-events: auto; }
-.block .end { position: absolute; z-index: 1; width: 14px; height: 14px; margin: -7px; border: 2px solid #fff; border-radius: 50%; background: #2f6f4f; }
+.sheet .end { position: absolute; z-index: 1; width: 14px; height: 14px; margin: -7px; border: 2px solid #fff; border-radius: 50%; background: #2f6f4f; touch-action: none; }
+/* The corner handles of a group with a line lie over Moveable's box, which has z-index 3000. */
+.sheet > .end { z-index: 3001; }
 /* Moveable's outline lies over the end handles and must not take their presses. */
 .sheet .moveable-line { pointer-events: none; }
 .block textarea {
