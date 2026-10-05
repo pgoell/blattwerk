@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { post, type User } from "../api";
+import AuthShell from "../components/AuthShell";
 
 // An invite link makes an account; a reset link sets a new password.
 export default function SetPassword({ invite, onDone }: { invite?: boolean; onDone: (user: User) => void }) {
@@ -24,9 +25,10 @@ export default function SetPassword({ invite, onDone }: { invite?: boolean; onDo
   }
 
   return (
-    <main>
-      <h1>{invite ? "Willkommen bei Blattwerk" : "Neues Passwort"}</h1>
-      <p className="lead">{invite ? "Leg dein Konto an." : "Wähl ein neues Passwort."}</p>
+    <AuthShell
+      title={invite ? "Willkommen bei Blattwerk" : "Neues Passwort"}
+      lead={invite ? "Leg dein Konto an." : "Wähl ein neues Passwort."}
+    >
       <form className="card" onSubmit={submit}>
         {invite && (
           <>
@@ -40,6 +42,6 @@ export default function SetPassword({ invite, onDone }: { invite?: boolean; onDo
         <button className="wide">{invite ? "Konto anlegen" : "Speichern"}</button>
         <div className="status" role="status">{status}</div>
       </form>
-    </main>
+    </AuthShell>
   );
 }
