@@ -33,6 +33,16 @@ def check(token: str) -> None:
         raise HTTPException(404)
 
 
+@app.get("/impressum", response_class=HTMLResponse)
+def impressum() -> str:
+    return files("blattwerk").joinpath("impressum.html").read_text(encoding="utf-8")
+
+
+@app.get("/datenschutz", response_class=HTMLResponse)
+def datenschutz() -> str:
+    return files("blattwerk").joinpath("datenschutz.html").read_text(encoding="utf-8")
+
+
 @app.get("/i/{token}", response_class=HTMLResponse)
 def form(token: str) -> str:
     check(token)

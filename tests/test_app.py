@@ -59,3 +59,8 @@ def test_photo_page_saves_pages_in_order(client, tmp_path):
     assert (out / "photo-1.jpg").read_bytes() == b"page1"
     assert (out / "photo-2.jpg").read_bytes() == b"page2"
     assert sorted(p.name for p in out.iterdir()) == ["answers.json", "photo-1.jpg", "photo-2.jpg"]
+
+
+def test_legal_pages_need_no_token(client):
+    assert "Impressum" in client.get("/impressum").text
+    assert "Datenschutzerklärung" in client.get("/datenschutz").text
