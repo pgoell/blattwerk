@@ -120,7 +120,14 @@ export default function Sheets() {
 
   function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
     const id = crypto.randomUUID();
-    const block = { id, x: (W - w) / 2, y: round(desk.current!.scrollTop / k) + MARGIN, w, h, z: top + 1, locked: false, ...rest };
+    let x = (W - w) / 2;
+    let y = Math.min(round(desk.current!.scrollTop / k) + MARGIN, H - h);
+    // Step clear of a block already at that spot, as far as the page allows.
+    while (blocks.some((b) => b.x === x && b.y === y) && x + w + 5 <= W && y + h + 5 <= H) {
+      x += 5;
+      y += 5;
+    }
+    const block = { id, x, y, w, h, z: top + 1, locked: false, ...rest };
     change((bs) => [...bs, block]);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
