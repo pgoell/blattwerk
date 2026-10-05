@@ -44,7 +44,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 | Maths exercises | the generator below, number of columns, numbering style |
 | Image | upload from the device, crop, keep ratio |
 | Shape | rectangle, rounded box, circle, line, arrow; fill and border |
-| Symbol | a searchable symbol set (pencil, scissors, glue, partner work, ear, eye, stars) |
+| Symbol | OpenMoji, searchable by German and English name (pencil, scissors, glue, partner work, ear, eye, stars) |
 | Name header | Name, Datum, Klasse fields with lines |
 | Points box | "/ n Punkte" box for Klassenarbeiten |
 
@@ -61,6 +61,10 @@ The four German school scripts from Google Fonts, all under the SIL Open Font Li
 
 Plus one clear print font for headings. Fonts are self-hosted, so the PWA works without Google and the PDF matches the screen.
 
+### Symbols
+
+OpenMoji (hfg-gmuend/openmoji), CC BY-SA 4.0, license read from the repo's `LICENSE.txt`. Self-hosted SVGs. Attribution goes in the app's About page and in `NOTICE`. Symbols are used unchanged; any symbol we edit stays CC BY-SA.
+
 ### 4. Maths generator
 
 Generates exercises into a maths block. Every setting is visible in one panel.
@@ -73,7 +77,7 @@ Generates exercises into a maths block. Every setting is visible in one panel.
 - **Format**:
   - Row: `34 + 25 = ___`
   - Gap: `34 + ___ = 59`
-  - Written method (schriftlich): stacked on Karo, with a row for carries
+  - Written method (schriftlich) for all four operations, on Karo: stacked addition and subtraction with a carry row, long multiplication with partial products, long division with the working shown
 - **Count**, and no repeated exercise in one block.
 - **Reroll**: new numbers, same settings. A seed is stored, so a sheet reopens with the same numbers.
 - **Answer key**: generated with the exercises.
@@ -105,18 +109,28 @@ Any sheet can be saved as a new template.
 
 - Web app manifest with name, icon and `display: standalone`.
 - Installed from Safari: Share, then "Zum Home-Bildschirm".
-- iOS keeps a home-screen app's storage apart from Safari's, so login lives in the URL the app opens with (see Access).
+- iOS keeps a home-screen app's storage apart from Safari's, so she logs in once inside the installed app; a login in Safari does not carry over.
 
-### 9. Access
+### 9. Accounts
 
-One user for now. A secret link, as for the interview form, opens the app. The manifest is served per link, so the installed app starts at that link and needs no login. Any other path is a 404.
+Every teacher has their own space from the start.
+
+- **Login** with email and password. Passwords hashed with Argon2. A session cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, valid for 90 days so the iPad app rarely asks again.
+- **Sign-up by invite only.** An admin makes an invite link; the link lets one person create an account. No open registration in v0.
+- **Own space.** Sheets, uploads and saved templates belong to one user. Every query is scoped by user id, and a request for someone else's item gets a 404, not a 403. A test checks this for every endpoint.
+- **Built-in templates** are shared by all users; templates a user saves are theirs alone.
+- **Password reset** without email in v0: an admin makes a one-time reset link and sends it by hand.
+- **Admin** is a flag on the user. A small admin page lists users and makes invite and reset links. No other admin powers.
+- **Delete account** removes the user, their sheets and their uploads.
+- Logins are rate-limited per email and per IP.
 
 ## Not in v0
 
 - AI pictures for Sachunterricht (v1, the place she says AI already works)
 - AI layout: it is what failed her with Gemini
 - Deutsch generators (Silbenbögen, Lückentexte, word lists)
-- Sharing between teachers, accounts, payment
+- Sharing between teachers, payment
+- Email (sign-up and reset links go out by hand)
 - Offline editing
 - Handwriting with the Apple Pencil
 
@@ -127,9 +141,9 @@ One user for now. A secret link, as for the interview form, opens the app. The m
 | Frontend | TypeScript, React, Vite | The editor is most of the work, and the best canvas libraries for it target React |
 | Canvas | Each block is an HTML element placed in mm on an A4 page; drag, resize, snap and multi-select from `moveable` and `selecto` | Sharp text in the PDF, native text editing on the iPad, the same markup renders the PDF |
 | Backend | FastAPI, the app already in this repo | |
-| Storage | SQLite file on the data volume; a sheet is one JSON document | One user, no server to run |
-| Uploads | Files on the data volume, served through the app | |
-| PDF | Playwright with Chromium in the container, prints the sheet's render URL | The screen and the PDF use the same markup |
+| Storage | SQLite file on the data volume, tables for users, sessions, invites, sheets, templates, uploads; a sheet is one JSON document | A few users, no database server to run; Postgres on the box if it outgrows that |
+| Uploads | Files on the data volume under a folder per user, served through the app after an owner check | |
+| PDF | Playwright with Chromium in the container, prints the sheet's render URL with a short-lived signed token for that one sheet | The screen and the PDF use the same markup |
 | Generator | Pure Python module, tested on its own | The part with the most rules; property tests check every limit holds |
 
 ### Sheet document
@@ -156,13 +170,13 @@ Positions and sizes in mm from the page's top-left corner.
 ## Milestones
 
 1. **Canvas**: one page, text and shape blocks, drag, resize, snap, multi-select, undo. Runs on the iPad.
-2. **Sheets**: save, list, reopen on another device. Secret-link access. PWA install.
+2. **Accounts and sheets**: invite, sign-up, login, admin page; save, list, reopen on another device, scoped per user. PWA install.
 3. **School blocks**: Lineatur, fonts, name header, points box, symbols, images, numbering.
-4. **Maths generator**: all settings, the three formats, answer key.
+4. **Maths generator**: all settings, the three formats including the written method for all four operations, answer key.
 5. **Export and templates**: PDF and answer-key PDF, the three templates.
 6. **The test**: she builds one real sheet. Fix what she trips on.
 
 ## Open questions
 
-- Which symbol set: OpenMoji (CC BY-SA) or a smaller set drawn for this?
-- Does she want the written method for × and ÷ in v0, or only for + and −?
+- Other teachers' data on the server needs an Impressum and a Datenschutzerklärung before the first invite outside the family.
+- Backups: the data volume is not in the hourly backup yet.
