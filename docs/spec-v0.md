@@ -179,4 +179,4 @@ Positions and sizes in mm from the page's top-left corner.
 ## Open questions
 
 - Other teachers' data on the server needs an Impressum and a Datenschutzerklärung before the first invite outside the family.
-- Backups: the data volume is not in the hourly backup yet.
+- Backups: the hourly archive of the data volume (`server-infra/backup/blattwerk-backup.sh`) stays on the same disk. It needs an off-site copy.
