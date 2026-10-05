@@ -149,15 +149,54 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 
-/* The editor's desk: the page lies on a dotted surface, as wide as the window. */
+/* The editor fills the window: tools on top, the desk scrolls, the block panel sits beside it. */
+#root:has(.editor) { height: 100dvh; }
+.editor { max-width: none; min-height: 0; padding: 0; display: grid; grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) 300px; }
+.tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.tools div { display: flex; gap: 6px; }
+.editor button {
+  min-height: 44px; padding: 6px 12px; border-radius: 10px; font-size: .9rem; font-weight: 500;
+  background: var(--card); color: var(--ink); border-color: var(--line);
+}
+.editor button.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .editor button:not(:disabled):hover { background: var(--card); border-color: var(--accent); }
+  .editor button.on:hover { background: var(--accent-soft); }
+}
+/* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
 .desk {
-  max-width: none; display: flex; flex-direction: column; align-items: center; text-align: center;
+  overflow: auto; scrollbar-gutter: stable; padding: 24px; touch-action: pan-x pan-y;
   background: var(--desk) radial-gradient(var(--dot) 1px, transparent 1.5px) 0 0 / 20px 20px;
 }
-.desk .lead { margin-bottom: 32px; }
-/* A4 proportions; the editor will place blocks in millimetres. */
+/* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {
-  width: min(210mm, 100%); aspect-ratio: 210 / 297; background: #fff; border-radius: 2px;
+  position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 2px 4px rgba(0, 0, 0, .06), 0 24px 48px -16px rgba(0, 0, 0, .22);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.desk .hint { margin: 16px 0 0; }
+.sheet .moveable-control-box { --moveable-color: #2f6f4f; }
+.block { position: absolute; min-width: 8px; min-height: 8px; }
+/* A finger on a selected block moves it; on any other block it scrolls the desk. */
+.block.sel { touch-action: none; }
+.block > * { display: block; width: 100%; height: 100%; }
+.block textarea {
+  min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; line-height: 1.3;
+  resize: none; overflow: hidden; pointer-events: none;
+}
+.block textarea:not(:read-only) { pointer-events: auto; user-select: text; -webkit-user-select: text; }
+.block textarea:focus-visible { box-shadow: none; }
+/* Moveable draws 14 px handles; this widens what a finger can hit to 44 px. */
+.moveable-control::after { content: ""; position: absolute; inset: -17px; border-radius: 50%; }
+
+.panel { overflow: auto; padding: 4px 16px 16px; background: var(--card); border-left: 1px solid var(--line); }
+.panel h2 { font-size: .9rem; color: var(--muted); margin: 16px 0 8px; }
+.panel .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.panel .row button { padding-inline: 2px; font-size: .85rem; }
+.panel output { align-self: center; text-align: center; font-variant-numeric: tabular-nums; }
+.panel label { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin: 6px 0; font-size: .9rem; font-weight: 500; }
+.panel input[type=color] { width: 56px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: none; }
+.panel input[type=range] { flex: 1; min-width: 0; height: 44px; accent-color: var(--accent); }
+@media (max-width: 700px) {
+  .editor { grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr); }
+  .panel { max-height: 36dvh; border-left: 0; border-top: 1px solid var(--line); }
+}
