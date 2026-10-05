@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { post, type User } from "../api";
+import AuthShell from "../components/AuthShell";
 
 export default function Login({ onDone }: { onDone: (user: User) => void }) {
   const [status, setStatus] = useState("");
@@ -18,9 +19,7 @@ export default function Login({ onDone }: { onDone: (user: User) => void }) {
   }
 
   return (
-    <main>
-      <h1>Blattwerk</h1>
-      <p className="lead">Bitte melde dich an.</p>
+    <AuthShell title="Anmelden" lead="Schön, dass du da bist.">
       <form className="card" onSubmit={submit}>
         <label htmlFor="email">E-Mail</label>
         <input id="email" name="email" type="email" autoComplete="username" required />
@@ -30,6 +29,6 @@ export default function Login({ onDone }: { onDone: (user: User) => void }) {
         <div className="status" role="status">{status}</div>
       </form>
       <p className="hint">Passwort vergessen? Schreib mir, dann bekommst du einen Link.</p>
-    </main>
+    </AuthShell>
   );
 }

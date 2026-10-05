@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Route, Routes } from "react-router";
 import { api, type User } from "./api";
+import Logo from "./components/Logo";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Feedback from "./pages/Feedback";
@@ -49,7 +50,7 @@ function Layout({ user }: { user: User }) {
   return (
     <>
       <nav>
-        <NavLink to="/" className="brand">Blattwerk</NavLink>
+        <NavLink to="/" className="brand"><Logo /></NavLink>
         <NavLink to="/feedback" end>Feedback</NavLink>
         <NavLink to="/feedback/fotos">Fotos</NavLink>
         {user.admin && <NavLink to="/admin">Admin</NavLink>}
