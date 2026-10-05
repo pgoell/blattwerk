@@ -201,7 +201,7 @@ export default function Sheets() {
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
     const row = [...free].sort((a, b) => a[axis] - b[axis]);
-    const end = Math.max(...row.map((b) => b[axis] + b[size]));
+    const end = row.at(-1)![axis] + row.at(-1)![size];
     const gap = (end - row[0][axis] - row.reduce((sum, b) => sum + b[size], 0)) / (row.length - 1);
     let next = row[0][axis];
     place(
