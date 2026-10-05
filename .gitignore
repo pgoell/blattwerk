@@ -17,3 +17,6 @@ dist/
 # Editors / OS
 .DS_Store
 .idea/
+
+# Submissions
+data/
