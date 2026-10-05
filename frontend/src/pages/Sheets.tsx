@@ -38,6 +38,11 @@ const bounds = (bs: Box[]) => {
   const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
   return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
 };
+// Where the box around some blocks starts and ends.
+const span = (boxes: Box[], axis: Axis) => {
+  const size = axis === "x" ? "w" : "h";
+  return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
+};
 
 export default function Sheets() {
   const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
@@ -73,6 +78,10 @@ export default function Sheets() {
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
+  // Snap lines: the page's, then the edges and centres of the blocks that stay put.
+  const still = blocks.filter((b) => !ids.includes(b.id));
+  const xs = [...XS, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
+  const ys = [...YS, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
     const observer = new ResizeObserver(([entry]) => setFit(entry.contentRect.width / W));
@@ -194,34 +203,46 @@ export default function Sheets() {
     );
   }
 
-  // Moveable snaps to within a pixel of a guide. These put an edge, or an edge or centre, that close exactly on it.
-  const edge = (at: number, guides: number[]) => guides.find((g) => Math.abs(g - at) < 1 / k) ?? at;
-  const settle = (at: number, size: number, guides: number[]) => {
-    const part = [0, size / 2, size].find((part) => edge(at + part, guides) !== at + part);
-    return round(part === undefined ? at : edge(at + part, guides) - part);
-  };
+  // Moveable works in whole pixels and leaves what it snaps up to two off the guide.
+  // This is how far to move so that the nearest of `parts` that close lies exactly on it.
+  const pull = (at: number, parts: number[], guides: number[]) =>
+    parts
+      .flatMap((part) => guides.map((g) => g - at - part))
+      .filter((d) => Math.abs(d) < 2 / k)
+      .sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? 0;
+  const edge = (at: number, guides: number[]) => at + pull(at, [0], guides);
 
   // Moveable reports px, the document keeps mm. It reads the new size back at once, so render before returning.
-  const drag = (events: OnDrag[]) =>
-    flushSync(() =>
-      place(
-        events.map((e) => {
-          const b = blocks.find((b) => b.id === idOf(e.target))!;
-          return [b.id, { x: settle(e.left / k, b.w, XS), y: settle(e.top / k, b.h, YS) }];
-        }),
-        "drag",
-      ),
-    );
+  // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
+  const drag = (events: OnDrag[]) => {
+    const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
+    const to = events.map((e, i) => ({ ...from[i], x: e.left / k, y: e.top / k }));
+    const [dx, dy] = (["x", "y"] as const).map((axis) => {
+      const [lo, hi] = span(to, axis);
+      return round(to[0][axis] + pull(lo, [0, (hi - lo) / 2, hi - lo], axis === "x" ? xs : ys) - from[0][axis]);
+    });
+    flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
+  };
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
         events.map((e) => {
-          const [x, y] = [edge(e.drag.left / k, XS), edge(e.drag.top / k, YS)];
-          const box = { x: round(x), y: round(y), w: round(edge(x + e.width / k, XS) - x), h: round(edge(y + e.height / k, YS) - y) };
+          const box = { x: round(e.drag.left / k), y: round(e.drag.top / k), w: round(e.width / k), h: round(e.height / k) };
           return [idOf(e.target), box];
         }),
         "drag",
       ),
+    );
+  // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
+  // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
+  const settle = ([dx, dy]: number[]) =>
+    place(
+      free.map((b) => {
+        const [x, y] = [dx < 0 ? round(edge(b.x, xs)) : b.x, dy < 0 ? round(edge(b.y, ys)) : b.y];
+        const [right, bottom] = [dx > 0 ? edge(b.x + b.w, xs) : b.x + b.w, dy > 0 ? edge(b.y + b.h, ys) : b.y + b.h];
+        return [b.id, { x, y, w: round(right - x), h: round(bottom - y) }];
+      }),
+      "drag",
     );
   // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
   function grip(e: PointerEvent) {
@@ -436,6 +457,8 @@ export default function Sheets() {
             onDragGroup={(e) => drag(e.events)}
             onResize={(e) => resize([e])}
             onResizeGroup={(e) => resize(e.events)}
+            onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+            onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
           />
         </div>
       </div>
