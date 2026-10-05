@@ -24,3 +24,4 @@ data/
 # Frontend
 node_modules/
 src/blattwerk/static/
+.claude/worktrees/
