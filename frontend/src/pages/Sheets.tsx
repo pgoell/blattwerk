@@ -26,6 +26,7 @@ const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["rig
 const round = (n: number) => Math.round(n * 100) / 100;
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2];
 const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
@@ -48,7 +49,7 @@ export default function Sheets() {
   const hold = useRef(0);
   const held = useRef(false);
   const grab = useRef([0, 0]);
-  const pinch = useRef({ spread: 1, zoom: 1 });
+  const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { blocks } = hist;
   const k = fit * zoom;
@@ -220,7 +221,9 @@ export default function Sheets() {
     clearTimeout(hold.current);
     if (e.touches.length === 2) {
       moveable.current!.stopDrag();
-      pinch.current = { spread: spread(e), zoom };
+      const page = sheet.current!.getBoundingClientRect();
+      const [x, y] = centre(e);
+      pinch.current = { spread: spread(e), zoom, x: (x - page.left) / k, y: (y - page.top) / k };
       return;
     }
     // Tap and hold on a block starts selecting several.
@@ -235,7 +238,13 @@ export default function Sheets() {
   }
   function onTouchMove(e: TouchEvent) {
     clearTimeout(hold.current);
-    if (e.touches.length === 2) setZoom(Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread)));
+    if (e.touches.length !== 2) return;
+    const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
+    flushSync(() => setZoom(next));
+    // Scroll the page point the pinch began on back under the fingers.
+    const page = sheet.current!.getBoundingClientRect();
+    const [x, y] = centre(e);
+    desk.current!.scrollBy(page.left + pinch.current.x * fit * next - x, page.top + pinch.current.y * fit * next - y);
   }
 
   const locked = sel.length > 0 && !free.length;
