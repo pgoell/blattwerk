@@ -1,0 +1,21 @@
+# Git hooks. Installed by `mise run install`.
+#
+# pre-commit stays fast (lint and format only). Anything slow enough to make
+# you reach for --no-verify belongs in pre-push instead.
+
+commit-msg:
+  commands:
+    cog:
+      run: mise exec -- cog verify --file {1} --ignore-merge-commits --ignore-fixup-commits
+
+pre-commit:
+  commands:
+    lint:
+      run: mise run lint
+
+pre-push:
+  commands:
+    test:
+      run: mise run test
+    check-commits:
+      run: mise run check-commits

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+*.egg-info
+.venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+
+# Secrets
+.env
+
+# Editors / OS
+.DS_Store
+.idea/

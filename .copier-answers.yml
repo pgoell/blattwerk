@@ -1,0 +1,10 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: bbd2251
+_src_path: gh:pgoell/project-template
+author_email: pascal98kraus@gmail.com
+author_name: pgoell
+default_branch: master
+description: Worksheet tool for Grundschule teachers
+package_name: blattwerk
+project_name: blattwerk
+python_version: '3.14'

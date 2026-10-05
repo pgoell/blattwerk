@@ -1,0 +1,60 @@
+# mise.toml: toolchain pins and task definitions
+
+[tools]
+python    = "3.14"
+uv        = "latest"
+lefthook  = "latest"
+cocogitto = "latest"
+jq        = "latest"
+
+# ─── Bootstrap ──────────────────────────────────────────────────────────────
+
+[tasks.install]
+description = "Install git hooks and dependencies"
+run = [
+  "lefthook install",
+  "uv sync",
+]
+
+# ─── Testing ────────────────────────────────────────────────────────────────
+
+[tasks.test]
+description = "Run tests"
+run = "uv run pytest"
+
+# ─── Lint & format ──────────────────────────────────────────────────────────
+
+[tasks.lint]
+description = "Lint, format-check and type-check"
+run = [
+  "uv run ruff check",
+  "uv run ruff format --check",
+  "uv run ty check",
+]
+
+[tasks.fmt]
+description = "Auto-format"
+run = "uv run ruff format"
+
+# ─── Commits ────────────────────────────────────────────────────────────────
+
+[tasks.check-commits]
+description = "Verify commits since origin/master are conventional"
+# Before the first push there is no origin/master: check the whole history.
+run = '''
+if git rev-parse -q --verify origin/master >/dev/null; then
+  cog check origin/master..HEAD
+else
+  cog check
+fi
+'''
+
+# ─── GitHub repo config ─────────────────────────────────────────────────────
+
+[tasks."repo:apply-settings"]
+description = "Apply GitHub repo + branch-protection settings from .github/*.json"
+run = "bash scripts/apply-github-settings.sh"
+
+[tasks."repo:check-settings"]
+description = "Diff live branch protection against .github/branch-protection.json"
+run = "bash scripts/apply-github-settings.sh --check"
