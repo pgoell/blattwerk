@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, Route, Routes } from "react-router";
 import { api, type User } from "./api";
 import Logo from "./components/Logo";
@@ -8,7 +8,9 @@ import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
 import Photos from "./pages/Photos";
 import SetPassword from "./pages/SetPassword";
-import Sheets from "./pages/Sheets";
+
+// The editor brings the canvas libraries; the login page loads without them.
+const Sheets = lazy(() => import("./pages/Sheets"));
 
 export default function App() {
   // undefined while /me is loading, null when logged out.
@@ -26,7 +28,7 @@ export default function App() {
         <Route path="/passwort/:token" element={<SetPassword onDone={setUser} />} />
         {user ? (
           <Route element={<Layout user={user} />}>
-            <Route path="/" element={<Sheets />} />
+            <Route path="/" element={<Suspense><Sheets /></Suspense>} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => setUser(null)} />} />
