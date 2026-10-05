@@ -377,7 +377,7 @@ export default function Sheets() {
                 [false, true].map((end) => (
                   <i
                     key={+end}
-                    className="end"
+                    className={end && line.props.kind === "arrow" ? "end tip" : "end"}
                     style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
                     onPointerDown={grip}
                     onPointerMove={(e) => stretch(e, line, end)}
