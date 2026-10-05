@@ -109,6 +109,18 @@ export default function Sheets() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // A finger on a block of a flat group starts the group's drag, as a mouse press does in `pick`. Moveable cancels
+  // the touch it drags from, and React's own touch listeners are passive, so this one is set by hand.
+  useEffect(() => {
+    const el = desk.current!;
+    function onTouch(e: globalThis.TouchEvent) {
+      const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+      if (e.touches.length === 1 && ids.length > 1 && ids.includes(id!)) moveable.current!.dragStart(e);
+    }
+    el.addEventListener("touchstart", onTouch, { passive: false });
+    return () => el.removeEventListener("touchstart", onTouch);
+  });
+
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
   function change(fn: (blocks: Block[]) => Block[], key = "") {
     const merge = key !== "" && key === mergeKey.current;
@@ -290,7 +302,6 @@ export default function Sheets() {
     // Tap and hold on a block starts selecting several.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
     if (!id) return;
-    if (ids.length > 1 && ids.includes(id)) moveable.current!.dragStart(e.nativeEvent);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
