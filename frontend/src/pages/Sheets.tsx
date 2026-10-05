@@ -46,6 +46,8 @@ export default function Sheets() {
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
   const [multi, setMulti] = useState(false);
+  // The x and y, in mm, that a line's end has snapped to.
+  const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Pixels per mm when the page fills the desk's width; zoom multiplies it.
   const [fit, setFit] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -220,14 +222,20 @@ export default function Sheets() {
     const page = sheet.current!.getBoundingClientRect();
     return [(e.clientX - grab.current[0] - page.left) / k, (e.clientY - grab.current[1] - page.top) / k];
   }
-  // Moves one end of a line with the pointer; the other end stays. Near level or upright it snaps straight.
+  // The guide closest to a point, if one lies within the snap distance.
+  const near = (at: number, guides: number[]) => guides.filter((g) => Math.abs(g - at) < 6 / k).sort((a, b) => Math.abs(a - at) - Math.abs(b - at))[0];
+  // Moves one end of a line with the pointer; the other end stays. It snaps to the guides a block drag snaps to,
+  // and to the other end, which makes the line level or upright.
   function stretch(e: PointerEvent, b: ShapeBlock, end: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const fx = b.x + (far(b, 1, !end) ? b.w : 0);
     const fy = b.y + (far(b, 0, !end) ? b.h : 0);
-    let [px, py] = point(e);
-    if (Math.abs(px - fx) < 6 / k) px = fx;
-    if (Math.abs(py - fy) < 6 / k) py = fy;
+    const others = blocks.filter((o) => o !== b);
+    const at = point(e);
+    const gx = near(at[0], [fx, ...XS, ...others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])]);
+    const gy = near(at[1], [fy, ...YS, ...others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])]);
+    setGuide([gx, gy]);
+    const [px, py] = [gx ?? at[0], gy ?? at[1]];
     const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
@@ -373,10 +381,13 @@ export default function Sheets() {
                     style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
                     onPointerDown={grip}
                     onPointerMove={(e) => stretch(e, line, end)}
+                    onLostPointerCapture={() => setGuide([])}
                   />
                 ))}
             </div>
           ))}
+          {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
+          {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
           {group &&
             [0, 1, 2, 3].map((i) => (
               <i
