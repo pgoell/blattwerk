@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type TouchEvent } from "react";
 import { flushSync } from "react-dom";
 import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
@@ -6,9 +6,11 @@ import Selecto from "react-selecto";
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner.
 type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean };
 type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
+type Corner = "nw" | "ne" | "sw" | "se";
 type Align = "left" | "center" | "right";
 type TextBlock = Box & { type: "text"; props: { text: string; size: number; align: Align } };
-type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number } };
+// A line or arrow runs from the corner `from` of its box to the opposite one.
+type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner } };
 type Block = TextBlock | ShapeBlock;
 type Axis = "x" | "y";
 
@@ -24,6 +26,9 @@ const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["rig
 const round = (n: number) => Math.round(n * 100) / 100;
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
+// Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
+const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
 
 export default function Sheets() {
   const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
@@ -42,6 +47,7 @@ export default function Sheets() {
   const touch = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
+  const grab = useRef([0, 0]);
   const pinch = useRef({ spread: 1, zoom: 1 });
 
   const { blocks } = hist;
@@ -50,6 +56,8 @@ export default function Sheets() {
   const free = sel.filter((b) => !b.locked);
   const texts = sel.filter((b) => b.type === "text");
   const shapes = sel.filter((b) => b.type === "shape");
+  // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
+  const line = sel.length === 1 ? free.find(isLine) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
 
   useLayoutEffect(() => {
@@ -163,9 +171,30 @@ export default function Sheets() {
         "drag",
       ),
     );
+  // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
+  function grip(e: PointerEvent) {
+    const at = e.currentTarget.getBoundingClientRect();
+    grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  // Moves one end of a line with the pointer; the other end stays. Near level or upright it snaps straight.
+  function stretch(e: PointerEvent, b: ShapeBlock, end: boolean) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const page = sheet.current!.getBoundingClientRect();
+    const fx = b.x + (far(b, 1, !end) ? b.w : 0);
+    const fy = b.y + (far(b, 0, !end) ? b.h : 0);
+    let px = (e.clientX - grab.current[0] - page.left) / k;
+    let py = (e.clientY - grab.current[1] - page.top) / k;
+    if (Math.abs(px - fx) < 6 / k) px = fx;
+    if (Math.abs(py - fy) < 6 / k) py = fy;
+    const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
+    const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
+    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
+  }
 
   // `press` is the mouse press that selects, so the same press can drag.
   function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent) {
+    if (el.closest(".end")) return;
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
     const more = shift || multi;
     if (!id) {
@@ -176,6 +205,8 @@ export default function Sheets() {
       if (more) setIds(ids.filter((i) => i !== id));
       // On touch a second tap on a text block edits it; a mouse double-clicks.
       else if (touch.current) edit(id);
+      // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
+      else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
       setIds(more ? [...ids, id] : [id]);
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
@@ -195,6 +226,7 @@ export default function Sheets() {
     // Tap and hold on a block starts selecting several.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
     if (!id) return;
+    if (ids.length > 1 && ids.includes(id)) moveable.current!.dragStart(e.nativeEvent);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
@@ -271,13 +303,23 @@ export default function Sheets() {
               ) : (
                 <Shape block={b} k={k} />
               )}
+              {b === line &&
+                [false, true].map((end) => (
+                  <i
+                    key={+end}
+                    className="end"
+                    style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
+                    onPointerDown={grip}
+                    onPointerMove={(e) => stretch(e, line, end)}
+                  />
+                ))}
             </div>
           ))}
           <Moveable
             ref={moveable}
             target={targets}
             draggable={free.length === sel.length}
-            resizable={free.length === sel.length}
+            resizable={free.length === sel.length && !sel.some(isLine)}
             renderDirections={CORNERS}
             origin={false}
             checkInput
@@ -292,6 +334,7 @@ export default function Sheets() {
             // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
             onClick={(e) => touch.current && pick(e.inputTarget, false)}
             onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
+            onDragStart={(e) => (e.inputEvent.target as Element).closest(".end") && e.stopDrag()}
             onDrag={(e) => drag([e])}
             onDragGroup={(e) => drag(e.events)}
             onResize={(e) => resize([e])}
@@ -320,7 +363,7 @@ export default function Sheets() {
             <button
               key={kind}
               onClick={() =>
-                add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 10 : 40, {
+                add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
                   type: "shape",
                   props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
                 })
@@ -404,16 +447,18 @@ export default function Sheets() {
 
 function Shape({ block, k }: { block: ShapeBlock; k: number }) {
   const { kind, fill, stroke, strokeWidth } = block.props;
-  if (kind === "line" || kind === "arrow") {
-    // Drawn along the longer side, through the middle: left to right, or top to bottom.
-    const flat = block.w >= block.h;
-    const [length, mid] = flat ? [block.w, block.h / 2] : [block.h, block.w / 2];
+  if (isLine(block)) {
+    // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs.
+    const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
+    const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
+    const length = Math.hypot(block.w, block.h);
     const head = kind === "arrow" ? 2 + strokeWidth * 3 : 0;
     return (
-      <svg viewBox={`0 0 ${block.w} ${block.h}`}>
-        <g transform={flat ? undefined : "matrix(0 1 1 0 0 0)"} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
-          <line x1={0} y1={mid} x2={length - head} y2={mid} />
-          {head > 0 && <polygon stroke="none" points={`${length},${mid} ${length - head},${mid - head / 2} ${length - head},${mid + head / 2}`} />}
+      <svg>
+        <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
+          <line x2={length} stroke="transparent" strokeWidth={10} />
+          <line x2={length - head} />
+          {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
         </g>
       </svg>
     );

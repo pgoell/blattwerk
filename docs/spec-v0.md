@@ -165,7 +165,7 @@ Every teacher has their own space from the start.
 }
 ```
 
-Positions and sizes in mm from the page's top-left corner.
+Positions and sizes in mm from the page's top-left corner. A line or arrow shape runs from the corner of its box named in `props.from` (`nw`, `ne`, `sw` or `se`, `nw` when absent) to the opposite corner; a level line has `h` 0.
 
 ## Milestones
 
