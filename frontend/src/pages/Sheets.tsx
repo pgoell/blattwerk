@@ -101,7 +101,10 @@ export default function Sheets() {
   }, [blocks, k]);
 
   useLayoutEffect(() => {
-    if (editing) sheet.current!.querySelector<HTMLElement>(`[data-id="${editing}"] textarea`)?.focus();
+    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
+    area?.focus();
+    // A copy, or a text put back by undo, would start with the caret before the text.
+    area?.setSelectionRange(area.value.length, area.value.length);
   }, [editing]);
 
   useEffect(() => {
