@@ -1,36 +1,19 @@
-"""Interview form and photo upload: answers, voice notes and photos, saved to disk."""
+"""Blattwerk: the API, the legal pages and the built frontend."""
 
-import json
-import os
-import secrets
-from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
-from starlette.datastructures import UploadFile
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 
-TOKEN = os.environ.get("BLATTWERK_TOKEN", "")
-DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
-FILE_TYPES = {
-    "audio/webm": "webm",
-    "audio/mp4": "m4a",
-    "audio/ogg": "ogg",
-    "audio/wav": "wav",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/heic": "heic",
-    "image/webp": "webp",
-}
+from blattwerk import auth, feedback
+
+# `npm run build` in frontend/ writes here.
+STATIC = Path(__file__).parent / "static"
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-
-
-def check(token: str) -> None:
-    # An empty TOKEN means no link opens the form.
-    if not TOKEN or not secrets.compare_digest(token, TOKEN):
-        raise HTTPException(404)
+app.include_router(auth.router)
+app.include_router(feedback.router)
 
 
 @app.get("/impressum", response_class=HTMLResponse)
@@ -43,38 +26,14 @@ def datenschutz() -> str:
     return files("blattwerk").joinpath("datenschutz.html").read_text(encoding="utf-8")
 
 
-@app.get("/i/{token}", response_class=HTMLResponse)
-def form(token: str) -> str:
-    check(token)
-    return files("blattwerk").joinpath("form.html").read_text(encoding="utf-8")
-
-
-@app.get("/i/{token}/fotos", response_class=HTMLResponse)
-def photos(token: str) -> str:
-    check(token)
-    return files("blattwerk").joinpath("photos.html").read_text(encoding="utf-8")
-
-
-@app.post("/i/{token}")
-@app.post("/i/{token}/fotos")
-async def submit(token: str, request: Request) -> dict[str, str]:
-    check(token)
-    form = await request.form()
-    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S-%f")
-    out = DATA_DIR / stamp
-    out.mkdir(parents=True)
-
-    answers = {k: v for k, v in form.multi_items() if isinstance(v, str)}
-    # One counter per field, so a send's files read audio-1, photo-1, photo-2.
-    counts: dict[str, int] = {}
-    for field, upload in form.multi_items():
-        if not isinstance(upload, UploadFile) or field not in ("audio", "photo"):
-            continue
-        counts[field] = counts.get(field, 0) + 1
-        ext = FILE_TYPES.get((upload.content_type or "").split(";")[0], "bin")
-        (out / f"{field}-{counts[field]}.{ext}").write_bytes(await upload.read())
-
-    (out / "answers.json").write_text(
-        json.dumps(answers, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    return {"saved": stamp}
+@app.get("/{path:path}")
+def frontend(path: str) -> FileResponse:
+    # The frontend routes in the browser, so any path that is not a file gets the app.
+    if path.startswith("api/"):
+        raise HTTPException(404)
+    file = (STATIC / path).resolve()
+    if not file.is_file() or not file.is_relative_to(STATIC):
+        file = STATIC / "index.html"
+    if not file.is_file():
+        raise HTTPException(404)
+    return FileResponse(file)

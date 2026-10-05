@@ -1,6 +1,6 @@
 name: Setup mise toolchain and caches
 description: >
-  Bootstraps mise (Python, uv, lefthook, cocogitto) and primes the uv cache.
+  Bootstraps mise (Python, uv, node, lefthook, cocogitto) and primes the uv cache.
   Assumes the repo has already been checked out by the caller.
 
 runs:
@@ -21,4 +21,6 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: uv sync
+      run: |
+        uv sync
+        npm ci --prefix frontend

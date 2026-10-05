@@ -5,9 +5,6 @@ services:
     restart: unless-stopped
     networks:
       - web
-    # BLATTWERK_TOKEN lives outside the repo; without it every link is a 404.
-    env_file:
-      - path: /home/pascal/.config/blattwerk/env
     volumes:
       - /home/pascal/.local/share/blattwerk:/data
 
