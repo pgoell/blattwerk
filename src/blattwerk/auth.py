@@ -4,7 +4,6 @@ import hashlib
 import secrets
 import shutil
 import sqlite3
-import time
 from typing import Annotated
 
 from argon2 import PasswordHasher
@@ -25,7 +24,6 @@ router = APIRouter(prefix="/api")
 hasher = PasswordHasher()
 # Verified when the email is unknown, so a miss takes as long as a wrong password.
 DUMMY = hasher.hash(secrets.token_hex())
-attempts: dict[str, list[float]] = {}
 
 Email = Annotated[str, Field(pattern=r"^\S+@\S+$", max_length=254)]
 Password = Annotated[str, Field(min_length=8, max_length=200)]
@@ -76,12 +74,12 @@ def current_admin(user: User) -> sqlite3.Row:
 Admin = Annotated[sqlite3.Row, Depends(current_admin)]
 
 
-def limit(key: str) -> None:
-    now = time.monotonic()
-    recent = [t for t in attempts.get(key, []) if now - t < WINDOW]
-    if len(recent) >= TRIES:
+def limit(con: sqlite3.Connection, key: str) -> None:
+    # Kept in the database, so a restart does not hand out fresh tries.
+    con.execute("DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",))
+    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= TRIES:
         raise HTTPException(429)
-    attempts[key] = [*recent, now]
+    con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
 
 
 def new_link(con: sqlite3.Connection, user_id: int | None = None, admin: bool = False) -> str:
@@ -128,8 +126,8 @@ def public(user: sqlite3.Row) -> dict:
 @router.post("/login")
 def login(body: Login, request: Request, response: Response, con: Con) -> dict:
     email = body.email.strip().lower()
-    limit(f"email:{email}")
-    limit(f"ip:{request.client.host if request.client else ''}")
+    limit(con, f"email:{email}")
+    limit(con, f"ip:{request.client.host if request.client else ''}")
     row = con.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     try:
         hasher.verify(row["password"] if row else DUMMY, body.password)
