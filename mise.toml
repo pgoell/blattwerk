@@ -16,6 +16,8 @@ run = [
   "lefthook install",
   "uv sync",
   "npm ci --prefix frontend",
+  # The PDF is printed by Chromium.
+  "uv run playwright install --only-shell chromium",
 ]
 
 # ─── Run ────────────────────────────────────────────────────────────────────
@@ -36,6 +38,8 @@ run = "npm run build --prefix frontend"
 
 [tasks.test]
 description = "Run tests"
+# The PDF test prints the built frontend.
+depends = ["build"]
 run = "uv run pytest"
 
 # ─── Lint & format ──────────────────────────────────────────────────────────
