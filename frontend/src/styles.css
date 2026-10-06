@@ -3,7 +3,8 @@
 @font-face { font-family: Andika; font-weight: 700; src: url(/fonts/andika/Andika-Bold.woff2) format("woff2"); }
 @font-face { font-family: Andika; font-style: italic; src: url(/fonts/andika/Andika-Italic.woff2) format("woff2"); }
 @font-face { font-family: Andika; font-weight: 700; font-style: italic; src: url(/fonts/andika/Andika-BoldItalic.woff2) format("woff2"); }
-/* Every colour of the app, light first and dark second. The device picks, unless the account page has set data-theme. */
+/* Every colour of the app, light first and dark second. The device picks, unless the account page has set data-theme.
+   Blattform, a third theme, stands under the two. */
 :root {
   color-scheme: light dark;
   --bg: light-dark(#fff, #1f2023); --panel: light-dark(#f7f7f8, #26272b); --raise: light-dark(#fff, #303136);
@@ -23,6 +24,28 @@
 }
 :root[data-theme=light] { color-scheme: light; }
 :root[data-theme=dark] { color-scheme: dark; }
+/* Blattform: white and pale green, a deep green panel on the left, lime for what is on, and corners cut like a leaf. */
+:root[data-theme=leaf] {
+  color-scheme: light;
+  --bg: #fff; --panel: #fff; --raise: #fff; --well: #fff; --field: #e9f3e3;
+  --desk: #e3f1dc; --dot: #cfe3c6;
+  --line: #dce9d5; --edge: #b4ccae; --split: #d3e4cb;
+  --ink: #0a1f16; --muted: #46604f; --faint: #587163;
+  --accent: #0e7d43; --on-accent: #fff; --accent-soft: #c8f26a;
+  --ui: "Instrument Sans Variable", system-ui, sans-serif;
+  --leaf: 12px 4px;
+}
+[data-theme=leaf] .left {
+  --bg: #0d3b2a; --panel: #0d3b2a; --raise: #17503a; --well: #0a2f21; --field: #0a2f21; --line: #1c5240; --edge: #2f6a53;
+  --ink: #f5f8f0; --muted: #b9d0be; --faint: #9dbba6; --accent: #c8f26a; --on-accent: #0a1f16;
+  color: var(--ink);
+}
+[data-theme=leaf] :is(h1, .claim, .logo, .head, .what, .tour h2) { font-family: "Bricolage Grotesque Variable", var(--ui); }
+[data-theme=leaf] :is(button, .pick, .seg, .card, .dock, .tour, nav a, input, textarea, select) { border-radius: var(--leaf); }
+[data-theme=leaf] .grid button { border-radius: 50%; }
+[data-theme=leaf] .tabs button { border-radius: 0; }
+[data-theme=leaf] button.on, [data-theme=leaf] nav a.active { color: #0a1f16; }
+[data-theme=leaf] .seg button.on { background: var(--ink); color: var(--bg); box-shadow: none; }
 /* A finger needs more to hit than a mouse, and iOS zooms into a field with small type. */
 @media (pointer: coarse) {
   :root { --ctl: 40px; }
