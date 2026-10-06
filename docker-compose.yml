@@ -1,3 +1,6 @@
+# Fixed name, so a deploy from the runner's checkout replaces the same project.
+name: blattwerk
+
 services:
   blattwerk:
     build: .
