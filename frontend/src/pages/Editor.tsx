@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Calculator,
   Circle,
+  CircleHelp,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -53,6 +54,7 @@ import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { useParams } from "react-router";
 import { api, post } from "../api";
+import Tour from "../components/Tour";
 import { Draw, H, Mark, W, far, isLine, last, mathsHeight, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -137,6 +139,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [multi, setMulti] = useState(false);
   const [tab, setTab] = useState(TABS[0]);
   const [pane, setPane] = useState(true);
+  // The tour opens by itself the first time the editor does on this device.
+  const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
   // Whether the maths exercises show their answers.
   const [solved, setSolved] = useState(false);
   const [mod, setMod] = useState(0);
@@ -700,7 +704,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       <header className="ribbon">
         <div className="tabs" role="tablist">
           {TABS.map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+            <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
               {t}
             </button>
           ))}
@@ -711,6 +715,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           <button className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)}>
             <PanelRight size={20} aria-hidden />
             Format
+          </button>
+          <button className="help" data-tour="help" aria-label="Hilfe" title="Rundgang" onClick={() => setTour(true)}>
+            <CircleHelp size={20} aria-hidden />
           </button>
         </div>
         {clash && (
@@ -732,7 +739,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           {tab === "Start" && (
             <>
               <Group label="Verlauf">
-                <Tool icon={Undo2} label="Rückgängig" disabled={!hist.past.length} onClick={undo} />
+                <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
                 <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
               </Group>
               <Group label="Zwischenablage">
@@ -742,7 +749,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
               </Group>
               <Group label="Einfügen">
-                <Tool icon={Type} label="Text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+                <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
                 <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
                 <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
                 <input
@@ -762,7 +769,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
                 <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
                 <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
-                <Tool icon={Calculator} label="Rechnen" onClick={addMaths} />
+                <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
               </Group>
               <Group label="Formen">
                 {SHAPES.map(([kind, label, icon]) => (
@@ -784,7 +791,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
               </Group>
               <Group label="PDF">
-                <Tool icon={FileDown} label="Blatt" onClick={() => pdf(false)} />
+                <Tool icon={FileDown} label="Blatt" data-tour="pdf" onClick={() => pdf(false)} />
                 <Tool icon={FileCheck} label="Lösungen" onClick={() => pdf(true)} />
               </Group>
               <Group label="Auswahl">
@@ -798,6 +805,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool
                   icon={SquareDashedMousePointer}
                   label="Mehrere"
+                  data-tour="multi"
                   className={multi ? "on" : ""}
                   aria-pressed={multi}
                   onClick={() => setMulti(!multi)}
@@ -1088,6 +1096,19 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             </>
           )}
         </aside>
+      )}
+      {tour && (
+        <Tour
+          seen={{ doc: hist.doc, blocks: blocks.length, sel: sel.length, editing: !!editing, tab }}
+          show={(t) => {
+            setTab(t);
+            setPane(true);
+          }}
+          close={() => {
+            localStorage.setItem("tour", "1");
+            setTour(false);
+          }}
+        />
       )}
     </main>
   );
