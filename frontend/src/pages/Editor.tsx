@@ -19,6 +19,8 @@ import {
   CopyPlus,
   Eraser,
   Eye,
+  FileCheck,
+  FileDown,
   FilePlus,
   FileX,
   Heading,
@@ -562,6 +564,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
+  // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
+  // which may hold an older document.
+  async function pdf(key: boolean) {
+    await last.save;
+    save.current(false);
+    await last.save;
+    location.href = `/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`;
+  }
+
   async function store() {
     const saved = await post<Template>("/templates", { name: name.trim(), doc: hist.doc });
     setTemplates((ts) => [...ts, saved]);
@@ -769,6 +780,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               <Group label="Seite">
                 <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
                 <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+              </Group>
+              <Group label="PDF">
+                <Tool icon={FileDown} label="Blatt" onClick={() => pdf(false)} />
+                <Tool icon={FileCheck} label="Lösungen" onClick={() => pdf(true)} />
               </Group>
               <Group label="Auswahl">
                 <Tool

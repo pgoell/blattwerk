@@ -1,4 +1,4 @@
-// The sheet document and how a page of it draws, shared by the editor and the list's thumbnails.
+// The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
 import type { CSSProperties } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -285,17 +285,19 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: string }) {
   );
 }
 
-// Page one, drawn small at `k` pixels per mm.
-export function Thumb({ doc, k }: { doc: Doc; k: number }) {
+// A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
+// true size in the PDF. The answer key says on each page that it is one.
+export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: number; page?: number; solved?: boolean }) {
   const ns = numbers(read(doc));
   return (
-    <div className="thumb" style={{ width: W * k, height: H * k }}>
-      {read(doc).pages[0].blocks.map((b) => (
+    <div className="paper" style={{ width: W * k, height: H * k }}>
+      {read(doc).pages[page].blocks.map((b) => (
         <div key={b.id} className="block" style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}>
-          <Draw block={b} k={k} />
+          <Draw block={b} k={k} solved={solved} />
           <Mark block={b} k={k} n={ns.get(b.id)} />
         </div>
       ))}
+      {solved && <b className="key" style={{ top: 5 * k, right: 15 * k, fontSize: 11 * PT * k }}>Lösungen</b>}
     </div>
   );
 }

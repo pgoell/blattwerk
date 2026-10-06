@@ -46,6 +46,7 @@ def test_logged_out_gets_401():
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
     assert client.delete("/api/sheets/1").status_code == 401
+    assert client.get("/api/sheets/1/pdf").status_code == 401
     assert client.post("/api/maths", json=MATHS).status_code == 401
 
 
@@ -227,7 +228,7 @@ def test_every_call_for_an_item_hides_other_users_items():
         if path.startswith("/api/") and "{" in path
         for method in methods
     ]
-    assert len(calls) >= 6
+    assert len(calls) >= 8
     for method, path in calls:
         assert other.request(method, path, json={}).status_code == 404, (method, path)
 

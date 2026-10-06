@@ -8,7 +8,7 @@ Needs [mise](https://mise.jdx.dev).
 
 ```sh
 mise install      # python, uv, lefthook, cocogitto, jq
-mise run install  # git hooks + dependencies
+mise run install  # git hooks, dependencies and the Chromium that prints the PDF
 mise run test
 mise run lint     # ruff + ty
 ```
@@ -17,7 +17,7 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## Layout
 
-- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `app.py` (legal pages and the built frontend).
+- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `pdf.py` (the PDF export), `app.py` (legal pages and the built frontend).
 - `frontend/`: React, TypeScript and Vite. `npm run build` writes to `src/blattwerk/static/`, which FastAPI serves.
 
 ## Run it
@@ -42,6 +42,12 @@ On the VPS:
 ```sh
 docker compose exec blattwerk /app/.venv/bin/python -m blattwerk invite --admin
 ```
+
+## PDF
+
+`GET /api/sheets/<id>/pdf` starts headless Chromium (Playwright), which prints the page `/druck/<id>` of this same server over loopback. `?solved=true` gives the answer key. Chromium has no session. It sends a token in the `X-Render-Token` header, signed for that one sheet and good for a minute. The token opens the sheet's document and the pictures on it, and nothing else.
+
+Chromium prints the built frontend, so `mise run test` builds it first, and a PDF from the dev servers shows the last `mise run build`.
 
 ## Feedback
 

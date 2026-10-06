@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from blattwerk import auth, feedback, maths, sheets, templates, uploads
+from blattwerk import auth, feedback, maths, pdf, sheets, templates, uploads
 
 # `npm run build` in frontend/ writes here.
 STATIC = Path(__file__).parent / "static"
@@ -15,6 +15,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(auth.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)
+app.include_router(pdf.router)
 app.include_router(sheets.router)
 app.include_router(templates.router)
 app.include_router(uploads.router)
