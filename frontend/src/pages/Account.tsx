@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, post, type User } from "../api";
 
 // The theme: the device's own, or the teacher's choice. index.html sets it before the first paint.
-const THEMES = [["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
+const THEMES = [["", "System"], ["light", "Hell"], ["dark", "Dunkel"], ["leaf", "Blattform"]];
 
 export default function Account({ user, onGone }: { user: User; onGone: () => void }) {
   const [sure, setSure] = useState(false);
@@ -24,7 +24,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       </div>
       <div className="card">
         <label>Darstellung</label>
-        <p className="hint">Hell, dunkel oder so, wie dein Gerät eingestellt ist. Das Blatt selbst bleibt immer weiß.</p>
+        <p className="hint">Hell, dunkel, so wie dein Gerät eingestellt ist, oder grün als Blattform. Das Blatt selbst bleibt immer weiß.</p>
         <div className="seg">
           {THEMES.map(([to, label]) => (
             <button key={to} type="button" className={theme === to ? "on" : ""} aria-pressed={theme === to} onClick={() => show(to)}>

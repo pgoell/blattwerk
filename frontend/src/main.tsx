@@ -5,6 +5,9 @@ import App from "./App";
 // The app's own fonts.
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
+// Blattform's fonts; the browser fetches them only under that theme.
+import "@fontsource-variable/bricolage-grotesque";
+import "@fontsource-variable/instrument-sans";
 // The sheet's fonts; Andika's files lie in public/fonts and are declared in styles.css.
 import "@fontsource-variable/playwrite-de-grund";
 import "@fontsource-variable/playwrite-de-va";

@@ -28,6 +28,14 @@ export default function About() {
           Geist und Geist Mono: Copyright 2024 The Geist Project Authors
           (<a href="https://github.com/vercel/geist-font">Vercel</a>). <a href="/fonts/geist/OFL.txt">Lizenztext</a>
         </p>
+        <p>
+          Bricolage Grotesque: Copyright 2022 The Bricolage Grotesque Project Authors
+          (<a href="https://github.com/ateliertriay/bricolage">Atelier Triay</a>). <a href="/fonts/bricolage/OFL.txt">Lizenztext</a>
+        </p>
+        <p>
+          Instrument Sans: Copyright 2022 The Instrument Sans Project Authors
+          (<a href="https://github.com/Instrument/instrument-sans">Instrument</a>). <a href="/fonts/instrument/OFL.txt">Lizenztext</a>
+        </p>
         <p className="hint">Alle Schriften stehen unter der SIL Open Font License 1.1.</p>
       </div>
     </main>
