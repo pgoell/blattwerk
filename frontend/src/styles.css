@@ -258,6 +258,11 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   display: flex; align-items: center; justify-content: flex-end; padding: 0 .6em; border: .06em solid; border-radius: .4em;
   font-family: Andika; white-space: nowrap;
 }
+/* Crop mode: the whole picture lies over its block, pale outside the frame. The frame moves under a finger. */
+.block > .crop { position: absolute; background: #fff; }
+.crop img { position: absolute; width: 100%; height: 100%; }
+.crop .dim { opacity: .3; }
+.crop div { position: absolute; outline: 2px solid #2f6f4f; cursor: move; touch-action: none; }
 /* A block's numbering stands left of its box. */
 .block > .mark { position: absolute; right: 100%; top: 0; width: auto; height: auto; padding-right: .4em; white-space: nowrap; }
 .mark img { display: block; width: 1.3em; height: 1.3em; }

@@ -8,41 +8,27 @@ type Props = {
   // Sets props on every selected block of one type.
   style: (type: Block["type"], props: object, key?: string) => void;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
+  // Starts or ends crop mode; absent unless one picture that is not locked is selected.
+  crop?: () => void;
+  cropping: boolean;
 };
 
 const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
-const SIDES = ["Links", "Oben", "Rechts", "Unten"];
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export default function Format({ sel, style, place }: Props) {
+export default function Format({ sel, style, place, crop, cropping }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   const [text] = of("text");
   const rulings = of("ruling");
   const [points] = of("points");
   const [sign] = of("symbol");
-  const images = of("image");
   const { mark } = sel[0];
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
     place(rulings.map((b) => [b.id, { h: round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row) }]), "ruling");
-  };
-  // A cut leaves the rest of the picture where and as large as it was: the block shrinks or grows around it.
-  const cut = (side: number, share: number) => {
-    const to = images[0].props.cut.map((old, i) => (i === side ? share : old));
-    style("image", { cut: to }, "cut");
-    place(
-      images.map((b) => {
-        const old = b.props.cut;
-        const full = b.w / (1 - old[0] - old[2]);
-        const tall = full / b.props.ratio;
-        const box = { x: b.x + full * (to[0] - old[0]), y: b.y + tall * (to[1] - old[1]), w: full * (1 - to[0] - to[2]), h: tall * (1 - to[1] - to[3]) };
-        return [b.id, { x: round(box.x), y: round(box.y), w: round(box.w), h: round(box.h) }];
-      }),
-      "cut",
-    );
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -120,15 +106,12 @@ export default function Format({ sel, style, place }: Props) {
           <Symbols value={sign.props.code} onPick={(code) => style("symbol", { code })} />
         </>
       )}
-      {images.length > 0 && (
+      {crop && (
         <>
-          <h2>Zuschneiden</h2>
-          {SIDES.map((side, i) => (
-            <label key={side}>
-              {side}
-              <input type="range" min={0} max={0.45} step={0.01} value={images[0].props.cut[i]} onChange={(e) => cut(i, +e.target.value)} />
-            </label>
-          ))}
+          <h2>Bild</h2>
+          <button className={cropping ? "on" : ""} aria-pressed={cropping} onClick={crop}>
+            {cropping ? "Fertig" : "Zuschneiden"}
+          </button>
         </>
       )}
       <h2>Nummerierung</h2>
