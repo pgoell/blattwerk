@@ -13,7 +13,7 @@ What she told us (interview, 2026-10-05):
 | The generators are too rough. Maths needs limits per place value and Zahlenraum | The maths generator below |
 | Worksheet Crafter does not run on the iPad | Web app, installed as a PWA |
 | Copying several fields is clumsy | Multi-select, copy, paste, duplicate |
-| Features are hard to find | One toolbar, a block panel, nothing hidden in menus |
+| Features are hard to find | A ribbon with three tabs (Start, Ansicht, Vorlagen) and a format panel for what is selected |
 | Keep: fonts, Lineaturen, numbering, symbols, fields that move freely | All in v0 |
 | Too few pictures for Sachunterricht | v1, AI pictures. v0 takes uploads |
 
@@ -28,6 +28,9 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 - A4 portrait pages, measured in mm. A sheet has one or more pages.
 - Blocks can be dragged, resized and deleted, and kept in place with a lock.
 - Snap to page margins, the page centre and other blocks' edges and centres, with guide lines shown while dragging.
+- A grid of 5, 10 or 20 mm can be shown on the page; blocks snap to it.
+- Own guide lines: added from the Ansicht tab, moved by their tab at the page's edge, removed by dragging them off the page.
+- Keys during a drag work as in PowerPoint. Shift keeps a block's shape on resize, keeps a move level or upright, and turns a line in steps of 45 degrees. Ctrl (Option on Apple) resizes about the centre and leaves a copy behind a move. Alt (Command on Apple) switches snapping off.
 - Multi-select by tap-and-hold then tap (iPad), shift-click or a drag box (laptop).
 - Copy, paste, duplicate, align (left, centre, right, top, middle, bottom), distribute, bring forward and send back.
 - Undo and redo.
@@ -92,7 +95,7 @@ Start points, not locked layouts. Every block in a template can move.
 - **Klassenarbeit**: name header with points total on each page, numbered task blocks with points boxes, three pages.
 - **Beschriftungsblatt**: title, a large image area, label lines with arrows.
 
-Any sheet can be saved as a new template.
+Any sheet can be saved as a new template. A template keeps the blocks, the guide lines and the grid.
 
 ### 6. Export
 

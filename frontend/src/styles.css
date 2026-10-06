@@ -149,11 +149,26 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 
-/* The editor fills the window: tools on top, the desk scrolls, the block panel sits beside it. */
+/* The editor fills the window: the ribbon on top, the desk scrolls, the format panel sits beside it when open. */
 #root:has(.editor) { height: 100dvh; }
-.editor { max-width: none; min-height: 0; padding: 0; display: grid; grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) 300px; }
-.tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
-.tools div { display: flex; gap: 6px; }
+.editor { max-width: none; min-height: 0; padding: 0; display: grid; grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) auto; }
+.ribbon { grid-column: 1 / -1; background: var(--card); border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 2px; padding: 4px 12px 0; border-bottom: 1px solid var(--line); }
+.tabs [role=tab] { border-radius: 0; border-width: 0 0 3px; border-color: transparent; background: none; color: var(--muted); }
+.tabs [aria-selected=true] { color: var(--accent-strong); border-color: var(--accent); }
+.tabs [aria-pressed] { margin: 0 0 4px auto; }
+/* Tools stand in named groups, each tool an icon over its name. */
+.tools { display: flex; flex-wrap: wrap; gap: 6px 0; padding: 6px 4px 4px; }
+.group { display: flex; flex-direction: column; padding: 0 8px; border-right: 1px solid var(--line); }
+.group:last-child { border: 0; }
+.group div { flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.group small { text-align: center; color: var(--muted); font-size: .7rem; }
+.editor .tools button { flex-direction: column; gap: 2px; min-width: 56px; min-height: 52px; padding: 4px 6px; font-size: .72rem; background: none; border-color: transparent; }
+.tools input { width: 200px; min-height: 44px; }
+.tools .hint { margin: 0 8px; }
+.chip { display: flex; border: 1px solid var(--line); border-radius: 10px; }
+.editor .tools .chip button { flex-direction: row; min-height: 44px; font-size: .85rem; }
+.editor .tools .chip button + button { min-width: 44px; color: var(--muted); }
 .editor button {
   min-height: 44px; padding: 6px 12px; border-radius: 10px; font-size: .9rem; font-weight: 500;
   background: var(--card); color: var(--ink); border-color: var(--line);
@@ -165,7 +180,7 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 }
 /* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
 .desk {
-  overflow: auto; scrollbar-gutter: stable; padding: 24px; touch-action: pan-x pan-y;
+  overflow: auto; scrollbar-gutter: stable; padding: 32px; touch-action: pan-x pan-y;
   background: var(--desk) radial-gradient(var(--dot) 1px, transparent 1.5px) 0 0 / 20px 20px;
 }
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
@@ -174,6 +189,23 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 2px 4px rgba(0, 0, 0, .06), 0 24px 48px -16px rgba(0, 0, 0, .22);
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
+/* Karo paper on the screen; the cell is set to the zoom. */
+.sheet.grid {
+  background-image: linear-gradient(to right, #c9d6ea 1px, transparent 1px), linear-gradient(#c9d6ea 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+}
+/* The teacher's own guide lines. Only the tab takes the pointer, so a line never covers a block. The tab starts in
+   the desk's edge beside the page and stays in view when the page scrolls. */
+.rule { position: absolute; z-index: 2999; pointer-events: none; border: 0 dashed #d9480f; }
+.rule.x { top: -24px; bottom: 0; border-left-width: 1px; }
+.rule.y { left: -32px; right: 0; border-top-width: 1px; }
+.rule b {
+  position: sticky; top: 0; left: 0; display: block; width: 30px; height: 18px; margin: 0 0 0 -15px; border-radius: 5px;
+  background: #d9480f; color: #fff; font: 600 11px/18px system-ui, sans-serif; text-align: center;
+  pointer-events: auto; touch-action: none; cursor: ew-resize;
+}
+.rule.y b { margin: -9px 0 0; cursor: ns-resize; }
+.rule b::after { content: ""; position: absolute; inset: -13px -7px; }
 .sheet .moveable-control-box { --moveable-color: #2f6f4f; }
 .block { position: absolute; min-width: 8px; min-height: 8px; }
 /* A finger on a selected block moves it; on any other block it scrolls the desk. */
@@ -202,7 +234,8 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* Moveable draws 14 px handles, a line's ends match them; this widens what a finger can hit to 44 px. */
 .moveable-control::after, .end::after { content: ""; position: absolute; inset: -17px; border-radius: 50%; }
 
-.panel { overflow: auto; padding: 4px 16px 16px; background: var(--card); border-left: 1px solid var(--line); }
+.panel { width: 300px; overflow: auto; padding: 4px 16px 16px; background: var(--card); border-left: 1px solid var(--line); }
+.panel .hint { margin-top: 16px; }
 .panel h2 { font-size: .9rem; color: var(--muted); margin: 16px 0 8px; }
 .panel .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .panel .row button { padding-inline: 2px; font-size: .85rem; }
@@ -212,5 +245,5 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .panel input[type=range] { flex: 1; min-width: 0; height: 44px; accent-color: var(--accent); }
 @media (max-width: 700px) {
   .editor { grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr); }
-  .panel { max-height: 36dvh; border-left: 0; border-top: 1px solid var(--line); }
+  .panel { width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--line); }
 }

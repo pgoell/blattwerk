@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from blattwerk import auth, feedback
+from blattwerk import auth, feedback, templates
 
 # `npm run build` in frontend/ writes here.
 STATIC = Path(__file__).parent / "static"
@@ -14,6 +14,7 @@ STATIC = Path(__file__).parent / "static"
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(auth.router)
 app.include_router(feedback.router)
+app.include_router(templates.router)
 
 
 @app.get("/impressum", response_class=HTMLResponse)

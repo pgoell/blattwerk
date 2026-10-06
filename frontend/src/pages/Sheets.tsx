@@ -1,7 +1,45 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type TouchEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+  type TouchEvent,
+} from "react";
 import { flushSync } from "react-dom";
+import {
+  ArrowRight,
+  Circle,
+  ClipboardPaste,
+  Copy,
+  CopyPlus,
+  Eraser,
+  Lock,
+  LockOpen,
+  Minus,
+  MoveHorizontal,
+  PanelRight,
+  Redo2,
+  Save,
+  SeparatorHorizontal,
+  SeparatorVertical,
+  Square,
+  SquareDashedMousePointer,
+  Squircle,
+  Trash2,
+  Type,
+  Undo2,
+  X,
+  ZoomIn,
+  ZoomOut,
+  type LucideIcon,
+} from "lucide-react";
 import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
+import { api, post } from "../api";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner.
 type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean };
@@ -13,6 +51,9 @@ type TextBlock = Box & { type: "text"; props: { text: string; size: number; alig
 type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner } };
 type Block = TextBlock | ShapeBlock;
 type Axis = "x" | "y";
+// What a template keeps: the blocks, the teacher's own guide lines in mm, and the grid's cell in mm (0 for none).
+type Doc = { blocks: Block[]; guides: Record<Axis, number[]>; grid: number };
+type Template = { id: number; name: string; doc: Doc };
 
 const W = 210;
 const H = 297;
@@ -23,10 +64,26 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // Snap lines on the page: the margins and the centre.
 const XS = [MARGIN, W / 2, W - MARGIN];
 const YS = [MARGIN, H / 2, H - MARGIN];
-const SHAPES: [Kind, string][] = [["rect", "Rechteck"], ["rounded", "Abgerundet"], ["circle", "Kreis"], ["line", "Linie"], ["arrow", "Pfeil"]];
+const SHAPES: [Kind, string, LucideIcon][] = [
+  ["rect", "Rechteck", Square],
+  ["rounded", "Abgerundet", Squircle],
+  ["circle", "Kreis", Circle],
+  ["line", "Linie", Minus],
+  ["arrow", "Pfeil", ArrowRight],
+];
 const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
+const TABS = ["Start", "Ansicht", "Vorlagen"];
+const GRIDS = [0, 5, 10, 20];
+// The keys held during a drag, as PowerPoint reads them. Shift keeps the shape or the direction. Ctrl (Option on
+// Apple) resizes about the centre and leaves a copy behind a move. Alt (Command on Apple) switches snapping off.
+const KEEP = 1;
+const CENTRE = 2;
+const LOOSE = 4;
+const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
+// The grid's lines along one side of the page.
+const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.floor(max / cell) + 1 }, (_, i) => i * cell) : []);
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
 const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2];
@@ -47,12 +104,21 @@ const span = (boxes: Box[], axis: Axis) => {
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 
 export default function Sheets() {
-  const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
+  const [hist, setHist] = useState<{ past: Doc[]; doc: Doc; future: Doc[] }>({
+    past: [],
+    doc: { blocks: [], guides: { x: [], y: [] }, grid: 0 },
+    future: [],
+  });
   const [ids, setIds] = useState<string[]>([]);
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
   const [multi, setMulti] = useState(false);
+  const [tab, setTab] = useState(TABS[0]);
+  const [pane, setPane] = useState(true);
+  const [mod, setMod] = useState(0);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [name, setName] = useState("");
   // The x and y, in mm, that a line's end or a group's corner has snapped to.
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Pixels per mm when the page fills the desk's width; zoom multiplies it.
@@ -69,7 +135,8 @@ export default function Sheets() {
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
-  const { blocks } = hist;
+  const { blocks, guides, grid } = hist.doc;
+  const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
@@ -80,10 +147,12 @@ export default function Sheets() {
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
-  // Snap lines: the page's, then the edges and centres of the blocks that stay put.
+  // Snap lines: the page's, the teacher's own and the grid's, then the edges and centres of the blocks that stay put.
   const still = blocks.filter((b) => !ids.includes(b.id));
-  const xs = [...XS, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
-  const ys = [...YS, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
+  const pageXs = [...XS, ...guides.x, ...lines(grid, W)];
+  const pageYs = [...YS, ...guides.y, ...lines(grid, H)];
+  const xs = loose ? [] : [...pageXs, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
+  const ys = loose ? [] : [...pageYs, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
     const observer = new ResizeObserver(([entry]) => setFit(entry.contentRect.width / W));
@@ -123,6 +192,24 @@ export default function Sheets() {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) =>
+      setMod((e.shiftKey ? KEEP : 0) | ((APPLE ? e.altKey : e.ctrlKey) ? CENTRE : 0) | ((APPLE ? e.metaKey : e.altKey) ? LOOSE : 0));
+    const onBlur = () => setMod(0);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    api<Template[]>("/templates").then(setTemplates, () => {});
+  }, []);
+
   // A finger on a block of a flat group starts the group's drag, as a mouse press does in `pick`. Moveable cancels
   // the touch it drags from, and React's own touch listeners are passive, so this one is set by hand.
   useEffect(() => {
@@ -136,10 +223,13 @@ export default function Sheets() {
   });
 
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
-  function change(fn: (blocks: Block[]) => Block[], key = "") {
+  function update(fn: (doc: Doc) => Doc, key = "") {
     const merge = key !== "" && key === mergeKey.current;
     mergeKey.current = key;
-    setHist((h) => ({ past: merge ? h.past : [...h.past, h.blocks], blocks: fn(h.blocks), future: [] }));
+    setHist((h) => ({ past: merge ? h.past : [...h.past, h.doc], doc: fn(h.doc), future: [] }));
+  }
+  function change(fn: (blocks: Block[]) => Block[], key?: string) {
+    update((doc) => ({ ...doc, blocks: fn(doc.blocks) }), key);
   }
   function place(boxes: [string, Partial<Box>][], key?: string) {
     const byId = new Map(boxes);
@@ -150,11 +240,11 @@ export default function Sheets() {
   }
   function undo() {
     mergeKey.current = "";
-    setHist((h) => (h.past.length ? { past: h.past.slice(0, -1), blocks: h.past.at(-1)!, future: [h.blocks, ...h.future] } : h));
+    setHist((h) => (h.past.length ? { past: h.past.slice(0, -1), doc: h.past.at(-1)!, future: [h.doc, ...h.future] } : h));
   }
   function redo() {
     mergeKey.current = "";
-    setHist((h) => (h.future.length ? { past: [...h.past, h.blocks], blocks: h.future[0], future: h.future.slice(1) } : h));
+    setHist((h) => (h.future.length ? { past: [...h.past, h.doc], doc: h.future[0], future: h.future.slice(1) } : h));
   }
 
   // Moves new blocks as one onto the page, then in steps clear of a block already at that spot.
@@ -230,12 +320,22 @@ export default function Sheets() {
   const drag = (events: OnDrag[]) => {
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / k, y: e.top / k }));
-    const [dx, dy] = (["x", "y"] as const).map((axis) => {
+    let [dx, dy] = (["x", "y"] as const).map((axis) => {
       const [lo, hi] = span(to, axis);
       return round(to[0][axis] + pull(lo, [0, (hi - lo) / 2, hi - lo], axis === "x" ? xs : ys) - from[0][axis]);
     });
+    // Shift keeps the move level or upright: the shorter way from where the drag began does not count.
+    if (mod & KEEP) {
+      const began = start.current.find((b) => b.id === from[0].id)!;
+      if (Math.abs(from[0].x + dx - began.x) >= Math.abs(from[0].y + dy - began.y)) dy = began.y - from[0].y;
+      else dx = began.x - from[0].x;
+    }
     flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
   };
+  const begin = (els: Element[]) => (start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!));
+  // With Ctrl held when a move ends, copies stay where the blocks began.
+  const leave = (moved: boolean) =>
+    moved && mod & CENTRE && change((bs) => [...bs, ...start.current.map((b) => ({ ...b, id: crypto.randomUUID() }))], "drag");
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
@@ -270,30 +370,36 @@ export default function Sheets() {
   }
   // The guide closest to a point, if one lies within the snap distance.
   const near = (at: number, guides: number[]) => guides.filter((g) => Math.abs(g - at) < 6 / k).sort((a, b) => Math.abs(a - at) - Math.abs(b - at))[0];
-  // Moves one end of a line with the pointer; the other end stays. It snaps to the guides a block drag snaps to,
-  // and to the other end, which makes the line level or upright.
+  // Moves one end of a line with the pointer; the other end stays, or with Ctrl the middle does. It snaps to the
+  // guides a block drag snaps to, and to the point that stays, which makes the line level or upright.
   function stretch(e: PointerEvent, b: ShapeBlock, end: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const fx = b.x + (far(b, 1, !end) ? b.w : 0);
-    const fy = b.y + (far(b, 0, !end) ? b.h : 0);
-    const others = blocks.filter((o) => o !== b);
+    const mid = (mod & CENTRE) > 0;
+    let fx = mid ? b.x + b.w / 2 : b.x + (far(b, 1, !end) ? b.w : 0);
+    let fy = mid ? b.y + b.h / 2 : b.y + (far(b, 0, !end) ? b.h : 0);
     const at = point(e);
-    const gx = near(at[0], [fx, ...XS, ...others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])]);
-    const gy = near(at[1], [fy, ...YS, ...others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])]);
-    setGuide([gx, gy]);
+    // Shift turns the line in steps of 45 degrees and leaves the guides alone.
+    const turn = (Math.round(Math.atan2(at[1] - fy, at[0] - fx) / (Math.PI / 4)) * Math.PI) / 4;
+    const reach = Math.hypot(at[0] - fx, at[1] - fy);
+    const gx = mod & KEEP ? fx + Math.cos(turn) * reach : near(at[0], loose ? [] : [fx, ...xs]);
+    const gy = mod & KEEP ? fy + Math.sin(turn) * reach : near(at[1], loose ? [] : [fy, ...ys]);
+    setGuide(mod & KEEP ? [] : [gx, gy]);
     const [px, py] = [gx ?? at[0], gy ?? at[1]];
+    if (mid) [fx, fy] = [2 * fx - px, 2 * fy - py];
     const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
   }
-  // Resizes a group from the boxes it began with. The corner opposite the dragged one stays and the group keeps
-  // its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a tenth, not flip.
+  // Resizes a group from the boxes it began with. The corner opposite the dragged one stays, or with Ctrl the middle,
+  // and the group keeps its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a
+  // tenth, not flip.
   function scale(e: PointerEvent, right: boolean, low: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const { x, y, w, h } = bounds(start.current);
     const [px, py] = point(e);
-    const [fx, fy] = [right ? x : x + w, low ? y : y + h];
-    const [sw, sh] = [right ? w : -w, low ? h : -h];
+    const half = mod & CENTRE ? 2 : 1;
+    const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
+    const [sw, sh] = [(right ? w : -w) / half, (low ? h : -h) / half];
     let s = Math.max(0.1, w && (px - fx) / sw, h && (py - fy) / sh);
     // The dragged corner snaps to the guides a block drag snaps to. The group keeps its shape, so only the nearer
     // of the two guides holds it.
@@ -314,9 +420,46 @@ export default function Sheets() {
     );
   }
 
+  // A new guide line starts in the middle of what the desk shows, clear of a guide already there.
+  function rule(axis: Axis) {
+    let at = axis === "x" ? W / 2 : Math.min(H, Math.round((desk.current!.scrollTop + desk.current!.clientHeight / 2) / k));
+    while (guides[axis].includes(at)) at += 10;
+    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: [...doc.guides[axis], at] } }));
+  }
+  // A guide line moves with its tab, in steps of the grid or of a millimetre.
+  function slide(e: PointerEvent, axis: Axis, i: number) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const at = point(e)[axis === "x" ? 0 : 1];
+    const cell = loose ? 0.01 : grid || 1;
+    const to = round(Math.round(at / cell) * cell);
+    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: doc.guides[axis].map((g, j) => (j === i ? to : g)) } }), "drag");
+  }
+  // Let go off the page, a guide line is gone.
+  function drop(axis: Axis, i: number) {
+    const at = guides[axis][i];
+    if (at >= 0 && at <= (axis === "x" ? W : H)) return;
+    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: doc.guides[axis].filter((_, j) => j !== i) } }), "drag");
+  }
+
+  async function store() {
+    const saved = await post<Template>("/templates", { name: name.trim(), doc: hist.doc });
+    setTemplates((ts) => [...ts, saved]);
+    setName("");
+  }
+  // A template takes the place of the sheet; undo brings the sheet back.
+  function apply(t: Template) {
+    update(() => t.doc);
+    setIds([]);
+  }
+  async function forget(t: Template) {
+    if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
+    await api(`/templates/${t.id}`, { method: "DELETE" });
+    setTemplates((ts) => ts.filter((o) => o.id !== t.id));
+  }
+
   // `press` is the mouse press that selects, so the same press can drag.
   function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent) {
-    if (el.closest(".end")) return;
+    if (el.closest(".end, .rule")) return;
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
     const more = shift || multi;
     if (!id) {
@@ -370,29 +513,117 @@ export default function Sheets() {
   const locked = sel.length > 0 && !free.length;
   return (
     <main className="editor" onPointerDown={() => (mergeKey.current = "")}>
-      <div className="tools">
-        <div>
-          <button disabled={!hist.past.length} onClick={undo}>Rückgängig</button>
-          <button disabled={!hist.future.length} onClick={redo}>Wiederholen</button>
-        </div>
-        <div>
-          <button disabled={!sel.length} onClick={() => setClip(sel)}>Kopieren</button>
-          <button disabled={!clip.length} onClick={paste}>Einfügen</button>
-          <button disabled={!sel.length} onClick={() => put(sel)}>Duplizieren</button>
-          <button disabled={!sel.length} onClick={remove}>Löschen</button>
-          <button disabled={!sel.length} className={locked ? "on" : ""} onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}>
-            {locked ? "Entsperren" : "Sperren"}
+      <header className="ribbon">
+        <div className="tabs" role="tablist">
+          {TABS.map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+              {t}
+            </button>
+          ))}
+          <button className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)}>
+            <PanelRight size={20} aria-hidden />
+            Format
           </button>
         </div>
-        <div>
-          <button className={multi ? "on" : ""} aria-pressed={multi} onClick={() => setMulti(!multi)}>Mehrere auswählen</button>
+        <div className="tools" role="tabpanel">
+          {tab === "Start" && (
+            <>
+              <Group label="Verlauf">
+                <Tool icon={Undo2} label="Rückgängig" disabled={!hist.past.length} onClick={undo} />
+                <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
+              </Group>
+              <Group label="Zwischenablage">
+                <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => setClip(sel)} />
+                <Tool icon={ClipboardPaste} label="Einfügen" disabled={!clip.length} onClick={paste} />
+                <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />
+                <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
+              </Group>
+              <Group label="Einfügen">
+                <Tool icon={Type} label="Text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+                {SHAPES.map(([kind, label, icon]) => (
+                  <Tool
+                    key={kind}
+                    icon={icon}
+                    label={label}
+                    onClick={() =>
+                      add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
+                        type: "shape",
+                        props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
+                      })
+                    }
+                  />
+                ))}
+              </Group>
+              <Group label="Auswahl">
+                <Tool
+                  icon={locked ? LockOpen : Lock}
+                  label={locked ? "Entsperren" : "Sperren"}
+                  disabled={!sel.length}
+                  className={locked ? "on" : ""}
+                  onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}
+                />
+                <Tool
+                  icon={SquareDashedMousePointer}
+                  label="Mehrere"
+                  className={multi ? "on" : ""}
+                  aria-pressed={multi}
+                  onClick={() => setMulti(!multi)}
+                />
+              </Group>
+            </>
+          )}
+          {tab === "Ansicht" && (
+            <>
+              <Group label="Zoom">
+                <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
+                <Tool icon={MoveHorizontal} label="Seitenbreite" onClick={() => setZoom(1)} />
+                <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+              </Group>
+              <Group label="Raster">
+                {GRIDS.map((cell) => (
+                  <button
+                    key={cell}
+                    className={grid === cell ? "on" : ""}
+                    aria-pressed={grid === cell}
+                    onClick={() => update((doc) => ({ ...doc, grid: cell }))}
+                  >
+                    {cell ? `${cell} mm` : "Aus"}
+                  </button>
+                ))}
+              </Group>
+              <Group label="Hilfslinien">
+                <Tool icon={SeparatorVertical} label="Senkrecht" onClick={() => rule("x")} />
+                <Tool icon={SeparatorHorizontal} label="Waagerecht" onClick={() => rule("y")} />
+                <Tool
+                  icon={Eraser}
+                  label="Alle entfernen"
+                  disabled={!guides.x.length && !guides.y.length}
+                  onClick={() => update((doc) => ({ ...doc, guides: { x: [], y: [] } }))}
+                />
+              </Group>
+            </>
+          )}
+          {tab === "Vorlagen" && (
+            <>
+              <Group label="Dieses Blatt als Vorlage">
+                <input type="text" aria-label="Name der Vorlage" placeholder="Name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+                <Tool icon={Save} label="Speichern" disabled={!name.trim()} onClick={store} />
+              </Group>
+              <Group label="Meine Vorlagen">
+                {templates.map((t) => (
+                  <span key={t.id} className="chip">
+                    <button onClick={() => apply(t)}>{t.name}</button>
+                    <button aria-label={`Vorlage ${t.name} löschen`} onClick={() => forget(t)}>
+                      <X size={16} aria-hidden />
+                    </button>
+                  </span>
+                ))}
+                {!templates.length && <span className="hint">Noch keine</span>}
+              </Group>
+            </>
+          )}
         </div>
-        <div>
-          <button aria-label="Verkleinern" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))}>−</button>
-          <button onClick={() => setZoom(1)}>Seitenbreite</button>
-          <button aria-label="Vergrößern" onClick={() => setZoom(Math.min(4, zoom * 1.25))}>＋</button>
-        </div>
-      </div>
+      </header>
 
       <div
         className="desk"
@@ -411,7 +642,7 @@ export default function Sheets() {
           held.current = false;
         }}
       >
-        <div className="sheet" ref={sheet} style={{ width: W * k, height: H * k }}>
+        <div className={grid ? "sheet grid" : "sheet"} ref={sheet} style={{ width: W * k, height: H * k, "--cell": `${grid * k}px` } as CSSProperties}>
           {blocks.map((b) => (
             <div
               key={b.id}
@@ -445,6 +676,15 @@ export default function Sheets() {
                 ))}
             </div>
           ))}
+          {(["x", "y"] as const).flatMap((axis) =>
+            guides[axis].map((at, i) => (
+              <i key={axis + i} className={`rule ${axis}`} style={axis === "x" ? { left: at * k } : { top: at * k }}>
+                <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i)} onLostPointerCapture={() => drop(axis, i)}>
+                  {at}
+                </b>
+              </i>
+            )),
+          )}
           {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
           {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
           {group &&
@@ -469,20 +709,27 @@ export default function Sheets() {
             renderDirections={CORNERS}
             origin={false}
             checkInput
-            snappable
+            snappable={!loose}
+            keepRatio={(mod & KEEP) > 0}
             snapThreshold={6}
             isDisplaySnapDigit={false}
             snapDirections={SIDES}
             elementSnapDirections={SIDES}
             elementGuidelines={[".block:not(.sel)"]}
-            verticalGuidelines={XS.map((mm) => mm * k)}
-            horizontalGuidelines={YS.map((mm) => mm * k)}
+            verticalGuidelines={pageXs.map((mm) => mm * k)}
+            horizontalGuidelines={pageYs.map((mm) => mm * k)}
             // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
             onClick={(e) => touch.current && pick(e.inputTarget, false)}
             onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
-            onDragStart={(e) => (e.inputEvent.target as Element).closest(".end") && e.stopDrag()}
+            onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
+            onDragGroupStart={(e) => begin(e.targets)}
             onDrag={(e) => drag([e])}
             onDragGroup={(e) => drag(e.events)}
+            onDragEnd={(e) => leave(e.isDrag)}
+            onDragGroupEnd={(e) => leave(e.isDrag)}
+            // Ctrl resizes about the centre.
+            onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+            onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
             onResize={(e) => resize([e])}
             onResizeGroup={(e) => resize(e.events)}
             onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
@@ -498,98 +745,103 @@ export default function Sheets() {
         selectByClick={false}
         onDragStart={(e) => {
           const el = e.inputEvent.target as Element;
-          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end") || moveable.current!.isMoveableElement(el)) e.stop();
+          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.map(idOf)])])}
       />
 
-      <aside className="panel">
-        <h2>Einfügen</h2>
-        <div className="row">
-          <button onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })}>Text</button>
-          {SHAPES.map(([kind, label]) => (
-            <button
-              key={kind}
-              onClick={() =>
-                add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
-                  type: "shape",
-                  props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
-                })
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {pane && (
+        <aside className="panel">
+          {!sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {sel.length > 0 && (
+            <>
+              <h2>Ausrichten</h2>
+              <div className="row">
+                <button disabled={!free.length} onClick={() => align("x", 0)}>Links</button>
+                <button disabled={!free.length} onClick={() => align("x", 0.5)}>Mitte</button>
+                <button disabled={!free.length} onClick={() => align("x", 1)}>Rechts</button>
+                <button disabled={!free.length} onClick={() => align("y", 0)}>Oben</button>
+                <button disabled={!free.length} onClick={() => align("y", 0.5)}>Mitte</button>
+                <button disabled={!free.length} onClick={() => align("y", 1)}>Unten</button>
+              </div>
+              <h2>Verteilen</h2>
+              <div className="row">
+                <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
+                <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+              </div>
+              <h2>Ebene</h2>
+              <div className="row">
+                <button onClick={() => place(sel.map((b) => [b.id, { z: top + 1 }]))}>Nach vorn</button>
+                <button onClick={() => place(sel.map((b) => [b.id, { z: Math.min(0, ...blocks.map((o) => o.z)) - 1 }]))}>Nach hinten</button>
+              </div>
+            </>
+          )}
 
-        <h2>Ausrichten</h2>
-        <div className="row">
-          <button disabled={!free.length} onClick={() => align("x", 0)}>Links</button>
-          <button disabled={!free.length} onClick={() => align("x", 0.5)}>Mitte</button>
-          <button disabled={!free.length} onClick={() => align("x", 1)}>Rechts</button>
-          <button disabled={!free.length} onClick={() => align("y", 0)}>Oben</button>
-          <button disabled={!free.length} onClick={() => align("y", 0.5)}>Mitte</button>
-          <button disabled={!free.length} onClick={() => align("y", 1)}>Unten</button>
-        </div>
-        <h2>Verteilen</h2>
-        <div className="row">
-          <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
-          <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
-        </div>
-        <h2>Ebene</h2>
-        <div className="row">
-          <button disabled={!sel.length} onClick={() => place(sel.map((b) => [b.id, { z: top + 1 }]))}>Nach vorn</button>
-          <button disabled={!sel.length} onClick={() => place(sel.map((b) => [b.id, { z: Math.min(0, ...blocks.map((o) => o.z)) - 1 }]))}>
-            Nach hinten
-          </button>
-        </div>
-
-        {texts.length > 0 && (
-          <>
-            <h2>Schrift</h2>
-            <div className="row">
-              <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, texts[0].props.size - 2) })}>−</button>
-              <output>{texts[0].props.size} pt</output>
-              <button aria-label="Schrift größer" onClick={() => style("text", { size: texts[0].props.size + 2 })}>＋</button>
-              {ALIGNS.map(([value, label]) => (
-                <button key={value} className={texts[0].props.align === value ? "on" : ""} onClick={() => style("text", { align: value })}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        {shapes.length > 0 && (
-          <>
-            <h2>Form</h2>
-            <label>
-              Füllung
-              <input
-                type="color"
-                value={shapes[0].props.fill === "none" ? "#ffffff" : shapes[0].props.fill}
-                onChange={(e) => style("shape", { fill: e.target.value }, "fill")}
-              />
-            </label>
-            <button disabled={shapes[0].props.fill === "none"} onClick={() => style("shape", { fill: "none" })}>Keine Füllung</button>
-            <label>
-              Rand
-              <input type="color" value={shapes[0].props.stroke} onChange={(e) => style("shape", { stroke: e.target.value }, "stroke")} />
-            </label>
-            <label>
-              Randstärke
-              <input
-                type="range"
-                min={0.25}
-                max={3}
-                step={0.25}
-                value={shapes[0].props.strokeWidth}
-                onChange={(e) => style("shape", { strokeWidth: +e.target.value }, "strokeWidth")}
-              />
-            </label>
-          </>
-        )}
-      </aside>
+          {texts.length > 0 && (
+            <>
+              <h2>Schrift</h2>
+              <div className="row">
+                <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, texts[0].props.size - 2) })}>−</button>
+                <output>{texts[0].props.size} pt</output>
+                <button aria-label="Schrift größer" onClick={() => style("text", { size: texts[0].props.size + 2 })}>＋</button>
+                {ALIGNS.map(([value, label]) => (
+                  <button key={value} className={texts[0].props.align === value ? "on" : ""} onClick={() => style("text", { align: value })}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {shapes.length > 0 && (
+            <>
+              <h2>Form</h2>
+              <label>
+                Füllung
+                <input
+                  type="color"
+                  value={shapes[0].props.fill === "none" ? "#ffffff" : shapes[0].props.fill}
+                  onChange={(e) => style("shape", { fill: e.target.value }, "fill")}
+                />
+              </label>
+              <button disabled={shapes[0].props.fill === "none"} onClick={() => style("shape", { fill: "none" })}>Keine Füllung</button>
+              <label>
+                Rand
+                <input type="color" value={shapes[0].props.stroke} onChange={(e) => style("shape", { stroke: e.target.value }, "stroke")} />
+              </label>
+              <label>
+                Randstärke
+                <input
+                  type="range"
+                  min={0.25}
+                  max={3}
+                  step={0.25}
+                  value={shapes[0].props.strokeWidth}
+                  onChange={(e) => style("shape", { strokeWidth: +e.target.value }, "strokeWidth")}
+                />
+              </label>
+            </>
+          )}
+        </aside>
+      )}
     </main>
+  );
+}
+
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="group">
+      <div>{children}</div>
+      <small>{label}</small>
+    </div>
+  );
+}
+
+function Tool({ icon: Icon, label, ...rest }: { icon: LucideIcon; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button {...rest}>
+      <Icon size={20} aria-hidden />
+      {label}
+    </button>
   );
 }
 
