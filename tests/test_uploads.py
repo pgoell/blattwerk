@@ -12,7 +12,6 @@ PNG = b"\x89PNG\r\n\x1a\n not really a picture"
 @pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    auth.attempts.clear()
     return tmp_path
 
 

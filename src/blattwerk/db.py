@@ -11,6 +11,7 @@ from fastapi import Depends
 DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 
 # A link with no user is an invite; a link with a user resets that user's password.
+# An attempt is one login try, keyed by email or IP.
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
@@ -49,6 +50,10 @@ CREATE TABLE IF NOT EXISTS uploads (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     type TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS attempts (
+    key TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
