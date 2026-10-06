@@ -19,21 +19,27 @@ import {
   Eraser,
   FilePlus,
   FileX,
+  Heading,
+  ImagePlus,
   Lock,
   LockOpen,
   Minus,
   MoveHorizontal,
   PanelRight,
   Redo2,
+  Rows3,
   Save,
   SeparatorHorizontal,
   SeparatorVertical,
+  Smile,
   Square,
   SquareDashedMousePointer,
+  SquareSlash,
   Squircle,
   Trash2,
   Type,
   Undo2,
+  UserPen,
   X,
   ZoomIn,
   ZoomOut,
@@ -43,10 +49,12 @@ import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { useParams } from "react-router";
 import { api, post } from "../api";
-import { H, PT, Shape, W, far, isLine, last, read, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type Kind, type Page, type Sheet, type ShapeBlock, type TextBlock } from "../sheet";
+import { Draw, H, Mark, W, far, isLine, last, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type Kind, type Page, type Sheet, type ShapeBlock } from "../sheet";
+import Format from "./Format";
 
-type Align = TextBlock["props"]["align"];
 type Template = { id: number; name: string; doc: Doc };
+// A new block's type and settings; `add` gives it its place.
+type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
 const MARGIN = 15;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
@@ -61,7 +69,6 @@ const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
 ];
-const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
 const TABS = ["Start", "Ansicht", "Vorlagen"];
 const GRIDS = [0, 5, 10, 20];
 const NONE: Guides = { x: [], y: [] };
@@ -136,6 +143,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
   const touch = useRef(false);
   const hold = useRef(0);
@@ -160,7 +168,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
-  const texts = sel.filter((b) => b.type === "text");
+  const ns = numbers(hist.doc);
   const shapes = sel.filter((b) => b.type === "shape");
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
@@ -198,7 +206,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as Element).matches("textarea, input")) return;
+      if ((e.target as Element).matches("textarea, input, select")) return;
       const keys: Record<string, () => void> =
         e.ctrlKey || e.metaKey
           ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel) }
@@ -342,13 +350,26 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     }
     return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
   }
-  function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
+  function add(w: number, h: number, rest: Fresh) {
     const id = crypto.randomUUID();
     const y = round(Math.max(0, seen(0))) + MARGIN;
     const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
     change((bs) => [...bs, block]);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
+  }
+  // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
+  async function upload(file?: File) {
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+      const w = round(Math.min(100, (100 * width) / height));
+      add(w, round((w * height) / width), { type: "image", props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } });
+    } catch {
+      alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+    }
   }
   function put(from: Block[]) {
     const copies = land(
@@ -650,6 +671,27 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               </Group>
               <Group label="Einfügen">
                 <Tool icon={Type} label="Text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+                <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
+                <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
+                <input
+                  ref={picker}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  hidden
+                  onChange={(e) => {
+                    upload(e.target.files?.[0]);
+                    // The same picture can be picked again.
+                    e.target.value = "";
+                  }}
+                />
+                <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
+              </Group>
+              <Group label="Schule">
+                <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
+                <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
+                <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+              </Group>
+              <Group label="Formen">
                 {SHAPES.map(([kind, label, icon]) => (
                   <Tool
                     key={kind}
@@ -785,14 +827,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     value={b.props.text}
                     placeholder="Text"
                     readOnly={editing !== b.id}
-                    style={{ fontSize: b.props.size * PT * k, textAlign: b.props.align }}
+                    style={textStyle(b.props, k)}
                     onChange={(e) => style("text", { text: e.target.value }, "text")}
                     onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
                     onBlur={() => setEditing("")}
                   />
                 ) : (
-                  <Shape block={b} k={k} />
+                  <Draw block={b} k={k} />
                 )}
+                <Mark block={b} k={k} n={ns.get(b.id)} />
                 {b === line &&
                   [false, true].map((end) => (
                     <i
@@ -845,7 +888,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   origin={false}
                   checkInput
                   snappable={!loose}
-                  keepRatio={(mod & KEEP) > 0}
+                  // A picture and a symbol always keep their shape.
+                  keepRatio={(mod & KEEP) > 0 || sel.some((b) => b.type === "image" || b.type === "symbol")}
                   snapThreshold={6}
                   isDisplaySnapDigit={false}
                   snapDirections={SIDES}
@@ -916,21 +960,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             </>
           )}
 
-          {texts.length > 0 && (
-            <>
-              <h2>Schrift</h2>
-              <div className="row">
-                <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, texts[0].props.size - 2) })}>−</button>
-                <output>{texts[0].props.size} pt</output>
-                <button aria-label="Schrift größer" onClick={() => style("text", { size: texts[0].props.size + 2 })}>＋</button>
-                {ALIGNS.map(([value, label]) => (
-                  <button key={value} className={texts[0].props.align === value ? "on" : ""} onClick={() => style("text", { align: value })}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          {sel.length > 0 && <Format sel={sel} style={style} place={place} />}
           {shapes.length > 0 && (
             <>
               <h2>Form</h2>
