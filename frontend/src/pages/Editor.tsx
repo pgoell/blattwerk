@@ -64,7 +64,7 @@ import { Link, useParams } from "react-router";
 import { api, post } from "../api";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
-import { Draw, H, Mark, Paper, W, far, isLine, last, mathsHeight, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, H, MARGIN, Mark, Paper, W, far, isLine, last, mathsHeight, numbers, read, textStyle, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -72,7 +72,6 @@ type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
 type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
-const MARGIN = 15;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
 // Snap lines on the page: the margins and the centre.
@@ -674,7 +673,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   function edit(id?: string) {
     if (!id || free.length !== 1 || free[0].id !== id) return;
-    if (free[0].type === "text") setEditing(id);
+    if (free[0].type === "text" || free[0].type === "ruling") setEditing(id);
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -907,7 +906,21 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                       onBlur={() => setEditing("")}
                     />
                   ) : (
-                    <Draw block={b} k={k} solved={solved} />
+                    <Draw block={b} k={k} solved={solved}>
+                      {b.type === "ruling" && (
+                        <textarea
+                          className="written"
+                          value={b.props.text ?? ""}
+                          readOnly={editing !== b.id}
+                          style={writtenStyle(b, k)}
+                          onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                          onBlur={() => setEditing("")}
+                          // A line typed past the last row would scroll the others off their rows.
+                          onScroll={(e) => (e.currentTarget.scrollTop = 0)}
+                        />
+                      )}
+                    </Draw>
                   )}
                   <Mark block={b} k={k} n={ns.get(b.id)} />
                   {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
