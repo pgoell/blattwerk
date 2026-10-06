@@ -55,7 +55,9 @@ Chromium prints the built frontend, so `mise run test` builds it first, and a PD
 
 ## Deploy
 
-On the VPS at `blattwerk.pgoell.com`:
+A push to `master` deploys to `blattwerk.pgoell.com` once CI is green. `.github/workflows/deploy.yml` runs on the VPS's own runner (`server-infra/runners`): it builds the image from that commit, restarts the container and fails if the app does not answer.
+
+By hand, on the VPS:
 
 ```sh
 docker compose up -d --build

@@ -1,0 +1,54 @@
+name: Deploy
+
+# Runs on the VPS, on a self-hosted runner. This repo is public, so the only
+# trigger is a finished CI run: workflow_run always reads this file from
+# master, never from a pull request. Do not add pull_request here, and do not
+# put a self-hosted job in any workflow that has it.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+
+# Never cancel a running deploy.
+concurrency: deploy
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to blattwerk.pgoell.com
+    # `event == 'push'` matters: the branch filter above also matches a fork's
+    # pull request from a branch named master.
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Build image
+        run: docker compose build
+
+      - name: Deploy
+        run: docker compose up -d
+
+      # The app's logs hold invite tokens and this repo's job logs are public,
+      # so a failure points at the logs and does not print them.
+      - name: Wait for the app to answer
+        run: |
+          for _ in $(seq 1 30); do
+            if docker exec blattwerk /app/.venv/bin/python -c \
+              "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=2)" 2>/dev/null; then
+              echo "blattwerk answers"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::blattwerk did not answer on :8000. On the VPS: docker logs blattwerk"
+          exit 1
+
+      - name: Clean up old images
+        run: docker image prune -f
