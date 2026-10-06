@@ -53,7 +53,7 @@ export default function Sheets() {
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
   const [multi, setMulti] = useState(false);
-  // The x and y, in mm, that a line's end has snapped to.
+  // The x and y, in mm, that a line's end or a group's corner has snapped to.
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Pixels per mm when the page fills the desk's width; zoom multiplies it.
   const [fit, setFit] = useState(1);
@@ -293,9 +293,23 @@ export default function Sheets() {
     const { x, y, w, h } = bounds(start.current);
     const [px, py] = point(e);
     const [fx, fy] = [right ? x : x + w, low ? y : y + h];
-    const s = Math.max(0.1, w && (px - fx) / (right ? w : -w), h && (py - fy) / (low ? h : -h));
+    const [sw, sh] = [right ? w : -w, low ? h : -h];
+    let s = Math.max(0.1, w && (px - fx) / sw, h && (py - fy) / sh);
+    // The dragged corner snaps to the guides a block drag snaps to. The group keeps its shape, so only the nearer
+    // of the two guides holds it.
+    const [mx, my] = [fx + sw * s, fy + sh * s];
+    const gx = w ? near(mx, xs.filter((g) => (g - fx) / sw >= 0.1)) : undefined;
+    const gy = h ? near(my, ys.filter((g) => (g - fy) / sh >= 0.1)) : undefined;
+    const onX = gx !== undefined && (gy === undefined || Math.abs(gx - mx) <= Math.abs(gy - my));
+    if (onX) s = (gx - fx) / sw;
+    else if (gy !== undefined) s = (gy - fy) / sh;
+    setGuide(onX ? [gx] : [undefined, gy]);
+    // Each size comes from its block's two edges, so the edge on the guide lands exactly on it.
     place(
-      start.current.map((b) => [b.id, { x: round(fx + (b.x - fx) * s), y: round(fy + (b.y - fy) * s), w: round(b.w * s), h: round(b.h * s) }]),
+      start.current.map((b) => {
+        const [bx, by] = [round(fx + (b.x - fx) * s), round(fy + (b.y - fy) * s)];
+        return [b.id, { x: bx, y: by, w: round(fx + (b.x + b.w - fx) * s - bx), h: round(fy + (b.y + b.h - fy) * s - by) }];
+      }),
       "drag",
     );
   }
@@ -444,6 +458,7 @@ export default function Sheets() {
                   start.current = free;
                 }}
                 onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
+                onLostPointerCapture={() => setGuide([])}
               />
             ))}
           <Moveable
