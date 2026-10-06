@@ -35,6 +35,9 @@ def test_logged_out_gets_401():
     assert client.get("/api/me").status_code == 401
     assert client.post("/api/feedback", data={"text": "x"}).status_code == 401
     assert client.get("/api/admin/users").status_code == 401
+    assert client.get("/api/templates").status_code == 401
+    assert client.post("/api/templates", json={"name": "x", "doc": {}}).status_code == 401
+    assert client.delete("/api/templates/1").status_code == 401
 
 
 def test_invite_works_once():
@@ -145,6 +148,19 @@ def test_delete_account_removes_user_and_feedback(data_dir):
     assert (data_dir / "users" / "2").exists()
     login = {"email": "a@example.com", "password": PASSWORD}
     assert client.post("/api/login", json=login).status_code == 401
+
+
+def test_templates_belong_to_one_user():
+    client = user("a@example.com")
+    other = user("b@example.com")
+    doc = {"blocks": [], "guides": {"x": [70], "y": []}, "grid": 5}
+    saved = client.post("/api/templates", json={"name": "Drei Spalten", "doc": doc}).json()
+    assert client.get("/api/templates").json() == [{**saved, "name": "Drei Spalten", "doc": doc}]
+    assert other.get("/api/templates").json() == []
+    assert other.delete(f"/api/templates/{saved['id']}").status_code == 404
+    assert client.delete(f"/api/templates/{saved['id']}").status_code == 200
+    assert client.get("/api/templates").json() == []
+    assert client.post("/api/templates", json={"name": "", "doc": doc}).status_code == 422
 
 
 def test_legal_pages_are_public():
