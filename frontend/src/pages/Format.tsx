@@ -1,7 +1,7 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { useState } from "react";
 import { TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
-import { FONTS, MARKS, RULINGS, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling } from "../sheet";
+import { FONTS, H, MARGIN, MARKS, RULINGS, W, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling } from "../sheet";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
 
@@ -101,6 +101,23 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
             Farbe
             <input type="color" value={rulings[0].props.color} onChange={(e) => style("ruling", { color: e.target.value }, "color")} />
           </label>
+          <div className="row">
+            <button onClick={() => place(rulings.map((b) => [b.id, { x: MARGIN, w: W - 2 * MARGIN }]))}>Seitenbreite</button>
+            <button onClick={() => place(rulings.map((b) => [b.id, { h: round(Math.max(1, Math.floor((H - MARGIN - b.y) / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row) }]))}>Bis Seitenende</button>
+          </div>
+          <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
+          {RULINGS[rulings[0].props.kind].at && (
+            <select aria-label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(e) => style("ruling", { font: e.target.value })}>
+              {Object.entries(FONTS).map(([font, [name]]) => (
+                <option key={font} value={font}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
+            Nachspurtext
+          </button>
         </>
       )}
       {maths && <Maths key={maths.id} block={maths} apply={calc} />}

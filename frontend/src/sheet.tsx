@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: "1.", "a)" or "(1)", which count on through the sheet, or a symbol's code.
@@ -14,8 +14,9 @@ export type TextProps = { text: string; size: number; align: Align; font?: Font;
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A line or arrow runs from the corner `from` of its box to the opposite one.
 export type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner } };
-// As many rows as fit the block's height are drawn.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string } };
+// As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
+// square, and grey with `trace` so the children can write over it. Karo is always in print.
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
 export type NameBlock = Box & { type: "name"; props: Record<string, never> };
 export type PointsBlock = Box & { type: "points"; props: { max: number } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
@@ -59,28 +60,35 @@ export type Sheet = { id: number; title: string; updated: string; version: numbe
 
 export const W = 210;
 export const H = 297;
+// The margin a new block keeps, and a ruling that fills the page.
+export const MARGIN = 15;
 export const PT = 25.4 / 72; // mm per point
 // Self-hosted, all under the SIL Open Font License: Andika for print, Playwrite for the four school scripts.
+// The number is how far a font's baseline lies below the middle of a line of text, in em: half of its ascent less
+// its descent. Text on a ruling needs it to stand on the line.
 export const FONTS = {
-  andika: ["Druckschrift", "Andika"],
-  grund: ["Grundschrift", "Playwrite DE Grund Variable"],
-  va: ["Vereinfachte Ausgangsschrift", "Playwrite DE VA Variable"],
-  sas: ["Schulausgangsschrift", "Playwrite DE SAS Variable"],
-  la: ["Lateinische Ausgangsschrift", "Playwrite DE LA Variable"],
-};
+  andika: ["Druckschrift", "Andika", 0.415],
+  grund: ["Grundschrift", "Playwrite DE Grund Variable", 0.4545],
+  va: ["Vereinfachte Ausgangsschrift", "Playwrite DE VA Variable", 0.46],
+  sas: ["Schulausgangsschrift", "Playwrite DE SAS Variable", 0.4515],
+  la: ["Lateinische Ausgangsschrift", "Playwrite DE LA Variable", 0.4545],
+} as const;
 // One row of each ruling: its height, and where its lines lie in mm from the row's top; Karo has squares instead.
 // Lineatur 1 to 4 follow DIN 16552-1: four lines 5 mm apart, four lines 4 mm apart, a band of 3.5 mm, single lines
 // 10 mm apart. The gap to the next row's lines (5, 4 and 8 mm) lies half above and half below, so blocks stack.
 // In Lineatur 1 and 2 that gap is as wide as a zone, so the middle band is tinted, as in the schoolbooks: without
 // it no one could tell where a row begins.
+// Text stands on `base`, in a font of `size` mm. Every font's small letters are half its size high, so they fill
+// the band of Lineatur 1 to 3; single lines have no band and take small letters 0.3 of a row high. On Karo a
+// character is 0.75 of its square, as in a written exercise.
 export const RULINGS = {
-  l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], band: 5 },
-  l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], band: 4 },
-  l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], band: 0 },
-  l4: { name: "Lineatur 4 (Klasse 4)", row: 10, at: [10], band: 0 },
-  lines: { name: "Linien, 8 mm", row: 8, at: [8], band: 0 },
-  k5: { name: "Karo 5 mm", row: 5, at: undefined, band: 0 },
-  k7: { name: "Karo 7 mm", row: 7, at: undefined, band: 0 },
+  l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], band: 5, base: 12.5, size: 10 },
+  l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], band: 4, base: 10, size: 8 },
+  l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], band: 0, base: 7.5, size: 7 },
+  l4: { name: "Lineatur 4 (Klasse 4)", row: 10, at: [10], band: 0, base: 10, size: 6 },
+  lines: { name: "Linien, 8 mm", row: 8, at: [8], band: 0, base: 8, size: 4.8 },
+  k5: { name: "Karo 5 mm", row: 5, at: undefined, band: 0, base: 0, size: 3.75 },
+  k7: { name: "Karo 7 mm", row: 7, at: undefined, band: 0, base: 0, size: 5.25 },
 };
 // The signs as German schools write them.
 export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
@@ -104,11 +112,55 @@ export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from 
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
+export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[b.props.kind].row + 0.05);
+// The square each character of a Karo's text stands in, as [column, row, character]: a row is filled, then the
+// next begins.
+export function squares(text: string, cols: number) {
+  const out: [number, number, string][] = [];
+  let [x, y] = [0, 0];
+  for (const ch of text) {
+    if (ch === "\n" || x === cols) [x, y] = [0, y + 1];
+    if (ch !== "\n") out.push([x++, y, ch]);
+  }
+  return out;
+}
 // The height in mm a maths block needs for its exercises.
 export function mathsHeight(p: MathsProps) {
   const lines = Math.ceil(p.exercises.length / p.columns);
   const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
   return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
+}
+// Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
+// The box ends below the last row's descenders, so text past the last row is cut off.
+// On Karo the field only takes the typing: its letters are unseen and as wide as a square, so the caret stands
+// between the squares, and `Lines` draws the characters.
+export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
+  const { row, at, base, size } = RULINGS[b.props.kind];
+  if (!at)
+    return {
+      fontFamily: "Geist Mono Variable",
+      fontSize: size * k,
+      lineHeight: `${row * k}px`,
+      // Geist Mono's characters are 0.6 em wide.
+      letterSpacing: (row - 0.6 * size) * k,
+      top: 0,
+      width: colsOf(b) * row * k,
+      height: rowsOf(b) * row * k,
+      whiteSpace: "break-spaces",
+      lineBreak: "anywhere",
+      color: "transparent",
+      caretColor: "#222222",
+    };
+  const font = FONTS[b.props.font ?? "andika"];
+  const top = base - row / 2 - font[2] * size;
+  return {
+    fontFamily: font[1],
+    fontSize: size * k,
+    lineHeight: `${row * k}px`,
+    top: top * k,
+    height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
+    color: b.props.trace ? "#aaaaaa" : undefined,
+  };
 }
 export const textStyle = (p: TextProps, k: number): CSSProperties => ({
   fontFamily: FONTS[p.font ?? "andika"][1],
@@ -164,11 +216,12 @@ export function Shape({ block, k }: { block: ShapeBlock; k: number }) {
   );
 }
 
-// Drawn in mm: the SVG's own scale takes it to the block's size.
-function Lines({ block }: { block: RulingBlock }) {
-  const { row, at, band } = RULINGS[block.props.kind];
+// Drawn in mm: the SVG's own scale takes it to the block's size. The editor passes the field the text is typed in.
+function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
+  const { row, at, band, size } = RULINGS[block.props.kind];
+  const { text = "", trace } = block.props;
   const rows = rowsOf(block);
-  const cols = Math.floor(block.w / row + 0.05);
+  const cols = colsOf(block);
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
   return (
@@ -180,7 +233,13 @@ function Lines({ block }: { block: RulingBlock }) {
           <line key={y} x2={at ? block.w : cols * row} y1={y} y2={y} />
         ))}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
+        {!at && cols > 0 && squares(text, cols).map(([x, y, ch], i) => y < rows && (
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={trace ? "#aaaaaa" : "currentColor"}>
+            {ch}
+          </text>
+        ))}
       </svg>
+      {children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
     </div>
   );
 }
@@ -237,11 +296,11 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises.
-export function Draw({ block, k, solved = false }: { block: Block; k: number; solved?: boolean }) {
+export function Draw({ block, k, solved = false, children }: { block: Block; k: number; solved?: boolean; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "text") return <p style={textStyle(block.props, k)}>{block.props.text}</p>;
   if (block.type === "shape") return <Shape block={block} k={k} />;
-  if (block.type === "ruling") return <Lines block={block} />;
+  if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} />;
   if (block.type === "name")
     return (
