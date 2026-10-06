@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes } from "react-router";
 import { api, type User } from "./api";
+import Feedback from "./components/Feedback";
 import Logo from "./components/Logo";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
-import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
 import Photos from "./pages/Photos";
 import Print from "./pages/Print";
@@ -35,7 +35,6 @@ export default function App() {
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
             <Route path="/blatt/:id" element={<Suspense><Editor /></Suspense>} />
-            <Route path="/feedback" element={<Feedback />} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => setUser(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}
@@ -60,7 +59,7 @@ function Layout({ user }: { user: User }) {
     <>
       <nav>
         <NavLink to="/" className="brand"><Logo /></NavLink>
-        <NavLink to="/feedback" end>Feedback</NavLink>
+        <Feedback>Feedback</Feedback>
         <NavLink to="/feedback/fotos">Fotos</NavLink>
         {user.admin && <NavLink to="/admin">Admin</NavLink>}
         <NavLink to="/konto">Konto</NavLink>

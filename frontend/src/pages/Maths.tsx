@@ -1,7 +1,8 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
 import { useRef, useState } from "react";
 import { post } from "../api";
-import { MARKS, SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import Numbering from "../components/Numbering";
+import { SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
@@ -162,14 +163,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       {failed && <p className="hint" role="alert">Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?</p>}
       <button className="wide" onClick={() => limit({ seed: newSeed() })}>Neu würfeln</button>
       <h2>Aufgaben nummerieren</h2>
-      <div className="seg">
-        <button className={p.numbering ? "" : "on"} onClick={() => show({ numbering: undefined })}>Keine</button>
-        {Object.keys(MARKS).map((m) => (
-          <button key={m} className={p.numbering === m ? "on" : ""} onClick={() => show({ numbering: m })}>
-            {m}
-          </button>
-        ))}
-      </div>
+      <Numbering value={p.numbering} onChange={(numbering) => show({ numbering })} />
     </>
   );
 }

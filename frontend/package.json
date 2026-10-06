@@ -17,6 +17,7 @@
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
     "lucide-react": "^1.52.0",
+    "modern-screenshot": "^4.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-moveable": "^0.56.0",

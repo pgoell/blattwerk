@@ -36,6 +36,7 @@ import {
   ImagePlus,
   LayoutTemplate,
   Lock,
+  MessageSquare,
   LockOpen,
   Minus,
   PanelLeft,
@@ -43,6 +44,7 @@ import {
   Plus,
   Redo2,
   Rows3,
+  Ruler,
   SeparatorHorizontal,
   SeparatorVertical,
   Smile,
@@ -63,9 +65,10 @@ import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useParams } from "react-router";
 import { api, post } from "../api";
+import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
-import { Draw, H, MARGIN, Mark, Paper, W, far, isLine, last, mathsHeight, numbers, read, textStyle, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, H, MARGIN, Mark, Paper, W, boxed, far, isLine, last, mathsHeight, numbers, read, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -78,6 +81,10 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // Snap lines on the page: the margins and the centre.
 const XS = [MARGIN, W / 2, W - MARGIN];
 const YS = [MARGIN, H / 2, H - MARGIN];
+// The frames a text or a shape can have.
+const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"]];
+const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
+const LABELS = [[undefined, "Keine"], ["show", "Blatt"], ["key", "Lösungen"]] as const;
 const SHAPES: [Kind, string, LucideIcon][] = [
   ["rect", "Rechteck", Square],
   ["rounded", "Abgerundet", Squircle],
@@ -225,7 +232,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const ns = numbers(hist.doc);
   // The built-in templates have ids below zero; the teacher's own can be deleted.
   const kept = templates.filter((t) => t.id > 0);
-  const shapes = sel.filter((b) => b.type === "shape");
+  // What has a fill and a border. The first shows its settings; a change goes to all of them.
+  const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
+  const fill = boxes[0]?.props.fill ?? "none";
+  const stroke = boxes[0]?.props.stroke ?? "none";
+  const rulers = sel.filter(isLine);
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
   // The picture in crop mode. The draft is dropped when the selection moves on by any way but `done`.
@@ -265,7 +276,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as Element).matches("textarea, input, select")) return;
+      if ((e.target as Element).closest("textarea, input, select, dialog")) return;
       const keys: Record<string, () => void> =
         e.ctrlKey || e.metaKey
           ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel) }
@@ -366,6 +377,20 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   function style(type: Block["type"], props: object, key?: string) {
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+  }
+  // Sets what a shape and a text share: the frame, and the text in it.
+  function look(props: object, key?: string) {
+    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+  }
+  // Gives the selected lines a length in mm. Each keeps its angle and the top left corner of its box.
+  function extend(to: number) {
+    place(
+      rulers.map((b) => {
+        const now = Math.hypot(b.w, b.h);
+        return [b.id, now ? { w: round((b.w * to) / now), h: round((b.h * to) / now) } : { w: to }];
+      }),
+      "length",
+    );
   }
   function undo() {
     mergeKey.current = "";
@@ -677,7 +702,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   function edit(id?: string) {
     if (!id || free.length !== 1 || free[0].id !== id) return;
-    if (free[0].type === "text" || free[0].type === "ruling") setEditing(id);
+    if (boxed(free[0]) || free[0].type === "ruling") setEditing(id);
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -797,7 +822,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
       <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
       <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+      {/* What makes exercises, a group to a subject. */}
+      <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
+      <Tool icon={Ruler} label="Strecke" onClick={() => add(50, 0, { type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } })} />
       <i className="sep" data-name="Formen" />
       <span className="shapes">
         {SHAPES.map(([kind, label, icon]) => (
@@ -867,6 +895,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           {!leaf && zoomer}
           <Tool icon={PanelRight} label="Format und Ansicht" className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)} />
           <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />
+          <Feedback className="ib" aria-label="Feedback">
+            <MessageSquare size={16} aria-hidden />
+          </Feedback>
           <span className="pdf" data-tour="pdf">
             <button onClick={() => pdf(true)}>
               <FileCheck size={14} aria-hidden />
@@ -992,33 +1023,34 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   className={ids.includes(b.id) ? "block sel" : "block"}
                   style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
                 >
-                  {b.type === "text" ? (
-                    <textarea
-                      value={b.props.text}
-                      placeholder="Text"
-                      readOnly={editing !== b.id}
-                      style={textStyle(b.props, k)}
-                      onChange={(e) => style("text", { text: e.target.value }, "text")}
-                      onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-                      onBlur={() => setEditing("")}
-                    />
-                  ) : (
-                    <Draw block={b} k={k} solved={solved}>
-                      {b.type === "ruling" && (
+                  <Draw block={b} k={k} solved={solved}>
+                    {boxed(b) ? (
+                      // The text is as high as its lines, so the frame can set it at its top, middle or bottom.
+                      <div className="grow" data-value={boxed(b)!.text}>
                         <textarea
-                          className="written"
-                          value={b.props.text ?? ""}
+                          rows={1}
+                          value={boxed(b)!.text}
+                          placeholder={b.type === "text" ? "Text" : undefined}
                           readOnly={editing !== b.id}
-                          style={writtenStyle(b, k)}
-                          onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                          onChange={(e) => look({ text: e.target.value }, "text")}
                           onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
                           onBlur={() => setEditing("")}
-                          // A line typed past the last row would scroll the others off their rows.
-                          onScroll={(e) => (e.currentTarget.scrollTop = 0)}
                         />
-                      )}
-                    </Draw>
-                  )}
+                      </div>
+                    ) : b.type === "ruling" ? (
+                      <textarea
+                        className="written"
+                        value={b.props.text ?? ""}
+                        readOnly={editing !== b.id}
+                        style={writtenStyle(b, k)}
+                        onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                        onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                        onBlur={() => setEditing("")}
+                        // A line typed past the last row would scroll the others off their rows.
+                        onScroll={(e) => (e.currentTarget.scrollTop = 0)}
+                      />
+                    ) : undefined}
+                  </Draw>
                   <Mark block={b} k={k} n={ns.get(b.id)} />
                   {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {b === line &&
@@ -1158,26 +1190,34 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               <Format
                 sel={sel}
                 style={style}
+                look={look}
                 place={place}
                 cropping={!!cropping}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
               />
-              {shapes.length > 0 && (
+              {boxes.length > 0 && (
                 <>
-                  <h2>Form</h2>
+                  <h2>Füllung und Rand</h2>
+                  {/* A line stays a line. */}
+                  {!rulers.length && (
+                    <div className="seg">
+                      {FRAMES.map(([kind, label]) => (
+                        <button key={kind} className={(boxes[0].props.kind ?? "rect") === kind ? "on" : ""} onClick={() => look({ kind })}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <label>
                     Füllung
-                    <input
-                      type="color"
-                      value={shapes[0].props.fill === "none" ? "#ffffff" : shapes[0].props.fill}
-                      onChange={(e) => style("shape", { fill: e.target.value }, "fill")}
-                    />
+                    <input type="color" value={fill === "none" ? "#ffffff" : fill} onChange={(e) => look({ fill: e.target.value }, "fill")} />
                   </label>
-                  <button className="wide" disabled={shapes[0].props.fill === "none"} onClick={() => style("shape", { fill: "none" })}>Keine Füllung</button>
+                  <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none" })}>Keine Füllung</button>
                   <label>
                     Rand
-                    <input type="color" value={shapes[0].props.stroke} onChange={(e) => style("shape", { stroke: e.target.value }, "stroke")} />
+                    <input type="color" value={stroke === "none" ? "#222222" : stroke} onChange={(e) => look({ stroke: e.target.value }, "stroke")} />
                   </label>
+                  {!rulers.length && <button className="wide" disabled={stroke === "none"} onClick={() => look({ stroke: "none" })}>Kein Rand</button>}
                   <label>
                     Randstärke
                     <input
@@ -1185,10 +1225,43 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                       min={0.25}
                       max={3}
                       step={0.25}
-                      value={shapes[0].props.strokeWidth}
-                      onChange={(e) => style("shape", { strokeWidth: +e.target.value }, "strokeWidth")}
+                      value={boxes[0].props.strokeWidth ?? 0.5}
+                      onChange={(e) => look({ strokeWidth: +e.target.value }, "strokeWidth")}
                     />
                   </label>
+                  <div className="seg">
+                    {DASHES.map(([dash, label, sign]) => (
+                      <button key={label} className={boxes[0].props.dash === dash ? "on" : ""} aria-label={label} title={label} onClick={() => look({ dash })}>
+                        {sign}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {rulers.length > 0 && rulers.length === sel.length && (
+                <>
+                  <h2>Strecke</h2>
+                  <label>
+                    Länge in cm
+                    <input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={Math.round(Math.hypot(rulers[0].w, rulers[0].h) * 10) / 100}
+                      onChange={(e) => +e.target.value > 0 && extend(+e.target.value * 10)}
+                    />
+                  </label>
+                  <button className={rulers[0].props.ticks ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.ticks} onClick={() => style("shape", { ticks: !rulers[0].props.ticks })}>
+                    Striche an den Enden
+                  </button>
+                  <h2>Länge anschreiben</h2>
+                  <div className="seg">
+                    {LABELS.map(([label, name]) => (
+                      <button key={name} className={rulers[0].props.label === label ? "on" : ""} onClick={() => style("shape", { label })}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
                 </>
               )}
               <h2>Ausrichten</h2>
