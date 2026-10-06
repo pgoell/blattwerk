@@ -1,4 +1,4 @@
-"""Feedback from a logged-in user: text, voice notes and photos, saved to disk."""
+"""Feedback from a logged-in user: text, voice notes, photos and the screen, saved to disk."""
 
 import json
 from datetime import UTC, datetime
@@ -35,7 +35,7 @@ async def submit(user: User, request: Request) -> dict[str, str]:
     # One counter per field, so a send's files read audio-1, photo-1, photo-2.
     counts: dict[str, int] = {}
     for field, upload in form.multi_items():
-        if not isinstance(upload, UploadFile) or field not in ("audio", "photo"):
+        if not isinstance(upload, UploadFile) or field not in ("audio", "photo", "screenshot"):
             continue
         counts[field] = counts.get(field, 0) + 1
         ext = FILE_TYPES.get((upload.content_type or "").split(";")[0], "bin")

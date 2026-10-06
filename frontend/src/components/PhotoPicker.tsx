@@ -1,8 +1,9 @@
 import { useObjectUrl } from "./useObjectUrl";
 
-type Props = { photos: File[]; onChange: (photos: File[]) => void };
+// `name` is what one picture is called: a page of a sheet unless said otherwise.
+type Props = { photos: File[]; onChange: (photos: File[]) => void; name?: string };
 
-export default function PhotoPicker({ photos, onChange }: Props) {
+export default function PhotoPicker({ photos, onChange, name = "Seite" }: Props) {
   return (
     <>
       <label className="pick">
@@ -22,10 +23,10 @@ export default function PhotoPicker({ photos, onChange }: Props) {
         {photos.map((photo, i) => (
           <figure key={i}>
             <Thumb file={photo} />
-            <button type="button" aria-label={`Seite ${i + 1} entfernen`} onClick={() => onChange(photos.filter((p) => p !== photo))}>
+            <button type="button" aria-label={`${name} ${i + 1} entfernen`} onClick={() => onChange(photos.filter((p) => p !== photo))}>
               ×
             </button>
-            <figcaption>Seite {i + 1}</figcaption>
+            <figcaption>{name} {i + 1}</figcaption>
           </figure>
         ))}
       </div>

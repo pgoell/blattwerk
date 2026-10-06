@@ -1,7 +1,8 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { useState } from "react";
-import { TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
-import { FONTS, H, MARGIN, MARKS, RULINGS, W, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling } from "../sheet";
+import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
+import Numbering from "../components/Numbering";
+import { FONTS, H, MARGIN, RULINGS, W, boxed, counts, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling, type Valign } from "../sheet";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
 
@@ -9,6 +10,8 @@ type Props = {
   sel: Block[];
   // Sets props on every selected block of one type.
   style: (type: Block["type"], props: object, key?: string) => void;
+  // Sets what a text and a shape share on every selected one of them.
+  look: (props: object, key?: string) => void;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
@@ -16,12 +19,14 @@ type Props = {
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
+const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export default function Format({ sel, style, place, crop, cropping }: Props) {
+export default function Format({ sel, style, look, place, crop, cropping }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
-  const [text] = of("text");
+  // A shape that is no line holds text as a text block does.
+  const text = sel.map(boxed).find((p) => p);
   const rulings = of("ruling");
   const [points] = of("points");
   const [sign] = of("symbol");
@@ -46,7 +51,7 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
       {text && (
         <>
           <h2>Schrift</h2>
-          <select aria-label="Schriftart" value={text.props.font ?? "andika"} onChange={(e) => style("text", { font: e.target.value })}>
+          <select aria-label="Schriftart" value={text.font ?? "andika"} onChange={(e) => look({ font: e.target.value })}>
             {Object.entries(FONTS).map(([font, [name]]) => (
               <option key={font} value={font}>
                 {name}
@@ -54,31 +59,38 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
             ))}
           </select>
           <div className="seg">
-            <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, text.props.size - 2) })}>−</button>
-            <output>{text.props.size} pt</output>
-            <button aria-label="Schrift größer" onClick={() => style("text", { size: text.props.size + 2 })}>＋</button>
+            <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
+            <output>{text.size} pt</output>
+            <button aria-label="Schrift größer" onClick={() => look({ size: text.size + 2 })}>＋</button>
           </div>
           <div className="seg">
             {([["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const).map(([prop, label]) => (
-              <button key={prop} className={`${prop}${text.props[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!text.props[prop]} onClick={() => style("text", { [prop]: !text.props[prop] })}>
+              <button key={prop} className={`${prop}${text[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!text[prop]} onClick={() => look({ [prop]: !text[prop] })}>
                 {label[0]}
               </button>
             ))}
           </div>
           <div className="seg">
             {ALIGNS.map(([value, label, Icon]) => (
-              <button key={value} className={text.props.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={text.props.align === value} onClick={() => style("text", { align: value })}>
+              <button key={value} className={text.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={text.align === value} onClick={() => look({ align: value })}>
+                <Icon size={14} aria-hidden />
+              </button>
+            ))}
+          </div>
+          <div className="seg">
+            {VALIGNS.map(([value, label, Icon]) => (
+              <button key={value} className={(text.valign ?? "top") === value ? "on" : ""} aria-label={label} title={label} aria-pressed={(text.valign ?? "top") === value} onClick={() => look({ valign: value })}>
                 <Icon size={14} aria-hidden />
               </button>
             ))}
           </div>
           <label>
             Farbe
-            <input type="color" value={text.props.color ?? "#222222"} onChange={(e) => style("text", { color: e.target.value }, "color")} />
+            <input type="color" value={text.color ?? "#222222"} onChange={(e) => look({ color: e.target.value }, "color")} />
           </label>
           <label>
             Zeilenabstand
-            <input type="range" min={1} max={3} step={0.1} value={text.props.spacing ?? 1.3} onChange={(e) => style("text", { spacing: +e.target.value }, "spacing")} />
+            <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
         </>
       )}
@@ -146,16 +158,8 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
         </>
       )}
       <h2>Nummerierung</h2>
-      <div className="seg">
-        <button className={mark ? "" : "on"} onClick={() => number()}>Keine</button>
-        {Object.keys(MARKS).map((m) => (
-          <button key={m} className={mark === m ? "on" : ""} onClick={() => number(m)}>
-            {m}
-          </button>
-        ))}
-        <button className={mark && !MARKS[mark] ? "on" : ""} onClick={() => number("2B50")}>Symbol</button>
-      </div>
-      {mark && !MARKS[mark] && <Symbols value={mark} onPick={number} />}
+      <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
+      {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
     </>
   );
 }

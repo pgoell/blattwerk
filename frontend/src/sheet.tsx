@@ -2,18 +2,23 @@
 import type { CSSProperties, ReactNode } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
-// before a block: "1.", "a)" or "(1)", which count on through the sheet, or a symbol's code.
+// before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code.
 export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string };
 export type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
 export type Ruling = keyof typeof RULINGS;
+export type Valign = "top" | "middle" | "bottom";
 // Sheets saved before text had these settings lack them: a text is then Andika, black, with lines 1.3 apart.
-export type TextProps = { text: string; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number };
+// A text has what a shape has, as a PowerPoint text box does: a fill and a border ("none" or absent for neither,
+// the border 0.5 mm wide unless set), dashes, and round corners with `kind`.
+export type TextProps = { text: string; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
-// A line or arrow runs from the corner `from` of its box to the opposite one.
-export type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner } };
+// A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
+// `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
+// ("show") or on the answer key alone ("key").
+export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner; ticks?: boolean; label?: "show" | "key" } };
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
 export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
@@ -94,12 +99,11 @@ export const RULINGS = {
 export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
 // The side of a square of a written exercise, in mm.
 export const KARO = 5;
-// The numbering styles, each from a count that starts at 1.
-export const MARKS: Record<string, (n: number) => string> = {
-  "1.": (n) => `${n}.`,
-  "a)": (n) => `${String.fromCharCode(97 + ((n - 1) % 26))})`,
-  "(1)": (n) => `(${n})`,
-};
+// A numbering counts in numbers, "1", or letters, "a", and has one of these looks; "#o" is a ring around it.
+export const LOOKS = ["#", "#.", "#)", "(#)", "#o"];
+export const lookOf = (mark: string) => mark.replace(/[1a]/, "#");
+// Whether a mark counts; a symbol's code does not.
+export const counts = (mark?: string): mark is string => !!mark && LOOKS.includes(lookOf(mark));
 export const EMPTY: Doc = { pages: [{ blocks: [] }], guides: { x: [], y: [] }, grid: 0 };
 // The editor's last save. The list waits for it, so it shows the sheet as it was left.
 export const last = { save: Promise.resolve() as Promise<unknown> };
@@ -109,6 +113,13 @@ export const read = ({ pages, blocks, guides, grid }: Doc & { blocks?: Block[] }
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
+// The text and the frame of a text, or of a shape that is no line.
+export function boxed(b: Block): TextProps | undefined {
+  if (b.type === "text") return b.props;
+  // `isLine` tells the compiler that every shape it turns down is no shape, so the props are read first.
+  const props = b.type === "shape" ? b.props : undefined;
+  if (props && !isLine(b)) return { text: "", size: 14, align: "center", valign: "middle", ...props };
+}
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
@@ -172,47 +183,78 @@ export const textStyle = (p: TextProps, k: number): CSSProperties => ({
   color: p.color,
   lineHeight: p.spacing ?? 1.3,
 });
-// The number before each numbered block. Blocks count in reading order, page after page; after each "1." the
-// letters and the bracketed numbers start over, so tasks can have parts.
+// How far in mm a text keeps its letters from its box's edge, down and across: its border, and the room a
+// PowerPoint text box leaves. A text with neither fill nor border stays where sheets saved before had it.
+export function inset(p: TextProps, shape: boolean) {
+  const [filled, edged] = [p.fill, p.stroke].map((c) => !!c && c !== "none");
+  const edge = edged ? (p.strokeWidth ?? 0.5) : 0;
+  return shape || filled || edged ? [1.3 + edge, 2.5 + edge, edge] : [0, 0, 0];
+}
+// The count before each numbered block. Blocks count in reading order, page after page; the letters start over
+// after each number, so tasks can have parts.
 export function numbers(doc: Doc) {
-  const out = new Map<string, string>();
-  const count: Record<string, number> = {};
+  const out = new Map<string, number>();
+  const count = { "1": 0, a: 0 };
   for (const page of doc.pages)
     for (const b of [...page.blocks].sort((a, b) => a.y - b.y || a.x - b.x)) {
-      if (!b.mark || !MARKS[b.mark]) continue;
-      if (b.mark === "1.") count["a)"] = count["(1)"] = 0;
-      count[b.mark] = (count[b.mark] ?? 0) + 1;
-      out.set(b.id, MARKS[b.mark](count[b.mark]));
+      if (!counts(b.mark)) continue;
+      const kind = b.mark.includes("1") ? "1" : "a";
+      if (kind === "1") count.a = 0;
+      out.set(b.id, ++count[kind]);
     }
   return out;
 }
+// The `n`th number or letter of a numbering, in its look.
+export function Count({ mark, n }: { mark: string; n: number }) {
+  const text = mark.replace("o", "").replace(/[1a]/, (c) => (c === "1" ? String(n) : String.fromCharCode(97 + ((n - 1) % 26))));
+  return mark.endsWith("o") ? <span className="ring">{text}</span> : <>{text}</>;
+}
 
-export function Shape({ block, k }: { block: ShapeBlock; k: number }) {
-  const { kind, fill, stroke, strokeWidth } = block.props;
-  if (isLine(block)) {
-    // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs.
-    const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
-    const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
-    const length = Math.hypot(block.w, block.h);
-    const head = kind === "arrow" ? 2 + strokeWidth * 3 : 0;
-    return (
-      <svg>
-        <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
-          <line x2={length} stroke="transparent" strokeWidth={10} />
-          <line x2={length - head} />
-          {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
-        </g>
-      </svg>
-    );
-  }
+// Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs. The length stands
+// over the middle, turned so it never reads upside down.
+function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: boolean }) {
+  const { kind, stroke, strokeWidth, dash, ticks, label } = block.props;
+  const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
+  const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
+  const length = Math.hypot(block.w, block.h);
+  const head = kind === "arrow" ? 2 + strokeWidth * 3 : 0;
+  const dashes = dash === "dashed" ? `${strokeWidth * 4} ${strokeWidth * 3}` : dash === "dotted" ? `0 ${strokeWidth * 2.5}` : undefined;
+  return (
+    <svg>
+      <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
+        <line x2={length} stroke="transparent" strokeWidth={10} />
+        <line x2={length - head} strokeDasharray={dashes} strokeLinecap={dash === "dotted" ? "round" : undefined} />
+        {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
+        {ticks && [0, ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
+        {(label === "show" || (label === "key" && solved)) && (
+          <text x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
+            {(Math.round(length * 10) / 100).toLocaleString("de")} cm
+          </text>
+        )}
+      </g>
+    </svg>
+  );
+}
+
+const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
+// A text or a shape with its text. The editor passes the field the text is typed in.
+function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: number; children?: ReactNode }) {
+  const p = boxed(block)!;
+  const [down, across, edge] = inset(p, block.type === "shape");
   return (
     <div
+      className="frame"
       style={{
-        background: fill,
-        border: `${strokeWidth * k}px solid ${stroke}`,
-        borderRadius: kind === "circle" ? "50%" : kind === "rounded" ? 4 * k : 0,
+        ...textStyle(p, k),
+        background: p.fill,
+        border: edge ? `${edge * k}px ${p.dash ?? "solid"} ${p.stroke}` : undefined,
+        borderRadius: p.kind === "circle" ? "50%" : p.kind === "rounded" ? 4 * k : 0,
+        padding: `${(down - edge) * k}px ${(across - edge) * k}px`,
+        justifyContent: UP[p.valign ?? "top"],
       }}
-    />
+    >
+      {children ?? <p>{p.text}</p>}
+    </div>
   );
 }
 
@@ -278,7 +320,7 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
     <div className={`maths ${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
       {p.exercises.map((e, i) => (
         <div key={i}>
-          {p.numbering && <b>{MARKS[p.numbering](i + 1)}</b>}
+          {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}
           {e.grid ? (
             <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
           ) : (
@@ -298,8 +340,8 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
 // `solved` fills in the answers of the maths exercises.
 export function Draw({ block, k, solved = false, children }: { block: Block; k: number; solved?: boolean; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
-  if (block.type === "text") return <p style={textStyle(block.props, k)}>{block.props.text}</p>;
-  if (block.type === "shape") return <Shape block={block} k={k} />;
+  if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k}>{children}</Frame>;
+  if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} />;
   if (block.type === "name")
@@ -333,13 +375,14 @@ export function Draw({ block, k, solved = false, children }: { block: Block; k: 
 }
 
 // A block's numbering stands to the left of its box, so the box keeps its place and its snap lines. `n` is the
-// number of a counted block; a symbol has none.
-export function Mark({ block, k, n }: { block: Block; k: number; n?: string }) {
+// number of a counted block; a symbol has none. Beside a text it starts as far down as the text's first line, and
+// beside a line its middle is level with the line's start.
+export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
   if (!block.mark) return null;
-  const style = textStyle(block.type === "text" ? block.props : { text: "", size: 14, align: "left" }, k);
+  const style = textStyle(boxed(block) ?? { text: "", size: 14, align: "left" }, k);
   return (
-    <b className="mark" style={{ ...style, textDecoration: "none" }}>
-      {n ?? <img src={symbol(block.mark)} alt="" />}
+    <b className="mark" style={{ ...style, textDecoration: "none", paddingTop: block.type === "text" ? inset(block.props, false)[0] * k : 0, translate: isLine(block) ? "0 -50%" : undefined }}>
+      {n ? <Count mark={block.mark} n={n} /> : <img src={symbol(block.mark)} alt="" />}
     </b>
   );
 }

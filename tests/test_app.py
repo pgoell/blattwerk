@@ -160,6 +160,7 @@ def test_feedback_lands_in_the_users_folder(data_dir):
             ("audio", ("clip", b"one", "audio/webm;codecs=opus")),
             ("audio", ("clip", b"two", "audio/mp4")),
             ("photo", ("photo", b"page1", "image/jpeg")),
+            ("screenshot", ("screenshot", b"screen", "image/jpeg")),
             ("other", ("x", b"ignored", "image/jpeg")),
         ],
     )
@@ -168,7 +169,8 @@ def test_feedback_lands_in_the_users_folder(data_dir):
     assert (out / "audio-1.webm").read_bytes() == b"one"
     assert (out / "audio-2.m4a").read_bytes() == b"two"
     assert (out / "photo-1.jpg").read_bytes() == b"page1"
-    assert len(list(out.iterdir())) == 4
+    assert (out / "screenshot-1.jpg").read_bytes() == b"screen"
+    assert len(list(out.iterdir())) == 5
 
 
 def test_delete_account_removes_user_and_feedback(data_dir):
