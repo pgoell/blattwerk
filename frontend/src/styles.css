@@ -121,6 +121,21 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .grid figcaption { font-size: .85rem; color: var(--muted); text-align: center; margin-top: 4px; }
 .grid button { position: absolute; top: 4px; right: 4px; min-height: 44px; width: 44px; padding: 0; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; }
 
+/* The list of sheets: page one drawn small, the title and the date under it. */
+.sheets { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(auto-fill, 147px); gap: 28px 20px; }
+.sheets a { display: block; color: inherit; text-decoration: none; }
+.sheets strong, .sheets small { display: block; }
+.sheets strong { margin-top: 10px; line-height: 1.3; overflow-wrap: anywhere; }
+.sheets small { color: var(--muted); }
+.sheets li div { display: flex; }
+.sheets button { flex: 1; min-height: 44px; padding: 0; }
+.thumb {
+  position: relative; isolation: isolate; overflow: hidden; background: #fff; color: #222; border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), var(--shadow); pointer-events: none;
+}
+.thumb .block { min-width: 0; min-height: 0; }
+.thumb p { margin: 0; line-height: 1.3; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
+
 /* Logged out: the pitch beside the form, stacked on a phone. */
 .auth { max-width: 1040px; display: grid; gap: 40px; align-content: center; }
 .auth-form { width: 100%; max-width: 420px; margin: 0 auto; }
@@ -153,7 +168,12 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 #root:has(.editor) { height: 100dvh; }
 .editor { max-width: none; min-height: 0; padding: 0; display: grid; grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) auto; }
 .ribbon { grid-column: 1 / -1; background: var(--card); border-bottom: 1px solid var(--line); }
-.tabs { display: flex; gap: 2px; padding: 4px 12px 0; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px 12px 0; border-bottom: 1px solid var(--line); }
+/* The sheet's title and whether it is saved stand beside the tabs. */
+.tabs input { flex: 1 1 160px; width: auto; min-height: 44px; margin: 0 8px 4px; }
+.tabs .hint { margin: 0 8px 4px; white-space: nowrap; }
+/* The sheet was saved from somewhere else: the teacher picks which version stays. */
+.clash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--rec); color: #fff; font-weight: 600; }
 .tabs [role=tab] { border-radius: 0; border-width: 0 0 3px; border-color: transparent; background: none; color: var(--muted); }
 .tabs [aria-selected=true] { color: var(--accent-strong); border-color: var(--accent); }
 .tabs [aria-pressed] { margin: 0 0 4px auto; }
@@ -189,6 +209,9 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 2px 4px rgba(0, 0, 0, .06), 0 24px 48px -16px rgba(0, 0, 0, .22);
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
+/* Pages lie one under the other; a ring marks the one in use. */
+.sheet + .sheet { margin-top: 32px; }
+.sheet.on:not(:only-child) { outline: 2px solid var(--accent); outline-offset: 4px; }
 /* Karo paper on the screen; the cell is set to the zoom. */
 .sheet.grid {
   background-image: linear-gradient(to right, #c9d6ea 1px, transparent 1px), linear-gradient(#c9d6ea 1px, transparent 1px);
@@ -197,6 +220,7 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* The teacher's own guide lines. Only the tab takes the pointer, so a line never covers a block. The tab starts in
    the desk's edge beside the page and stays in view when the page scrolls. */
 .rule { position: absolute; z-index: 2999; pointer-events: none; border: 0 dashed #d9480f; }
+.rule.own { border-style: dotted; }
 .rule.x { top: -24px; bottom: 0; border-left-width: 1px; }
 .rule.y { left: -32px; right: 0; border-top-width: 1px; }
 .rule b {
