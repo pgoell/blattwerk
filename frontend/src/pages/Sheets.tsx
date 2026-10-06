@@ -33,6 +33,18 @@ const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX)
 const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
+// The box around several blocks.
+const bounds = (bs: Box[]) => {
+  const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
+  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+};
+// Where the box around some blocks starts and ends.
+const span = (boxes: Box[], axis: Axis) => {
+  const size = axis === "x" ? "w" : "h";
+  return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
+};
+// A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
+const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 
 export default function Sheets() {
   const [hist, setHist] = useState<{ past: Block[][]; blocks: Block[]; future: Block[][] }>({ past: [], blocks: [], future: [] });
@@ -41,6 +53,8 @@ export default function Sheets() {
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
   const [multi, setMulti] = useState(false);
+  // The x and y, in mm, that a line's end has snapped to.
+  const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Pixels per mm when the page fills the desk's width; zoom multiplies it.
   const [fit, setFit] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -52,6 +66,7 @@ export default function Sheets() {
   const hold = useRef(0);
   const held = useRef(false);
   const grab = useRef([0, 0]);
+  const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { blocks } = hist;
@@ -62,7 +77,13 @@ export default function Sheets() {
   const shapes = sel.filter((b) => b.type === "shape");
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
+  // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
+  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
+  // Snap lines: the page's, then the edges and centres of the blocks that stay put.
+  const still = blocks.filter((b) => !ids.includes(b.id));
+  const xs = [...XS, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
+  const ys = [...YS, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
     const observer = new ResizeObserver(([entry]) => setFit(entry.contentRect.width / W));
@@ -80,7 +101,10 @@ export default function Sheets() {
   }, [blocks, k]);
 
   useLayoutEffect(() => {
-    if (editing) sheet.current!.querySelector<HTMLElement>(`[data-id="${editing}"] textarea`)?.focus();
+    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
+    area?.focus();
+    // A copy, or a text put back by undo, would start with the caret before the text.
+    area?.setSelectionRange(area.value.length, area.value.length);
   }, [editing]);
 
   useEffect(() => {
@@ -97,6 +121,18 @@ export default function Sheets() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // A finger on a block of a flat group starts the group's drag, as a mouse press does in `pick`. Moveable cancels
+  // the touch it drags from, and React's own touch listeners are passive, so this one is set by hand.
+  useEffect(() => {
+    const el = desk.current!;
+    function onTouch(e: globalThis.TouchEvent) {
+      const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+      if (e.touches.length === 1 && ids.length > 1 && ids.includes(id!)) moveable.current!.dragStart(e);
+    }
+    el.addEventListener("touchstart", onTouch, { passive: false });
+    return () => el.removeEventListener("touchstart", onTouch);
   });
 
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
@@ -121,24 +157,32 @@ export default function Sheets() {
     setHist((h) => (h.future.length ? { past: [...h.past, h.blocks], blocks: h.future[0], future: h.future.slice(1) } : h));
   }
 
+  // Moves new blocks as one onto the page, then in steps clear of a block already at that spot.
+  function land<T extends Box>(boxes: T[]) {
+    const [x, right] = span(boxes, "x");
+    const [y, bottom] = span(boxes, "y");
+    const [maxX, maxY] = [Math.max(0, W - right + x), Math.max(0, H - bottom + y)];
+    let [dx, dy] = [Math.max(0, Math.min(x, maxX)) - x, Math.max(0, Math.min(y, maxY)) - y];
+    const taken = () => blocks.some((b) => b.x === round(boxes[0].x + dx) && b.y === round(boxes[0].y + dy));
+    // A step for each block is enough to find a free spot, unless the page has none.
+    for (let n = 0; n < blocks.length && taken(); n++) {
+      dx = step(x + dx, maxX) - x;
+      dy = step(y + dy, maxY) - y;
+    }
+    return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
+  }
   function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
     const id = crypto.randomUUID();
-    let x = (W - w) / 2;
-    let y = Math.min(round(desk.current!.scrollTop / k) + MARGIN, H - h);
-    // Step clear of a block already at that spot, as far as the page allows.
-    while (blocks.some((b) => b.x === x && b.y === y) && x + w + 5 <= W && y + h + 5 <= H) {
-      x += 5;
-      y += 5;
-    }
-    const block = { id, x, y, w, h, z: top + 1, locked: false, ...rest };
+    const y = round(desk.current!.scrollTop / k) + MARGIN;
+    const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
     change((bs) => [...bs, block]);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
   }
   function put(from: Block[]) {
-    const copies = [...from]
-      .sort((a, b) => a.z - b.z)
-      .map((b, i) => ({ ...b, id: crypto.randomUUID(), x: b.x + 5, y: b.y + 5, z: top + 1 + i }));
+    const copies = land(
+      [...from].sort((a, b) => a.z - b.z).map((b, i) => ({ ...b, id: crypto.randomUUID(), x: b.x + 5, y: b.y + 5, z: top + 1 + i })),
+    );
     change((bs) => [...bs, ...copies]);
     setIds(copies.map((b) => b.id));
     return copies;
@@ -160,7 +204,7 @@ export default function Sheets() {
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
     const row = [...free].sort((a, b) => a[axis] - b[axis]);
-    const end = Math.max(...row.map((b) => b[axis] + b[size]));
+    const end = row.at(-1)![axis] + row.at(-1)![size];
     const gap = (end - row[0][axis] - row.reduce((sum, b) => sum + b[size], 0)) / (row.length - 1);
     let next = row[0][axis];
     place(
@@ -172,34 +216,46 @@ export default function Sheets() {
     );
   }
 
-  // Moveable snaps to within a pixel of a guide. These put an edge, or an edge or centre, that close exactly on it.
-  const edge = (at: number, guides: number[]) => guides.find((g) => Math.abs(g - at) < 1 / k) ?? at;
-  const settle = (at: number, size: number, guides: number[]) => {
-    const part = [0, size / 2, size].find((part) => edge(at + part, guides) !== at + part);
-    return round(part === undefined ? at : edge(at + part, guides) - part);
-  };
+  // Moveable works in whole pixels and leaves what it snaps up to two off the guide.
+  // This is how far to move so that the nearest of `parts` that close lies exactly on it.
+  const pull = (at: number, parts: number[], guides: number[]) =>
+    parts
+      .flatMap((part) => guides.map((g) => g - at - part))
+      .filter((d) => Math.abs(d) < 2 / k)
+      .sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? 0;
+  const edge = (at: number, guides: number[]) => at + pull(at, [0], guides);
 
   // Moveable reports px, the document keeps mm. It reads the new size back at once, so render before returning.
-  const drag = (events: OnDrag[]) =>
-    flushSync(() =>
-      place(
-        events.map((e) => {
-          const b = blocks.find((b) => b.id === idOf(e.target))!;
-          return [b.id, { x: settle(e.left / k, b.w, XS), y: settle(e.top / k, b.h, YS) }];
-        }),
-        "drag",
-      ),
-    );
+  // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
+  const drag = (events: OnDrag[]) => {
+    const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
+    const to = events.map((e, i) => ({ ...from[i], x: e.left / k, y: e.top / k }));
+    const [dx, dy] = (["x", "y"] as const).map((axis) => {
+      const [lo, hi] = span(to, axis);
+      return round(to[0][axis] + pull(lo, [0, (hi - lo) / 2, hi - lo], axis === "x" ? xs : ys) - from[0][axis]);
+    });
+    flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
+  };
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
         events.map((e) => {
-          const [x, y] = [edge(e.drag.left / k, XS), edge(e.drag.top / k, YS)];
-          const box = { x: round(x), y: round(y), w: round(edge(x + e.width / k, XS) - x), h: round(edge(y + e.height / k, YS) - y) };
+          const box = { x: round(e.drag.left / k), y: round(e.drag.top / k), w: round(e.width / k), h: round(e.height / k) };
           return [idOf(e.target), box];
         }),
         "drag",
       ),
+    );
+  // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
+  // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
+  const settle = ([dx, dy]: number[]) =>
+    place(
+      free.map((b) => {
+        const [x, y] = [dx < 0 ? round(edge(b.x, xs)) : b.x, dy < 0 ? round(edge(b.y, ys)) : b.y];
+        const [right, bottom] = [dx > 0 ? edge(b.x + b.w, xs) : b.x + b.w, dy > 0 ? edge(b.y + b.h, ys) : b.y + b.h];
+        return [b.id, { x, y, w: round(right - x), h: round(bottom - y) }];
+      }),
+      "drag",
     );
   // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
   function grip(e: PointerEvent) {
@@ -207,19 +263,41 @@ export default function Sheets() {
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
     e.currentTarget.setPointerCapture(e.pointerId);
   }
-  // Moves one end of a line with the pointer; the other end stays. Near level or upright it snaps straight.
+  // Where on the page, in mm, the pointer puts the handle it holds.
+  function point(e: PointerEvent) {
+    const page = sheet.current!.getBoundingClientRect();
+    return [(e.clientX - grab.current[0] - page.left) / k, (e.clientY - grab.current[1] - page.top) / k];
+  }
+  // The guide closest to a point, if one lies within the snap distance.
+  const near = (at: number, guides: number[]) => guides.filter((g) => Math.abs(g - at) < 6 / k).sort((a, b) => Math.abs(a - at) - Math.abs(b - at))[0];
+  // Moves one end of a line with the pointer; the other end stays. It snaps to the guides a block drag snaps to,
+  // and to the other end, which makes the line level or upright.
   function stretch(e: PointerEvent, b: ShapeBlock, end: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const page = sheet.current!.getBoundingClientRect();
     const fx = b.x + (far(b, 1, !end) ? b.w : 0);
     const fy = b.y + (far(b, 0, !end) ? b.h : 0);
-    let px = (e.clientX - grab.current[0] - page.left) / k;
-    let py = (e.clientY - grab.current[1] - page.top) / k;
-    if (Math.abs(px - fx) < 6 / k) px = fx;
-    if (Math.abs(py - fy) < 6 / k) py = fy;
+    const others = blocks.filter((o) => o !== b);
+    const at = point(e);
+    const gx = near(at[0], [fx, ...XS, ...others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])]);
+    const gy = near(at[1], [fy, ...YS, ...others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])]);
+    setGuide([gx, gy]);
+    const [px, py] = [gx ?? at[0], gy ?? at[1]];
     const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
+  }
+  // Resizes a group from the boxes it began with. The corner opposite the dragged one stays and the group keeps
+  // its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a tenth, not flip.
+  function scale(e: PointerEvent, right: boolean, low: boolean) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const { x, y, w, h } = bounds(start.current);
+    const [px, py] = point(e);
+    const [fx, fy] = [right ? x : x + w, low ? y : y + h];
+    const s = Math.max(0.1, w && (px - fx) / (right ? w : -w), h && (py - fy) / (low ? h : -h));
+    place(
+      start.current.map((b) => [b.id, { x: round(fx + (b.x - fx) * s), y: round(fy + (b.y - fy) * s), w: round(b.w * s), h: round(b.h * s) }]),
+      "drag",
+    );
   }
 
   // `press` is the mouse press that selects, so the same press can drag.
@@ -258,7 +336,6 @@ export default function Sheets() {
     // Tap and hold on a block starts selecting several.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
     if (!id) return;
-    if (ids.length > 1 && ids.includes(id)) moveable.current!.dragStart(e.nativeEvent);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
@@ -345,14 +422,30 @@ export default function Sheets() {
                 [false, true].map((end) => (
                   <i
                     key={+end}
-                    className="end"
+                    className={end && line.props.kind === "arrow" ? "end tip" : "end"}
                     style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
                     onPointerDown={grip}
                     onPointerMove={(e) => stretch(e, line, end)}
+                    onLostPointerCapture={() => setGuide([])}
                   />
                 ))}
             </div>
           ))}
+          {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
+          {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
+          {group &&
+            [0, 1, 2, 3].map((i) => (
+              <i
+                key={i}
+                className="end"
+                style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
+                onPointerDown={(e) => {
+                  grip(e);
+                  start.current = free;
+                }}
+                onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
+              />
+            ))}
           <Moveable
             ref={moveable}
             target={targets}
@@ -377,6 +470,8 @@ export default function Sheets() {
             onDragGroup={(e) => drag(e.events)}
             onResize={(e) => resize([e])}
             onResizeGroup={(e) => resize(e.events)}
+            onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+            onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
           />
         </div>
       </div>
@@ -388,7 +483,7 @@ export default function Sheets() {
         selectByClick={false}
         onDragStart={(e) => {
           const el = e.inputEvent.target as Element;
-          if (e.inputEvent.type === "touchstart" || el.closest(".block") || moveable.current!.isMoveableElement(el)) e.stop();
+          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.map(idOf)])])}
       />
