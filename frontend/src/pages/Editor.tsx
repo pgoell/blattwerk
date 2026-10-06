@@ -134,6 +134,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [at, setAt] = useState(0);
   const [ids, setIds] = useState<string[]>([]);
   const [targets, setTargets] = useState<HTMLElement[]>([]);
+  // The blocks that stay put. Moveable reads a selector as its first match only, so it gets the elements.
+  const [rest, setRest] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
   const [multi, setMulti] = useState(false);
@@ -208,6 +210,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // Moveable needs the elements, and they exist only after the blocks render.
   useLayoutEffect(() => {
     setTargets([...sheet.current!.querySelectorAll<HTMLElement>(".block.sel")]);
+    setRest([...sheet.current!.querySelectorAll<HTMLElement>(".block:not(.sel)")]);
   }, [ids, blocks.length, page]);
 
   useLayoutEffect(() => {
@@ -991,7 +994,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   isDisplaySnapDigit={false}
                   snapDirections={SIDES}
                   elementSnapDirections={SIDES}
-                  elementGuidelines={[".sheet.on .block:not(.sel)"]}
+                  elementGuidelines={rest}
                   verticalGuidelines={pageXs.map((mm) => mm * k)}
                   horizontalGuidelines={pageYs.map((mm) => mm * k)}
                   // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
