@@ -1,0 +1,27 @@
+Blattwerk ships work by others. The app shows the same credits on /ueber.
+
+Symbols
+-------
+The SVG files in frontend/public/openmoji are emojis and icons designed by
+OpenMoji, the open-source emoji and icon project (https://openmoji.org,
+https://github.com/hfg-gmuend/openmoji).
+License: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
+The license text is in frontend/public/openmoji/LICENSE.txt.
+The files are unchanged. A symbol that is edited stays under CC BY-SA 4.0.
+
+Fonts
+-----
+Playwrite DE Grund, Playwrite DE VA, Playwrite DE SAS, Playwrite DE LA
+Copyright 2023 The Playwrite Project Authors
+(https://github.com/TypeTogether/Playwrite)
+License: SIL Open Font License 1.1, text in
+frontend/public/fonts/playwrite/OFL.txt.
+The font files come from the @fontsource-variable/playwrite-de-* packages.
+
+Andika
+Copyright (c) 2004-2025 SIL Global (https://www.sil.org/)
+with Reserved Font Names "Andika" and "SIL".
+License: SIL Open Font License 1.1, text in
+frontend/public/fonts/andika/OFL.txt.
+The font files in frontend/public/fonts/andika are the unchanged WOFF2 files
+of SIL's release 7.000 (https://github.com/silnrsi/font-andika).
