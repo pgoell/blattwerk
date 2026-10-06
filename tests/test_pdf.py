@@ -22,7 +22,6 @@ RED = b"\xff\x00\x00"
 @pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    auth.attempts.clear()
     return tmp_path
 
 
