@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -197,6 +198,9 @@ def test_sheets_belong_to_one_user():
     assert other.get("/api/sheets").json() == []
     assert other.get(url).status_code == 404
     assert other.patch(url, json={"title": "Geklaut"}).status_code == 404
+    # Not a 409 either: that would tell a stranger the sheet is there.
+    assert other.patch(url, json={"doc": doc, "version": 1}).status_code == 404
+    assert other.patch(url, json={"doc": doc, "version": 2}).status_code == 404
     assert other.post(f"{url}/duplicate").status_code == 404
     assert other.delete(url).status_code == 404
     assert client.get(url).json()["title"] == "Minusaufgaben"
@@ -204,6 +208,31 @@ def test_sheets_belong_to_one_user():
     assert client.delete(url).status_code == 200
     assert client.get(url).status_code == 404
     assert [s["id"] for s in client.get("/api/sheets").json()] == [copy["id"]]
+
+
+def test_every_call_for_an_item_hides_other_users_items():
+    """Walks the routes, so a new call for an item is checked without a new test."""
+    client = user("a@example.com")
+    other = user("b@example.com")
+    sheet = client.post("/api/sheets", json={"title": "Meins", "doc": {}}).json()
+    template = client.post("/api/templates", json={"name": "Meins", "doc": {}}).json()
+    # Every id is 1, the first user's included, so one path fits every route.
+    assert sheet["id"] == template["id"] == client.get("/api/me").json()["id"] == 1
+
+    calls = [
+        (method, re.sub(r"{\w+}", "1", path))
+        for path, methods in app.openapi()["paths"].items()
+        if path.startswith("/api/") and "{" in path
+        for method in methods
+    ]
+    assert len(calls) >= 6
+    for method, path in calls:
+        assert other.request(method, path, json={}).status_code == 404, (method, path)
+
+    assert client.get("/api/sheets").json() == [sheet]
+    assert client.get("/api/templates").json() == [template]
+    assert other.get("/api/sheets").json() == []
+    assert other.get("/api/templates").json() == []
 
 
 def test_stale_save_gets_409():
