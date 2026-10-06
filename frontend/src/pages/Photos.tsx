@@ -50,7 +50,7 @@ export default function Photos() {
           <p className="hint">Oder was würdest du anders machen? Stichpunkte reichen.</p>
           <textarea id="notiz" name="notiz" />
         </div>
-        <button className="wide" disabled={busy}>Abschicken</button>
+        <button className="wide primary" disabled={busy}>Abschicken</button>
         <div className="status" role="status">{status}</div>
       </form>
     </main>

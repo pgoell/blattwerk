@@ -18,6 +18,14 @@ License: SIL Open Font License 1.1, text in
 frontend/public/fonts/playwrite/OFL.txt.
 The font files come from the @fontsource-variable/playwrite-de-* packages.
 
+Geist, Geist Mono
+Copyright 2024 The Geist Project Authors
+(https://github.com/vercel/geist-font)
+License: SIL Open Font License 1.1, text in
+frontend/public/fonts/geist/OFL.txt.
+The font files come from the @fontsource-variable/geist and
+@fontsource-variable/geist-mono packages.
+
 Andika
 Copyright (c) 2004-2025 SIL Global (https://www.sil.org/)
 with Reserved Font Names "Andika" and "SIL".

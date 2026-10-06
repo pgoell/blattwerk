@@ -1,4 +1,6 @@
 import {
+  memo,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -6,13 +8,19 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type PointerEvent,
-  type ReactNode,
   type TouchEvent,
 } from "react";
 import { flushSync } from "react-dom";
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
   ArrowRight,
   Calculator,
+  ChevronLeft,
   Circle,
   CircleHelp,
   ClipboardPaste,
@@ -22,18 +30,18 @@ import {
   Eye,
   FileCheck,
   FileDown,
-  FilePlus,
   FileX,
   Heading,
   ImagePlus,
+  LayoutTemplate,
   Lock,
   LockOpen,
   Minus,
-  MoveHorizontal,
+  PanelLeft,
   PanelRight,
+  Plus,
   Redo2,
   Rows3,
-  Save,
   SeparatorHorizontal,
   SeparatorVertical,
   Smile,
@@ -52,10 +60,11 @@ import {
 } from "lucide-react";
 import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { api, post } from "../api";
+import Logo from "../components/Logo";
 import Tour from "../components/Tour";
-import { Draw, H, Mark, W, far, isLine, last, mathsHeight, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, H, Mark, Paper, W, far, isLine, last, mathsHeight, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -76,7 +85,27 @@ const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
 ];
-const TABS = ["Start", "Ansicht", "Vorlagen"];
+// The six ways to line blocks up: the axis, the share of the room a block leaves before it, and the name.
+const ALIGNS: [Axis, number, string, LucideIcon][] = [
+  ["x", 0, "Links", AlignStartVertical],
+  ["x", 0.5, "Mitte waagerecht", AlignCenterVertical],
+  ["x", 1, "Rechts", AlignEndVertical],
+  ["y", 0, "Oben", AlignStartHorizontal],
+  ["y", 0.5, "Mitte senkrecht", AlignCenterHorizontal],
+  ["y", 1, "Unten", AlignEndHorizontal],
+];
+const NAMES: Record<Block["type"], string> = {
+  text: "Text",
+  image: "Bild",
+  symbol: "Symbol",
+  ruling: "Lineatur",
+  name: "Namenszeile",
+  points: "Punkte",
+  maths: "Rechnen",
+  shape: "Form",
+};
+// The right panel's tabs.
+const TABS = ["Format", "Ansicht"];
 const GRIDS = [0, 5, 10, 20];
 const NONE: Guides = { x: [], y: [] };
 // The keys held during a drag, as PowerPoint reads them. Shift keeps the shape or the direction. Ctrl (Option on
@@ -104,6 +133,8 @@ const span = (boxes: Box[], axis: Axis) => {
 };
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
+// A page drawn small in the left panel.
+const Thumb = memo(Paper);
 
 export default function Editor() {
   const { id } = useParams();
@@ -115,7 +146,8 @@ export default function Editor() {
   }
   useEffect(load, [id]);
 
-  if (file === undefined) return null;
+  // The empty editor keeps the app's bar away while the sheet loads.
+  if (file === undefined) return <main className="editor" />;
   if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A version loaded anew starts the editor over.
   return <Canvas key={`${file.id}.${file.version}`} file={file} reload={load} />;
@@ -141,6 +173,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [multi, setMulti] = useState(false);
   const [tab, setTab] = useState(TABS[0]);
   const [pane, setPane] = useState(true);
+  // The panel of pages and templates starts shut where it would lie over the desk.
+  const [side, setSide] = useState(() => innerWidth > 700);
   // The tour opens by itself the first time the editor does on this device.
   const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
   // Whether the maths exercises show their answers.
@@ -175,6 +209,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
+  // The thumbnails draw after the desk, so a drag stays quick.
+  const small = useDeferredValue(hist.doc);
   const cellOf = (p: Page) => p.grid ?? grid;
   const cell = cellOf(pages[page]);
   const mine = pages[page].guides ?? NONE;
@@ -342,6 +378,14 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     flushSync(() => {
       update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, page + 1), { blocks: [] }, ...doc.pages.slice(page + 1)] }));
       setAt(page + 1);
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  function visit(n: number) {
+    done();
+    flushSync(() => {
+      setAt(n);
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -704,24 +748,51 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const locked = sel.length > 0 && !free.length;
   return (
     <main className="editor" onPointerDown={() => (mergeKey.current = "")}>
-      <header className="ribbon">
-        <div className="tabs" role="tablist">
-          {TABS.map((t) => (
-            <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
-              {t}
-            </button>
-          ))}
+      <header>
+        <div className="top">
+          <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
+            <Logo />
+            <ChevronLeft size={16} aria-hidden />
+          </Link>
+          <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={side ? "on" : ""} aria-pressed={side} onClick={() => setSide(!side)} />
           <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint" role="status">
             {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
           </span>
-          <button className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)}>
-            <PanelRight size={20} aria-hidden />
-            Format
+          <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
+          <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
+          <i className="sep" />
+          <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => setClip(sel)} />
+          <Tool icon={ClipboardPaste} label="Einfügen" disabled={!clip.length} onClick={paste} />
+          <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />
+          <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
+          <Tool
+            icon={locked ? LockOpen : Lock}
+            label={locked ? "Entsperren" : "Sperren"}
+            disabled={!sel.length}
+            className={locked ? "on" : ""}
+            onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}
+          />
+          <i className="sep" />
+          <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
+          <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
+          {/* The page's size on the screen against its size on paper. */}
+          <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
+            {Math.round((k * 2540) / 96)} %
           </button>
-          <button className="help" data-tour="help" aria-label="Hilfe" title="Rundgang" onClick={() => setTour(true)}>
-            <CircleHelp size={20} aria-hidden />
-          </button>
+          <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+          <Tool icon={PanelRight} label="Format und Ansicht" className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)} />
+          <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />
+          <span className="pdf" data-tour="pdf">
+            <button onClick={() => pdf(true)}>
+              <FileCheck size={14} aria-hidden />
+              Lösungen
+            </button>
+            <button className="primary" onClick={() => pdf(false)}>
+              <FileDown size={14} aria-hidden />
+              PDF
+            </button>
+          </span>
         </div>
         {clash && (
           <div className="clash" role="alert">
@@ -738,286 +809,238 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             </button>
           </div>
         )}
-        <div className="tools" role="tabpanel">
-          {tab === "Start" && (
-            <>
-              <Group label="Verlauf">
-                <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
-                <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
-              </Group>
-              <Group label="Zwischenablage">
-                <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => setClip(sel)} />
-                <Tool icon={ClipboardPaste} label="Einfügen" disabled={!clip.length} onClick={paste} />
-                <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />
-                <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
-              </Group>
-              <Group label="Einfügen">
-                <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
-                <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
-                <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
-                <input
-                  ref={picker}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  hidden
-                  onChange={(e) => {
-                    upload(e.target.files?.[0]);
-                    // The same picture can be picked again.
-                    e.target.value = "";
-                  }}
-                />
-                <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
-              </Group>
-              <Group label="Schule">
-                <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
-                <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
-                <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
-                <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
-              </Group>
-              <Group label="Formen">
-                {SHAPES.map(([kind, label, icon]) => (
-                  <Tool
-                    key={kind}
-                    icon={icon}
-                    label={label}
-                    onClick={() =>
-                      add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
-                        type: "shape",
-                        props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
-                      })
-                    }
-                  />
-                ))}
-              </Group>
-              <Group label="Seite">
-                <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
-                <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
-              </Group>
-              <Group label="PDF">
-                <Tool icon={FileDown} label="Blatt" data-tour="pdf" onClick={() => pdf(false)} />
-                <Tool icon={FileCheck} label="Lösungen" onClick={() => pdf(true)} />
-              </Group>
-              <Group label="Auswahl">
-                <Tool
-                  icon={locked ? LockOpen : Lock}
-                  label={locked ? "Entsperren" : "Sperren"}
-                  disabled={!sel.length}
-                  className={locked ? "on" : ""}
-                  onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}
-                />
-                <Tool
-                  icon={SquareDashedMousePointer}
-                  label="Mehrere"
-                  data-tour="multi"
-                  className={multi ? "on" : ""}
-                  aria-pressed={multi}
-                  onClick={() => setMulti(!multi)}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "Ansicht" && (
-            <>
-              <Group label="Zoom">
-                <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
-                <Tool icon={MoveHorizontal} label="Seitenbreite" onClick={() => setZoom(1)} />
-                <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
-              </Group>
-              <Group label="Rechnen">
-                <Tool icon={Eye} label="Lösungen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
-              </Group>
-              <Group label="Raster und Hilfslinien für">
-                <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
-                <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
-              </Group>
-              {/* A page's own grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
-              <Group label="Raster">
-                {(own ? [undefined, ...GRIDS] : GRIDS).map((c) => {
-                  const on = (own ? pages[page].grid : grid) === c;
-                  return (
-                    <button
-                      key={c ?? "sheet"}
-                      className={on ? "on" : ""}
-                      aria-pressed={on}
-                      onClick={() => (own ? turn((p) => ({ ...p, grid: c })) : update((doc) => ({ ...doc, grid: c! })))}
-                    >
-                      {c === undefined ? "Wie Blatt" : c ? `${c} mm` : "Aus"}
-                    </button>
-                  );
-                })}
-              </Group>
-              <Group label="Hilfslinien">
-                <Tool icon={SeparatorVertical} label="Senkrecht" onClick={() => rule("x")} />
-                <Tool icon={SeparatorHorizontal} label="Waagerecht" onClick={() => rule("y")} />
-                <Tool
-                  icon={Eraser}
-                  label="Alle entfernen"
-                  disabled={!(own ? mine : guides).x.length && !(own ? mine : guides).y.length}
-                  onClick={() => rules(own ? page : undefined, () => NONE)}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "Vorlagen" && (
-            <>
-              <Group label="Dieses Blatt als Vorlage">
-                <input type="text" aria-label="Name der Vorlage" placeholder="Name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-                <Tool icon={Save} label="Speichern" disabled={!name.trim()} onClick={store} />
-              </Group>
-              <Group label="Vorlagen">
-                {templates.filter((t) => t.id < 0).map((t) => (
-                  <span key={t.id} className="chip">
-                    <button onClick={() => apply(t)}>{t.name}</button>
-                  </span>
-                ))}
-              </Group>
-              <Group label="Meine Vorlagen">
-                {kept.map((t) => (
-                  <span key={t.id} className="chip">
-                    <button onClick={() => apply(t)}>{t.name}</button>
-                    <button aria-label={`Vorlage ${t.name} löschen`} onClick={() => forget(t)}>
-                      <X size={16} aria-hidden />
-                    </button>
-                  </span>
-                ))}
-                {!kept.length && <span className="hint">Noch keine</span>}
-              </Group>
-            </>
-          )}
-        </div>
       </header>
 
-      <div
-        className="desk"
-        ref={desk}
-        onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
-        onMouseDown={(e) => touch.current || moveable.current!.isMoveableElement(e.target as Element) || pick(e.target as Element, e.shiftKey, e.nativeEvent)}
-        onClick={(e) => touch.current && !moveable.current!.isMoveableElement(e.target as Element) && pick(e.target as Element, false)}
-        onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id)}
-        onContextMenu={(e) => touch.current && e.preventDefault()}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={(e) => {
-          clearTimeout(hold.current);
-          // Lifting the finger after a hold is not a tap.
-          if (held.current) e.preventDefault();
-          held.current = false;
-        }}
-      >
-        {pages.map((p, n) => (
-          <div
-            key={n}
-            data-page={n}
-            className={`sheet${cellOf(p) ? " grid" : ""}${n === page ? " on" : ""}`}
-            ref={n === page ? sheet : undefined}
-            style={{ width: W * k, height: H * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
-          >
-            {p.blocks.map((b) => (
-
-              <div
-                key={b.id}
-                data-id={b.id}
-                className={ids.includes(b.id) ? "block sel" : "block"}
-                style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
-              >
-                {b.type === "text" ? (
-                  <textarea
-                    value={b.props.text}
-                    placeholder="Text"
-                    readOnly={editing !== b.id}
-                    style={textStyle(b.props, k)}
-                    onChange={(e) => style("text", { text: e.target.value }, "text")}
-                    onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-                    onBlur={() => setEditing("")}
-                  />
-                ) : (
-                  <Draw block={b} k={k} solved={solved} />
-                )}
-                <Mark block={b} k={k} n={ns.get(b.id)} />
-                {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
-                {b === line &&
-                  [false, true].map((end) => (
-                    <i
-                      key={+end}
-                      className={end && line.props.kind === "arrow" ? "end tip" : "end"}
-                      style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
-                      onPointerDown={grip}
-                      onPointerMove={(e) => stretch(e, line, end)}
-                      onLostPointerCapture={() => setGuide([])}
-                    />
-                  ))}
-              </div>
-            ))}
-            {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
-            {[undefined, n].flatMap((at) =>
-              (["x", "y"] as const).flatMap((axis) =>
-                (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (
-                  <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
-                    <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
-                      {mm}
-                    </b>
-                  </i>
-                )),
-              ),
-            )}
-            {n === page && (
-              <>
-                {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
-                {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
-                {group &&
-                  [0, 1, 2, 3].map((i) => (
-                    <i
-                      key={i}
-                      className="end"
-                      style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
-                      onPointerDown={(e) => {
-                        grip(e);
-                        start.current = free;
-                      }}
-                      onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
-                      onLostPointerCapture={() => setGuide([])}
-                    />
-                  ))}
-                <Moveable
-                  ref={moveable}
-                  // In crop mode the frame's handles stand in for Moveable's.
-                  target={cropping ? [] : targets}
-                  draggable={free.length === sel.length}
-                  resizable={free.length === sel.length && !sel.some(isLine)}
-                  renderDirections={CORNERS}
-                  origin={false}
-                  checkInput
-                  snappable={!loose}
-                  // A picture and a symbol always keep their shape.
-                  keepRatio={(mod & KEEP) > 0 || sel.some((b) => b.type === "image" || b.type === "symbol")}
-                  snapThreshold={6}
-                  isDisplaySnapDigit={false}
-                  snapDirections={SIDES}
-                  elementSnapDirections={SIDES}
-                  elementGuidelines={rest}
-                  verticalGuidelines={pageXs.map((mm) => mm * k)}
-                  horizontalGuidelines={pageYs.map((mm) => mm * k)}
-                  // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
-                  onClick={(e) => touch.current && pick(e.inputTarget, false)}
-                  onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
-                  onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
-                  onDragGroupStart={(e) => begin(e.targets)}
-                  onDrag={(e) => drag([e])}
-                  onDragGroup={(e) => drag(e.events)}
-                  onDragEnd={(e) => leave(e.isDrag)}
-                  onDragGroupEnd={(e) => leave(e.isDrag)}
-                  // Ctrl resizes about the centre.
-                  onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
-                  onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
-                  onResize={(e) => resize([e])}
-                  onResizeGroup={(e) => resize(e.events)}
-                  onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-                  onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-                />
-              </>
-            )}
+      {side && (
+        <aside className="left">
+          <div className="head">
+            Seiten
+            <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
           </div>
-        ))}
+          <div className="pages">
+            {small.pages.map((_, n) => (
+              <button key={n} className={n === page ? "on" : ""} aria-pressed={n === page} onClick={() => visit(n)}>
+                <Thumb doc={small} k={97 / W} page={n} />
+                Seite {n + 1}
+              </button>
+            ))}
+            <button onClick={addPage}>
+              <i>
+                <Plus size={16} aria-hidden />
+              </i>
+              Neue Seite
+            </button>
+          </div>
+          <h2>Vorlagen</h2>
+          {templates.filter((t) => t.id < 0).map((t) => (
+            <div key={t.id} className="tpl">
+              <button onClick={() => apply(t)}>
+                <LayoutTemplate size={14} aria-hidden />
+                {t.name}
+              </button>
+              <small>eingebaut</small>
+            </div>
+          ))}
+          <h2>Meine Vorlagen</h2>
+          {kept.map((t) => (
+            <div key={t.id} className="tpl">
+              <button onClick={() => apply(t)}>
+                <LayoutTemplate size={14} aria-hidden />
+                {t.name}
+              </button>
+              <Tool icon={X} label={`Vorlage ${t.name} löschen`} title="Löschen" onClick={() => forget(t)} />
+            </div>
+          ))}
+          {!kept.length && <p className="hint">Noch keine</p>}
+          <div className="foot">
+            <input type="text" aria-label="Name der Vorlage" placeholder="Name der Vorlage" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+            <button disabled={!name.trim()} onClick={store}>
+              <Plus size={14} aria-hidden />
+              Dieses Blatt als Vorlage
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <div className="stage">
+        <div
+          className="desk"
+          ref={desk}
+          onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
+          onMouseDown={(e) => touch.current || moveable.current!.isMoveableElement(e.target as Element) || pick(e.target as Element, e.shiftKey, e.nativeEvent)}
+          onClick={(e) => touch.current && !moveable.current!.isMoveableElement(e.target as Element) && pick(e.target as Element, false)}
+          onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id)}
+          onContextMenu={(e) => touch.current && e.preventDefault()}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={(e) => {
+            clearTimeout(hold.current);
+            // Lifting the finger after a hold is not a tap.
+            if (held.current) e.preventDefault();
+            held.current = false;
+          }}
+        >
+          {pages.map((p, n) => (
+            <div
+              key={n}
+              data-page={n}
+              className={`sheet${cellOf(p) ? " grid" : ""}${n === page ? " on" : ""}`}
+              ref={n === page ? sheet : undefined}
+              style={{ width: W * k, height: H * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
+            >
+              {p.blocks.map((b) => (
+
+                <div
+                  key={b.id}
+                  data-id={b.id}
+                  className={ids.includes(b.id) ? "block sel" : "block"}
+                  style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
+                >
+                  {b.type === "text" ? (
+                    <textarea
+                      value={b.props.text}
+                      placeholder="Text"
+                      readOnly={editing !== b.id}
+                      style={textStyle(b.props, k)}
+                      onChange={(e) => style("text", { text: e.target.value }, "text")}
+                      onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                      onBlur={() => setEditing("")}
+                    />
+                  ) : (
+                    <Draw block={b} k={k} solved={solved} />
+                  )}
+                  <Mark block={b} k={k} n={ns.get(b.id)} />
+                  {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
+                  {b === line &&
+                    [false, true].map((end) => (
+                      <i
+                        key={+end}
+                        className={end && line.props.kind === "arrow" ? "end tip" : "end"}
+                        style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
+                        onPointerDown={grip}
+                        onPointerMove={(e) => stretch(e, line, end)}
+                        onLostPointerCapture={() => setGuide([])}
+                      />
+                    ))}
+                </div>
+              ))}
+              {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
+              {[undefined, n].flatMap((at) =>
+                (["x", "y"] as const).flatMap((axis) =>
+                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (
+                    <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
+                      <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
+                        {mm}
+                      </b>
+                    </i>
+                  )),
+                ),
+              )}
+              {n === page && (
+                <>
+                  {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
+                  {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
+                  {group &&
+                    [0, 1, 2, 3].map((i) => (
+                      <i
+                        key={i}
+                        className="end"
+                        style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
+                        onPointerDown={(e) => {
+                          grip(e);
+                          start.current = free;
+                        }}
+                        onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
+                        onLostPointerCapture={() => setGuide([])}
+                      />
+                    ))}
+                  <Moveable
+                    ref={moveable}
+                    // In crop mode the frame's handles stand in for Moveable's.
+                    target={cropping ? [] : targets}
+                    draggable={free.length === sel.length}
+                    resizable={free.length === sel.length && !sel.some(isLine)}
+                    renderDirections={CORNERS}
+                    origin={false}
+                    checkInput
+                    snappable={!loose}
+                    // A picture and a symbol always keep their shape.
+                    keepRatio={(mod & KEEP) > 0 || sel.some((b) => b.type === "image" || b.type === "symbol")}
+                    snapThreshold={6}
+                    isDisplaySnapDigit={false}
+                    snapDirections={SIDES}
+                    elementSnapDirections={SIDES}
+                    elementGuidelines={rest}
+                    verticalGuidelines={pageXs.map((mm) => mm * k)}
+                    horizontalGuidelines={pageYs.map((mm) => mm * k)}
+                    // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
+                    onClick={(e) => touch.current && pick(e.inputTarget, false)}
+                    onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
+                    onDragGroupStart={(e) => begin(e.targets)}
+                    onDrag={(e) => drag([e])}
+                    onDragGroup={(e) => drag(e.events)}
+                    onDragEnd={(e) => leave(e.isDrag)}
+                    onDragGroupEnd={(e) => leave(e.isDrag)}
+                    // Ctrl resizes about the centre.
+                    onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+                    onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+                    onResize={(e) => resize([e])}
+                    onResizeGroup={(e) => resize(e.events)}
+                    onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                    onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                  />
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* What can go on the page floats over the desk's lower edge. */}
+        <div className="dock" role="toolbar" aria-label="Einfügen">
+          <Tool
+            icon={SquareDashedMousePointer}
+            label="Mehrere"
+            data-tour="multi"
+            className={multi ? "on" : ""}
+            aria-pressed={multi}
+            onClick={() => setMulti(!multi)}
+          />
+          <i className="sep" />
+          <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+          <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
+          <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
+          <input
+            ref={picker}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            hidden
+            onChange={(e) => {
+              upload(e.target.files?.[0]);
+              // The same picture can be picked again.
+              e.target.value = "";
+            }}
+          />
+          <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
+          <i className="sep" />
+          <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
+          <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
+          <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+          <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
+          <i className="sep" />
+          {SHAPES.map(([kind, label, icon]) => (
+            <Tool
+              key={kind}
+              icon={icon}
+              label={label}
+              onClick={() =>
+                add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
+                  type: "shape",
+                  props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
+                })
+              }
+            />
+          ))}
+        </div>
       </div>
       {/* The drag box is for a mouse on empty desk; a finger there scrolls. */}
       <Selecto
@@ -1035,67 +1058,119 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
       {pane && (
         <aside className="panel">
-          {!sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
-          {sel.length > 0 && (
+          <div className="tabs" role="tablist">
+            {TABS.map((t) => (
+              <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+          {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {tab === "Format" && sel.length > 0 && (
             <>
+              <p className="what">
+                {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
+                <small>
+                  {round(bounds(sel).w).toLocaleString("de")} × {round(bounds(sel).h).toLocaleString("de")} mm
+                </small>
+              </p>
+              <Format
+                sel={sel}
+                style={style}
+                place={place}
+                cropping={!!cropping}
+                crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
+              />
+              {shapes.length > 0 && (
+                <>
+                  <h2>Form</h2>
+                  <label>
+                    Füllung
+                    <input
+                      type="color"
+                      value={shapes[0].props.fill === "none" ? "#ffffff" : shapes[0].props.fill}
+                      onChange={(e) => style("shape", { fill: e.target.value }, "fill")}
+                    />
+                  </label>
+                  <button className="wide" disabled={shapes[0].props.fill === "none"} onClick={() => style("shape", { fill: "none" })}>Keine Füllung</button>
+                  <label>
+                    Rand
+                    <input type="color" value={shapes[0].props.stroke} onChange={(e) => style("shape", { stroke: e.target.value }, "stroke")} />
+                  </label>
+                  <label>
+                    Randstärke
+                    <input
+                      type="range"
+                      min={0.25}
+                      max={3}
+                      step={0.25}
+                      value={shapes[0].props.strokeWidth}
+                      onChange={(e) => style("shape", { strokeWidth: +e.target.value }, "strokeWidth")}
+                    />
+                  </label>
+                </>
+              )}
               <h2>Ausrichten</h2>
-              <div className="row">
-                <button disabled={!free.length} onClick={() => align("x", 0)}>Links</button>
-                <button disabled={!free.length} onClick={() => align("x", 0.5)}>Mitte</button>
-                <button disabled={!free.length} onClick={() => align("x", 1)}>Rechts</button>
-                <button disabled={!free.length} onClick={() => align("y", 0)}>Oben</button>
-                <button disabled={!free.length} onClick={() => align("y", 0.5)}>Mitte</button>
-                <button disabled={!free.length} onClick={() => align("y", 1)}>Unten</button>
+              <div className="acts">
+                {ALIGNS.map(([axis, at, label, icon]) => (
+                  <Tool key={label} icon={icon} label={label} title={label} disabled={!free.length} onClick={() => align(axis, at)} />
+                ))}
               </div>
               <h2>Verteilen</h2>
-              <div className="row">
+              <div className="acts">
                 <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
                 <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
               </div>
               <h2>Ebene</h2>
-              <div className="row">
+              <div className="acts">
                 <button onClick={() => place(sel.map((b) => [b.id, { z: top + 1 }]))}>Nach vorn</button>
                 <button onClick={() => place(sel.map((b) => [b.id, { z: Math.min(0, ...blocks.map((o) => o.z)) - 1 }]))}>Nach hinten</button>
               </div>
             </>
           )}
-
-          {sel.length > 0 && (
-            <Format
-              sel={sel}
-              style={style}
-              place={place}
-              cropping={!!cropping}
-              crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
-            />
-          )}
-          {shapes.length > 0 && (
+          {tab === "Ansicht" && (
             <>
-              <h2>Form</h2>
-              <label>
-                Füllung
-                <input
-                  type="color"
-                  value={shapes[0].props.fill === "none" ? "#ffffff" : shapes[0].props.fill}
-                  onChange={(e) => style("shape", { fill: e.target.value }, "fill")}
-                />
-              </label>
-              <button disabled={shapes[0].props.fill === "none"} onClick={() => style("shape", { fill: "none" })}>Keine Füllung</button>
-              <label>
-                Rand
-                <input type="color" value={shapes[0].props.stroke} onChange={(e) => style("shape", { stroke: e.target.value }, "stroke")} />
-              </label>
-              <label>
-                Randstärke
-                <input
-                  type="range"
-                  min={0.25}
-                  max={3}
-                  step={0.25}
-                  value={shapes[0].props.strokeWidth}
-                  onChange={(e) => style("shape", { strokeWidth: +e.target.value }, "strokeWidth")}
-                />
-              </label>
+              <h2>Raster und Hilfslinien für</h2>
+              <div className="seg">
+                <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
+                <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
+              </div>
+              {/* A page's own grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
+              <h2>Raster</h2>
+              <div className="seg">
+                {(own ? [undefined, ...GRIDS] : GRIDS).map((c) => {
+                  const on = (own ? pages[page].grid : grid) === c;
+                  return (
+                    <button
+                      key={c ?? "sheet"}
+                      className={on ? "on" : ""}
+                      aria-pressed={on}
+                      onClick={() => (own ? turn((p) => ({ ...p, grid: c })) : update((doc) => ({ ...doc, grid: c! })))}
+                    >
+                      {c === undefined ? "Wie Blatt" : c ? `${c} mm` : "Aus"}
+                    </button>
+                  );
+                })}
+              </div>
+              <h2>Hilfslinien</h2>
+              <div className="acts">
+                <button onClick={() => rule("x")}>
+                  <SeparatorVertical size={14} aria-hidden />
+                  Senkrecht
+                </button>
+                <button onClick={() => rule("y")}>
+                  <SeparatorHorizontal size={14} aria-hidden />
+                  Waagerecht
+                </button>
+              </div>
+              <button
+                className="wide"
+                disabled={!(own ? mine : guides).x.length && !(own ? mine : guides).y.length}
+                onClick={() => rules(own ? page : undefined, () => NONE)}
+              >
+                <Eraser size={14} aria-hidden />
+                Alle entfernen
+              </button>
             </>
           )}
         </aside>
@@ -1104,6 +1179,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         <Tour
           seen={{ doc: hist.doc, blocks: blocks.length, sel: sel.length, editing: !!editing, tab }}
           show={(t) => {
+            if (t === "Vorlagen") return setSide(true);
             setTab(t);
             setPane(true);
           }}
@@ -1148,20 +1224,11 @@ function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
   );
 }
 
-function Group({ label, children }: { label: string; children: ReactNode }) {
+// A button that is its icon; the name shows when the pointer rests on it.
+function Tool({ icon: Icon, label, className = "", ...rest }: { icon: LucideIcon; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <div className="group">
-      <div>{children}</div>
-      <small>{label}</small>
-    </div>
-  );
-}
-
-function Tool({ icon: Icon, label, ...rest }: { icon: LucideIcon; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button {...rest}>
-      <Icon size={20} aria-hidden />
-      {label}
+    <button aria-label={label} {...rest} className={`ib ${className}`}>
+      <Icon size={16} aria-hidden />
     </button>
   );
 }

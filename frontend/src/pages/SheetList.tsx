@@ -38,8 +38,8 @@ export default function SheetList() {
   return (
     <main>
       <h1>Meine Blätter</h1>
-      <button type="button" onClick={create}>
-        <Plus size={20} aria-hidden />
+      <button type="button" className="primary" onClick={create}>
+        <Plus size={16} aria-hidden />
         Neues Blatt
       </button>
       {sheets?.length === 0 && <p className="lead">Noch kein Blatt. Leg dein erstes an.</p>}
@@ -53,13 +53,13 @@ export default function SheetList() {
             </Link>
             <div>
               <button type="button" className="plain" aria-label={`${sheet.title} umbenennen`} title="Umbenennen" onClick={() => rename(sheet)}>
-                <Pencil size={20} aria-hidden />
+                <Pencil size={16} aria-hidden />
               </button>
               <button type="button" className="plain" aria-label={`${sheet.title} duplizieren`} title="Duplizieren" onClick={() => duplicate(sheet)}>
-                <Copy size={20} aria-hidden />
+                <Copy size={16} aria-hidden />
               </button>
               <button type="button" className="plain" aria-label={`${sheet.title} löschen`} title="Löschen" onClick={() => remove(sheet)}>
-                <Trash2 size={20} aria-hidden />
+                <Trash2 size={16} aria-hidden />
               </button>
             </div>
           </li>

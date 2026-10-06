@@ -24,6 +24,10 @@ export default function About() {
         <p>
           Andika: Copyright 2004 bis 2025 <a href="https://software.sil.org/andika/">SIL Global</a>. <a href="/fonts/andika/OFL.txt">Lizenztext</a>
         </p>
+        <p>
+          Geist und Geist Mono: Copyright 2024 The Geist Project Authors
+          (<a href="https://github.com/vercel/geist-font">Vercel</a>). <a href="/fonts/geist/OFL.txt">Lizenztext</a>
+        </p>
         <p className="hint">Alle Schriften stehen unter der SIL Open Font License 1.1.</p>
       </div>
     </main>

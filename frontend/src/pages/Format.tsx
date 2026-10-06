@@ -1,5 +1,6 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { useState } from "react";
+import { TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import { FONTS, MARKS, RULINGS, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling } from "../sheet";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -14,7 +15,7 @@ type Props = {
   cropping: boolean;
 };
 
-const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
+const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
 export default function Format({ sel, style, place, crop, cropping }: Props) {
@@ -52,18 +53,22 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
               </option>
             ))}
           </select>
-          <div className="row">
+          <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, text.props.size - 2) })}>−</button>
             <output>{text.props.size} pt</output>
             <button aria-label="Schrift größer" onClick={() => style("text", { size: text.props.size + 2 })}>＋</button>
+          </div>
+          <div className="seg">
             {([["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const).map(([prop, label]) => (
               <button key={prop} className={`${prop}${text.props[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!text.props[prop]} onClick={() => style("text", { [prop]: !text.props[prop] })}>
                 {label[0]}
               </button>
             ))}
-            {ALIGNS.map(([value, label]) => (
-              <button key={value} className={text.props.align === value ? "on" : ""} onClick={() => style("text", { align: value })}>
-                {label}
+          </div>
+          <div className="seg">
+            {ALIGNS.map(([value, label, Icon]) => (
+              <button key={value} className={text.props.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={text.props.align === value} onClick={() => style("text", { align: value })}>
+                <Icon size={14} aria-hidden />
               </button>
             ))}
           </div>
@@ -87,7 +92,7 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
               </option>
             ))}
           </select>
-          <div className="row">
+          <div className="seg">
             <button aria-label="Eine Zeile weniger" onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) - 1)}>−</button>
             <output>{rowsOf(rulings[0])} Zeilen</output>
             <button aria-label="Eine Zeile mehr" onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) + 1)}>＋</button>
@@ -102,7 +107,7 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
       {points && (
         <>
           <h2>Punkte</h2>
-          <div className="row">
+          <div className="seg">
             <button aria-label="Ein Punkt weniger" onClick={() => style("points", { max: Math.max(1, points.props.max - 1) })}>−</button>
             <output>{points.props.max}</output>
             <button aria-label="Ein Punkt mehr" onClick={() => style("points", { max: points.props.max + 1 })}>＋</button>
@@ -118,13 +123,13 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
       {crop && (
         <>
           <h2>Bild</h2>
-          <button className={cropping ? "on" : ""} aria-pressed={cropping} onClick={crop}>
+          <button className={cropping ? "wide on" : "wide"} aria-pressed={cropping} onClick={crop}>
             {cropping ? "Fertig" : "Zuschneiden"}
           </button>
         </>
       )}
       <h2>Nummerierung</h2>
-      <div className="row">
+      <div className="seg">
         <button className={mark ? "" : "on"} onClick={() => number()}>Keine</button>
         {Object.keys(MARKS).map((m) => (
           <button key={m} className={mark === m ? "on" : ""} onClick={() => number(m)}>

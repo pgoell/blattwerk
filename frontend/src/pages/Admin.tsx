@@ -19,7 +19,7 @@ export default function Admin() {
     <main>
       <h1>Admin</h1>
       <div className="card">
-        <button type="button" onClick={() => make("/admin/invites", "einladung", "Einladung")}>Einladung erstellen</button>
+        <button type="button" className="primary" onClick={() => make("/admin/invites", "einladung", "Einladung")}>Einladung erstellen</button>
       </div>
       {link.url && (
         <div className="card">

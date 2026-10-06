@@ -39,7 +39,7 @@ export default function SetPassword({ invite, onDone }: { invite?: boolean; onDo
         <label htmlFor="password">Passwort</label>
         <p className="hint">Mindestens 8 Zeichen.</p>
         <input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
-        <button className="wide">{invite ? "Konto anlegen" : "Speichern"}</button>
+        <button className="wide primary">{invite ? "Konto anlegen" : "Speichern"}</button>
         <div className="status" role="status">{status}</div>
       </form>
     </AuthShell>
