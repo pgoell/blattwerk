@@ -160,13 +160,18 @@ Every teacher has their own space from the start.
       "blocks": [
         { "id": "…", "type": "maths", "x": 15, "y": 60, "w": 180, "h": 90, "z": 2,
           "locked": false,
-          "props": { "operation": "+", "max": 100, "carry": "none", "format": "row",
-                     "count": 12, "columns": 3, "seed": 4182, "places": { "…": "…" } } }
+          "props": { "ops": ["+"], "max": 100, "carry": "none", "rest": false, "format": "row",
+                     "count": 12, "columns": 3, "size": 14, "seed": 4182,
+                     "a": [[0, 9], [1, 4], [0, 0]], "b": [[5, 9], [0, 9], [0, 0]],
+                     "exercises": [{ "op": "+", "a": 34, "b": 25, "result": 59, "rest": 0 }],
+                     "loosen": null } }
       ]
     }
   ]
 }
 ```
+
+A maths block keeps its limits and the exercises the server made from them, so a sheet draws without the generator. `a` and `b` hold the lowest and highest digit of each place, units first. `ops` holds one operation or several to mix. `loosen` is null, or with fewer exercises than asked for the limits that stand in the way.
 
 Positions and sizes in mm from the page's top-left corner. A line or arrow shape runs from the corner of its box named in `props.from` (`nw`, `ne`, `sw` or `se`, `nw` when absent) to the opposite corner; a level line has `h` 0.
 

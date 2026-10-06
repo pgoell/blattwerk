@@ -8,6 +8,7 @@ from blattwerk import auth, db
 from blattwerk.app import app
 
 PASSWORD = "richtig-geheim"
+MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +46,7 @@ def test_logged_out_gets_401():
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
     assert client.delete("/api/sheets/1").status_code == 401
+    assert client.post("/api/maths", json=MATHS).status_code == 401
 
 
 def test_invite_works_once():
@@ -261,6 +263,14 @@ def test_stale_save_gets_409():
     assert forced["version"] == 4
     assert forced["title"] == "Veraltet"
     assert client.post(f"{url}/duplicate").json()["version"] == 1
+
+
+def test_maths_exercises():
+    client = user("a@example.com")
+    out = client.post("/api/maths", json=MATHS).json()
+    assert len(out["exercises"]) == 3
+    assert out["loosen"] is None
+    assert client.post("/api/maths", json={**MATHS, "max": 0}).status_code == 422
 
 
 def test_legal_pages_are_public():

@@ -12,11 +12,13 @@ import {
 import { flushSync } from "react-dom";
 import {
   ArrowRight,
+  Calculator,
   Circle,
   ClipboardPaste,
   Copy,
   CopyPlus,
   Eraser,
+  Eye,
   FilePlus,
   FileX,
   Heading,
@@ -49,8 +51,9 @@ import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { useParams } from "react-router";
 import { api, post } from "../api";
-import { Draw, H, Mark, W, far, isLine, last, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, H, Mark, W, far, isLine, last, mathsHeight, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
+import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -132,6 +135,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [multi, setMulti] = useState(false);
   const [tab, setTab] = useState(TABS[0]);
   const [pane, setPane] = useState(true);
+  // Whether the maths exercises show their answers.
+  const [solved, setSolved] = useState(false);
   const [mod, setMod] = useState(0);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [name, setName] = useState("");
@@ -373,6 +378,16 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       add(w, round((w * height) / width), { type: "image", props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } });
     } catch {
       alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+    }
+  }
+  // A maths block starts with plus exercises up to 20; the server makes them.
+  async function addMaths() {
+    const limits = { ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as Range[], b: [[0, 9], [0, 9]] as Range[], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed: newSeed() };
+    try {
+      const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
+      add(180, mathsHeight(props), { type: "maths", props });
+    } catch {
+      alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
     }
   }
   function put(from: Block[]) {
@@ -734,6 +749,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
                 <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
                 <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+                <Tool icon={Calculator} label="Rechnen" onClick={addMaths} />
               </Group>
               <Group label="Formen">
                 {SHAPES.map(([kind, label, icon]) => (
@@ -778,6 +794,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
                 <Tool icon={MoveHorizontal} label="Seitenbreite" onClick={() => setZoom(1)} />
                 <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+              </Group>
+              <Group label="Rechnen">
+                <Tool icon={Eye} label="Lösungen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
               </Group>
               <Group label="Raster und Hilfslinien für">
                 <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
@@ -877,7 +896,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     onBlur={() => setEditing("")}
                   />
                 ) : (
-                  <Draw block={b} k={k} />
+                  <Draw block={b} k={k} solved={solved} />
                 )}
                 <Mark block={b} k={k} n={ns.get(b.id)} />
                 {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
