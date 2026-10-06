@@ -2,6 +2,7 @@ import json
 import re
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from blattwerk import auth, db
@@ -14,7 +15,6 @@ MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 @pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    auth.attempts.clear()
     return tmp_path
 
 
@@ -92,6 +92,30 @@ def test_login_is_rate_limited():
     for _ in range(auth.TRIES):
         assert client.post("/api/login", json=body).status_code == 401
     assert client.post("/api/login", json=body).status_code == 429
+
+
+def test_rate_limit_survives_a_restart():
+    body = {"email": "a@example.com", "password": "falsch-falsch"}
+    con = db.open_db()
+    for _ in range(auth.TRIES):
+        auth.limit(con, "email:a@example.com")
+    con.close()
+    # A new app on the same file stands in for the process after a deploy.
+    fresh = FastAPI()
+    fresh.include_router(auth.router)
+    client = TestClient(fresh, base_url="https://testserver")
+    assert client.post("/api/login", json=body).status_code == 429
+
+
+def test_old_login_tries_are_dropped():
+    client = TestClient(app, base_url="https://testserver")
+    body = {"email": "a@example.com", "password": "falsch-falsch"}
+    for _ in range(auth.TRIES):
+        client.post("/api/login", json=body)
+    con = db.open_db()
+    con.execute(f"UPDATE attempts SET created = datetime('now', '-{auth.WINDOW} seconds')")
+    assert client.post("/api/login", json=body).status_code == 401
+    assert con.execute("SELECT count(*) FROM attempts").fetchone()[0] == 2
 
 
 def test_admin_calls_do_not_exist_for_others():
