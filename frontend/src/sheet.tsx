@@ -21,7 +21,32 @@ export type PointsBlock = Box & { type: "points"; props: { max: number } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
 export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[] } };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock;
+export type Op = keyof typeof SIGNS;
+// The lowest and the highest digit a place may hold.
+export type Range = [number, number];
+// A written exercise on squared paper. A cell is [column, row, character, kind], a line [from column, to column,
+// above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
+export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
+// `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves.
+export type Exercise = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b"; grid?: Grid };
+// The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
+export type Limits = {
+  ops: Op[];
+  max: number;
+  a: Range[];
+  b: Range[];
+  carry: "none" | "required" | "either";
+  rest: boolean;
+  format: "row" | "gap" | "written";
+  count: number;
+  seed: number;
+};
+// What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
+export type Made = { exercises: Exercise[]; loosen: string[] | null };
+// `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
+export type MathsProps = Limits & Made & { columns: number; size: number; numbering?: string };
+export type MathsBlock = Box & { type: "maths"; props: MathsProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -57,6 +82,10 @@ export const RULINGS = {
   k5: { name: "Karo 5 mm", row: 5, at: undefined, band: 0 },
   k7: { name: "Karo 7 mm", row: 7, at: undefined, band: 0 },
 };
+// The signs as German schools write them.
+export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
+// The side of a square of a written exercise, in mm.
+export const KARO = 5;
 // The numbering styles, each from a count that starts at 1.
 export const MARKS: Record<string, (n: number) => string> = {
   "1.": (n) => `${n}.`,
@@ -75,6 +104,12 @@ export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from 
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
+// The height in mm a maths block needs for its exercises.
+export function mathsHeight(p: MathsProps) {
+  const lines = Math.ceil(p.exercises.length / p.columns);
+  const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
+  return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
+}
 export const textStyle = (p: TextProps, k: number): CSSProperties => ({
   fontFamily: FONTS[p.font ?? "andika"][1],
   fontSize: p.size * PT * k,
@@ -150,8 +185,60 @@ function Lines({ block }: { block: RulingBlock }) {
   );
 }
 
+// A number of an exercise, or the gap in its place. The answer key fills the gap.
+function Part({ e, part, solved }: { e: Exercise; part: "a" | "b" | "result" | "rest"; solved: boolean }) {
+  const gap = part === "rest" || part === (e.hide ?? "result");
+  return gap ? <u>{solved && e[part]}</u> : <>{e[part]}</>;
+}
+
+// A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
+function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean }) {
+  const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i);
+  return (
+    <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols} ${rows}`}>
+      <g stroke="#9db4c8" strokeWidth={0.03}>
+        {each(cols).map((x) => <line key={x} x1={x} x2={x} y2={rows} />)}
+        {each(rows).map((y) => <line key={-y - 1} x2={cols} y1={y} y2={y} />)}
+      </g>
+      {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={x1} x2={x2} y1={y} y2={y} stroke="currentColor" strokeWidth={0.08} />)}
+      {grid.cells.map(([x, y, ch, kind], i) => (solved || !kind) && (
+        <text key={i} className={kind ? "answer" : ""} x={x + 0.5} y={y + 0.5} fontSize={kind === 2 ? 0.45 : 0.75} textAnchor="middle" dominantBaseline="central" fill="currentColor">
+          {ch}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boolean }) {
+  const p = block.props;
+  const cols = Math.max(0, ...p.exercises.map((e) => e.grid?.cols ?? 0));
+  const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
+  const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5}ch` };
+  return (
+    <div className={`maths ${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
+      {p.exercises.map((e, i) => (
+        <div key={i}>
+          {p.numbering && <b>{MARKS[p.numbering](i + 1)}</b>}
+          {e.grid ? (
+            <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
+          ) : (
+            <span>
+              <Part e={e} part="a" solved={solved} /> {SIGNS[e.op]} <Part e={e} part="b" solved={solved} /> = <Part e={e} part="result" solved={solved} />
+              {e.rest > 0 && <> R <Part e={e} part="rest" solved={solved} /></>}
+            </span>
+          )}
+        </div>
+      ))}
+      {!p.exercises.length && <span className="hint">Keine Aufgabe möglich</span>}
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
-export function Draw({ block, k }: { block: Block; k: number }) {
+// `solved` fills in the answers of the maths exercises.
+export function Draw({ block, k, solved = false }: { block: Block; k: number; solved?: boolean }) {
+  if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "text") return <p style={textStyle(block.props, k)}>{block.props.text}</p>;
   if (block.type === "shape") return <Shape block={block} k={k} />;
   if (block.type === "ruling") return <Lines block={block} />;

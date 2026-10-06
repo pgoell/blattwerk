@@ -17,7 +17,7 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## Layout
 
-- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `app.py` (legal pages and the built frontend).
+- `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `app.py` (legal pages and the built frontend).
 - `frontend/`: React, TypeScript and Vite. `npm run build` writes to `src/blattwerk/static/`, which FastAPI serves.
 
 ## Run it

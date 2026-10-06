@@ -1,6 +1,7 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { useState } from "react";
-import { FONTS, MARKS, RULINGS, rowsOf, symbol, type Align, type Block, type Box, type Ruling } from "../sheet";
+import { FONTS, MARKS, RULINGS, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling } from "../sheet";
+import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
 
 type Props = {
@@ -23,12 +24,19 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
   const rulings = of("ruling");
   const [points] = of("points");
   const [sign] = of("symbol");
+  // The generator's limits belong to one block.
+  const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const { mark } = sel[0];
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
     place(rulings.map((b) => [b.id, { h: round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row) }]), "ruling");
+  };
+  // A maths block's height follows its exercises when they need more or less room than before.
+  const calc = (props: MathsProps) => {
+    style("maths", props, "maths");
+    if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, { h: mathsHeight(props) }]], "maths");
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -90,6 +98,7 @@ export default function Format({ sel, style, place, crop, cropping }: Props) {
           </label>
         </>
       )}
+      {maths && <Maths key={maths.id} block={maths} apply={calc} />}
       {points && (
         <>
           <h2>Punkte</h2>
