@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { NavLink, Outlet, Route, Routes } from "react-router";
+import { Link, NavLink, Outlet, Route, Routes } from "react-router";
 import { api, type User } from "./api";
 import Logo from "./components/Logo";
+import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Feedback from "./pages/Feedback";
@@ -27,6 +28,7 @@ export default function App() {
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={setUser} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={setUser} />} />
+        <Route path="/ueber" element={<About />} />
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
@@ -45,6 +47,7 @@ export default function App() {
       <footer>
         <a href="/impressum">Impressum</a>
         <a href="/datenschutz">Datenschutz</a>
+        <Link to="/ueber">Über</Link>
       </footer>
     </>
   );

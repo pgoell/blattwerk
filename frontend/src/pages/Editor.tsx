@@ -19,21 +19,27 @@ import {
   Eraser,
   FilePlus,
   FileX,
+  Heading,
+  ImagePlus,
   Lock,
   LockOpen,
   Minus,
   MoveHorizontal,
   PanelRight,
   Redo2,
+  Rows3,
   Save,
   SeparatorHorizontal,
   SeparatorVertical,
+  Smile,
   Square,
   SquareDashedMousePointer,
+  SquareSlash,
   Squircle,
   Trash2,
   Type,
   Undo2,
+  UserPen,
   X,
   ZoomIn,
   ZoomOut,
@@ -43,10 +49,12 @@ import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { useParams } from "react-router";
 import { api, post } from "../api";
-import { H, PT, Shape, W, far, isLine, last, read, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type Kind, type Page, type Sheet, type ShapeBlock, type TextBlock } from "../sheet";
+import { Draw, H, Mark, W, far, isLine, last, numbers, read, textStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Sheet, type ShapeBlock } from "../sheet";
+import Format from "./Format";
 
-type Align = TextBlock["props"]["align"];
 type Template = { id: number; name: string; doc: Doc };
+// A new block's type and settings; `add` gives it its place.
+type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
 const MARGIN = 15;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
@@ -61,7 +69,6 @@ const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
 ];
-const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
 const TABS = ["Start", "Ansicht", "Vorlagen"];
 const GRIDS = [0, 5, 10, 20];
 const NONE: Guides = { x: [], y: [] };
@@ -130,12 +137,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [name, setName] = useState("");
   // The x and y, in mm, that a line's end or a group's corner has snapped to.
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
+  // Crop mode: the picture being cropped and the cut its frame shows, stored only when the mode ends.
+  const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
   // Pixels per mm when the page fills the desk's width; zoom multiplies it.
   const [fit, setFit] = useState(1);
   const [zoom, setZoom] = useState(1);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
   const touch = useRef(false);
   const hold = useRef(0);
@@ -160,10 +170,12 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
-  const texts = sel.filter((b) => b.type === "text");
+  const ns = numbers(hist.doc);
   const shapes = sel.filter((b) => b.type === "shape");
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
+  // The picture in crop mode. The draft is dropped when the selection moves on by any way but `done`.
+  const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   const top = Math.max(0, ...blocks.map((b) => b.z));
@@ -198,11 +210,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as Element).matches("textarea, input")) return;
+      if ((e.target as Element).matches("textarea, input, select")) return;
       const keys: Record<string, () => void> =
         e.ctrlKey || e.metaKey
           ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel) }
-          : { delete: remove, backspace: remove };
+          : { delete: remove, backspace: remove, escape: done };
       const run = keys[e.key.toLowerCase()];
       if (!run) return;
       e.preventDefault();
@@ -342,13 +354,26 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     }
     return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
   }
-  function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
+  function add(w: number, h: number, rest: Fresh) {
     const id = crypto.randomUUID();
     const y = round(Math.max(0, seen(0))) + MARGIN;
     const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
     change((bs) => [...bs, block]);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
+  }
+  // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
+  async function upload(file?: File) {
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+      const w = round(Math.min(100, (100 * width) / height));
+      add(w, round((w * height) / width), { type: "image", props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } });
+    } catch {
+      alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+    }
   }
   function put(from: Block[]) {
     const copies = land(
@@ -540,7 +565,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   // `press` is the mouse press that selects, so the same press can drag.
   function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent) {
-    if (el.closest(".end, .rule")) return;
+    if (el.closest(".end, .rule, .crop")) return;
+    // A press beside the picture ends its crop.
+    done();
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
     const more = shift || multi;
     const to = pageOf(el);
@@ -557,7 +584,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       setMulti(false);
     } else if (ids.includes(id)) {
       if (more) setIds(ids.filter((i) => i !== id));
-      // On touch a second tap on a text block edits it; a mouse double-clicks.
+      // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks.
       else if (touch.current) edit(id);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
@@ -567,7 +594,45 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     }
   }
   function edit(id?: string) {
-    if (id && free.length === 1 && free[0].id === id && free[0].type === "text") setEditing(id);
+    if (!id || free.length !== 1 || free[0].id !== id) return;
+    if (free[0].type === "text") setEditing(id);
+    if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
+  }
+  // The whole picture's box on the page, in mm, from the block's box and its stored cut.
+  function whole(b: ImageBlock) {
+    const w = b.w / (1 - b.props.cut[0] - b.props.cut[2]);
+    const h = w / b.props.ratio;
+    return { x: b.x - b.props.cut[0] * w, y: b.y - b.props.cut[1] * h, w, h };
+  }
+  // A crop handle moves the edges of the frame it stands on: `dx` and `dy` are -1 for the left or top edge, 1 for the
+  // right or bottom one. The frame itself (0, 0) moves as a whole over the picture. A tenth of the picture always stays.
+  function trim(e: PointerEvent, b: ImageBlock, dx: number, dy: number) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const full = whole(b);
+    const at = point(e);
+    const share = [(at[0] - full.x) / full.w, (at[1] - full.y) / full.h];
+    const cut = [...draft!.cut];
+    [dx, dy].forEach((d, axis) => {
+      const [lo, hi] = [axis, axis + 2];
+      const size = 1 - cut[lo] - cut[hi];
+      if (d < 0) cut[lo] = Math.max(0, Math.min(share[axis], 1 - cut[hi] - 0.1));
+      if (d > 0) cut[hi] = Math.max(0, Math.min(1 - share[axis], 1 - cut[lo] - 0.1));
+      if (!dx && !dy) {
+        cut[lo] = Math.max(0, Math.min(share[axis] - size / 2, 1 - size));
+        cut[hi] = 1 - size - cut[lo];
+      }
+    });
+    setDraft({ id: b.id, cut });
+  }
+  // Leaving crop mode cuts the picture in one undo step. The block's box becomes the frame, so what stays of the
+  // picture keeps its place and its size on the page.
+  function done() {
+    setDraft(undefined);
+    if (!cropping || draft!.cut.join() === cropping.props.cut.join()) return;
+    const full = whole(cropping);
+    const [l, t, r, b] = draft!.cut;
+    const box = { x: round(full.x + l * full.w), y: round(full.y + t * full.h), w: round(full.w * (1 - l - r)), h: round(full.h * (1 - t - b)) };
+    change((bs) => bs.map((o) => (o.id === cropping.id ? { ...cropping, ...box, props: { ...cropping.props, cut: draft!.cut } } : o)));
   }
 
   function onTouchStart(e: TouchEvent) {
@@ -650,6 +715,27 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               </Group>
               <Group label="Einfügen">
                 <Tool icon={Type} label="Text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+                <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
+                <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
+                <input
+                  ref={picker}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  hidden
+                  onChange={(e) => {
+                    upload(e.target.files?.[0]);
+                    // The same picture can be picked again.
+                    e.target.value = "";
+                  }}
+                />
+                <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
+              </Group>
+              <Group label="Schule">
+                <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
+                <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
+                <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+              </Group>
+              <Group label="Formen">
                 {SHAPES.map(([kind, label, icon]) => (
                   <Tool
                     key={kind}
@@ -778,21 +864,23 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 key={b.id}
                 data-id={b.id}
                 className={ids.includes(b.id) ? "block sel" : "block"}
-                style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}
+                style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
               >
                 {b.type === "text" ? (
                   <textarea
                     value={b.props.text}
                     placeholder="Text"
                     readOnly={editing !== b.id}
-                    style={{ fontSize: b.props.size * PT * k, textAlign: b.props.align }}
+                    style={textStyle(b.props, k)}
                     onChange={(e) => style("text", { text: e.target.value }, "text")}
                     onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
                     onBlur={() => setEditing("")}
                   />
                 ) : (
-                  <Shape block={b} k={k} />
+                  <Draw block={b} k={k} />
                 )}
+                <Mark block={b} k={k} n={ns.get(b.id)} />
+                {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                 {b === line &&
                   [false, true].map((end) => (
                     <i
@@ -838,14 +926,16 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   ))}
                 <Moveable
                   ref={moveable}
-                  target={targets}
+                  // In crop mode the frame's handles stand in for Moveable's.
+                  target={cropping ? [] : targets}
                   draggable={free.length === sel.length}
                   resizable={free.length === sel.length && !sel.some(isLine)}
                   renderDirections={CORNERS}
                   origin={false}
                   checkInput
                   snappable={!loose}
-                  keepRatio={(mod & KEEP) > 0}
+                  // A picture and a symbol always keep their shape.
+                  keepRatio={(mod & KEEP) > 0 || sel.some((b) => b.type === "image" || b.type === "symbol")}
                   snapThreshold={6}
                   isDisplaySnapDigit={false}
                   snapDirections={SIDES}
@@ -916,20 +1006,14 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             </>
           )}
 
-          {texts.length > 0 && (
-            <>
-              <h2>Schrift</h2>
-              <div className="row">
-                <button aria-label="Schrift kleiner" onClick={() => style("text", { size: Math.max(8, texts[0].props.size - 2) })}>−</button>
-                <output>{texts[0].props.size} pt</output>
-                <button aria-label="Schrift größer" onClick={() => style("text", { size: texts[0].props.size + 2 })}>＋</button>
-                {ALIGNS.map(([value, label]) => (
-                  <button key={value} className={texts[0].props.align === value ? "on" : ""} onClick={() => style("text", { align: value })}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </>
+          {sel.length > 0 && (
+            <Format
+              sel={sel}
+              style={style}
+              place={place}
+              cropping={!!cropping}
+              crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
+            />
           )}
           {shapes.length > 0 && (
             <>
@@ -963,6 +1047,37 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         </aside>
       )}
     </main>
+  );
+}
+
+// Crop mode, drawn over the picture's block: the whole picture, pale outside the frame, and the frame with a handle
+// on each corner and edge. `box` is the whole picture on the page; the block lies inside it.
+function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
+  block: ImageBlock;
+  box: { x: number; y: number; w: number; h: number };
+  cut: number[];
+  k: number;
+  grip: (e: PointerEvent) => void;
+  trim: (e: PointerEvent, b: ImageBlock, dx: number, dy: number) => void;
+}) {
+  const src = `/api/uploads/${block.props.upload}`;
+  const inset = [t, r, b, l].map((share) => `${share * 100}%`).join(" ");
+  // Along one axis: the frame's near edge, its middle and its far edge.
+  const at = (d: number, lo: number, hi: number) => `${(d < 0 ? lo : d > 0 ? 1 - hi : (lo + 1 - hi) / 2) * 100}%`;
+  return (
+    <div className="crop" style={{ left: (box.x - block.x) * k, top: (box.y - block.y) * k, width: box.w * k, height: box.h * k }}>
+      <img className="dim" src={src} alt="" draggable={false} />
+      <img src={src} alt="" draggable={false} style={{ clipPath: `inset(${inset})` }} />
+      <div style={{ inset }} onPointerDown={grip} onPointerMove={(e) => trim(e, block, 0, 0)} />
+      {[-1, 0, 1].flatMap((dy) =>
+        [-1, 0, 1].map(
+          (dx) =>
+            (dx || dy) !== 0 && (
+              <i key={`${dx}${dy}`} className="end" style={{ left: at(dx, l, r), top: at(dy, t, b) }} onPointerDown={grip} onPointerMove={(e) => trim(e, block, dx, dy)} />
+            ),
+        ),
+      )}
+    </div>
   );
 }
 
