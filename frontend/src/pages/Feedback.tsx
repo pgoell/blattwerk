@@ -43,7 +43,7 @@ export default function Feedback() {
           <p className="hint">Du kannst mehrere Aufnahmen machen.</p>
           <VoiceNotes clips={clips} onChange={setClips} />
         </div>
-        <button className="wide" disabled={busy}>Abschicken</button>
+        <button className="wide primary" disabled={busy}>Abschicken</button>
         <div className="status" role="status">{status}</div>
       </form>
     </main>

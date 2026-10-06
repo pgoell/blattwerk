@@ -25,7 +25,7 @@ export default function Login({ onDone }: { onDone: (user: User) => void }) {
         <input id="email" name="email" type="email" autoComplete="username" required />
         <label htmlFor="password">Passwort</label>
         <input id="password" name="password" type="password" autoComplete="current-password" required />
-        <button className="wide">Anmelden</button>
+        <button className="wide primary">Anmelden</button>
         <div className="status" role="status">{status}</div>
       </form>
       <p className="hint">Passwort vergessen? Schreib mir, dann bekommst du einen Link.</p>

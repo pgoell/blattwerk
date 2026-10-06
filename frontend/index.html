@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
-    <meta name="theme-color" content="#f6f2e9" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#171a17" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1f2023" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Blattwerk" />
@@ -13,6 +13,10 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Blattwerk</title>
+    <script>
+      // The theme chosen on the account page, set before the first paint; without one the device decides.
+      document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "";
+    </script>
   </head>
   <body>
     <div id="root"></div>

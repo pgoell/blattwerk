@@ -54,7 +54,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   return (
     <>
       <h2>Rechenart</h2>
-      <div className="row" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="seg">
         {(Object.keys(SIGNS) as Op[]).map((op) => (
           <button key={op} className={p.ops.includes(op) ? "on" : ""} aria-pressed={p.ops.includes(op)} onClick={() => toggle(op)}>
             {SIGNS[op]}
@@ -109,7 +109,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       {plus && (
         <>
           <h2>Übertrag</h2>
-          <div className="row">
+          <div className="seg">
             {CARRIES.map(([carry, label]) => (
               <button key={carry} className={p.carry === carry ? "on" : ""} onClick={() => limit({ carry })}>
                 {label}
@@ -121,14 +121,14 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       {p.ops.includes("/") && (
         <>
           <h2>Division</h2>
-          <div className="row">
+          <div className="seg">
             <button className={p.rest ? "" : "on"} onClick={() => limit({ rest: false })}>Ohne Rest</button>
             <button className={p.rest ? "on" : ""} onClick={() => limit({ rest: true })}>Mit Rest</button>
           </div>
         </>
       )}
       <h2>Format</h2>
-      <div className="row">
+      <div className="seg">
         {FORMATS.map(([format, label]) => (
           <button key={format} className={p.format === format ? "on" : ""} onClick={() => limit({ format })}>
             {label}
@@ -136,21 +136,23 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
         ))}
       </div>
       <h2>Anzahl</h2>
-      <div className="row">
+      <div className="seg">
         <button aria-label="Eine Aufgabe weniger" onClick={() => limit({ count: Math.max(1, p.count - 1) })}>−</button>
         <output>{p.count} Aufgaben</output>
         <button aria-label="Eine Aufgabe mehr" onClick={() => limit({ count: Math.min(100, p.count + 1) })}>＋</button>
+      </div>
+      <div className="seg">
         <button aria-label="Eine Spalte weniger" onClick={() => show({ columns: Math.max(1, p.columns - 1) })}>−</button>
         <output>{p.columns} Spalten</output>
         <button aria-label="Eine Spalte mehr" onClick={() => show({ columns: Math.min(6, p.columns + 1) })}>＋</button>
-        {p.format !== "written" && (
-          <>
-            <button aria-label="Schrift kleiner" onClick={() => show({ size: Math.max(8, p.size - 2) })}>−</button>
-            <output>{p.size} pt</output>
-            <button aria-label="Schrift größer" onClick={() => show({ size: p.size + 2 })}>＋</button>
-          </>
-        )}
       </div>
+      {p.format !== "written" && (
+        <div className="seg">
+          <button aria-label="Schrift kleiner" onClick={() => show({ size: Math.max(8, p.size - 2) })}>−</button>
+          <output>{p.size} pt</output>
+          <button aria-label="Schrift größer" onClick={() => show({ size: p.size + 2 })}>＋</button>
+        </div>
+      )}
       {p.loosen && (
         <p className="hint" role="status">
           {p.exercises.length ? `Mit diesen Grenzen gibt es nur ${p.exercises.length} verschiedene Aufgaben.` : "Mit diesen Grenzen gibt es keine Aufgabe."}
@@ -160,7 +162,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       {failed && <p className="hint" role="alert">Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?</p>}
       <button className="wide" onClick={() => limit({ seed: newSeed() })}>Neu würfeln</button>
       <h2>Aufgaben nummerieren</h2>
-      <div className="row" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="seg">
         <button className={p.numbering ? "" : "on"} onClick={() => show({ numbering: undefined })}>Keine</button>
         {Object.keys(MARKS).map((m) => (
           <button key={m} className={p.numbering === m ? "on" : ""} onClick={() => show({ numbering: m })}>
