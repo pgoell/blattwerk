@@ -190,6 +190,7 @@ body:has(.print) { background: #fff; }
 .tabs [role=tab] { border-radius: 0; border-width: 0 0 3px; border-color: transparent; background: none; color: var(--muted); }
 .tabs [aria-selected=true] { color: var(--accent-strong); border-color: var(--accent); }
 .tabs [aria-pressed] { margin: 0 0 4px auto; }
+.tabs .help { margin: 0 0 4px 4px; }
 /* Tools stand in named groups, each tool an icon over its name. */
 .tools { display: flex; flex-wrap: wrap; gap: 6px 0; padding: 6px 4px 4px; }
 .group { display: flex; flex-direction: column; padding: 0 8px; border-right: 1px solid var(--line); }
@@ -325,6 +326,27 @@ body:has(.print) { background: #fff; }
 .symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; max-height: 196px; margin-top: 6px; overflow: auto; }
 .editor .symbols button { padding: 0; }
 .symbols img { width: 32px; height: 32px; }
+/* The tour: a ring round the control a step is about, and a card at the window's edge away from it. Neither takes
+   a press meant for the editor. */
+.tour-ring {
+  position: fixed; z-index: 10; border: 3px solid var(--accent); border-radius: 12px; pointer-events: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tour {
+  position: fixed; z-index: 10; left: 50%; translate: -50%; bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(440px, 100vw - 24px); padding: 14px 16px 12px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow), 0 16px 40px -12px rgba(0, 0, 0, .35);
+}
+.tour.up { bottom: auto; top: calc(16px + env(safe-area-inset-top)); }
+.tour small { color: var(--muted); }
+.tour h2 { font: 600 1.15rem/1.25 var(--display); margin: 2px 0 6px; }
+.tour p { margin: 0 0 12px; font-size: .95rem; text-wrap: pretty; }
+.tour div { display: flex; gap: 6px; }
+.tour .on { margin-left: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-ring { animation: ring 1.6s ease-in-out infinite; }
+}
+@keyframes ring { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
 @media (max-width: 700px) {
   .editor { grid-template: auto minmax(0, 1fr) auto / minmax(0, 1fr); }
   .panel { width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--line); }
