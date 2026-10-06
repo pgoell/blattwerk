@@ -17,6 +17,8 @@ import {
   Copy,
   CopyPlus,
   Eraser,
+  FilePlus,
+  FileX,
   Lock,
   LockOpen,
   Minus,
@@ -39,26 +41,14 @@ import {
 } from "lucide-react";
 import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
+import { useParams } from "react-router";
 import { api, post } from "../api";
+import { H, PT, Shape, W, far, isLine, last, read, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type Kind, type Page, type Sheet, type ShapeBlock, type TextBlock } from "../sheet";
 
-// One page's blocks, as the sheet document stores them: mm from the page's top-left corner.
-type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean };
-type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
-type Corner = "nw" | "ne" | "sw" | "se";
-type Align = "left" | "center" | "right";
-type TextBlock = Box & { type: "text"; props: { text: string; size: number; align: Align } };
-// A line or arrow runs from the corner `from` of its box to the opposite one.
-type ShapeBlock = Box & { type: "shape"; props: { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner } };
-type Block = TextBlock | ShapeBlock;
-type Axis = "x" | "y";
-// What a template keeps: the blocks, the teacher's own guide lines in mm, and the grid's cell in mm (0 for none).
-type Doc = { blocks: Block[]; guides: Record<Axis, number[]>; grid: number };
+type Align = TextBlock["props"]["align"];
 type Template = { id: number; name: string; doc: Doc };
 
-const W = 210;
-const H = 297;
 const MARGIN = 15;
-const PT = 25.4 / 72; // mm per point
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
 // Snap lines on the page: the margins and the centre.
@@ -74,6 +64,7 @@ const SHAPES: [Kind, string, LucideIcon][] = [
 const ALIGNS: [Align, string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
 const TABS = ["Start", "Ansicht", "Vorlagen"];
 const GRIDS = [0, 5, 10, 20];
+const NONE: Guides = { x: [], y: [] };
 // The keys held during a drag, as PowerPoint reads them. Shift keeps the shape or the direction. Ctrl (Option on
 // Apple) resizes about the centre and leaves a copy behind a move. Alt (Command on Apple) switches snapping off.
 const KEEP = 1;
@@ -87,9 +78,6 @@ const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.f
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
 const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2];
-const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
-// Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
-const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
 // The box around several blocks.
 const bounds = (bs: Box[]) => {
   const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
@@ -103,12 +91,33 @@ const span = (boxes: Box[], axis: Axis) => {
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 
-export default function Sheets() {
-  const [hist, setHist] = useState<{ past: Doc[]; doc: Doc; future: Doc[] }>({
-    past: [],
-    doc: { blocks: [], guides: { x: [], y: [] }, grid: 0 },
-    future: [],
-  });
+export default function Editor() {
+  const { id } = useParams();
+  // undefined while the sheet is loading, null when it is not there.
+  const [file, setFile] = useState<Sheet | null>();
+
+  function load() {
+    api<Sheet>(`/sheets/${id}`).then(setFile, () => setFile(null));
+  }
+  useEffect(load, [id]);
+
+  if (file === undefined) return null;
+  if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
+  // A version loaded anew starts the editor over.
+  return <Canvas key={`${file.id}.${file.version}`} file={file} reload={load} />;
+}
+
+function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
+  const [hist, setHist] = useState<{ past: Doc[]; doc: Doc; future: Doc[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  const [title, setTitle] = useState(file.title);
+  // What the server holds, and how often a save has failed since.
+  const [stored, setStored] = useState({ doc: hist.doc, title });
+  const [tries, setTries] = useState(0);
+  // Set when the server holds a newer document than the one this editor began with.
+  const [clash, setClash] = useState(false);
+  // Whether a new guide line or grid is for the page in use alone.
+  const [own, setOwn] = useState(false);
+  const [at, setAt] = useState(0);
   const [ids, setIds] = useState<string[]>([]);
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
@@ -134,8 +143,19 @@ export default function Sheets() {
   const grab = useRef([0, 0]);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
+  const save = useRef((_keepalive: boolean) => {});
+  // The version the document here is based on.
+  const version = useRef(file.version);
+  const busy = useRef(false);
 
-  const { blocks, guides, grid } = hist.doc;
+  const { pages, guides, grid } = hist.doc;
+  // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
+  const page = Math.min(at, pages.length - 1);
+  const { blocks } = pages[page];
+  const cellOf = (p: Page) => p.grid ?? grid;
+  const cell = cellOf(pages[page]);
+  const mine = pages[page].guides ?? NONE;
+  const dirty = hist.doc !== stored.doc || title !== stored.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
@@ -149,8 +169,8 @@ export default function Sheets() {
   const top = Math.max(0, ...blocks.map((b) => b.z));
   // Snap lines: the page's, the teacher's own and the grid's, then the edges and centres of the blocks that stay put.
   const still = blocks.filter((b) => !ids.includes(b.id));
-  const pageXs = [...XS, ...guides.x, ...lines(grid, W)];
-  const pageYs = [...YS, ...guides.y, ...lines(grid, H)];
+  const pageXs = [...XS, ...guides.x, ...mine.x, ...lines(cell, W)];
+  const pageYs = [...YS, ...guides.y, ...mine.y, ...lines(cell, H)];
   const xs = loose ? [] : [...pageXs, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
   const ys = loose ? [] : [...pageYs, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
@@ -163,7 +183,7 @@ export default function Sheets() {
   // Moveable needs the elements, and they exist only after the blocks render.
   useLayoutEffect(() => {
     setTargets([...sheet.current!.querySelectorAll<HTMLElement>(".block.sel")]);
-  }, [ids, blocks.length]);
+  }, [ids, blocks.length, page]);
 
   useLayoutEffect(() => {
     if (!moveable.current!.isDragging()) moveable.current!.updateRect();
@@ -210,6 +230,39 @@ export default function Sheets() {
     api<Template[]>("/templates").then(setTemplates, () => {});
   }, []);
 
+  // A change is saved two seconds after the last one, one save at a time, and a save that failed is tried again.
+  // The server turns down a document based on an older version than it holds: then saving stops until the teacher
+  // has chosen. The title goes along only when it changed here, so a rename from the list stays.
+  save.current = (keepalive) => {
+    if (!dirty || clash || busy.current) return;
+    busy.current = true;
+    const now = { doc: hist.doc, title };
+    const named = title === stored.title ? {} : { title: title.trim() || "Unbenanntes Blatt" };
+    last.save = post<Sheet>(`/sheets/${file.id}`, { doc: now.doc, version: version.current, ...named }, { method: "PATCH", keepalive })
+      .then(
+        (saved) => {
+          version.current = saved.version;
+          setStored(now);
+          setTries(0);
+        },
+        (e: Error) => (e.message === "409" ? setClash(true) : setTries((n) => n + 1)),
+      )
+      .finally(() => (busy.current = false));
+  };
+  useEffect(() => {
+    const timer = setTimeout(() => save.current(false), 2000);
+    return () => clearTimeout(timer);
+  }, [hist.doc, title, tries, stored, clash]);
+  // Leaving the editor or the app saves at once; `keepalive` lets the request outlive the window.
+  useEffect(() => {
+    const leave = () => save.current(true);
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, []);
+
   // A finger on a block of a flat group starts the group's drag, as a mouse press does in `pick`. Moveable cancels
   // the touch it drags from, and React's own touch listeners are passive, so this one is set by hand.
   useEffect(() => {
@@ -228,8 +281,17 @@ export default function Sheets() {
     mergeKey.current = key;
     setHist((h) => ({ past: merge ? h.past : [...h.past, h.doc], doc: fn(h.doc), future: [] }));
   }
+  // Changes one page, the one in use unless `n` names another.
+  function turn(fn: (p: Page) => Page, key?: string, n = page) {
+    update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key);
+  }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
-    update((doc) => ({ ...doc, blocks: fn(doc.blocks) }), key);
+    turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
+  }
+  // Changes the sheet's guide lines, or with `n` those of that page alone.
+  function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
+    if (n === undefined) update((doc) => ({ ...doc, guides: fn(doc.guides) }), key);
+    else turn((p) => ({ ...p, guides: fn(p.guides ?? NONE) }), key, n);
   }
   function place(boxes: [string, Partial<Box>][], key?: string) {
     const byId = new Map(boxes);
@@ -247,6 +309,25 @@ export default function Sheets() {
     setHist((h) => (h.future.length ? { past: [...h.past, h.doc], doc: h.future[0], future: h.future.slice(1) } : h));
   }
 
+  // The new page comes after the one in use and takes its place.
+  function addPage() {
+    flushSync(() => {
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, page + 1), { blocks: [] }, ...doc.pages.slice(page + 1)] }));
+      setAt(page + 1);
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  function removePage() {
+    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== page) }));
+    setIds([]);
+  }
+
+  // The page an element lies on; beside the pages, the one in use.
+  const pageOf = (el: Element) => +(el.closest<HTMLElement>(".sheet")?.dataset.page ?? page);
+  // How far down the page in use, in mm, a point of the desk's view lies.
+  const seen = (down: number) => (desk.current!.getBoundingClientRect().top + down - sheet.current!.getBoundingClientRect().top) / k;
+
   // Moves new blocks as one onto the page, then in steps clear of a block already at that spot.
   function land<T extends Box>(boxes: T[]) {
     const [x, right] = span(boxes, "x");
@@ -263,7 +344,7 @@ export default function Sheets() {
   }
   function add(w: number, h: number, rest: Pick<TextBlock, "type" | "props"> | Pick<ShapeBlock, "type" | "props">) {
     const id = crypto.randomUUID();
-    const y = round(desk.current!.scrollTop / k) + MARGIN;
+    const y = round(Math.max(0, seen(0))) + MARGIN;
     const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
     change((bs) => [...bs, block]);
     setIds([id]);
@@ -365,7 +446,7 @@ export default function Sheets() {
   }
   // Where on the page, in mm, the pointer puts the handle it holds.
   function point(e: PointerEvent) {
-    const page = sheet.current!.getBoundingClientRect();
+    const page = e.currentTarget.closest(".sheet")!.getBoundingClientRect();
     return [(e.clientX - grab.current[0] - page.left) / k, (e.clientY - grab.current[1] - page.top) / k];
   }
   // The guide closest to a point, if one lies within the snap distance.
@@ -422,23 +503,23 @@ export default function Sheets() {
 
   // A new guide line starts in the middle of what the desk shows, clear of a guide already there.
   function rule(axis: Axis) {
-    let at = axis === "x" ? W / 2 : Math.min(H, Math.round((desk.current!.scrollTop + desk.current!.clientHeight / 2) / k));
-    while (guides[axis].includes(at)) at += 10;
-    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: [...doc.guides[axis], at] } }));
+    let at = axis === "x" ? W / 2 : Math.max(0, Math.min(H, Math.round(seen(desk.current!.clientHeight / 2))));
+    while ([...guides[axis], ...mine[axis]].includes(at)) at += 10;
+    rules(own ? page : undefined, (g) => ({ ...g, [axis]: [...g[axis], at] }));
   }
-  // A guide line moves with its tab, in steps of the grid or of a millimetre.
-  function slide(e: PointerEvent, axis: Axis, i: number) {
+  // A guide line moves with its tab, in steps of the grid or of a millimetre. `n` is the page of a page's own line.
+  function slide(e: PointerEvent, axis: Axis, i: number, n?: number) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const at = point(e)[axis === "x" ? 0 : 1];
-    const cell = loose ? 0.01 : grid || 1;
-    const to = round(Math.round(at / cell) * cell);
-    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: doc.guides[axis].map((g, j) => (j === i ? to : g)) } }), "drag");
+    const by = loose ? 0.01 : cell || 1;
+    const to = round(Math.round(at / by) * by);
+    rules(n, (g) => ({ ...g, [axis]: g[axis].map((o, j) => (j === i ? to : o)) }), "drag");
   }
   // Let go off the page, a guide line is gone.
-  function drop(axis: Axis, i: number) {
-    const at = guides[axis][i];
+  function drop(axis: Axis, i: number, n?: number) {
+    const at = (n === undefined ? guides : pages[n].guides!)[axis][i];
     if (at >= 0 && at <= (axis === "x" ? W : H)) return;
-    update((doc) => ({ ...doc, guides: { ...doc.guides, [axis]: doc.guides[axis].filter((_, j) => j !== i) } }), "drag");
+    rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
   async function store() {
@@ -448,7 +529,7 @@ export default function Sheets() {
   }
   // A template takes the place of the sheet; undo brings the sheet back.
   function apply(t: Template) {
-    update(() => t.doc);
+    update(() => read(t.doc));
     setIds([]);
   }
   async function forget(t: Template) {
@@ -462,7 +543,15 @@ export default function Sheets() {
     if (el.closest(".end, .rule")) return;
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
     const more = shift || multi;
-    if (!id) {
+    const to = pageOf(el);
+    if (to !== page) {
+      // A press on another page puts it in use, and the selection starts over. That page's Moveable is a new one.
+      flushSync(() => {
+        setAt(to);
+        setIds(id ? [id] : []);
+      });
+      if (id && press) moveable.current!.dragStart(press);
+    } else if (!id) {
       if (shift) return;
       setIds([]);
       setMulti(false);
@@ -493,10 +582,12 @@ export default function Sheets() {
     // Tap and hold on a block starts selecting several.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
     if (!id) return;
+    const to = pageOf(e.target as Element);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
-      setIds((now) => (now.includes(id) ? now : [...now, id]));
+      setAt(to);
+      setIds((now) => (to !== page ? [id] : now.includes(id) ? now : [...now, id]));
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
@@ -520,11 +611,30 @@ export default function Sheets() {
               {t}
             </button>
           ))}
+          <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
+          <span className="hint" role="status">
+            {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
+          </span>
           <button className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)}>
             <PanelRight size={20} aria-hidden />
             Format
           </button>
         </div>
+        {clash && (
+          <div className="clash" role="alert">
+            Dieses Blatt wurde auf einem anderen Gerät geändert.
+            <button onClick={reload}>Andere Version laden</button>
+            <button
+              // Based on the version the server has now, this document takes its place; a change that lands in between clashes again.
+              onClick={async () => {
+                version.current = (await api<Sheet>(`/sheets/${file.id}`)).version;
+                setClash(false);
+              }}
+            >
+              Mit dieser überschreiben
+            </button>
+          </div>
+        )}
         <div className="tools" role="tabpanel">
           {tab === "Start" && (
             <>
@@ -554,6 +664,10 @@ export default function Sheets() {
                   />
                 ))}
               </Group>
+              <Group label="Seite">
+                <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
+                <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+              </Group>
               <Group label="Auswahl">
                 <Tool
                   icon={locked ? LockOpen : Lock}
@@ -579,17 +693,25 @@ export default function Sheets() {
                 <Tool icon={MoveHorizontal} label="Seitenbreite" onClick={() => setZoom(1)} />
                 <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
               </Group>
+              <Group label="Raster und Hilfslinien für">
+                <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
+                <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
+              </Group>
+              {/* A page's own grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
               <Group label="Raster">
-                {GRIDS.map((cell) => (
-                  <button
-                    key={cell}
-                    className={grid === cell ? "on" : ""}
-                    aria-pressed={grid === cell}
-                    onClick={() => update((doc) => ({ ...doc, grid: cell }))}
-                  >
-                    {cell ? `${cell} mm` : "Aus"}
-                  </button>
-                ))}
+                {(own ? [undefined, ...GRIDS] : GRIDS).map((c) => {
+                  const on = (own ? pages[page].grid : grid) === c;
+                  return (
+                    <button
+                      key={c ?? "sheet"}
+                      className={on ? "on" : ""}
+                      aria-pressed={on}
+                      onClick={() => (own ? turn((p) => ({ ...p, grid: c })) : update((doc) => ({ ...doc, grid: c! })))}
+                    >
+                      {c === undefined ? "Wie Blatt" : c ? `${c} mm` : "Aus"}
+                    </button>
+                  );
+                })}
               </Group>
               <Group label="Hilfslinien">
                 <Tool icon={SeparatorVertical} label="Senkrecht" onClick={() => rule("x")} />
@@ -597,8 +719,8 @@ export default function Sheets() {
                 <Tool
                   icon={Eraser}
                   label="Alle entfernen"
-                  disabled={!guides.x.length && !guides.y.length}
-                  onClick={() => update((doc) => ({ ...doc, guides: { x: [], y: [] } }))}
+                  disabled={!(own ? mine : guides).x.length && !(own ? mine : guides).y.length}
+                  onClick={() => rules(own ? page : undefined, () => NONE)}
                 />
               </Group>
             </>
@@ -642,100 +764,116 @@ export default function Sheets() {
           held.current = false;
         }}
       >
-        <div className={grid ? "sheet grid" : "sheet"} ref={sheet} style={{ width: W * k, height: H * k, "--cell": `${grid * k}px` } as CSSProperties}>
-          {blocks.map((b) => (
-            <div
-              key={b.id}
-              data-id={b.id}
-              className={ids.includes(b.id) ? "block sel" : "block"}
-              style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}
-            >
-              {b.type === "text" ? (
-                <textarea
-                  value={b.props.text}
-                  placeholder="Text"
-                  readOnly={editing !== b.id}
-                  style={{ fontSize: b.props.size * PT * k, textAlign: b.props.align }}
-                  onChange={(e) => style("text", { text: e.target.value }, "text")}
-                  onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-                  onBlur={() => setEditing("")}
-                />
-              ) : (
-                <Shape block={b} k={k} />
-              )}
-              {b === line &&
-                [false, true].map((end) => (
-                  <i
-                    key={+end}
-                    className={end && line.props.kind === "arrow" ? "end tip" : "end"}
-                    style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
-                    onPointerDown={grip}
-                    onPointerMove={(e) => stretch(e, line, end)}
-                    onLostPointerCapture={() => setGuide([])}
+        {pages.map((p, n) => (
+          <div
+            key={n}
+            data-page={n}
+            className={`sheet${cellOf(p) ? " grid" : ""}${n === page ? " on" : ""}`}
+            ref={n === page ? sheet : undefined}
+            style={{ width: W * k, height: H * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
+          >
+            {p.blocks.map((b) => (
+
+              <div
+                key={b.id}
+                data-id={b.id}
+                className={ids.includes(b.id) ? "block sel" : "block"}
+                style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}
+              >
+                {b.type === "text" ? (
+                  <textarea
+                    value={b.props.text}
+                    placeholder="Text"
+                    readOnly={editing !== b.id}
+                    style={{ fontSize: b.props.size * PT * k, textAlign: b.props.align }}
+                    onChange={(e) => style("text", { text: e.target.value }, "text")}
+                    onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                    onBlur={() => setEditing("")}
                   />
-                ))}
-            </div>
-          ))}
-          {(["x", "y"] as const).flatMap((axis) =>
-            guides[axis].map((at, i) => (
-              <i key={axis + i} className={`rule ${axis}`} style={axis === "x" ? { left: at * k } : { top: at * k }}>
-                <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i)} onLostPointerCapture={() => drop(axis, i)}>
-                  {at}
-                </b>
-              </i>
-            )),
-          )}
-          {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
-          {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
-          {group &&
-            [0, 1, 2, 3].map((i) => (
-              <i
-                key={i}
-                className="end"
-                style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
-                onPointerDown={(e) => {
-                  grip(e);
-                  start.current = free;
-                }}
-                onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
-                onLostPointerCapture={() => setGuide([])}
-              />
+                ) : (
+                  <Shape block={b} k={k} />
+                )}
+                {b === line &&
+                  [false, true].map((end) => (
+                    <i
+                      key={+end}
+                      className={end && line.props.kind === "arrow" ? "end tip" : "end"}
+                      style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
+                      onPointerDown={grip}
+                      onPointerMove={(e) => stretch(e, line, end)}
+                      onLostPointerCapture={() => setGuide([])}
+                    />
+                  ))}
+              </div>
             ))}
-          <Moveable
-            ref={moveable}
-            target={targets}
-            draggable={free.length === sel.length}
-            resizable={free.length === sel.length && !sel.some(isLine)}
-            renderDirections={CORNERS}
-            origin={false}
-            checkInput
-            snappable={!loose}
-            keepRatio={(mod & KEEP) > 0}
-            snapThreshold={6}
-            isDisplaySnapDigit={false}
-            snapDirections={SIDES}
-            elementSnapDirections={SIDES}
-            elementGuidelines={[".block:not(.sel)"]}
-            verticalGuidelines={pageXs.map((mm) => mm * k)}
-            horizontalGuidelines={pageYs.map((mm) => mm * k)}
-            // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
-            onClick={(e) => touch.current && pick(e.inputTarget, false)}
-            onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
-            onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
-            onDragGroupStart={(e) => begin(e.targets)}
-            onDrag={(e) => drag([e])}
-            onDragGroup={(e) => drag(e.events)}
-            onDragEnd={(e) => leave(e.isDrag)}
-            onDragGroupEnd={(e) => leave(e.isDrag)}
-            // Ctrl resizes about the centre.
-            onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
-            onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
-            onResize={(e) => resize([e])}
-            onResizeGroup={(e) => resize(e.events)}
-            onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-            onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-          />
-        </div>
+            {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
+            {[undefined, n].flatMap((at) =>
+              (["x", "y"] as const).flatMap((axis) =>
+                (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (
+                  <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
+                    <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
+                      {mm}
+                    </b>
+                  </i>
+                )),
+              ),
+            )}
+            {n === page && (
+              <>
+                {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
+                {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
+                {group &&
+                  [0, 1, 2, 3].map((i) => (
+                    <i
+                      key={i}
+                      className="end"
+                      style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
+                      onPointerDown={(e) => {
+                        grip(e);
+                        start.current = free;
+                      }}
+                      onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
+                      onLostPointerCapture={() => setGuide([])}
+                    />
+                  ))}
+                <Moveable
+                  ref={moveable}
+                  target={targets}
+                  draggable={free.length === sel.length}
+                  resizable={free.length === sel.length && !sel.some(isLine)}
+                  renderDirections={CORNERS}
+                  origin={false}
+                  checkInput
+                  snappable={!loose}
+                  keepRatio={(mod & KEEP) > 0}
+                  snapThreshold={6}
+                  isDisplaySnapDigit={false}
+                  snapDirections={SIDES}
+                  elementSnapDirections={SIDES}
+                  elementGuidelines={[".sheet.on .block:not(.sel)"]}
+                  verticalGuidelines={pageXs.map((mm) => mm * k)}
+                  horizontalGuidelines={pageYs.map((mm) => mm * k)}
+                  // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
+                  onClick={(e) => touch.current && pick(e.inputTarget, false)}
+                  onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
+                  onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
+                  onDragGroupStart={(e) => begin(e.targets)}
+                  onDrag={(e) => drag([e])}
+                  onDragGroup={(e) => drag(e.events)}
+                  onDragEnd={(e) => leave(e.isDrag)}
+                  onDragGroupEnd={(e) => leave(e.isDrag)}
+                  // Ctrl resizes about the centre.
+                  onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+                  onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+                  onResize={(e) => resize([e])}
+                  onResizeGroup={(e) => resize(e.events)}
+                  onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                  onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                />
+              </>
+            )}
+          </div>
+        ))}
       </div>
       {/* The drag box is for a mouse on empty desk; a finger there scrolls. */}
       <Selecto
@@ -747,7 +885,8 @@ export default function Sheets() {
           const el = e.inputEvent.target as Element;
           if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
-        onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.map(idOf)])])}
+        // The box selects on the page in use, which the press that began it has set.
+        onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)])])}
       />
 
       {pane && (
@@ -842,34 +981,5 @@ function Tool({ icon: Icon, label, ...rest }: { icon: LucideIcon; label: string 
       <Icon size={20} aria-hidden />
       {label}
     </button>
-  );
-}
-
-function Shape({ block, k }: { block: ShapeBlock; k: number }) {
-  const { kind, fill, stroke, strokeWidth } = block.props;
-  if (isLine(block)) {
-    // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs.
-    const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
-    const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
-    const length = Math.hypot(block.w, block.h);
-    const head = kind === "arrow" ? 2 + strokeWidth * 3 : 0;
-    return (
-      <svg>
-        <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
-          <line x2={length} stroke="transparent" strokeWidth={10} />
-          <line x2={length - head} />
-          {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
-        </g>
-      </svg>
-    );
-  }
-  return (
-    <div
-      style={{
-        background: fill,
-        border: `${strokeWidth * k}px solid ${stroke}`,
-        borderRadius: kind === "circle" ? "50%" : kind === "rounded" ? 4 * k : 0,
-      }}
-    />
   );
 }

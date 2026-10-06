@@ -38,6 +38,12 @@ def test_logged_out_gets_401():
     assert client.get("/api/templates").status_code == 401
     assert client.post("/api/templates", json={"name": "x", "doc": {}}).status_code == 401
     assert client.delete("/api/templates/1").status_code == 401
+    assert client.get("/api/sheets").status_code == 401
+    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).status_code == 401
+    assert client.get("/api/sheets/1").status_code == 401
+    assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
+    assert client.post("/api/sheets/1/duplicate").status_code == 401
+    assert client.delete("/api/sheets/1").status_code == 401
 
 
 def test_invite_works_once():
@@ -140,12 +146,15 @@ def test_feedback_lands_in_the_users_folder(data_dir):
 def test_delete_account_removes_user_and_feedback(data_dir):
     client = user("a@example.com")
     other = user("b@example.com")
+    client.post("/api/sheets", json={"title": "Meins", "doc": {}})
+    other.post("/api/sheets", json={"title": "Deins", "doc": {}})
     client.post("/api/feedback", data={"text": "x"})
     other.post("/api/feedback", data={"text": "y"})
     assert client.delete("/api/me").status_code == 200
     assert client.get("/api/me").status_code == 401
     assert not (data_dir / "users" / "1").exists()
     assert (data_dir / "users" / "2").exists()
+    assert [r["title"] for r in db.open_db().execute("SELECT title FROM sheets")] == ["Deins"]
     login = {"email": "a@example.com", "password": PASSWORD}
     assert client.post("/api/login", json=login).status_code == 401
 
@@ -161,6 +170,68 @@ def test_templates_belong_to_one_user():
     assert client.delete(f"/api/templates/{saved['id']}").status_code == 200
     assert client.get("/api/templates").json() == []
     assert client.post("/api/templates", json={"name": "", "doc": doc}).status_code == 422
+
+
+def test_sheets_belong_to_one_user():
+    client = user("a@example.com")
+    other = user("b@example.com")
+    doc = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
+    sheet = client.post("/api/sheets", json={"title": "Plusaufgaben", "doc": doc}).json()
+    url = f"/api/sheets/{sheet['id']}"
+    assert sheet["title"] == "Plusaufgaben"
+    assert sheet["doc"] == doc
+    assert client.get(url).json() == sheet
+    assert client.get("/api/sheets").json() == [sheet]
+
+    # A save may bring the title, the document or both.
+    grid = {**doc, "grid": 5}
+    assert client.patch(url, json={"title": "Minusaufgaben"}).json()["doc"] == doc
+    assert client.patch(url, json={"doc": grid, "version": 1}).json()["title"] == "Minusaufgaben"
+    assert client.patch(url, json={"title": ""}).status_code == 422
+    copy = client.post(f"{url}/duplicate").json()
+    assert copy["id"] != sheet["id"]
+    assert copy["title"] == "Minusaufgaben (Kopie)"
+    assert copy["doc"] == grid
+    assert {s["id"] for s in client.get("/api/sheets").json()} == {sheet["id"], copy["id"]}
+
+    assert other.get("/api/sheets").json() == []
+    assert other.get(url).status_code == 404
+    assert other.patch(url, json={"title": "Geklaut"}).status_code == 404
+    assert other.post(f"{url}/duplicate").status_code == 404
+    assert other.delete(url).status_code == 404
+    assert client.get(url).json()["title"] == "Minusaufgaben"
+
+    assert client.delete(url).status_code == 200
+    assert client.get(url).status_code == 404
+    assert [s["id"] for s in client.get("/api/sheets").json()] == [copy["id"]]
+
+
+def test_stale_save_gets_409():
+    client = user("a@example.com")
+    doc = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
+    sheet = client.post("/api/sheets", json={"title": "Blatt", "doc": doc}).json()
+    url = f"/api/sheets/{sheet['id']}"
+    assert sheet["version"] == 1
+
+    # A rename brings no document: it needs no version and leaves the version alone.
+    assert client.patch(url, json={"title": "Umbenannt"}).json()["version"] == 1
+    five = client.patch(url, json={"doc": {**doc, "grid": 5}, "version": 1}).json()
+    assert five["version"] == 2
+    assert five["title"] == "Umbenannt"
+
+    # Another device still holds version 1.
+    stale = {"title": "Veraltet", "doc": {**doc, "grid": 10}, "version": 1}
+    assert client.patch(url, json=stale).status_code == 409
+    assert client.get(url).json() == five
+    assert client.patch(url, json={**stale, "version": 2}).json()["version"] == 3
+    # A document with no version is turned down.
+    assert client.patch(url, json={"doc": {**doc, "grid": 20}}).status_code == 422
+    assert client.get(url).json()["doc"]["grid"] == 10
+    # To overwrite, the stale device asks for the version first.
+    forced = client.patch(url, json={**stale, "version": client.get(url).json()["version"]}).json()
+    assert forced["version"] == 4
+    assert forced["title"] == "Veraltet"
+    assert client.post(f"{url}/duplicate").json()["version"] == 1
 
 
 def test_legal_pages_are_public():

@@ -8,9 +8,10 @@ import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
 import Photos from "./pages/Photos";
 import SetPassword from "./pages/SetPassword";
+import SheetList from "./pages/SheetList";
 
 // The editor brings the canvas libraries; the login page loads without them.
-const Sheets = lazy(() => import("./pages/Sheets"));
+const Editor = lazy(() => import("./pages/Editor"));
 
 export default function App() {
   // undefined while /me is loading, null when logged out.
@@ -28,7 +29,8 @@ export default function App() {
         <Route path="/passwort/:token" element={<SetPassword onDone={setUser} />} />
         {user ? (
           <Route element={<Layout user={user} />}>
-            <Route path="/" element={<Suspense><Sheets /></Suspense>} />
+            <Route path="/" element={<SheetList />} />
+            <Route path="/blatt/:id" element={<Suspense><Editor /></Suspense>} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => setUser(null)} />} />
