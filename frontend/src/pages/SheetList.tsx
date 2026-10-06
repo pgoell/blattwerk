@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
-import { EMPTY, Thumb, last, type Sheet } from "../sheet";
+import { EMPTY, Paper, last, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
 const day = (stamp: string) => new Date(`${stamp.replace(" ", "T")}Z`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
@@ -47,7 +47,7 @@ export default function SheetList() {
         {sheets?.map((sheet) => (
           <li key={sheet.id}>
             <Link to={`/blatt/${sheet.id}`}>
-              <Thumb doc={sheet.doc} k={0.7} />
+              <Paper doc={sheet.doc} k={0.7} />
               <strong>{sheet.title}</strong>
               <small>{day(sheet.updated)}</small>
             </Link>

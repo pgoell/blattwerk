@@ -1,13 +1,13 @@
 """Uploads: the pictures of image blocks, kept per user on the data volume."""
 
-import sqlite3
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from blattwerk import db
-from blattwerk.auth import User
+from blattwerk import db, pdf
+from blattwerk.auth import User, current_user
 from blattwerk.db import Con
 
 # What a browser draws and cannot run: no SVG.
@@ -17,9 +17,9 @@ MAX_BYTES = 15 * 2**20
 router = APIRouter(prefix="/api")
 
 
-def path(user: sqlite3.Row, upload_id: int) -> Path:
+def path(user_id: int, upload_id: int) -> Path:
     # Under the user's folder, so deleting the account deletes the pictures.
-    return db.DATA_DIR / "users" / str(user["id"]) / "uploads" / str(upload_id)
+    return db.DATA_DIR / "users" / str(user_id) / "uploads" / str(upload_id)
 
 
 @router.post("/uploads")
@@ -33,20 +33,27 @@ async def upload(file: UploadFile, user: User, con: Con) -> dict:
         "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], file.content_type)
     ).lastrowid
     assert upload_id is not None
-    out = path(user, upload_id)
+    out = path(user["id"], upload_id)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(data)
     return {"id": upload_id}
 
 
 @router.get("/uploads/{upload_id}")
-def serve(upload_id: int, user: User, con: Con) -> FileResponse:
+def serve(
+    upload_id: int,
+    con: Con,
+    session: Annotated[str | None, Cookie()] = None,
+    token: pdf.Token = None,
+) -> FileResponse:
+    # Chromium, printing a sheet, stands for the sheet's owner, for that sheet's pictures alone.
+    user_id = pdf.shows(con, token, upload_id) if token else current_user(con, session)["id"]
     row = con.execute(
-        "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user["id"])
+        "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user_id)
     ).fetchone()
     # Someone else's picture is as missing as one that never was.
     if not row:
         raise HTTPException(404)
     # An upload never changes, so the browser may keep it.
     headers = {"Cache-Control": "private, max-age=31536000, immutable"}
-    return FileResponse(path(user, upload_id), media_type=row["type"], headers=headers)
+    return FileResponse(path(user_id, upload_id), media_type=row["type"], headers=headers)

@@ -8,6 +8,7 @@ import Admin from "./pages/Admin";
 import Feedback from "./pages/Feedback";
 import Login from "./pages/Login";
 import Photos from "./pages/Photos";
+import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
 
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/einladung/:token" element={<SetPassword invite onDone={setUser} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={setUser} />} />
         <Route path="/ueber" element={<About />} />
+        <Route path="/druck/:id" element={<Print />} />
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />

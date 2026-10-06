@@ -46,6 +46,7 @@ def test_logged_out_gets_401():
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
     assert client.delete("/api/sheets/1").status_code == 401
+    assert client.get("/api/sheets/1/pdf").status_code == 401
     assert client.post("/api/maths", json=MATHS).status_code == 401
 
 
@@ -186,16 +187,59 @@ def test_delete_account_removes_user_and_feedback(data_dir):
     assert client.post("/api/login", json=login).status_code == 401
 
 
+def own(client):
+    """A user's templates, without the built-in ones."""
+    return [t for t in client.get("/api/templates").json() if t["id"] > 0]
+
+
+def kinds(page):
+    return [b["props"].get("kind", b["type"]) for b in page["blocks"]]
+
+
+def test_built_in_templates_are_everyones_and_stay():
+    client = user("a@example.com")
+    other = user("b@example.com")
+    built_in = client.get("/api/templates").json()
+    assert other.get("/api/templates").json() == built_in
+    assert [t["name"] for t in built_in] == ["Arbeitsblatt", "Klassenarbeit", "Beschriftungsblatt"]
+    for t in built_in:
+        assert client.delete(f"/api/templates/{t['id']}").status_code == 404
+    assert client.get("/api/templates").json() == built_in
+
+    for t in built_in:
+        blocks = [b for page in t["doc"]["pages"] for b in page["blocks"]]
+        # A start point: every block can move, and each has its own id.
+        assert not any(b["locked"] for b in blocks)
+        assert len({b["id"] for b in blocks}) == len(blocks)
+        # Everything lies on the page.
+        assert all(0 <= b["x"] <= b["x"] + b["w"] <= 210 for b in blocks)
+        assert all(0 <= b["y"] <= b["y"] + b["h"] <= 297 for b in blocks)
+
+    sheet, test, labels = (t["doc"]["pages"] for t in built_in)
+    # The name, the title and two empty areas.
+    assert [kinds(page) for page in sheet] == [["name", "text", "rounded", "rounded"]]
+    # Three pages, each with the name, the points total and numbered tasks with their points.
+    assert len(test) == 3
+    for page in test:
+        assert kinds(page)[:2] == ["name", "points"]
+        tasks = [b for b in page["blocks"] if b.get("mark") == "1."]
+        assert tasks
+        assert kinds(page).count("points") == 1 + len(tasks)
+    # The title, the picture's area and lines with arrows to label it.
+    assert [kinds(page)[:2] for page in labels] == [["text", "rect"]]
+    assert kinds(labels[0]).count("line") == kinds(labels[0]).count("arrow") == 6
+
+
 def test_templates_belong_to_one_user():
     client = user("a@example.com")
     other = user("b@example.com")
     doc = {"blocks": [], "guides": {"x": [70], "y": []}, "grid": 5}
     saved = client.post("/api/templates", json={"name": "Drei Spalten", "doc": doc}).json()
-    assert client.get("/api/templates").json() == [{**saved, "name": "Drei Spalten", "doc": doc}]
-    assert other.get("/api/templates").json() == []
+    assert own(client) == [{**saved, "name": "Drei Spalten", "doc": doc}]
+    assert own(other) == []
     assert other.delete(f"/api/templates/{saved['id']}").status_code == 404
     assert client.delete(f"/api/templates/{saved['id']}").status_code == 200
-    assert client.get("/api/templates").json() == []
+    assert own(client) == []
     assert client.post("/api/templates", json={"name": "", "doc": doc}).status_code == 422
 
 
@@ -251,14 +295,14 @@ def test_every_call_for_an_item_hides_other_users_items():
         if path.startswith("/api/") and "{" in path
         for method in methods
     ]
-    assert len(calls) >= 6
+    assert len(calls) >= 8
     for method, path in calls:
         assert other.request(method, path, json={}).status_code == 404, (method, path)
 
     assert client.get("/api/sheets").json() == [sheet]
-    assert client.get("/api/templates").json() == [template]
+    assert own(client) == [template]
     assert other.get("/api/sheets").json() == []
-    assert other.get("/api/templates").json() == []
+    assert own(other) == []
 
 
 def test_stale_save_gets_409():

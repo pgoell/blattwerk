@@ -11,6 +11,9 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_NO_DEV=1
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --locked --no-install-project
+# Chromium prints the PDF. It lies where the app's user can read it, with the system libraries it needs.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN /app/.venv/bin/playwright install --with-deps --only-shell chromium && rm -rf /var/lib/apt/lists/*
 COPY src ./src
 COPY --from=frontend /app/src/blattwerk/static ./src/blattwerk/static
 RUN uv sync --locked

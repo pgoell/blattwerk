@@ -19,6 +19,8 @@ import {
   CopyPlus,
   Eraser,
   Eye,
+  FileCheck,
+  FileDown,
   FilePlus,
   FileX,
   Heading,
@@ -176,6 +178,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
   const ns = numbers(hist.doc);
+  // The built-in templates have ids below zero; the teacher's own can be deleted.
+  const kept = templates.filter((t) => t.id > 0);
   const shapes = sel.filter((b) => b.type === "shape");
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
@@ -562,6 +566,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
+  // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
+  // which may hold an older document.
+  async function pdf(key: boolean) {
+    await last.save;
+    save.current(false);
+    await last.save;
+    location.href = `/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`;
+  }
+
   async function store() {
     const saved = await post<Template>("/templates", { name: name.trim(), doc: hist.doc });
     setTemplates((ts) => [...ts, saved]);
@@ -770,6 +783,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
                 <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
               </Group>
+              <Group label="PDF">
+                <Tool icon={FileDown} label="Blatt" onClick={() => pdf(false)} />
+                <Tool icon={FileCheck} label="Lösungen" onClick={() => pdf(true)} />
+              </Group>
               <Group label="Auswahl">
                 <Tool
                   icon={locked ? LockOpen : Lock}
@@ -836,8 +853,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <input type="text" aria-label="Name der Vorlage" placeholder="Name" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
                 <Tool icon={Save} label="Speichern" disabled={!name.trim()} onClick={store} />
               </Group>
+              <Group label="Vorlagen">
+                {templates.filter((t) => t.id < 0).map((t) => (
+                  <span key={t.id} className="chip">
+                    <button onClick={() => apply(t)}>{t.name}</button>
+                  </span>
+                ))}
+              </Group>
               <Group label="Meine Vorlagen">
-                {templates.map((t) => (
+                {kept.map((t) => (
                   <span key={t.id} className="chip">
                     <button onClick={() => apply(t)}>{t.name}</button>
                     <button aria-label={`Vorlage ${t.name} löschen`} onClick={() => forget(t)}>
@@ -845,7 +869,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     </button>
                   </span>
                 ))}
-                {!templates.length && <span className="hint">Noch keine</span>}
+                {!kept.length && <span className="hint">Noch keine</span>}
               </Group>
             </>
           )}
