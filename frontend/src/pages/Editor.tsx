@@ -30,6 +30,7 @@ import {
   Eye,
   FileCheck,
   FileDown,
+  FilePlus,
   FileX,
   Heading,
   ImagePlus,
@@ -173,7 +174,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [tab, setTab] = useState(TABS[0]);
   const [pane, setPane] = useState(true);
   // The panel of pages and templates starts shut where it would lie over the desk.
-  const [side, setSide] = useState(() => innerWidth > 700);
+  // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
+  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open.
+  const leaf = document.documentElement.dataset.theme === "leaf" && innerWidth > 700;
+  const [side, setSide] = useState(() => innerWidth > 700 && !leaf);
   // The tour opens by itself the first time the editor does on this device.
   const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
   // Whether the maths exercises show their answers.
@@ -745,15 +749,101 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
 
   const locked = sel.length > 0 && !free.length;
+  const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
+  const brand = (
+    <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
+      <Logo />
+      <ChevronLeft size={16} aria-hidden />
+    </Link>
+  );
+  const zoomer = (
+    <>
+      <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
+      {/* The page's size on the screen against its size on paper. */}
+      <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
+        {Math.round((k * 2540) / 96)} %
+      </button>
+      <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+    </>
+  );
+  // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
+  const tools = (
+    <>
+      <Tool
+        icon={SquareDashedMousePointer}
+        label="Mehrere"
+        data-tour="multi"
+        className={multi ? "on" : ""}
+        aria-pressed={multi}
+        onClick={() => setMulti(!multi)}
+      />
+      <i className="sep" data-name="Einfügen" />
+      <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
+      <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
+      <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
+      <input
+        ref={picker}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        hidden
+        onChange={(e) => {
+          upload(e.target.files?.[0]);
+          // The same picture can be picked again.
+          e.target.value = "";
+        }}
+      />
+      <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
+      <i className="sep" data-name="Schule" />
+      <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
+      <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
+      <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+      <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
+      <i className="sep" data-name="Formen" />
+      <span className="shapes">
+        {SHAPES.map(([kind, label, icon]) => (
+          <Tool
+            key={kind}
+            icon={icon}
+            label={label}
+            onClick={() =>
+              add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
+                type: "shape",
+                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
+              })
+            }
+          />
+        ))}
+      </span>
+    </>
+  );
   return (
-    <main className="editor" onPointerDown={() => (mergeKey.current = "")}>
+    <main className={`editor${leaf ? " leaf" : ""}`} onPointerDown={() => (mergeKey.current = "")}>
       <header>
         <div className="top">
-          <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
-            <Logo />
-            <ChevronLeft size={16} aria-hidden />
-          </Link>
-          <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={side ? "on" : ""} aria-pressed={side} onClick={() => setSide(!side)} />
+          {leaf ? (
+            <span className="modes" role="tablist">
+              {["Start", "Ansicht", "Vorlagen"].map((m) => (
+                <button
+                  key={m}
+                  role="tab"
+                  data-tour={m}
+                  aria-selected={mode === m}
+                  onClick={() => {
+                    setSide(m === "Vorlagen");
+                    setTab(m === "Ansicht" ? "Ansicht" : "Format");
+                    if (m === "Ansicht") setPane(true);
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </span>
+          ) : (
+            <>
+              {brand}
+              <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={side ? "on" : ""} aria-pressed={side} onClick={() => setSide(!side)} />
+            </>
+          )}
           <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
           <span className="hint" role="status">
             {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
@@ -774,12 +864,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           />
           <i className="sep" />
           <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
-          <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
-          {/* The page's size on the screen against its size on paper. */}
-          <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
-            {Math.round((k * 2540) / 96)} %
-          </button>
-          <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+          {!leaf && zoomer}
           <Tool icon={PanelRight} label="Format und Ansicht" className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)} />
           <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />
           <span className="pdf" data-tour="pdf">
@@ -810,8 +895,20 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         )}
       </header>
 
+      {leaf && !side && (
+        <aside className="left">
+          {brand}
+          <div className="insert" role="toolbar" aria-label="Einfügen">
+            {tools}
+            <i className="sep" data-name="Seite" />
+            <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
+            <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+          </div>
+        </aside>
+      )}
       {side && (
         <aside className="left">
+          {leaf && brand}
           <div className="head">
             Seiten
             <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
@@ -1009,51 +1106,20 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           ))}
         </div>
         {/* What can go on the page floats over the desk's lower edge. */}
-        <div className="dock" role="toolbar" aria-label="Einfügen">
-          <Tool
-            icon={SquareDashedMousePointer}
-            label="Mehrere"
-            data-tour="multi"
-            className={multi ? "on" : ""}
-            aria-pressed={multi}
-            onClick={() => setMulti(!multi)}
-          />
-          <i className="sep" />
-          <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
-          <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
-          <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
-          <input
-            ref={picker}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            hidden
-            onChange={(e) => {
-              upload(e.target.files?.[0]);
-              // The same picture can be picked again.
-              e.target.value = "";
-            }}
-          />
-          <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
-          <i className="sep" />
-          <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
-          <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
-          <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
-          <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
-          <i className="sep" />
-          {SHAPES.map(([kind, label, icon]) => (
-            <Tool
-              key={kind}
-              icon={icon}
-              label={label}
-              onClick={() =>
-                add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
-                  type: "shape",
-                  props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
-                })
-              }
-            />
-          ))}
-        </div>
+        {leaf ? (
+          <>
+            <div className="dock">{zoomer}</div>
+            {pages.length > 1 && (
+              <div className="dock at">
+                Seite {page + 1} von {pages.length}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="dock" role="toolbar" aria-label="Einfügen">
+            {tools}
+          </div>
+        )}
       </div>
       {/* The drag box is for a mouse on empty desk; a finger there scrolls. */}
       <Selecto
@@ -1071,13 +1137,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
       {pane && (
         <aside className="panel">
-          <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
-                {t}
-              </button>
-            ))}
-          </div>
+          {!leaf && (
+            <div className="tabs" role="tablist">
+              {TABS.map((t) => (
+                <button key={t} role="tab" data-tour={t} aria-selected={tab === t} onClick={() => setTab(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
           {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
           {tab === "Format" && sel.length > 0 && (
             <>

@@ -244,13 +244,13 @@ body:has(.print) { background: #fff; }
 .top input:hover { border-color: var(--line); }
 .top .hint { margin: 0 auto 0 4px; color: var(--faint); white-space: nowrap; }
 .sep { flex: none; width: 1px; height: 16px; margin: 0 5px; background: var(--line); }
-.top .zoom { min-width: 52px; padding: 0 4px; border-color: transparent; background: none; color: var(--muted); font: 12px var(--mono); }
+.zoom { min-width: 52px; padding: 0 4px; border-color: transparent; background: none; color: var(--muted); font: 12px var(--mono); }
 .pdf { display: inline-flex; gap: 8px; margin-left: 8px; }
 /* The sheet was saved from somewhere else: the teacher picks which version stays. */
 .clash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
 /* An icon's name shows while the pointer rests on it: under the bar, over the dock. */
 @media (hover: hover) and (pointer: fine) {
-  :is(.top, .dock) .ib:hover::after {
+  :is(.top, .dock, .insert .shapes) .ib:hover::after {
     content: attr(aria-label); position: absolute; z-index: 5; top: calc(100% + 8px); left: 50%; translate: -50%; padding: 4px 8px;
     border-radius: 6px; background: var(--ink); color: var(--bg); font: 500 11.5px/1.4 var(--ui); white-space: nowrap; pointer-events: none;
   }
@@ -431,6 +431,34 @@ body:has(.print) { background: #fff; }
   .tour-ring { animation: ring 1.6s ease-in-out infinite; }
 }
 @keyframes ring { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
+/* Blattform's own layout, on a wide window. The green panel runs the window's height and names all that can be
+   inserted; Start, Ansicht and Vorlagen in the bar pick what the panels show; the zoom and the page count float over
+   the desk's lower corners. */
+.leaf > header { grid-column: 2 / -1; }
+.leaf .left { grid-area: 1 / 1 / -1; }
+.left .brand { display: flex; padding: 16px 14px 12px; text-decoration: none; }
+.left .brand .lucide { display: none; }
+.left .logo { font-size: 20px; }
+.left .logo svg { width: 28px; height: 28px; }
+.modes { display: inline-flex; gap: 2px; margin-right: 6px; }
+.modes button { border-color: transparent; background: none; color: var(--muted); }
+.modes [aria-selected=true] { background: #0d3b2a; color: #fff; }
+.insert { display: grid; gap: 2px; padding: 0 14px 14px; }
+.insert .ib { width: auto; min-height: 36px; justify-content: flex-start; gap: 12px; padding: 0 4px; color: var(--ink); }
+.insert .ib::after { content: attr(aria-label); }
+.insert .ib svg { box-sizing: content-box; padding: 6px; border-radius: 8px 3px; background: var(--raise); color: var(--accent); }
+.insert .ib.on svg { background: #0d3b2a; }
+/* A divider is its group's heading here. */
+.insert .sep { width: auto; height: auto; margin: 14px 0 4px; background: none; font: 600 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.insert .sep::before { content: attr(data-name); }
+/* The shapes stand in one row, without their names. */
+.shapes { display: contents; }
+.insert .shapes { display: flex; gap: 6px; }
+.insert .shapes .ib { padding: 0; }
+.insert .shapes .ib::after { content: none; }
+.leaf .dock { left: 16px; translate: none; }
+.leaf .dock.at { left: auto; right: 28px; min-height: 40px; padding: 0 14px; border-color: transparent; background: #0d3b2a; color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; }
+.leaf .what { min-height: 56px; border-bottom: 0; font-size: 20px; }
 /* A narrow window stacks the panels: pages and templates over the desk, the format under it. */
 @media (max-width: 700px) {
   .editor { grid-template: auto auto minmax(0, 1fr) auto / minmax(0, 1fr); }

@@ -23,7 +23,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Ein Textfeld einfügen",
-    text: ["Klicke unten in der Leiste auf Text. Ein Textfeld landet auf dem Blatt.", "Tippe unten in der Leiste auf Text. Ein Textfeld landet auf dem Blatt."],
+    text: ["Klicke auf Text. Ein Textfeld landet auf dem Blatt.", "Tippe auf Text. Ein Textfeld landet auf dem Blatt."],
     find: "[data-tour=text]",
     done: (now, start) => now.blocks > start.blocks,
   },
@@ -53,7 +53,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Rechenaufgaben",
-    text: ["Klicke unten auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt.", "Tippe unten auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt."],
+    text: ["Klicke auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt.", "Tippe auf Rechnen. Zwölf Plusaufgaben landen auf dem Blatt."],
     find: "[data-tour=maths]",
     done: (now, start) => now.blocks > start.blocks,
   },
@@ -92,7 +92,7 @@ const STEPS: Step[] = [
   {
     title: "Zoom, Raster und Hilfslinien",
     text: [
-      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Den Zoom findest du oben in der Leiste, daneben zeigt das Auge die Ergebnisse der Rechenaufgaben.",
+      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Die Lupen zoomen das Blatt, das Auge oben zeigt die Ergebnisse der Rechenaufgaben.",
       "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Das Auge oben zeigt die Ergebnisse der Rechenaufgaben. Mit zwei Fingern zoomst du das Blatt.",
     ],
     find: ".panel",
