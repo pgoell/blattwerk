@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, H, MARGIN, RULINGS, W, boxed, counts, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling, type Valign } from "../sheet";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
 
@@ -16,13 +16,15 @@ type Props = {
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   cropping: boolean;
+  // The width and height in mm of the page in use.
+  size: number[];
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export default function Format({ sel, style, look, place, crop, cropping }: Props) {
+export default function Format({ sel, style, look, place, crop, cropping, size: [W, H] }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.

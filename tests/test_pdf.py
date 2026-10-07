@@ -204,3 +204,16 @@ def test_chromium_prints_the_sheet_and_its_answer_key(server):
         assert [("Lösungen" in page) for page in (first, second)] == [solved, solved]
         for e in made["exercises"]:
             assert (f"{e['a']} + {e['b']} = {e['result']}" in first) == solved
+
+
+def test_chromium_prints_each_page_upright_or_on_its_side(server):
+    client = user("a@example.com")
+    # The sheet lies on its side; the second page has a format of its own.
+    pages = [{"blocks": []}, {"blocks": [], "landscape": False}, {"blocks": []}]
+    doc = {"pages": pages, "guides": {"x": [], "y": []}, "grid": 0, "landscape": True}
+    mine = client.post("/api/sheets", json={"title": "Quer", "doc": doc}).json()
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    pages = PdfReader(io.BytesIO(res.content)).pages
+    sizes = [[round(float(n) / 72 * 25.4) for n in page.mediabox[2:]] for page in pages]
+    assert sizes == [[297, 210], [210, 297], [297, 210]]

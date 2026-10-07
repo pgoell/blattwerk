@@ -25,7 +25,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 
 ### 1. Canvas
 
-- A4 portrait pages, measured in mm. A sheet has one or more pages.
+- A4 pages, measured in mm. A sheet has one or more pages. The sheet is portrait or landscape, and a page can have a format of its own.
 - Blocks can be dragged, resized and deleted, and kept in place with a lock.
 - Snap to page margins, the page centre and other blocks' edges and centres, with guide lines shown while dragging.
 - A grid of 5, 10 or 20 mm can be shown on the page; blocks snap to it.

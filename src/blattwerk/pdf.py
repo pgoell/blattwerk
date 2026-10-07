@@ -80,8 +80,9 @@ def pdf(sheet_id: int, request: Request, user: User, con: Con, solved: bool = Fa
         page.goto(url + ("?loesungen" if solved else ""))
         # The page says when its fonts and pictures have loaded.
         page.wait_for_selector("body.ready", state="attached")
-        # A4 with no margin of the printer's: the sheet's own margins are the page's.
-        data = page.pdf(width="210mm", height="297mm", print_background=True)
+        # A4 with no margin of the printer's: the sheet's own margins are the page's. The stylesheet
+        # says which pages lie on their side.
+        data = page.pdf(prefer_css_page_size=True, print_background=True)
         browser.close()
     name = quote(sheet["title"] + (" Lösungen" if solved else "") + ".pdf")
     return Response(
