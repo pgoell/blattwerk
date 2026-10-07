@@ -208,6 +208,9 @@ export default function Field({ view, props, hint, ...on }: Props) {
         now.current.pick(picked(state, now.current.props));
       },
       handleDOMEvents: { blur: () => now.current.blur() },
+      // The browser moves the caret for some keys, as for an arrow with all picked, and tells the field only later.
+      // A key pressed before that would still replace all, so the field reads the caret first.
+      handleKeyDown: () => void document.dispatchEvent(new Event("selectionchange")),
       // The field knows no line break within a paragraph.
       transformPastedHTML: (html) => html.replace(/<br\b[^>]*>/gi, " "),
     });
