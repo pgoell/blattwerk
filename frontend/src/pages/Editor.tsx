@@ -225,6 +225,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
+  // Set by a change that can leave a text higher than its box.
+  const tight = useRef(false);
   const touch = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
@@ -301,6 +303,31 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   useLayoutEffect(() => {
     if (!moveable.current!.isDragging()) moveable.current!.updateRect();
   }, [blocks, k]);
+  // A box grows with its text, as a PowerPoint text box does, and never shrinks by itself. Only a change the teacher
+  // makes is measured, so a sheet that opens stays as saved. The frame says how high it would be with no height
+  // set; the top edge stays. The new height adds no step to undo: it belongs to the change that asked for it.
+  useLayoutEffect(() => {
+    if (!tight.current) return;
+    tight.current = false;
+    const grown = new Map<string, number>();
+    for (const b of sel) {
+      const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > .frame`);
+      if (!frame) continue;
+      frame.style.height = "auto";
+      const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
+      frame.style.height = "";
+      if (h > b.h) grown.set(b.id, h);
+    }
+    // A font used for the first time is still on its way: the text is measured again once it is there.
+    if (document.fonts.status === "loading")
+      document.fonts.ready.then(() => {
+        tight.current = true;
+        setHist((h) => ({ ...h }));
+      });
+    if (!grown.size) return;
+    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, h: grown.get(b.id)! } : b)) });
+    setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
+  });
 
   // A ruling's field; a text's own field takes the focus by itself.
   useLayoutEffect(() => {
@@ -426,6 +453,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
+    tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
   }
   // The panel's bold, italic, underline and colour go to the words picked in the field, as in PowerPoint. With
@@ -433,6 +461,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // their own.
   function paint(props: Marks, key?: string) {
     if (part?.marks && field.current) return tint(field.current, props, boxed(sel[0])!, key);
+    tight.current = true;
     change(
       (bs) =>
         bs.map((b) => {
@@ -448,6 +477,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (field.current) return list(field.current, kind);
     const on = sel.map(boxed).find((p) => p)!;
     const to = parasOf(on)[0].list === kind ? undefined : kind;
+    tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && boxed(b) ? ({ ...b, props: { ...b.props, ...listed(boxed(b)!, to) } } as Block) : b)));
   }
   // Gives the selected lines a length in mm. Each keeps its angle and the top left corner of its box.
@@ -688,8 +718,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       ),
     );
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
+  // So does a text the resize left higher than its box.
   // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
-  const settle = ([dx, dy]: number[]) =>
+  const settle = ([dx, dy]: number[]) => {
+    tight.current = true;
     place(
       free.map((b) => {
         const [x, y] = [dx < 0 ? round(edge(b.x, xs)) : b.x, dy < 0 ? round(edge(b.y, ys)) : b.y];
@@ -698,6 +730,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       }),
       "drag",
     );
+  };
   // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
   function grip(e: PointerEvent) {
     const at = e.currentTarget.getBoundingClientRect();
@@ -1260,7 +1293,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                           start.current = free;
                         }}
                         onPointerMove={(e) => scale(e, i % 2 > 0, i > 1)}
-                        onLostPointerCapture={() => setGuide([])}
+                        // The render this asks for also measures a text the group made too small.
+                        onLostPointerCapture={() => {
+                          tight.current = true;
+                          setGuide([]);
+                        }}
                       />
                     ))}
                   <Moveable
