@@ -2,7 +2,7 @@
 import { useState, type MouseEvent } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, sized, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -43,6 +43,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // A press on these buttons leaves the focus, and so the picked words, in the field.
   const stay = (e: MouseEvent) => e.preventDefault();
   const rulings = of("ruling");
+  const tables = of("table");
   const [points] = of("points");
   const [sign] = of("symbol");
   // The generator's limits belong to one block.
@@ -58,6 +59,12 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   const calc = (props: MathsProps) => {
     style("maths", props, "maths");
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, { h: mathsHeight(props) }]], "maths");
+  };
+  // More or fewer rows and columns, for one table: each has cells of its own.
+  const grid = (rows: number, cols: number) => {
+    const to = sized(tables[0], Math.max(1, rows), Math.max(1, cols));
+    style("table", to.props, "table");
+    place([[to.id, { h: to.h }]], "table");
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -152,6 +159,54 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
             Nachspurtext
           </button>
+        </>
+      )}
+      {tables.length > 0 && (
+        <>
+          <h2>Tabelle</h2>
+          {tables.length === 1 &&
+            (["Zeile", "Spalte"] as const).map((name, i) => {
+              const n = [tables[0].props.cells.length, tables[0].props.cols.length];
+              const by = (d: number) => grid(n[0] + (i ? 0 : d), n[1] + (i ? d : 0));
+              return (
+                <div key={name} className="seg">
+                  <button aria-label={`Eine ${name} weniger`} onClick={() => by(-1)}>−</button>
+                  <output>{n[i]} {name}n</output>
+                  <button aria-label={`Eine ${name} mehr`} onClick={() => by(1)}>＋</button>
+                </div>
+              );
+            })}
+          <select aria-label="Schriftart der Tabelle" value={tables[0].props.font ?? "andika"} onChange={(e) => style("table", { font: e.target.value })}>
+            {Object.entries(FONTS).map(([font, [name]]) => (
+              <option key={font} value={font}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <div className="seg">
+            <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
+            <output>{tables[0].props.size} pt</output>
+            <button aria-label="Schrift größer" onClick={() => style("table", { size: tables[0].props.size + 2 })}>＋</button>
+          </div>
+          <div className="seg">
+            {ALIGNS.map(([value, label, Icon]) => (
+              <button key={value} className={tables[0].props.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={tables[0].props.align === value} onClick={() => style("table", { align: value })}>
+                <Icon size={14} aria-hidden />
+              </button>
+            ))}
+          </div>
+          <label>
+            Farbe
+            <input type="color" value={tables[0].props.color ?? "#222222"} onChange={(e) => style("table", { color: e.target.value }, "color")} />
+          </label>
+          <label>
+            Linien
+            <input type="color" value={tables[0].props.line} onChange={(e) => style("table", { line: e.target.value }, "line")} />
+          </label>
+          <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
+            Kopfzeile
+          </button>
+          <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
         </>
       )}
       {maths && <Maths key={maths.id} block={maths} apply={calc} />}

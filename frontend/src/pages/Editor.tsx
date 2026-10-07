@@ -7,6 +7,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type KeyboardEvent as Key,
   type PointerEvent,
   type TouchEvent,
 } from "react";
@@ -53,6 +54,7 @@ import {
   SquareDashedMousePointer,
   SquareSlash,
   Squircle,
+  Table,
   Trash2,
   Type,
   Undo2,
@@ -71,7 +73,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, MARGIN, Mark, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, MARGIN, Mark, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sized, sizeOf, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -111,6 +113,7 @@ const NAMES: Record<Block["type"], string> = {
   points: "Punkte",
   maths: "Rechnen",
   shape: "Form",
+  table: "Tabelle",
 };
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht"];
@@ -193,6 +196,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [rest, setRest] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
+  // The cell of the table being edited, counted row by row.
+  const [slot, setSlot] = useState(0);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -268,6 +273,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const rulers = sel.filter(isLine);
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
+  // A table on its own can have its columns' lines moved.
+  const table = sel.length === 1 && free[0]?.type === "table" ? free[0] : undefined;
   // The picture in crop mode. The draft is dropped when the selection moves on by any way but `done`.
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
@@ -311,7 +318,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     tight.current = false;
     const grown = new Map<string, number>();
     for (const b of sel) {
-      const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > .frame`);
+      // A table's rows are as high as the highest cell when its height is not set.
+      const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
       if (!frame) continue;
       frame.style.height = "auto";
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
@@ -329,23 +337,24 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
-  // A ruling's field; a text's own field takes the focus by itself.
+  // A ruling's field, or that of a table's cell; a text's own field takes the focus by itself.
   useLayoutEffect(() => {
     const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
     area?.setSelectionRange(area.value.length, area.value.length);
-  }, [editing]);
+  }, [editing, slot]);
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
+  // So does the field of a cell that undo took away with its row.
   useEffect(() => {
-    if (editing && !sel.some((b) => b.id === editing)) setEditing("");
+    if (editing && (!sel.some((b) => b.id === editing) || (table && slot >= table.props.cells.flat().length))) setEditing("");
   });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // In a text's field only undo and redo are the sheet's.
-      const typing = (e.target as Element).closest(".ProseMirror") && !((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key));
-      if (typing || (e.target as Element).closest("textarea, input, select, dialog")) return;
+      // In a text's field and in a table's cell only undo and redo are the sheet's.
+      const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && (e.target as Element).closest(".ProseMirror, .table");
+      if (!ours && (e.target as Element).closest(".ProseMirror, textarea, input, select, dialog")) return;
       // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
       const step = e.shiftKey ? 10 : cell || 1;
       const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
@@ -449,6 +458,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     change((bs) => bs.map((b) => ({ ...b, ...byId.get(b.id) })), key);
   }
   function style(type: Block["type"], props: object, key?: string) {
+    if (type === "table") tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
   }
   // Sets what a shape and a text share: the frame, and the text in it.
@@ -731,6 +741,32 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       "drag",
     );
   };
+  // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
+  // new row begins.
+  function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
+    if (e.key === "Escape") e.currentTarget.blur();
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    // What is typed in the next cell is an undo step of its own.
+    mergeKey.current = "";
+    const to = Math.max(0, slot + (e.shiftKey ? -1 : 1));
+    const [rows, cols] = [b.props.cells.length, b.props.cols.length];
+    if (to === rows * cols) change((bs) => bs.map((o) => (o.id === b.id ? sized(b, rows + 1, cols) : o)));
+    setSlot(to);
+  }
+  // Moves the line right of column `i` with the pointer. The columns on its two sides share the width they had,
+  // and each keeps 5 mm, or half of it where they have less.
+  function widen(e: PointerEvent, b: TableBlock, i: number) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const cols = [...b.props.cols];
+    const mm = b.w / sum(cols);
+    const left = sum(cols.slice(0, i));
+    const pair = cols[i] + cols[i + 1];
+    const least = Math.min(5 / mm, pair / 2);
+    cols[i] = Math.max(least, Math.min(pair - least, (point(e)[0] - b.x) / mm - left));
+    cols[i + 1] = pair - cols[i];
+    style("table", { cols }, "drag");
+  }
   // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
   function grip(e: PointerEvent) {
     const at = e.currentTarget.getBoundingClientRect();
@@ -842,7 +878,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   // `press` is the mouse press that selects, so the same press can drag.
   function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent) {
-    if (el.closest(".end, .rule, .crop")) return;
+    if (el.closest(".end, .rule, .crop, .bar")) return;
     // A press beside the picture ends its crop.
     done();
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
@@ -864,7 +900,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       // A click on a block of a picked group picks the block alone. A press drags the group instead.
       else if (!press && ids.length > 1 && unit(id).length > 1) setIds([id]);
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks.
-      else if (touch.current) edit(id);
+      else if (touch.current) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
@@ -872,9 +908,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
     }
   }
-  function edit(id?: string) {
-    if (!id || free.length !== 1 || free[0].id !== id) return;
-    if (boxed(free[0]) || free[0].type === "ruling") setEditing(id);
+  // `el` is what was pressed: in a table, the cell that gets the caret.
+  function edit(id?: string, el?: Element) {
+    if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
+    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table") setEditing(id);
+    setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -991,6 +1029,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         }}
       />
       <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
+      <Tool icon={Table} label="Tabelle" onClick={() => add(180, 30, { type: "table", props: { cells: Array.from({ length: 3 }, () => ["", "", ""]), cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } })} />
       <i className="sep" data-name="Schule" />
       <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
       <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
@@ -1192,7 +1231,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
             if (touch.current || still) pick(e.target as Element, false);
           }}
-          onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id)}
+          onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           onContextMenu={(e) => touch.current && e.preventDefault()}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -1219,7 +1258,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   className={ids.includes(b.id) ? "block sel" : "block"}
                   style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
                 >
-                  <Draw block={b} k={k} solved={solved}>
+                  <Draw block={b} k={k} solved={solved} at={editing === b.id ? slot : undefined}>
                     {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
                     {boxed(b) && editing === b.id ? (
                       <Field
@@ -1249,9 +1288,26 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                         // A line typed past the last row would scroll the others off their rows.
                         onScroll={(e) => (e.currentTarget.scrollTop = 0)}
                       />
+                    ) : b.type === "table" && editing === b.id ? (
+                      <textarea
+                        value={b.props.cells.flat()[slot]}
+                        onChange={(e) => style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text")}
+                        onKeyDown={(e) => hop(e, b)}
+                        onBlur={() => setEditing("")}
+                      />
                     ) : undefined}
                   </Draw>
                   <Mark block={b} k={k} n={ns.get(b.id)} />
+                  {b === table &&
+                    table.props.cols.slice(1).map((_, i) => (
+                      <i
+                        key={i}
+                        className="bar"
+                        style={{ left: (sum(table.props.cols.slice(0, i + 1)) / sum(table.props.cols)) * b.w * k }}
+                        onPointerDown={grip}
+                        onPointerMove={(e) => widen(e, table, i)}
+                      />
+                    ))}
                   {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {b === line &&
                     [false, true].map((end) => (
@@ -1321,7 +1377,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
                     onClick={(e) => touch.current && pick(e.inputTarget, false)}
                     onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
-                    onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end") ? e.stopDrag() : begin([e.target]))}
+                    onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end, .bar") ? e.stopDrag() : begin([e.target]))}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
                     onDragGroup={(e) => drag(e.events)}

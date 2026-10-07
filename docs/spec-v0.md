@@ -50,6 +50,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 | Image | upload from the device, crop, keep ratio |
 | Shape | rectangle, rounded box, circle, line, arrow; fill and border; text as in a text block, unless it is a line |
 | Symbol | OpenMoji, searchable by German and English name (pencil, scissors, glue, partner work, ear, eye, stars) |
+| Table | rows and columns, added and removed at the end; text per cell, typed after a double-click, with Tab to the next cell and a new row after the last; column widths, moved by a column's line; font, size, alignment, text colour and line colour for the whole table; a head row in bold. The rows share the height, and the table grows with its highest cell |
 | Name header | Name, Datum, Klasse fields with lines |
 | Points box | "/ n Punkte" box for Klassenarbeiten |
 
@@ -177,6 +178,13 @@ Every teacher has their own space from the start.
 A maths block keeps its limits and the exercises the server made from them, so a sheet draws without the generator. `a` and `b` hold the lowest and highest digit of each place, units first. `ops` holds one operation or several to mix. `loosen` is null, or with fewer exercises than asked for the limits that stand in the way.
 
 Positions and sizes in mm from the page's top-left corner. A line or arrow shape runs from the corner of its box named in `props.from` (`nw`, `ne`, `sw` or `se`, `nw` when absent) to the opposite corner; a level line has `h` 0.
+
+A table keeps its texts in `props.cells`, a row of columns at a time, and each column's share of the width in `props.cols`, in parts of their sum. The rows share the block's height equally. The text settings and the line colour are the table's, and `head` sets the first row in bold:
+
+```json
+{ "cells": [["H", "Z", "E"], ["3", "", "7"]], "cols": [1, 1, 1],
+  "size": 14, "align": "center", "font": "andika", "color": "#222222", "line": "#222222", "head": true }
+```
 
 A text, and a shape with text, keeps its words plain in `props.text`, one line to a paragraph. Once a part of the text has a look of its own, or the text has a list, `props.rich` holds the paragraphs as well:
 

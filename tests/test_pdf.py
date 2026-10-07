@@ -252,3 +252,19 @@ def test_chromium_prints_each_page_upright_or_on_its_side(server):
     pages = PdfReader(io.BytesIO(res.content)).pages
     sizes = [[round(float(n) / 72 * 25.4) for n in page.mediabox[2:]] for page in pages]
     assert sizes == [[297, 210], [210, 297], [297, 210]]
+
+
+def test_chromium_prints_a_table(server):
+    client = user("a@example.com")
+    cells = [["H", "Z", "E"], ["3", "", "7"], ["Hundert\nund eins", "", ""]]
+    props = {"cells": cells, "cols": [1, 2, 1], "size": 14, "align": "center", "line": "#222222"}
+    mine = sheet(client, [block("table", 15, 40, {**props, "head": True})])
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    text = " ".join(PdfReader(io.BytesIO(res.content)).pages[0].extract_text().split())
+    # Every cell's text is there, row by row; an empty cell prints nothing.
+    assert text == "H Z E 3 7 Hundert und eins"
+    # The head row brings the bold cut of the font into the file.
+    fonts = set(re.findall(rb"/FontName /\w+\+([\w-]+)", res.content))
+    assert fonts == {b"Andika", b"Andika-Bold"}
