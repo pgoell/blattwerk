@@ -56,15 +56,17 @@ export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlo
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
-// A page can have guide lines of its own, beside the sheet's, and a grid of its own in place of the sheet's.
-export type Page = { blocks: Block[]; guides?: Guides; grid?: number };
-// The pages, and what every page shares: guide lines and the grid's cell in mm (0 for none).
-export type Doc = { pages: Page[]; guides: Guides; grid: number };
+// A page can have guide lines of its own, beside the sheet's, and a grid and a format of its own in place of the
+// sheet's.
+export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?: boolean };
+// The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
+// on its side.
+export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean };
 // The server counts a sheet's saved documents in `version`.
 export type Sheet = { id: number; title: string; updated: string; version: number; doc: Doc };
 
-export const W = 210;
-export const H = 297;
+// A page's width and height in mm: A4, upright or on its side.
+export const sizeOf = (doc: Doc, n: number) => ((doc.pages[n].landscape ?? doc.landscape) ? [297, 210] : [210, 297]);
 // The margin a new block keeps, and a ruling that fills the page.
 export const MARGIN = 15;
 export const PT = 25.4 / 72; // mm per point
@@ -109,7 +111,7 @@ export const EMPTY: Doc = { pages: [{ blocks: [] }], guides: { x: [], y: [] }, g
 export const last = { save: Promise.resolve() as Promise<unknown> };
 
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid }: Doc & { blocks?: Block[] }): Doc => ({ pages: pages ?? [{ blocks: blocks! }], guides, grid });
+export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({ pages: pages ?? [{ blocks: blocks! }], guides, grid, landscape });
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
@@ -390,10 +392,12 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
 // A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
 // true size in the PDF. The answer key says on each page that it is one.
 export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: number; page?: number; solved?: boolean }) {
-  const ns = numbers(read(doc));
+  const all = read(doc);
+  const ns = numbers(all);
+  const [w, h] = sizeOf(all, page);
   return (
-    <div className="paper" style={{ width: W * k, height: H * k }}>
-      {read(doc).pages[page].blocks.map((b) => (
+    <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
+      {all.pages[page].blocks.map((b) => (
         <div key={b.id} className="block" style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}>
           <Draw block={b} k={k} solved={solved} />
           <Mark block={b} k={k} n={ns.get(b.id)} />

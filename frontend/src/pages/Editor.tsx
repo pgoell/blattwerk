@@ -70,7 +70,7 @@ import { api, post } from "../api";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
-import { Draw, H, MARGIN, Mark, Paper, W, boxed, far, isLine, last, mathsHeight, numbers, read, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, MARGIN, Mark, Paper, boxed, far, isLine, last, mathsHeight, numbers, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -80,9 +80,6 @@ type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
-// Snap lines on the page: the margins and the centre.
-const XS = [MARGIN, W / 2, W - MARGIN];
-const YS = [MARGIN, H / 2, H - MARGIN];
 // The frames a text or a shape can have.
 const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"]];
 const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
@@ -213,8 +210,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Crop mode: the picture being cropped and the cut its frame shows, stored only when the mode ends.
   const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
-  // Pixels per mm when the page fills the desk's width; zoom multiplies it.
-  const [fit, setFit] = useState(1);
+  // The desk's width in pixels. The widest page fills it; zoom multiplies that.
+  const [room, setRoom] = useState(210);
   const [zoom, setZoom] = useState(1);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -237,6 +234,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
+  // Each page's width and height in mm.
+  const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  const [W, H] = sizes[page];
+  // Pixels per mm when the widest page fills the desk's width.
+  const fit = room / Math.max(...sizes.map(([w]) => w));
   // The thumbnails draw after the desk, so a drag stays quick.
   const small = useDeferredValue(hist.doc);
   const cellOf = (p: Page) => p.grid ?? grid;
@@ -264,13 +266,14 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const top = Math.max(0, ...blocks.map((b) => b.z));
   // Snap lines: the page's, the teacher's own and the grid's, then the edges and centres of the blocks that stay put.
   const still = blocks.filter((b) => !ids.includes(b.id));
-  const pageXs = [...XS, ...guides.x, ...mine.x, ...lines(cell, W)];
-  const pageYs = [...YS, ...guides.y, ...mine.y, ...lines(cell, H)];
+  // The page's own are its margins and its centre.
+  const pageXs = [MARGIN, W / 2, W - MARGIN, ...guides.x, ...mine.x, ...lines(cell, W)];
+  const pageYs = [MARGIN, H / 2, H - MARGIN, ...guides.y, ...mine.y, ...lines(cell, H)];
   const xs = loose ? [] : [...pageXs, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
   const ys = loose ? [] : [...pageYs, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
-    const observer = new ResizeObserver(([entry]) => setFit(entry.contentRect.width / W));
+    const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
     observer.observe(desk.current!);
     return () => observer.disconnect();
   }, []);
@@ -435,6 +438,19 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  // Lays the sheet on its side or upright, or with `n` that page alone: `undefined` gives it the sheet's format
+  // again. Set for the sheet, every page follows. Blocks the page no longer holds move back onto it.
+  function lay(landscape: boolean | undefined, n?: number) {
+    update((doc) => {
+      const next = { ...doc, ...(n === undefined && { landscape }), pages: doc.pages.map((p, i) => (n === undefined || i === n ? { ...p, landscape: n === undefined ? undefined : landscape } : p)) };
+      const pages = next.pages.map((p, i) => {
+        const [w, h] = sizeOf(next, i);
+        if (w === sizeOf(doc, i)[0]) return p;
+        return { ...p, blocks: p.blocks.map((b) => ({ ...b, x: Math.max(0, Math.min(b.x, w - b.w)), y: Math.max(0, Math.min(b.y, h - b.h)) })) };
+      });
+      return { ...next, pages };
+    });
   }
   function removePage() {
     update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== page) }));
@@ -1020,12 +1036,12 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           <div className="pages">
             {small.pages.map((_, n) => (
               <button key={n} className={n === page ? "on" : ""} aria-pressed={n === page} onClick={() => visit(n)}>
-                <Thumb doc={small} k={97 / W} page={n} />
+                <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />
                 Seite {n + 1}
               </button>
             ))}
             <button onClick={addPage}>
-              <i>
+              <i style={{ aspectRatio: small.landscape ? "297 / 210" : "210 / 297" }}>
                 <Plus size={16} aria-hidden />
               </i>
               Neue Seite
@@ -1101,7 +1117,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               data-page={n}
               className={`sheet${cellOf(p) ? " grid" : ""}${n === page ? " on" : ""}`}
               ref={n === page ? sheet : undefined}
-              style={{ width: W * k, height: H * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
+              style={{ width: sizes[n][0] * k, height: sizes[n][1] * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
             >
               {p.blocks.map((b) => (
 
@@ -1157,7 +1173,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
               {[undefined, n].flatMap((at) =>
                 (["x", "y"] as const).flatMap((axis) =>
-                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (
+                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
                       <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
                         {mm}
@@ -1281,6 +1297,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 look={look}
                 place={place}
                 cropping={!!cropping}
+                size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
               />
               {boxes.length > 0 && (
@@ -1372,12 +1389,23 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           )}
           {tab === "Ansicht" && (
             <>
-              <h2>Raster und Hilfslinien für</h2>
+              <h2>Format, Raster und Hilfslinien für</h2>
               <div className="seg">
                 <button className={own ? "" : "on"} aria-pressed={!own} onClick={() => setOwn(false)}>Alle Seiten</button>
                 <button className={own ? "on" : ""} aria-pressed={own} onClick={() => setOwn(true)}>Nur diese Seite</button>
               </div>
-              {/* A page's own grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
+              {/* A page's own format or grid stands in for the sheet's; "Wie Blatt" gives the page the sheet's again. */}
+              <h2>Format</h2>
+              <div className="seg">
+                {(own ? [undefined, false, true] : [false, true]).map((c) => {
+                  const on = own ? pages[page].landscape === c : !!hist.doc.landscape === c;
+                  return (
+                    <button key={String(c)} className={on ? "on" : ""} aria-pressed={on} onClick={() => lay(c, own ? page : undefined)}>
+                      {c === undefined ? "Wie Blatt" : c ? "Quer" : "Hoch"}
+                    </button>
+                  );
+                })}
+              </div>
               <h2>Raster</h2>
               <div className="seg">
                 {(own ? [undefined, ...GRIDS] : GRIDS).map((c) => {
