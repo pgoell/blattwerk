@@ -43,7 +43,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 
 | Block | Settings |
 |---|---|
-| Text | font, size, bold, italic, underline, colour, alignment, line spacing; bold, italic, underline and colour for a part of the text too; bulleted and numbered lists, an item moved in with Tab and out with Shift+Tab |
+| Text | font, size, bold, italic, underline, colour, alignment, line spacing; bold, italic, underline and colour for a part of the text too; bulleted and numbered lists, an item moved in with Tab and out with Shift+Tab. The box grows down with its text, as a PowerPoint text box does, whenever a change leaves the text higher than the box; it never shrinks by itself, and a sheet that opens stays as saved |
 | Heading | text block preset |
 | Lineatur | type (Lineatur 1 to 4, Karo 5 mm, Karo 7 mm, plain lines), row count, colour |
 | Maths exercises | the generator below, number of columns, numbering style |
