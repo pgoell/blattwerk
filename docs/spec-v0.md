@@ -36,7 +36,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 - Copy, paste, duplicate, align (left, centre, right, top, middle, bottom), distribute, bring forward and send back.
 - Undo and redo.
 - Zoom to fit page width, pinch zoom on the iPad.
-- Touch first: handles at least 44 px, no hover-only controls.
+- Touch first: no hover-only controls.
 
 ### 2. Blocks
 
