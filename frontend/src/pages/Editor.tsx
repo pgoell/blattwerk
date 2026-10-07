@@ -263,6 +263,13 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
+  // A picture and a symbol always keep their shape, so only their corners have handles.
+  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol");
+  const keep = (mod & KEEP) > 0 || shaped;
+  // The selection's size in px. An edge has a handle too, as in PowerPoint, once the 14 px handles of its corners
+  // leave room for a third. The edges come last, so they lie on top where the areas a finger can hit overlap.
+  const [across, down] = [bounds(sel).w * k, bounds(sel).h * k];
+  const handles = shaped ? CORNERS : [...CORNERS, ...(across < 28 ? [] : ["n", "s"]), ...(down < 28 ? [] : ["e", "w"])];
   const top = Math.max(0, ...blocks.map((b) => b.z));
   // Snap lines: the page's, the teacher's own and the grid's, then the edges and centres of the blocks that stay put.
   const still = blocks.filter((b) => !ids.includes(b.id));
@@ -625,11 +632,16 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // With Ctrl held when a move ends, copies stay where the blocks began.
   const leave = (moved: boolean) =>
     moved && mod & CENTRE && change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+  // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
         events.map((e) => {
-          const box = { x: round(e.drag.left / k), y: round(e.drag.top / k), w: round(e.width / k), h: round(e.height / k) };
+          const [dx, dy] = e.direction;
+          const box = {
+            ...((dx || keep) && { x: round(e.drag.left / k), w: round(e.width / k) }),
+            ...((dy || keep) && { y: round(e.drag.top / k), h: round(e.height / k) }),
+          };
           return [idOf(e.target), box];
         }),
         "drag",
@@ -1117,7 +1129,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               data-page={n}
               className={`sheet${cellOf(p) ? " grid" : ""}${n === page ? " on" : ""}`}
               ref={n === page ? sheet : undefined}
-              style={{ width: sizes[n][0] * k, height: sizes[n][1] * k, "--cell": `${cellOf(p) * k}px` } as CSSProperties}
+              style={{ width: sizes[n][0] * k, height: sizes[n][1] * k, "--cell": `${cellOf(p) * k}px`, "--across": `${across}px`, "--down": `${down}px` } as CSSProperties}
             >
               {p.blocks.map((b) => (
 
@@ -1206,12 +1218,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     target={cropping ? [] : targets}
                     draggable={free.length === sel.length}
                     resizable={free.length === sel.length && !sel.some(isLine)}
-                    renderDirections={CORNERS}
+                    renderDirections={handles}
                     origin={false}
                     checkInput
                     snappable={!loose}
-                    // A picture and a symbol always keep their shape.
-                    keepRatio={(mod & KEEP) > 0 || sel.some((b) => b.type === "image" || b.type === "symbol")}
+                    keepRatio={keep}
                     snapThreshold={6}
                     isDisplaySnapDigit={false}
                     snapDirections={SIDES}
