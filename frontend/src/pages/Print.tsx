@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { api } from "../api";
-import { Paper, read, type Doc } from "../sheet";
+import { K, Paper, read, type Doc } from "../sheet";
 
 // What the server's Chromium prints into the PDF: every page of a sheet at its true size, `?loesungen` with the
 // answers. No one is logged in there; the server lets Chromium in by the token it sends along.
@@ -23,7 +23,7 @@ export default function Print() {
 
   return (
     <div className="print">
-      {doc?.pages.map((_, n) => <Paper key={n} doc={doc} k={96 / 25.4} page={n} solved={params.has("loesungen")} />)}
+      {doc?.pages.map((_, n) => <Paper key={n} doc={doc} k={K} page={n} solved={params.has("loesungen")} />)}
     </div>
   );
 }

@@ -73,7 +73,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -686,20 +686,20 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     );
   }
 
-  // Moveable works in whole pixels and leaves what it snaps up to two off the guide.
+  // Moveable works in whole pixels of the layout and leaves what it snaps up to two off the guide.
   // This is how far to move so that the nearest of `parts` that close lies exactly on it.
   const pull = (at: number, parts: number[], guides: number[]) =>
     parts
       .flatMap((part) => guides.map((g) => g - at - part))
-      .filter((d) => Math.abs(d) < 2 / k)
+      .filter((d) => Math.abs(d) < 2 / K)
       .sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? 0;
   const edge = (at: number, guides: number[]) => at + pull(at, [0], guides);
 
-  // Moveable reports px, the document keeps mm. It reads the new size back at once, so render before returning.
+  // Moveable reports px of the layout, the document keeps mm. It reads the new size back at once, so render before returning.
   // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
   const drag = (events: OnDrag[]) => {
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
-    const to = events.map((e, i) => ({ ...from[i], x: e.left / k, y: e.top / k }));
+    const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
       const [lo, hi] = span(to, axis);
       return round(to[0][axis] + pull(lo, [0, (hi - lo) / 2, hi - lo], axis === "x" ? xs : ys) - from[0][axis]);
@@ -723,8 +723,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         events.map((e) => {
           const [dx, dy] = e.direction;
           const box = {
-            ...((dx || keep) && { x: round(e.drag.left / k), w: round(e.width / k) }),
-            ...((dy || keep) && { y: round(e.drag.top / k), h: round(e.height / k) }),
+            ...((dx || keep) && { x: round(e.drag.left / K), w: round(e.width / K) }),
+            ...((dy || keep) && { y: round(e.drag.top / K), h: round(e.height / K) }),
           };
           return [idOf(e.target), box];
         }),
@@ -1272,78 +1272,60 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               ref={n === page ? sheet : undefined}
               style={{ width: sizes[n][0] * k, height: sizes[n][1] * k, "--cell": `${cellOf(p) * k}px`, "--across": `${across}px`, "--down": `${down}px` } as CSSProperties}
             >
-              {p.blocks.map((b) => (
+              {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
+                  beside them, in px of the screen. */}
+              <div className="scaled" style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})` }}>
+                {p.blocks.map((b) => (
 
-                <div
-                  key={b.id}
-                  data-id={b.id}
-                  className={ids.includes(b.id) ? "block sel" : "block"}
-                  style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
-                >
-                  <Draw block={b} k={k} solved={solved} at={editing === b.id ? slot : undefined}>
-                    {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
-                    {boxed(b) && editing === b.id ? (
-                      <Field
-                        view={field}
-                        props={boxed(b)!}
-                        hint={b.type === "text"}
-                        change={look}
-                        pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
-                        blur={() => inPanel.current || setEditing("")}
-                        end={() => setEditing("")}
-                      />
-                    ) : b.type === "text" && !b.props.text && !b.props.rich ? (
-                      <div className="rich" data-hint="">
-                        <p>
-                          <br />
-                        </p>
-                      </div>
-                    ) : b.type === "ruling" ? (
-                      <textarea
-                        className="written"
-                        value={b.props.text ?? ""}
-                        readOnly={editing !== b.id}
-                        style={writtenStyle(b, k)}
-                        onChange={(e) => style("ruling", { text: e.target.value }, "text")}
-                        onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-                        onBlur={() => setEditing("")}
-                        // A line typed past the last row would scroll the others off their rows.
-                        onScroll={(e) => (e.currentTarget.scrollTop = 0)}
-                      />
-                    ) : b.type === "table" && editing === b.id ? (
-                      <textarea
-                        value={b.props.cells.flat()[slot]}
-                        onChange={(e) => style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text")}
-                        onKeyDown={(e) => hop(e, b)}
-                        onBlur={() => setEditing("")}
-                      />
-                    ) : undefined}
-                  </Draw>
-                  <Mark block={b} k={k} n={ns.get(b.id)} />
-                  {b === table &&
-                    table.props.cols.slice(1).map((_, i) => (
-                      <i
-                        key={i}
-                        className="bar"
-                        style={{ left: (sum(table.props.cols.slice(0, i + 1)) / sum(table.props.cols)) * b.w * k }}
-                        onPointerDown={grip}
-                        onPointerMove={(e) => widen(e, table, i)}
-                      />
-                    ))}
-                  {b === cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
-                  {b === line &&
-                    [false, true].map((end) => (
-                      <i
-                        key={+end}
-                        className={end && line.props.kind === "arrow" ? "end tip" : "end"}
-                        style={{ left: far(line, 1, end) ? b.w * k : 0, top: far(line, 0, end) ? b.h * k : 0 }}
-                        onPointerDown={grip}
-                        onPointerMove={(e) => stretch(e, line, end)}
-                        onLostPointerCapture={() => setGuide([])}
-                      />
-                    ))}
-                </div>
-              ))}
+                  <div
+                    key={b.id}
+                    data-id={b.id}
+                    className={ids.includes(b.id) ? "block sel" : "block"}
+                    style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z }}
+                  >
+                    <Draw block={b} k={K} solved={solved} at={editing === b.id ? slot : undefined}>
+                      {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
+                      {boxed(b) && editing === b.id ? (
+                        <Field
+                          view={field}
+                          props={boxed(b)!}
+                          hint={b.type === "text"}
+                          change={look}
+                          pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
+                          blur={() => inPanel.current || setEditing("")}
+                          end={() => setEditing("")}
+                        />
+                      ) : b.type === "text" && !b.props.text && !b.props.rich ? (
+                        <div className="rich" data-hint="">
+                          <p>
+                            <br />
+                          </p>
+                        </div>
+                      ) : b.type === "ruling" ? (
+                        <textarea
+                          className="written"
+                          value={b.props.text ?? ""}
+                          readOnly={editing !== b.id}
+                          style={writtenStyle(b, K)}
+                          onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                          onBlur={() => setEditing("")}
+                          // A line typed past the last row would scroll the others off their rows.
+                          onScroll={(e) => (e.currentTarget.scrollTop = 0)}
+                        />
+                      ) : b.type === "table" && editing === b.id ? (
+                        <textarea
+                          value={b.props.cells.flat()[slot]}
+                          onChange={(e) => style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text")}
+                          onKeyDown={(e) => hop(e, b)}
+                          onBlur={() => setEditing("")}
+                        />
+                      ) : undefined}
+                    </Draw>
+                    <Mark block={b} k={K} n={ns.get(b.id)} />
+                  </div>
+                ))}
+              </div>
               {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
               {[undefined, n].flatMap((at) =>
                 (["x", "y"] as const).flatMap((axis) =>
@@ -1360,6 +1342,27 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 <>
                   {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
                   {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
+                  {table?.props.cols.slice(1).map((_, i) => (
+                    <i
+                      key={i}
+                      className="bar"
+                      style={{ left: (table.x + (sum(table.props.cols.slice(0, i + 1)) / sum(table.props.cols)) * table.w) * k, top: table.y * k, height: table.h * k }}
+                      onPointerDown={grip}
+                      onPointerMove={(e) => widen(e, table, i)}
+                    />
+                  ))}
+                  {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
+                  {line &&
+                    [false, true].map((end) => (
+                      <i
+                        key={+end}
+                        className={end && line.props.kind === "arrow" ? "end tip" : "end"}
+                        style={{ left: (line.x + (far(line, 1, end) ? line.w : 0)) * k, top: (line.y + (far(line, 0, end) ? line.h : 0)) * k }}
+                        onPointerDown={grip}
+                        onPointerMove={(e) => stretch(e, line, end)}
+                        onLostPointerCapture={() => setGuide([])}
+                      />
+                    ))}
                   {group &&
                     [0, 1, 2, 3].map((i) => (
                       <i
@@ -1399,7 +1402,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
                     onClick={(e) => touch.current && pick(e.inputTarget, false)}
                     onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
-                    onDragStart={(e) => ((e.inputEvent.target as Element).closest(".end, .bar") ? e.stopDrag() : begin([e.target]))}
+                    onDragStart={(e) => begin([e.target])}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
                     onDragGroup={(e) => drag(e.events)}
@@ -1442,7 +1445,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         selectByClick={false}
         onDragStart={(e) => {
           const el = e.inputEvent.target as Element;
-          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule") || moveable.current!.isMoveableElement(el)) e.stop();
+          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule, .bar, .crop") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         // The box selects on the page in use, which the press that began it has set.
         onSelectEnd={(e) => setIds((now) => grouped([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)], blocks))}
@@ -1660,7 +1663,7 @@ function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
   // Along one axis: the frame's near edge, its middle and its far edge.
   const at = (d: number, lo: number, hi: number) => `${(d < 0 ? lo : d > 0 ? 1 - hi : (lo + 1 - hi) / 2) * 100}%`;
   return (
-    <div className="crop" style={{ left: (box.x - block.x) * k, top: (box.y - block.y) * k, width: box.w * k, height: box.h * k }}>
+    <div className="crop" style={{ left: box.x * k, top: box.y * k, width: box.w * k, height: box.h * k }}>
       <img className="dim" src={src} alt="" draggable={false} />
       <img src={src} alt="" draggable={false} style={{ clipPath: `inset(${inset})` }} />
       <div style={{ inset }} onPointerDown={grip} onPointerMove={(e) => trim(e, block, 0, 0)} />
