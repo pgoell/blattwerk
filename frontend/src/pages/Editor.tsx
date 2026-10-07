@@ -73,7 +73,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, MARGIN, Mark, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sized, sizeOf, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
+import { Draw, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -198,6 +198,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [editing, setEditing] = useState("");
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
+  // Where the caret stood in a cell that a new row or column moves to another place.
+  const caret = useRef<number>(undefined);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -318,7 +320,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     tight.current = false;
     const grown = new Map<string, number>();
     for (const b of sel) {
-      // A table's rows are as high as the highest cell when its height is not set.
+      // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
       if (!frame) continue;
       frame.style.height = "auto";
@@ -342,7 +344,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
-    area?.setSelectionRange(area.value.length, area.value.length);
+    const end = caret.current ?? area?.value.length ?? 0;
+    area?.setSelectionRange(end, end);
+    caret.current = undefined;
   }, [editing, slot]);
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -750,9 +754,27 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // What is typed in the next cell is an undo step of its own.
     mergeKey.current = "";
     const to = Math.max(0, slot + (e.shiftKey ? -1 : 1));
-    const [rows, cols] = [b.props.cells.length, b.props.cols.length];
-    if (to === rows * cols) change((bs) => bs.map((o) => (o.id === b.id ? sized(b, rows + 1, cols) : o)));
+    const rows = b.props.cells.length;
+    if (to === rows * b.props.cols.length) rank(b, "row", rows, true);
     setSlot(to);
+  }
+  // Adds an empty row or column to a table before the one at `i`, or takes the one at `i` away; the last one
+  // stays. A new row adds its height to the block, a line of text with the cell's padding and line, and
+  // a row that goes takes with it the height it has now. The field stays with its cell, and goes to a neighbour
+  // when its cell goes.
+  function rank(b: TableBlock, axis: "row" | "col", i: number, add: boolean) {
+    const [rows, cols] = [b.props.cells.length, b.props.cols.length];
+    const n = axis === "row" ? rows : cols;
+    if (!add && n < 2) return;
+    const gone = sheet.current!.querySelector(`[data-id="${b.id}"] [data-cell="${i * cols}"]`);
+    const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone!.getBoundingClientRect().height / k;
+    const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
+    const [r, c] = [Math.floor(slot / cols), slot % cols];
+    const next = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
+    if (add && next !== slot) caret.current = sheet.current!.querySelector<HTMLTextAreaElement>(".table textarea")?.selectionStart;
+    setSlot(next);
+    tight.current = true;
+    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, h: round(b.h + dh), props: spliced(b.props, axis, i, add) } : o)));
   }
   // Moves the line right of column `i` with the pointer. The columns on its two sides share the width they had,
   // and each keeps 5 mm, or half of it where they have less.
@@ -1454,6 +1476,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 itemize={itemize}
                 part={part}
                 place={place}
+                rank={rank}
+                cell={editing && editing === table?.id ? slot : undefined}
                 cropping={!!cropping}
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
