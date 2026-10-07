@@ -367,6 +367,17 @@ body:has(.print) { background: #fff; }
 .maths u, .maths .answer { color: #c0392b; }
 .maths u { border-color: #222; }
 .maths .hint { margin: 0; font-size: 12px; }
+/* A table: its top and left line are its own, and each cell brings the line to its right and the one below it.
+   A text too high for its cell starts at the top and is cut off below. */
+.block .table { display: grid; border: 0 solid; border-width: var(--edge) 0 0 var(--edge); }
+.table > div { display: flex; min-width: 0; overflow: hidden; padding: .15em .3em; border: 0 solid; border-color: inherit; border-width: 0 var(--edge) var(--edge) 0; }
+.block .table p { position: relative; flex: 1; min-width: 0; margin: auto 0; line-height: inherit; white-space: pre-wrap; overflow-wrap: break-word; overflow: visible; }
+/* The field lies over the text of its cell, which keeps the room. */
+.table .open { visibility: hidden; }
+.table textarea { position: absolute; inset: 0; visibility: visible; height: 100%; text-align: inherit; }
+/* A column's right line, to take hold of. */
+.block > .bar { position: absolute; top: 0; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
+.bar::after { content: ""; position: absolute; inset: 0 -9px; }
 /* Crop mode: the whole picture lies over its block, pale outside the frame. The frame moves under a finger. */
 .block > .crop { position: absolute; background: #fff; }
 .crop img { position: absolute; width: 100%; height: 100%; }

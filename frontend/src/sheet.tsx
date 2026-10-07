@@ -60,7 +60,11 @@ export type Made = { exercises: Exercise[]; loosen: string[] | null };
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
 export type MathsProps = Limits & Made & { columns: number; size: number; numbering?: string };
 export type MathsBlock = Box & { type: "maths"; props: MathsProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock;
+// `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
+// parts of their sum; the rows share the height equally. `line` is the colour of the lines, and `head` sets the
+// first row in bold.
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean } };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -163,6 +167,15 @@ export function mathsHeight(p: MathsProps) {
   const lines = Math.ceil(p.exercises.length / p.columns);
   const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
   return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
+}
+export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
+// A table with this many rows and columns: the last ones go, and new ones are empty. A new row is as high as the
+// others, so the block grows; a new column is as wide as the others are on average, and the block keeps its width.
+export function sized(b: TableBlock, rows: number, cols: number): TableBlock {
+  const { cells, cols: had } = b.props;
+  const mean = sum(had) / had.length;
+  const next = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => cells[r]?.[c] ?? ""));
+  return { ...b, h: Math.round((b.h / cells.length) * rows * 100) / 100, props: { ...b.props, cells: next, cols: Array.from({ length: cols }, (_, c) => had[c] ?? mean) } };
 }
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
@@ -330,6 +343,29 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   );
 }
 
+// The lines are the borders of the cells, so they close at every corner. A text lies in the middle of its cell's
+// height. The editor passes the field for the cell `at`, counted row by row: the cell's own text, unseen, keeps the
+// field as high as its lines.
+function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
+  const { cells, cols, line, head } = block.props;
+  const style = {
+    ...textStyle({ text: "", ...block.props }, k),
+    borderColor: line,
+    gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
+    gridTemplateRows: `repeat(${cells.length}, minmax(0, 1fr))`,
+    "--edge": `${0.25 * k}px`,
+  };
+  return (
+    <div className="table" style={style as CSSProperties}>
+      {cells.flat().map((text, i) => (
+        <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
+          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
 function Part({ e, part, solved }: { e: Exercise; part: "a" | "b" | "result" | "rest"; solved: boolean }) {
   const gap = part === "rest" || part === (e.hide ?? "result");
@@ -381,9 +417,10 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
 }
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
-// `solved` fills in the answers of the maths exercises.
-export function Draw({ block, k, solved = false, children }: { block: Block; k: number; solved?: boolean; children?: ReactNode }) {
+// `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
+export function Draw({ block, k, solved = false, at, children }: { block: Block; k: number; solved?: boolean; at?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
+  if (block.type === "table") return <Table block={block} k={k} at={at}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
