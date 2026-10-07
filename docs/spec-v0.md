@@ -50,7 +50,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 | Image | upload from the device, crop, keep ratio |
 | Shape | rectangle, rounded box, circle, line, arrow; fill and border; text as in a text block, unless it is a line |
 | Symbol | OpenMoji, searchable by German and English name (pencil, scissors, glue, partner work, ear, eye, stars) |
-| Table | rows and columns, added and removed at the end; text per cell, typed after a double-click, with Tab to the next cell and a new row after the last; column widths, moved by a column's line; font, size, alignment, text colour and line colour for the whole table; a head row in bold. The rows share the height, and the table grows with its highest cell |
+| Table | rows and columns, added and removed at the end, or beside the cell being edited; text per cell, typed after a double-click, with Tab to the next cell and a new row after the last; column widths, moved by a column's line; font, size, alignment, text colour and line colour for the whole table; a head row in bold. A row is as high as its highest cell needs, the rows share what room is left, and the table grows with its texts |
 | Name header | Name, Datum, Klasse fields with lines |
 | Points box | "/ n Punkte" box for Klassenarbeiten |
 
@@ -179,7 +179,7 @@ A maths block keeps its limits and the exercises the server made from them, so a
 
 Positions and sizes in mm from the page's top-left corner. A line or arrow shape runs from the corner of its box named in `props.from` (`nw`, `ne`, `sw` or `se`, `nw` when absent) to the opposite corner; a level line has `h` 0.
 
-A table keeps its texts in `props.cells`, a row of columns at a time, and each column's share of the width in `props.cols`, in parts of their sum. The rows share the block's height equally. The text settings and the line colour are the table's, and `head` sets the first row in bold:
+A table keeps its texts in `props.cells`, a row of columns at a time, and each column's share of the width in `props.cols`, in parts of their sum. No row height is stored: a row is as high as its highest cell needs, and the rows share equally what the block's height leaves beyond that. The text settings and the line colour are the table's, and `head` sets the first row in bold:
 
 ```json
 { "cells": [["H", "Z", "E"], ["3", "", "7"]], "cols": [1, 1, 1],

@@ -61,8 +61,8 @@ export type Made = { exercises: Exercise[]; loosen: string[] | null };
 export type MathsProps = Limits & Made & { columns: number; size: number; numbering?: string };
 export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
-// parts of their sum; the rows share the height equally. `line` is the colour of the lines, and `head` sets the
-// first row in bold.
+// parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
+// has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold.
 export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean } };
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
@@ -169,13 +169,12 @@ export function mathsHeight(p: MathsProps) {
   return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
 }
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
-// A table with this many rows and columns: the last ones go, and new ones are empty. A new row is as high as the
-// others, so the block grows; a new column is as wide as the others are on average, and the block keeps its width.
-export function sized(b: TableBlock, rows: number, cols: number): TableBlock {
-  const { cells, cols: had } = b.props;
-  const mean = sum(had) / had.length;
-  const next = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => cells[r]?.[c] ?? ""));
-  return { ...b, h: Math.round((b.h / cells.length) * rows * 100) / 100, props: { ...b.props, cells: next, cols: Array.from({ length: cols }, (_, c) => had[c] ?? mean) } };
+// A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
+// is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
+export function spliced({ cells, cols, ...rest }: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
+  const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
+  if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")) };
+  return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length) };
 }
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
@@ -343,16 +342,16 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   );
 }
 
-// The lines are the borders of the cells, so they close at every corner. A text lies in the middle of its cell's
-// height. The editor passes the field for the cell `at`, counted row by row: the cell's own text, unseen, keeps the
-// field as high as its lines.
+// The lines are the borders of the cells, so they close at every corner. The rows have no set height: the grid
+// makes each as high as its cells need and stretches them all by the same share of what is left. A text lies in
+// the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
+// own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
   const { cells, cols, line, head } = block.props;
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
     gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
-    gridTemplateRows: `repeat(${cells.length}, minmax(0, 1fr))`,
     "--edge": `${0.25 * k}px`,
   };
   return (

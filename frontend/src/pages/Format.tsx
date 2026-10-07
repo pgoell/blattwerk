@@ -2,7 +2,7 @@
 import { useState, type MouseEvent } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, sized, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -20,6 +20,10 @@ type Props = {
   // What is picked in the text being edited.
   part?: Picked;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
+  // Adds a row or a column to a table before the one at `i`, or takes the one at `i` away.
+  rank: (b: TableBlock, axis: "row" | "col", i: number, add: boolean) => void;
+  // The cell of the table being edited, counted row by row.
+  cell?: number;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   cropping: boolean;
@@ -32,7 +36,7 @@ const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets],
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export default function Format({ sel, style, look, paint, itemize, part, place, crop, cropping, size: [W, H] }: Props) {
+export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, size: [W, H] }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.
@@ -59,12 +63,6 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   const calc = (props: MathsProps) => {
     style("maths", props, "maths");
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, { h: mathsHeight(props) }]], "maths");
-  };
-  // More or fewer rows and columns, for one table: each has cells of its own.
-  const grid = (rows: number, cols: number) => {
-    const to = sized(tables[0], Math.max(1, rows), Math.max(1, cols));
-    style("table", to.props, "table");
-    place([[to.id, { h: to.h }]], "table");
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -164,18 +162,35 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
       {tables.length > 0 && (
         <>
           <h2>Tabelle</h2>
+          {/* More or fewer rows and columns, for one table: each has cells of its own. They come and go at the end,
+              or beside the cell being edited, as in PowerPoint. */}
           {tables.length === 1 &&
             (["Zeile", "Spalte"] as const).map((name, i) => {
+              const axis = i ? "col" : "row";
               const n = [tables[0].props.cells.length, tables[0].props.cols.length];
-              const by = (d: number) => grid(n[0] + (i ? 0 : d), n[1] + (i ? d : 0));
+              if (cell === undefined)
+                return (
+                  <div key={name} className="seg">
+                    <button aria-label={`Eine ${name} weniger`} onClick={() => rank(tables[0], axis, n[i] - 1, false)}>−</button>
+                    <output>{n[i]} {name}n</output>
+                    <button aria-label={`Eine ${name} mehr`} onClick={() => rank(tables[0], axis, n[i], true)}>＋</button>
+                  </div>
+                );
+              const at = i ? cell % n[1] : Math.floor(cell / n[1]);
               return (
-                <div key={name} className="seg">
-                  <button aria-label={`Eine ${name} weniger`} onClick={() => by(-1)}>−</button>
-                  <output>{n[i]} {name}n</output>
-                  <button aria-label={`Eine ${name} mehr`} onClick={() => by(1)}>＋</button>
+                <div key={name} className="acts" onMouseDown={stay}>
+                  <button onClick={() => rank(tables[0], axis, at, true)}>{name} {i ? "links" : "darüber"}</button>
+                  <button onClick={() => rank(tables[0], axis, at + 1, true)}>{name} {i ? "rechts" : "darunter"}</button>
                 </div>
               );
             })}
+          {/* The last row or column stays. A disabled button would take the focus from the cell all the same. */}
+          {tables.length === 1 && cell !== undefined && (
+            <div className="acts" onMouseDown={stay}>
+              <button aria-disabled={tables[0].props.cells.length < 2} onClick={() => rank(tables[0], "row", Math.floor(cell / tables[0].props.cols.length), false)}>Zeile löschen</button>
+              <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", cell % tables[0].props.cols.length, false)}>Spalte löschen</button>
+            </div>
+          )}
           <select aria-label="Schriftart der Tabelle" value={tables[0].props.font ?? "andika"} onChange={(e) => style("table", { font: e.target.value })}>
             {Object.entries(FONTS).map(([font, [name]]) => (
               <option key={font} value={font}>
