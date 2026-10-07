@@ -206,6 +206,41 @@ def test_chromium_prints_the_sheet_and_its_answer_key(server):
             assert (f"{e['a']} + {e['b']} = {e['result']}" in first) == solved
 
 
+def test_chromium_prints_old_plain_text_and_rich_text(server):
+    client = user("a@example.com")
+    # A text as sheets saved before hold it, and one with paragraphs of its own beside the words.
+    old = {"text": "Alter Text\nzweite Zeile", "size": 14, "align": "left"}
+    rich = [
+        {"runs": [{"text": "Lies "}, {"text": "genau", "bold": True, "color": "#c01c28"}]},
+        {"runs": [{"text": "erstens", "italic": True}], "list": "number"},
+        {"runs": [{"text": "tiefer", "underline": True}], "list": "number", "level": 1},
+        {"runs": [{"text": "zweitens"}], "list": "number"},
+        {"runs": []},
+        {"runs": [{"text": "Punkt"}], "list": "bullet"},
+    ]
+    new = {**old, "text": "Lies genau\nerstens\ntiefer\nzweitens\n\nPunkt", "rich": rich}
+    shape = {"kind": "rect", "fill": "none", "stroke": "#222222", "strokeWidth": 0.5}
+    mine = sheet(
+        client,
+        [block("text", 15, 20, old), {**block("text", 40, 60, new), "id": "new"}],
+        [block("shape", 15, 40, {**shape, "text": "Im Kasten", "rich": rich[:1]})],
+    )
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    first, second = (
+        " ".join(p.extract_text().split()) for p in PdfReader(io.BytesIO(res.content)).pages
+    )
+    assert "Alter Text zweite Zeile" in first
+    # The numbers of a list are the page's own; each level counts for itself.
+    assert "Lies genau 1. erstens 1. tiefer 2. zweitens • Punkt" in first
+    # A shape draws its paragraphs, not the plain words beside them.
+    assert "Lies genau" in second and "Im Kasten" not in second
+    # The bold and the italic run bring their cuts of the font into the file.
+    fonts = set(re.findall(rb"/FontName /\w+\+([\w-]+)", res.content))
+    assert fonts == {b"Andika", b"Andika-Bold", b"Andika-Italic"}
+
+
 def test_chromium_prints_each_page_upright_or_on_its_side(server):
     client = user("a@example.com")
     # The sheet lies on its side; the second page has a format of its own.

@@ -1,8 +1,9 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { useState } from "react";
-import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
+import { useState, type MouseEvent } from "react";
+import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, rowsOf, symbol, type Align, type Block, type Box, type MathsProps, type Ruling, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type Valign } from "../sheet";
+import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
 
@@ -12,6 +13,12 @@ type Props = {
   style: (type: Block["type"], props: object, key?: string) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
+  // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
+  paint: (props: Marks, key?: string) => void;
+  // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
+  itemize: (kind: List) => void;
+  // What is picked in the text being edited.
+  part?: Picked;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
@@ -21,14 +28,20 @@ type Props = {
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
+const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export default function Format({ sel, style, look, place, crop, cropping, size: [W, H] }: Props) {
+export default function Format({ sel, style, look, paint, itemize, part, place, crop, cropping, size: [W, H] }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.
   const text = sel.map(boxed).find((p) => p);
+  // Picked words show their own look, and the list is that of the caret's paragraph, or of the text's first.
+  const shown = { ...text, ...part?.marks };
+  const kind = text && (part ?? parasOf(text)[0]).list;
+  // A press on these buttons leaves the focus, and so the picked words, in the field.
+  const stay = (e: MouseEvent) => e.preventDefault();
   const rulings = of("ruling");
   const [points] = of("points");
   const [sign] = of("symbol");
@@ -65,21 +78,28 @@ export default function Format({ sel, style, look, place, crop, cropping, size: 
             <output>{text.size} pt</output>
             <button aria-label="Schrift größer" onClick={() => look({ size: text.size + 2 })}>＋</button>
           </div>
-          <div className="seg">
+          <div className="seg" onMouseDown={stay}>
             {([["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const).map(([prop, label]) => (
-              <button key={prop} className={`${prop}${text[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!text[prop]} onClick={() => look({ [prop]: !text[prop] })}>
+              <button key={prop} className={`${prop}${shown[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!shown[prop]} onClick={() => paint({ [prop]: !shown[prop] })}>
                 {label[0]}
               </button>
             ))}
           </div>
-          <div className="seg">
+          <div className="seg" onMouseDown={stay}>
+            {LISTS.map(([value, label, Icon]) => (
+              <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>
+                <Icon size={14} aria-hidden />
+              </button>
+            ))}
+          </div>
+          <div className="seg" onMouseDown={stay}>
             {ALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={text.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={text.align === value} onClick={() => look({ align: value })}>
                 <Icon size={14} aria-hidden />
               </button>
             ))}
           </div>
-          <div className="seg">
+          <div className="seg" onMouseDown={stay}>
             {VALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={(text.valign ?? "top") === value ? "on" : ""} aria-label={label} title={label} aria-pressed={(text.valign ?? "top") === value} onClick={() => look({ valign: value })}>
                 <Icon size={14} aria-hidden />
@@ -88,7 +108,7 @@ export default function Format({ sel, style, look, place, crop, cropping, size: 
           </div>
           <label>
             Farbe
-            <input type="color" value={text.color ?? "#222222"} onChange={(e) => look({ color: e.target.value }, "color")} />
+            <input type="color" value={shown.color ?? "#222222"} onChange={(e) => paint({ color: e.target.value }, "color")} />
           </label>
           <label>
             Zeilenabstand
