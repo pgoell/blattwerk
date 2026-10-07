@@ -32,6 +32,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 - A grid of 5, 10 or 20 mm can be shown on the page; blocks snap to it.
 - Own guide lines: added from the Ansicht tab, moved by their tab at the page's edge, removed by dragging them off the page.
 - Keys during a drag work as in PowerPoint. Shift keeps a block's shape on resize, keeps a move level or upright, and turns a line in steps of 45 degrees. Ctrl (Option on Apple) resizes about the centre and leaves a copy behind a move. Alt (Command on Apple) switches snapping off.
+- Arrow keys move the selection by 1 mm, or by one grid cell when the page shows a grid, and by 10 mm with Shift. A run of presses is one undo step.
 - Multi-select by tap-and-hold then tap (iPad), shift-click or a drag box (laptop).
 - Copy, paste, duplicate, align (left, centre, right, top, middle, bottom), distribute, bring forward and send back.
 - Undo and redo.

@@ -305,12 +305,16 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.target as Element).closest("textarea, input, select, dialog")) return;
+      // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
+      const step = e.shiftKey ? 10 : cell || 1;
+      const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
       const keys: Record<string, () => void> =
         e.ctrlKey || e.metaKey
           ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join }
-          : { delete: remove, backspace: remove, escape: done };
+          : { delete: remove, backspace: remove, escape: done, arrowleft: () => nudge(-1, 0), arrowright: () => nudge(1, 0), arrowup: () => nudge(0, -1), arrowdown: () => nudge(0, 1) };
       const run = keys[e.key.toLowerCase()];
-      if (!run) return;
+      // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
+      if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
       e.preventDefault();
       run();
     }
