@@ -27,6 +27,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 
 - A4 pages, measured in mm. A sheet has one or more pages. The sheet is portrait or landscape, and a page can have a format of its own.
 - Blocks can be dragged, resized and deleted, and kept in place with a lock.
+- Resize handles sit on the corners and, as in PowerPoint, on the edges, each of which moves alone. A picture or a symbol keeps its shape and has corner handles only.
 - Snap to page margins, the page centre and other blocks' edges and centres, with guide lines shown while dragging.
 - A grid of 5, 10 or 20 mm can be shown on the page; blocks snap to it.
 - Own guide lines: added from the Ansicht tab, moved by their tab at the page's edge, removed by dragging them off the page.
@@ -35,7 +36,7 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 - Copy, paste, duplicate, align (left, centre, right, top, middle, bottom), distribute, bring forward and send back.
 - Undo and redo.
 - Zoom to fit page width, pinch zoom on the iPad.
-- Touch first: handles at least 44 px, no hover-only controls.
+- Touch first: no hover-only controls.
 
 ### 2. Blocks
 

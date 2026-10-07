@@ -39,8 +39,8 @@ const STEPS: Step[] = [
   {
     title: "Bewegen und Größe ändern",
     text: [
-      "Klicke das Feld an und zieh es an eine andere Stelle. Die Ecken ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
-      "Tippe das Feld an und zieh es an eine andere Stelle. Die Ecken ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
+      "Klicke das Feld an und zieh es an eine andere Stelle. Die Punkte an Ecken und Kanten ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
+      "Tippe das Feld an und zieh es an eine andere Stelle. Die Punkte an Ecken und Kanten ändern die Größe, grüne Linien zeigen, wo das Feld einrastet.",
     ],
     find: ".block.sel",
     done: (now, start) => !now.editing && now.doc !== start.doc,

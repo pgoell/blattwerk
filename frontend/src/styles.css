@@ -405,6 +405,14 @@ body:has(.print) { background: #fff; }
 .ring { display: inline-block; min-width: 1.5em; padding: 0 .25em; border: .07em solid; border-radius: 1em; line-height: 1.36; text-align: center; }
 /* Moveable draws 14 px handles, a line's ends match them; this widens what a finger can hit to 44 px. */
 .moveable-control::after, .end::after { content: ""; position: absolute; inset: -17px; border-radius: 50%; }
+/* An edge's handle shares a short edge with the two corners' and takes its middle half. Its area lies outside the
+   block, so the middle of a small block stays free to drag. */
+.moveable-n::after, .moveable-s::after { inset-inline: max(-17px, 5px - var(--across) / 4); border-radius: 0; }
+.moveable-e::after, .moveable-w::after { inset-block: max(-17px, 5px - var(--down) / 4); border-radius: 0; }
+.moveable-n::after { inset-block: -34px 0; }
+.moveable-s::after { inset-block: 0 -34px; }
+.moveable-w::after { inset-inline: -34px 0; }
+.moveable-e::after { inset-inline: 0 -34px; }
 
 /* The right panel: what is selected under Format, the grid and the guide lines under Ansicht. */
 .panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); }
