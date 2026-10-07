@@ -70,7 +70,9 @@ import { api, post } from "../api";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
-import { Draw, MARGIN, Mark, Paper, boxed, far, isLine, last, mathsHeight, numbers, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import type { EditorView } from "prosemirror-view";
+import { Draw, MARGIN, Mark, Paper, boxed, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -191,6 +193,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [rest, setRest] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
   const [editing, setEditing] = useState("");
+  // The field of the text being edited, and what is picked in it.
+  const field = useRef<EditorView>(null);
+  const [part, setPart] = useState<Picked>();
+  // Whether the last press was in the format panel: the field then stays open though it loses the focus.
+  const inPanel = useRef(false);
   const [multi, setMulti] = useState(false);
   const [tab, setTab] = useState(TABS[0]);
   const [pane, setPane] = useState(true);
@@ -295,16 +302,23 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (!moveable.current!.isDragging()) moveable.current!.updateRect();
   }, [blocks, k]);
 
+  // A ruling's field; a text's own field takes the focus by itself.
   useLayoutEffect(() => {
     const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
     area?.setSelectionRange(area.value.length, area.value.length);
   }, [editing]);
+  // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
+  useEffect(() => {
+    if (editing && !sel.some((b) => b.id === editing)) setEditing("");
+  });
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as Element).closest("textarea, input, select, dialog")) return;
+      // In a text's field only undo and redo are the sheet's.
+      const typing = (e.target as Element).closest(".ProseMirror") && !((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key));
+      if (typing || (e.target as Element).closest("textarea, input, select, dialog")) return;
       // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
       const step = e.shiftKey ? 10 : cell || 1;
       const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
@@ -413,6 +427,20 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
     change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+  }
+  // The panel's bold, italic, underline and colour go to the words picked in the field, as in PowerPoint. With
+  // none picked they go to the whole of every selected block.
+  function paint(props: Marks, key?: string) {
+    if (part?.marks && field.current) tint(field.current, props, boxed(sel[0])!, key);
+    else look(props, key);
+  }
+  // A list is for the paragraphs the caret stands in, or with no field for every paragraph of the selected blocks.
+  // Asked for again, it goes.
+  function itemize(kind: List) {
+    if (field.current) return list(field.current, kind);
+    const on = sel.map(boxed).find((p) => p)!;
+    const to = parasOf(on)[0].list === kind ? undefined : kind;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && boxed(b) ? ({ ...b, props: { ...b.props, ...listed(boxed(b)!, to) } } as Block) : b)));
   }
   // Gives the selected lines a length in mm. Each keeps its angle and the top left corner of its box.
   function extend(to: number) {
@@ -855,8 +883,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       return;
     }
     // Tap and hold on a block starts selecting several.
+    // A finger held on the text being edited picks a word of it.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
-    if (!id) return;
+    if (!id || id === editing) return;
     const to = pageOf(e.target as Element);
     hold.current = window.setTimeout(() => {
       held.current = true;
@@ -948,7 +977,13 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     </>
   );
   return (
-    <main className={`editor${leaf ? " leaf" : ""}`} onPointerDown={() => (mergeKey.current = "")}>
+    <main
+      className={`editor${leaf ? " leaf" : ""}`}
+      onPointerDown={(e) => {
+        mergeKey.current = "";
+        inPanel.current = !!(e.target as Element).closest(".panel");
+      }}
+    >
       <header>
         <div className="top">
           {leaf ? (
@@ -1144,18 +1179,22 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b === cropping ? 2998 : b.z }}
                 >
                   <Draw block={b} k={k} solved={solved}>
-                    {boxed(b) ? (
-                      // The text is as high as its lines, so the frame can set it at its top, middle or bottom.
-                      <div className="grow" data-value={boxed(b)!.text}>
-                        <textarea
-                          rows={1}
-                          value={boxed(b)!.text}
-                          placeholder={b.type === "text" ? "Text" : undefined}
-                          readOnly={editing !== b.id}
-                          onChange={(e) => look({ text: e.target.value }, "text")}
-                          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
-                          onBlur={() => setEditing("")}
-                        />
+                    {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
+                    {boxed(b) && editing === b.id ? (
+                      <Field
+                        view={field}
+                        props={boxed(b)!}
+                        hint={b.type === "text"}
+                        change={look}
+                        pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
+                        blur={() => inPanel.current || setEditing("")}
+                        end={() => setEditing("")}
+                      />
+                    ) : b.type === "text" && !b.props.text && !b.props.rich ? (
+                      <div className="rich" data-hint="">
+                        <p>
+                          <br />
+                        </p>
                       </div>
                     ) : b.type === "ruling" ? (
                       <textarea
@@ -1310,6 +1349,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 sel={sel}
                 style={style}
                 look={look}
+                paint={paint}
+                itemize={itemize}
+                part={part}
                 place={place}
                 cropping={!!cropping}
                 size={[W, H]}

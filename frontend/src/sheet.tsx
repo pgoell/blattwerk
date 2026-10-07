@@ -10,10 +10,18 @@ export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
 export type Ruling = keyof typeof RULINGS;
 export type Valign = "top" | "middle" | "bottom";
+export type List = "bullet" | "number";
+// A stretch of a text with a look of its own. `bold` and `italic` stand in for the block's, on or off; an underline
+// and a colour lie on top of the block's.
+export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string };
+// A paragraph of a text: an item of a list with `list`, moved in by `level` steps, 0 to 2.
+export type Para = { runs: Run[]; list?: List; level?: number };
 // Sheets saved before text had these settings lack them: a text is then Andika, black, with lines 1.3 apart.
 // A text has what a shape has, as a PowerPoint text box does: a fill and a border ("none" or absent for neither,
 // the border 0.5 mm wide unless set), dashes, and round corners with `kind`.
-export type TextProps = { text: string; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+// `rich` holds the text's paragraphs once a part of it has a look of its own, or it has a list. `text` always holds
+// the same words plain, and is all that a sheet saved before has.
+export type TextProps = { text: string; rich?: Para[]; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -122,6 +130,16 @@ export function boxed(b: Block): TextProps | undefined {
   const props = b.type === "shape" ? b.props : undefined;
   if (props && !isLine(b)) return { text: "", size: 14, align: "center", valign: "middle", ...props };
 }
+// A text's paragraphs: with no `rich`, one to a line.
+export const parasOf = (p: TextProps): Para[] => p.rich ?? p.text.split("\n").map((text) => ({ runs: text ? [{ text }] : [] }));
+// What a block keeps of its paragraphs: the plain text always, `rich` only when it says more than the text does.
+export function stored(paras: Para[]) {
+  const plain = paras.every((p) => !p.list && p.runs.every((r) => Object.keys(r).length === 1));
+  return { text: paras.map((p) => p.runs.map((r) => r.text).join("")).join("\n"), rich: plain ? undefined : paras };
+}
+// Makes every paragraph of a text an item of a list, or with no `list` takes the lists away.
+export const listed = (p: TextProps, list?: List) =>
+  stored(parasOf(p).map(({ runs, level }) => ({ runs, ...(list && { list, ...(level && { level }) }) })));
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
@@ -255,7 +273,28 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         justifyContent: UP[p.valign ?? "top"],
       }}
     >
-      {children ?? <p>{p.text}</p>}
+      {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
+    </div>
+  );
+}
+
+// A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
+// stores is drawn as text alone, never as markup of its own.
+function Rich({ paras }: { paras: Para[] }) {
+  const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
+  return (
+    <div className="rich">
+      {paras.map((para, i) => (
+        <p key={i} data-list={para.list} data-level={para.level || undefined}>
+          {para.runs.map(({ text, bold, italic, underline, color }, j) => (
+            <span key={j} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
+              {text}
+            </span>
+          ))}
+          {/* A paragraph with no text is still a line high. */}
+          {!para.runs.length && <br />}
+        </p>
+      ))}
     </div>
   );
 }

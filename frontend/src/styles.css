@@ -391,16 +391,35 @@ body:has(.print) { background: #fff; }
 }
 .block textarea:not(:read-only) { pointer-events: auto; user-select: text; -webkit-user-select: text; }
 .block textarea:focus-visible { box-shadow: none; }
-/* A text or a shape with its text, on the page and in a thumbnail. The frame sets the text at its top, middle or
-   bottom; in the editor the text's field grows with its lines, as high as the unseen copy of the text behind it. */
+/* A text or a shape with its text, on the page and in a thumbnail. The frame sets the text, which is as high as
+   its lines, at its top, middle or bottom. */
 .block .frame { display: flex; flex-direction: column; overflow: hidden; }
-.frame p, .frame textarea, .grow::after {
+.frame p {
   min-height: 0; margin: 0; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; color: inherit;
   white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden;
 }
-.grow { display: grid; min-height: 0; overflow: hidden; }
-.grow::after { content: attr(data-value) " "; visibility: hidden; }
-.grow textarea, .grow::after { grid-area: 1 / 1; min-width: 0; height: 100%; }
+/* A text with paragraphs of its own: drawn from the sheet, or the field it is typed in. The counters number the
+   items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
+   below it over. */
+.frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
+.rich p { counter-reset: a b c; }
+.rich p[data-level="1"] { counter-reset: b c; }
+.rich p[data-level="2"] { counter-reset: c; }
+.rich p[data-list=number] { counter-reset: b c; counter-increment: a; }
+.rich p[data-list=number][data-level="1"] { counter-reset: c; counter-increment: b; }
+.rich p[data-list=number][data-level="2"] { counter-reset: none; counter-increment: c; }
+/* An item's sign hangs before its first line, wherever the text's alignment puts that. */
+.rich p[data-list] { padding-left: 1.5em; }
+.rich p[data-level="1"] { padding-left: 3em; }
+.rich p[data-level="2"] { padding-left: 4.5em; }
+.rich p[data-list]::before { content: "•"; display: inline-block; min-width: 1.5em; margin-left: -1.5em; text-align: left; white-space: nowrap; }
+.rich p[data-list=number]::before { content: counter(a) "."; }
+.rich p[data-list=number][data-level="1"]::before { content: counter(b) "."; }
+.rich p[data-list=number][data-level="2"]::before { content: counter(c) "."; }
+/* An empty text says what it is, on the desk alone. */
+.rich[data-hint] p:not([data-list])::before { content: "Text"; float: left; height: 0; color: var(--faint); pointer-events: none; }
+/* The field a text is typed in. ProseMirror needs its spaces kept, and the sheet around it lets nothing be selected. */
+.ProseMirror { outline: 0; white-space: pre-wrap; overflow-wrap: break-word; cursor: text; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 /* A numbering in a ring. */
 .ring { display: inline-block; min-width: 1.5em; padding: 0 .25em; border: .07em solid; border-radius: 1em; line-height: 1.36; text-align: center; }
 /* Moveable draws 14 px handles, a line's ends match them; this widens what a finger can hit to 44 px. */

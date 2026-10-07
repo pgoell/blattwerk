@@ -43,12 +43,12 @@ v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the i
 
 | Block | Settings |
 |---|---|
-| Text | font, size, bold, italic, underline, colour, alignment, line spacing |
+| Text | font, size, bold, italic, underline, colour, alignment, line spacing; bold, italic, underline and colour for a part of the text too; bulleted and numbered lists, an item moved in with Tab and out with Shift+Tab |
 | Heading | text block preset |
 | Lineatur | type (Lineatur 1 to 4, Karo 5 mm, Karo 7 mm, plain lines), row count, colour |
 | Maths exercises | the generator below, number of columns, numbering style |
 | Image | upload from the device, crop, keep ratio |
-| Shape | rectangle, rounded box, circle, line, arrow; fill and border |
+| Shape | rectangle, rounded box, circle, line, arrow; fill and border; text as in a text block, unless it is a line |
 | Symbol | OpenMoji, searchable by German and English name (pencil, scissors, glue, partner work, ear, eye, stars) |
 | Name header | Name, Datum, Klasse fields with lines |
 | Points box | "/ n Punkte" box for Klassenarbeiten |
@@ -144,7 +144,8 @@ Every teacher has their own space from the start.
 | Part | Choice | Why |
 |---|---|---|
 | Frontend | TypeScript, React, Vite | The editor is most of the work, and the best canvas libraries for it target React |
-| Canvas | Each block is an HTML element placed in mm on an A4 page; drag, resize, snap and multi-select from `moveable` and `selecto` | Sharp text in the PDF, native text editing on the iPad, the same markup renders the PDF |
+| Canvas | Each block is an HTML element placed in mm on an A4 page; drag, resize, snap and multi-select from `moveable` and `selecto` | Sharp text in the PDF, the same markup renders the PDF |
+| Text field | ProseMirror, for the one text being edited; every other text draws without it | Formatting on a selection needs more than a `<textarea>`; it is the smallest of the libraries tried and has no history of its own, so undo stays the editor's |
 | Backend | FastAPI, the app already in this repo | |
 | Storage | SQLite file on the data volume, tables for users, sessions, invites, sheets, templates, uploads; a sheet is one JSON document | A few users, no database server to run; Postgres on the box if it outgrows that |
 | Uploads | Files on the data volume under a folder per user, served through the app after an owner check | |
@@ -176,6 +177,18 @@ Every teacher has their own space from the start.
 A maths block keeps its limits and the exercises the server made from them, so a sheet draws without the generator. `a` and `b` hold the lowest and highest digit of each place, units first. `ops` holds one operation or several to mix. `loosen` is null, or with fewer exercises than asked for the limits that stand in the way.
 
 Positions and sizes in mm from the page's top-left corner. A line or arrow shape runs from the corner of its box named in `props.from` (`nw`, `ne`, `sw` or `se`, `nw` when absent) to the opposite corner; a level line has `h` 0.
+
+A text, and a shape with text, keeps its words plain in `props.text`, one line to a paragraph. Once a part of the text has a look of its own, or the text has a list, `props.rich` holds the paragraphs as well:
+
+```json
+{ "text": "Lies genau.\nUnterstreiche", "size": 14, "align": "left",
+  "rich": [
+    { "runs": [{ "text": "Lies " }, { "text": "genau", "bold": true, "color": "#c01c28" }, { "text": "." }] },
+    { "runs": [{ "text": "Unterstreiche", "underline": true }], "list": "number", "level": 1 }
+  ] }
+```
+
+A run's `bold` and `italic` stand in for the block's own, on or off; `underline` and `color` lie on top of it. `list` is `bullet` or `number`, `level` 0 to 2. A sheet saved before has `text` alone and draws as it always did. The page draws `rich` as text in elements of its own making, never as stored markup, so a sheet cannot bring script into the page Chromium prints.
 
 ## Milestones
 
