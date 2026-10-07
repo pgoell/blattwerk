@@ -28,6 +28,7 @@ import {
   CopyPlus,
   Eraser,
   Eye,
+  Group,
   FileCheck,
   FileDown,
   FilePlus,
@@ -55,6 +56,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  Ungroup,
   UserPen,
   X,
   ZoomIn,
@@ -126,6 +128,21 @@ const round = (n: number) => Math.round(n * 100) / 100;
 // The grid's lines along one side of the page.
 const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.floor(max / cell) + 1 }, (_, i) => i * cell) : []);
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
+// Groups work as in PowerPoint. A block lists the groups it is in, the outermost first, so a group can hold groups.
+// These are the ids with those of every block that shares an outermost group with one of them.
+const grouped = (ids: string[], bs: Block[]) => {
+  const tops = new Set(bs.filter((b) => b.group && ids.includes(b.id)).map((b) => b.group![0]));
+  return bs.filter((b) => ids.includes(b.id) || (b.group && tops.has(b.group[0]))).map((b) => b.id);
+};
+// Copies with ids of their own. A group copied whole stays one, as a group of its own; part of a group leaves it.
+const cloned = (from: Block[], all: Block[]) => {
+  const fresh = new Map<string, string>();
+  const whole = (g: string) => all.every((b) => !b.group?.includes(g) || from.some((f) => f.id === b.id));
+  return from.map((b) => {
+    const group = b.group?.filter(whole).map((g) => fresh.get(g) ?? fresh.set(g, crypto.randomUUID()).get(g)!);
+    return { ...b, id: crypto.randomUUID(), group: group?.length ? group : undefined };
+  });
+};
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
 const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2];
 // The box around several blocks.
@@ -208,6 +225,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const hold = useRef(0);
   const held = useRef(false);
   const grab = useRef([0, 0]);
+  const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
   const save = useRef((_keepalive: boolean) => {});
@@ -279,7 +297,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       if ((e.target as Element).closest("textarea, input, select, dialog")) return;
       const keys: Record<string, () => void> =
         e.ctrlKey || e.metaKey
-          ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel) }
+          ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join }
           : { delete: remove, backspace: remove, escape: done };
       const run = keys[e.key.toLowerCase()];
       if (!run) return;
@@ -475,7 +493,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   function put(from: Block[]) {
     const copies = land(
-      [...from].sort((a, b) => a.z - b.z).map((b, i) => ({ ...b, id: crypto.randomUUID(), x: b.x + 5, y: b.y + 5, z: top + 1 + i })),
+      cloned([...from].sort((a, b) => a.z - b.z), blocks).map((b, i) => ({ ...b, x: b.x + 5, y: b.y + 5, z: top + 1 + i })),
     );
     change((bs) => [...bs, ...copies]);
     setIds(copies.map((b) => b.id));
@@ -486,6 +504,57 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   function remove() {
     change((bs) => bs.filter((b) => !ids.includes(b.id)));
     setIds([]);
+  }
+  const all = () => setIds(blocks.map((b) => b.id));
+  // The selection with its groups made whole: grouping and ungrouping work on whole groups.
+  const wide = blocks.filter((b) => grouped(ids, blocks).includes(b.id));
+  // Grouping needs two things to join: blocks or groups.
+  const joinable = new Set(sel.map((b) => b.group?.[0] ?? b.id)).size > 1;
+  const splittable = sel.some((b) => b.group);
+  // What a click on a block picks: its whole group, or the block alone once a part of its group is picked.
+  const unit = (id: string) => {
+    const mates = grouped([id], blocks);
+    const picked = mates.filter((i) => ids.includes(i)).length;
+    return picked && picked < mates.length ? [id] : mates;
+  };
+  function join() {
+    if (!joinable) return;
+    const id = crypto.randomUUID();
+    const inside = new Set(wide.map((b) => b.id));
+    // The group lies where its topmost block lay: its blocks keep their order, and nothing lies between them.
+    const order = [...blocks].sort((a, b) => a.z - b.z);
+    const members = order.filter((b) => inside.has(b.id));
+    const last = order.indexOf(members.at(-1)!);
+    const stack = [...order.slice(0, last).filter((b) => !inside.has(b.id)), ...members, ...order.slice(last + 1)];
+    const z = new Map(stack.map((b, i) => [b.id, i + 1]));
+    change((bs) => bs.map((b) => ({ ...b, z: z.get(b.id)!, ...(inside.has(b.id) && { group: [id, ...(b.group ?? [])] }) })));
+    setIds(wide.map((b) => b.id));
+  }
+  // Ungrouping takes the outermost group away; the groups in it stay.
+  function split() {
+    if (!splittable) return;
+    place(wide.map((b) => [b.id, { group: b.group && b.group.length > 1 ? b.group.slice(1) : undefined }]));
+    setIds(wide.map((b) => b.id));
+  }
+  // To the front or the back, as in PowerPoint: a part of a group moves within that group, a whole group as one thing.
+  function raise(front: boolean) {
+    const whole = (g: string) => blocks.every((b) => !b.group?.includes(g) || ids.includes(b.id));
+    // What a block moves in: its innermost group that is not picked whole, or the page.
+    const level = (b: Block) => b.group?.filter((g) => !whole(g)).at(-1);
+    const order = [...blocks].sort((a, b) => a.z - b.z);
+    let stack = order;
+    for (const g of new Set(sel.map(level))) {
+      // The blocks of this level swap places among themselves, so the stack around them stays as it is.
+      const part = stack.filter((b) => !g || b.group?.includes(g));
+      const moved = part.filter((b) => sel.includes(b) && level(b) === g);
+      const rest = part.filter((b) => !moved.includes(b));
+      const next = front ? [...rest, ...moved] : [...moved, ...rest];
+      stack = stack.map((b) => (part.includes(b) ? next.shift()! : b));
+    }
+    // What already lies there leaves nothing to undo.
+    if (stack.every((b, i) => b === order[i])) return;
+    const z = new Map(stack.map((b, i) => [b.id, i + 1]));
+    place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
   }
 
   function align(axis: Axis, at: number) {
@@ -539,7 +608,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const begin = (els: Element[]) => (start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!));
   // With Ctrl held when a move ends, copies stay where the blocks began.
   const leave = (moved: boolean) =>
-    moved && mod & CENTRE && change((bs) => [...bs, ...start.current.map((b) => ({ ...b, id: crypto.randomUUID() }))], "drag");
+    moved && mod & CENTRE && change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
@@ -682,7 +751,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       // A press on another page puts it in use, and the selection starts over. That page's Moveable is a new one.
       flushSync(() => {
         setAt(to);
-        setIds(id ? [id] : []);
+        setIds(id ? grouped([id], pages[to].blocks) : []);
       });
       if (id && press) moveable.current!.dragStart(press);
     } else if (!id) {
@@ -690,13 +759,15 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       setIds([]);
       setMulti(false);
     } else if (ids.includes(id)) {
-      if (more) setIds(ids.filter((i) => i !== id));
+      if (more) setIds(ids.filter((i) => !unit(id).includes(i)));
+      // A click on a block of a picked group picks the block alone. A press drags the group instead.
+      else if (!press && ids.length > 1 && unit(id).length > 1) setIds([id]);
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks.
       else if (touch.current) edit(id);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
-      setIds(more ? [...ids, id] : [id]);
+      setIds(more ? [...ids, ...unit(id)] : unit(id));
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
     }
   }
@@ -759,7 +830,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       held.current = true;
       setMulti(true);
       setAt(to);
-      setIds((now) => (to !== page ? [id] : now.includes(id) ? now : [...now, id]));
+      setIds((now) => (to !== page ? grouped([id], pages[to].blocks) : [...new Set([...now, ...unit(id)])]));
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
@@ -890,6 +961,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             className={locked ? "on" : ""}
             onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}
           />
+          <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />
+          <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />
           <i className="sep" />
           <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
           {!leaf && zoomer}
@@ -994,8 +1067,23 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           className="desk"
           ref={desk}
           onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
-          onMouseDown={(e) => touch.current || moveable.current!.isMoveableElement(e.target as Element) || pick(e.target as Element, e.shiftKey, e.nativeEvent)}
-          onClick={(e) => touch.current && !moveable.current!.isMoveableElement(e.target as Element) && pick(e.target as Element, false)}
+          onMouseDown={(e) => {
+            if (touch.current || moveable.current!.isMoveableElement(e.target as Element)) return;
+            // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
+            spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
+            pick(e.target as Element, e.shiftKey, e.nativeEvent);
+          }}
+          // Moveable keeps a click on a selection it cannot drag to itself, so the block under its area is looked up on the way down.
+          onClickCapture={(e) => {
+            if (free.length === sel.length || !moveable.current!.isMoveableElement(e.target as Element)) return;
+            const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block"));
+            if (under) pick(under, e.shiftKey);
+          }}
+          onClick={(e) => {
+            if (moveable.current!.isMoveableElement(e.target as Element)) return;
+            const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
+            if (touch.current || still) pick(e.target as Element, false);
+          }}
           onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id)}
           onContextMenu={(e) => touch.current && e.preventDefault()}
           onTouchStart={onTouchStart}
@@ -1164,7 +1252,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         // The box selects on the page in use, which the press that began it has set.
-        onSelectEnd={(e) => setIds((now) => [...new Set([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)])])}
+        onSelectEnd={(e) => setIds((now) => grouped([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)], blocks))}
       />
 
       {pane && (
@@ -1277,8 +1365,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               </div>
               <h2>Ebene</h2>
               <div className="acts">
-                <button onClick={() => place(sel.map((b) => [b.id, { z: top + 1 }]))}>Nach vorn</button>
-                <button onClick={() => place(sel.map((b) => [b.id, { z: Math.min(0, ...blocks.map((o) => o.z)) - 1 }]))}>Nach hinten</button>
+                <button onClick={() => raise(true)}>Nach vorn</button>
+                <button onClick={() => raise(false)}>Nach hinten</button>
               </div>
             </>
           )}
