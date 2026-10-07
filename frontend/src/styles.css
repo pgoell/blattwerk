@@ -189,6 +189,9 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .sheets button { flex: 1; padding: 0; }
 /* Paper is white under either theme, and so is all that lies on it. */
 .paper, .sheet, .sample { color-scheme: light; }
+/* A letter is as wide as its font says, at every size. Chromium on Linux, which prints the PDF, otherwise rounds
+   each letter to whole pixels, and a line then breaks at another word than on the screen. A field has to be told. */
+.paper, .sheet, .sheet textarea { text-rendering: geometricPrecision; }
 .paper {
   position: relative; isolation: isolate; overflow: hidden; background: #fff; color: #222; border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), var(--shadow); pointer-events: none;
