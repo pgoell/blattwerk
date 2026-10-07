@@ -241,6 +241,25 @@ def test_chromium_prints_old_plain_text_and_rich_text(server):
     assert fonts == {b"Andika", b"Andika-Bold", b"Andika-Italic"}
 
 
+def test_chromium_breaks_lines_where_the_font_says(server):
+    client = user("a@example.com")
+    # In a box 60 mm wide the last word is 2.6 % too wide for the third line. With each letter
+    # rounded to whole pixels, as Chromium on Linux draws by itself, it fits: the screen and the
+    # PDF then break at different words.
+    lines = [
+        "Die Kinder der Klasse 3b schreiben",
+        "heute nicht in das Heft, sondern auf",
+        "das Arbeitsblatt. Lies den Text",
+        "genau.",
+    ]
+    props = {"text": " ".join(lines), "size": 10, "align": "left"}
+    mine = sheet(client, [{**block("text", 20, 30, props), "w": 60}])
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    text = PdfReader(io.BytesIO(res.content)).pages[0].extract_text()
+    assert [line.strip() for line in text.splitlines()] == lines
+
+
 def test_chromium_prints_each_page_upright_or_on_its_side(server):
     client = user("a@example.com")
     # The sheet lies on its side; the second page has a format of its own.
