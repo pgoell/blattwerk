@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import { baseKeymap, chainCommands, splitBlockAs } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { Schema, type Attrs, type MarkSpec, type Node } from "prosemirror-model";
-import { EditorState, Selection, type Command } from "prosemirror-state";
+import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { parasOf, stored, type List, type Para, type Run, type TextProps } from "../sheet";
 
@@ -173,11 +173,11 @@ export default function Field({ view, props, hint, ...on }: Props) {
     tint(field!, { [name]: !looks(state, now.current.props)[name] }, now.current.props);
     return true;
   };
-  const stateOf = (p: TextProps, doc = docOf(p)) =>
+  // A text that opens has the caret at its end: a copy would start with it before the text.
+  const stateOf = (doc: Node, selection = Selection.atEnd(doc)) =>
     EditorState.create({
       doc,
-      // A copy, or a text put back by undo, would start with the caret before the text.
-      selection: Selection.atEnd(doc),
+      selection,
       plugins: [
         keymap({
           "Mod-b": flip("bold"),
@@ -196,7 +196,7 @@ export default function Field({ view, props, hint, ...on }: Props) {
 
   useLayoutEffect(() => {
     const field = new EditorView(el.current!, {
-      state: stateOf(props),
+      state: stateOf(docOf(props)),
       dispatchTransaction(tr) {
         const state = field.state.apply(tr);
         field.updateState(state);
@@ -222,8 +222,18 @@ export default function Field({ view, props, hint, ...on }: Props) {
   }, []);
   useLayoutEffect(() => {
     if (props.text === known.current.text && props.rich === known.current.rich) return;
+    const { doc: old, selection } = view.current!.state;
+    const doc = docOf(props);
+    // A new look or list leaves the selection as it is. Undo and redo of the words put the caret where they changed
+    // the text, at the end of what differs. Where the same letter stands on both sides of it, the ends overlap.
+    const start = doc.content.findDiffStart(old.content)!;
+    const end = doc.content.findDiffEnd(old.content)!;
+    const caret =
+      props.text === known.current.text
+        ? TextSelection.between(doc.resolve(selection.anchor), doc.resolve(selection.head))
+        : Selection.near(doc.resolve(end.a + Math.max(0, start - Math.min(end.a, end.b))), -1);
     known.current = props;
-    view.current!.updateState(stateOf(props));
+    view.current!.updateState(stateOf(doc, caret));
     on.pick(picked(view.current!.state, props));
   }, [props.text, props.rich]);
 

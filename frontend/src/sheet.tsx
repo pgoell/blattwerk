@@ -140,6 +140,9 @@ export function stored(paras: Para[]) {
 // Makes every paragraph of a text an item of a list, or with no `list` takes the lists away.
 export const listed = (p: TextProps, list?: List) =>
   stored(parasOf(p).map(({ runs, level }) => ({ runs, ...(list && { list, ...(level && { level }) }) })));
+// Takes from every run the settings that `props` names, so the block's own show in the whole text.
+export const cleared = (paras: Para[], props: object) =>
+  stored(paras.map((p) => ({ ...p, runs: p.runs.map((r) => Object.fromEntries(Object.entries(r).filter(([name]) => !(name in props))) as Run) })));
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
