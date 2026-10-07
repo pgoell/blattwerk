@@ -71,7 +71,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, MARGIN, Mark, Paper, boxed, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
+import { Draw, MARGIN, Mark, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -429,10 +429,18 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
   }
   // The panel's bold, italic, underline and colour go to the words picked in the field, as in PowerPoint. With
-  // none picked they go to the whole of every selected block.
+  // none picked they go to the whole of every selected block, and there take the place of what its words had of
+  // their own.
   function paint(props: Marks, key?: string) {
-    if (part?.marks && field.current) tint(field.current, props, boxed(sel[0])!, key);
-    else look(props, key);
+    if (part?.marks && field.current) return tint(field.current, props, boxed(sel[0])!, key);
+    change(
+      (bs) =>
+        bs.map((b) => {
+          const text = ids.includes(b.id) && boxed(b);
+          return text ? ({ ...b, props: { ...b.props, ...(text.rich && cleared(text.rich, props)), ...props } } as Block) : b;
+        }),
+      key,
+    );
   }
   // A list is for the paragraphs the caret stands in, or with no field for every paragraph of the selected blocks.
   // Asked for again, it goes.
