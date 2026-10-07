@@ -82,6 +82,9 @@ export const sizeOf = (doc: Doc, n: number) => ((doc.pages[n].landscape ?? doc.l
 // The margin a new block keeps, and a ruling that fills the page.
 export const MARGIN = 15;
 export const PT = 25.4 / 72; // mm per point
+// The pixels per mm of the PDF. Every page is laid out at this scale and drawn at another by a transform, so a
+// line of text breaks at the same word in the PDF, at every zoom and in a thumbnail.
+export const K = 96 / 25.4;
 // Self-hosted, all under the SIL Open Font License: Andika for print, Playwrite for the four school scripts.
 // The number is how far a font's baseline lies below the middle of a line of text, in em: half of its ascent less
 // its descent. Text on a ruling needs it to stand on the line.
@@ -468,20 +471,22 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
 }
 
 // A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
-// true size in the PDF. The answer key says on each page that it is one.
+// true size in the PDF, where it needs no transform. The answer key says on each page that it is one.
 export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: number; page?: number; solved?: boolean }) {
   const all = read(doc);
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
   return (
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
-      {all.pages[page].blocks.map((b) => (
-        <div key={b.id} className="block" style={{ left: b.x * k, top: b.y * k, width: b.w * k, height: b.h * k, zIndex: b.z }}>
-          <Draw block={b} k={k} solved={solved} />
-          <Mark block={b} k={k} n={ns.get(b.id)} />
-        </div>
-      ))}
-      {solved && <b className="key" style={{ top: 5 * k, right: 15 * k, fontSize: 11 * PT * k }}>Lösungen</b>}
+      <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
+        {all.pages[page].blocks.map((b) => (
+          <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z }}>
+            <Draw block={b} k={K} solved={solved} />
+            <Mark block={b} k={K} n={ns.get(b.id)} />
+          </div>
+        ))}
+        {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>Lösungen</b>}
+      </div>
     </div>
   );
 }
