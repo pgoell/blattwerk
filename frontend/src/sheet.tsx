@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code.
-export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string };
+export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string; group?: string[] };
 export type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";

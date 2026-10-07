@@ -66,7 +66,7 @@ const STEPS: Step[] = [
   {
     title: "Mehrere Felder auswählen",
     text: [
-      "Halte die Umschalttaste und klicke beide Felder an, oder zieh neben dem Blatt beginnend einen Rahmen um sie.",
+      "Halte die Umschalttaste und klicke beide Felder an, oder zieh neben dem Blatt beginnend einen Rahmen um sie. Strg+A wählt alle.",
       "Halte ein Feld gedrückt, bis es ausgewählt ist, und tippe dann das zweite an. Der Knopf Mehrere macht dasselbe.",
     ],
     find: "[data-tour=multi]",
@@ -74,7 +74,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Ausrichten, kopieren, löschen",
-    text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren und Löschen stehen oben in der Leiste.",
+    text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren, Löschen und Gruppieren stehen oben in der Leiste: gruppierte Felder bleiben beisammen.",
     find: ".panel",
     tab: "Format",
   },
