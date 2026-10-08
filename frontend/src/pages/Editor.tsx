@@ -41,6 +41,7 @@ import {
   MessageSquare,
   LockOpen,
   Minus,
+  MoveHorizontal,
   PanelLeft,
   PanelRight,
   Plus,
@@ -54,8 +55,10 @@ import {
   SquareDashedMousePointer,
   SquareSlash,
   Squircle,
+  Star,
   Table,
   Trash2,
+  Triangle,
   Type,
   Undo2,
   Ungroup,
@@ -85,15 +88,23 @@ type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
 // The frames a text or a shape can have.
-const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"]];
+const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"], ["triangle", "Dreieck"], ["star", "Stern"], ["bubble", "Sprechblase"]];
+// The frames drawn as an outline, which a flip mirrors.
+const DRAWN: Kind[] = ["triangle", "star", "bubble"];
+// A new shape's width in mm, where it is not 60.
+const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 40 };
 const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
 const LABELS = [[undefined, "Keine"], ["show", "Blatt"], ["key", "Lösungen"]] as const;
 const SHAPES: [Kind, string, LucideIcon][] = [
   ["rect", "Rechteck", Square],
   ["rounded", "Abgerundet", Squircle],
   ["circle", "Kreis", Circle],
+  ["triangle", "Dreieck", Triangle],
+  ["star", "Stern", Star],
+  ["bubble", "Sprechblase", MessageSquare],
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
+  ["double", "Doppelpfeil", MoveHorizontal],
 ];
 // The six ways to line blocks up: the axis, the share of the room a block leaves before it, and the name.
 const ALIGNS: [Axis, number, string, LucideIcon][] = [
@@ -389,8 +400,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
-    // In a text's field, in a table's cell and in the panel's fields for place and size only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm");
+    // In a text's field, in a table's cell, in the panel's fields for place and size and on its sliders only undo and
+    // redo are the sheet's.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range]");
     if (!ours && target.closest(".ProseMirror, textarea, input, select")) return;
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
     const step = e.shiftKey ? 10 : cell || 1;
@@ -856,9 +868,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       bs.map((b) => {
         if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape")) return b;
         // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
-        const shape = b.type === "shape";
+        // An outline mirrors as a picture does; a box looks the same either way.
+        const drawn = b.type !== "shape" || DRAWN.includes(b.props.kind ?? "rect");
         if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        return { ...b, angle: norm(-(b.angle ?? 0)), ...(!shape && { [flag]: !b[flag] }) };
+        return { ...b, angle: norm(-(b.angle ?? 0)), ...(drawn && { [flag]: !b[flag] }) };
       }),
     );
   }
@@ -1219,7 +1232,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             icon={icon}
             label={label}
             onClick={() =>
-              add(kind === "circle" ? 40 : 60, kind === "line" || kind === "arrow" ? 0 : 40, {
+              add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
                 type: "shape",
                 props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
               })
@@ -1521,7 +1534,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     [false, true].map((end) => (
                       <i
                         key={+end}
-                        className={end && line.props.kind === "arrow" ? "end tip" : "end"}
+                        className={line.props.kind === "double" || (end && line.props.kind === "arrow") ? "end tip" : "end"}
                         style={{ left: (line.x + (far(line, 1, end) ? line.w : 0)) * k, top: (line.y + (far(line, 0, end) ? line.h : 0)) * k }}
                         onPointerDown={grip}
                         onPointerMove={(e) => stretch(e, line, end)}
@@ -1682,6 +1695,19 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                   <label>
                     Füllung
                     <input type="color" value={fill === "none" ? "#ffffff" : fill} onChange={(e) => look({ fill: e.target.value }, "fill")} />
+                  </label>
+                  {/* How far the fill lets through what lies behind it: the text and the border stay solid. */}
+                  <label>
+                    Transparenz
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((1 - (boxes[0].props.opacity ?? 1)) * 100)}
+                      disabled={fill === "none"}
+                      onChange={(e) => look({ opacity: 1 - +e.target.value / 100 }, "opacity")}
+                    />
                   </label>
                   <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none" })}>Keine Füllung</button>
                   <label>

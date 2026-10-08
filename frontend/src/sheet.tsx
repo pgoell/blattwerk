@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, SVGAttributes } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -255,6 +255,12 @@ export function Count({ mark, n }: { mark: string; n: number }) {
   return mark.endsWith("o") ? <span className="ring">{text}</span> : <>{text}</>;
 }
 
+// The dashes or dots of a stroke so many mm wide. Dots need round ends to show.
+const dashes = (dash: TextProps["dash"], width: number) => (dash === "dashed" ? `${width * 4} ${width * 3}` : dash === "dotted" ? `0 ${width * 2.5}` : undefined);
+// A fill as CSS: its colour, see-through by its opacity.
+const clear = ({ fill, opacity = 1 }: TextProps) =>
+  fill?.length === 7 && opacity < 1 ? `rgb(${[1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16)).join(" ")} / ${opacity})` : fill;
+
 // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs. The length stands
 // over the middle, turned so it never reads upside down.
 function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: boolean }) {
@@ -262,15 +268,17 @@ function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: bool
   const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
   const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
   const length = Math.hypot(block.w, block.h);
-  const head = kind === "arrow" ? 2 + strokeWidth * 3 : 0;
-  const dashes = dash === "dashed" ? `${strokeWidth * 4} ${strokeWidth * 3}` : dash === "dotted" ? `0 ${strokeWidth * 2.5}` : undefined;
+  const head = kind === "line" ? 0 : 2 + strokeWidth * 3;
+  // A double arrow has a head at its start too.
+  const tail = kind === "double" ? head : 0;
   return (
     <svg>
       <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
         <line x2={length} stroke="transparent" strokeWidth={10} />
-        <line x2={length - head} strokeDasharray={dashes} strokeLinecap={dash === "dotted" ? "round" : undefined} />
+        <line x1={tail || undefined} x2={length - head} strokeDasharray={dashes(dash, strokeWidth)} strokeLinecap={dash === "dotted" ? "round" : undefined} />
         {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
-        {ticks && [0, ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
+        {tail > 0 && <polygon stroke="none" points={`0,0 ${tail},${-tail / 2} ${tail},${tail / 2}`} />}
+        {ticks && [...(tail ? [] : [0]), ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
         {(label === "show" || (label === "key" && solved)) && (
           <text x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
             {(Math.round(length * 10) / 100).toLocaleString("de")} cm
@@ -286,22 +294,51 @@ const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
 function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: number; children?: ReactNode }) {
   const p = boxed(block)!;
   const [down, across, edge] = inset(p, block.type === "shape");
+  const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
+  // An outline is no border, so the padding alone keeps the text where a border would.
+  const own = d ? 0 : edge;
   return (
     <div
       className="frame"
       style={{
         ...textStyle(p, k),
-        background: p.fill,
-        border: edge ? `${edge * k}px ${p.dash ?? "solid"} ${p.stroke}` : undefined,
+        background: d ? undefined : clear(p),
+        border: own ? `${edge * k}px ${p.dash ?? "solid"} ${p.stroke}` : undefined,
         borderRadius: p.kind === "circle" ? "50%" : p.kind === "rounded" ? 4 * k : 0,
-        padding: `${(down - edge) * k}px ${(across - edge) * k}px`,
+        padding: `${(down - own) * k}px ${(across - own) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
+        ...(d && { position: "relative", isolation: "isolate" }),
       }}
     >
+      {d && (
+        <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1, ...flipped(block) }}>
+          <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+        </svg>
+      )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
     </div>
   );
 }
+
+// The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box: the
+// points of a polygon, or a path. The triangle has its tip at the top. The star is a five-point one stretched to
+// the box. The bubble is a round box over the top three quarters, with a tail down to the lower left.
+const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string>> = {
+  triangle: (w, h, e) => `${w / 2},${e} ${w - e},${h - e} ${e},${h - e}`,
+  star: (w, h, e) =>
+    Array.from({ length: 10 }, (_, i) => {
+      const [r, a] = [i % 2 ? 0.38 : 1, (i * Math.PI) / 5];
+      // An upright star reaches sin 72° to each side, and cos 36° below its middle.
+      return `${e + (w - 2 * e) * (0.5 + (r * Math.sin(a)) / 1.902)},${e + ((h - 2 * e) * (1 - r * Math.cos(a))) / 1.809}`;
+    }).join(" "),
+  bubble: (w, h, e) => {
+    const [r, right, low] = [Math.min(4, w / 5, h / 4), w - e, e + 0.75 * (h - 2 * e)];
+    const arc = (x: number, y: number) => `A${r},${r} 0 0 1 ${x},${y}`;
+    return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
+  },
+};
+// The one element of an outline: a path when `d` starts as one.
+const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
 
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own.
