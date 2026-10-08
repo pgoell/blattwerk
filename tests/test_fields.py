@@ -178,9 +178,12 @@ def test_escape_and_nonsense_change_nothing(editor):
     page.keyboard.type("99")
     page.keyboard.press("Escape")
     expect(x).to_have_value("40")
-    for value in ("abc", ""):
+    # What only JavaScript reads as a number is nonsense too.
+    for value in ("abc", "", "1e3", "0x10", "Infinity", "12,5,3"):
         enter(page, "X", value)
         expect(x).to_have_value("40")
+    enter(page, "Drehung", "Infinity")
+    expect(field(page, "Drehung")).to_have_value("0")
     # A block has a width.
     for value in ("0", "-5"):
         enter(page, "Breite", value)

@@ -327,7 +327,8 @@ function Num({ label, value, disabled, onCommit }: { label: string; value?: numb
   const [draft, setDraft] = useState<string>();
   // The field follows the sheet: a drag or an undo takes the place of what was typed.
   useEffect(() => setDraft(undefined), [value]);
-  const read = () => (draft?.trim() ? round(Number(draft.replace(",", "."))) : NaN);
+  // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
+  const read = () => (/^-?\d+([.,]\d+)?$/.test(draft?.trim() ?? "") ? round(Number(draft!.replace(",", "."))) : NaN);
   // Without a draft the blur that follows Enter finds nothing to set.
   const commit = (n: number) => {
     setDraft(undefined);
