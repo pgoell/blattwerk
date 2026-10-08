@@ -410,6 +410,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     const target = e.target as HTMLElement;
+    // Escape puts the brush down from anywhere, also from a field that keeps the key to itself.
+    if (e.key === "Escape") setBrush(0);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
@@ -445,10 +447,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         : {
             delete: remove,
             backspace: remove,
-            escape: () => {
-              done();
-              setBrush(0);
-            },
+            escape: done,
             arrowleft: () => nudge(-1, 0),
             arrowright: () => nudge(1, 0),
             arrowup: () => nudge(0, -1),
@@ -577,7 +576,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   function dip(marks?: Marks) {
     if (!source) return;
     const from = { ...(boxed(source) ?? source.props), ...marks } as Partial<TextProps>;
-    setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name]])));
+    // A field says "not bold" where a block says nothing: both are the same look.
+    setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false ? undefined : from[name]])));
   }
   // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
   // there. All of it is one undo step, and none where nothing changes.
@@ -1362,8 +1362,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             // One click picks the look up for one block, or puts the brush down. The second click of a double click
             // keeps the brush on with the look the first one picked up.
             onClick={(e) => {
+              // A press by the keys has no pointer before it, and must not find an earlier one's words.
+              const marks = wet.current;
+              wet.current = undefined;
               if (brush && e.detail < 2) return setBrush(0);
-              if (!brush) dip(wet.current);
+              if (!brush) dip(marks);
               setBrush(e.detail < 2 ? 1 : 2);
             }}
           />

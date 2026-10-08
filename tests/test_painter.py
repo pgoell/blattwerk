@@ -224,8 +224,9 @@ def test_the_keys_paint_every_selected_block(editor):
     )
     pick(page, "a")
     assert stopped(page, "Control+Shift+C")
-    # The keys carry the look with no brush in the hand.
+    # The keys carry the look with no brush in the hand, and copy no block.
     expect_brush(page, False)
+    expect(page.get_by_label("Einfügen", exact=True).first).to_be_disabled()
     pick(page, "b", "c")
     assert stopped(page, "Control+Shift+V")
     expect_picked(page, "b", "c")
@@ -354,16 +355,20 @@ def test_the_brush_is_live_only_with_a_look(editor):
 
 
 def test_a_tap_on_the_selected_block_paints(editor):
-    page = editor(box("a", "text", FINE), touch=True)
+    client = user()
+    page = editor(box("a", "text", FINE), box("b", "text", TEXT, z=2), client=client, touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
-    brush(page).tap()
+    brush(page).dblclick()
     expect_brush(page, True)
+    at(page, "b").tap()
+    expect_picked(page, "b")
     # With no brush a tap on a selected text opens it. With one the tap paints.
-    at(page, "a").tap()
-    expect_brush(page, False)
-    expect_picked(page, "a")
+    at(page, "b").tap()
+    expect_brush(page, True)
+    expect_picked(page, "b")
     expect(page.locator(FIELD)).to_have_count(0)
+    assert look(held(page, client)["b"]) == LOOK
 
 
 def test_a_group_takes_the_look(editor):
@@ -449,5 +454,64 @@ def test_the_brush_works_from_an_open_text(editor):
     expect_brush(page, False)
     b = held(page, client)["b"]
     # The block's colour and the picked words' bold, both for the whole of the target.
-    assert (b["text"], b["color"], b["bold"]) == ("du", "#ff0000", True)
-    assert "rich" not in b
+    assert b == {**TEXT, "text": "du", "color": "#ff0000", "bold": True}
+
+
+def test_a_paint_from_an_open_text_that_changes_nothing_adds_no_step(editor):
+    client = user()
+    page = editor(
+        box("a", "text", TEXT), box("b", "text", {**TEXT, "text": "du"}, z=2), client=client
+    )
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    brush(page).click()
+    expect_brush(page, True)
+    at(page, "b").click()
+    expect_brush(page, False)
+    # Words that are not bold look as a block does that says nothing of bold.
+    expect(page.get_by_label("Rückgängig")).to_be_disabled()
+    assert held(page, client)["b"] == {**TEXT, "text": "du"}
+
+
+def test_the_brush_by_key_takes_no_words_of_an_earlier_press(editor):
+    client = user()
+    page = editor(
+        box("a", "text", TEXT),
+        box("b", "text", TEXT, z=2),
+        box("c", "text", TEXT, z=3),
+        client=client,
+    )
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+b")
+    expect(page.locator(f"{FIELD} span[data-bold]")).to_have_text("Hallo")
+    # The brush goes on by the mouse with bold words picked, and off again.
+    brush(page).click()
+    expect_brush(page, True)
+    brush(page).click()
+    expect_brush(page, False)
+    pick(page, "c")
+    brush(page).focus()
+    page.keyboard.press("Space")
+    expect_brush(page, True)
+    at(page, "b").click()
+    expect_brush(page, False)
+    assert held(page, client)["b"] == TEXT
+
+
+def test_escape_in_an_open_text_ends_the_brush(editor):
+    page = editor(box("a", "text", FINE), box("b", "text", TEXT, z=2))
+    pick(page, "a")
+    brush(page).dblclick()
+    expect_brush(page, True)
+    at(page, "b").click()
+    expect_picked(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    # Ctrl+Shift+V is the browser's in the field: it pastes plain text there.
+    assert not stopped(page, "Control+Shift+V")
+    page.keyboard.press("Escape")
+    expect(page.locator(".ProseMirror")).to_have_count(0)
+    expect_brush(page, False)
