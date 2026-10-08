@@ -33,8 +33,8 @@ with ui.serving() as base, sync_playwright() as p:
     session = client.cookies["session"]
     sheet_id = ui.sheet(client, *pages)["id"]
     browser = p.chromium.launch()
-    context = browser.new_context(viewport={"width": 1400, "height": 1000})
-    # The tour would open on the first visit and lie over the sheet.
+    context = browser.new_context(viewport={"width": 1400, "height": 1400})
+    # The tour would lie over the sheet, and so would the zoom buttons in a lower window.
     context.add_init_script("localStorage.setItem('tour', '1')")
     # The session cookie is Secure and this server speaks http, so it goes by hand.
     context.add_cookies([{"name": "session", "value": session, "url": base}])
