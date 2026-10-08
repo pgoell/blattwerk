@@ -42,6 +42,7 @@ import {
   LockOpen,
   Minus,
   MoveHorizontal,
+  Paintbrush,
   PanelLeft,
   PanelRight,
   Plus,
@@ -76,7 +77,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -87,6 +88,14 @@ type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
+// The look the brush carries from a text or a shape to the next. A line gives and takes its stroke alone, a table
+// what its cells have, and any other block nothing.
+const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+const takes = (b: Block): readonly (typeof LOOK)[number][] =>
+  isLine(b) ? ["stroke", "strokeWidth", "dash"] : b.type === "table" ? ["font", "size", "color", "align"] : boxed(b) ? LOOK : [];
+// What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
+// `valign` stands at the top, where a shape's would stand in the middle.
+const BARE: Record<string, string | number> = { fill: "none", stroke: "none", strokeWidth: 0.5, valign: "top" };
 // The frames a text or a shape can have.
 const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"], ["triangle", "Dreieck"], ["star", "Stern"], ["bubble", "Sprechblase"]];
 // A new shape's width in mm, where it is not 60.
@@ -207,6 +216,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // The blocks that stay put. Moveable reads a selector as its first match only, so it gets the elements.
   const [rest, setRest] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
+  // The format painter: the look it picked up, as it was then, and whether it is on: 1 for one block, 2 until ended.
+  const [coat, setCoat] = useState<Partial<TextProps>>();
+  const [brush, setBrush] = useState(0);
+  // What the words picked in a field have of their own, read before the press on the brush ends the field.
+  const wet = useRef<Marks>(undefined);
   const [editing, setEditing] = useState("");
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
@@ -294,6 +308,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
   const stroke = boxes[0]?.props.stroke ?? "none";
+  // The block the brush picks its look up from.
+  const source = sel.find((b) => takes(b).length);
   const rulers = sel.filter(isLine);
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
@@ -394,6 +410,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     const target = e.target as HTMLElement;
+    // Escape puts the brush down from anywhere, also from a field that keeps the key to itself.
+    if (e.key === "Escape") setBrush(0);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
@@ -425,7 +443,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     const plain = !target.closest("button, a");
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+        ? { z: e.shiftKey ? redo : undo, y: redo, c: e.shiftKey ? () => dip() : () => setClip(sel), v: e.shiftKey ? () => daub(ids) : paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
         : {
             delete: remove,
             backspace: remove,
@@ -552,6 +570,32 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         }),
       key,
     );
+  }
+  // The brush picks up the look of the first selected block that has one. Every key is in it, also where the block
+  // has nothing there: the block painted then loses its own, as in PowerPoint.
+  function dip(marks?: Marks) {
+    if (!source) return;
+    const from = { ...(boxed(source) ?? source.props), ...marks } as Partial<TextProps>;
+    // A field says "not bold" where a block says nothing: both are the same look.
+    setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false ? undefined : from[name]])));
+  }
+  // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
+  // there. All of it is one undo step, and none where nothing changes.
+  function daub(on: string[], n = page) {
+    if (!coat) return;
+    const dab = (b: Block) => {
+      const own = on.includes(b.id) ? takes(b).filter((name) => name in coat) : [];
+      // A line never vanishes: it takes a border only from a block that has one.
+      if (!own.length || (isLine(b) && (coat.stroke ?? "none") === "none")) return b;
+      const props = Object.fromEntries(own.map((name) => [name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
+      const rich = boxed(b)?.rich;
+      // What is left unset goes, so a saved sheet opens as it looks here.
+      const all = Object.entries({ ...b.props, ...(rich && cleared(rich, props)), ...props }).filter(([, value]) => value !== undefined);
+      return { ...b, props: Object.fromEntries(all) } as Block;
+    };
+    if (pages[n].blocks.every((b) => JSON.stringify(dab(b)) === JSON.stringify(b))) return;
+    tight.current = true;
+    turn((p) => ({ ...p, blocks: p.blocks.map(dab) }), undefined, n);
   }
   // A list is for the paragraphs the caret stands in, or with no field for every paragraph of the selected blocks.
   // Asked for again, it goes.
@@ -1049,6 +1093,21 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
     const more = shift || multi;
     const to = pageOf(el);
+    if (brush) {
+      // The brush ends with the block it paints, unless a double click keeps it, and with a press on the empty page.
+      if (brush === 1 || !id) setBrush(0);
+      if (id) {
+        // The block's whole group is painted and picked, on any page. A field ends, and the click this press may
+        // grow into picks nothing out of the group.
+        const on = to === page ? unit(id) : grouped([id], pages[to].blocks);
+        setAt(to);
+        setIds(on);
+        setEditing("");
+        daub(on, to);
+        spot.current = undefined;
+        return;
+      }
+    }
     if (to !== page) {
       // A press on another page puts it in use, and the selection starts over. That page's Moveable is a new one.
       flushSync(() => {
@@ -1242,7 +1301,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   );
   return (
     <main
-      className={`editor${leaf ? " leaf" : ""}`}
+      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}`}
       data-ready="1"
       onPointerDown={(e) => {
         mergeKey.current = "";
@@ -1293,6 +1352,24 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           <i className="sep" />
           <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => setClip(sel)} />
           <Tool icon={ClipboardPaste} label="Einfügen" disabled={!clip.length} onClick={paste} />
+          <Tool
+            icon={Paintbrush}
+            label="Format übertragen"
+            disabled={!brush && !source}
+            className={brush ? "on" : ""}
+            aria-pressed={brush > 0}
+            onPointerDown={() => (wet.current = part?.marks)}
+            // One click picks the look up for one block, or puts the brush down. The second click of a double click
+            // keeps the brush on with the look the first one picked up.
+            onClick={(e) => {
+              // A press by the keys has no pointer before it, and must not find an earlier one's words.
+              const marks = wet.current;
+              wet.current = undefined;
+              if (brush && e.detail < 2) return setBrush(0);
+              if (!brush) dip(marks);
+              setBrush(e.detail < 2 ? 1 : 2);
+            }}
+          />
           <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />
           <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
           <Tool
@@ -1428,7 +1505,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
             if (touch.current || still) pick(e.target as Element, false);
           }}
-          onDoubleClick={(e) => edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
+          onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           onContextMenu={(e) => touch.current && e.preventDefault()}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
