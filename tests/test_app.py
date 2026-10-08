@@ -1,7 +1,6 @@
 import json
 import re
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -10,12 +9,6 @@ from blattwerk.app import app
 
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
-
-
-@pytest.fixture(autouse=True)
-def data_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    return tmp_path
 
 
 def invite(admin=False):

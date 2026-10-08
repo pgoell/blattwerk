@@ -1,28 +1,18 @@
 import io
 import re
 import struct
-import threading
-import time
 import zlib
 
 import httpx
-import pytest
-import uvicorn
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
 
 from blattwerk import auth, db, pdf
-from blattwerk.app import STATIC, app
+from blattwerk.app import app
 
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 RED = b"\xff\x00\x00"
-
-
-@pytest.fixture(autouse=True)
-def data_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    return tmp_path
 
 
 def user(email):
@@ -154,20 +144,6 @@ def test_pdf_of_someone_elses_sheet_is_missing():
     assert client.get(f"/api/render/{mine['id']}").status_code == 404
     assert TestClient(app).get(f"/api/sheets/{mine['id']}/pdf").status_code == 401
     assert TestClient(app).get(f"/api/render/{mine['id']}").status_code == 404
-
-
-@pytest.fixture
-def server():
-    """The app on a real port, for Chromium to call as it does in production."""
-    assert (STATIC / "index.html").is_file(), "build the frontend first: mise run build"
-    server = uvicorn.Server(uvicorn.Config(app, port=0, log_level="warning"))
-    thread = threading.Thread(target=server.run)
-    thread.start()
-    while not server.started:
-        time.sleep(0.01)
-    yield f"http://127.0.0.1:{server.servers[0].sockets[0].getsockname()[1]}"
-    server.should_exit = True
-    thread.join()
 
 
 def test_chromium_prints_the_sheet_and_its_answer_key(server):
