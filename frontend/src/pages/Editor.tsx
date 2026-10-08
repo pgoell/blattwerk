@@ -75,7 +75,7 @@ import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { has } from "./Format";
+import Format, { bounds, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -147,11 +147,6 @@ const cloned = (from: Block[], all: Block[]) => {
 };
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
 const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2];
-// The box around several blocks.
-const bounds = (bs: Box[]) => {
-  const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
-  return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
-};
 // Where the box around some blocks starts and ends.
 const span = (boxes: Box[], axis: Axis) => {
   const size = axis === "x" ? "w" : "h";
@@ -165,8 +160,6 @@ const outline = <T extends Box>(b: T): T => {
 };
 // The cosine and sine of a block's angle.
 const dir = (b: { angle?: number }) => [Math.cos(((b.angle ?? 0) * Math.PI) / 180), Math.sin(((b.angle ?? 0) * Math.PI) / 180)];
-// An angle as a block stores it: from 0 up to 360.
-const norm = (a: number) => round(((a % 360) + 360) % 360) % 360;
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
@@ -221,6 +214,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
+  // The panel's lock: a new width sets the height to match, in its fields and on the handles.
+  const [lock, setLock] = useState(false);
   const [pane, setPane] = useState(true);
   // The panel of pages and templates starts shut where it would lie over the desk.
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
@@ -301,7 +296,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   // A picture and a symbol always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol");
-  const keep = (mod & KEEP) > 0 || shaped;
+  const keep = (mod & KEEP) > 0 || shaped || lock;
   // The selection's size in px. An edge has a handle too, as in PowerPoint, once the 14 px handles of its corners
   // leave room for a third. The edges come last, so they lie on top where the areas a finger can hit overlap.
   const [across, down] = [bounds(sel).w * k, bounds(sel).h * k];
@@ -394,8 +389,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
-    // In a text's field and in a table's cell only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table");
+    // In a text's field, in a table's cell and in the panel's fields for place and size only undo and redo are the sheet's.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm");
     if (!ours && target.closest(".ProseMirror, textarea, input, select")) return;
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
     const step = e.shiftKey ? 10 : cell || 1;
@@ -1648,9 +1643,6 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
             <>
               <p className="what">
                 {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
-                <small>
-                  {round(bounds(sel).w).toLocaleString("de")} × {round(bounds(sel).h).toLocaleString("de")} mm
-                </small>
               </p>
               <Format
                 sel={sel}
@@ -1659,12 +1651,18 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 paint={paint}
                 itemize={itemize}
                 part={part}
-                place={place}
+                // A text that a typed size left higher than its box grows back, as after a resize by handle.
+                place={(boxes, key) => {
+                  tight.current = true;
+                  place(boxes, key);
+                }}
                 rank={rank}
                 cell={editing && editing === table?.id ? slot : undefined}
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}
+                lock={lock}
+                setLock={setLock}
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
               />

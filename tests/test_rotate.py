@@ -17,6 +17,7 @@ from ui import (
     centre,
     drag,
     expect_picked,
+    grow,
     mirror,
     pick,
     picture,
@@ -50,13 +51,6 @@ def button(page, label):
 def size(page, name):
     """The block's own width and height in px of the layout, whichever way it is turned."""
     return at(page, name).evaluate("el => [el.offsetWidth, el.offsetHeight]")
-
-
-def grow(page, by):
-    """Drags the selection's handle at its lower right corner away from the upper left one."""
-    start, end = (centre(page.locator(f".moveable-control.moveable-{c}")) for c in ("nw", "se"))
-    far = math.dist(start, end)
-    drag(page, end, tuple(e + (e - s) * by / far for s, e in zip(start, end, strict=True)))
 
 
 def a_picture(client, **more):
