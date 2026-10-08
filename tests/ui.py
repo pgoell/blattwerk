@@ -216,6 +216,13 @@ def drag(page, *points, keys=()):
         page.keyboard.up(key)
 
 
+def grow(page, by):
+    """Drags the selection's handle at its lower right corner away from the upper left one."""
+    start, end = (centre(page.locator(f".moveable-control.moveable-{c}")) for c in ("nw", "se"))
+    far = math.dist(start, end)
+    drag(page, end, tuple(e + (e - s) * by / far for s, e in zip(start, end, strict=True)))
+
+
 def swipe(page, *points):
     """Puts a finger down at the first point, moves it through the others and lifts it."""
     # Playwright's own touchscreen only taps, so the browser is told of each touch by hand.
