@@ -36,6 +36,11 @@ const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets],
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
+// Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
+// look goes on unless all have it.
+export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
+  part ? !!part.marks[name] : sel.every((b) => !boxed(b) || boxed(b)![name]);
+
 export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, size: [W, H] }: Props) {
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
@@ -85,7 +90,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           </div>
           <div className="seg" onMouseDown={stay}>
             {([["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const).map(([prop, label]) => (
-              <button key={prop} className={`${prop}${shown[prop] ? " on" : ""}`} aria-label={label} aria-pressed={!!shown[prop]} onClick={() => paint({ [prop]: !shown[prop] })}>
+              <button key={prop} className={`${prop}${has(sel, part, prop) ? " on" : ""}`} aria-label={label} aria-pressed={has(sel, part, prop)} onClick={() => paint({ [prop]: !has(sel, part, prop) })}>
                 {label[0]}
               </button>
             ))}

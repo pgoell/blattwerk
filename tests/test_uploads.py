@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from blattwerk import auth, db
@@ -7,12 +6,6 @@ from blattwerk.uploads import MAX_BYTES
 
 PASSWORD = "richtig-geheim"
 PNG = b"\x89PNG\r\n\x1a\n not really a picture"
-
-
-@pytest.fixture(autouse=True)
-def data_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(db, "DATA_DIR", tmp_path)
-    return tmp_path
 
 
 def user(email):

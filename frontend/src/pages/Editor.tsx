@@ -75,7 +75,7 @@ import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format from "./Format";
+import Format, { has } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -200,6 +200,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [slot, setSlot] = useState(0);
   // Where the caret stood in a cell that a new row or column moves to another place.
   const caret = useRef<number>(undefined);
+  // Whether the field that opens next has all its text picked.
+  const entire = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -345,8 +347,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
     const end = caret.current ?? area?.value.length ?? 0;
-    area?.setSelectionRange(end, end);
+    area?.setSelectionRange(entire.current ? 0 : end, end);
     caret.current = undefined;
+    entire.current = false;
   }, [editing, slot]);
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -356,17 +359,19 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Ctrl+B, I and U never reach the browser while a block is selected: Chrome would show the page's source.
+      if ((e.ctrlKey || e.metaKey) && /^[biu]$/i.test(e.key) && sel.length && !(e.target as Element).closest("input, select, dialog")) e.preventDefault();
       // In a text's field and in a table's cell only undo and redo are the sheet's.
       const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && (e.target as Element).closest(".ProseMirror, .table");
       if (!ours && (e.target as Element).closest(".ProseMirror, textarea, input, select, dialog")) return;
       // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
       const step = e.shiftKey ? 10 : cell || 1;
       const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
-      // Ctrl+B, I and U do what the panel's buttons do. With no text selected they stay the browser's.
-      const text = sel.map(boxed).find((p) => p);
-      const flip = (name: "bold" | "italic" | "underline") => text && (() => paint({ [name]: !{ ...text, ...part?.marks }[name] }));
-      // Enter and F2 open the one selected block to write in it, as a double click does. A picture is not cropped.
-      const write = () => free[0]?.type !== "image" && edit(free[0]?.id);
+      // Ctrl+B, I and U do what the panel's buttons do.
+      const flip = (name: "bold" | "italic" | "underline") => sel.some(boxed) && (() => paint({ [name]: !has(sel, part, name) }));
+      // Enter and F2 open the one selected block to write in it, with all its text picked, as in PowerPoint. A
+      // picture is not cropped.
+      const write = () => free[0]?.type !== "image" && edit(free[0]?.id, undefined, true);
       // Tab picks the next block from back to front and Shift+Tab the one before, as in PowerPoint. A group is one stop.
       const next = () => {
         const order = [...blocks].sort((a, b) => a.z - b.z);
@@ -377,7 +382,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         done();
         setIds(grouped([to.id], blocks));
       };
-      // A button that has the focus keeps Enter and Tab, and with nothing selected Tab goes through the buttons.
+      // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
+      // Shift+Tab the one in front.
       const plain = !(e.target as Element).closest("button, a, summary, [tabindex]");
       const keys: Record<string, (() => void) | false | undefined> =
         e.ctrlKey || e.metaKey
@@ -392,7 +398,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               arrowdown: () => nudge(0, 1),
               enter: plain && free.length === 1 && write,
               f2: free.length === 1 && write,
-              tab: plain && sel.length > 0 && next,
+              tab: plain && blocks.length > 0 && next,
             };
       const run = keys[e.key.toLowerCase()];
       // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
@@ -498,11 +504,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
   }
-  // The panel's bold, italic, underline and colour go to the words picked in the field, as in PowerPoint. With
-  // none picked they go to the whole of every selected block, and there take the place of what its words had of
-  // their own.
+  // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
+  // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
   function paint(props: Marks, key?: string) {
-    if (part?.marks && field.current) return tint(field.current, props, boxed(sel[0])!, key);
+    if (field.current && tint(field.current, props, boxed(sel[0])!, key)) return;
     tight.current = true;
     change(
       (bs) =>
@@ -776,7 +781,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
   function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
-    if (e.key === "Escape") e.currentTarget.blur();
+    if (e.key === "Escape" || e.key === "F2") e.currentTarget.blur();
     if (e.key !== "Tab") return;
     e.preventDefault();
     // What is typed in the next cell is an undo step of its own.
@@ -958,10 +963,13 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
     }
   }
-  // `el` is what was pressed: in a table, the cell that gets the caret.
-  function edit(id?: string, el?: Element) {
+  // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
+  function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
-    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table") setEditing(id);
+    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table") {
+      entire.current = all;
+      setEditing(id);
+    }
     setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
@@ -1120,6 +1128,13 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
       }}
+      // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
+      // the sheet's. What had the focus loses it as before, unless the button's own group has kept it there.
+      onMouseDown={(e) => {
+        if (e.defaultPrevented || !(e.target as Element).closest("button")) return;
+        e.preventDefault();
+        (document.activeElement as HTMLElement).blur();
+      }}
     >
       <header>
         <div className="top">
@@ -1272,6 +1287,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           ref={desk}
           onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
           onMouseDown={(e) => {
+            // Moveable keeps the press from moving the focus, so a button pressed before would keep Enter and Tab.
+            if (!document.activeElement?.closest(".block")) (document.activeElement as HTMLElement | null)?.blur();
             if (touch.current || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
             spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
@@ -1325,6 +1342,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                           view={field}
                           props={boxed(b)!}
                           hint={b.type === "text"}
+                          all={entire.current}
                           change={look}
                           pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
                           blur={() => inPanel.current || setEditing("")}
@@ -1343,7 +1361,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                           readOnly={editing !== b.id}
                           style={writtenStyle(b, K)}
                           onChange={(e) => style("ruling", { text: e.target.value }, "text")}
-                          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+                          onKeyDown={(e) => (e.key === "Escape" || e.key === "F2") && e.currentTarget.blur()}
                           onBlur={() => setEditing("")}
                           // A line typed past the last row would scroll the others off their rows.
                           onScroll={(e) => (e.currentTarget.scrollTop = 0)}

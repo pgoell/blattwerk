@@ -10,9 +10,9 @@ import { parasOf, stored, type List, type Para, type Run, type TextProps } from 
 
 // The look a run can have of its own.
 export type Marks = Omit<Run, "text">;
-// What the format panel shows of the field: the list the caret stands in, and the look of the picked words. With
-// only a caret there are none, and the panel's settings are the whole block's.
-export type Picked = { list?: List; marks?: Marks };
+// What the format panel shows of the field: the list the caret stands in, and the look of the picked words, or
+// with only a caret that of what is typed next.
+export type Picked = { list?: List; marks: Marks };
 
 // A colour is drawn first and so lies around the others: an underline takes the colour of its words.
 const NAMES = ["color", "bold", "italic", "underline"] as const;
@@ -101,12 +101,20 @@ function looks(state: EditorState, base: TextProps) {
 }
 const picked = (state: EditorState, base: TextProps): Picked => ({
   list: state.selection.$from.parent.attrs.list ?? undefined,
-  marks: state.selection.empty ? undefined : looks(state, base),
+  marks: looks(state, base),
 });
-// Gives the picked words a look, or with only a caret what is typed next. Bold and italic as the block has them
-// need no mark. `key` merges a run of changes into one undo step.
+// Gives the picked words a look. A caret inside a word stands for that word, as in PowerPoint; anywhere else the
+// look is for what is typed next, which needs the caret in the field: without it nothing is done, and false says
+// so. Bold and italic as the block has them need no mark. `key` merges a run of changes into one undo step.
 export function tint(view: EditorView, props: Marks, base: TextProps, key = "") {
-  const { from, to, empty } = view.state.selection;
+  const { $from } = view.state.selection;
+  let { from, to } = view.state.selection;
+  const text = $from.parent.textContent;
+  const before = /[\p{L}\p{N}]+$/u.exec(text.slice(0, $from.parentOffset));
+  const after = /^[\p{L}\p{N}]+/u.exec(text.slice($from.parentOffset));
+  if (from === to && before && after) [from, to] = [from - before[0].length, to + after[0].length];
+  const empty = from === to;
+  if (empty && !view.hasFocus()) return false;
   const tr = view.state.tr.setMeta("key", key);
   for (const name of NAMES) {
     const v = props[name];
@@ -119,6 +127,7 @@ export function tint(view: EditorView, props: Marks, base: TextProps, key = "") 
     else tr.removeMark(from, to, type);
   }
   view.dispatch(tr);
+  return true;
 }
 // Changes the paragraphs the selection touches, in one undo step.
 function paras(state: EditorState, to: (attrs: Attrs) => Attrs | undefined) {
@@ -155,6 +164,8 @@ type Props = {
   props: TextProps;
   // Whether the field says "Text" while it is empty.
   hint: boolean;
+  // Whether the field opens with all its text picked.
+  all: boolean;
   change: (props: Pick<TextProps, "text" | "rich">, key: string) => void;
   pick: (picked?: Picked) => void;
   blur: () => void;
@@ -162,7 +173,7 @@ type Props = {
 };
 
 // It has no history of its own: every change goes to the editor, whose undo then puts the text back from outside.
-export default function Field({ view, props, hint, ...on }: Props) {
+export default function Field({ view, props, hint, all, ...on }: Props) {
   const el = useRef<HTMLDivElement>(null);
   // What the field last took or gave: a text that differs has changed outside it.
   const known = useRef<Pick<TextProps, "text" | "rich">>(props);
@@ -173,7 +184,7 @@ export default function Field({ view, props, hint, ...on }: Props) {
     tint(field!, { [name]: !looks(state, now.current.props)[name] }, now.current.props);
     return true;
   };
-  // A text that opens has the caret at its end: a copy would start with it before the text.
+  // A text that opens has the caret at its end, unless all of it is picked: a copy would start with it before the text.
   const stateOf = (doc: Node, selection = Selection.atEnd(doc)) =>
     EditorState.create({
       doc,
@@ -188,15 +199,18 @@ export default function Field({ view, props, hint, ...on }: Props) {
           // A new paragraph is what the one before it is: the next item of its list.
           Enter: chainCommands(leave(true), splitBlockAs((n) => ({ type: n.type, attrs: n.attrs }))),
           Backspace: chainCommands(leave(false), baseKeymap.Backspace),
+          // Escape leaves the field, and so does F2, which in PowerPoint goes to and fro between the block and its text.
           Escape: () => (now.current.end(), true),
+          F2: () => (now.current.end(), true),
         }),
         keymap(baseKeymap),
       ],
     });
 
   useLayoutEffect(() => {
+    const doc = docOf(props);
     const field = new EditorView(el.current!, {
-      state: stateOf(docOf(props)),
+      state: stateOf(doc, all ? TextSelection.between(doc.resolve(0), doc.resolve(doc.content.size)) : undefined),
       dispatchTransaction(tr) {
         const state = field.state.apply(tr);
         field.updateState(state);
