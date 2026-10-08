@@ -219,6 +219,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const inPanel = useRef(false);
   const [multi, setMulti] = useState(false);
   const [tab, setTab] = useState(TABS[0]);
+  // Whether several blocks line up with the page, not with each other.
+  const [onPage, setOnPage] = useState(false);
   const [pane, setPane] = useState(true);
   // The panel of pages and templates starts shut where it would lie over the desk.
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
@@ -277,6 +279,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
+  // Whether the blocks line up among themselves.
+  const among = !onPage && free.length > 1;
+  // What can take another's size: a line has only its length.
+  const sizable = free.filter((b) => !isLine(b));
   const ns = numbers(hist.doc);
   // The built-in templates have ids below zero; the teacher's own can be deleted.
   const kept = templates.filter((t) => t.id > 0);
@@ -739,10 +745,16 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
 
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    // One block lines up with the page, several with each other.
-    const lo = free.length > 1 ? Math.min(...free.map((b) => b[axis])) : 0;
-    const hi = free.length > 1 ? Math.max(...free.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
+    // One block lines up with the page. Several do so with each other, or with the page when the switch says so.
+    const lo = among ? Math.min(...free.map((b) => b[axis])) : 0;
+    const hi = among ? Math.max(...free.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
     place(free.map((b) => [b.id, { [axis]: round(lo + (hi - lo - b[size]) * at) }]));
+  }
+  // As wide as the widest, or as high as the highest. Each keeps its corner; a picture and a symbol keep their shape.
+  function same(side: "w" | "h") {
+    const other = side === "w" ? "h" : "w";
+    const to = Math.max(...sizable.map((b) => b[side]));
+    place(sizable.map((b) => [b.id, { [side]: to, ...((b.type === "image" || b.type === "symbol") && { [other]: round((b[other] * to) / b[side]) }) }]));
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
@@ -1726,6 +1738,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 </>
               )}
               <h2>Ausrichten</h2>
+              {/* What the blocks line up with. One block has only the page. */}
+              <div className="seg">
+                <button className={among ? "on" : ""} aria-pressed={among} disabled={free.length < 2} onClick={() => setOnPage(false)}>Auswahl</button>
+                <button className={among ? "" : "on"} aria-pressed={!among} disabled={free.length < 2} onClick={() => setOnPage(true)}>Seite</button>
+              </div>
               <div className="acts">
                 {ALIGNS.map(([axis, at, label, icon]) => (
                   <Tool key={label} icon={icon} label={label} title={label} disabled={!free.length} onClick={() => align(axis, at)} />
@@ -1735,6 +1752,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               <div className="acts">
                 <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
                 <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+              </div>
+              <h2>Größe angleichen</h2>
+              <div className="acts">
+                <button disabled={sizable.length < 2} onClick={() => same("w")}>Gleiche Breite</button>
+                <button disabled={sizable.length < 2} onClick={() => same("h")}>Gleiche Höhe</button>
               </div>
               <h2>Ebene</h2>
               <div className="acts">
