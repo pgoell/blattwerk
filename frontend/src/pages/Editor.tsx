@@ -362,10 +362,38 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
       const step = e.shiftKey ? 10 : cell || 1;
       const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
-      const keys: Record<string, () => void> =
+      // Ctrl+B, I and U do what the panel's buttons do. With no text selected they stay the browser's.
+      const text = sel.map(boxed).find((p) => p);
+      const flip = (name: "bold" | "italic" | "underline") => text && (() => paint({ [name]: !{ ...text, ...part?.marks }[name] }));
+      // Enter and F2 open the one selected block to write in it, as a double click does. A picture is not cropped.
+      const write = () => free[0]?.type !== "image" && edit(free[0]?.id);
+      // Tab picks the next block from back to front and Shift+Tab the one before, as in PowerPoint. A group is one stop.
+      const next = () => {
+        const order = [...blocks].sort((a, b) => a.z - b.z);
+        if (e.shiftKey) order.reverse();
+        const from = order.map((b) => ids.includes(b.id)).lastIndexOf(true);
+        const to = [...order.slice(from + 1), ...order].find((b) => !ids.includes(b.id));
+        if (!to) return;
+        done();
+        setIds(grouped([to.id], blocks));
+      };
+      // A button that has the focus keeps Enter and Tab, and with nothing selected Tab goes through the buttons.
+      const plain = !(e.target as Element).closest("button, a, summary, [tabindex]");
+      const keys: Record<string, (() => void) | false | undefined> =
         e.ctrlKey || e.metaKey
-          ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join }
-          : { delete: remove, backspace: remove, escape: done, arrowleft: () => nudge(-1, 0), arrowright: () => nudge(1, 0), arrowup: () => nudge(0, -1), arrowdown: () => nudge(0, 1) };
+          ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+          : {
+              delete: remove,
+              backspace: remove,
+              escape: done,
+              arrowleft: () => nudge(-1, 0),
+              arrowright: () => nudge(1, 0),
+              arrowup: () => nudge(0, -1),
+              arrowdown: () => nudge(0, 1),
+              enter: plain && free.length === 1 && write,
+              f2: free.length === 1 && write,
+              tab: plain && sel.length > 0 && next,
+            };
       const run = keys[e.key.toLowerCase()];
       // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
       if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
