@@ -78,7 +78,7 @@ import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { bounds, has, norm } from "./Format";
+import Format, { bounds, drawn, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -89,8 +89,6 @@ const SIDES = { top: true, left: true, bottom: true, right: true, center: true, 
 const CORNERS = ["nw", "ne", "sw", "se"];
 // The frames a text or a shape can have.
 const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"], ["triangle", "Dreieck"], ["star", "Stern"], ["bubble", "Sprechblase"]];
-// The frames drawn as an outline, which a flip mirrors.
-const DRAWN: Kind[] = ["triangle", "star", "bubble"];
 // A new shape's width in mm, where it is not 60.
 const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 40 };
 const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
@@ -859,19 +857,19 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   };
   // The panel's buttons turn each block by a quarter about its own centre.
   const spin = (by: number) => place(sel.map((b) => [b.id, { angle: norm((b.angle ?? 0) + by) }]));
-  // Mirrors each selected picture, symbol and shape about its own centre, as the page shows it: its angle mirrors
-  // too. A line's start changes corners instead, and a shape's text stays readable.
+  // Mirrors each selected picture, symbol, shape and text in an outline about its own centre, as the page shows it:
+  // its angle mirrors too. A line's start changes corners instead, and a shape's text stays readable.
   function mirror(axis: Axis) {
     const swap: Record<Corner, Corner> = axis === "x" ? { nw: "ne", ne: "nw", sw: "se", se: "sw" } : { nw: "sw", sw: "nw", ne: "se", se: "ne" };
     const flag = axis === "x" ? "flipX" : "flipY";
     change((bs) =>
       bs.map((b) => {
-        if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape")) return b;
+        if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape" && !drawn(b))) return b;
         // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
         // An outline mirrors as a picture does; a box looks the same either way.
-        const drawn = b.type !== "shape" || DRAWN.includes(b.props.kind ?? "rect");
+        const flips = b.type !== "shape" || drawn(b);
         if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        return { ...b, angle: norm(-(b.angle ?? 0)), ...(drawn && { [flag]: !b[flag] }) };
+        return { ...b, angle: norm(-(b.angle ?? 0)), ...(flips && { [flag]: !b[flag] }) };
       }),
     );
   }
@@ -1706,10 +1704,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                       step={1}
                       value={Math.round((1 - (boxes[0].props.opacity ?? 1)) * 100)}
                       disabled={fill === "none"}
-                      onChange={(e) => look({ opacity: 1 - +e.target.value / 100 }, "opacity")}
+                      onChange={(e) => look({ opacity: Math.round(100 - +e.target.value) / 100 }, "opacity")}
                     />
                   </label>
-                  <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none" })}>Keine Füllung</button>
+                  {/* The next fill is solid again, as in PowerPoint. */}
+                  <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none", opacity: undefined })}>Keine Füllung</button>
                   <label>
                     Rand
                     <input type="color" value={stroke === "none" ? "#222222" : stroke} onChange={(e) => look({ stroke: e.target.value }, "stroke")} />

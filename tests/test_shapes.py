@@ -16,6 +16,7 @@ from ui import (
     expect_picked,
     pick,
     saved,
+    unpick,
     user,
 )
 
@@ -192,8 +193,8 @@ def test_the_slider_makes_a_fill_see_through(editor):
     expect(filled).to_have_css("border-top-color", "rgb(34, 34, 34)")
     assert "rgba" not in filled.locator("p").evaluate("el => getComputedStyle(el).color")
     pick(page, "b")
-    slider(page).fill("50")
-    expect(at(page, "b").locator(".frame")).to_have_css("background-color", "rgba(0, 255, 0, 0.5)")
+    slider(page).fill("55")
+    expect(at(page, "b").locator(".frame")).to_have_css("background-color", "rgba(0, 255, 0, 0.45)")
     expect(at(page, "b").locator(".frame")).to_have_css("border-top-color", "rgb(34, 34, 34)")
     pick(page, "c")
     slider(page).fill("100")
@@ -201,10 +202,11 @@ def test_the_slider_makes_a_fill_see_through(editor):
     expect(star).to_have_attribute("fill-opacity", "0")
     expect(star).to_have_attribute("fill", "#ff0000")
     assert star.get_attribute("stroke-opacity") is None
-    # A fill nobody sees is still a fill: "Keine Füllung" is a state of its own and keeps the rest.
+    # A fill nobody sees is still a fill: "Keine Füllung" is a state of its own.
     expect(page.get_by_role("button", name="Keine Füllung")).to_be_enabled()
     a, b, c = saved(page, client)
-    assert (a["props"]["opacity"], b["props"]["opacity"], c["props"]["opacity"]) == (0.25, 0.5, 0)
+    # What is stored has two places and no more.
+    assert (a["props"]["opacity"], b["props"]["opacity"], c["props"]["opacity"]) == (0.25, 0.45, 0)
     assert (a["props"]["fill"], a["props"]["text"], a["props"]["stroke"]) == (
         "#ff0000",
         "Hallo",
@@ -213,7 +215,71 @@ def test_the_slider_makes_a_fill_see_through(editor):
     assert c["props"]["fill"] == "#ff0000"
     page.get_by_role("button", name="Keine Füllung").click()
     c = saved(page, client)[2]
-    assert (c["props"]["fill"], c["props"]["opacity"]) == ("none", 0)
+    assert c["props"] == {**RED, "kind": "star", "fill": "none"}
+
+
+def test_a_fill_after_none_is_solid(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", {**RED, "opacity": 0.25}, **ROOM),
+        box("b", "shape", RED, z=2, x=20, y=200, w=40, h=20),
+        client=client,
+    )
+    # Another colour for a fill keeps how far it lets through.
+    pick(page, "a")
+    button(page, "Füllung").fill("#0000ff")
+    expect(at(page, "a").locator(".frame")).to_have_css("background-color", "rgba(0, 0, 255, 0.25)")
+    # "Keine Füllung" forgets it: the next fill is solid, as in PowerPoint.
+    pick(page, "b")
+    slider(page).fill("100")
+    page.get_by_role("button", name="Keine Füllung").click()
+    expect(slider(page)).to_be_disabled()
+    expect(slider(page)).to_have_value("0")
+    button(page, "Füllung").fill("#0000ff")
+    expect(at(page, "b").locator(".frame")).to_have_css("background-color", "rgb(0, 0, 255)")
+    expect(slider(page)).to_have_value("0")
+    a, b = saved(page, client)
+    assert (a["props"]["fill"], a["props"]["opacity"]) == ("#0000ff", 0.25)
+    assert b["props"] == {**RED, "fill": "#0000ff"}
+
+
+def test_a_text_as_a_bubble_flips(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "stroke": "#222222"}, **ROOM, angle=30),
+        box("b", "text", {**TEXT, "stroke": "#222222"}, z=2, x=20, y=200, w=60, h=20),
+        client=client,
+    )
+    pick(page, "a")
+    # A text in a box looks the same either way: it has nothing to flip.
+    for label in FLIPS:
+        expect(button(page, label)).to_be_disabled()
+    frame(page, "Sprechblase").click()
+    assert drawn(page, "a") == (1, 1)
+    for label in FLIPS:
+        expect(button(page, label)).to_be_enabled()
+    button(page, FLIPS[0]).click()
+    # The outline mirrors and the angle with it, as a shape's do. The words read as before.
+    assert drawn(page, "a") == (-1, 1)
+    expect(at(page, "a").locator(".frame")).to_have_css("transform", "none")
+    expect(at(page, "a").locator(".frame p")).to_have_css("transform", "none")
+    expect(at(page, "a").locator(".frame")).to_have_text("Hallo")
+    a = saved(page, client)[0]
+    assert (a["type"], a["angle"], a.get("flipX"), a.get("flipY")) == ("text", 330, True, None)
+    button(page, FLIPS[1]).click()
+    assert drawn(page, "a") == (-1, -1)
+    a = saved(page, client)[0]
+    assert (a["angle"], a["flipX"], a["flipY"]) == (30, True, True)
+    # With a plain text beside it the flip is for the bubble alone.
+    pick(page, "a", "b")
+    button(page, FLIPS[0]).click()
+    a, b = saved(page, client)
+    assert (a["angle"], a["flipX"]) == (330, False)
+    assert (b.get("angle"), b.get("flipX")) == (None, None)
+    unpick(page)
+    pick(page, "b")
+    for label in FLIPS:
+        expect(button(page, label)).to_be_disabled()
 
 
 @pytest.mark.parametrize("size", [(1024, 768), (768, 1024)])
