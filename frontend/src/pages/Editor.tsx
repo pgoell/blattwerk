@@ -73,7 +73,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { has } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -157,6 +157,16 @@ const span = (boxes: Box[], axis: Axis) => {
   const size = axis === "x" ? "w" : "h";
   return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
 };
+// The level box around a turned block's outline. It has the block's centre.
+const outline = <T extends Box>(b: T): T => {
+  const [c, s] = dir(b).map(Math.abs);
+  const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
+  return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+};
+// The cosine and sine of a block's angle.
+const dir = (b: { angle?: number }) => [Math.cos(((b.angle ?? 0) * Math.PI) / 180), Math.sin(((b.angle ?? 0) * Math.PI) / 180)];
+// An angle as a block stores it: from 0 up to 360.
+const norm = (a: number) => round(((a % 360) + 360) % 360) % 360;
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
@@ -296,8 +306,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // The page's own are its margins and its centre.
   const pageXs = [MARGIN, W / 2, W - MARGIN, ...guides.x, ...mine.x, ...lines(cell, W)];
   const pageYs = [MARGIN, H / 2, H - MARGIN, ...guides.y, ...mine.y, ...lines(cell, H)];
-  const xs = loose ? [] : [...pageXs, ...still.flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
-  const ys = loose ? [] : [...pageYs, ...still.flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
+  const xs = loose ? [] : [...pageXs, ...still.map(outline).flatMap((b) => [b.x, b.x + b.w / 2, b.x + b.w])];
+  const ys = loose ? [] : [...pageYs, ...still.map(outline).flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
     const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
@@ -325,9 +335,14 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
       if (!frame) continue;
+      // A turned frame would measure as high as its outline, so the block lies level for the moment.
+      const block = frame.parentElement!;
+      const was = block.style.transform;
+      block.style.transform = "none";
       frame.style.height = "auto";
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = "";
+      block.style.transform = was;
       if (h > b.h) grown.set(b.id, h);
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
@@ -743,7 +758,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
-      const [lo, hi] = span(to, axis);
+      // A turned block snaps by its outline.
+      const [lo, hi] = span(to.map(outline), axis);
       return round(to[0][axis] + pull(lo, [0, (hi - lo) / 2, hi - lo], axis === "x" ? xs : ys) - from[0][axis]);
     });
     // Shift keeps the move level or upright: the shorter way from where the drag began does not count.
@@ -764,22 +780,71 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       place(
         events.map((e) => {
           const [dx, dy] = e.direction;
+          const b = start.current.find((b) => b.id === idOf(e.target))!;
+          const [w, h] = [round(e.width / K), round(e.height / K)];
+          // A turned block turns about its centre, and a new size moves that: the centre goes where the point
+          // across from the handle, or with Ctrl the middle, stays in its place on the page.
+          if (b.angle && events.length === 1) {
+            const [c, s] = dir(b);
+            const [lx, ly] = mod & CENTRE ? [0, 0] : [(dx * (w - b.w)) / 2, (dy * (h - b.h)) / 2];
+            return [b.id, { x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
+          }
+          // In a selection Moveable says where a turned block goes, on both axes whichever handle moved.
           const box = {
-            ...((dx || keep) && { x: round(e.drag.left / K), w: round(e.width / K) }),
-            ...((dy || keep) && { y: round(e.drag.top / K), h: round(e.height / K) }),
+            ...((dx || keep || b.angle) && { x: round(e.drag.left / K), w }),
+            ...((dy || keep || b.angle) && { y: round(e.drag.top / K), h }),
           };
-          return [idOf(e.target), box];
+          return [b.id, box];
         }),
         "drag",
       ),
     );
+  // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
+  // block stops at every 15 degrees. Several blocks turn as one about the middle of the box around them, in steps
+  // of 15 degrees with Shift.
+  const twist = (by: number, shift: boolean) => {
+    const from = start.current;
+    const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
+    const first = from[0].angle ?? 0;
+    const a = from.length > 1 ? stop(by) : stop(first + by) - first;
+    const all = bounds(from.map(outline));
+    const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
+    const [c, s] = dir({ angle: a });
+    flushSync(() =>
+      place(
+        from.map((b) => {
+          const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
+          return [b.id, { x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + a) }];
+        }),
+        "drag",
+      ),
+    );
+  };
+  // The panel's buttons turn each block by a quarter about its own centre.
+  const spin = (by: number) => place(sel.map((b) => [b.id, { angle: norm((b.angle ?? 0) + by) }]));
+  // Mirrors each selected picture, symbol and shape about its own centre, as the page shows it: its angle mirrors
+  // too. A line's start changes corners instead, and a shape's text stays readable.
+  function mirror(axis: Axis) {
+    const swap: Record<Corner, Corner> = axis === "x" ? { nw: "ne", ne: "nw", sw: "se", se: "sw" } : { nw: "sw", sw: "nw", ne: "se", se: "ne" };
+    const flag = axis === "x" ? "flipX" : "flipY";
+    change((bs) =>
+      bs.map((b) => {
+        if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape")) return b;
+        // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
+        const shape = b.type === "shape";
+        if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
+        return { ...b, angle: norm(-(b.angle ?? 0)), ...(!shape && { [flag]: !b[flag] }) };
+      }),
+    );
+  }
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
   // So does a text the resize left higher than its box.
   // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
   const settle = ([dx, dy]: number[]) => {
     tight.current = true;
     place(
-      free.map((b) => {
+      // A turned block's edges are not level, so no guide pulls them.
+      free.filter((b) => !b.angle).map((b) => {
         const [x, y] = [dx < 0 ? round(edge(b.x, xs)) : b.x, dy < 0 ? round(edge(b.y, ys)) : b.y];
         const [right, bottom] = [dx > 0 ? edge(b.x + b.w, xs) : b.x + b.w, dy > 0 ? edge(b.y + b.h, ys) : b.y + b.h];
         return [b.id, { x, y, w: round(right - x), h: round(bottom - y) }];
@@ -993,7 +1058,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   function trim(e: PointerEvent, b: ImageBlock, dx: number, dy: number) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const full = whole(b);
-    const at = point(e);
+    // The pointer as the picture lies with no turn and no flip: both are about the block's centre.
+    const [c, s] = dir(b);
+    const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
+    const [px, py] = point(e).map((p, i) => p - [cx, cy][i]);
+    const at = [cx + (px * c + py * s) * (b.flipX ? -1 : 1), cy + (py * c - px * s) * (b.flipY ? -1 : 1)];
     const share = [(at[0] - full.x) / full.w, (at[1] - full.y) / full.h];
     const cut = [...draft!.cut];
     [dx, dy].forEach((d, axis) => {
@@ -1015,7 +1084,12 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (!cropping || draft!.cut.join() === cropping.props.cut.join()) return;
     const full = whole(cropping);
     const [l, t, r, b] = draft!.cut;
-    const box = { x: round(full.x + l * full.w), y: round(full.y + t * full.h), w: round(full.w * (1 - l - r)), h: round(full.h * (1 - t - b)) };
+    const [w, h] = [full.w * (1 - l - r), full.h * (1 - t - b)];
+    // The frame's middle is the new centre the block turns and flips about, so it goes where the page shows it now.
+    const [c, s] = dir(cropping);
+    const [cx, cy] = [cropping.x + cropping.w / 2, cropping.y + cropping.h / 2];
+    const [mx, my] = [(full.x + l * full.w + w / 2 - cx) * (cropping.flipX ? -1 : 1), (full.y + t * full.h + h / 2 - cy) * (cropping.flipY ? -1 : 1)];
+    const box = { x: round(cx + mx * c - my * s - w / 2), y: round(cy + mx * s + my * c - h / 2), w: round(w), h: round(h) };
     change((bs) => bs.map((o) => (o.id === cropping.id ? { ...cropping, ...box, props: { ...cropping.props, cut: draft!.cut } } : o)));
   }
 
@@ -1346,7 +1420,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     key={b.id}
                     data-id={b.id}
                     className={ids.includes(b.id) ? "block sel" : "block"}
-                    style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z }}
+                    style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}
                   >
                     <Draw block={b} k={K} solved={solved} at={editing === b.id ? slot : undefined}>
                       {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
@@ -1477,6 +1551,17 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                     // Ctrl resizes about the centre.
                     onBeforeResize={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
                     onBeforeResizeGroup={(e) => mod & CENTRE && e.setFixedDirection([0, 0])}
+                    onResizeStart={(e) => begin([e.target])}
+                    onResizeGroupStart={(e) => begin(e.targets)}
+                    // A table stays level, and a line turns by its ends.
+                    rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some(isLine)}
+                    rotationPosition="top"
+                    onRotateStart={(e) => begin([e.target])}
+                    onRotateGroupStart={(e) => begin(e.targets)}
+                    onRotate={(e) => twist(e.dist, e.inputEvent.shiftKey)}
+                    onRotateGroup={(e) => twist(e.dist, e.inputEvent.shiftKey)}
+                    // Moveable measures the box around the blocks anew: turned with them where they share an angle, else level.
+                    onRotateGroupEnd={() => moveable.current!.updateRect()}
                     onResize={(e) => resize([e])}
                     onResizeGroup={(e) => resize(e.events)}
                     onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
@@ -1548,6 +1633,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
                 rank={rank}
                 cell={editing && editing === table?.id ? slot : undefined}
                 cropping={!!cropping}
+                spin={spin}
+                mirror={mirror}
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
               />
@@ -1728,8 +1815,13 @@ function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
   const inset = [t, r, b, l].map((share) => `${share * 100}%`).join(" ");
   // Along one axis: the frame's near edge, its middle and its far edge.
   const at = (d: number, lo: number, hi: number) => `${(d < 0 ? lo : d > 0 ? 1 - hi : (lo + 1 - hi) / 2) * 100}%`;
+  // The picture turns and flips about its block's centre, as the block does.
+  const turn = {
+    transform: `rotate(${block.angle ?? 0}deg) scale(${block.flipX ? -1 : 1}, ${block.flipY ? -1 : 1})`,
+    transformOrigin: `${(block.x + block.w / 2 - box.x) * k}px ${(block.y + block.h / 2 - box.y) * k}px`,
+  };
   return (
-    <div className="crop" style={{ left: box.x * k, top: box.y * k, width: box.w * k, height: box.h * k }}>
+    <div className="crop" style={{ left: box.x * k, top: box.y * k, width: box.w * k, height: box.h * k, ...turn }}>
       <img className="dim" src={src} alt="" draggable={false} />
       <img src={src} alt="" draggable={false} style={{ clipPath: `inset(${inset})` }} />
       <div style={{ inset }} onPointerDown={grip} onPointerMove={(e) => trim(e, block, 0, 0)} />

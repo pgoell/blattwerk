@@ -1,8 +1,8 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { useState, type MouseEvent } from "react";
-import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
+import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, mathsHeight, parasOf, rowsOf, symbol, type Align, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, isLine, mathsHeight, parasOf, rowsOf, symbol, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -27,6 +27,10 @@ type Props = {
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   cropping: boolean;
+  // Turns every selected block by so many degrees about its own centre.
+  spin: (by: number) => void;
+  // Mirrors the selected pictures, symbols and shapes across or down.
+  mirror: (axis: Axis) => void;
   // The width and height in mm of the page in use.
   size: number[];
 };
@@ -34,6 +38,8 @@ type Props = {
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
 const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets], ["number", "Nummerierung", ListOrdered]];
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
+// The turns by a quarter and the two flips: a flip has no degrees.
+const TURNS: [string, LucideIcon, number][] = [["Rechtsdrehung 90°", RotateCw, 90], ["Linksdrehung 90°", RotateCcw, -90], ["Horizontal spiegeln", FlipHorizontal2, 0], ["Vertikal spiegeln", FlipVertical2, 0]];
 const round = (n: number) => Math.round(n * 100) / 100;
 
 // Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
@@ -41,7 +47,12 @@ const round = (n: number) => Math.round(n * 100) / 100;
 export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
   part ? !!part.marks[name] : sel.every((b) => !boxed(b) || boxed(b)![name]);
 
-export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, size: [W, H] }: Props) {
+export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, spin, mirror, size: [W, H] }: Props) {
+  // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
+  // symbol or a shape can flip.
+  const fixed = sel.some((b) => b.locked);
+  const level = fixed || sel.some((b) => b.type === "table" || isLine(b));
+  const plain = fixed || !sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "shape");
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.
@@ -254,6 +265,14 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           </button>
         </>
       )}
+      <h2>Drehen</h2>
+      <div className="seg">
+        {TURNS.map(([label, Icon, by]) => (
+          <button key={label} aria-label={label} title={label} disabled={by ? level : plain} onClick={() => (by ? spin(by) : mirror(label[0] === "H" ? "x" : "y"))}>
+            <Icon size={14} aria-hidden />
+          </button>
+        ))}
+      </div>
       <h2>Nummerierung</h2>
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}

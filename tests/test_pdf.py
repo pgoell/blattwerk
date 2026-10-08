@@ -1,10 +1,13 @@
 import io
 import re
+import struct
+import zlib
 
 import httpx
+import pypdfium2
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
-from ui import MATHS, block, picture, png, sheet, upload, user
+from ui import MATHS, RED, block, chunk, picture, png, sheet, upload, user
 
 from blattwerk import pdf
 from blattwerk.app import app
@@ -221,3 +224,46 @@ def test_chromium_prints_a_table(server):
     # The head row brings the bold cut of the font into the file.
     fonts = set(re.findall(rb"/FontName /\w+\+([\w-]+)", res.content))
     assert fonts == {b"Andika", b"Andika-Bold"}
+
+
+def test_the_pdf_prints_a_turned_and_a_flipped_block(server):
+    client = user()
+    blue, green = b"\x00\x00\xff", b"\x00\xff\x00"
+    # A picture four pixels by two: its left half blue, its right half green.
+    head = struct.pack(">IIBBBBB", 4, 2, 8, 2, 0, 0, 0)
+    rows = zlib.compress((b"\x00" + blue * 2 + green * 2) * 2)
+    parts = (b"IHDR", head), (b"IDAT", rows), (b"IEND", b"")
+    halves = b"\x89PNG\r\n\x1a\n" + b"".join(chunk(kind, data) for kind, data in parts)
+    shown = client.post("/api/uploads", files={"file": ("bild", halves, "image/png")}).json()["id"]
+    photo = {**block("image", 160, 30, {"upload": shown, "ratio": 2, "cut": [0, 0, 0, 0]}), "w": 60}
+    # A red box 60 by 20 mm about its centre at 70 and 50 mm, on its side.
+    red = {"kind": "rect", "fill": "#ff0000", "stroke": "none", "strokeWidth": 0.5}
+    mine = sheet(
+        client,
+        [
+            {**block("shape", 40, 20, red), "x": 40, "w": 60, "angle": 90},
+            {**photo, "id": "flipped", "y": 120, "flipX": True},
+            photo,
+        ],
+    )
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    # A PDF's own unit is the point, 72 to the inch.
+    scale = 4
+    bitmap = pypdfium2.PdfDocument(res.content)[0].render(scale=scale, rev_byteorder=True)
+
+    def has(x, y, colour):
+        """Whether the page has the colour so many mm from its left and its top."""
+        col, row = (int(mm * scale * 72 / 25.4) for mm in (x, y))
+        start = row * bitmap.stride + col * bitmap.n_channels
+        seen = bytes(bitmap.buffer[start : start + 3])
+        return all(abs(a - b) < 60 for a, b in zip(seen, colour, strict=True))
+
+    # Only the box on its side reaches up to 25 mm from the top, and only the level one would
+    # reach left to 45 mm.
+    assert has(70, 25, RED)
+    assert has(45, 50, b"\xff\xff\xff")
+    # The picture as it is has its blue half on the left. The flipped one has it on the right.
+    assert has(23, 175, blue) and has(67, 175, green)
+    assert has(23, 135, green) and has(67, 135, blue)

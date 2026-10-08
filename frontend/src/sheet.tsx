@@ -2,8 +2,9 @@
 import type { CSSProperties, ReactNode } from "react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
-// before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code.
-export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string; group?: string[] };
+// before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
+// centre, in degrees clockwise from 0 up to 360. `flipX` and `flipY` mirror a picture or a symbol in its box.
+export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string; group?: string[]; angle?: number; flipX?: boolean; flipY?: boolean };
 export type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
@@ -151,6 +152,10 @@ export const listed = (p: TextProps, list?: List) =>
 export const cleared = (paras: Para[], props: object) =>
   stored(paras.map((p) => ({ ...p, runs: p.runs.map((r) => Object.fromEntries(Object.entries(r).filter(([name]) => !(name in props))) as Run) })));
 export const symbol = (code: string) => `/openmoji/${code}.svg`;
+// A turned block's box turns as a whole. A flip mirrors only what the box shows: Moveable cannot take hold of a
+// mirrored box, and a numbering must stay readable.
+export const turned = (b: Box): CSSProperties | undefined => (b.angle ? { transform: `rotate(${b.angle}deg)` } : undefined);
+const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { transform: `scale(${b.flipX ? -1 : 1}, ${b.flipY ? -1 : 1})` } : undefined);
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
 export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[b.props.kind].row + 0.05);
@@ -426,7 +431,7 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
-  if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} />;
+  if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
   if (block.type === "name")
     return (
       <div className="fields" style={{ fontSize: 12 * PT * k }}>
@@ -446,7 +451,7 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   const [l, t, r, b] = block.props.cut;
   const [w, h] = [1 - l - r, 1 - t - b];
   return (
-    <div className="picture">
+    <div className="picture" style={flipped(block)}>
       <img
         src={`/api/uploads/${block.props.upload}`}
         alt=""
@@ -480,7 +485,7 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         {all.pages[page].blocks.map((b) => (
-          <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z }}>
+          <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />
             <Mark block={b} k={K} n={ns.get(b.id)} />
           </div>

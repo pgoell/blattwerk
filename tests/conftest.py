@@ -31,12 +31,14 @@ def browser():
 @pytest.fixture
 def editor(browser, server):
     """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
-    context = browser.new_context(viewport={"width": 1400, "height": 1000})
-    # The tour would open on the first visit and lie over the sheet.
-    context.add_init_script("localStorage.setItem('tour', '1')")
+    contexts = []
 
-    def start(*blocks, client=None, more=()):
-        """`more` holds the blocks of a second page."""
+    def start(*blocks, client=None, more=(), touch=False):
+        """`more` holds the blocks of a second page. With `touch` the window takes fingers too."""
+        context = browser.new_context(viewport={"width": 1400, "height": 1000}, has_touch=touch)
+        contexts.append(context)
+        # The tour would open on the first visit and lie over the sheet.
+        context.add_init_script("localStorage.setItem('tour', '1')")
         client = client or user()
         # The session cookie is Secure and this server speaks http, so it goes by hand.
         context.add_cookies(
@@ -51,4 +53,5 @@ def editor(browser, server):
 
     yield start
     # Before the server stops: leaving the editor saves.
-    context.close()
+    for context in contexts:
+        context.close()

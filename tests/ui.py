@@ -17,6 +17,8 @@ Run one test: `mise run test:one -- tests/test_keys.py::test_name`. Wait with `e
 a fixed time. A probe, to try something out, goes in tests/probe_*.py, which git ignores.
 """
 
+import math
+import re
 import struct
 import threading
 import time
@@ -152,3 +154,74 @@ def caret(page, word, offset):
     for ch in text[: text.index(word) + offset]:
         if not unicodedata.combining(ch):
             page.keyboard.press("ArrowRight")
+
+
+def saved(page, client):
+    """The first page's blocks as the server holds them, once the editor has saved a change."""
+    # The editor saves two seconds after the last change.
+    expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=5000)
+    sheet_id = page.url.rsplit("/", 1)[1]
+    return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
+
+
+def angle(page, name):
+    """The degrees the block is turned by, clockwise, as its own style says: 0 with no turn."""
+    found = re.search(
+        r"rotate\((-?[\d.]+)deg\)", at(page, name).evaluate("el => el.style.transform")
+    )
+    return float(found[1]) if found else 0
+
+
+def mirror(page, name):
+    """How the block's picture or symbol is drawn across and down: -1 when flipped, else 1."""
+    drawn = at(page, name).evaluate(
+        "el => getComputedStyle(el.querySelector(':scope > .picture, :scope > img')).transform"
+    )
+    # A matrix holds the scale across first and the scale down fourth.
+    parts = re.findall(r"-?[\d.]+", drawn)
+    return (round(float(parts[0])), round(float(parts[3]))) if parts else (1, 1)
+
+
+def centre(locator):
+    """The middle on the screen of what the locator finds: of the level box around a turned one."""
+    box = locator.bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+def arc(start, about, degrees, steps=12):
+    """The points of the way from `start` clockwise around `about`, for a drag or a swipe."""
+    dx, dy = start[0] - about[0], start[1] - about[1]
+    turns = [math.radians(degrees * i / steps) for i in range(steps + 1)]
+    return [
+        (
+            about[0] + dx * math.cos(t) - dy * math.sin(t),
+            about[1] + dx * math.sin(t) + dy * math.cos(t),
+        )
+        for t in turns
+    ]
+
+
+def drag(page, *points, keys=()):
+    """Presses the mouse at the first point, moves it through the others and lets go."""
+    # The keys are down before the press, as a hand holds Shift.
+    page.mouse.move(*points[0])
+    for key in keys:
+        page.keyboard.down(key)
+    page.mouse.down()
+    # Moveable follows the moves between two points, not a jump.
+    for point in points[1:]:
+        page.mouse.move(*point, steps=5)
+    page.mouse.up()
+    for key in keys:
+        page.keyboard.up(key)
+
+
+def swipe(page, *points):
+    """Puts a finger down at the first point, moves it through the others and lifts it."""
+    # Playwright's own touchscreen only taps, so the browser is told of each touch by hand.
+    session = page.context.new_cdp_session(page)
+    for i, (x, y) in enumerate(points):
+        kind = "touchMove" if i else "touchStart"
+        session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [{"x": x, "y": y}]})
+    session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    session.detach()
