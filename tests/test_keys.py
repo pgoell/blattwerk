@@ -1,92 +1,28 @@
 """The editor's keys, pressed in Chromium on the built frontend."""
 
-import unicodedata
-
 import pytest
-from playwright.sync_api import expect, sync_playwright
-from test_pdf import MATHS, block, picture, sheet, upload, user
-
-TEXT = {"text": "Hallo", "size": 14, "align": "left"}
-RECT = {"kind": "rect", "fill": "none", "stroke": "#222222", "strokeWidth": 0.5}
-RULING = {"kind": "l4", "color": "#222222"}
-TABLE = {"cells": [["H", "Z"], ["3", "7"]], "cols": [1, 1], "size": 14, "align": "center"}
-LINE = {**RECT, "kind": "line"}
-ITEM = {**TEXT, "text": "eins", "rich": [{"runs": [{"text": "eins"}], "list": "bullet"}]}
-FIELD = ".block.sel .ProseMirror"
-
-
-@pytest.fixture(scope="module")
-def browser():
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        yield browser
-        browser.close()
-
-
-@pytest.fixture
-def editor(browser, server):
-    """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
-    context = browser.new_context(viewport={"width": 1400, "height": 1000})
-    # The tour would open on the first visit and lie over the sheet.
-    context.add_init_script("localStorage.setItem('tour', '1')")
-
-    def start(*blocks, client=None, more=()):
-        """`more` holds the blocks of a second page."""
-        client = client or user("a@example.com")
-        # The session cookie is Secure and this server speaks http, so it goes by hand.
-        context.add_cookies(
-            [{"name": "session", "value": client.cookies["session"], "url": server}]
-        )
-        page = context.new_page()
-        page.goto(f"{server}/blatt/{sheet(client, blocks, *([more] if more else []))['id']}")
-        # The editor is there, and listens for keys, once the sheet has loaded.
-        expect(page.locator("main.editor")).to_be_visible()
-        expect(page.locator(".block")).to_have_count(len(blocks) + len(more))
-        return page
-
-    yield start
-    # Before the server stops: leaving the editor saves.
-    context.close()
-
-
-def box(name, kind, props, z=1, **more):
-    """A block with a name and a place of its own: 30 mm below the one before in z."""
-    return {**block(kind, 20 + 30 * z, 20, props), "id": name, "z": z, **more}
-
-
-def at(page, name):
-    return page.locator(f'.block[data-id="{name}"]')
-
-
-def pick(page, *names):
-    """Selects the blocks by a click, with Shift for all after the first."""
-    for i, name in enumerate(names):
-        at(page, name).click(modifiers=["Shift"] if i else [])
-    expect_picked(page, *names)
-
-
-def picked(page):
-    return page.eval_on_selector_all(".block.sel", "els => els.map((el) => el.dataset.id)")
-
-
-def expect_picked(page, *names):
-    """Waits until just these blocks are selected."""
-    expect(page.locator(".block.sel")).to_have_count(len(names))
-    for name in names:
-        expect(at(page, name)).to_have_class("block sel")
-
-
-def unpick(page):
-    """A click on the empty corner of the page selects nothing."""
-    page.locator(".sheet").click(position={"x": 5, "y": 5})
-    expect_picked(page)
-
-
-def stopped(page, keys):
-    """Whether the page kept the keys from the browser."""
-    page.evaluate("addEventListener('keydown', (e) => (window.pressed = e), true)")
-    page.keyboard.press(keys)
-    return page.evaluate("pressed.defaultPrevented")
+from playwright.sync_api import expect
+from ui import (
+    FIELD,
+    ITEM,
+    LINE,
+    MATHS,
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    at,
+    box,
+    caret,
+    expect_picked,
+    pick,
+    picked,
+    picture,
+    stopped,
+    unpick,
+    upload,
+    user,
+)
 
 
 @pytest.mark.parametrize("key", ["Enter", "F2"])
@@ -186,7 +122,7 @@ def test_enter_opens_a_ruling_and_a_table(editor):
 
 
 def test_enter_leaves_a_picture_and_a_selection_of_two_alone(editor):
-    client = user("a@example.com")
+    client = user()
     page = editor(
         box("a", "text", TEXT),
         box("b", "text", TEXT, z=2),
@@ -384,7 +320,7 @@ def test_tab_goes_on_from_the_front_most_of_several_and_stays_on_its_page(editor
 
 
 def test_tab_ends_a_crop_and_goes_on(editor):
-    client = user("a@example.com")
+    client = user()
     page = editor(
         box("a", "text", TEXT), {**picture(upload(client)), "id": "bild", "z": 2}, client=client
     )
@@ -406,7 +342,7 @@ def test_tab_in_a_field_moves_an_item_in(editor):
 
 
 def test_enter_and_f2_leave_what_holds_no_text_alone(editor):
-    client = user("a@example.com")
+    client = user()
     # A maths block as the editor makes it.
     limits = {
         **MATHS,
@@ -445,19 +381,6 @@ def test_enter_and_f2_leave_what_holds_no_text_alone(editor):
             assert opened.count() == 0
             assert picked(page) == [name]
     assert errors == []
-
-
-def caret(page, word, offset):
-    """Opens the text "a", of one paragraph, and puts the caret `offset` letters into its `word`."""
-    pick(page, "a")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("Home")
-    text = page.locator(FIELD).inner_text()
-    # An arrow steps over a letter and the marks that combine with it as one.
-    for ch in text[: text.index(word) + offset]:
-        if not unicodedata.combining(ch):
-            page.keyboard.press("ArrowRight")
 
 
 # A word holds an apostrophe between two letters, and the marks that combine with a letter. A hyphen
@@ -569,7 +492,7 @@ def test_the_panel_sets_the_word_the_caret_is_in(editor):
 
 
 def test_a_bold_word_made_by_the_keys_is_saved(editor):
-    client = user("a@example.com")
+    client = user()
     page = editor(box("a", "text", {**TEXT, "text": "Hallo du"}), client=client)
     caret(page, "du", 1)
     page.keyboard.press("Control+b")
@@ -579,7 +502,8 @@ def test_a_bold_word_made_by_the_keys_is_saved(editor):
     expect(at(page, "a").locator(".frame span").filter(has_text="du")).to_have_css(
         "font-weight", "700"
     )
-    expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
+    # The editor saves two seconds after the last change.
+    expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=5000)
     saved = client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()
     assert saved["doc"]["pages"][0]["blocks"][0]["props"]["rich"] == [
         {"runs": [{"text": "Hallo "}, {"text": "du", "bold": True}]}
@@ -587,7 +511,7 @@ def test_a_bold_word_made_by_the_keys_is_saved(editor):
 
 
 def test_ctrl_b_i_u_never_reach_the_browser_with_a_block_selected(editor):
-    client = user("a@example.com")
+    client = user()
     page = editor(
         box("lines", "ruling", RULING),
         box("table", "table", TABLE, z=2),
@@ -713,7 +637,7 @@ def test_enter_opens_a_block_just_added_and_tab_goes_on(editor):
     "names", [["on", "off"], ["off", "on"], ["on", "too"], ["off", "on", "bild"]]
 )
 def test_ctrl_b_on_several_blocks_does_what_the_panels_button_does(editor, names):
-    client = user("a@example.com")
+    client = user()
     blocks = {
         "on": box("on", "text", {**TEXT, "bold": True}),
         "too": box("too", "text", {**TEXT, "bold": True}, z=2),
@@ -782,7 +706,7 @@ def test_home_right_after_enter_puts_the_caret_before_the_text(editor):
 
 
 def test_enter_opens_nothing_with_a_locked_block_selected_too(editor):
-    client = user("a@example.com")
+    client = user()
     page = editor(
         {**picture(upload(client)), "id": "bild", "z": 1, "locked": True},
         box("a", "text", TEXT, z=2),
