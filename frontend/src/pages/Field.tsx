@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { baseKeymap, chainCommands, splitBlockAs } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
-import { Schema, type Attrs, type MarkSpec, type Node } from "prosemirror-model";
+import { Schema, type Attrs, type MarkSpec, type Node, type ResolvedPos } from "prosemirror-model";
 import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { parasOf, stored, type List, type Para, type Run, type TextProps } from "../sheet";
@@ -80,6 +80,12 @@ function read(doc: Node) {
   });
   return stored(paras);
 }
+// The word the caret stands in, from its start to its end: letters and digits, and an apostrophe between two of
+// them. A caret at a word's edge is in no word.
+function word({ parent, parentOffset: at, pos }: ResolvedPos) {
+  for (const { 0: found, index } of parent.textContent.matchAll(/[\p{L}\p{N}\p{M}]+(?:['’][\p{L}\p{N}\p{M}]+)*/gu))
+    if (index < at && at < index + found.length) return [pos - at + index, pos - at + index + found.length];
+}
 // The look of the picked words over the block's own, `base`: a setting is on when any of them has it. With only a
 // caret, the look of what is typed next.
 function looks(state: EditorState, base: TextProps) {
@@ -92,8 +98,11 @@ function looks(state: EditorState, base: TextProps) {
       else out[name] ||= m ? m.attrs.v : !!base[name];
     }
   };
-  if (empty) see(state.storedMarks ?? $from.marks());
-  else
+  if (empty) {
+    see(state.storedMarks ?? $from.marks());
+    // The colour's input takes the focus, so beside a word a new colour is the whole block's: it shows that one.
+    if (!word($from)) out.color = base.color;
+  } else
     state.doc.nodesBetween(from, to, (n) => {
       if (n.isText) see(n.marks);
     });
@@ -107,12 +116,8 @@ const picked = (state: EditorState, base: TextProps): Picked => ({
 // look is for what is typed next, which needs the caret in the field: without it nothing is done, and false says
 // so. Bold and italic as the block has them need no mark. `key` merges a run of changes into one undo step.
 export function tint(view: EditorView, props: Marks, base: TextProps, key = "") {
-  const { $from } = view.state.selection;
-  let { from, to } = view.state.selection;
-  const text = $from.parent.textContent;
-  const before = /[\p{L}\p{N}]+$/u.exec(text.slice(0, $from.parentOffset));
-  const after = /^[\p{L}\p{N}]+/u.exec(text.slice($from.parentOffset));
-  if (from === to && before && after) [from, to] = [from - before[0].length, to + after[0].length];
+  const { selection } = view.state;
+  const [from, to] = (selection.empty && word(selection.$from)) || [selection.from, selection.to];
   const empty = from === to;
   if (empty && !view.hasFocus()) return false;
   const tr = view.state.tr.setMeta("key", key);
@@ -221,7 +226,10 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
         }
         now.current.pick(picked(state, now.current.props));
       },
-      handleDOMEvents: { blur: () => now.current.blur() },
+      // ProseMirror never hears of the focus. It would put its own selection back 20 ms later, and for 200 ms
+      // whenever the caret goes to the very start, as if the browser had moved it: an arrow pressed just then would
+      // be lost, and after Home a letter would replace a text that opened with all of it picked.
+      handleDOMEvents: { focus: () => true, blur: () => now.current.blur() },
       // The browser moves the caret for some keys, as for an arrow with all picked, and tells the field only later.
       // A key pressed before that would still replace all, so the field reads the caret first.
       handleKeyDown: () => void document.dispatchEvent(new Event("selectionchange")),

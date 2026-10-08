@@ -357,58 +357,67 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (editing && (!sel.some((b) => b.id === editing) || (table && slot >= table.props.cells.flat().length))) setEditing("");
   });
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      // Ctrl+B, I and U never reach the browser while a block is selected: Chrome would show the page's source.
-      if ((e.ctrlKey || e.metaKey) && /^[biu]$/i.test(e.key) && sel.length && !(e.target as Element).closest("input, select, dialog")) e.preventDefault();
-      // In a text's field and in a table's cell only undo and redo are the sheet's.
-      const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && (e.target as Element).closest(".ProseMirror, .table");
-      if (!ours && (e.target as Element).closest(".ProseMirror, textarea, input, select, dialog")) return;
-      // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
-      const step = e.shiftKey ? 10 : cell || 1;
-      const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
-      // Ctrl+B, I and U do what the panel's buttons do.
-      const flip = (name: "bold" | "italic" | "underline") => sel.some(boxed) && (() => paint({ [name]: !has(sel, part, name) }));
-      // Enter and F2 open the one selected block to write in it, with all its text picked, as in PowerPoint. A
-      // picture is not cropped.
-      const write = () => free[0]?.type !== "image" && edit(free[0]?.id, undefined, true);
-      // Tab picks the next block from back to front and Shift+Tab the one before, as in PowerPoint. A group is one stop.
-      const next = () => {
-        const order = [...blocks].sort((a, b) => a.z - b.z);
-        if (e.shiftKey) order.reverse();
-        const from = order.map((b) => ids.includes(b.id)).lastIndexOf(true);
-        const to = [...order.slice(from + 1), ...order].find((b) => !ids.includes(b.id));
-        if (!to) return;
-        done();
-        setIds(grouped([to.id], blocks));
-      };
-      // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
-      // Shift+Tab the one in front.
-      const plain = !(e.target as Element).closest("button, a, summary, [tabindex]");
-      const keys: Record<string, (() => void) | false | undefined> =
-        e.ctrlKey || e.metaKey
-          ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
-          : {
-              delete: remove,
-              backspace: remove,
-              escape: done,
-              arrowleft: () => nudge(-1, 0),
-              arrowright: () => nudge(1, 0),
-              arrowup: () => nudge(0, -1),
-              arrowdown: () => nudge(0, 1),
-              enter: plain && free.length === 1 && write,
-              f2: free.length === 1 && write,
-              tab: plain && blocks.length > 0 && next,
-            };
-      const run = keys[e.key.toLowerCase()];
-      // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
-      if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
-      e.preventDefault();
-      run();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
+  // The keys do what the latest drawing says, from the moment the editor is drawn. The listener itself stays for
+  // good: one that a new drawing swaps while a key is on its way would miss that key.
+  const onKey = useRef((_e: KeyboardEvent) => {});
+  useLayoutEffect(() => {
+    const press = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener("keydown", press);
+    return () => window.removeEventListener("keydown", press);
+  }, []);
+  onKey.current = (e) => {
+    // The keys are a dialog's own while it is open.
+    if (document.querySelector("dialog:modal")) return;
+    const target = e.target as HTMLElement;
+    // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
+    // them. With Shift or Alt they stay the browser's.
+    const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
+    if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
+    // In a text's field and in a table's cell only undo and redo are the sheet's.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table");
+    if (!ours && target.closest(".ProseMirror, textarea, input, select")) return;
+    // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
+    const step = e.shiftKey ? 10 : cell || 1;
+    const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
+    // Ctrl+B, I and U do what the panel's buttons do.
+    const flip = (name: "bold" | "italic" | "underline") => mark && sel.some(boxed) && (() => paint({ [name]: !has(sel, part, name) }));
+    // Enter and F2 open the one selected block to write in it, with all its text picked, as in PowerPoint. A
+    // picture is not cropped, and a locked block stays shut as it does for a double click.
+    const write = sel.length === 1 && free[0] && free[0].type !== "image" && (() => edit(free[0].id, undefined, true));
+    // Tab picks the next block from back to front and Shift+Tab the one before, as in PowerPoint. A group is one stop.
+    const next = () => {
+      const order = [...blocks].sort((a, b) => a.z - b.z);
+      if (e.shiftKey) order.reverse();
+      const from = order.map((b) => ids.includes(b.id)).lastIndexOf(true);
+      const to = [...order.slice(from + 1), ...order].find((b) => !ids.includes(b.id));
+      if (!to) return;
+      done();
+      setIds(grouped([to.id], blocks));
+    };
+    // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
+    // Shift+Tab the one in front.
+    const plain = !target.closest("button, a");
+    const keys: Record<string, (() => void) | false | undefined> =
+      e.ctrlKey || e.metaKey
+        ? { z: e.shiftKey ? redo : undo, y: redo, c: () => setClip(sel), v: paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+        : {
+            delete: remove,
+            backspace: remove,
+            escape: done,
+            arrowleft: () => nudge(-1, 0),
+            arrowright: () => nudge(1, 0),
+            arrowup: () => nudge(0, -1),
+            arrowdown: () => nudge(0, 1),
+            enter: plain && write,
+            f2: write,
+            tab: plain && blocks.length > 0 && next,
+          };
+    const run = keys[e.key.toLowerCase()];
+    // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
+    if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
+    e.preventDefault();
+    run();
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) =>
@@ -507,7 +516,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
   function paint(props: Marks, key?: string) {
-    if (field.current && tint(field.current, props, boxed(sel[0])!, key)) return;
+    if (field.current && tint(field.current, props, boxed(sel.find((b) => b.id === editing)!)!, key)) return;
     tight.current = true;
     change(
       (bs) =>
@@ -1129,11 +1138,13 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         inPanel.current = !!(e.target as Element).closest(".panel");
       }}
       // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
-      // the sheet's. What had the focus loses it as before, unless the button's own group has kept it there.
+      // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
+      // unless the button's own group has kept it there.
       onMouseDown={(e) => {
-        if (e.defaultPrevented || !(e.target as Element).closest("button")) return;
+        const button = (e.target as Element).closest("button");
+        if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
-        (document.activeElement as HTMLElement).blur();
+        if (!e.button) (document.activeElement as HTMLElement | null)?.blur();
       }}
     >
       <header>
@@ -1287,7 +1298,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           ref={desk}
           onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
           onMouseDown={(e) => {
-            // Moveable keeps the press from moving the focus, so a button pressed before would keep Enter and Tab.
+            // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
+            // Enter and Tab.
             if (!document.activeElement?.closest(".block")) (document.activeElement as HTMLElement | null)?.blur();
             if (touch.current || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.

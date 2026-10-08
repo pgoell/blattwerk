@@ -1,5 +1,7 @@
 """The editor's keys, pressed in Chromium on the built frontend."""
 
+import unicodedata
+
 import pytest
 from playwright.sync_api import expect, sync_playwright
 from test_pdf import MATHS, block, picture, sheet, upload, user
@@ -37,6 +39,8 @@ def editor(browser, server):
         )
         page = context.new_page()
         page.goto(f"{server}/blatt/{sheet(client, blocks, *([more] if more else []))['id']}")
+        # The editor is there, and listens for keys, once the sheet has loaded.
+        expect(page.locator("main.editor")).to_be_visible()
         expect(page.locator(".block")).to_have_count(len(blocks) + len(more))
         return page
 
@@ -321,8 +325,6 @@ def test_a_button_with_the_focus_keeps_enter_and_tab(editor):
 
 def test_tab_with_nothing_selected_starts_at_the_back_or_the_front(editor):
     page = editor(box("c", "text", TEXT, z=3), box("a", "text", TEXT), box("b", "shape", RECT, z=2))
-    # The click gives the editor the time to listen for keys, which it starts just after it draws.
-    unpick(page)
     page.keyboard.press("Tab")
     expect_picked(page, "a")
     unpick(page)
@@ -350,7 +352,6 @@ def test_tab_starts_at_a_group_as_a_whole(editor):
         box("b", "text", TEXT, z=2, **group),
         box("c", "text", TEXT, z=3),
     )
-    unpick(page)
     page.keyboard.press("Tab")
     expect_picked(page, "a", "b")
     # Enter and F2 open nothing in a group.
@@ -451,17 +452,32 @@ def caret(page, word, offset):
     pick(page, "a")
     page.keyboard.press("Enter")
     expect(page.locator(FIELD)).to_be_focused()
-    # From the end: a caret at the very start, so soon after the focus, ProseMirror takes for the
-    # browser's doing and puts back.
-    page.keyboard.press("End")
+    page.keyboard.press("Home")
     text = page.locator(FIELD).inner_text()
-    for _ in range(len(text) - text.index(word) - offset):
-        page.keyboard.press("ArrowLeft")
+    # An arrow steps over a letter and the marks that combine with it as one.
+    for ch in text[: text.index(word) + offset]:
+        if not unicodedata.combining(ch):
+            page.keyboard.press("ArrowRight")
 
 
-@pytest.mark.parametrize("word, offset", [("Hallo", 2), ("Grüße", 3), ("Übung2", 1)])
+# A word holds an apostrophe between two letters, and the marks that combine with a letter. A hyphen
+# ends it, and so does a quote at its edge.
+WORDS = [
+    ("Hallo", 2),
+    ("Grüße", 3),
+    ("Übung2", 1),
+    ("geht's", 5),
+    ("geht\u2019s", 2),
+    ("weiter", 3),
+    ("gut", 1),
+    ("u\u0308ber", 2),
+]
+
+
+@pytest.mark.parametrize("word, offset", WORDS)
 def test_ctrl_b_with_the_caret_in_a_word_sets_the_word(editor, word, offset):
-    page = editor(box("a", "text", {**TEXT, "text": "Hallo liebe Grüße, Übung2 folgt"}))
+    text = "Hallo liebe Grüße, Übung2 folgt: geht's geht\u2019s weiter-so 'gut' u\u0308ber"
+    page = editor(box("a", "text", {**TEXT, "text": text}))
     bold = page.locator(f"{FIELD} span[data-bold]")
     caret(page, word, offset)
     page.keyboard.press("Control+b")
@@ -529,18 +545,27 @@ def test_ctrl_b_between_two_spaces_leaves_the_words_alone(editor):
 
 def test_the_panel_sets_the_word_the_caret_is_in(editor):
     page = editor(box("a", "text", {**TEXT, "text": "Hallo du"}))
+    colour = page.get_by_label("Farbe", exact=True)
     caret(page, "Hallo", 2)
     page.locator(".panel button.italic").click()
     expect(page.locator(f"{FIELD} span[data-italic]")).to_have_text("Hallo")
     expect(page.locator(FIELD)).to_be_focused()
-    page.get_by_label("Farbe", exact=True).fill("#ff0000")
+    colour.fill("#ff0000")
     expect(page.locator(f"{FIELD} span[data-color]")).to_have_text("Hallo")
-    # The colour's input took the focus, so beside a word no next letter is coloured: the block is.
+    # The input shows the colour of the word the caret is in, and of the words picked.
+    expect(colour).to_have_value("#ff0000")
     at(page, "a").locator(".ProseMirror").click()
-    page.keyboard.press("End")
-    page.get_by_label("Farbe", exact=True).fill("#0000ff")
+    page.keyboard.press("Home")
+    page.keyboard.press("Shift+End")
+    expect(colour).to_have_value("#ff0000")
+    # The colour's input takes the focus, so beside a word no next letter is coloured: the block is,
+    # and the input shows the block's colour there.
+    page.keyboard.press("Home")
+    expect(colour).to_have_value("#222222")
+    colour.fill("#0000ff")
     expect(page.locator(f"{FIELD} span[data-color]")).to_have_count(0)
     expect(at(page, "a").locator(".frame")).to_have_css("color", "rgb(0, 0, 255)")
+    expect(colour).to_have_value("#0000ff")
 
 
 def test_a_bold_word_made_by_the_keys_is_saved(editor):
@@ -712,3 +737,85 @@ def test_ctrl_b_on_several_blocks_does_what_the_panels_button_does(editor, names
             expect(frame).to_have_css("font-weight", "400" if every else "700")
         expect(button).to_have_attribute("aria-pressed", str(not every).lower())
         page.keyboard.press("Control+z")
+
+
+def test_a_button_in_a_dialog_keeps_the_focus_in_it(editor):
+    page = editor(box("a", "text", TEXT), box("b", "text", TEXT, z=2))
+    pick(page, "a")
+    page.get_by_label("Feedback").click()
+    dialog = page.locator("dialog.feedback")
+    # With nothing to send the form stays open and says so.
+    dialog.get_by_text("Abschicken").click()
+    expect(dialog.get_by_role("status")).not_to_be_empty()
+    expect(dialog.get_by_text("Abschicken")).to_be_focused()
+    # The keys are the dialog's, not the sheet's behind it, wherever in it the focus is.
+    for _ in range(2):
+        page.keyboard.press("Delete")
+        page.keyboard.press("Tab")
+        assert page.locator(".block").count() == 2
+        assert picked(page) == ["a"]
+        # A press on its heading leaves no control of it with the focus.
+        dialog.locator("h1").click()
+    page.keyboard.press("Escape")
+    expect(dialog).to_have_count(0)
+
+
+def test_a_right_click_on_a_button_leaves_the_focus(editor):
+    page = editor(box("a", "text", TEXT))
+    title = page.get_by_label("Titel")
+    title.click()
+    page.get_by_label("Größer", exact=True).click(button="right")
+    expect(title).to_be_focused()
+
+
+def test_home_right_after_enter_puts_the_caret_before_the_text(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    for key in ("Home", "ArrowLeft"):
+        page.keyboard.press("Enter")
+        page.keyboard.press(key)
+        page.keyboard.type("x")
+        expect(page.locator(FIELD)).to_have_text("xHallo")
+        page.keyboard.press("Escape")
+        page.keyboard.press("Control+z")
+        expect(at(page, "a").locator(".frame")).to_have_text("Hallo")
+
+
+def test_enter_opens_nothing_with_a_locked_block_selected_too(editor):
+    client = user("a@example.com")
+    page = editor(
+        {**picture(upload(client)), "id": "bild", "z": 1, "locked": True},
+        box("a", "text", TEXT, z=2),
+        box("fest", "text", TEXT, z=3, locked=True),
+        client=client,
+    )
+    errors = []
+    page.on("pageerror", lambda error: errors.append(error))
+    for names in (["bild", "a"], ["fest"]):
+        unpick(page)
+        for name in names:
+            at(page, name).click(modifiers=["Shift"], force=True)
+        expect_picked(page, *names)
+        for key in ("Enter", "F2"):
+            page.keyboard.press(key)
+            assert page.locator(".ProseMirror").count() == 0
+            assert picked(page) == names
+    assert errors == []
+
+
+def test_ctrl_b_i_u_with_shift_or_alt_stay_the_browsers(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    # With Shift the browser names the capital letter.
+    keys = [
+        f"Control+{more}" for more in ("Shift+B", "Shift+I", "Shift+U", "Alt+b", "Alt+i", "Alt+u")
+    ]
+    assert not any(stopped(page, key) for key in keys)
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    assert not any(stopped(page, key) for key in keys)
+    expect(page.locator(f"{FIELD} span")).to_have_count(0)
+    page.keyboard.press("Escape")
+    for css, off in (("font-weight", "400"), ("font-style", "normal")):
+        expect(at(page, "a").locator(".frame")).to_have_css(css, off)
+    expect(at(page, "a").locator(".frame")).to_have_css("text-decoration-line", "none")
