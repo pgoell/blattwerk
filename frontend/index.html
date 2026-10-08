@@ -14,8 +14,8 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Blattwerk</title>
     <script>
-      // The theme chosen on the account page, set before the first paint; without one the device decides.
-      document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "";
+      // The theme chosen on the account page, set before the first paint; without one it is Blattform.
+      document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "leaf";
     </script>
   </head>
   <body>

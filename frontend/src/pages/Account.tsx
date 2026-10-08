@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { api, post, type User } from "../api";
 
-// The theme: the device's own, or the teacher's choice. index.html sets it before the first paint.
-const THEMES = [["", "System"], ["light", "Hell"], ["dark", "Dunkel"], ["leaf", "Blattform"]];
+// The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
+const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
 
 export default function Account({ user, onGone }: { user: User; onGone: () => void }) {
   const [sure, setSure] = useState(false);
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "");
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "leaf");
 
   function show(to: string) {
-    if (to) localStorage.setItem("theme", to);
-    else localStorage.removeItem("theme");
+    localStorage.setItem("theme", to);
     document.documentElement.dataset.theme = to;
     setTheme(to);
   }
@@ -24,7 +23,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       </div>
       <div className="card">
         <label>Darstellung</label>
-        <p className="hint">Hell, dunkel, so wie dein Gerät eingestellt ist, oder grün als Blattform. Das Blatt selbst bleibt immer weiß.</p>
+        <p className="hint">Grün als Blattform, so wie dein Gerät eingestellt ist, hell oder dunkel. Das Blatt selbst bleibt immer weiß.</p>
         <div className="seg">
           {THEMES.map(([to, label]) => (
             <button key={to} type="button" className={theme === to ? "on" : ""} aria-pressed={theme === to} onClick={() => show(to)}>
