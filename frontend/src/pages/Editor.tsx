@@ -1014,14 +1014,21 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       <ChevronLeft size={16} aria-hidden />
     </Link>
   );
+  // The buttons walk fixed steps of a quarter around the page's width, so the way back passes the same sizes, also
+  // from either end and after a pinch.
+  function zoomBy(by: number) {
+    const n = Math.log(zoom) / Math.log(1.25);
+    const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
+    setZoom(1.25 ** Math.min(6, Math.max(-6, to)));
+  }
   const zoomer = (
     <>
-      <Tool icon={ZoomOut} label="Kleiner" onClick={() => setZoom(Math.max(0.25, zoom / 1.25))} />
+      <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
       {/* The page's size on the screen against its size on paper. */}
       <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
         {Math.round((k * 2540) / 96)} %
       </button>
-      <Tool icon={ZoomIn} label="Größer" onClick={() => setZoom(Math.min(4, zoom * 1.25))} />
+      <Tool icon={ZoomIn} label="Größer" onClick={() => zoomBy(1)} />
     </>
   );
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
