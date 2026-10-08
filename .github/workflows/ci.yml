@@ -25,9 +25,16 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    # The Chromium step has hung before; a rerun is quicker than the wait.
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-mise
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
       - name: Chromium for the PDF test
         run: uv run playwright install --with-deps --only-shell chromium
       - name: Pytest

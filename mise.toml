@@ -32,6 +32,9 @@ run = "npm run dev --prefix frontend"
 
 [tasks.build]
 description = "Build the frontend into the package"
+# Skipped while the build is newer than its sources: a build under a running test would swap the files it serves.
+sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts"]
+outputs = ["src/blattwerk/static/index.html"]
 run = "npm run build --prefix frontend"
 
 # ─── Testing ────────────────────────────────────────────────────────────────
@@ -41,6 +44,21 @@ description = "Run tests"
 # The PDF test prints the built frontend.
 depends = ["build"]
 run = "uv run pytest"
+
+[tasks."test:one"]
+description = "Run the tests named after --, one worker, stop at the first failure"
+depends = ["build"]
+run = "uv run pytest -n 0 -x"
+
+[tasks."test:flaky"]
+description = "Run the tests named after -- 20 times side by side"
+depends = ["build"]
+run = "uv run pytest -n 8 --count 20 -x"
+
+[tasks.shot]
+description = "Print a sheet: the editor as PNG and the PDF as PNG, into the folder given"
+depends = ["build"]
+run = "uv run python scripts/shot.py"
 
 # ─── Lint & format ──────────────────────────────────────────────────────────
 

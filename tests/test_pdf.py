@@ -1,55 +1,13 @@
 import io
 import re
-import struct
-import zlib
 
 import httpx
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
+from ui import MATHS, block, picture, png, sheet, upload, user
 
-from blattwerk import auth, db, pdf
+from blattwerk import pdf
 from blattwerk.app import app
-
-PASSWORD = "richtig-geheim"
-MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
-RED = b"\xff\x00\x00"
-
-
-def user(email):
-    """A client logged in as a new user. https, or the Secure cookie is not sent back."""
-    client = TestClient(app, base_url="https://testserver")
-    body = {"token": auth.new_link(db.open_db()), "email": email, "password": PASSWORD}
-    assert client.post("/api/signup", json=body).status_code == 200
-    return client
-
-
-def chunk(kind, data):
-    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
-
-
-def png(colour=RED):
-    """A picture a browser can draw: three by two pixels of one colour."""
-    head = struct.pack(">IIBBBBB", 3, 2, 8, 2, 0, 0, 0)
-    rows = zlib.compress((b"\x00" + colour * 3) * 2)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", head) + chunk(b"IDAT", rows) + chunk(b"IEND", b"")
-
-
-def upload(client):
-    return client.post("/api/uploads", files={"file": ("bild", png(), "image/png")}).json()["id"]
-
-
-def block(kind, y, h, props):
-    box = {"id": kind, "x": 15, "y": y, "w": 180, "h": h, "z": 1, "locked": False}
-    return {**box, "type": kind, "props": props}
-
-
-def picture(upload_id):
-    return block("image", 150, 60, {"upload": upload_id, "ratio": 1.5, "cut": [0, 0, 0, 0]})
-
-
-def sheet(client, *pages):
-    doc = {"pages": [{"blocks": list(p)} for p in pages], "guides": {"x": [], "y": []}, "grid": 0}
-    return client.post("/api/sheets", json={"title": "Plus bis 20", "doc": doc}).json()
 
 
 def chromium(token):
@@ -58,7 +16,7 @@ def chromium(token):
 
 
 def test_token_opens_its_sheet_and_no_other():
-    client = user("a@example.com")
+    client = user()
     mine = sheet(client, [])
     other = sheet(client, [])
     token = pdf.new_token(mine["id"])
@@ -70,7 +28,7 @@ def test_token_opens_its_sheet_and_no_other():
 
 
 def test_bad_tokens_open_nothing(monkeypatch):
-    client = user("a@example.com")
+    client = user()
     first = sheet(client, [])["id"]
     other = sheet(client, [])["id"]
     url = f"/api/render/{first}"
@@ -102,7 +60,7 @@ def test_bad_tokens_open_nothing(monkeypatch):
 
 
 def test_old_token_opens_nothing(monkeypatch):
-    client = user("a@example.com")
+    client = user()
     shown = upload(client)
     mine = sheet(client, [picture(shown)])
     fresh = chromium(pdf.new_token(mine["id"]))
@@ -115,8 +73,8 @@ def test_old_token_opens_nothing(monkeypatch):
 
 
 def test_token_opens_the_pictures_on_its_sheet_and_no_other():
-    client = user("a@example.com")
-    stranger = user("b@example.com")
+    client = user()
+    stranger = user()
     shown, unused, foreign = upload(client), upload(client), upload(stranger)
     # A sheet can name someone else's picture; that does not make it the sheet's.
     mine = sheet(client, [], [picture(shown), picture(foreign)])
@@ -133,8 +91,8 @@ def test_token_opens_the_pictures_on_its_sheet_and_no_other():
 
 
 def test_pdf_of_someone_elses_sheet_is_missing():
-    client = user("a@example.com")
-    stranger = user("b@example.com")
+    client = user()
+    stranger = user()
     mine = sheet(client, [])
     assert stranger.get(f"/api/sheets/{mine['id']}/pdf").status_code == 404
     assert stranger.get(f"/api/sheets/{mine['id']}/pdf?solved=true").status_code == 404
@@ -147,7 +105,7 @@ def test_pdf_of_someone_elses_sheet_is_missing():
 
 
 def test_chromium_prints_the_sheet_and_its_answer_key(server):
-    client = user("a@example.com")
+    client = user()
     made = client.post("/api/maths", json=MATHS).json()
     maths = {**MATHS, **made, "format": "row", "columns": 3, "size": 14}
     text = {"text": "Rechne aus", "size": 24, "align": "center", "font": "grund"}
@@ -183,7 +141,7 @@ def test_chromium_prints_the_sheet_and_its_answer_key(server):
 
 
 def test_chromium_prints_old_plain_text_and_rich_text(server):
-    client = user("a@example.com")
+    client = user()
     # A text as sheets saved before hold it, and one with paragraphs of its own beside the words.
     old = {"text": "Alter Text\nzweite Zeile", "size": 14, "align": "left"}
     rich = [
@@ -218,7 +176,7 @@ def test_chromium_prints_old_plain_text_and_rich_text(server):
 
 
 def test_chromium_breaks_lines_where_the_font_says(server):
-    client = user("a@example.com")
+    client = user()
     # In a box 60 mm wide the last word is 2.6 % too wide for the third line. With each letter
     # rounded to whole pixels, as Chromium on Linux draws by itself, it fits: the screen and the
     # PDF then break at different words.
@@ -237,7 +195,7 @@ def test_chromium_breaks_lines_where_the_font_says(server):
 
 
 def test_chromium_prints_each_page_upright_or_on_its_side(server):
-    client = user("a@example.com")
+    client = user()
     # The sheet lies on its side; the second page has a format of its own.
     pages = [{"blocks": []}, {"blocks": [], "landscape": False}, {"blocks": []}]
     doc = {"pages": pages, "guides": {"x": [], "y": []}, "grid": 0, "landscape": True}
@@ -250,7 +208,7 @@ def test_chromium_prints_each_page_upright_or_on_its_side(server):
 
 
 def test_chromium_prints_a_table(server):
-    client = user("a@example.com")
+    client = user()
     cells = [["H", "Z", "E"], ["3", "", "7"], ["Hundert\nund eins", "", ""]]
     props = {"cells": cells, "cols": [1, 2, 1], "size": 14, "align": "center", "line": "#222222"}
     mine = sheet(client, [block("table", 15, 40, {**props, "head": True})])
