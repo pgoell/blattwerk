@@ -340,6 +340,8 @@ body:has(.print) { background: #fff; }
 .sheet { --sel: #16a878; }
 .sheet .moveable-control-box { --moveable-color: var(--sel); }
 .block { position: absolute; min-width: 8px; min-height: 8px; }
+/* While the format painter is on, the pointer says so all over the desk, also on Moveable's handles. */
+.editor.brush .desk, .editor.brush .desk * { cursor: copy !important; }
 /* A finger on a selected block moves it; on any other block it scrolls the desk. */
 .block.sel { touch-action: none; }
 .block > * { display: block; width: 100%; height: 100%; }
