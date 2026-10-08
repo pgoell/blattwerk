@@ -405,8 +405,9 @@ body:has(.print) { background: #fff; }
 /* Moveable's outline lies over a table's column lines and must not take their presses. */
 .sheet .moveable-line { pointer-events: none; }
 /* The handle that turns a block lies over the area a finger can hit the top edge's handle in: Moveable's handles
-   have z-index 10. */
-.sheet .moveable-rotation { z-index: 11; }
+   have z-index 10. Its stem takes no press, so the top edge's handle under it does. */
+.sheet .moveable-rotation { z-index: 11; pointer-events: none; }
+.sheet .moveable-rotation-control { pointer-events: auto; }
 .block textarea {
   min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; line-height: 1.3;
   resize: none; overflow: hidden; pointer-events: none;

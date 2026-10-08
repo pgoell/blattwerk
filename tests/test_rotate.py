@@ -139,6 +139,33 @@ def test_a_turned_block_resizes_from_its_corner(editor):
     assert now["y"] == pytest.approx(was["y"], abs=1.5)
 
 
+def test_an_edge_handle_on_a_turned_block_leaves_the_other_axis(editor):
+    client = user()
+    page = editor(box("a", "shape", RECT, x=75, y=80, w=60, h=30, angle=30), client=client)
+    pick(page, "a")
+    # The right edge's handle, pulled 40 px out along the block's own width.
+    x, y = centre(page.locator(".moveable-control.moveable-e"))
+    drag(page, (x, y), (x + 40 * math.cos(math.radians(30)), y + 40 * math.sin(math.radians(30))))
+    (a,) = saved(page, client)
+    assert a["h"] == 30
+    assert a["w"] > 65
+    assert a["angle"] == 30
+
+
+@pytest.mark.parametrize("degrees", [0, 90])
+def test_the_top_handle_resizes_under_the_rotate_stem(editor, degrees):
+    page = editor(box("a", "shape", RECT, x=75, y=80, w=60, h=20, angle=degrees))
+    pick(page, "a")
+    width, height = size(page, "a")
+    # The stem of the handle that turns runs from the exact centre of the top edge's handle.
+    x, y = centre(page.locator(".moveable-control.moveable-n"))
+    out = (30, 0) if degrees else (0, -30)
+    drag(page, (x, y), (x + out[0], y + out[1]))
+    assert size(page, "a")[0] == width
+    assert size(page, "a")[1] > height + 20
+    assert angle(page, "a") == degrees
+
+
 def test_a_group_with_a_turned_block_resizes(editor):
     page = editor(
         box("a", "shape", RECT, x=40, y=60, w=40, h=20, angle=30),
@@ -254,14 +281,20 @@ def test_a_locked_block_does_not_turn(editor):
         expect(button(page, label)).to_be_disabled()
 
 
-def test_a_group_turns_as_one(editor):
-    # Side by side, 40 mm from centre to centre.
+@pytest.mark.parametrize("group", [None, ["g"]])
+def test_a_group_turns_as_one(editor, group):
+    # Side by side, 40 mm from centre to centre: two loose blocks, or a group.
     page = editor(
-        box("a", "shape", RECT, x=60, y=80, w=30, h=20),
-        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20),
+        box("a", "shape", RECT, x=60, y=80, w=30, h=20, group=group),
+        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20, group=group),
     )
     k = page.locator(".sheet").bounding_box()["width"] / 210
-    pick(page, "a", "b")
+    if group:
+        # One click picks a whole group.
+        at(page, "a").click()
+        expect_picked(page, "a", "b")
+    else:
+        pick(page, "a", "b")
 
     def middle():
         """The centre of the box around both blocks."""
@@ -295,6 +328,9 @@ def test_a_copy_keeps_angle_and_flip(editor):
     pick(page, "bild")
     page.keyboard.press("Control+d")
     expect(page.locator(".block")).to_have_count(2)
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block")).to_have_count(3)
     for name in page.eval_on_selector_all(".block", "els => els.map((el) => el.dataset.id)"):
         assert angle(page, name) == 45
         assert mirror(page, name) == (-1, 1)

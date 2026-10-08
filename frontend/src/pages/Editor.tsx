@@ -781,10 +781,12 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
         events.map((e) => {
           const [dx, dy] = e.direction;
           const b = start.current.find((b) => b.id === idOf(e.target))!;
-          const [w, h] = [round(e.width / K), round(e.height / K)];
+          let [w, h] = [round(e.width / K), round(e.height / K)];
           // A turned block turns about its centre, and a new size moves that: the centre goes where the point
           // across from the handle, or with Ctrl the middle, stays in its place on the page.
           if (b.angle && events.length === 1) {
+            // A handle on an edge leaves the other axis as it began.
+            [w, h] = [dx || keep ? w : b.w, dy || keep ? h : b.h];
             const [c, s] = dir(b);
             const [lx, ly] = mod & CENTRE ? [0, 0] : [(dx * (w - b.w)) / 2, (dy * (h - b.h)) / 2];
             return [b.id, { x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
