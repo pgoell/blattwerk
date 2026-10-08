@@ -701,7 +701,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     setIds(wide.map((b) => b.id));
   }
   // To the front or the back, as in PowerPoint: a part of a group moves within that group, a whole group as one thing.
-  function raise(front: boolean) {
+  // With `one` a single step instead: over the next thing that does not move, a block or a whole group.
+  function raise(front: boolean, one = false) {
     const whole = (g: string) => blocks.every((b) => !b.group?.includes(g) || ids.includes(b.id));
     // What a block moves in: its innermost group that is not picked whole, or the page.
     const level = (b: Block) => b.group?.filter((g) => !whole(g)).at(-1);
@@ -712,7 +713,22 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       const part = stack.filter((b) => !g || b.group?.includes(g));
       const moved = part.filter((b) => sel.includes(b) && level(b) === g);
       const rest = part.filter((b) => !moved.includes(b));
-      const next = front ? [...rest, ...moved] : [...moved, ...rest];
+      let next = front ? [...rest, ...moved] : [...moved, ...rest];
+      if (one) {
+        // What steps as one thing in this level: a block, or a group right inside it.
+        const top = (b: Block) => b.group?.[g ? b.group.indexOf(g) + 1 : 0] ?? b.id;
+        const units: Block[][] = [];
+        for (const b of part) {
+          if (units.length && top(units.at(-1)![0]) === top(b)) units.at(-1)!.push(b);
+          else units.push([b]);
+        }
+        // From the end they step towards, so several keep their order. Backward is forward on the stack turned over.
+        if (!front) units.reverse();
+        for (let i = units.length - 2; i >= 0; i--) {
+          if (moved.includes(units[i][0]) && !moved.includes(units[i + 1][0])) [units[i], units[i + 1]] = [units[i + 1], units[i]];
+        }
+        next = (front ? units : units.reverse()).flat();
+      }
       stack = stack.map((b) => (part.includes(b) ? next.shift()! : b));
     }
     // What already lies there leaves nothing to undo.
@@ -1724,6 +1740,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
               <div className="acts">
                 <button onClick={() => raise(true)}>Nach vorn</button>
                 <button onClick={() => raise(false)}>Nach hinten</button>
+              </div>
+              <div className="acts">
+                <button onClick={() => raise(true, true)}>Eine nach vorn</button>
+                <button onClick={() => raise(false, true)}>Eine nach hinten</button>
               </div>
             </>
           )}
