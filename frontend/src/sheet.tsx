@@ -5,7 +5,8 @@ import type { CSSProperties, ReactNode } from "react";
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
 // centre, in degrees clockwise from 0 up to 360. `flipX` and `flipY` mirror a picture or a symbol in its box.
 export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string; group?: string[]; angle?: number; flipX?: boolean; flipY?: boolean };
-export type Kind = "rect" | "rounded" | "circle" | "line" | "arrow";
+// "double" is an arrow with a head at both ends.
+export type Kind = "rect" | "rounded" | "circle" | "triangle" | "star" | "bubble" | "line" | "arrow" | "double";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
@@ -19,10 +20,11 @@ export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: 
 export type Para = { runs: Run[]; list?: List; level?: number };
 // Sheets saved before text had these settings lack them: a text is then Andika, black, with lines 1.3 apart.
 // A text has what a shape has, as a PowerPoint text box does: a fill and a border ("none" or absent for neither,
-// the border 0.5 mm wide unless set), dashes, and round corners with `kind`.
+// the border 0.5 mm wide unless set), dashes, and round corners with `kind`. `opacity` is how solid the fill is,
+// from 0 (unseen) to 1 or absent (solid); the border and the text are always solid.
 // `rich` holds the text's paragraphs once a part of it has a look of its own, or it has a list. `text` always holds
 // the same words plain, and is all that a sheet saved before has.
-export type TextProps = { text: string; rich?: Para[]; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -128,7 +130,7 @@ export const last = { save: Promise.resolve() as Promise<unknown> };
 
 // Templates saved before sheets had pages hold one page's blocks.
 export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({ pages: pages ?? [{ blocks: blocks! }], guides, grid, landscape });
-export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow");
+export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
 // The text and the frame of a text, or of a shape that is no line.
