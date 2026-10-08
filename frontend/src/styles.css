@@ -531,9 +531,9 @@ body:has(.print) { background: #fff; }
 /* A divider is its group's heading here. */
 .insert .sep { width: auto; height: auto; margin: 14px 0 4px; background: none; font: 600 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
 .insert .sep::before { content: attr(data-name); }
-/* The shapes stand in one row, without their names. */
+/* The shapes stand in rows, without their names. */
 .shapes { display: contents; }
-.insert .shapes { display: flex; gap: 6px; }
+.insert .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
 .insert .shapes .ib { padding: 0; }
 .insert .shapes .ib::after { content: none; }
 .leaf .dock { left: 16px; translate: none; }

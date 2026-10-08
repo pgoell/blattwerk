@@ -57,12 +57,15 @@ export const bounds = (bs: Box[]) => {
 export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
   part ? !!part.marks[name] : sel.every((b) => !boxed(b) || boxed(b)![name]);
 
+// Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
+export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
+
 export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, spin, mirror, lock, setLock, size: [W, H] }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
-  // symbol or a shape can flip.
+  // symbol, a shape or a text in an outline can flip.
   const fixed = sel.some((b) => b.locked);
   const level = fixed || sel.some((b) => b.type === "table" || isLine(b));
-  const plain = fixed || !sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "shape");
+  const plain = fixed || !sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.

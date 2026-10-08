@@ -267,3 +267,53 @@ def test_the_pdf_prints_a_turned_and_a_flipped_block(server):
     # The picture as it is has its blue half on the left. The flipped one has it on the right.
     assert has(23, 175, blue) and has(67, 175, green)
     assert has(23, 135, green) and has(67, 135, blue)
+
+
+def test_pdf_prints_the_new_shapes_and_a_clear_fill(server):
+    client = user()
+    line = {"fill": "none", "stroke": "#222222", "strokeWidth": 1}
+
+    def shape(kind, y, h, **props):
+        return {**block("shape", y, h, {**line, "kind": kind, **props}), "id": kind, "w": 60}
+
+    under = {"text": "Darunter", "size": 14, "align": "left"}
+    mine = sheet(
+        client,
+        [
+            shape("triangle", 20, 40, text="Dreieck"),
+            shape("star", 70, 40, text="Stern"),
+            shape("bubble", 120, 40, text="Blase"),
+            # Level, so its heads lie along the page.
+            shape("double", 170, 0),
+            block("text", 200, 20, under),
+            {**shape("rect", 200, 20, fill="#ff0000", opacity=0.5, stroke="none"), "z": 2},
+        ],
+    )
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    text = PdfReader(io.BytesIO(res.content)).pages[0].extract_text().split()
+    assert text == ["Dreieck", "Stern", "Blase", "Darunter"]
+    scale = 4
+    bitmap = pypdfium2.PdfDocument(res.content)[0].render(scale=scale, rev_byteorder=True)
+
+    def has(x, y, colour):
+        """Whether the page has the colour so many mm from its left and its top."""
+        col, row = (int(mm * scale * 72 / 25.4) for mm in (x, y))
+        start = row * bitmap.stride + col * bitmap.n_channels
+        seen = bytes(bitmap.buffer[start : start + 3])
+        return all(abs(a - b) < 60 for a, b in zip(seen, colour, strict=True))
+
+    dark, white = b"\x22\x22\x22", b"\xff\xff\xff"
+    # The triangle's left side runs from its box's lower left corner to the tip at the top's
+    # middle: half way up it is a quarter of the width in. A box's border would stand at the left.
+    assert has(30.25, 40, dark)
+    assert has(15.5, 40, white)
+    # The star's tip is at the top's middle, and the corner beside it is empty.
+    assert has(45, 71.5, dark) and has(17, 72, white)
+    # The bubble's box ends a quarter above the block's lower edge, where only the tail's tip is.
+    assert has(15.5, 135, dark) and has(27.7, 158.5, dark) and has(60, 158, white)
+    # A head at each end of the arrow: wider there than the line.
+    assert has(19, 171.5, dark) and has(71, 171.5, dark) and has(45, 171.5, white)
+    # The fill lets the white page through: pink, neither red nor white.
+    assert has(60, 215, b"\xff\x80\x80")
