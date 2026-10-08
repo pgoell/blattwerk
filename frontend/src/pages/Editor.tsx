@@ -1133,6 +1133,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   return (
     <main
       className={`editor${leaf ? " leaf" : ""}`}
+      data-ready="1"
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");

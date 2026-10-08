@@ -42,6 +42,21 @@ description = "Run tests"
 depends = ["build"]
 run = "uv run pytest"
 
+[tasks."test:one"]
+description = "Run the tests named after --, one worker, stop at the first failure"
+depends = ["build"]
+run = "uv run pytest -n 0 -x"
+
+[tasks."test:flaky"]
+description = "Run the tests named after -- 20 times side by side"
+depends = ["build"]
+run = "uv run pytest -n 8 --count 20 -x"
+
+[tasks.shot]
+description = "Print a sheet: the editor as PNG and the PDF as PNG, into the folder given"
+depends = ["build"]
+run = "uv run python scripts/shot.py"
+
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
