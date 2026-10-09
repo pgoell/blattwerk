@@ -1690,16 +1690,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     // Tap and hold on a block starts selecting several.
     // A finger held on the text being edited picks a word of it.
-    const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+    const el = e.target as Element;
+    const { clientX: x, clientY: y } = e.touches[0];
+    // Moveable's box lies over a selection of several, so the block is looked up under it. Beside a block there the
+    // hold selects no more.
+    const over = el.matches(".moveable-area");
+    const on = over ? document.elementsFromPoint(x, y).find((o) => o.matches(".block")) : el.closest(".block");
+    const id = on?.getAttribute("data-id");
     // A drag asks for it too, and that may begin on Moveable's box over the selection.
-    came.current = [e.touches[0].clientX, e.touches[0].clientY];
-    if (!id || id === editing) return;
-    const to = pageOf(e.target as Element);
+    came.current = [x, y];
+    if (!(id || over) || id === editing) return;
+    const to = pageOf(on ?? el);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
       setAt(to);
-      setIds((now) => (to !== page ? grouped([id], pages[to].blocks) : [...new Set([...now, ...unit(id)])]));
+      if (id) setIds((now) => (to !== page ? grouped([id], pages[to].blocks) : [...new Set([...now, ...unit(id)])]));
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
@@ -2096,6 +2102,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           onPointerDown={(e) => {
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
+            // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
+            held.current = false;
           }}
           onMouseDown={(e) => {
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
@@ -2127,7 +2135,6 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             clearTimeout(hold.current);
             // Lifting the finger after a hold is not a tap.
             if (held.current) e.preventDefault();
-            held.current = false;
           }}
           // The browser took the touch for its own, a scroll: no finger holds, and the next lift is a tap again.
           onTouchCancel={() => {
@@ -2280,11 +2287,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     elementGuidelines={rest}
                     verticalGuidelines={pageXs.map((mm) => mm * k)}
                     horizontalGuidelines={pageYs.map((mm) => mm * k)}
-                    // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
-                    onClick={(e) => touch.current && pick(e.inputTarget, false)}
+                    // Moveable swallows a tap on what is selected, and a group's box covers its blocks. To Moveable the
+                    // lift of a finger that held still is a tap too, on one block and on several: it is none.
+                    onClick={(e) => touch.current && !held.current && pick(e.inputTarget, false)}
                     // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
                     // on the group where the point the mouse reports lies beside what was pressed.
-                    onClickGroup={(e) => cover.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    onClickGroup={(e) => cover.current && !held.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
                     onDragStart={(e) => begin([e.target])}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
