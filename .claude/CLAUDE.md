@@ -36,4 +36,5 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 
 - Conventional Commits (`feat:`, `fix:`, `chore:` ...). The `commit-msg` hook rejects anything else.
 - Default branch is `master`. With branch protection applied (`mise run repo:apply-settings`), changes land through PRs that pass Lint, Test and Commits.
+- A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start or stop docker containers, or write under `~/.local/share/blattwerk/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.
 - This project was generated from `gh:pgoell/project-template`. Update with `uvx copier update`.
