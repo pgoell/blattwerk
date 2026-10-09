@@ -755,11 +755,22 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (sel.length) remove();
   }
   function paste() {
-    const clip: Block[] = JSON.parse(localStorage.getItem("clip") ?? "[]");
-    if (clip.length) put(clip);
+    // The store is open to an older build and to anyone: only whole blocks reach the sheet.
+    let clip: Block[] = [];
+    try {
+      clip = JSON.parse(localStorage.getItem("clip") ?? "[]");
+    } catch {
+      return;
+    }
+    const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
+    if (Array.isArray(clip) && clip.length && clip.every(whole)) put(clip);
   }
+  // A second press while the system's clipboard is still being read would paste onto the same spot.
+  const reading = useRef(false);
   // The button has no paste of the browser's to go by, so it asks the system's clipboard for a picture itself.
   async function pasteAny() {
+    if (reading.current) return;
+    reading.current = true;
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
@@ -767,6 +778,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       }
     } catch {
       // No leave to read, or a browser that cannot: the copied blocks are still there.
+    } finally {
+      reading.current = false;
     }
     paste();
   }

@@ -416,3 +416,32 @@ def test_a_copy_pastes_in_another_tab_already_open(editor):
     expect(blocks(tab)).to_have_count(1)
     [pasted] = saved(tab, client)
     assert (pasted["type"], pasted["props"]) == ("shape", RECT)
+
+
+@pytest.mark.parametrize(
+    "junk", ["[{}]", '"abc"', '[{"id":"q","type":"text"}]', "null", "x{", "[null]"]
+)
+def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
+    """A stored clip of another build, or of none, harms neither the editor nor the sheet."""
+    page = editor(box("a", "shape", RECT, w=40))
+    unpick(page)
+    page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
+    page.keyboard.press("Control+v")
+    # The next copy heals it.
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+
+
+def test_two_presses_at_once_on_einfuegen_stack_no_copies(editor):
+    """I2: a press while the first still reads the clipboard pastes nothing more."""
+    client = user()
+    page = editor(box("a", "shape", RECT, w=40), client=client)
+    pick(page, "a")
+    button(page, "Kopieren").click()
+    button(page, "Einfügen").evaluate("(el) => (el.click(), el.click())")
+    expect(blocks(page)).to_have_count(2)
+    button(page, "Einfügen").click()
+    expect(blocks(page)).to_have_count(3)
+    assert places(saved(page, client)) == [(15, 50), (20, 55), (25, 60)]
