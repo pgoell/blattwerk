@@ -212,8 +212,11 @@ export default function Editor({ user }: { user: User }) {
   return <Canvas key={`${file.id}.${file.version}`} file={file} user={user} reload={load} />;
 }
 
+type Step = { doc: Doc; from: number; to: number };
+
 function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
-  const [hist, setHist] = useState<{ past: Doc[]; doc: Doc; future: Doc[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  // A step of undo holds the sheet on its far side, and the page in use before and after its change.
+  const [hist, setHist] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
   const [title, setTitle] = useState(file.title);
   // What the server holds, and how often a save has failed since.
   const [stored, setStored] = useState({ doc: hist.doc, title });
@@ -696,14 +699,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   });
 
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
-  function update(fn: (doc: Doc) => Doc, key = "") {
+  // `to` is the page in use after the change. The one before is read as last drawn: a block from the server
+  // comes after the drawing that asked for it.
+  function update(fn: (doc: Doc) => Doc, key = "", to = page) {
     const merge = key !== "" && key === mergeKey.current;
     mergeKey.current = key;
-    setHist((h) => ({ past: merge ? h.past : [...h.past, h.doc], doc: fn(h.doc), future: [] }));
+    const from = latest.current.page;
+    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc: fn(h.doc), future: [] }));
   }
   // Changes one page, the one in use unless `n` names another.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
-    update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key);
+    update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key, n);
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
@@ -790,19 +796,32 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       "length",
     );
   }
-  function undo() {
+  // Undo and redo show the page of their step, as PowerPoint does: page `n` is in use, and the desk scrolls to it.
+  // On another page than before nothing is selected, and a crop ends with the picture as it was.
+  function show(n: number, step: (h: typeof hist) => typeof hist) {
     mergeKey.current = "";
-    setHist((h) => (h.past.length ? { past: h.past.slice(0, -1), doc: h.past.at(-1)!, future: [h.doc, ...h.future] } : h));
+    flushSync(() => {
+      setHist(step);
+      setAt(n);
+      if (n === page) return;
+      setIds([]);
+      setDraft(undefined);
+    });
+    if (n !== page) sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  function undo() {
+    const last = hist.past.at(-1);
+    if (last) show(last.from, (h) => ({ past: h.past.slice(0, -1), doc: last.doc, future: [{ ...last, doc: h.doc }, ...h.future] }));
   }
   function redo() {
-    mergeKey.current = "";
-    setHist((h) => (h.future.length ? { past: [...h.past, h.doc], doc: h.future[0], future: h.future.slice(1) } : h));
+    const next = hist.future[0];
+    if (next) show(next.to, (h) => ({ past: [...h.past, { ...next, doc: h.doc }], doc: next.doc, future: h.future.slice(1) }));
   }
 
   // The new page comes after the one in use and takes its place.
   function addPage(n = page) {
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: [] }, ...doc.pages.slice(n + 1)] }));
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: [] }, ...doc.pages.slice(n + 1)] }), "", n + 1);
       setAt(n + 1);
       setIds([]);
     });
@@ -830,7 +849,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     });
   }
   function removePage(n = page) {
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }));
+    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", Math.min(page, pages.length - 2));
     setIds([]);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
@@ -841,7 +860,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       update((doc) => {
         const rest = doc.pages.filter((_, i) => i !== from);
         return { ...doc, pages: [...rest.slice(0, to), doc.pages[from], ...rest.slice(to)] };
-      });
+      }, "", to);
       setAt(to);
       setIds([]);
     });
@@ -852,7 +871,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   function copyPage(n = page) {
     done();
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: doc.pages.flatMap((p, i) => (i === n ? [p, { ...p, blocks: cloned(p.blocks, p.blocks) }] : [p])) }));
+      update((doc) => ({ ...doc, pages: doc.pages.flatMap((p, i) => (i === n ? [p, { ...p, blocks: cloned(p.blocks, p.blocks) }] : [p])) }), "", n + 1);
       setAt(n + 1);
       setIds([]);
     });
@@ -902,11 +921,26 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
 
   // The page an element lies on; beside the pages, the one in use.
   const pageOf = (el: Element) => +(el.closest<HTMLElement>(".sheet")?.dataset.page ?? page);
-  // How far down the page in use, in mm, a point of the desk's view lies.
-  const seen = (down: number) => (desk.current!.getBoundingClientRect().top + down - sheet.current!.getBoundingClientRect().top) / k;
+  // How far down the page in use, or page `n`, in mm, a point of the desk's view lies.
+  const seen = (down: number, n?: number) => {
+    const on = n === undefined ? sheet.current! : desk.current!.querySelector(`[data-page="${n}"]`)!;
+    return (desk.current!.getBoundingClientRect().top + down - on.getBoundingClientRect().top) / k;
+  };
 
+  // Notes page `was` for what the server sends later, and gives a way to look it up then. The pages may have changed
+  // by that time: the page is found where it is now; one changed since is known by a block it still holds, or keeps
+  // its number while the pages are as many as before. For a page that is gone, the page in use stands in.
+  function mark(was = page) {
+    const [on, count] = [pages[was], pages.length];
+    return () => {
+      const { doc, page } = latest.current;
+      const same = doc.pages.indexOf(on);
+      const found = same >= 0 ? same : doc.pages.findIndex((p) => p.blocks.some((b) => on.blocks.some((o) => o.id === b.id)));
+      return found >= 0 ? found : doc.pages.length === count ? was : page;
+    };
+  }
   // Moves new blocks as one onto the page, then in steps clear of a block already at that spot.
-  function land<T extends Box>(boxes: T[]) {
+  function land<T extends Box>(boxes: T[], blocks = pages[page].blocks, [W, H] = sizes[page]) {
     const [x, right] = span(boxes, "x");
     const [y, bottom] = span(boxes, "y");
     const [maxX, maxY] = [Math.max(0, W - right + x), Math.max(0, H - bottom + y)];
@@ -919,11 +953,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
   }
-  function add(w: number, h: number, rest: Fresh) {
+  // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
+  function add(w: number, h: number, rest: Fresh, n = page) {
+    const { doc } = latest.current;
+    const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
-    const y = round(Math.max(0, seen(0))) + MARGIN;
-    const [block] = land([{ id, x: (W - w) / 2, y, w, h, z: top + 1, locked: false, ...rest }]);
-    change((bs) => [...bs, block]);
+    const y = round(Math.max(0, seen(0, n))) + MARGIN;
+    const z = Math.max(0, ...held.map((b) => b.z)) + 1;
+    const [block] = land([{ id, x: (size[0] - w) / 2, y, w, h, z, locked: false, ...rest }], held, size);
+    turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
+    setAt(n);
     setIds([id]);
     if (rest.type === "text") setEditing(id);
   }
@@ -938,9 +977,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const refuse = () => alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
   async function upload(file?: File) {
     if (!file) return;
+    const where = mark();
     try {
       const { w, h, ...rest } = await sent(file);
-      add(w, h, rest);
+      add(w, h, rest, where());
     } catch {
       refuse();
     }
@@ -954,19 +994,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const away = rects.map((r) => Math.hypot(Math.max(r.left - left, 0, left - r.right), Math.max(r.top - top, 0, top - r.bottom)));
     const was = away.indexOf(Math.min(...away));
     const [x, y] = [(left - rects[was].left) / k, (top - rects[was].top) / k];
-    const [on, count] = [pages[was], pages.length];
+    const where = mark(was);
     const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
     if (made.length) {
-      // The pages may have changed while the pictures were on their way. The page dropped on is looked up where it
-      // is now; one changed since is known by a block it still holds, or keeps its number while the pages are as
-      // many as before. A page that is gone leaves the drop to the page in use.
-      const { doc, page } = latest.current;
-      const same = doc.pages.indexOf(on);
-      const found = same >= 0 ? same : doc.pages.findIndex((p) => p.blocks.some((b) => on.blocks.some((o) => o.id === b.id)));
-      const n = found >= 0 ? found : doc.pages.length === count ? was : page;
+      // The pages may have changed while the pictures were on their way.
+      const n = where();
       // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
-      const [w, h] = sizeOf(doc, n);
+      const [w, h] = sizeOf(latest.current.doc, n);
       const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
       const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
       // All of them are one undo step, on top of what the page holds by then.
@@ -993,9 +1028,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
     const limits = { ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as Range[], b: [[0, 9], [0, 9]] as Range[], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed: newSeed() };
+    const where = mark();
     try {
       const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
-      add(180, mathsHeight(props), { type: "maths", props });
+      add(180, mathsHeight(props), { type: "maths", props }, where());
     } catch {
       alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
     }
