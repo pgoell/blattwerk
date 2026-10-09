@@ -5,7 +5,16 @@ from uuid import uuid4
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import all_of, blocks, button, every, expect_picture, ready, stored
+from test_clipboard import (
+    all_of,
+    blocks,
+    button,
+    every,
+    expect_picture,
+    no_picture,
+    ready,
+    stored,
+)
 from ui import PASSWORD, RECT, TEXT, at, box, copy_picture, expect_picked, pick, saved, sheet, user
 
 from blattwerk import db
@@ -50,9 +59,13 @@ def login(page, who, on, count):
     if isinstance(who, str):
         page.fill("#email", who)
         page.fill("#password", PASSWORD)
-        button(page, "Anmelden").click()
-        # Chromium keeps the Secure cookie of 127.0.0.1 though the server speaks http.
+        with page.expect_response("**/api/login") as answer:
+            button(page, "Anmelden").click()
         expect(page.locator("#email")).to_have_count(0)
+        # The session cookie is Secure and this server speaks http: Chromium keeps it for
+        # 127.0.0.1 all the same, WebKit does not, so it goes by hand.
+        value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
+        page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
     else:
         cookie = {"name": "session", "value": who.cookies["session"], "url": origin(page)}
         page.context.add_cookies([cookie])
@@ -289,6 +302,7 @@ def test_logout_in_one_tab_empties_the_clipboard_of_an_editor_open_in_another(ed
     expect(blocks(tab)).to_have_count(1)
 
 
+@no_picture
 @pytest.mark.parametrize("by", ["keys", "button"])
 def test_the_next_account_pastes_a_picture_from_another_app(editor, by):
     """I6"""

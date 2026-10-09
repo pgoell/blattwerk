@@ -152,6 +152,7 @@ def test_kopieren_keeps_the_block_and_einfuegen_on_a_block_adds_a_copy(editor):
     expect(at(page, "b")).not_to_have_class("block sel")
 
 
+@pytest.mark.webkit_xfail(204, "headless WebKit on Linux keeps no picture on the clipboard")
 def test_einfuegen_pastes_a_picture_from_another_app(editor):
     """A4"""
     page = editor(*texts("a"))

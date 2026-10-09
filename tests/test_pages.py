@@ -7,6 +7,7 @@ from playwright.sync_api import expect
 from test_clipboard import button, every
 from test_drop import PNG, spot
 from ui import (
+    BROWSER,
     FIELD,
     RECT,
     TEXT,
@@ -202,17 +203,22 @@ def test_a_second_finger_beside_the_panel_calls_the_hold_on_a_thumbnail_off(edit
     """I5"""
     page = three(editor, touch=True)
     (x, y), other = centre(thumb(page, 0)), centre(page.locator('.sheet[data-page="0"]'))
-    with finger(page, (x, y)):
+    with finger(page, (x, y)) as touch:
         # The panel hears of a finger on the sheet with the first finger's next move.
-        thumb(page, 0).evaluate(
-            """(el, [x, y, ox, oy]) => {
-                const at = (identifier, clientX, clientY) =>
-                    new Touch({ identifier, target: el, clientX, clientY });
-                const touches = [at(0, x + 3, y), at(1, ox, oy)];
-                el.dispatchEvent(new TouchEvent("touchmove", { touches, bubbles: true }));
-            }""",
-            [x, y, *other],
-        )
+        if BROWSER == "webkit":
+            # WebKit keeps no move back, so the fingers themselves come down and move.
+            touch("touchStart", (x, y), other)
+            touch("touchMove", (x + 3, y), other)
+        else:
+            thumb(page, 0).evaluate(
+                """(el, [x, y, ox, oy]) => {
+                    const at = (identifier, clientX, clientY) =>
+                        new Touch({ identifier, target: el, clientX, clientY });
+                    const touches = [at(0, x + 3, y), at(1, ox, oy)];
+                    el.dispatchEvent(new TouchEvent("touchmove", { touches, bubbles: true }));
+                }""",
+                [x, y, *other],
+            )
         outlast(page)
         expect_no_drag(page)
     expect_order(page, "abc")
@@ -240,6 +246,7 @@ def test_a_short_swipe_over_the_thumbnails_moves_no_page(editor):
     expect_order(page, "abc")
 
 
+@pytest.mark.webkit_xfail(205, "no browser scrolls for the touch events a page dispatches")
 def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor):
     """A2"""
     names = "abcdefghijklmn"
@@ -673,10 +680,17 @@ SOURCES = {
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
     "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
 }
+# The sources that paste a picture another app copied, which WebKit's clipboard does not hold.
+PASTES = ("ctrl v", "einfügen")
+NO_PICTURE = pytest.mark.webkit_xfail(
+    204, "headless WebKit on Linux keeps no picture on the clipboard"
+)
 
 
 @pytest.mark.parametrize("how", CHANGES)
-@pytest.mark.parametrize("source", SOURCES)
+@pytest.mark.parametrize(
+    "source", [pytest.param(s, marks=NO_PICTURE if s in PASTES else ()) for s in SOURCES]
+)
 def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source, how):
     """#156: it lands on the page in use when it was asked for, wherever that page is by then."""
     page = three(editor)

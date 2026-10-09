@@ -305,10 +305,11 @@ def swipe(page, *points):
             touch("touchMove", point)
 
 
-# What Safari on an iPad sends for a touch: the pointer event, then the touch event, and no mouse
-# event. A finger keeps the element it came down on, wherever it moves, so the page remembers it.
+# What Safari on an iPad sends for a touch: the pointer event, then the touch event, and the mouse's
+# events only after a tap. A finger keeps the element it came down on, wherever it moves, so the
+# page remembers it.
 TOUCH = """([kind, points]) => {
-    const held = (window.fingers ??= { on: [], at: [] });
+    const held = (window.fingers ??= { on: [], at: [], tap: true });
     const known = held.on.length;
     points.forEach(([x, y], i) => (held.on[i] ??= document.elementFromPoint(x, y)));
     if (points.length) held.at = points;
@@ -322,6 +323,11 @@ TOUCH = """([kind, points]) => {
     const changed = kind === "touchStart" ? all.slice(known) : all;
     if (!changed.length) return;
     if (over) window.fingers = undefined;
+    // A lift is a tap when one finger stayed within 10 px of where it came down, and the page
+    // kept neither the touch's start nor its end from the browser.
+    const [fx, fy] = (held.from ??= held.at[0]);
+    const far = Math.hypot(held.at[0][0] - fx, held.at[0][1] - fy) > 10;
+    held.tap &&= all.length === 1 && !far;
     const pointer = {
         touchStart: "pointerdown",
         touchMove: "pointermove",
@@ -342,7 +348,16 @@ TOUCH = """([kind, points]) => {
         bubbles: true,
         cancelable: true,
     };
-    on.dispatchEvent(new TouchEvent(kind.toLowerCase(), init));
+    const kept = on.dispatchEvent(new TouchEvent(kind.toLowerCase(), init));
+    if (kind !== "touchMove") held.tap &&= kept;
+    if (kind !== "touchEnd" || !held.tap) return;
+    // A tap: Safari then sends the mouse's events too, where the finger came down.
+    const [clientX, clientY] = held.from;
+    for (const type of ["mousemove", "mousedown", "mouseup", "click"]) {
+        const press = { buttons: +(type === "mousedown"), detail: +(type !== "mousemove") };
+        const mouse = { clientX, clientY, view: window, bubbles: true, cancelable: true, ...press };
+        held.on[0].dispatchEvent(new MouseEvent(type, mouse));
+    }
 }"""
 
 

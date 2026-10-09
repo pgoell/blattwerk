@@ -320,7 +320,8 @@ def test_a_drop_over_every_block_type_lands_on_top(editor, n):
     page = editor(*under, client=client)
     before = stored(page, client)
     at(page, under[n]["id"]).scroll_into_view_if_needed()
-    point = centre(at(page, under[n]["id"]))
+    # A drag event tells the page whole pixels only.
+    point = tuple(int(c) for c in centre(at(page, under[n]["id"])))
     drop(page, *point, PNG)
     # In the middle of the block, not stepped aside as a paste on a taken spot is.
     assert centre(landed(page, 12)) == pytest.approx(point, abs=1)

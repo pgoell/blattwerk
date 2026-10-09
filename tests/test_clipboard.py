@@ -39,6 +39,8 @@ PASTE_BMP = """() => {
 }"""
 # A browser that gives the page no leave to write the system clipboard.
 REFUSE = "() => { navigator.clipboard.writeText = () => Promise.reject(new Error()); }"
+# WebKit on Linux takes a picture written to the system clipboard and gives none back.
+no_picture = pytest.mark.webkit_xfail(204, "no test can put a picture on WebKit's clipboard")
 
 
 def button(page, name):
@@ -215,6 +217,7 @@ def expect_picture(page, client, count):
     assert served.content.startswith(png()[:8])
 
 
+@no_picture
 def test_a_picture_from_another_app_pastes_as_a_picture_block(editor):
     """A6"""
     client = user()
@@ -224,6 +227,7 @@ def test_a_picture_from_another_app_pastes_as_a_picture_block(editor):
     expect_picture(page, client, 2)
 
 
+@no_picture
 def test_the_button_einfuegen_pastes_a_picture_by_touch(editor):
     """A7"""
     client = user()
@@ -266,6 +270,7 @@ def test_in_a_field_the_keys_work_on_the_words_alone(editor, kind):
     assert shapes(saved(page, client))[-1]["props"] == RECT
 
 
+@no_picture
 @pytest.mark.parametrize("kind", ["text", "table", "ruling"])
 def test_a_picture_pasted_while_typing_lands_on_the_sheet(editor, kind):
     """The field has no place for a picture; its words stay as typed."""
@@ -362,6 +367,7 @@ def test_a_copy_the_browser_lets_no_one_write_still_wins_over_an_older_picture(e
     assert [b["type"] for b in saved(page, client)] == ["shape"] * count
 
 
+@no_picture
 def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):
     """I3"""
     client = user()
@@ -437,6 +443,7 @@ def test_a_cut_keeps_the_order_and_the_group_and_the_paste_is_selected(editor):
     expect_picked(page, table["id"], line["id"])
 
 
+@no_picture
 def test_a_pasted_picture_is_selected_and_one_undo_takes_it_away(editor):
     """I7"""
     client = user()

@@ -178,7 +178,8 @@ def test_the_slider_makes_a_fill_see_through(editor):
     client = user()
     page = editor(
         box("a", "shape", {**RED, "text": "Hallo"}, **ROOM),
-        box("b", "text", {**TEXT, "fill": "#00ff00", "stroke": "#222222"}, z=2),
+        # Below "a": a text that ends on its middle line takes the click there in WebKit.
+        box("b", "text", {**TEXT, "fill": "#00ff00", "stroke": "#222222"}, z=2, y=140),
         box("c", "shape", {**RED, "kind": "star"}, z=3, x=20, y=200, w=40, h=40),
         client=client,
     )
@@ -301,7 +302,11 @@ def test_a_finger_inserts_a_shape_and_moves_the_slider(editor, size):
     insert(page, "Stern").tap()
     expect(page.locator(".block")).to_have_count(2)
     expect(page.locator(f".block.sel {OUTLINE}")).to_have_count(1)
-    at(page, "a").tap()
+    # Low on the block: on the narrow window the star lies right above it, and the finger's area of
+    # the star's lower handle reaches to 2 px above the block's middle. WebKit gives a tap that
+    # near to the handle.
+    low = at(page, "a").bounding_box()
+    at(page, "a").tap(position={"x": low["width"] / 2, "y": low["height"] - 6})
     expect_picked(page, "a")
     place = slider(page).bounding_box()
     slider(page).tap(position={"x": place["width"] / 2, "y": place["height"] / 2})
