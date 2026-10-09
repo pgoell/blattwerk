@@ -11,11 +11,13 @@ from ui import (
     RULING,
     TABLE,
     TEXT,
+    angle,
     at,
     box,
     copy_picture,
     expect_picked,
     maths,
+    mirror,
     pick,
     picture,
     png,
@@ -297,6 +299,24 @@ def test_blocks_copied_after_a_picture_paste_as_blocks(editor):
     page.keyboard.press("Control+v")
     expect(blocks(page)).to_have_count(2)
     assert [b["type"] for b in saved(page, client)] == ["shape", "shape"]
+
+
+def test_a_paste_right_after_a_copy_brings_the_blocks_and_not_an_older_picture(editor):
+    """I3"""
+    client = user()
+    turned = {**picture(upload(client)), "id": "bild", "x": 75, "y": 60, "w": 60, "h": 40}
+    page = editor({**turned, "angle": 45, "flipX": True}, client=client)
+    copy_picture(page)
+    # A system clipboard that has not caught up: the copy's words never land, so it still holds
+    # the picture.
+    page.evaluate("() => { navigator.clipboard.writeText = () => new Promise(() => {}); }")
+    pick(page, "bild")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    for name in page.eval_on_selector_all(".block", "els => els.map((el) => el.dataset.id)"):
+        assert angle(page, name) == 45
+        assert mirror(page, name) == (-1, 1)
 
 
 def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):
