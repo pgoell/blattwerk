@@ -896,9 +896,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const dab = (b: Block) => {
       if (!on.includes(b.id)) return b;
       // A line never vanishes: it takes a border only from a block that has one.
-      const own = takes(b).filter((name) => name in coat && name !== "mark" && !(isLine(b) && (coat.stroke ?? "none") === "none"));
+      // Nor do a table's or a Lineatur's lines: a table made outside the editor may name no colour for its own.
+      const own = takes(b).filter((name) => name in coat && name !== "mark" && !(isLine(b) && (coat.stroke ?? "none") === "none") && !(name === "rule" && !coat.rule));
       // The colour of a Lineatur's lines is its `color`, that of a table's lines its `line`.
-      const props = Object.fromEntries(own.map((name) => [name === "rule" ? (b.type === "table" ? "line" : "color") : name,coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
+      const props = Object.fromEntries(own.map((name) => [name === "rule" ? (b.type === "table" ? "line" : "color") : name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
       const rich = own.length ? boxed(b)?.rich : undefined;
       // What is left unset goes, so a saved sheet opens as it looks here.
       const all = Object.entries({ ...b.props, ...(rich && cleared(rich, props)), ...props }).filter(([, value]) => value !== undefined);

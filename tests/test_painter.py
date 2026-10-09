@@ -223,6 +223,20 @@ def test_a_table_gives_a_lineatur_the_colour_of_its_lines(editor):
     assert held(page, client)["b"] == {**RULING, "color": "#ff0000", "trace": True}
 
 
+def test_a_table_that_names_no_line_colour_leaves_a_lineatur_its_own(editor):
+    client = user()
+    # A table made outside the editor may have no `line`: the Lineatur's lines must not vanish.
+    page = editor(
+        box("tabelle", "table", TABLE, h=30, mark="1."),
+        box("b", "ruling", {**RULING, "color": "#888888"}, z=3),
+        client=client,
+    )
+    paint(page, "tabelle", "b")
+    expect(at(page, "b").locator("svg.ruling")).to_have_attribute("stroke", "#888888")
+    b = whole(page, client)["b"]
+    assert (b["mark"], b["props"]) == ("1.", {**RULING, "color": "#888888"})
+
+
 def test_a_lineatur_gives_a_table_the_colour_of_its_lines(editor):
     client = user()
     table = {**TABLE, "color": "#0000ff", "line": "#ff0000"}
