@@ -1,25 +1,20 @@
 """Uploads: the pictures of image blocks, kept per user on the data volume."""
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from blattwerk import db, pdf
+from blattwerk import pdf
 from blattwerk.auth import User, current_user
 from blattwerk.db import Con
+from blattwerk.pictures import path
 
 # What a browser draws and cannot run: no SVG.
 TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BYTES = 15 * 2**20
 
 router = APIRouter(prefix="/api")
-
-
-def path(user_id: int, upload_id: int) -> Path:
-    # Under the user's folder, so deleting the account deletes the pictures.
-    return db.DATA_DIR / "users" / str(user_id) / "uploads" / str(upload_id)
 
 
 @router.post("/uploads")

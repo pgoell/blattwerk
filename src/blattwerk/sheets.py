@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
+from blattwerk import pictures
 from blattwerk.auth import User
 from blattwerk.db import Con
 
@@ -54,6 +55,7 @@ def sheets(user: User, con: Con) -> list[dict]:
 
 @router.post("/sheets")
 def create(body: Sheet, user: User, con: Con) -> dict:
+    pictures.touch(user["id"], body.doc)
     return public(
         con.execute(
             f"INSERT INTO sheets (user_id, title, doc) VALUES (?, ?, ?) RETURNING {COLUMNS}",
@@ -70,6 +72,15 @@ def find(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row) -> dict:
     )
 
 
+def touch_stored(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row) -> None:
+    """A picture's 30 days count from the save or the delete that takes it off the sheet."""
+    row = con.execute(
+        "SELECT doc FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"])
+    ).fetchone()
+    if row:
+        pictures.touch(user["id"], json.loads(row["doc"]))
+
+
 @router.get("/sheets/{sheet_id}")
 def sheet(sheet_id: int, user: User, con: Con) -> dict:
     return find(con, sheet_id, user)
@@ -80,6 +91,10 @@ def save(sheet_id: int, body: Change, user: User, con: Con) -> dict:
     # Only a new document moves the version on, so a rename from the list neither needs one
     # nor gets in the way of an open editor's next save.
     doc = body.doc and json.dumps(body.doc)
+    if body.doc is not None:
+        # Before the document is stored, so no sweep finds a picture it shows old.
+        touch_stored(con, sheet_id, user)
+        pictures.touch(user["id"], body.doc)
     row = con.execute(
         "UPDATE sheets SET title = coalesce(?1, title), doc = coalesce(?2, doc),"
         " version = version + (?2 IS NOT NULL), updated = CURRENT_TIMESTAMP"
@@ -91,6 +106,8 @@ def save(sheet_id: int, body: Change, user: User, con: Con) -> dict:
         # The sheet is there, so it was saved from somewhere else in the meantime.
         find(con, sheet_id, user)
         raise HTTPException(409)
+    if body.doc is not None:
+        pictures.sweep(con, user["id"])
     return public(row)
 
 
@@ -109,7 +126,9 @@ def duplicate(sheet_id: int, user: User, con: Con) -> dict:
 
 @router.delete("/sheets/{sheet_id}")
 def delete(sheet_id: int, user: User, con: Con) -> dict:
+    touch_stored(con, sheet_id, user)
     cur = con.execute("DELETE FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"]))
     if not cur.rowcount:
         raise HTTPException(404)
+    pictures.sweep(con, user["id"])
     return {}

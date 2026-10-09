@@ -14,6 +14,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 from playwright.sync_api import sync_playwright
 from pypdf import PdfWriter
 
+from blattwerk import pictures
 from blattwerk.auth import User
 from blattwerk.db import Con
 from blattwerk.sheets import find
@@ -57,8 +58,7 @@ def opened(con: sqlite3.Connection, token: str | None) -> sqlite3.Row:
 def shows(con: sqlite3.Connection, token: str | None, upload_id: int) -> int:
     """The owner of the sheet a token opens, if that sheet shows the picture."""
     row = opened(con, token)
-    blocks = [b for page in json.loads(row["doc"]).get("pages", []) for b in page["blocks"]]
-    if not any(b["type"] == "image" and b["props"]["upload"] == upload_id for b in blocks):
+    if upload_id not in pictures.shown(json.loads(row["doc"])):
         raise HTTPException(404)
     return row["user_id"]
 

@@ -52,6 +52,12 @@ On the VPS:
 docker compose exec blattwerk /app/.venv/bin/python -m blattwerk invite --admin
 ```
 
+Deleting an account deletes its folder `users/<id>/`. If the folder will not go after three tries, the table `leftovers` remembers it, each start tries again, and `/admin` shows an alert until it is gone.
+
+## Pictures
+
+A picture lies in `users/<id>/uploads/<n>` with a row in `uploads`. Once no sheet and no template of its owner has shown it for 30 days, the owner's next save deletes both. The file's time counts the days: each save that shows the picture or takes it away sets it, so undo and the clipboard can still bring a picture back.
+
 ## PDF
 
 `GET /api/sheets/<id>/pdf` starts headless Chromium (Playwright), which prints the page `/druck/<id>` of this same server over loopback. `?solved=true` gives the answer key. Chromium has no session. It sends a token in the `X-Render-Token` header, signed for that one sheet and good for a minute. The token opens the sheet's document and the pictures on it, and nothing else.
