@@ -23,6 +23,8 @@ jobs:
     # pull request from a branch named master.
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
     runs-on: [self-hosted, Linux, X64]
+    # No step without a limit of its own can hang for GitHub's six hours.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -88,10 +90,12 @@ jobs:
         timeout-minutes: 2
         run: docker exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000 < scripts/smoke.py
 
-      # Only once `up` has run: before that the old container still runs and
-      # there is nothing to go back from.
+      # After a fail, and after a cancel too: a cancel in the wait or in the
+      # live smoke test would leave an untested image live. Only once `up` has
+      # run: before that the old container still runs and there is nothing to
+      # go back from.
       - name: Go back to prev
-        if: failure() && steps.up.outcome != 'skipped'
+        if: (failure() || cancelled()) && steps.up.outcome != 'skipped'
         run: bash scripts/go-back.sh
 
       # Not after a fail: the broken image stays for a look.

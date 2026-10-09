@@ -286,10 +286,35 @@ def test_start_fails_when_the_canary_never_answers_and_prints_no_logs(tmp_path, 
     assert result.returncode == 1
     (error,) = [line for line in result.stdout.splitlines() if line.startswith("::error::")]
     assert "the canary did not answer" in error
-    assert error.endswith(f"docker logs {NAME}")
+    # The `always()` step removes the container at once, so its logs are no hint to give.
+    assert "docker logs" not in error
+    assert error.endswith(f"docker run --rm {IMAGE}:latest")
     assert not any(call.startswith("logs") for call in calls)
     # The job's `always()` step removes the container and the copy.
     assert copy.exists()
+
+
+def test_start_leaves_a_hot_journal_alone_and_says_what_to_do(tmp_path, live, copy):
+    """Read-only for real: a journal the app left in the middle of a write stays for the app."""
+    crash = (
+        "import os, sqlite3, sys\n"
+        "con = sqlite3.connect(sys.argv[1], isolation_level=None)\n"
+        "con.execute('PRAGMA cache_size = 1')\n"
+        "con.execute('BEGIN')\n"
+        "for n in range(200):\n"
+        "    doc = ('d' * 4000,)\n"
+        "    con.execute(\"INSERT INTO sheets (user_id, title, doc) VALUES (1, 'x', ?)\", doc)\n"
+        "os._exit(0)\n"
+    )
+    subprocess.run([sys.executable, "-c", crash, str(live / "blattwerk.db")], check=True)
+    assert (live / "blattwerk.db-journal").read_bytes()
+    before = tree(live)
+    result, calls = run(tmp_path, "canary.sh", "start", live, copy)
+    assert result.returncode == 1
+    assert "::error::canary: the copy of the database failed" in result.stdout
+    assert "Open the site once and sign in, so the app mends it, then rerun." in result.stdout
+    assert not any(call.startswith("run ") for call in calls)
+    assert tree(live) == before
 
 
 def test_start_names_no_path_and_no_file(tmp_path, live, copy):
@@ -439,8 +464,13 @@ def test_only_the_cleanup_and_the_way_back_run_after_a_fail():
     }
     assert {name: found for name, found in conditions.items() if found} == {
         "Remove the canary and the copy": ["always()"],
-        "Go back to prev": ["failure() && steps.up.outcome != 'skipped'"],
+        # A cancel in the wait or in the live smoke test must not leave the new image live.
+        "Go back to prev": ["(failure() || cancelled()) && steps.up.outcome != 'skipped'"],
     }
+    # The job has an end too, above the sum of the steps' own limits.
+    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", code(DEPLOY), re.M))
+    assert job == 30
+    assert sum(map(int, re.findall(r"^        timeout-minutes: (\d+)$", code(DEPLOY), re.M))) < job
     assert "        id: up\n" in steps()["Deploy"]
     assert len(re.findall(r"^        id: ", code(DEPLOY), re.M)) == 1
     assert "run: bash scripts/go-back.sh\n" in steps()["Go back to prev"]

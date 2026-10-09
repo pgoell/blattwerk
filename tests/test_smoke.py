@@ -10,9 +10,11 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from fastapi import Response
+from pypdf import PdfWriter
 from ui import TEXT, box, sheet, user
 
-from blattwerk import auth, db
+from blattwerk import auth, db, pdf, sheets
 
 SCRIPT = Path(__file__).parent.parent / "scripts" / "smoke.py"
 HALF = ["page", "bundle", "database"]
@@ -107,6 +109,59 @@ def test_full_run_with_a_used_invite_fails_and_names_no_secret(server):
     assert run.returncode == 1
     assert run.stdout.splitlines() == HALF
     assert run.stderr == "smoke failed: signup: status 404\n"
+
+
+def test_full_run_fails_on_a_pdf_of_two_pages(server, monkeypatch):
+    class Two(PdfWriter):
+        def __init__(self, clone_from):
+            super().__init__(clone_from=clone_from)
+            self.add_blank_page()
+
+    monkeypatch.setattr(pdf, "PdfWriter", Two)
+    run = smoke(server, invite=auth.new_link(db.open_db()))
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == WHOLE[:-1]
+    assert run.stderr == "smoke failed: pdf: 2 pages\n"
+
+
+def test_full_run_fails_on_a_pdf_that_says_it_is_none(server, monkeypatch):
+    monkeypatch.setattr(pdf, "Response", lambda data, **more: Response(data, media_type="a/b"))
+    run = smoke(server, invite=auth.new_link(db.open_db()))
+    assert run.returncode == 1
+    assert run.stderr == "smoke failed: pdf: content type a/b\n"
+
+
+def test_full_run_fails_on_a_save_that_does_not_stick(server, monkeypatch):
+    def forget(con, user_id):
+        # After the save has its answer, so the editor hears 200 with the new document.
+        con.execute("UPDATE sheets SET doc = ?", (json.dumps({"pages": [{"blocks": []}]}),))
+
+    monkeypatch.setattr(sheets.pictures, "sweep", forget)
+    run = smoke(server, invite=auth.new_link(db.open_db()))
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == WHOLE[: WHOLE.index("save")]
+    assert run.stderr == "smoke failed: save: the stored sheet lacks the typed text\n"
+
+
+def test_full_run_fails_when_the_reloaded_editor_lacks_the_word(server, monkeypatch):
+    find = sheets.find
+    asked = []
+
+    def hide(con, sheet_id, user):
+        found = find(con, sheet_id, user)
+        if "smoke" in json.dumps(found["doc"]):
+            asked.append(1)
+            # The first to ask after the save is the script, the next is the editor's reload.
+            if len(asked) > 1:
+                found["doc"]["pages"][0]["blocks"][0]["props"] = {**TEXT, "text": "Probe"}
+        return found
+
+    monkeypatch.setattr(sheets, "find", hide)
+    run = smoke(server, invite=auth.new_link(db.open_db()))
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == WHOLE[: WHOLE.index("reload")]
+    # The script waits its full 30 seconds for the word.
+    assert run.stderr == "smoke failed: reload: TimeoutError\n"
 
 
 def test_read_only_passes_and_leaves_every_row_count(server):

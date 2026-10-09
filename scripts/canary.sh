@@ -78,8 +78,8 @@ PY
     end=$((SECONDS + ${ALIVE_WAIT:-60}))
     until bash "$here/alive.sh" "$name"; do
       if ((SECONDS >= end)); then
-        # The stop that follows removes the container: its logs are there only until then.
-        echo "::error::the canary did not answer on :8000. On the VPS, while it is there: docker logs $name"
+        # No `docker logs` hint: the stop that follows removes the container at once.
+        echo "::error::the canary did not answer on :8000 and is removed by now. On the VPS, to see why the image does not start: docker run --rm blattwerk-blattwerk:latest"
         exit 1
       fi
       sleep 1

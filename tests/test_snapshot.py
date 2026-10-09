@@ -250,12 +250,12 @@ DOCKER = """#!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
 case "$1" in
   inspect) [ "$INSPECT_RC" = 0 ] && echo sha256:abc; exit "$INSPECT_RC" ;;
-  exec) exit "$EXEC_RC" ;;
+  exec) [ "$(grep -c '^exec ' "$DOCKER_LOG")" -le "$EXEC_FAILS" ] && exit 1; exit "$EXEC_RC" ;;
 esac
 """
 
 
-def keep_prev(tmp_path, inspect=0, exec_=0):
+def keep_prev(tmp_path, inspect=0, exec_=0, fails=0):
     """Runs keep-prev.sh against a docker that only writes down what it was asked."""
     stub = tmp_path / "bin" / "docker"
     stub.parent.mkdir()
@@ -268,6 +268,8 @@ def keep_prev(tmp_path, inspect=0, exec_=0):
         "DOCKER_LOG": str(log),
         "INSPECT_RC": str(inspect),
         "EXEC_RC": str(exec_),
+        # So many of the first probes fail, whatever EXEC_RC says of the later ones.
+        "EXEC_FAILS": str(fails),
     }
     command = ["bash", str(ROOT / "scripts" / "keep-prev.sh")]
     result = subprocess.run(command, capture_output=True, text=True, timeout=20, env=env)
@@ -294,6 +296,16 @@ def test_keep_prev_spares_prev_when_the_app_is_down(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "::warning::" in result.stdout
     assert not any(call.startswith("tag") for call in calls)
+    assert len([call for call in calls if call.startswith("exec ")]) == 3
+
+
+def test_keep_prev_asks_a_busy_app_again(tmp_path):
+    """One missed probe of a good app must not leave an older image as prev."""
+    result, calls = keep_prev(tmp_path, fails=1)
+    assert result.returncode == 0, result.stderr
+    assert "::warning::" not in result.stdout
+    assert [call.split()[0] for call in calls] == ["inspect", "exec", "exec", "tag"]
+    assert calls[-1] == "tag sha256:abc blattwerk-blattwerk:prev"
 
 
 def test_deploy_snapshots_after_the_build_and_before_the_cutover():

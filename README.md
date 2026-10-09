@@ -93,9 +93,11 @@ The steps, in order. A step that fails stops the deploy.
 7. `docker compose up -d` replaces the container. Up to here the live site has not changed.
 8. Wait until the new container answers `/api/me`.
 9. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database.
-10. If step 7, 8 or 9 fails, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image it changes nothing and says so.
+10. If step 7, 8 or 9 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image it changes nothing and says so.
 
-The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS.
+A deploy that fails after the build and before step 7 (a failed canary, say) leaves the old container running, but `blattwerk-blattwerk:latest` names the failed image until the next good deploy, and `prev` has not moved. Do not run `docker compose up -d` by hand then: it would start the failed image. Revert the commit and let the deploy run.
+
+The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS. The canary is gone by then; `docker run --rm blattwerk-blattwerk:latest` shows why an image does not start.
 
 Step 2 or 5 can fail with "Open the site once and sign in, so the app mends it, then rerun". That happens when the app died in the middle of a write and left `blattwerk.db-journal` beside the database. The deploy reads the database read only and cannot mend it; the app's next write does. Open the site, sign in, then rerun the deploy.
 
