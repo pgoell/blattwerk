@@ -368,3 +368,42 @@ def test_escape_in_a_field_of_the_panel_or_in_the_title_keeps_the_selection(edit
     page.keyboard.press("Control+z")
     expect(x).to_have_value("15")
     expect_picked(page, "a")
+
+
+def test_a_disabled_panel_button_leaves_the_caret_too(editor):
+    page = editor(box("a", "text", TEXT), box("table", "table", TABLE, z=2))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.press("End")
+    # A text with no fill has nothing to take away.
+    off = page.locator(".panel button:disabled", has_text="Keine Füllung")
+    page.mouse.click(*centre(off))
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.type("x")
+    expect(page.locator(FIELD)).to_have_text("Hallox")
+    page.keyboard.press("Backspace")
+    expect(page.locator(FIELD)).to_have_text("Hallo")
+    # A table never turns.
+    pick(page, "table")
+    page.keyboard.press("Enter")
+    cell = at(page, "table").locator("textarea")
+    expect(cell).to_be_focused()
+    page.mouse.click(*centre(page.locator(".panel button:disabled").first))
+    expect(cell).to_be_focused()
+    page.keyboard.press("Backspace")
+    expect(page.locator(".block")).to_have_count(2)
+
+
+def test_a_panel_button_leaves_a_draft_in_a_number_field(editor):
+    page = editor(box("a", "text", TEXT), box("b", "text", TEXT, z=2))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    x = page.get_by_label("X", exact=True)
+    x.click()
+    page.keyboard.type("40")
+    page.locator(".panel button.bold").click()
+    expect(x).to_be_focused()
+    # Backspace is the number's, not the block's.
+    page.keyboard.press("Backspace")
+    expect(x).to_have_value("4")
+    expect(page.locator(".block")).to_have_count(2)

@@ -1703,12 +1703,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
       // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
-      // but a text, a Lineatur or a cell being written in keeps the caret when the button is one of the format panel.
+      // but a button of the format panel leaves it where it is: a text, a Lineatur or a cell being written in keeps
+      // the caret, and a number of the panel its draft. So does the panel's bare ground, where a press on a disabled
+      // button lands.
       onMouseDown={(e) => {
-        const button = (e.target as Element).closest("button");
+        const target = e.target as Element;
+        const button = target.closest("button");
+        const panel = target.closest(".panel");
+        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
-        if (!e.button && !(button.closest(".panel") && document.activeElement?.closest(".block"))) (document.activeElement as HTMLElement | null)?.blur();
+        if (!e.button && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
       }}
     >
       <header>
