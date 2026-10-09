@@ -546,13 +546,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
   // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
   // sheet as from anywhere else; one that comes with words, as cells copied in Excel do, stays the field's.
+  // Outside a field, words copied in another app make a text block; the editor's own bring the copied blocks.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal")) return;
     const field = (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select");
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
-    if (!picture || writing.current) return paste();
+    if (!picture || writing.current) {
+      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "")) paste();
+      return;
+    }
     e.preventDefault();
     // The field does not take it too.
     e.stopPropagation();
@@ -1118,7 +1122,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
     setAt(n);
     setIds([id]);
-    if (rest.type === "text") setEditing(id);
+    // An empty text opens for typing; a pasted one comes with its words.
+    if (rest.type === "text" && !rest.props.text) setEditing(id);
   }
   // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
   async function sent(file: File) {
@@ -1218,10 +1223,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // In a browser that makes no such copy the words land a moment later: until then a paste still finds the older
   // picture there, which is stale.
   const writing = useRef(0);
+  // A copy with no words still stamps the system's clipboard, with a blank.
+  const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
   function copy() {
     if (!sel.length) return;
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
-    const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
+    const words = wordsOf(sel);
     pending.current = words;
     document.execCommand("copy");
     if (pending.current === null) return;
@@ -1235,37 +1242,53 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     copy();
     if (sel.length) remove();
   }
-  function paste() {
-    // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
-    let clip: { owner?: number; blocks?: Block[] } | null = null;
+  // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
+  function clip(): Block[] {
+    let held: { owner?: number; blocks?: Block[] } | null = null;
     try {
-      clip = JSON.parse(localStorage.getItem("clip") ?? "null");
+      held = JSON.parse(localStorage.getItem("clip") ?? "null");
     } catch {
-      return;
+      return [];
     }
-    if (clip?.owner !== user.id) return;
-    const held = clip.blocks;
     const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    if (Array.isArray(held) && held.length && held.every(whole)) put(held);
+    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? held.blocks : [];
+  }
+  function paste() {
+    const held = clip();
+    if (held.length) put(held);
+  }
+  // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
+  // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
+  // they did.
+  function typed(got: string) {
+    const text = got.replace(/\r\n/g, "\n");
+    const held = clip();
+    if (!text.trim() || (held.length && text === wordsOf(held))) return false;
+    tight.current = true;
+    add(80, 12, { type: "text", props: { text, size: 14, align: "left" } });
+    return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
   const reading = useRef(false);
-  // The button has no paste of the browser's to go by, so it asks the system's clipboard for a picture itself.
+  // The button has no paste of the browser's to go by, so it asks the system's clipboard itself: for a picture
+  // first, then for words.
   async function pasteAny() {
     if (reading.current) return;
     if (writing.current) return paste();
     reading.current = true;
+    let words = "";
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }));
+        if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
       }
     } catch {
       // No leave to read, or a browser that cannot: the copied blocks are still there.
     } finally {
       reading.current = false;
     }
-    paste();
+    if (!typed(words)) paste();
   }
   function remove() {
     change((bs) => bs.filter((b) => !ids.includes(b.id)));
