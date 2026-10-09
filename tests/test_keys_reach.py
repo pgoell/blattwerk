@@ -176,6 +176,19 @@ def test_f6_stays_out_of_a_text_and_a_dialog(editor):
     assert page.evaluate("!!document.activeElement.closest('dialog')")
 
 
+def test_f6_back_to_the_sheet_gives_an_open_text_its_caret(editor):
+    page = opened(editor, "text")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Wort")
+    # The text stays open while a field of the panel has the focus.
+    page.get_by_label("X", exact=True).click()
+    page.keyboard.press("F6")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Backspace")
+    expect(page.locator(FIELD)).to_have_text("Wor")
+    expect_picked(page, "text")
+
+
 CONTROLS = {
     "button of the header": lambda page: page.get_by_label("Lösungen zeigen", exact=True),
     "title": lambda page: page.get_by_label("Titel"),
@@ -241,6 +254,24 @@ def test_escape_in_a_dialog_and_in_a_text_does_what_it_did(editor):
         expect(page.locator(OPEN)).to_have_count(0)
         expect_picked(page, name)
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+
+
+def test_escape_right_after_a_menu_shut_selects_nothing(editor):
+    page = opened(editor, "shape")
+    page.mouse.click(*centre(at(page, "shape")), button="right")
+    expect(page.get_by_role("menu")).to_be_visible()
+    # A menu that shuts is gone only a moment later, and its button has the focus until then. A
+    # second Escape that comes in that moment is the sheet's: no test can press a key so fast, so
+    # the key is made by hand.
+    page.locator("dialog.menu").evaluate(
+        """(menu) => {
+            const button = menu.querySelector("button:enabled");
+            menu.close();
+            button.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        }"""
+    )
+    expect(page.locator("dialog.menu")).to_have_count(0)
+    expect_picked(page)
 
 
 # Asked #97

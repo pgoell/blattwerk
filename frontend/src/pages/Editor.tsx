@@ -604,11 +604,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (e.shiftKey) parts.reverse();
       const to = lead(parts[parts.findIndex((el) => el!.contains(target)) + 1] ?? null);
       if (to) to.focus();
-      else target.blur();
+      // Back on the sheet a text still open gets its caret back.
+      else back(target);
       return;
     }
-    // Escape on a button or a field gives the keys back, as in PowerPoint's ribbon, and the selection stays.
-    if (e.key === "Escape" && away && target.closest("button, a, input, select")) return back(target);
+    // Escape on a button or a field gives the keys back, as in PowerPoint's ribbon, and the selection stays. Not on
+    // a button of a menu that has just shut: it holds the focus until the menu is gone, and the key is the sheet's.
+    if (e.key === "Escape" && away && target.closest("button, a, input, select") && !target.closest("dialog")) return back(target);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
