@@ -87,6 +87,44 @@ def test_a_slanted_lineatur_higher_than_its_room_is_long_fills_that_room(editor)
     assert a["w"] < a["h"]
 
 
+@pytest.mark.parametrize(
+    ("place", "w"),
+    [
+        ({"x": 60, "y": 10, "w": 60, "h": 20, "angle": 45}, 135.56),
+        ({"x": 5, "y": 5, "w": 40, "h": 20, "angle": 45}, 220.41),
+        ({"x": 60, "y": 8, "w": 60, "h": 20, "angle": 20}, 89.39),
+    ],
+)
+def test_a_slanted_lineatur_past_a_margin_with_room_along_its_way_fills_that_room(editor, place, w):
+    """A1: it slides along its way to where it lies inside the margins."""
+    client = user()
+    was = box("a", "ruling", RULING, **place)
+    page = editor(was, client=client)
+    pick(page, "a")
+    a = press(page, client)["a"]
+    assert fitted(a, was)
+    assert a["w"] == pytest.approx(w, abs=0.02)
+
+
+@pytest.mark.parametrize(
+    "place",
+    [
+        {"x": 60, "y": 100, "w": 90, "h": 20, "angle": 0.01},
+        {"x": 20, "y": 100, "w": 170, "h": 20, "angle": 0.1},
+    ],
+)
+def test_a_lineatur_a_hair_off_level_fills_the_room_and_stays_on_a_second_press(editor, place):
+    """A1, I4"""
+    client = user()
+    was = box("a", "ruling", RULING, **place)
+    page = editor(was, client=client)
+    pick(page, "a")
+    a = press(page, client)["a"]
+    assert fitted(a, was)
+    assert a["w"] > 179
+    assert again(page, client, a)
+
+
 @pytest.mark.parametrize("degrees", [90, 270])
 def test_a_lineatur_turned_by_a_quarter_runs_from_the_top_margin_to_the_bottom_one(editor, degrees):
     """A1"""

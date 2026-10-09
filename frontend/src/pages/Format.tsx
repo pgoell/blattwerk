@@ -106,7 +106,8 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
     return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
   };
   // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
-  // corner would cross a margin. One that lies past a margin along its way already stays as it is.
+  // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
+  // less room there than it is high.
   const wide = (b: RulingBlock): Partial<Box> => {
     const [c, s] = dir(b);
     // The middle of each long edge.
@@ -115,12 +116,14 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
     // Rounded down, so that no corner crosses.
     const w = Math.floor((back + on) * 100 + 1e-6) / 100;
     // A slanted one that fills the room to a hair stays too: its place is rounded, so a second press would find
-    // a little room again, and the more of it the closer the block lies to level or upright.
-    const hair = 0.02 + 0.01 / Math.min(Math.abs(c), Math.abs(s));
+    // a little room again, and the more of it the closer the block lies to level or upright. So its place is
+    // rounded finer, to keep that hair thin.
+    const hair = 0.02 + 0.0001 / Math.min(Math.abs(c), Math.abs(s));
     const slanted = Math.abs(c * s) > 1e-9;
-    if (!(w > 0 && w < Infinity) || (slanted && (back < 0 || on < 0 || [back, on].every((end) => Math.abs(end - b.w / 2) < hair)))) return {};
+    const fine = (n: number) => (slanted ? Math.round(n * 1e4) / 1e4 : round(n));
+    if (!(w > 0 && w < Infinity) || (slanted && (((back < 0 || on < 0) && w < b.h) || [back, on].every((end) => Math.abs(end - b.w / 2) < hair)))) return {};
     // A level block keeps its y as it is.
-    return { w, x: round(b.x + (b.w - w + (on - back) * c) / 2), ...(Math.abs(s) > 1e-9 && { y: round(b.y + ((on - back) * s) / 2) }) };
+    return { w, x: fine(b.x + (b.w - w + (on - back) * c) / 2), ...(Math.abs(s) > 1e-9 && { y: fine(b.y + ((on - back) * s) / 2) }) };
   };
   // A maths block's height follows its exercises when they need more or less room than before.
   const calc = (props: MathsProps) => {
