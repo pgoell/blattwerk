@@ -29,6 +29,17 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
+      # A schema move runs on the first request after a deploy and has no way
+      # back. A failed copy stops the job here, before anything changes.
+      - name: Snapshot the database
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python3 scripts/snapshot.py /home/pascal/.local/share/blattwerk/blattwerk.db /home/pascal/.local/share/blattwerk-backups "$SHA"
+
+      # The build below moves `latest`. `prev` keeps the image that runs now.
+      - name: Keep the running image as prev
+        run: bash scripts/keep-prev.sh
+
       - name: Build image
         run: docker compose build
 

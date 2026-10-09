@@ -168,6 +168,17 @@ export const symbol = (code: string) => `/openmoji/${code}.svg`;
 // A turned block's box turns as a whole. A flip mirrors only what the box shows: Moveable cannot take hold of a
 // mirrored box, and a numbering must stay readable.
 export const turned = (b: Box): CSSProperties | undefined => (b.angle ? { transform: `rotate(${b.angle}deg)` } : undefined);
+// The cosine and sine of a block's angle.
+export const dir = (b: { angle?: number }) => [Math.cos(((b.angle ?? 0) * Math.PI) / 180), Math.sin(((b.angle ?? 0) * Math.PI) / 180)];
+// A new height for a block: the edge it starts at stays, as in PowerPoint. A turned block turns about its centre,
+// and a new height moves that: the centre goes down the block's own axis, so that edge stays in its place on the
+// page and the far edge moves alone.
+export function tall(b: Box, h: number): Partial<Box> {
+  if (!b.angle) return { h };
+  const [c, s] = dir(b);
+  const half = (h - b.h) / 2;
+  return { h, x: Math.round((b.x - s * half) * 100) / 100, y: Math.round((b.y + (c - 1) * half) * 100) / 100 };
+}
 const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { transform: `scale(${b.flipX ? -1 : 1}, ${b.flipY ? -1 : 1})` } : undefined);
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);

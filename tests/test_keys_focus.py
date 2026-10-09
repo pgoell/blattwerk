@@ -356,14 +356,14 @@ def test_escape_in_a_field_of_the_panel_or_in_the_title_keeps_the_selection(edit
     x.click()
     page.keyboard.type("99")
     page.keyboard.press("Escape")
-    # The field drops what was typed and keeps the focus.
+    # The field drops what was typed and gives the keys back.
     expect(x).to_have_value("15")
-    expect(x).to_be_focused()
+    expect(x).not_to_be_focused()
     expect_picked(page, "a")
     title = page.get_by_label("Titel")
     title.focus()
     page.keyboard.press("Escape")
-    expect(title).to_be_focused()
+    expect(title).not_to_be_focused()
     expect_picked(page, "a")
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     # With nothing to undo Ctrl+Z leaves the sheet as it is.

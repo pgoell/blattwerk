@@ -361,7 +361,8 @@ body:has(.print) { background: #fff; }
 /* The colour of what marks the selection: the same green on white paper under either theme. */
 .sheet { --sel: #16a878; }
 .sheet .moveable-control-box { --moveable-color: var(--sel); }
-.block { position: absolute; min-width: 8px; min-height: 8px; }
+/* A block that Tab scrolls to stops clear of the desk's edge and of the bar that floats over the lower one. */
+.block { position: absolute; min-width: 8px; min-height: 8px; scroll-margin: 32px 32px 88px; }
 /* While the format painter is on, the pointer says so all over the desk, also on Moveable's handles. */
 .editor.brush .desk, .editor.brush .desk * { cursor: copy !important; }
 /* While Space is held a hand lies over the desk, above the guides and Moveable's handles, and its drag moves the desk. */
