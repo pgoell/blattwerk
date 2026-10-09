@@ -75,6 +75,18 @@ def test_a_turned_lineatur_fills_the_room_along_the_way_it_lies(editor, degrees)
     expect(page.locator(".panel output", has_text="Zeilen")).to_have_text("2 Zeilen")
 
 
+def test_a_slanted_lineatur_higher_than_its_room_is_long_fills_that_room(editor):
+    """A1"""
+    client = user()
+    # Sixteen rows at the middle of the page: some 95 mm of room along its way.
+    was = box("a", "ruling", RULING, x=75, y=68.5, w=60, h=160, angle=45)
+    page = editor(was, client=client)
+    pick(page, "a")
+    a = press(page, client)["a"]
+    assert fitted(a, was)
+    assert a["w"] < a["h"]
+
+
 @pytest.mark.parametrize("degrees", [90, 270])
 def test_a_lineatur_turned_by_a_quarter_runs_from_the_top_margin_to_the_bottom_one(editor, degrees):
     """A1"""
