@@ -251,11 +251,12 @@ echo "$*" >> "$DOCKER_LOG"
 case "$1" in
   inspect) [ "$INSPECT_RC" = 0 ] && echo sha256:abc; exit "$INSPECT_RC" ;;
   exec) [ "$(grep -c '^exec ' "$DOCKER_LOG")" -le "$EXEC_FAILS" ] && exit 1; exit "$EXEC_RC" ;;
+  tag) echo "No such image: sha256:abc" >&2; exit "${TAG_RC:-0}" ;;
 esac
 """
 
 
-def keep_prev(tmp_path, inspect=0, exec_=0, fails=0):
+def keep_prev(tmp_path, inspect=0, exec_=0, fails=0, tag=0):
     """Runs keep-prev.sh against a docker that only writes down what it was asked."""
     stub = tmp_path / "bin" / "docker"
     stub.parent.mkdir()
@@ -270,6 +271,7 @@ def keep_prev(tmp_path, inspect=0, exec_=0, fails=0):
         "EXEC_RC": str(exec_),
         # So many of the first probes fail, whatever EXEC_RC says of the later ones.
         "EXEC_FAILS": str(fails),
+        "TAG_RC": str(tag),
         "GITHUB_OUTPUT": str(tmp_path / "output"),
     }
     command = ["bash", str(ROOT / "scripts" / "keep-prev.sh")]
@@ -312,14 +314,28 @@ def test_keep_prev_asks_a_busy_app_again(tmp_path):
     assert calls[-1] == "tag sha256:abc blattwerk-blattwerk:prev"
 
 
-def test_deploy_snapshots_after_the_build_and_before_the_cutover():
-    """After the build, so the snapshot is not older than the cutover by the length of a build."""
+def test_keep_prev_goes_on_when_the_running_image_has_no_name(tmp_path):
+    """After a build with no deploy, docker's containerd store cannot tag the running image."""
+    result, calls = keep_prev(tmp_path, tag=1)
+    assert result.returncode == 0, result.stderr
+    assert calls[-1] == "tag sha256:abc blattwerk-blattwerk:prev"
+    assert "::warning::the running image has no name left" in result.stdout
+    assert "sha256" not in result.stdout + result.stderr
+    # go-back.sh must not take the older prev for the image that ran.
+    assert not (tmp_path / "output").exists()
+
+
+def test_deploy_keeps_prev_before_the_build_and_snapshots_after_it():
+    """prev before the build: the build moves `latest`, and the running image loses its name.
+
+    The snapshot after it, so it is not older than the cutover by the length of a build.
+    """
     text = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
     steps = [
         "actions/checkout",
+        "run: bash scripts/keep-prev.sh",
         "run: docker compose build",
         "run: python3 scripts/snapshot.py",
-        "run: bash scripts/keep-prev.sh",
         "run: docker compose up -d",
     ]
     at = [text.index(step) for step in steps]

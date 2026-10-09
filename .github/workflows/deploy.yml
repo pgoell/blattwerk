@@ -31,6 +31,13 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
+      # Before the build: the build moves `latest`, and with that the image of
+      # the running container loses its only name. Docker's containerd store
+      # then knows it no more, and nothing can tag it.
+      - name: Keep the running image as prev
+        id: prev
+        run: bash scripts/keep-prev.sh
+
       # The build runs apt for Chromium's libraries, and a slow mirror can stall
       # it. With an end, a stalled build fails the job. The old container keeps
       # running meanwhile: nothing has changed yet.
@@ -61,12 +68,6 @@ jobs:
         env:
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: python3 scripts/snapshot.py /home/pascal/.local/share/blattwerk/blattwerk.db /home/pascal/.local/share/blattwerk-backups "$SHA"
-
-      # The build above moved `latest`. `prev` takes the image of the container
-      # that runs now, by its id.
-      - name: Keep the running image as prev
-        id: prev
-        run: bash scripts/keep-prev.sh
 
       - name: Deploy
         id: up
