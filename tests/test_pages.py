@@ -15,8 +15,11 @@ from ui import (
     doc,
     drag,
     drop,
+    finger,
     hold_drag,
+    jitter,
     order,
+    outlast,
     pick,
     swipe,
     thumb,
@@ -25,6 +28,8 @@ from ui import (
 
 DRAG = re.compile(r"\bdrag\b")
 ON = re.compile(r"\bon\b")
+# How far a held finger strays from where it came down, in px: a few each way, and almost 10.
+JITTER = [((3, 0), (0, 4), (-2, 2)), ((0, 9),), ((-6, -7),)]
 # What a page can have of its own.
 OWN = {"guides": {"x": [70], "y": [120, 200]}, "grid": 5, "landscape": True}
 
@@ -142,6 +147,67 @@ def test_a_held_thumbnail_follows_the_finger(editor):
     hold_drag(page, thumb(page, 0), start, half(page, 1, "left"), end)
     expect_order(page, "bca")
     expect_no_drag(page)
+
+
+@pytest.mark.parametrize("by", JITTER)
+def test_a_held_thumbnail_follows_a_finger_that_jitters(editor, by):
+    """B1"""
+    page = three(editor, touch=True)
+    start, end = centre(thumb(page, 0)), half(page, 2, "right")
+    hold_drag(page, thumb(page, 0), start, half(page, 1, "left"), end, by=by)
+    expect_order(page, "bca")
+    expect_no_drag(page)
+
+
+def test_a_finger_that_moves_14_px_and_then_rests_on_a_thumbnail_drags_no_page(editor):
+    """B2"""
+    page = three(editor, touch=True)
+    start = centre(thumb(page, 0))
+    with finger(page, start) as touch:
+        jitter(thumb(page, 0), start, (14, 0))
+        outlast(page)
+        expect_no_drag(page)
+        touch("touchMove", half(page, 1, "left"))
+        touch("touchMove", half(page, 2, "right"))
+        expect_no_drag(page)
+    expect_order(page, "abc")
+
+
+@pytest.mark.parametrize("by", [(), (3, 0), (0, 9)])
+def test_a_finger_lifted_before_the_hold_is_over_only_visits_the_page(editor, by):
+    """I4"""
+    page = three(editor, touch=True)
+    start = centre(thumb(page, 2))
+    with finger(page, start):
+        jitter(thumb(page, 2), start, *([by] if by else []))
+    expect_in_use(page, 2)
+    expect_no_drag(page)
+    expect_order(page, "abc")
+
+
+def test_a_second_finger_calls_the_hold_on_a_thumbnail_off(editor):
+    """I5"""
+    page = three(editor, touch=True)
+    start, other = centre(thumb(page, 0)), centre(thumb(page, 1))
+    with finger(page, start) as touch:
+        touch("touchStart", start, other)
+        outlast(page)
+        expect_no_drag(page)
+    expect_order(page, "abc")
+
+
+def test_undo_and_redo_take_a_move_after_a_jittered_hold_as_one_step(editor):
+    """I6"""
+    page = three(editor, touch=True)
+    start, end = centre(thumb(page, 0)), half(page, 2, "right")
+    hold_drag(page, thumb(page, 0), start, half(page, 1, "left"), end, by=JITTER[0])
+    expect_order(page, "bca")
+    page.keyboard.press("Control+z")
+    expect_order(page, "abc")
+    page.keyboard.press("Control+y")
+    expect_order(page, "bca")
+    page.keyboard.press("Control+z")
+    expect_order(page, "abc")
 
 
 def test_a_short_swipe_over_the_thumbnails_moves_no_page(editor):

@@ -145,6 +145,8 @@ const NAMES: Record<Block["type"], string> = {
 const TABS = ["Format", "Ansicht"];
 const GRIDS = [0, 5, 10, 20];
 const NONE: Guides = { x: [], y: [] };
+// A finger that holds never rests still: within this many px of where it came down it has not moved.
+const SLOP = 10;
 // The keys held during a drag, as PowerPoint reads them. Shift keeps the shape or the direction. Ctrl (Option on
 // Apple) resizes about the centre and leaves a copy behind a move. Alt (Command on Apple) switches snapping off.
 const KEEP = 1;
@@ -289,6 +291,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const touch = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
+  // Where the finger of a hold came down.
+  const came = useRef([0, 0]);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
   const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
@@ -626,7 +630,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   });
-  // A finger held on a thumbnail for half a second drags it. One that moves before then scrolls the panel, and
+  // A finger held on a thumbnail for half a second drags it. One that moves away before then scrolls the panel, and
   // only a listener set by hand can keep the panel still once the drag is on.
   useEffect(() => {
     const el = strip.current;
@@ -641,7 +645,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     function onMove(e: globalThis.TouchEvent) {
       if (!tug.current) return;
-      if (tug.current.slot === undefined) return quit();
+      if (tug.current.slot === undefined) {
+        // No preventDefault during the hold: it would keep the panel still for the whole swipe.
+        if (Math.hypot(e.touches[0].clientX - tug.current.x, e.touches[0].clientY - tug.current.y) > SLOP) quit();
+        return;
+      }
       e.preventDefault();
       aim(e.touches[0].clientX, e.touches[0].clientY);
     }
@@ -1501,6 +1509,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
     if (!id || id === editing) return;
     const to = pageOf(e.target as Element);
+    came.current = [e.touches[0].clientX, e.touches[0].clientY];
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
@@ -1509,7 +1518,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
-    clearTimeout(hold.current);
+    // A second finger ends the hold at once, and so does one finger that has moved away.
+    const { clientX: x0, clientY: y0 } = e.touches[0];
+    if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
     if (e.touches.length !== 2) return;
     const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
     flushSync(() => setZoom(next));

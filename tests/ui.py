@@ -306,8 +306,9 @@ def swipe(page, *points):
     session.detach()
 
 
-def hold_drag(page, held, start, *points):
-    """Holds a finger on `held` at the start until it lifts off for a drag, then moves and lifts."""
+@contextmanager
+def finger(page, start):
+    """A finger down at the start for as long as the block runs. Gives the way to send touches."""
     session = page.context.new_cdp_session(page)
 
     def touch(kind, *at):
@@ -315,9 +316,41 @@ def hold_drag(page, held, start, *points):
         session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
 
     touch("touchStart", start)
-    # The hold is over when the page says so, however long it asks for.
-    expect(held).to_have_class(re.compile(r"\bdrag\b"))
-    for point in points:
-        touch("touchMove", point)
+    yield touch
     touch("touchEnd")
     session.detach()
+
+
+def jitter(held, start, *by):
+    """Tells `held` that the finger on it lies off the start by each of `by`, in px."""
+    # Chrome keeps a finger's moves from the page until it is more than 15 px from where it came
+    # down. Safari on an iPad does not, so the page is told by hand, as it is there.
+    for dx, dy in by:
+        held.evaluate(
+            """(el, [clientX, clientY]) => {
+                const touches = [new Touch({ identifier: 0, target: el, clientX, clientY })];
+                const init = { touches, bubbles: true, cancelable: true };
+                el.dispatchEvent(new TouchEvent("touchmove", init));
+            }""",
+            [start[0] + dx, start[1] + dy],
+        )
+
+
+def outlast(page):
+    """Waits until a hold would be over."""
+    # A hold that was called off shows nothing on the page, so only the clock tells that none comes.
+    page.wait_for_timeout(700)
+
+
+def hold_drag(page, held, start, *points, by=(), shows="drag"):
+    """Holds a finger on `held` at the start until it lifts off for a drag, then moves and lifts.
+
+    The finger jitters by each of `by` during the hold. `shows` is the class `held` gets when the
+    hold is over.
+    """
+    with finger(page, start) as touch:
+        jitter(held, start, *by)
+        # The hold is over when the page says so, however long it asks for.
+        expect(held).to_have_class(re.compile(rf"\b{shows}\b"))
+        for point in points:
+            touch("touchMove", point)
