@@ -148,12 +148,22 @@ export function list(view: EditorView, kind: List) {
   const on = view.state.selection.$from.parent.attrs.list === kind;
   view.dispatch(paras(view.state, (attrs) => (on ? {} : { ...attrs, list: kind })));
 }
-// Tab moves the items of a list in by a level, Shift+Tab out. In plain text the key stays the browser's.
+// Tab moves the items of a list in by a level, Shift+Tab out. In plain text Tab types a tab stop, as in
+// PowerPoint, and Shift+Tab does nothing: the browser gets neither, or the focus would leave the field.
 const shift = (by: number): Command => (state, dispatch) => {
   let items = 0;
   const tr = paras(state, (attrs) => (attrs.list && ++items ? { ...attrs, level: Math.max(0, Math.min(2, attrs.level + by)) } : undefined));
   if (items) dispatch?.(tr);
   return items > 0;
+};
+// The tab stop takes the place of the picked words, and is typing to the editor's undo.
+const tab: Command = (state, dispatch) => (dispatch?.(state.tr.insertText("\t").scrollIntoView()), true);
+// Ctrl+A picks the text as an opening field does. The browser's own pick spans the whole document, which Enter
+// cannot split.
+const whole: Command = (state, dispatch) => {
+  const { doc } = state;
+  dispatch?.(state.tr.setSelection(TextSelection.between(doc.resolve(0), doc.resolve(doc.content.size))));
+  return true;
 };
 // Backspace at the start of an item, or Enter in an item with no text, ends the list there.
 const leave = (blank: boolean): Command => (state, dispatch) => {
@@ -199,8 +209,9 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
           "Mod-b": flip("bold"),
           "Mod-i": flip("italic"),
           "Mod-u": flip("underline"),
-          Tab: shift(1),
-          "Shift-Tab": shift(-1),
+          Tab: chainCommands(shift(1), tab),
+          "Shift-Tab": chainCommands(shift(-1), () => true),
+          "Mod-a": whole,
           // A new paragraph is what the one before it is: the next item of its list.
           Enter: chainCommands(leave(true), splitBlockAs((n) => ({ type: n.type, attrs: n.attrs }))),
           Backspace: chainCommands(leave(false), baseKeymap.Backspace),
