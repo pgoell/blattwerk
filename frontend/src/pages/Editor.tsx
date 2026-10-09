@@ -251,6 +251,18 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Whether the last press was in the format panel, with no key since: the field then stays open though it loses
   // the focus, and a select or a colour picked there hands the keys back.
   const inPanel = useRef(false);
+  // What is written in stays open when it loses the focus to the panel: by the keys, or by a press, which on the
+  // word beside a colour names nothing that takes the focus.
+  const stays = (e: { relatedTarget: EventTarget | null }) => inPanel.current || !!(e.relatedTarget as Element | null)?.closest(".panel");
+  // The text, the Lineatur or the cell being written in.
+  const written = () => field.current ?? sheet.current?.querySelector<HTMLElement>("textarea:not([readonly])");
+  // Gives the keys back from a control of the panel, as PowerPoint does: to what is written in, whose caret is
+  // where it was, or else to the sheet.
+  const back = (from: HTMLElement) => {
+    const open = written();
+    if (open) open.focus();
+    else from.blur();
+  };
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number }>();
@@ -452,19 +464,28 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const dragged = (e: DragEvent) => onDrag.current(e);
     // A font or a colour picked with the mouse in the panel gives the keys back, as in PowerPoint: to the text being
     // edited, or else to the sheet. A colour's `change` comes when its picker closes, and after the pick is set.
+    // A colour reached by the keys gives them back too: only so is it for what is typed next. Who walks a select
+    // with the keys keeps the focus there, and so does who sets a colour with nothing written in.
     const chosen = (e: Event) => {
       const el = e.target as HTMLElement;
-      if (!inPanel.current || !el.matches(".panel select, .panel input[type=color]")) return;
-      if (field.current) field.current.focus();
-      else el.blur();
+      if (!el.matches(".panel select, .panel input[type=color]")) return;
+      if (inPanel.current || (el.matches("input") && written())) back(el);
+    };
+    // Escape and Enter shut the list of a select and give the keys back. Chromium keeps the keydown of a key that
+    // shuts an open list to itself, so the keyup tells. Escape goes no further: the selection stays.
+    const shut = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if ((e.key === "Escape" || e.key === "Enter") && el.matches(".panel select")) back(el);
     };
     window.addEventListener("change", chosen);
+    window.addEventListener("keyup", shut);
     window.addEventListener("keydown", press);
     window.addEventListener("paste", pasted, true);
     window.addEventListener("dragover", dragged, true);
     window.addEventListener("drop", dragged, true);
     return () => {
       window.removeEventListener("change", chosen);
+      window.removeEventListener("keyup", shut);
       window.removeEventListener("keydown", press);
       window.removeEventListener("paste", pasted, true);
       window.removeEventListener("dragover", dragged, true);
@@ -498,11 +519,20 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     upload(picture);
   };
   onKey.current = (e) => {
-    // Who walks a select of the panel with the keys keeps the focus there.
-    inPanel.current = false;
+    const target = e.target as HTMLElement;
+    // Enter in a select of the panel gives the keys back, as in PowerPoint's box of fonts. A list opened with the
+    // mouse and shut with no pick tells nobody, and its select keeps the focus: Tab, the first key since the press,
+    // is then not the select's either. It goes on to the sheet, or to nobody while something is written in.
+    const shut = target.matches(".panel select") && (e.key === "Enter" || (e.key === "Tab" && inPanel.current));
+    // Who walks a select of the panel with the keys keeps the focus there. Shift alone is no key yet.
+    if (!["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key)) inPanel.current = false;
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
-    const target = e.target as HTMLElement;
+    if (shut) {
+      const open = written();
+      back(target);
+      if (open || e.key === "Enter") return e.preventDefault();
+    }
     // Escape calls a thumbnail's drag off.
     if (e.key === "Escape" && haul) return quit();
     // Escape puts the brush down from anywhere, also from a field that keeps the key to itself, and does no more.
@@ -523,7 +553,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // In a text's field, in a table's cell, in the panel's fields for place and size and on its sliders only undo and
     // redo are the sheet's.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range]");
-    if (!ours && target.closest(".ProseMirror, textarea, input, select")) return;
+    if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!target.closest("button, a, summary")) e.preventDefault();
@@ -558,11 +588,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         : {
             delete: remove,
             backspace: remove,
-            // Escape ends a crop, or else selects nothing, as in PowerPoint.
+            // Escape ends a crop, or else selects nothing, as in PowerPoint. A part of one group goes back to the
+            // whole group first.
             escape: cropping
               ? done
               : () => {
-                  setIds([]);
+                  const mates = grouped(ids, blocks);
+                  setIds(new Set(sel.map((b) => b.group?.[0])).size === 1 && mates.length > ids.length ? mates : []);
                   setMulti(false);
                 },
             arrowleft: () => nudge(-1, 0),
@@ -1347,7 +1379,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
   function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
-    if (e.key === "Escape" || e.key === "F2") e.currentTarget.blur();
+    // Escape and F2 end the writing themselves: after a press in the panel a blur would not.
+    if (e.key === "Escape" || e.key === "F2") setEditing("");
     if (e.key !== "Tab") return;
     e.preventDefault();
     // What is typed in the next cell is an undo step of its own.
@@ -1788,6 +1821,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
+        // What is written in lost the focus to the panel and has no blur left to end it: a press beside the panel
+        // and the blocks, as on the title, ends it.
+        if (!inPanel.current && document.activeElement?.closest(".panel") && !(e.target as Element).closest(".block")) setEditing("");
       }}
       // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
@@ -2083,7 +2119,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                           all={entire.current}
                           change={look}
                           pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
-                          blur={() => inPanel.current || setEditing("")}
+                          blur={(e) => stays(e) || setEditing("")}
                           end={() => setEditing("")}
                         />
                       ) : b.type === "text" && !b.props.text && !b.props.rich ? (
@@ -2101,8 +2137,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                           tabIndex={editing === b.id ? undefined : -1}
                           style={writtenStyle(b, K)}
                           onChange={(e) => style("ruling", { text: e.target.value }, "text")}
-                          onKeyDown={(e) => (e.key === "Escape" || e.key === "F2") && e.currentTarget.blur()}
-                          onBlur={() => setEditing("")}
+                          // Tab types nothing and stays here: the browser's would end the writing. Escape and F2 end
+                          // it themselves: after a press in the panel the blur would not.
+                          onKeyDown={(e) => {
+                            if (e.key === "Tab") e.preventDefault();
+                            if (e.key !== "Escape" && e.key !== "F2") return;
+                            e.currentTarget.blur();
+                            setEditing("");
+                          }}
+                          onBlur={(e) => stays(e) || setEditing("")}
                           // A line typed past the last row would scroll the others off their rows.
                           onScroll={(e) => (e.currentTarget.scrollTop = 0)}
                         />
@@ -2111,7 +2154,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                           value={b.props.cells.flat()[slot]}
                           onChange={(e) => style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text")}
                           onKeyDown={(e) => hop(e, b)}
-                          onBlur={() => setEditing("")}
+                          onBlur={(e) => stays(e) || setEditing("")}
                         />
                       ) : undefined}
                     </Draw>
