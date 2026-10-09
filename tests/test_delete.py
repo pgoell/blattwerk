@@ -33,10 +33,8 @@ def test_failed_folder_delete_is_logged(data_dir, monkeypatch, caplog):
     client = user()
     client.post("/api/feedback", data={"text": "x"})
 
-    def fail(*args, **kwargs):
-        raise PermissionError(13, "Permission denied")
-
-    monkeypatch.setattr(auth.shutil, "rmtree", fail)
+    # The delete of the folder fails, as on a full or read-only disk.
+    monkeypatch.setattr(auth.shutil, "rmtree", lambda *args, **kwargs: None)
     assert client.delete("/api/me").status_code == 200
     assert gone(client)
     (record,) = errors(caplog)
@@ -46,12 +44,13 @@ def test_failed_folder_delete_is_logged(data_dir, monkeypatch, caplog):
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root may delete from a read-only folder")
-def test_read_only_folder_logs_one_line(data_dir, caplog):
+def test_read_only_folder_logs_one_line_and_the_rest_goes(data_dir, caplog):
     client = user()
-    client.post("/api/feedback", data={"text": "x"})
-    client.post("/api/feedback", data={"text": "y"})
+    for text in "wxyz":
+        client.post("/api/feedback", data={"text": text})
     folder = data_dir / "users" / "1"
-    locked = list((folder / "feedback").iterdir())
+    sends = sorted((folder / "feedback").iterdir())
+    locked = sends[1:3]
     for path in locked:
         path.chmod(0o500)
     try:
@@ -61,7 +60,8 @@ def test_read_only_folder_logs_one_line(data_dir, caplog):
         for path in locked:
             path.chmod(0o700)
     assert gone(client)
-    assert folder.exists()
+    # What can go is gone, whichever send the delete met first.
+    assert sorted((folder / "feedback").iterdir()) == locked
     (record,) = errors(caplog)
     assert record.levelno == logging.ERROR
     assert str(folder) in record.getMessage()

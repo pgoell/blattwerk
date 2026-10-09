@@ -156,12 +156,11 @@ def me(user: User) -> dict:
 def delete_account(user: User, response: Response, con: Con) -> dict:
     con.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     folder = db.DATA_DIR / "users" / str(user["id"])
+    # Past a file that will not go, so as much goes as can.
+    shutil.rmtree(folder, ignore_errors=True)
     if folder.exists():
-        try:
-            shutil.rmtree(folder)
-        except OSError:
-            # The account is gone either way; the log is the only trace of what stayed on disk.
-            log.exception("Could not delete %s", folder)
+        # The account is gone either way; the log is the only trace of what stayed on disk.
+        log.error("Could not delete %s", folder)
     response.delete_cookie("session")
     return {}
 
