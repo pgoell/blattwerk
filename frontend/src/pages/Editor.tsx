@@ -1225,10 +1225,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const writing = useRef(0);
   // A copy with no words still stamps the system's clipboard, with a blank.
   const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
+  // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
+  // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
+  const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
   function copy() {
     if (!sel.length) return;
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
     const words = wordsOf(sel);
+    localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
     if (pending.current === null) return;
@@ -1259,13 +1263,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
-  // they did.
+  // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
   function typed(got: string) {
-    const text = got.replace(/\r\n/g, "\n");
-    const held = clip();
-    if (!text.trim() || (held.length && text === wordsOf(held))) return false;
+    const words = got.replace(/\r\n/g, "\n");
+    const [copied, held] = [localStorage.getItem("copied"), clip()];
+    // A copy of the build before left no mark: its words are those of the stored blocks.
+    const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
+    if (!words.trim() || own) return false;
     tight.current = true;
-    add(80, 12, { type: "text", props: { text, size: 14, align: "left" } });
+    // Word ends a whole line with a break, which would make an empty last paragraph.
+    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } });
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.

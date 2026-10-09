@@ -454,7 +454,8 @@ def test_lines_from_another_app_paste_as_the_paragraphs_of_one_text_that_grows(e
     """#138: Windows ends a line with two signs, and the box is as high as its words need."""
     client = user()
     page = editor(box("a", "shape", RECT, w=40), client=client)
-    copy_text(page, "eins\r\nzwei\ndrei")
+    # Word ends a whole line with a break, which makes no empty last paragraph.
+    copy_text(page, "eins\r\nzwei\ndrei\r\n")
     page.keyboard.press("Control+v")
     expect(blocks(page)).to_have_count(2)
     # A text with no formatting is drawn as one piece that breaks at each paragraph's end.
@@ -599,7 +600,8 @@ def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
     page = editor(box("a", "shape", RECT, w=40))
     unpick(page)
     # The browser's clipboard outlives a test: a picture an earlier one left there would paste.
-    # A blank, as a copy of blocks with no words leaves: words would paste as a text block.
+    # A blank, as a copy of blocks with no words leaves: words no copy of the editor's left there
+    # would paste as a text block.
     page.evaluate("navigator.clipboard.writeText(' ')")
     page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
     page.keyboard.press("Control+v")
