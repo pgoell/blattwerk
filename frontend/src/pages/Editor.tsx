@@ -274,17 +274,38 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   };
   // Does in what is written in what a key does there that types no letter, and says whether it did. The browser
   // still counts the key that gave the focus back as the control's: only a letter follows the focus by itself. A
-  // text's field takes its own keys first, as Ctrl+B. Deleting and the caret's moves are the browser's, done by hand.
+  // text's field takes its own keys first, as Ctrl+B. Deleting and the caret's moves are the browser's, done by hand,
+  // and so are cutting, copying and picking all. Alt is a key of a text on Apple alone; elsewhere it comes with
+  // Ctrl for AltGr, which types a sign.
   const act = (e: KeyboardEvent) => {
     const view = field.current;
     const mod = e.ctrlKey || e.metaKey;
     const erase = e.key === "Backspace" || e.key === "Delete";
-    if (e.altKey || !(mod || erase || MOVES[e.key])) return false;
+    if ((e.altKey && !APPLE) || !(mod || erase || MOVES[e.key])) return false;
     if (view?.someProp("handleKeyDown", (f) => f(view, e))) return true;
-    if (mod) return false;
-    if (erase) document.execCommand(e.key === "Delete" ? "forwardDelete" : "delete");
-    else getSelection()!.modify(e.shiftKey ? "extend" : "move", ...MOVES[e.key]);
-    return true;
+    const [way, unit] = MOVES[e.key] ?? [e.key === "Delete" ? "forward" : "backward", "character"];
+    // Ctrl deletes and steps by a word, as Alt does on Apple, where Cmd reaches the line's end.
+    const far = (APPLE ? e.altKey : e.ctrlKey) ? "word" : APPLE && e.metaKey ? "lineboundary" : "";
+    if ((erase || MOVES[e.key]) && (far ? unit === "character" : !mod)) {
+      const picked = getSelection()!;
+      // Letters picked go alone.
+      if (erase && far && !String(picked)) picked.modify("extend", way, far);
+      if (erase) document.execCommand(e.key === "Delete" ? "forwardDelete" : "delete");
+      else picked.modify(e.shiftKey ? "extend" : "move", way, far || unit);
+      return true;
+    }
+    if (!mod || e.altKey) return false;
+    const key = e.key.toLowerCase();
+    // Undo and redo of a text and a cell are the sheet's, as with the second key; a Lineatur's are the browser's.
+    if (key === "z" || key === "y") {
+      const again = key === "y" || e.shiftKey;
+      if (document.activeElement!.closest(".ProseMirror, .table")) (again ? redo : undo)();
+      else document.execCommand(again ? "redo" : "undo");
+      return true;
+    }
+    const does = !e.shiftKey && ({ x: "cut", c: "copy", a: "selectAll" } as Record<string, string>)[key];
+    if (does) document.execCommand(does);
+    return !!does;
   };
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
@@ -560,7 +581,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // opened with the mouse and shut with no pick tells nobody, and its control keeps the focus: the first key since
     // the press is then not the control's either. A colour has no key of its own while its picker is shut. A select
     // keeps the arrows, which walk it, a letter while its list is open, and Escape, whose keyup gives the keys back.
-    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || e.key.startsWith("Arrow")) : target.matches(".panel input[type=color]"));
+    // An arrow with Ctrl walks no select.
+    const walks = e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey;
+    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || walks) : target.matches(".panel input[type=color]"));
     const shut = first || (select && e.key === "Enter");
     // Who walks a select of the panel with the keys keeps the focus there.
     if (real) inPanel.current = false;
@@ -570,8 +593,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const open = written();
       back(target);
       // Tab and Enter do no more. A letter goes on to what is written in, with the keypress that types it there;
-      // a key that deletes or moves the caret is done there by hand, and any other only brings the caret back. With
-      // nothing written in the key goes on to the sheet.
+      // a key of the field's that types none, as Backspace or Ctrl+Z, is done there by hand, and any other only brings
+      // the caret back. With nothing written in the key goes on to the sheet.
       if (e.key === "Enter" || (open && (e.key === "Tab" || act(e)))) e.preventDefault();
       if (open || e.key === "Enter" || e.key === "Escape") return;
     }
