@@ -684,7 +684,23 @@ def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
         expect_picked(page)
         # The finger comes down again, and its lift is a tap.
         touch("touchStart", start)
-    expect_picked(page, "a")
+        early = page.evaluate(STATE, list(start))
+    try:
+        expect_picked(page, "a")
+    except AssertionError as e:
+        raise AssertionError(f"DIAG {early} {page.evaluate(STATE, list(start))}") from e
+
+
+STATE = """([x, y]) => ({
+    several: document.querySelector('[aria-pressed]')?.outerHTML.slice(0, 160),
+    pressed: [...document.querySelectorAll('[aria-pressed=true]')].map((b) => b.ariaLabel),
+    block: document.querySelector('.block')?.className,
+    hit: document.elementsFromPoint(x, y).map((el) => el.tagName + '.' + el.className).slice(0, 6),
+    active: document.activeElement?.tagName + '.' + document.activeElement?.className,
+    fingers: !!window.fingers,
+    main: document.querySelector('main')?.className,
+    dialog: !!document.querySelector('dialog[open]'),
+})"""
 
 
 def test_a_tap_after_a_hold_the_browser_cancelled_selects_one_more(editor):
