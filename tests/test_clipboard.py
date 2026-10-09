@@ -445,6 +445,8 @@ def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
     """A stored clip of another build, or of none, harms neither the editor nor the sheet."""
     page = editor(box("a", "shape", RECT, w=40))
     unpick(page)
+    # The browser's clipboard outlives a test: a picture an earlier one left there would paste.
+    page.evaluate("navigator.clipboard.writeText('x')")
     page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
     page.keyboard.press("Control+v")
     # The next copy heals it.
