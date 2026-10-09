@@ -302,9 +302,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
-  // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds.
+  // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds, with the
+  // crop's frame as it was then, which is in no undo step.
   const ahead = useRef<Step[]>([]);
-  const grasp = useRef<{ el: Element; id: number }>(undefined);
+  const grasp = useRef<{ el: Element; id: number; draft: typeof draft }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
   const touch = useRef(false);
@@ -555,9 +556,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (e.key === "Escape" && brush) return setBrush(0);
     // Escape calls a move, a resize or a turn off while the pointer is still down, as in PowerPoint: the blocks are
     // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
+    // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
       if (moveable.current?.isDragging()) moveable.current.stopDrag();
-      else grasp.current!.el.releasePointerCapture(grasp.current!.id);
+      else {
+        grasp.current!.el.releasePointerCapture(grasp.current!.id);
+        setDraft(grasp.current!.draft);
+      }
       if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
       mergeKey.current = "";
       return;
@@ -1443,7 +1448,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
     e.currentTarget.setPointerCapture(e.pointerId);
     ahead.current = hist.future;
-    grasp.current = { el: e.currentTarget, id: e.pointerId };
+    grasp.current = { el: e.currentTarget, id: e.pointerId, draft };
   }
   // Where on the page, in mm, the pointer puts the handle it holds.
   function point(e: PointerEvent) {
