@@ -139,6 +139,40 @@ def test_prune_keeps_the_newest_30(source, target):
     assert "pre-old05.db" in result.stdout
 
 
+def test_prune_spares_the_new_snapshot(source, target):
+    target.mkdir()
+    ahead = time.time() + 86400
+    for n in range(30):
+        (target / f"pre-ahead{n}.db").write_bytes(b"")
+        os.utime(target / f"pre-ahead{n}.db", (ahead + n, ahead + n))
+    assert snapshot(source, target).returncode == 0
+    assert f"pre-{SHA}.db" in names(target)
+    assert len(names(target)) == 30
+
+
+def test_snapshot_leaves_a_hot_journal_alone(source, target):
+    """Read-only for real: a journal the app left in the middle of a write stays for the app."""
+    crash = (
+        "import os, sqlite3, sys\n"
+        "con = sqlite3.connect(sys.argv[1], isolation_level=None)\n"
+        "con.execute('PRAGMA cache_size = 1')\n"
+        "con.execute('BEGIN')\n"
+        "for n in range(200):\n"
+        "    doc = ('d' * 4000,)\n"
+        "    con.execute(\"INSERT INTO sheets (user_id, title, doc) VALUES (1, 'x', ?)\", doc)\n"
+        "os._exit(0)\n"
+    )
+    subprocess.run([sys.executable, "-c", crash, str(source)], check=True)
+    journal = source.with_name("blattwerk.db-journal")
+    held = journal.read_bytes()
+    assert held
+    result = snapshot(source, target)
+    assert result.returncode != 0
+    assert "Open the site once" in result.stderr
+    assert journal.read_bytes() == held
+    assert names(target) == []
+
+
 def test_prune_spares_other_files(source, target):
     target.mkdir()
     (target / "blattwerk-2026-10-09-pr184.db").write_bytes(b"by hand")

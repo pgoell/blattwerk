@@ -70,10 +70,15 @@ except Exception as error:
     tmp.unlink(missing_ok=True)
     journal.unlink(missing_ok=True)
     print(f"snapshot failed: {error}", file=sys.stderr)
+    if "readonly" in str(error):
+        # The app died in the middle of a write and left its journal. Only a writer can mend that.
+        print("Open the site once, so the app mends the database, then rerun.", file=sys.stderr)
     sys.exit(1)
 
 print(final, *(f"{name}={count}" for name, count in after.items()))
-snapshots = [p for p in args.folder.glob("pre-*.db") if p.is_file()]
-for old in sorted(snapshots, key=lambda p: p.stat().st_mtime, reverse=True)[args.keep :]:
+# Never the one just written, whatever the clock says of the others.
+snapshots = [p for p in args.folder.glob("pre-*.db") if p.is_file() and p != final]
+others = max(args.keep - 1, 0)
+for old in sorted(snapshots, key=lambda p: p.stat().st_mtime, reverse=True)[others:]:
     old.unlink()
     print(f"deleted {old}")
