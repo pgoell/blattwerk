@@ -382,8 +382,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
-  // Whether the blocks line up among themselves.
-  const among = !onPage && free.length > 1;
+  // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
+  const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
+  const things = [...new Set(free.map(thing))].map((t) => free.filter((b) => thing(b) === t));
+  // Whether they line up among themselves.
+  const among = !onPage && things.length > 1;
   // What can take another's size: a line has only its length.
   const sizable = free.filter((b) => !isLine(b));
   const ns = numbers(hist.doc);
@@ -1333,30 +1336,50 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
   }
 
+  // Puts the blocks where they belong, rounded. What already lies there leaves nothing to undo.
+  function bring(to: [Block, Partial<Record<"x" | "y" | "w" | "h", number>>][]) {
+    const boxes = to.map(([b, box]) => [b, Object.entries(box).map(([side, n]) => [side as "x" | "y" | "w" | "h", round(n)] as const)] as const);
+    if (boxes.every(([b, box]) => box.every(([side, n]) => round(b[side]) === n))) return;
+    place(boxes.map(([b, box]) => [b.id, Object.fromEntries(box)]));
+  }
+  // A thing lines up by the box around its outlines, a turned block's too, and moves whole.
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    // One block lines up with the page. Several do so with each other, or with the page when the switch says so.
-    const lo = among ? Math.min(...free.map((b) => b[axis])) : 0;
-    const hi = among ? Math.max(...free.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
-    place(free.map((b) => [b.id, { [axis]: round(lo + (hi - lo - b[size]) * at) }]));
+    const boxes = things.map((t) => bounds(t.map(outline)));
+    // One thing lines up with the page. Several do so with each other, or with the page when the switch says so.
+    const lo = among ? Math.min(...boxes.map((b) => b[axis])) : 0;
+    const hi = among ? Math.max(...boxes.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
+    bring(things.flatMap((t, i) => t.map((b) => [b, { [axis]: b[axis] + lo + (hi - lo - boxes[i][size]) * at - boxes[i][axis] }])));
   }
-  // As wide as the widest, or as high as the highest. Each keeps its corner; a picture and a symbol keep their shape.
+  // As wide as the widest, or as high as the highest, by the outlines. Each outline keeps its corner; a picture and a
+  // symbol keep their shape.
   function same(side: "w" | "h") {
     const other = side === "w" ? "h" : "w";
-    const to = Math.max(...sizable.map((b) => b[side]));
-    place(sizable.map((b) => [b.id, { [side]: to, ...((b.type === "image" || b.type === "symbol") && { [other]: round((b[other] * to) / b[side]) }) }]));
+    const to = Math.max(...sizable.map((b) => outline(b)[side]));
+    bring(
+      sizable.map((b) => {
+        const [c, s] = dir(b).map(Math.abs);
+        // Of a turned block the side that lies more along this one grows, until the outline is that large.
+        const along = c >= s ? side : other;
+        const across = along === "w" ? "h" : "w";
+        const k = to / outline(b)[side];
+        const sized = b.type === "image" || b.type === "symbol" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
+        const [was, now] = [outline(b), outline(sized)];
+        return [b, { x: sized.x + was.x - now.x, y: sized.y + was.y - now.y, w: sized.w, h: sized.h }];
+      }),
+    );
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
-    const row = [...free].sort((a, b) => a[axis] - b[axis]);
-    const end = row.at(-1)![axis] + row.at(-1)![size];
-    const gap = (end - row[0][axis] - row.reduce((sum, b) => sum + b[size], 0)) / (row.length - 1);
-    let next = row[0][axis];
-    place(
-      row.map((b) => {
-        const at = next;
-        next += b[size] + gap;
-        return [b.id, { [axis]: round(at) }];
+    const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
+    const end = row.at(-1)!.box[axis] + row.at(-1)!.box[size];
+    const gap = (end - row[0].box[axis] - row.reduce((sum, r) => sum + r.box[size], 0)) / (row.length - 1);
+    let next = row[0].box[axis];
+    bring(
+      row.flatMap(({ t, box }) => {
+        const by = next - box[axis];
+        next += box[size] + gap;
+        return t.map((b) => [b, { [axis]: b[axis] + by }]);
       }),
     );
   }
@@ -2561,8 +2584,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <h2>Ausrichten</h2>
               {/* What the blocks line up with. One block has only the page. */}
               <div className="seg">
-                <button className={among ? "on" : ""} aria-pressed={among} disabled={free.length < 2} onClick={() => setOnPage(false)}>Auswahl</button>
-                <button className={among ? "" : "on"} aria-pressed={!among} disabled={free.length < 2} onClick={() => setOnPage(true)}>Seite</button>
+                <button className={among ? "on" : ""} aria-pressed={among} disabled={things.length < 2} onClick={() => setOnPage(false)}>Auswahl</button>
+                <button className={among ? "" : "on"} aria-pressed={!among} disabled={things.length < 2} onClick={() => setOnPage(true)}>Seite</button>
               </div>
               <div className="acts">
                 {ALIGNS.map(([axis, at, label, icon]) => (
@@ -2571,8 +2594,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               </div>
               <h2>Verteilen</h2>
               <div className="acts">
-                <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
-                <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+                <button disabled={things.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
+                <button disabled={things.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
               </div>
               <h2>Größe angleichen</h2>
               <div className="acts">
