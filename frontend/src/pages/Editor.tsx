@@ -34,6 +34,7 @@ import {
   FileDown,
   FilePlus,
   FileX,
+  Fullscreen,
   Heading,
   ImagePlus,
   LayoutTemplate,
@@ -269,6 +270,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
   const [zoom, setZoom] = useState(1);
+  // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
+  const [pan, setPan] = useState(false);
+  const [panning, setPanning] = useState(false);
+  // Where the hand's drag began: the pointer, and the desk's scroll.
+  const hand = useRef([0, 0, 0, 0]);
+  const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
@@ -472,6 +479,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // redo are the sheet's.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range]");
     if (!ours && target.closest(".ProseMirror, textarea, input, select")) return;
+    // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
+    if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!target.closest("button, a, summary")) e.preventDefault();
+      if (!e.repeat) setPan(true);
+      return;
+    }
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
     const step = e.shiftKey ? 10 : cell || 1;
     const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
@@ -517,9 +530,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   };
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) =>
+    const onKey = (e: KeyboardEvent) => {
       setMod((e.shiftKey ? KEEP : 0) | ((APPLE ? e.altKey : e.ctrlKey) ? CENTRE : 0) | ((APPLE ? e.metaKey : e.altKey) ? LOOSE : 0));
-    const onBlur = () => setMod(0);
+      // Letting Space go puts the hand down. A drag that is on goes on until the pointer lifts.
+      if (e.type === "keyup" && e.code === "Space") setPan(false);
+    };
+    const onBlur = () => {
+      setMod(0);
+      setPan(false);
+      setPanning(false);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);
@@ -577,6 +597,31 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
+  });
+  // Ctrl and the wheel zoom the page about the pointer, not the window. A trackpad's pinch comes the same way. React's
+  // own wheel listener is passive, so this one is set by hand.
+  useEffect(() => {
+    const el = stage.current!;
+    function onWheel(e: globalThis.WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) {
+        // The hand lies over the desk, so a wheel on it scrolls the desk from here.
+        if ((e.target as Element).closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
+        return;
+      }
+      e.preventDefault();
+      // One notch of a mouse wheel is one step of the buttons.
+      const next = Math.min(4, Math.max(0.25, zoom * 1.25 ** (-e.deltaY / 100)));
+      // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
+      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
+      let page = under.getBoundingClientRect();
+      const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
+      flushSync(() => setZoom(next));
+      // Scroll the page point that was under the pointer back under it.
+      page = under.getBoundingClientRect();
+      desk.current!.scrollBy(page.left + x * fit * next - e.clientX, page.top + y * fit * next - e.clientY);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   });
   // A finger held on a thumbnail for half a second drags it. One that moves before then scrolls the panel, and
   // only a listener set by hand can keep the panel still once the drag is on.
@@ -1478,7 +1523,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   function zoomBy(by: number) {
     const n = Math.log(zoom) / Math.log(1.25);
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
-    setZoom(1.25 ** Math.min(6, Math.max(-6, to)));
+    setZoom(Math.min(4, Math.max(0.25, 1.25 ** to)));
   }
   const zoomer = (
     <>
@@ -1487,6 +1532,19 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
         {Math.round((k * 2540) / 96)} %
       </button>
+      {/* The whole page in use, width and height, once: it does not follow the window. */}
+      <Tool
+        icon={Fullscreen}
+        label="Ganze Seite"
+        onClick={() => {
+          const el = desk.current!;
+          // 120 is the desk's padding above and below.
+          flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.clientHeight - 120) / H) / fit))));
+          const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
+          // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+          el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
+        }}
+      />
       <Tool icon={ZoomIn} label="Größer" onClick={() => zoomBy(1)} />
     </>
   );
@@ -1546,7 +1604,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   );
   return (
     <main
-      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}`}
+      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
       onPointerDown={(e) => {
         mergeKey.current = "";
@@ -1762,7 +1820,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         </aside>
       )}
 
-      <div className="stage">
+      <div className="stage" ref={stage}>
         <div
           className="desk"
           ref={desk}
@@ -1967,6 +2025,30 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             </div>
           ))}
         </div>
+        {/* The hand lies over the desk and takes the press, so no block under it is picked or moved. */}
+        {(pan || panning) && (
+          <div
+            className="hand"
+            onPointerDown={(e) => {
+              // The left button only: the right one opens the menu.
+              if (e.button) return;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              hand.current = [e.clientX, e.clientY, desk.current!.scrollLeft, desk.current!.scrollTop];
+              setPanning(true);
+              // A button that has the focus would take Space's keyup as its click.
+              if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
+            }}
+            onPointerMove={(e) => {
+              if (!panning) return;
+              // The button came up where the hand could not see it.
+              if (!e.buttons) return setPanning(false);
+              desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
+              desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
+            }}
+            onPointerUp={() => setPanning(false)}
+            onPointerCancel={() => setPanning(false)}
+          />
+        )}
         {/* What can go on the page floats over the desk's lower edge. */}
         {leaf ? (
           <>
