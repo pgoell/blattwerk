@@ -143,8 +143,8 @@ def expect_picked(page, *names):
 
 
 def unpick(page):
-    """A click on the empty corner of the page selects nothing."""
-    page.locator(".sheet").click(position={"x": 5, "y": 5})
+    """A click on the empty corner of the first page selects nothing."""
+    page.locator(".sheet").first.click(position={"x": 5, "y": 5})
     expect_picked(page)
 
 
