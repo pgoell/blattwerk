@@ -200,7 +200,9 @@ def retry_leftovers() -> None:
     # Also with no row to try: the open makes a new file's tables.
     con = db.open_db()
     try:
-        for (user_id,) in con.execute("SELECT user_id FROM leftovers").fetchall():
+        # Never the folder of a living account, whatever a restored or hand-made row says.
+        gone = "SELECT user_id FROM leftovers WHERE user_id NOT IN (SELECT id FROM users)"
+        for (user_id,) in con.execute(gone).fetchall():
             error = remove(db.DATA_DIR / "users" / str(user_id))
             if error:
                 # `since` stays: the alert tells how long the folder has been there.

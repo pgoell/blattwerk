@@ -108,7 +108,7 @@ cp ~/.local/share/blattwerk-backups/pre-<sha>.db ~/.local/share/blattwerk/blattw
 docker compose start
 ```
 
-The `mv` takes a leftover `blattwerk.db-journal` along: SQLite would replay it into the restored file. Everything saved since the snapshot is lost. The snapshot holds no uploads; the hourly backup has them.
+The `mv` takes a leftover `blattwerk.db-journal` along: SQLite would replay it into the restored file. Everything saved since the snapshot is lost. The snapshot holds no uploads; the hourly backup has them. A snapshot older than 30 days may show a picture whose file a save has deleted since: take `users/` from a backup of the same day. After any restore of `users/` from a backup, the files carry their old times, so a picture that no sheet shows may go at its owner's next save.
 
 A deploy that moved the schema needs both, in this order: the database already has the new shape, the old image alone does not undo that, and the new image would move a restored database again on its first request. Run the snapshot block up to the `cp`, then start the old image in place of `docker compose start`:
 

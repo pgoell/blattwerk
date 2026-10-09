@@ -121,6 +121,17 @@ def test_next_start_deletes_the_folder_and_forgets_it(data_dir, monkeypatch):
     assert admin().get("/api/admin/leftovers").json() == []
 
 
+def test_start_never_deletes_the_folder_of_a_living_account(data_dir):
+    client = user()
+    client.post("/api/feedback", data={"text": "x"})
+    folder = data_dir / "users" / "1"
+    # A row no delete wrote, as by hand or from a database joined of two.
+    db.open_db().execute("INSERT INTO leftovers (user_id, error) VALUES (1, 'x')")
+    auth.retry_leftovers()
+    assert folder.is_dir()
+    assert client.get("/api/me").status_code == 200
+
+
 def test_start_of_the_app_tries_the_left_over_folders(data_dir, monkeypatch):
     _, folder = leftover(monkeypatch)
     monkeypatch.setattr(auth.shutil, "rmtree", RMTREE)
