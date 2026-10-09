@@ -53,6 +53,20 @@ def test_ctrl_z_as_the_first_key_undoes_the_typing_once(editor, name, label, way
     assert at(page, "b").bounding_box() == moved
 
 
+@pytest.mark.parametrize("name, label", SELECTS)
+def test_ctrl_z_after_escape_in_a_list_undoes_the_typing(editor, name, label):
+    page = editor(box(name, *KINDS[name]), box("b", "text", TEXT, z=2))
+    area = write(page, name)
+    control = opened(page, label)
+    was = control.input_value()
+    # Escape gives the keys back by itself.
+    page.keyboard.press("Escape")
+    expect(area).to_be_focused()
+    page.keyboard.press("Control+z")
+    expect_words(area, UNDONE[name])
+    expect_kept(page, area, control, was, name)
+
+
 # Asked 2
 
 
