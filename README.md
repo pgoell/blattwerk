@@ -97,6 +97,8 @@ The steps, in order. A step that fails stops the deploy.
 
 A deploy that fails after the build and before step 7 (a failed canary, say) leaves the old container running, but `blattwerk-blattwerk:latest` names the failed image until the next good deploy, and `prev` has not moved. Do not run `docker compose up -d` by hand then: it would start the failed image. Revert the commit and let the deploy run.
 
+A rerun of the deploy of a commit from before the canary is no way back either: the workflow file comes from `master`, the scripts from that commit, which has no `scripts/canary.sh`. Revert on `master` instead.
+
 The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS. The canary is gone by then; `docker run --rm blattwerk-blattwerk:latest` shows why an image does not start.
 
 Step 2 or 5 can fail with "Open the site once and sign in, so the app mends it, then rerun". That happens when the app died in the middle of a write and left `blattwerk.db-journal` beside the database. The deploy reads the database read only and cannot mend it; the app's next write does. Open the site, sign in, then rerun the deploy.

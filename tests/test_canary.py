@@ -372,6 +372,21 @@ def test_stop_removes_the_canary_and_the_copy(tmp_path, live, copy):
     assert tree(live) == before
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason="root deletes anywhere")
+def test_stop_that_cannot_delete_the_copy_fails_and_names_no_file(tmp_path, live, copy):
+    assert run(tmp_path, "canary.sh", "start", live, copy)[0].returncode == 0
+    locked = copy / "users" / "1" / "uploads"
+    locked.chmod(0o500)
+    try:
+        result, _ = run(tmp_path, "canary.sh", "stop", live, copy)
+    finally:
+        locked.chmod(0o700)
+    assert result.returncode == 1
+    assert "::error::" in result.stdout
+    assert "uploads" not in result.stdout + result.stderr
+    assert str(copy) not in result.stdout + result.stderr
+
+
 def test_stop_is_fine_when_nothing_is_there(tmp_path, live, copy):
     # docker says 1 when there is no such container.
     result, calls = run(tmp_path, "canary.sh", "stop", live, copy, rc_rm=1)

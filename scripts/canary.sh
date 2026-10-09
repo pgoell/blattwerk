@@ -27,7 +27,11 @@ refuse() {
 
 remove() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  rm -rf -- "$copy"
+  # No output of rm: it would name the users' files in a public log.
+  if ! rm -rf -- "$copy" 2>/dev/null; then
+    echo "::error::canary: the copy of the data is still there. On the VPS: rm -rf the copy folder"
+    exit 1
+  fi
 }
 
 case "${1:-}" in
