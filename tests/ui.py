@@ -36,8 +36,9 @@ from playwright.sync_api import expect
 from blattwerk import auth, db
 from blattwerk.app import STATIC, app
 
-# The browser the suite runs in: chromium, or webkit as `mise run test:webkit` sets it.
-BROWSER = os.environ.get("BROWSER", "chromium")
+# The browser the suite runs in: chromium, or webkit as `mise run test:webkit` sets it. Not
+# BROWSER: a desktop sets that for xdg-open.
+BROWSER = os.environ.get("BLATTWERK_BROWSER", "chromium")
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 RED = b"\xff\x00\x00"

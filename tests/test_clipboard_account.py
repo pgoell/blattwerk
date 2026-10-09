@@ -15,7 +15,20 @@ from test_clipboard import (
     ready,
     stored,
 )
-from ui import PASSWORD, RECT, TEXT, at, box, copy_picture, expect_picked, pick, saved, sheet, user
+from ui import (
+    BROWSER,
+    PASSWORD,
+    RECT,
+    TEXT,
+    at,
+    box,
+    copy_picture,
+    expect_picked,
+    pick,
+    saved,
+    sheet,
+    user,
+)
 
 from blattwerk import db
 
@@ -63,9 +76,10 @@ def login(page, who, on, count):
             button(page, "Anmelden").click()
         expect(page.locator("#email")).to_have_count(0)
         # The session cookie is Secure and this server speaks http: Chromium keeps it for
-        # 127.0.0.1 all the same, WebKit does not, so it goes by hand.
-        value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
-        page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
+        # 127.0.0.1 all the same, WebKit does not, so there it goes by hand.
+        if BROWSER == "webkit":
+            value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
+            page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
     else:
         cookie = {"name": "session", "value": who.cookies["session"], "url": origin(page)}
         page.context.add_cookies([cookie])
