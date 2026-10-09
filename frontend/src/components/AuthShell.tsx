@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Logo from "./Logo";
 
-// The logged-out pages: what Blattwerk is on one side, the form on the other.
+// The logged-out pages: what Blattomat is on one side, the form on the other.
 export default function AuthShell({ title, lead, children }: { title: string; lead: string; children: ReactNode }) {
   return (
     <main className="auth">

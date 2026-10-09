@@ -143,6 +143,18 @@ def test_chromium_prints_the_sheet_and_its_answer_key(server):
             assert (f"{e['a']} + {e['b']} = {e['result']}" in first) == solved
 
 
+def test_pdf_metadata_says_blattomat(server):
+    client = user()
+    mine = sheet(client, [])
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    # What a PDF viewer shows under the file's properties. Chromium would name itself there.
+    meta = PdfReader(io.BytesIO(res.content)).metadata
+    assert meta
+    assert (meta.title, meta.creator, meta.producer) == ("Blattomat",) * 3
+
+
 def test_chromium_prints_old_plain_text_and_rich_text(server):
     client = user()
     # A text as sheets saved before hold it, and one with paragraphs of its own beside the words.

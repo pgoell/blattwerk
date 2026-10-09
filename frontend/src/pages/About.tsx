@@ -4,15 +4,15 @@ import { Link } from "react-router";
 export default function About() {
   return (
     <main>
-      <p><Link to="/">← Blattwerk</Link></p>
-      <h1>Über Blattwerk</h1>
-      <p className="lead">Arbeitsblätter für die Grundschule. Blattwerk nutzt freie Symbole und Schriften:</p>
+      <p><Link to="/">← Blattomat</Link></p>
+      <h1>Über Blattomat</h1>
+      <p className="lead">Arbeitsblätter für die Grundschule. Blattomat nutzt freie Symbole und Schriften:</p>
       <div className="card">
         <label>Symbole</label>
         <p>
           Alle Symbole stammen von <a href="https://openmoji.org">OpenMoji</a>, dem quelloffenen Emoji- und Icon-Projekt,
           und stehen unter der Lizenz <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.de">CC BY-SA 4.0</a>.
-          Blattwerk zeigt sie unverändert. <a href="/openmoji/LICENSE.txt">Lizenztext</a>
+          Blattomat zeigt sie unverändert. <a href="/openmoji/LICENSE.txt">Lizenztext</a>
         </p>
       </div>
       <div className="card">

@@ -18,7 +18,7 @@ type Step = {
 
 const STEPS: Step[] = [
   {
-    title: "Willkommen bei Blattwerk",
+    title: "Willkommen bei Blattomat",
     text: "Dieser Rundgang zeigt dir in zwei Minuten, wie ein Blatt entsteht. Du probierst jeden Schritt gleich selbst aus.",
   },
   {
