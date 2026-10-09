@@ -117,7 +117,8 @@ export function tint(view: EditorView, props: Marks, base: TextProps, key = "") 
   const { selection } = view.state;
   const [from, to] = (selection.empty && word(selection.$from)) || [selection.from, selection.to];
   const empty = from === to;
-  if (empty && props.color === undefined && !view.hasFocus()) return false;
+  // A text with no words yet has nothing to keep: the colour is the block's, so it outlasts the field.
+  if (empty && (props.color === undefined ? !view.hasFocus() : !view.state.doc.textContent)) return false;
   const tr = view.state.tr.setMeta("key", key);
   for (const name of NAMES) {
     const v = props[name];

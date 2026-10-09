@@ -499,3 +499,22 @@ def test_farbe_shows_the_colour_for_what_is_typed_next_and_one_undo_takes_it_awa
     expect(page.locator(FIELD)).to_have_text("Hallo du")
     expect(coloured).to_have_text(["Hallo "])
     expect(at(page, "a").locator(".frame")).to_have_css("color", "rgb(0, 0, 255)")
+
+
+# Review: a text with no words keeps the colour as its own
+
+
+def test_a_colour_in_an_empty_text_outlasts_the_field(editor):
+    client = user()
+    empty = box("a", "text", {**TEXT, "text": ""})
+    page = editor(empty, box("b", "shape", RECT, z=2), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    colour(page, "#00ff00")
+    page.keyboard.press("Escape")
+    pick(page, "b")
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.type("x")
+    assert saved(page, client)[0]["props"]["color"] == "#00ff00"
