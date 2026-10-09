@@ -1,6 +1,7 @@
 """Accounts: invite-only sign-up, login, password reset links and the admin calls."""
 
 import hashlib
+import logging
 import secrets
 import shutil
 import sqlite3
@@ -20,6 +21,7 @@ LINK_DAYS = 7
 TRIES = 10
 WINDOW = 15 * 60
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 hasher = PasswordHasher()
 # Verified when the email is unknown, so a miss takes as long as a wrong password.
@@ -153,7 +155,13 @@ def me(user: User) -> dict:
 @router.delete("/me")
 def delete_account(user: User, response: Response, con: Con) -> dict:
     con.execute("DELETE FROM users WHERE id = ?", (user["id"],))
-    shutil.rmtree(db.DATA_DIR / "users" / str(user["id"]), ignore_errors=True)
+    folder = db.DATA_DIR / "users" / str(user["id"])
+    if folder.exists():
+        try:
+            shutil.rmtree(folder)
+        except OSError:
+            # The account is gone either way; the log is the only trace of what stayed on disk.
+            log.exception("Could not delete %s", folder)
     response.delete_cookie("session")
     return {}
 
