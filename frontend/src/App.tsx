@@ -23,12 +23,18 @@ export default function App() {
     api<User>("/me").then(setUser, () => setUser(null));
   }, []);
 
+  // A login or a logout empties the block clipboard: what one account copied is not the next one's.
+  const enter = (to: User | null) => {
+    localStorage.removeItem("clip");
+    setUser(to);
+  };
+
   if (user === undefined) return null;
   return (
     <>
       <Routes>
-        <Route path="/einladung/:token" element={<SetPassword invite onDone={setUser} />} />
-        <Route path="/passwort/:token" element={<SetPassword onDone={setUser} />} />
+        <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
+        <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
         <Route path="/ueber" element={<About />} />
         <Route path="/druck/:id" element={<Print />} />
         {user ? (
@@ -36,13 +42,13 @@ export default function App() {
             <Route path="/" element={<SheetList />} />
             <Route path="/blatt/:id" element={<Suspense><Editor user={user} /></Suspense>} />
             <Route path="/feedback/fotos" element={<Photos />} />
-            <Route path="/konto" element={<Account user={user} onGone={() => { localStorage.removeItem("clip"); setUser(null); }} />} />
+            <Route path="/konto" element={<Account user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}
             <Route path="*" element={<main><h1>Seite nicht gefunden</h1></main>} />
           </Route>
         ) : (
           // Logged out, every path shows the login; the page asked for opens after it.
-          <Route path="*" element={<Login onDone={setUser} />} />
+          <Route path="*" element={<Login onDone={enter} />} />
         )}
       </Routes>
       <footer>

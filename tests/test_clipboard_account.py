@@ -113,6 +113,80 @@ def test_the_next_account_pastes_nothing_of_the_one_before(editor):
     assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
 
 
+def test_an_account_with_the_id_of_a_deleted_one_pastes_nothing_of_it(editor):
+    """A2"""
+    a = user()
+    gone = a.get("/api/me").json()["id"]
+    held = every(a)
+    page = editor(*held, client=a)
+    copy_all(page, len(held))
+    leave(page)
+    # Deleted on another device: this browser's store still holds the copy.
+    assert a.delete("/api/me").status_code == 200
+    b, email = someone()
+    # The database hands the newest account's id out again.
+    assert b.get("/api/me").json()["id"] == gone
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    before = stored(page, b)
+    paste_both(page)
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, b) == before
+    assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
+
+
+def test_a_copy_in_a_tab_left_open_over_the_logout_does_not_outlast_the_next_login(editor):
+    """A1, I5"""
+    a, email = someone()
+    held = every(a)
+    page = editor(*held, client=a)
+    mine = {"id": page.url.rsplit("/", 1)[1]}
+    tab = page.context.new_page()
+    tab.goto(f"{origin(page)}/blatt/{sheet(a, [box('x', 'shape', RECT, w=40)])['id']}")
+    ready(tab, 1)
+    page.bring_to_front()
+    logout(page)
+    # The other tab's editor still stands, and copies as the account that left.
+    ready(tab, 1)
+    pick(tab, "x")
+    tab.keyboard.press("Control+c")
+    assert json.loads(tab.evaluate(CLIP))["blocks"]
+    page.bring_to_front()
+    login(page, email, mine, len(held))
+    paste_both(page)
+    expect(blocks(page)).to_have_count(len(held))
+    assert a.post("/api/login", json={"email": email, "password": PASSWORD}).status_code == 200
+    assert len(stored(page, a)) == len(held)
+    pick(page, "b1")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(len(held) + 1)
+    assert len(saved(page, a)) == len(held) + 1
+
+
+@pytest.mark.parametrize(
+    "junk", [[{}], [None], "abc", [{"id": "q", "type": "text"}], [], ...], ids=str
+)
+def test_the_accounts_own_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
+    """A stored clip of this account with broken blocks harms neither the editor nor the sheet."""
+    client = user()
+    page = editor(box("x", "shape", RECT, w=40), client=client)
+    errors = []
+    page.on("pageerror", lambda error: errors.append(error))
+    # The copy leaves words on the system's clipboard, where another test may have left a picture.
+    pick(page, "x")
+    page.keyboard.press("Control+c")
+    clip = {"owner": client.get("/api/me").json()["id"]}
+    # The last one has no blocks at all.
+    if junk is not ...:
+        clip["blocks"] = junk
+    page.evaluate("(clip) => localStorage.setItem('clip', clip)", json.dumps(clip))
+    paste_both(page)
+    expect(blocks(page)).to_have_count(1)
+    # The next copy heals it.
+    assert len(own(page, client, 2)) == 2
+    assert errors == []
+
+
 def test_a_clip_of_the_build_before_pastes_nothing_and_the_next_copy_heals_it(editor):
     """I1"""
     client = user()
