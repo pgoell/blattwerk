@@ -525,7 +525,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // is then not the select's either. It goes on to the sheet, or to nobody while something is written in.
     const shut = target.matches(".panel select") && (e.key === "Enter" || (e.key === "Tab" && inPanel.current));
     // Who walks a select of the panel with the keys keeps the focus there. Shift alone is no key yet.
-    if (!["Shift", "Control", "Alt", "Meta"].includes(e.key)) inPanel.current = false;
+    if (!["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key)) inPanel.current = false;
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
@@ -1821,6 +1821,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
+        // What is written in lost the focus to the panel and has no blur left to end it: a press beside the panel
+        // and the blocks, as on the title, ends it.
+        if (!inPanel.current && document.activeElement?.closest(".panel") && !(e.target as Element).closest(".block")) setEditing("");
       }}
       // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,

@@ -290,7 +290,7 @@ def test_a_control_reached_by_the_keys_keeps_the_writing_open(editor, name, labe
 # Implied 7
 
 
-@pytest.mark.parametrize("to", ["page", "block"])
+@pytest.mark.parametrize("to", ["page", "block", "title"])
 @pytest.mark.parametrize("name", ["text", "ruling", "table"])
 def test_a_press_on_the_sheet_after_one_in_the_panel_still_ends_the_writing(editor, name, to):
     # Another kind of Lineatur is higher: the other block lies clear of it.
@@ -299,9 +299,14 @@ def test_a_press_on_the_sheet_after_one_in_the_panel_still_ends_the_writing(edit
     def leave():
         if to == "page":
             unpick(page)
+        elif to == "title":
+            # The block stays picked: the press itself ends the writing.
+            page.get_by_label("Titel").click()
         else:
             pick(page, "b")
         expect(page.locator(OPEN)).to_have_count(0)
+        # A picked table's bars lie where the next click would pick it.
+        unpick(page)
 
     # After a pick the caret is back in what is written in.
     write(page, name)
