@@ -94,15 +94,36 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
     style("ruling", { kind }, "ruling");
     place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row))]), "ruling");
   };
+  // How far a point can go until it meets a margin, moving `by` each step. No limit where it does not move.
+  const room = (at: number, by: number, max: number) => (Math.abs(by) < 1e-9 ? Infinity : ((by > 0 ? max - MARGIN : MARGIN) - at) / by);
   // A ruling grows down its own axis, which a turn points anywhere on the page, until a corner of its far edge
   // would cross the margin it grows towards. Whole rows, and one at least.
   const fill = (b: RulingBlock) => {
     const [c, s] = dir(b);
     // The corner the block starts at; the other end of that edge lies its width along.
     const [x, y] = [b.x + (b.w - b.w * c + b.h * s) / 2, b.y + (b.h - b.w * s - b.h * c) / 2];
-    const room = (at: number, by: number, max: number) => (Math.abs(by) < 1e-9 ? Infinity : ((by > 0 ? max - MARGIN : MARGIN) - at) / by);
     const most = Math.min(room(x, -s, W), room(x + b.w * c, -s, W), room(y, c, H), room(y + b.w * s, c, H));
     return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
+  };
+  // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
+  // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
+  // less room there than it is high.
+  const wide = (b: RulingBlock): Partial<Box> => {
+    const [c, s] = dir(b);
+    // The middle of each long edge.
+    const mids = [-1, 1].map((side) => [b.x + (b.w - side * b.h * s) / 2, b.y + (b.h + side * b.h * c) / 2]);
+    const [back, on] = [-1, 1].map((way) => Math.min(...mids.flatMap(([x, y]) => [room(x, way * c, W), room(y, way * s, H)])));
+    // Rounded down, so that no corner crosses.
+    const w = Math.floor((back + on) * 100 + 1e-6) / 100;
+    // A slanted one that fills the room to a hair stays too: its place is rounded, so a second press would find
+    // a little room again, and the more of it the closer the block lies to level or upright. So its place is
+    // rounded finer, to keep that hair thin.
+    const hair = 0.02 + 0.0001 / Math.min(Math.abs(c), Math.abs(s));
+    const slanted = Math.abs(c * s) > 1e-9;
+    const fine = (n: number) => (slanted ? Math.round(n * 1e4) / 1e4 : round(n));
+    if (!(w > 0 && w < Infinity) || (slanted && (((back < 0 || on < 0) && w < b.h) || [back, on].every((end) => Math.abs(end - b.w / 2) < hair)))) return {};
+    // A level block keeps its y as it is.
+    return { w, x: fine(b.x + (b.w - w + (on - back) * c) / 2), ...(Math.abs(s) > 1e-9 && { y: fine(b.y + ((on - back) * s) / 2) }) };
   };
   // A maths block's height follows its exercises when they need more or less room than before.
   const calc = (props: MathsProps) => {
@@ -217,7 +238,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             <input type="color" value={rulings[0].props.color} onChange={(e) => style("ruling", { color: e.target.value }, "color")} />
           </label>
           <div className="row">
-            <button onClick={() => place(rulings.map((b) => [b.id, { x: MARGIN, w: W - 2 * MARGIN }]))}>Seitenbreite</button>
+            <button onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
             <button onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
           </div>
           <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
