@@ -53,7 +53,7 @@ run = "uv run pytest -n 0 -x"
 [tasks."test:flaky"]
 description = "Run the tests named after -- 20 times side by side"
 depends = ["build"]
-run = "uv run pytest -n 8 --count 20 -x"
+run = "bash scripts/test-flaky.sh"
 
 [tasks."test:webkit"]
 description = "Run the browser tests in WebKit; node ids and pytest flags go after --"

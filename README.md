@@ -15,6 +15,13 @@ mise run test
 mise run lint     # ruff + ty
 ```
 
+A test that fails now and then runs 20 times side by side, a parametrised one by its full id, in quotes because of the brackets:
+
+```sh
+mise run test:flaky -- tests/test_keys.py::test_name
+mise run test:flaky -- 'tests/test_keys.py::test_name[param]'
+```
+
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org); the `commit-msg` hook checks them with cocogitto.
 
 ## Layout
