@@ -410,6 +410,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const onKey = useRef((_e: KeyboardEvent) => {});
   const onPaste = useRef((_e: ClipboardEvent) => {});
   const onDrag = useRef((_e: DragEvent) => {});
+  // The sheet and the page in use as last drawn, for what comes back from the server after them.
+  const latest = useRef({ doc: hist.doc, page });
+  latest.current = { doc: hist.doc, page };
   useLayoutEffect(() => {
     const press = (e: KeyboardEvent) => onKey.current(e);
     const pasted = (e: ClipboardEvent) => onPaste.current(e);
@@ -751,27 +754,35 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
   // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
   // 5 mm right and down. They stay where they were dropped, also on a block, so they only move as far as the page
-  // needs to hold them. The spot is read at once: the page may scroll while the pictures are on their way.
+  // needs to hold them. The page and the spot are read at once: the desk may scroll while the pictures are on their way.
   async function dropped(files: File[], left: number, top: number) {
-    const under = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].find((el) => {
-      const r = el.getBoundingClientRect();
-      return left >= r.left && left <= r.right && top >= r.top && top <= r.bottom;
-    });
-    const n = under ? +under.dataset.page! : page;
-    const [w, h] = sizes[n];
-    const from = (under ?? sheet.current!).getBoundingClientRect();
-    const [x, y] = [(left - from.left) / k, (top - from.top) / k];
+    // Beside the pages, the nearest one takes the drop.
+    const rects = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].map((el) => el.getBoundingClientRect());
+    const away = rects.map((r) => Math.hypot(Math.max(r.left - left, 0, left - r.right), Math.max(r.top - top, 0, top - r.bottom)));
+    const was = away.indexOf(Math.min(...away));
+    const [x, y] = [(left - rects[was].left) / k, (top - rects[was].top) / k];
+    const [on, count] = [pages[was], pages.length];
     const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
     if (made.length) {
+      // The pages may have changed while the pictures were on their way. The page dropped on is looked up where it
+      // is now; one changed since keeps its number while the pages are as many as before. A page that is gone
+      // leaves the drop to the page in use.
+      const { doc, page } = latest.current;
+      const found = doc.pages.indexOf(on);
+      const n = found >= 0 ? found : doc.pages.length === count ? was : page;
+      // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
+      const [w, h] = sizeOf(doc, n);
+      const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
+      const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
       // All of them are one undo step, on top of what the page holds by then.
       turn(
         (p) => {
           const z = Math.max(0, ...p.blocks.map((b) => b.z));
           const fresh = made.map((b, i) => ({
             ...b,
-            x: round(Math.max(0, Math.min(x - b.w / 2 + 5 * i, w - b.w))),
-            y: round(Math.max(0, Math.min(y - b.h / 2 + 5 * i, h - b.h))),
+            x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
+            y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
             z: z + 1 + i,
             locked: false,
           }));

@@ -5,7 +5,7 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import REFUSED, blocks, every, stored
+from test_clipboard import REFUSED, blocks, button, every, stored
 from ui import FIELD, RECT, TABLE, TEXT, at, box, centre, drop, pick, png, saved, user
 
 PNG = ("bild.png", "image/png", png())
@@ -44,10 +44,10 @@ def spot(page, x, y, n=0):
     return held["x"] + x * k, held["y"] + y * k
 
 
-def beside(page):
-    """A point of the desk left of the page, where no page lies under the pointer."""
-    held = page.locator(".sheet").bounding_box()
-    point = held["x"] - 12, held["y"] + 300
+def beside(page, n=0):
+    """A point of the desk left of page n, half way down it: no page lies under the pointer."""
+    held = page.locator(f'.sheet[data-page="{n}"]').bounding_box()
+    point = held["x"] - 12, held["y"] + held["height"] / 2
     assert page.evaluate("([x, y]) => document.elementFromPoint(x, y).className", point) == "desk"
     return point
 
@@ -155,13 +155,22 @@ def test_undo_takes_a_dropped_picture_away_and_redo_brings_it_back(editor):
     assert [b["type"] for b in new(saved(page, client), "a")] == ["image"]
 
 
-@pytest.mark.parametrize("where", ["corner", "desk"])
+@pytest.mark.parametrize("where", ["corner", "desk", "other"])
 def test_a_drop_beside_the_page_lands_whole_on_it(editor, where):
-    page = editor(box("a", "text", TEXT))
-    held = page.locator(".sheet").bounding_box()
-    point = spot(page, 208, 2) if where == "corner" else beside(page)
+    """Beside a page that is not the one in use, "other", the picture goes to that page."""
+    client = user()
+    n = int(where == "other")
+    page = editor(box("a", "text", TEXT), more=[box("far", "text", TEXT)] * n, client=client)
+    before = stored(page, client)
+    sheet = page.locator(f'.sheet[data-page="{n}"]')
+    sheet.scroll_into_view_if_needed()
+    held = sheet.bounding_box()
+    point = spot(page, 208, 2) if where == "corner" else beside(page, n)
     drop(page, *point, PNG)
-    got = landed(page, 2).bounding_box()
+    got = landed(page, 2 + n).bounding_box()
+    expect(sheet.locator(".block.sel")).to_have_count(1)
+    if n:
+        assert docs(page, client)[0] == before
     right, top = got["x"] + got["width"], got["y"]
     if where == "corner":
         # The upper right corner: the block touches both of its edges.
@@ -249,6 +258,57 @@ def test_several_files_in_one_drop(editor):
     page.keyboard.press("Control+z")
     expect(blocks(page)).to_have_count(1)
     expect(at(page, "a")).to_be_visible()
+
+
+def test_several_files_near_an_edge_stay_clear_of_each_other(editor):
+    """At a corner there is no room to step right and down, and none may hide the others."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    drop(page, *spot(page, 208, 2), PNG, PNG, PNG)
+    landed(page, 4, pictures=3)
+    held = new(saved(page, client), "a")
+    assert len({(b["x"], b["y"]) for b in held}) == 3
+    for b in held:
+        assert 0 <= b["x"] <= 210 - b["w"]
+        assert 0 <= b["y"] <= 297 - b["h"]
+
+
+@pytest.mark.parametrize(
+    ("own", "press", "pages"),
+    [
+        (False, "Seite löschen", [["bild", "far"]]),
+        (True, "Seite löschen", [["a", "bild"]]),
+        (False, "Neue Seite", [["a"], [], ["bild", "far"]]),
+    ],
+    ids=["another page goes", "its own page goes", "a page comes"],
+)
+def test_a_page_deleted_or_added_while_the_picture_uploads(editor, own, press, pages):
+    """The picture lands on the page it was dropped on, wherever that is by then.
+
+    With that page gone it lands on the page in use. `own` drops on the page in use.
+    """
+    client = user()
+    page = editor(box("a", "text", TEXT), more=[box("far", "text", TEXT)], client=client)
+    page.evaluate("() => { window.said = []; window.alert = (words) => said.push(words); }")
+    # The server's answer waits until the pages have changed.
+    waiting = []
+    page.route("**/api/uploads", lambda route: waiting.append(route))
+    first, second = (page.locator(f'.sheet[data-page="{n}"]') for n in range(2))
+    if own:
+        second.click(position={"x": 5, "y": 5})
+    second.scroll_into_view_if_needed()
+    expect(second if own else first).to_have_class(re.compile(r"\bon\b"))
+    with page.expect_request("**/api/uploads"):
+        drop(page, *spot(page, 105, 148.5, n=1), PNG)
+    button(page, press).click()
+    expect(page.locator(".sheet")).to_have_count(len(pages))
+    [route] = waiting
+    route.continue_()
+    expect(blocks(page)).to_have_count(sum(len(p) for p in pages))
+    expect(page.locator(".block .picture img")).to_have_js_property("naturalWidth", 3)
+    held = docs(page, client)
+    assert [sorted("bild" if b["type"] == "image" else b["id"] for b in p) for p in held] == pages
+    assert page.evaluate("said") == []
 
 
 @pytest.mark.parametrize("n", range(11), ids=[*KINDS, "group text", "group rect", "locked"])
