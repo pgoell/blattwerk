@@ -34,9 +34,9 @@ export default function App() {
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
-            <Route path="/blatt/:id" element={<Suspense><Editor /></Suspense>} />
+            <Route path="/blatt/:id" element={<Suspense><Editor user={user} /></Suspense>} />
             <Route path="/feedback/fotos" element={<Photos />} />
-            <Route path="/konto" element={<Account user={user} onGone={() => setUser(null)} />} />
+            <Route path="/konto" element={<Account user={user} onGone={() => { localStorage.removeItem("clip"); setUser(null); }} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}
             <Route path="*" element={<main><h1>Seite nicht gefunden</h1></main>} />
           </Route>

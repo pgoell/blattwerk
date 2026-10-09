@@ -73,7 +73,7 @@ import {
 import Moveable, { type OnDrag, type OnResize } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useParams } from "react-router";
-import { api, post } from "../api";
+import { api, post, type User } from "../api";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
@@ -189,7 +189,7 @@ const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MAR
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
 
-export default function Editor() {
+export default function Editor({ user }: { user: User }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there.
   const [file, setFile] = useState<Sheet | null>();
@@ -203,10 +203,10 @@ export default function Editor() {
   if (file === undefined) return <main className="editor" />;
   if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A version loaded anew starts the editor over.
-  return <Canvas key={`${file.id}.${file.version}`} file={file} reload={load} />;
+  return <Canvas key={`${file.id}.${file.version}`} file={file} user={user} reload={load} />;
 }
 
-function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
+function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
   const [hist, setHist] = useState<{ past: Doc[]; doc: Doc; future: Doc[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
   const [title, setTitle] = useState(file.title);
   // What the server holds, and how often a save has failed since.
@@ -743,10 +743,11 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     setIds(copies.map((b) => b.id));
   }
   // The copied blocks lie in the browser's store: they last over a reload and reach another sheet and another tab.
+  // They carry the account's id, for the browser may serve another account next.
   // Their words go to the system's clipboard, which pushes out a picture copied before: the newest copy wins.
   function copy() {
     if (!sel.length) return;
-    localStorage.setItem("clip", JSON.stringify(sel));
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
     const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n");
     navigator.clipboard?.writeText(words || " ").catch(() => {});
   }
@@ -755,15 +756,17 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     if (sel.length) remove();
   }
   function paste() {
-    // The store is open to an older build and to anyone: only whole blocks reach the sheet.
-    let clip: Block[] = [];
+    // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
+    let clip: { owner?: number; blocks?: Block[] } | null = null;
     try {
-      clip = JSON.parse(localStorage.getItem("clip") ?? "[]");
+      clip = JSON.parse(localStorage.getItem("clip") ?? "null");
     } catch {
       return;
     }
+    if (clip?.owner !== user.id) return;
+    const held = clip.blocks;
     const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    if (Array.isArray(clip) && clip.length && clip.every(whole)) put(clip);
+    if (Array.isArray(held) && held.length && held.every(whole)) put(held);
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
   const reading = useRef(false);
