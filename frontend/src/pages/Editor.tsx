@@ -588,11 +588,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         : {
             delete: remove,
             backspace: remove,
-            // Escape ends a crop, or else selects nothing, as in PowerPoint.
+            // Escape ends a crop, or else selects nothing, as in PowerPoint. A part of one group goes back to the
+            // whole group first.
             escape: cropping
               ? done
               : () => {
-                  setIds([]);
+                  const mates = grouped(ids, blocks);
+                  setIds(new Set(sel.map((b) => b.group?.[0])).size === 1 && mates.length > ids.length ? mates : []);
                   setMulti(false);
                 },
             arrowleft: () => nudge(-1, 0),
