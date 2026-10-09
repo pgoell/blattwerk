@@ -44,7 +44,7 @@ jobs:
         timeout-minutes: 3
         run: |
           install="uv run playwright install --only-shell chromium"
-          timeout 80 $install || timeout 80 $install
+          timeout -k 5 80 $install || timeout -k 5 80 $install
       - name: Pytest
         run: mise run test -- -n 8 --dist worksteal --durations=20
         env:

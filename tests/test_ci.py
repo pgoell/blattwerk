@@ -25,8 +25,14 @@ def part(text, key):
 
 
 def test_pre_push_runs_lint_and_the_commit_check_only():
-    runs = re.findall(r"run: (.+)", part(HOOKS, "pre-push"))
-    assert runs == ["mise run lint", "mise run check-commits"]
+    lines = [line.strip() for line in part(HOOKS, "pre-push").splitlines() if line.strip()]
+    assert lines == [
+        "commands:",
+        "lint:",
+        "run: mise run lint",
+        "check-commits:",
+        "run: mise run check-commits",
+    ]
 
 
 def test_ci_has_the_checks_the_merge_needs():
@@ -36,7 +42,11 @@ def test_ci_has_the_checks_the_merge_needs():
     for name in needed:
         assert re.search(rf"^    name: {name}$", jobs, re.M), name
     # Test passes only when every shard did; the shards run the suite.
-    assert "needs: [shards, webkit]" in part(CI, "test")
+    gate = part(CI, "test")
+    assert "needs: [shards, webkit]" in gate
+    for job in ("shards", "webkit"):
+        assert f'test "${{{{ needs.{job}.result }}}}" = success' in gate
+    assert "continue-on-error" not in code(CI)
     shards = part(CI, "shards")
     assert "name: Test shard ${{ matrix.shard }}/6" in shards
     assert "run: mise run test " in shards
@@ -44,11 +54,12 @@ def test_ci_has_the_checks_the_merge_needs():
 
 def test_the_chromium_step_is_bounded_and_runs_no_apt():
     assert "--with-deps" not in code(CI)
+    assert "install-deps" not in code(CI)
     assert not re.search(r"\bapt(-get)?\b", code(CI))
     shards = part(CI, "shards")
     (step,) = [s for s in re.split(r"\n      - ", shards) if "playwright install" in s]
     # One retry of its own, each try with an end.
-    assert "timeout 80 $install || timeout 80 $install" in step
+    assert "timeout -k 5 80 $install || timeout -k 5 80 $install" in step
     (limit,) = map(int, re.findall(r"timeout-minutes: (\d+)", step))
     assert limit * 60 > 2 * 80
     # A step that runs out leaves the tests their two minutes.
