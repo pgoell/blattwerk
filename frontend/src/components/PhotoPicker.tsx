@@ -1,12 +1,21 @@
+import type { DragEvent } from "react";
 import { useObjectUrl } from "./useObjectUrl";
 
 // `name` is what one picture is called: a page of a sheet unless said otherwise.
 type Props = { photos: File[]; onChange: (photos: File[]) => void; name?: string };
 
 export default function PhotoPicker({ photos, onChange, name = "Seite" }: Props) {
+  // The hidden input takes no drop, so the label does. It keeps every dragged file from the browser, which would
+  // open it in place of the page, and takes the pictures among them.
+  const drag = (e: DragEvent<HTMLLabelElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    if (e.type === "dragover") e.dataTransfer.dropEffect = "copy";
+    else onChange([...photos, ...[...e.dataTransfer.files].filter((f) => f.type.startsWith("image/"))]);
+  };
   return (
     <>
-      <label className="pick">
+      <label className="pick" onDragOver={drag} onDrop={drag}>
         ＋ Foto hinzufügen
         <input
           type="file"
