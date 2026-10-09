@@ -80,7 +80,7 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -188,8 +188,6 @@ const outline = <T extends Box>(b: T): T => {
   const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
   return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
 };
-// The cosine and sine of a block's angle.
-const dir = (b: { angle?: number }) => [Math.cos(((b.angle ?? 0) * Math.PI) / 180), Math.sin(((b.angle ?? 0) * Math.PI) / 180)];
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
@@ -459,11 +457,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       frame.style.height = "";
       block.style.transform = was;
       if (h <= b.h) continue;
-      // A turned block turns about its centre, and a new height moves that: the centre goes down the block's own
-      // axis, so the edge the words start at stays in its place on the page.
-      const [c, s] = dir(b);
-      const half = (h - b.h) / 2;
-      grown.set(b.id, { h, ...(b.angle && { x: round(b.x - s * half), y: round(b.y + (c - 1) * half) }) });
+      // The edge the words start at stays in its place on the page, turned or not.
+      grown.set(b.id, tall(b, h));
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -904,7 +899,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const next = { ...b, mark: coat.mark, props: Object.fromEntries(all) } as Block;
       if (!next.mark) delete next.mark;
       // A maths block is as high as its exercises need, as from the panel.
-      return next.type === "maths" && b.type === "maths" && mathsHeight(next.props) !== mathsHeight(b.props) ? { ...next, h: mathsHeight(next.props) } : next;
+      return next.type === "maths" && b.type === "maths" && mathsHeight(next.props) !== mathsHeight(b.props) ? { ...next, ...tall(b, mathsHeight(next.props)) } : next;
     };
     if (pages[n].blocks.every((b) => JSON.stringify(dab(b)) === JSON.stringify(b))) return;
     tight.current = true;

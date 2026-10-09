@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, isLine, mathsHeight, parasOf, rowsOf, symbol, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -92,12 +92,22 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
-    place(rulings.map((b) => [b.id, { h: round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row) }]), "ruling");
+    place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row))]), "ruling");
+  };
+  // A ruling grows down its own axis, which a turn points anywhere on the page, until a corner of its far edge
+  // would cross the margin it grows towards. Whole rows, and one at least.
+  const fill = (b: RulingBlock) => {
+    const [c, s] = dir(b);
+    // The corner the block starts at; the other end of that edge lies its width along.
+    const [x, y] = [b.x + (b.w - b.w * c + b.h * s) / 2, b.y + (b.h - b.w * s - b.h * c) / 2];
+    const room = (at: number, by: number, max: number) => (Math.abs(by) < 1e-9 ? Infinity : ((by > 0 ? max - MARGIN : MARGIN) - at) / by);
+    const most = Math.min(room(x, -s, W), room(x + b.w * c, -s, W), room(y, c, H), room(y + b.w * s, c, H));
+    return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
   };
   // A maths block's height follows its exercises when they need more or less room than before.
   const calc = (props: MathsProps) => {
     style("maths", props, "maths");
-    if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, { h: mathsHeight(props) }]], "maths");
+    if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], "maths");
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -208,7 +218,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           </label>
           <div className="row">
             <button onClick={() => place(rulings.map((b) => [b.id, { x: MARGIN, w: W - 2 * MARGIN }]))}>Seitenbreite</button>
-            <button onClick={() => place(rulings.map((b) => [b.id, { h: round(Math.max(1, Math.floor((H - MARGIN - b.y) / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row) }]))}>Bis Seitenende</button>
+            <button onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
           </div>
           <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
           {RULINGS[rulings[0].props.kind].at && (
