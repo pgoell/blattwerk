@@ -18,6 +18,8 @@ mise owns every command. `mise tasks` lists them.
 mise run test           # pytest, all cores
 mise run test:one -- tests/test_keys.py::test_name    # one worker, stops at the first failure
 mise run test:flaky -- tests/test_keys.py::test_name  # 20 times side by side
+mise run test:webkit    # the browser tests in WebKit, in Docker where the host lacks its libraries
+mise run test:webkit -- -n 0 -x tests/test_keys.py::test_name  # one of them
 mise run shot -- sheet.json out/                       # the editor and the PDF as PNG
 mise run lint           # ruff check, ruff format --check, ty check, tsc
 mise run dev:api        # backend on :8000

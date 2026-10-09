@@ -669,7 +669,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       flushSync(() => setZoom(next));
       // Scroll the page point that was under the pointer back under it.
       page = under.getBoundingClientRect();
-      desk.current!.scrollBy(page.left + x * fit * next - e.clientX, page.top + y * fit * next - e.clientY);
+      // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
+      desk.current!.scrollBy(Math.round(page.left + x * fit * next - e.clientX), Math.round(page.top + y * fit * next - e.clientY));
     }
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);

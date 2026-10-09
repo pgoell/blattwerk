@@ -1,5 +1,7 @@
 """Who has the keys after a press in the format panel, and what Escape does to a selection."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from ui import (
@@ -92,7 +94,8 @@ def test_a_panel_button_leaves_the_caret_in_a_text(editor):
     page.keyboard.press("End")
     bigger.click()
     expect(field).to_be_focused()
-    expect(field).to_have_css("font-size", "21.3333px")
+    # 16 pt. WebKit writes one more digit of it than Chromium does.
+    expect(field).to_have_css("font-size", re.compile(r"^21\.3333\d*px$"))
     page.keyboard.type("x")
     expect(field).to_have_text("Hallox")
     bigger.click()

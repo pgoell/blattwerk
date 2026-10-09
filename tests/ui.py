@@ -19,6 +19,7 @@ a fixed time. A probe, to try something out, goes in tests/probe_*.py, which git
 
 import base64
 import math
+import os
 import re
 import struct
 import threading
@@ -35,6 +36,9 @@ from playwright.sync_api import expect
 from blattwerk import auth, db
 from blattwerk.app import STATIC, app
 
+# The browser the suite runs in: chromium, or webkit as `mise run test:webkit` sets it. Not
+# BROWSER: a desktop sets that for xdg-open.
+BROWSER = os.environ.get("BLATTWERK_BROWSER", "chromium")
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 RED = b"\xff\x00\x00"
@@ -297,28 +301,86 @@ def grow(page, by):
 
 def swipe(page, *points):
     """Puts a finger down at the first point, moves it through the others and lifts it."""
-    # Playwright's own touchscreen only taps, so the browser is told of each touch by hand.
-    session = page.context.new_cdp_session(page)
-    for i, (x, y) in enumerate(points):
-        kind = "touchMove" if i else "touchStart"
-        session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [{"x": x, "y": y}]})
-    session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
-    session.detach()
+    with finger(page, points[0]) as touch:
+        for point in points[1:]:
+            touch("touchMove", point)
+
+
+# What Safari on an iPad sends for a touch: the pointer event, then the touch event, and the mouse's
+# events only after a tap. A finger keeps the element it came down on, wherever it moves, so the
+# page remembers it.
+TOUCH = """([kind, points]) => {
+    const held = (window.fingers ??= { on: [], at: [], tap: true });
+    const known = held.on.length;
+    points.forEach(([x, y], i) => (held.on[i] ??= document.elementFromPoint(x, y)));
+    if (points.length) held.at = points;
+    // WebKit on Linux has no `new Touch` and takes no array for a list, unlike Safari; the old
+    // calls of the document make both.
+    const list = (touches) => document.createTouchList(...touches);
+    const all = held.at.map(([x, y], id) =>
+        document.createTouch(window, held.on[id], id, x + scrollX, y + scrollY, x, y),
+    );
+    const over = kind === "touchEnd" || kind === "touchCancel";
+    const changed = kind === "touchStart" ? all.slice(known) : all;
+    if (!changed.length) return;
+    if (over) window.fingers = undefined;
+    // A lift is a tap when one finger stayed within 10 px of where it came down, and the page
+    // kept neither the touch's start nor its end from the browser.
+    const [fx, fy] = (held.from ??= held.at[0]);
+    const far = Math.hypot(held.at[0][0] - fx, held.at[0][1] - fy) > 10;
+    held.tap &&= all.length === 1 && !far;
+    const pointer = {
+        touchStart: "pointerdown",
+        touchMove: "pointermove",
+        touchEnd: "pointerup",
+        touchCancel: "pointercancel",
+    }[kind];
+    for (const { target, identifier, clientX, clientY } of changed) {
+        const init = { pointerId: identifier, pointerType: "touch", isPrimary: !identifier };
+        const place = { clientX, clientY, buttons: over ? 0 : 1, bubbles: true, cancelable: true };
+        target.dispatchEvent(new PointerEvent(pointer, { ...init, ...place }));
+    }
+    const on = changed[0].target;
+    const touches = over ? [] : all;
+    const init = {
+        touches: list(touches),
+        targetTouches: list(touches.filter((touch) => touch.target === on)),
+        changedTouches: list(changed),
+        bubbles: true,
+        cancelable: true,
+    };
+    const kept = on.dispatchEvent(new TouchEvent(kind.toLowerCase(), init));
+    if (kind !== "touchMove") held.tap &&= kept;
+    if (kind !== "touchEnd" || !held.tap) return;
+    // A tap: Safari then sends the mouse's events too, where the finger came down.
+    const [clientX, clientY] = held.from;
+    for (const type of ["mousemove", "mousedown", "mouseup", "click"]) {
+        const press = { buttons: +(type === "mousedown"), detail: +(type !== "mousemove") };
+        const mouse = { clientX, clientY, view: window, bubbles: true, cancelable: true, ...press };
+        held.on[0].dispatchEvent(new MouseEvent(type, mouse));
+    }
+}"""
 
 
 @contextmanager
 def finger(page, start):
     """A finger down at the start for as long as the block runs. Gives the way to send touches."""
-    session = page.context.new_cdp_session(page)
+    # Playwright's own touchscreen only taps, so the browser is told of each touch by hand: Chromium
+    # over its debugging line, WebKit, which has none, by the events themselves.
+    session = None if BROWSER == "webkit" else page.context.new_cdp_session(page)
 
     def touch(kind, *at):
-        touched = [{"x": x, "y": y} for x, y in at]
-        session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
+        if session:
+            touched = [{"x": x, "y": y} for x, y in at]
+            session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
+        else:
+            page.evaluate(TOUCH, [kind, at])
 
     touch("touchStart", start)
     yield touch
     touch("touchEnd")
-    session.detach()
+    if session:
+        session.detach()
 
 
 def jitter(held, start, *by):
@@ -326,6 +388,10 @@ def jitter(held, start, *by):
     # Chrome keeps a finger's moves from the page until it is more than 15 px from where it came
     # down. Safari on an iPad does not, so the page is told by hand, as it is there.
     for dx, dy in by:
+        if BROWSER == "webkit":
+            # WebKit keeps no move back, so the finger that is down just moves.
+            held.page.evaluate(TOUCH, ["touchMove", [(start[0] + dx, start[1] + dy)]])
+            continue
         held.evaluate(
             """(el, [clientX, clientY]) => {
                 const touches = [new Touch({ identifier: 0, target: el, clientX, clientY })];

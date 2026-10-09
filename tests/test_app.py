@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from ui import BROWSER
 
 from blattwerk import auth, db, sheets, templates, uploads
 from blattwerk.app import app
@@ -705,3 +706,16 @@ def test_cli_help_says_blattomat(tmp_path):
     assert res.returncode != 0
     assert "Blattomat" in res.stderr
     assert "python -m blattwerk invite" in res.stderr
+
+
+def test_the_browser_is_the_one_asked_for(editor):
+    agent = editor().evaluate("navigator.userAgent")
+    # Chromium names AppleWebKit too, so only the word Chrome tells the two apart.
+    assert "AppleWebKit" in agent
+    assert ("Chrome" not in agent) == (BROWSER == "webkit")
+
+
+def test_a_touch_test_runs_as_an_ipad(editor):
+    page = editor(touch=True)
+    assert page.evaluate("'ontouchstart' in window")
+    assert ("iPad" in page.evaluate("navigator.userAgent")) == (BROWSER == "webkit")

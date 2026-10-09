@@ -3,6 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from ui import (
+    BROWSER,
     LINE,
     RECT,
     RULING,
@@ -192,10 +193,13 @@ def seam(page, locator):
     page.evaluate("addEventListener('mousemove', (e) => (window.moved = e), true)")
     for quarter in range(-8, 5):
         page.mouse.move(held["x"] + quarter / 4, y)
-        if locator.evaluate(
-            """(el) => el.contains(moved.target) &&
-                !el.contains(document.elementFromPoint(moved.clientX, moved.clientY))"""
-        ):
+        over, found = locator.evaluate(
+            """(el) => [el.contains(moved.target),
+                el.contains(document.elementFromPoint(moved.clientX, moved.clientY))]"""
+        )
+        # WebKit puts the mouse on the whole pixel it reports, so there the two never part: the
+        # first point on the edge is as close as a click comes.
+        if over and (BROWSER == "webkit" or not found):
             return held["x"] + quarter / 4, y
     raise AssertionError("no such point")
 

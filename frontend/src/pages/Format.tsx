@@ -1,5 +1,5 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { FONTS, MARGIN, RULINGS, boxed, counts, isLine, mathsHeight, parasOf, rowsOf, symbol, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
@@ -334,6 +334,8 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
 // or down steps by one. `value` is absent where the selected blocks differ.
 function Num({ label, value, disabled, onCommit }: { label: string; value?: number; disabled: boolean; onCommit: (n: number) => void }) {
   const [draft, setDraft] = useState<string>();
+  // Whether the mouse that is down brought the focus.
+  const fresh = useRef(false);
   // The field follows the sheet: a drag or an undo takes the place of what was typed.
   useEffect(() => setDraft(undefined), [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
@@ -354,6 +356,12 @@ function Num({ label, value, disabled, onCommit }: { label: string; value?: numb
         value={draft ?? (value === undefined ? "" : String(round(value)).replace(".", ","))}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.target.select()}
+        // Safari puts the caret where the mouse comes up and so drops what the focus selected.
+        onMouseDown={(e) => (fresh.current = document.activeElement !== e.target)}
+        onMouseUp={(e) => {
+          if (fresh.current) e.preventDefault();
+          fresh.current = false;
+        }}
         onBlur={() => draft !== undefined && commit(read())}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit(read());

@@ -55,6 +55,11 @@ description = "Run the tests named after -- 20 times side by side"
 depends = ["build"]
 run = "uv run pytest -n 8 --count 20 -x"
 
+[tasks."test:webkit"]
+description = "Run the browser tests in WebKit; node ids and pytest flags go after --"
+depends = ["build"]
+run = "bash scripts/test-webkit.sh"
+
 [tasks.shot]
 description = "Print a sheet: the editor as PNG and the PDF as PNG, into the folder given"
 depends = ["build"]

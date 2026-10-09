@@ -1,5 +1,7 @@
 """The editor's keys, pressed in Chromium on the built frontend."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from ui import (
@@ -569,7 +571,9 @@ def test_a_button_pressed_with_the_mouse_takes_no_focus(editor):
         page.get_by_label(label, exact=True).click()
         assert page.evaluate("document.activeElement === document.body")
     expect(page.locator(".block")).to_have_count(2)
-    expect(at(page, "a").locator(".frame")).to_have_css("font-size", "21.3333px")
+    # 16 pt. WebKit writes one more digit of it than Chromium does.
+    size = re.compile(r"^21\.3333\d*px$")
+    expect(at(page, "a").locator(".frame")).to_have_css("font-size", size)
     pick(page, "a")
     page.keyboard.press("Tab")
     expect_picked(page, "b")
