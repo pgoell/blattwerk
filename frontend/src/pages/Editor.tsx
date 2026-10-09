@@ -290,6 +290,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
+  // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds.
+  const ahead = useRef<Doc[]>([]);
+  const grasp = useRef<{ el: Element; id: number }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
   const touch = useRef(false);
@@ -504,6 +507,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (e.key === "Escape" && haul) return quit();
     // Escape puts the brush down from anywhere, also from a field that keeps the key to itself, and does no more.
     if (e.key === "Escape" && brush) return setBrush(0);
+    // Escape calls a move, a resize or a turn off while the pointer is still down, as in PowerPoint: the blocks are
+    // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
+    if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
+      if (moveable.current?.isDragging()) moveable.current.stopDrag();
+      else grasp.current!.el.releasePointerCapture(grasp.current!.id);
+      if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!, future: ahead.current }));
+      mergeKey.current = "";
+      return;
+    }
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
@@ -1242,7 +1254,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
   };
-  const begin = (els: Element[]) => (start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!));
+  const begin = (els: Element[]) => {
+    ahead.current = hist.future;
+    start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!);
+  };
   // With Ctrl held when a move ends, copies stay where the blocks began.
   const leave = (moved: boolean) =>
     moved && mod & CENTRE && change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
@@ -1376,6 +1391,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const at = e.currentTarget.getBoundingClientRect();
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
     e.currentTarget.setPointerCapture(e.pointerId);
+    ahead.current = hist.future;
+    grasp.current = { el: e.currentTarget, id: e.pointerId };
   }
   // Where on the page, in mm, the pointer puts the handle it holds.
   function point(e: PointerEvent) {
