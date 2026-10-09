@@ -165,6 +165,11 @@ def delete_account(user: User, response: Response, con: Con) -> dict:
     return {}
 
 
+def retry_leftovers() -> None:
+    """At each start: tries the folders a delete left behind again."""
+    db.open_db().close()
+
+
 @router.post("/signup")
 def signup(body: Signup, response: Response, con: Con) -> dict:
     # One transaction, so an email that is taken does not use up the invite.

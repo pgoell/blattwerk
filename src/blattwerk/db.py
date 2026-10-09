@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 log = logging.getLogger(__name__)
@@ -68,6 +68,12 @@ CREATE TABLE IF NOT EXISTS uploads {UPLOADS};
 CREATE TABLE IF NOT EXISTS attempts (
     key TEXT NOT NULL,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- The folder of a deleted account that would not go. No REFERENCES: its user is gone.
+CREATE TABLE IF NOT EXISTS leftovers (
+    user_id INTEGER PRIMARY KEY,
+    since TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    error TEXT NOT NULL
 );
 """
 
@@ -159,7 +165,14 @@ def seed(con: sqlite3.Connection) -> None:
 
 
 def connect() -> Iterator[sqlite3.Connection]:
-    con = open_db()
+    try:
+        con = open_db()
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+            raise
+        # A new file's tables could not be made: another connection kept the file for the whole
+        # wait. Nothing is lost, and the next request makes them.
+        raise HTTPException(503, headers={"Retry-After": "1"}) from None
     try:
         yield con
     finally:
