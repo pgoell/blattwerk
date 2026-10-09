@@ -297,7 +297,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const cover = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
-  // Where the finger of a hold came down.
+  // Where the finger of a hold or a drag came down.
   const came = useRef([0, 0]);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
@@ -1224,6 +1224,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Moveable reports px of the layout, the document keeps mm. It reads the new size back at once, so render before returning.
   // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
   const drag = (events: OnDrag[]) => {
+    // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
+    // moved, the blocks are new ones, and they follow the finger back there too.
+    if (touch.current && blocks.includes(start.current[0]) && Math.hypot(events[0].clientX - came.current[0], events[0].clientY - came.current[1]) <= SLOP) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
@@ -1592,9 +1595,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // Tap and hold on a block starts selecting several.
     // A finger held on the text being edited picks a word of it.
     const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+    // A drag asks for it too, and that may begin on Moveable's box over the selection.
+    came.current = [e.touches[0].clientX, e.touches[0].clientY];
     if (!id || id === editing) return;
     const to = pageOf(e.target as Element);
-    came.current = [e.touches[0].clientX, e.touches[0].clientY];
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
@@ -2023,6 +2027,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             clearTimeout(hold.current);
             // Lifting the finger after a hold is not a tap.
             if (held.current) e.preventDefault();
+            held.current = false;
+          }}
+          // The browser took the touch for its own, a scroll: no finger holds, and the next lift is a tap again.
+          onTouchCancel={() => {
+            clearTimeout(hold.current);
             held.current = false;
           }}
         >

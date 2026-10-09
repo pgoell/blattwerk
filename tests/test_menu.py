@@ -625,6 +625,78 @@ def test_a_jittering_finger_held_on_a_block_starts_selecting_several(editor, kin
     expect_picked(page, *("ab" if kind == "group" else "a"))
 
 
+def spot(page, name):
+    """Where the block lies on its page, as its own style says."""
+    return at(page, name).evaluate("el => [el.style.left, el.style.top]")
+
+
+@pytest.mark.parametrize("kind", [*HELD, "several"])
+def test_a_jittering_finger_held_on_a_selected_block_moves_no_block(editor, kind):
+    """#178"""
+    client = user()
+    if kind in ("group", "several"):
+        blocks = boxes(*"abc", grouped="ab" if kind == "group" else "")
+    else:
+        blocks = [box("a", "shape" if kind == "line" else kind, props(client, kind))]
+    page = editor(*blocks, client=client, touch=True)
+    names = "ab" if len(blocks) > 1 else "a"
+    if kind == "several":
+        several(page).tap()
+    for name in names if kind == "several" else "a":
+        at(page, name).tap()
+    expect_picked(page, *names)
+    before = [spot(page, name) for name in names]
+    # A table's middle is the bar between its columns, which drags no block.
+    start = centre(at(page, "a").locator("[data-cell]").first if kind == "table" else at(page, "a"))
+    with finger(page, start):
+        jitter(at(page, "a"), start, (3, 0), (3, 9))
+        outlast(page)
+        assert [spot(page, name) for name in names] == before
+    assert [spot(page, name) for name in names] == before
+    expect(page.get_by_role("button", name="Rückgängig")).to_be_disabled()
+
+
+def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor):
+    """#178"""
+    page = editor(*texts("a"), touch=True)
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    before, start = spot(page, "a"), centre(at(page, "a"))
+    with finger(page, start):
+        jitter(at(page, "a"), start, (0, 9), (0, 14))
+        far = spot(page, "a")
+        assert far[0] == before[0] and far[1] != before[1]
+        # Once it drags, the block follows the finger back to where it came down too.
+        jitter(at(page, "a"), start, (0, 5))
+        assert spot(page, "a") not in (before, far)
+    expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
+
+
+def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
+    """#179"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        touch("touchCancel")
+        outlast(page)
+        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_picked(page)
+        # The finger comes down again, and its lift is a tap.
+        touch("touchStart", start)
+    expect_picked(page, "a")
+
+
+def test_a_tap_after_a_hold_the_browser_cancelled_selects_one_more(editor):
+    """#179"""
+    page = editor(*texts("a", "b"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        expect(several(page)).to_have_attribute("aria-pressed", "true")
+        touch("touchCancel")
+        touch("touchStart", centre(at(page, "b")))
+    expect_picked(page, "a", "b")
+
+
 def test_a_swipe_over_a_block_starts_no_selecting_of_several(editor):
     """I7"""
     page = editor(*texts("a"), touch=True)
