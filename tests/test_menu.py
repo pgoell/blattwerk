@@ -6,6 +6,7 @@ from test_clipboard import REFUSE, STAR
 from test_order import boxes, expect_stack
 from test_pages import expect_in_use, expect_order, three
 from ui import (
+    BROWSER,
     FIELD,
     LINE,
     RECT,
@@ -673,6 +674,11 @@ def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
 
 
+# Not strict: it fails in CI alone, in two runs of seven, and nowhere else. What the page held then
+# is in the failure's text.
+@pytest.mark.xfail(
+    BROWSER == "webkit", strict=False, reason="#225: the tap picks nothing, now and then"
+)
 def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
     """#179"""
     page = editor(*texts("a"), touch=True)
