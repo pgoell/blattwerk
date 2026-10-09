@@ -49,6 +49,7 @@ import {
   Redo2,
   Rows3,
   Ruler,
+  Scissors,
   SeparatorHorizontal,
   SeparatorVertical,
   Smile,
@@ -220,7 +221,6 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   // The blocks that stay put. Moveable reads a selector as its first match only, so it gets the elements.
   const [rest, setRest] = useState<HTMLElement[]>([]);
-  const [clip, setClip] = useState<Block[]>([]);
   // The format painter: the look it picked up, as it was then, and whether it is on: 1 for one block, 2 until ended.
   const [coat, setCoat] = useState<Coat>();
   const [brush, setBrush] = useState(0);
@@ -406,11 +406,25 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   // The keys do what the latest drawing says, from the moment the editor is drawn. The listener itself stays for
   // good: one that a new drawing swaps while a key is on its way would miss that key.
   const onKey = useRef((_e: KeyboardEvent) => {});
+  const onPaste = useRef((_e: ClipboardEvent) => {});
   useLayoutEffect(() => {
     const press = (e: KeyboardEvent) => onKey.current(e);
+    const pasted = (e: ClipboardEvent) => onPaste.current(e);
     window.addEventListener("keydown", press);
-    return () => window.removeEventListener("keydown", press);
+    window.addEventListener("paste", pasted);
+    return () => {
+      window.removeEventListener("keydown", press);
+      window.removeEventListener("paste", pasted);
+    };
   }, []);
+  // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps its own.
+  onPaste.current = (e) => {
+    if (document.querySelector("dialog:modal") || (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select")) return;
+    const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
+    if (!picture) return paste();
+    e.preventDefault();
+    upload(picture);
+  };
   onKey.current = (e) => {
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
@@ -446,9 +460,10 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
     // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
     // Shift+Tab the one in front.
     const plain = !target.closest("button, a");
+    // Ctrl+V alone is not here: a key stopped on its way down brings no paste.
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, c: e.shiftKey ? () => dip() : () => setClip(sel), v: e.shiftKey ? () => daub(ids) : paste, d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
         : {
             delete: remove,
             backspace: remove,
@@ -722,14 +737,39 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   }
   function put(from: Block[]) {
     const copies = land(
-      cloned([...from].sort((a, b) => a.z - b.z), blocks).map((b, i) => ({ ...b, x: b.x + 5, y: b.y + 5, z: top + 1 + i })),
+      cloned([...from].sort((a, b) => a.z - b.z), blocks).map((b, i) => ({ ...b, z: top + 1 + i })),
     );
     change((bs) => [...bs, ...copies]);
     setIds(copies.map((b) => b.id));
-    return copies;
   }
-  // Pasting again steps on from the last paste.
-  const paste = () => setClip(put(clip));
+  // The copied blocks lie in the browser's store: they last over a reload and reach another sheet and another tab.
+  // Their words go to the system's clipboard, which pushes out a picture copied before: the newest copy wins.
+  function copy() {
+    if (!sel.length) return;
+    localStorage.setItem("clip", JSON.stringify(sel));
+    const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n");
+    navigator.clipboard?.writeText(words || " ").catch(() => {});
+  }
+  function cut() {
+    copy();
+    if (sel.length) remove();
+  }
+  function paste() {
+    const clip: Block[] = JSON.parse(localStorage.getItem("clip") ?? "[]");
+    if (clip.length) put(clip);
+  }
+  // The button has no paste of the browser's to go by, so it asks the system's clipboard for a picture itself.
+  async function pasteAny() {
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith("image/"));
+        if (type) return upload(new File([await item.getType(type)], "bild", { type }));
+      }
+    } catch {
+      // No leave to read, or a browser that cannot: the copied blocks are still there.
+    }
+    paste();
+  }
   function remove() {
     change((bs) => bs.filter((b) => !ids.includes(b.id)));
     setIds([]);
@@ -1360,8 +1400,9 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
           <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
           <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
           <i className="sep" />
-          <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => setClip(sel)} />
-          <Tool icon={ClipboardPaste} label="Einfügen" disabled={!clip.length} onClick={paste} />
+          <Tool icon={Scissors} label="Ausschneiden" disabled={!sel.length} onClick={cut} />
+          <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={copy} />
+          <Tool icon={ClipboardPaste} label="Einfügen" onClick={pasteAny} />
           <Tool
             icon={Paintbrush}
             label="Format übertragen"

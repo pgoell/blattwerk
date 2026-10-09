@@ -37,6 +37,8 @@ def editor(browser, server):
         """`more` holds the blocks of a second page. With `touch` the window takes fingers too."""
         context = browser.new_context(viewport={"width": 1400, "height": 1000}, has_touch=touch)
         contexts.append(context)
+        # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
+        context.grant_permissions(["clipboard-read", "clipboard-write"])
         # The tour would open on the first visit and lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
         client = client or user()

@@ -601,7 +601,7 @@ def test_the_keys_paint_every_selected_block(editor):
     assert stopped(page, "Control+Shift+C")
     # The keys carry the look with no brush in the hand, and copy no block.
     expect_brush(page, False)
-    expect(page.get_by_label("Einfügen", exact=True).first).to_be_disabled()
+    assert page.evaluate("localStorage.getItem('clip')") is None
     pick(page, "b", "c")
     assert stopped(page, "Control+Shift+V")
     expect_picked(page, "b", "c")
