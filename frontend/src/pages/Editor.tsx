@@ -151,6 +151,8 @@ const LOOSE = 4;
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
+// The pictures the server takes.
+const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
 const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.floor(max / cell) + 1 }, (_, i) => i * cell) : []);
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
@@ -407,16 +409,33 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // good: one that a new drawing swaps while a key is on its way would miss that key.
   const onKey = useRef((_e: KeyboardEvent) => {});
   const onPaste = useRef((_e: ClipboardEvent) => {});
+  const onDrag = useRef((_e: DragEvent) => {});
   useLayoutEffect(() => {
     const press = (e: KeyboardEvent) => onKey.current(e);
     const pasted = (e: ClipboardEvent) => onPaste.current(e);
+    // A dragged file is caught on the way down, before a text's field or the browser can take it.
+    const dragged = (e: DragEvent) => onDrag.current(e);
     window.addEventListener("keydown", press);
     window.addEventListener("paste", pasted);
+    window.addEventListener("dragover", dragged, true);
+    window.addEventListener("drop", dragged, true);
     return () => {
       window.removeEventListener("keydown", press);
       window.removeEventListener("paste", pasted);
+      window.removeEventListener("dragover", dragged, true);
+      window.removeEventListener("drop", dragged, true);
     };
   }, []);
+  // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
+  // Only the desk takes them. Text dragged in a field and Moveable's own drags bring no files and stay as they are.
+  onDrag.current = (e) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const on = desk.current!.contains(e.target as Node);
+    if (e.type === "dragover") e.dataTransfer.dropEffect = on ? "copy" : "none";
+    else if (on) dropped([...e.dataTransfer.files], e.clientX, e.clientY);
+  };
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps its own.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal") || (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select")) return;
@@ -713,17 +732,58 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (rest.type === "text") setEditing(id);
   }
   // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
-  async function upload(file?: File) {
-    if (!file) return;
+  async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
+    const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+    const w = round(Math.min(100, (100 * width) / height));
+    return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
+  }
+  const refuse = () => alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  async function upload(file?: File) {
+    if (!file) return;
     try {
-      const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
-      const w = round(Math.min(100, (100 * width) / height));
-      add(w, round((w * height) / width), { type: "image", props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } });
+      const { w, h, ...rest } = await sent(file);
+      add(w, h, rest);
     } catch {
-      alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+      refuse();
     }
+  }
+  // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
+  // 5 mm right and down. They stay where they were dropped, also on a block, so they only move as far as the page
+  // needs to hold them. The spot is read at once: the page may scroll while the pictures are on their way.
+  async function dropped(files: File[], left: number, top: number) {
+    const under = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].find((el) => {
+      const r = el.getBoundingClientRect();
+      return left >= r.left && left <= r.right && top >= r.top && top <= r.bottom;
+    });
+    const n = under ? +under.dataset.page! : page;
+    const [w, h] = sizes[n];
+    const from = (under ?? sheet.current!).getBoundingClientRect();
+    const [x, y] = [(left - from.left) / k, (top - from.top) / k];
+    const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
+    const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
+    if (made.length) {
+      // All of them are one undo step, on top of what the page holds by then.
+      turn(
+        (p) => {
+          const z = Math.max(0, ...p.blocks.map((b) => b.z));
+          const fresh = made.map((b, i) => ({
+            ...b,
+            x: round(Math.max(0, Math.min(x - b.w / 2 + 5 * i, w - b.w))),
+            y: round(Math.max(0, Math.min(y - b.h / 2 + 5 * i, h - b.h))),
+            z: z + 1 + i,
+            locked: false,
+          }));
+          return { ...p, blocks: [...p.blocks, ...fresh] };
+        },
+        undefined,
+        n,
+      );
+      setAt(n);
+      setIds(made.map((b) => b.id));
+    }
+    if (made.length < files.length) refuse();
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
@@ -1329,7 +1389,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       <input
         ref={picker}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept={TYPES.join()}
         hidden
         onChange={(e) => {
           upload(e.target.files?.[0]);

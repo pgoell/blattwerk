@@ -160,6 +160,35 @@ def copy_picture(page, colour=RED):
     )
 
 
+def drop(page, x, y, *files, text=None):
+    """Drops files on the point of the window, as a drag from the file manager ends there.
+
+    A file is its name, its type and its bytes; `text` is what a file manager adds, the file's
+    address. Gives whether the page kept each of the two events from the browser.
+    """
+    # The point must lie in the window: scroll what is dropped on into view first.
+    held = [(name, kind, base64.b64encode(data).decode()) for name, kind, data in files]
+    kept = page.evaluate(
+        """([x, y, files, text]) => {
+            const dataTransfer = new DataTransfer();
+            for (const [name, type, b64] of files) {
+                const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+                dataTransfer.items.add(new File([bytes], name, { type }));
+            }
+            if (text) dataTransfer.setData("text/plain", text);
+            const under = document.elementFromPoint(x, y);
+            const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+            return ["dragover", "drop"].map((kind) => {
+                const event = new DragEvent(kind, init);
+                under.dispatchEvent(event);
+                return event.defaultPrevented;
+            });
+        }""",
+        [x, y, held, text],
+    )
+    return dict(zip(("dragover", "drop"), kept, strict=True))
+
+
 def stopped(page, keys):
     """Whether the page kept the keys from the browser."""
     page.evaluate("addEventListener('keydown', (e) => (window.pressed = e), true)")
