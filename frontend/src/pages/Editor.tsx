@@ -1020,6 +1020,28 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
   }
+  // What the server sends waits while a pointer is down: a new block takes the selection, and with it Moveable's
+  // target in the middle of a drag. It lands once the pointer is up, as an undo step after the drag's.
+  const pressed = useRef(false);
+  const due = useRef<(() => void)[]>([]);
+  const calm = (run: () => void) => (pressed.current ? due.current.push(run) : run());
+  useEffect(() => {
+    // The right button drags nothing, and its menu may keep the release to itself.
+    const press = (e: globalThis.PointerEvent) => void (pressed.current ||= !e.button);
+    const lift = () => {
+      pressed.current = false;
+      // Moveable ends its drag with the mouse's or the finger's own event, which comes after the pointer's.
+      setTimeout(() => pressed.current || due.current.splice(0).forEach((run) => run()));
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", lift, true);
+    window.addEventListener("pointercancel", lift, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", lift, true);
+      window.removeEventListener("pointercancel", lift, true);
+    };
+  }, []);
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   function add(w: number, h: number, rest: Fresh, n = page) {
     const { doc } = latest.current;
@@ -1047,7 +1069,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark();
     try {
       const { w, h, ...rest } = await sent(file);
-      add(w, h, rest, where());
+      calm(() => add(w, h, rest, where()));
     } catch {
       refuse();
     }
@@ -1064,32 +1086,33 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark(was);
     const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
-    if (made.length) {
-      // The pages may have changed while the pictures were on their way.
-      const n = where();
-      // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
-      const [w, h] = sizeOf(latest.current.doc, n);
-      const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
-      const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
-      // All of them are one undo step, on top of what the page holds by then.
-      turn(
-        (p) => {
-          const z = Math.max(0, ...p.blocks.map((b) => b.z));
-          const fresh = made.map((b, i) => ({
-            ...b,
-            x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
-            y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
-            z: z + 1 + i,
-            locked: false,
-          }));
-          return { ...p, blocks: [...p.blocks, ...fresh] };
-        },
-        undefined,
-        n,
-      );
-      setAt(n);
-      setIds(made.map((b) => b.id));
-    }
+    if (made.length)
+      calm(() => {
+        // The pages may have changed while the pictures were on their way.
+        const n = where();
+        // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
+        const [w, h] = sizeOf(latest.current.doc, n);
+        const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
+        const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
+        // All of them are one undo step, on top of what the page holds by then.
+        turn(
+          (p) => {
+            const z = Math.max(0, ...p.blocks.map((b) => b.z));
+            const fresh = made.map((b, i) => ({
+              ...b,
+              x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
+              y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
+              z: z + 1 + i,
+              locked: false,
+            }));
+            return { ...p, blocks: [...p.blocks, ...fresh] };
+          },
+          undefined,
+          n,
+        );
+        setAt(n);
+        setIds(made.map((b) => b.id));
+      });
     if (made.length < files.length) refuse();
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
@@ -1098,7 +1121,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark();
     try {
       const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
-      add(180, mathsHeight(props), { type: "maths", props }, where());
+      calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
     } catch {
       alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
     }
