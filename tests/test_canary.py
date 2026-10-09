@@ -459,12 +459,12 @@ def steps():
 
 def test_deploy_tries_the_canary_before_it_touches_live():
     assert list(steps()) == [
+        "Keep the running image as prev",
         "Build image",
         "Start the canary on a copy of the data",
         "Smoke test the canary",
         "Remove the canary and the copy",
         "Snapshot the database",
-        "Keep the running image as prev",
         "Deploy",
         "Wait for the app to answer",
         "Smoke test live, read only",
