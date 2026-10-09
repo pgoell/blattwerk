@@ -31,7 +31,8 @@ def collected(*ids):
     run = tomllib.loads((ROOT / "mise.toml").read_text())["tasks"]["test:flaky"]["run"]
     # CI's shard would drop most of the ids here too.
     env = {k: v for k, v in os.environ.items() if k != "SHARD"}
-    cmd = [*run.split(), *ids, "--collect-only", "-q"]
+    # One process: eight workers that each collect would starve the browser tests beside this one.
+    cmd = [*run.split(), *ids, "--collect-only", "-q", "-n", "0"]
     res = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
     assert res.returncode == 0, res.stdout + res.stderr
     return [line for line in res.stdout.splitlines() if "::" in line]
