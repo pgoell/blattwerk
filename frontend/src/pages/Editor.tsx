@@ -518,9 +518,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }, []);
   // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
   // Only the desk takes them, and not while a dialog is open. Text dragged in a field and Moveable's own drags bring
-  // no files and stay as they are.
+  // no files and stay as they are. The photo field of the feedback dialog takes its own.
   onDrag.current = (e) => {
     if (!e.dataTransfer?.types.includes("Files")) return;
+    if (document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
     e.preventDefault();
     e.stopPropagation();
     const on = desk.current!.contains(e.target as Node) && !document.querySelector("dialog:modal");
