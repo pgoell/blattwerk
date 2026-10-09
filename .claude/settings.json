@@ -2,5 +2,18 @@
   "enabledPlugins": {
     "emil@pgoell-claude-tools": true,
     "vercel@pgoell-claude-tools": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/fence.py ] || exit 0; python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/fence.py"
+          }
+        ]
+      }
+    ]
   }
 }
