@@ -444,7 +444,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   useLayoutEffect(() => {
     if (!tight.current) return;
     tight.current = false;
-    const grown = new Map<string, number>();
+    const grown = new Map<string, Partial<Box>>();
     for (const b of sel) {
       // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
@@ -457,7 +457,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = "";
       block.style.transform = was;
-      if (h > b.h) grown.set(b.id, h);
+      if (h <= b.h) continue;
+      // A turned block turns about its centre, and a new height moves that: the centre goes down the block's own
+      // axis, so the edge the words start at stays in its place on the page.
+      const [c, s] = dir(b);
+      const half = (h - b.h) / 2;
+      grown.set(b.id, { h, ...(b.angle && { x: round(b.x - s * half), y: round(b.y + (c - 1) * half) }) });
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -466,7 +471,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         setHist((h) => ({ ...h }));
       });
     if (!grown.size) return;
-    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, h: grown.get(b.id)! } : b)) });
+    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, ...grown.get(b.id) } : b)) });
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
