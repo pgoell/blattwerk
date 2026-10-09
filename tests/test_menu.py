@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import STAR
+from test_clipboard import REFUSE, STAR
 from test_order import boxes, expect_stack
 from test_pages import expect_in_use, expect_order, three
 from ui import (
@@ -159,6 +159,23 @@ def test_einfuegen_pastes_a_picture_from_another_app(editor):
     corner(page)
     run(page, "Einfügen")
     expect(page.locator(".block .picture img")).to_have_js_property("naturalWidth", 3)
+
+
+@pytest.mark.parametrize("entry", ["Kopieren", "Ausschneiden"])
+def test_a_copy_the_browser_lets_no_one_write_still_wins_over_an_older_picture(editor, entry):
+    """#174"""
+    client = user()
+    page = editor(*texts("a"), client=client)
+    copy_picture(page)
+    page.evaluate(REFUSE)
+    right(page, "a")
+    run(page, entry)
+    count = 2 if entry == "Kopieren" else 1
+    expect(page.locator(".block[data-id]")).to_have_count(count - 1)
+    corner(page)
+    run(page, "Einfügen")
+    expect(page.locator(".block[data-id]")).to_have_count(count)
+    assert [b["type"] for b in saved(page, client)] == ["text"] * count
 
 
 def test_duplizieren_adds_a_copy_and_selects_it(editor):

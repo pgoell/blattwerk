@@ -1046,13 +1046,32 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The copied blocks lie in the browser's store: they last over a reload and reach another sheet and another tab.
   // They carry the account's id, for the browser may serve another account next.
   // Their words go to the system's clipboard, which pushes out a picture copied before: the newest copy wins.
-  // The words land a moment later: until then a paste still finds the older picture there, which is stale.
+  // They go out in a copy of the browser's own, which needs no leave and is done before the next paste. A copy with
+  // no words waiting, as a field's, stays the browser's.
+  const pending = useRef<string | null>(null);
+  useEffect(() => {
+    const copied = (e: ClipboardEvent) => {
+      if (pending.current === null) return;
+      e.clipboardData!.setData("text/plain", pending.current);
+      pending.current = null;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("copy", copied, true);
+    return () => window.removeEventListener("copy", copied, true);
+  }, []);
+  // In a browser that makes no such copy the words land a moment later: until then a paste still finds the older
+  // picture there, which is stale.
   const writing = useRef(0);
   function copy() {
     if (!sel.length) return;
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
-    const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n");
-    const landed = navigator.clipboard?.writeText(words || " ");
+    const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
+    pending.current = words;
+    document.execCommand("copy");
+    if (pending.current === null) return;
+    pending.current = null;
+    const landed = navigator.clipboard?.writeText(words);
     if (!landed) return;
     writing.current++;
     landed.catch(() => {}).finally(() => writing.current--);
