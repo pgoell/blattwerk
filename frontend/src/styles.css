@@ -348,6 +348,9 @@ body:has(.print) { background: #fff; }
 .block { position: absolute; min-width: 8px; min-height: 8px; }
 /* While the format painter is on, the pointer says so all over the desk, also on Moveable's handles. */
 .editor.brush .desk, .editor.brush .desk * { cursor: copy !important; }
+/* While Space is held a hand lies over the desk, above the guides and Moveable's handles, and its drag moves the desk. */
+.hand { position: absolute; inset: 0; z-index: 3002; cursor: grab; touch-action: none; }
+.editor.panning .hand { cursor: grabbing; }
 /* A finger on a selected block moves it; on any other block it scrolls the desk. */
 .block.sel { touch-action: none; }
 .block > * { display: block; width: 100%; height: 100%; }
