@@ -31,11 +31,11 @@ def rows(con: sqlite3.Connection) -> dict[str, int]:
     return {name: con.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0] for name in names}
 
 
-args.folder.mkdir(parents=True, exist_ok=True)
 # Not named pre-*.db: a half-written copy must never pass for a snapshot.
 tmp = args.folder / f".pre-{args.sha}.db.tmp"
 journal = args.folder / f"{tmp.name}-journal"
 try:
+    args.folder.mkdir(parents=True, exist_ok=True)
     tmp.unlink(missing_ok=True)
     journal.unlink(missing_ok=True)
     # Made here, so the copy is never readable by others. SQLite keeps the mode.
@@ -74,7 +74,7 @@ except Exception as error:
     print(f"snapshot failed: {reason}", file=sys.stderr)
     if "readonly" in str(error):
         # The app died in the middle of a write and left its journal. Only a writer can mend that.
-        print("Open the site once, so the app mends the database, then rerun.", file=sys.stderr)
+        print("Open the site once and sign in, so the app mends it, then rerun.", file=sys.stderr)
     sys.exit(1)
 
 # The job log is public: no path and no row counts.

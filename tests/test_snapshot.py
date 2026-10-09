@@ -88,10 +88,13 @@ def test_snapshot_prints_no_path_and_no_counts(source, target):
     target.chmod(0o500)
     try:
         failed = snapshot(source, target)
+        no_folder = snapshot(source, target / "new")
     finally:
         target.chmod(0o700)
     assert failed.returncode != 0
     assert str(target) not in failed.stdout + failed.stderr
+    assert no_folder.returncode != 0
+    assert str(target) not in no_folder.stdout + no_folder.stderr
 
 
 def test_snapshot_opens_the_source_read_only(source, target):
