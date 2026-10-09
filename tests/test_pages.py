@@ -5,7 +5,23 @@ import re
 import pytest
 from playwright.sync_api import expect
 from test_clipboard import every
-from ui import FIELD, TEXT, at, box, centre, doc, drag, hold_drag, order, pick, swipe, thumb, user
+from test_drop import PNG, spot
+from ui import (
+    FIELD,
+    TEXT,
+    at,
+    box,
+    centre,
+    doc,
+    drag,
+    drop,
+    hold_drag,
+    order,
+    pick,
+    swipe,
+    thumb,
+    user,
+)
 
 DRAG = re.compile(r"\bdrag\b")
 ON = re.compile(r"\bon\b")
@@ -134,6 +150,20 @@ def test_a_short_swipe_over_the_thumbnails_moves_no_page(editor):
     swipe(page, centre(thumb(page, 0)), half(page, 1, "left"), half(page, 2, "right"))
     expect_no_drag(page)
     expect_order(page, "abc")
+
+
+def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor):
+    """A2"""
+    names = "abcdefghijklmn"
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in names[1:]]
+    page = editor(box("a", "text", TEXT), pages=rest, theme="", touch=True)
+    panel = page.locator("aside.left")
+    assert panel.evaluate("el => el.scrollHeight > el.clientHeight")
+    x, y = centre(thumb(page, 6))
+    swipe(page, *((x, y - 30 * i) for i in range(12)))
+    page.wait_for_function("document.querySelector('aside.left').scrollTop > 0", timeout=2000)
+    expect_no_drag(page)
+    expect_order(page, names)
 
 
 def test_seite_duplizieren_puts_a_copy_right_after_the_page_in_use(editor):
@@ -329,6 +359,41 @@ def test_a_line_marks_where_the_page_will_land_and_the_thumbnail_fades(editor):
     expect_order(page, "bac")
 
 
+def expect_mark(page, n, side):
+    """Waits until the line is drawn left or right of thumbnail n, in its row."""
+    page.wait_for_function(
+        """([n, right]) => {
+            const mark = document.querySelector(".pages .mark")?.getBoundingClientRect();
+            const by = document.querySelector(`.pages [data-thumb="${n}"]`).getBoundingClientRect();
+            if (!mark) return false;
+            // The dragged thumbnail is drawn smaller, so the line may be longer than it.
+            const middle = (mark.top + mark.bottom) / 2;
+            const row = middle > by.top && middle < by.bottom && mark.height < 1.2 * by.height;
+            return row && (right ? mark.left >= by.right : mark.right <= by.left);
+        }""",
+        arg=[n, side == "right"],
+        timeout=2000,
+    )
+
+
+def test_the_line_is_drawn_in_the_row_of_the_thumbnail_under_the_pointer(editor):
+    """I4. Thumbnails 0 and 1 share a row: after 1 is the end of that row, not the next one's."""
+    page = three(editor)
+    lift(page, 0, 1, "right")
+    expect(page.locator(".pages .mark")).to_have_attribute("data-to", "1")
+    expect_mark(page, 1, "right")
+    page.mouse.move(*half(page, 2, "left"), steps=5)
+    expect_mark(page, 2, "left")
+    expect(page.locator(".pages .mark")).to_have_attribute("data-to", "1")
+    page.mouse.move(*half(page, 1, "left"), steps=5)
+    expect_mark(page, 1, "left")
+    expect_mark(page, 0, "right")
+    expect(page.locator(".pages .mark")).to_have_attribute("data-to", "0")
+    page.mouse.up()
+    expect_no_drag(page)
+    expect_order(page, "abc")
+
+
 def test_escape_calls_a_drag_off(editor):
     """I5"""
     page = three(editor)
@@ -391,6 +456,8 @@ def test_ctrl_shift_and_an_arrow_on_a_thumbnail_move_its_page_to_the_start_or_th
 def test_ctrl_d_on_a_thumbnail_copies_its_page(editor):
     """I7"""
     page = three(editor)
+    # With a block selected too: the key is the thumbnail's, and no block is copied.
+    pick(page, "a")
     thumb(page, 1).focus()
     page.keyboard.press("Control+d")
     expect_order(page, "ab+c")
@@ -405,3 +472,26 @@ def test_in_a_text_the_page_keys_stay_the_texts(editor):
         page.keyboard.press(f"Control+{keys}")
         expect(page.locator(FIELD)).to_have_text("du")
         expect_order(page, "abc")
+
+
+def test_a_dropped_picture_finds_its_page_after_a_change_and_a_move(editor):
+    """The upload ends after the page dropped on has changed and another has moved before it."""
+    page = three(editor)
+    waiting = []
+    page.route("**/api/uploads", lambda route: waiting.append(route))
+    with page.expect_request("**/api/uploads"):
+        drop(page, *spot(page, 105, 148.5), PNG)
+    pick(page, "a")
+    before = left(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(at(page, "a")).not_to_have_css("left", before)
+    pull(page, 2, 0, "left")
+    expect_order(page, "cab")
+    [route] = waiting
+    route.continue_()
+    held = [page.locator(f'.sheet[data-page="{n}"] .block[data-id]') for n in range(3)]
+    expect(held[1]).to_have_count(2)
+    expect(held[1].locator(".picture img")).to_have_js_property("naturalWidth", 3)
+    expect(held[0]).to_have_count(1)
+    expect(held[2]).to_have_count(1)
+    assert "a" in order(page)[1]

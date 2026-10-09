@@ -219,8 +219,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
-  // A thumbnail being dragged: the page it shows, and the gap between the thumbnails it would drop into.
-  const [haul, setHaul] = useState<{ from: number; slot: number }>();
+  // A thumbnail being dragged: the page it shows, the gap between the thumbnails it would drop into, and whether
+  // the line stands after the thumbnail before that gap.
+  const [haul, setHaul] = useState<{ from: number; slot: number; after: boolean }>();
   const [ids, setIds] = useState<string[]>([]);
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   // The blocks that stay put. Moveable reads a selector as its first match only, so it gets the elements.
@@ -779,9 +780,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     clearTimeout(press.current);
     const rects = [...strip.current!.querySelectorAll("[data-thumb]")].map((el) => el.getBoundingClientRect());
     const slot = rects.filter((r) => y > r.bottom || (y >= r.top && x > r.left + r.width / 2)).length;
+    // The line stays in the pointer's row: at the end of a row it stands after the thumbnail before the gap.
+    const after = slot > 0 && (slot === rects.length || y < rects[slot].top);
     tug.current!.slot = slot;
     dragged.current = true;
-    setHaul((now) => (now?.slot === slot ? now : { from, slot }));
+    setHaul((now) => (now?.slot === slot && now.after === after ? now : { from, slot, after }));
   }
   // The place a dragged page would have after the drop.
   const landing = (from: number, slot: number) => (slot > from ? slot - 1 : slot);
@@ -870,10 +873,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
     if (made.length) {
       // The pages may have changed while the pictures were on their way. The page dropped on is looked up where it
-      // is now; one changed since keeps its number while the pages are as many as before. A page that is gone
-      // leaves the drop to the page in use.
+      // is now; one changed since is known by a block it still holds, or keeps its number while the pages are as
+      // many as before. A page that is gone leaves the drop to the page in use.
       const { doc, page } = latest.current;
-      const found = doc.pages.indexOf(on);
+      const same = doc.pages.indexOf(on);
+      const found = same >= 0 ? same : doc.pages.findIndex((p) => p.blocks.some((b) => on.blocks.some((o) => o.id === b.id)));
       const n = found >= 0 ? found : doc.pages.length === count ? was : page;
       // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
       const [w, h] = sizeOf(doc, n);
@@ -1714,9 +1718,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
                 {n < small.pages.length && <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />}
                 Seite {n + 1}
-                {/* The line where the dragged page will land: before this thumbnail, or after the last one. */}
-                {haul && Math.min(haul.slot, pages.length - 1) === n && (
-                  <span className={haul.slot > n ? "mark end" : "mark"} data-to={landing(haul.from, haul.slot)} />
+                {/* The line where the dragged page will land: before this thumbnail, or after it. */}
+                {haul && haul.slot - +haul.after === n && (
+                  <span className={haul.after ? "mark end" : "mark"} data-to={landing(haul.from, haul.slot)} />
                 )}
               </button>
             ))}
