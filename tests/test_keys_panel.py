@@ -63,10 +63,11 @@ def expect_caret(page, area):
 
 
 def press(page, label):
-    """Opens the list of a select of the panel, as the mouse does.
+    """Presses a select of the panel as the mouse does, and leaves its list shut.
 
-    Headless Chromium opens no list, so the press is a pointerdown made by hand and the focus is
-    given, as a real press gives it.
+    The press is a pointerdown made by hand and the focus is given, as a real press gives it: so
+    the select is as a list opened and shut with no pick leaves it. `opened` in test_keys_shut.py
+    opens the list itself.
     """
     control = page.locator(".panel").get_by_label(label, exact=True)
     control.dispatch_event("pointerdown")

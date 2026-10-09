@@ -520,18 +520,34 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
-    // Enter in a select of the panel gives the keys back, as in PowerPoint's box of fonts. A list opened with the
-    // mouse and shut with no pick tells nobody, and its select keeps the focus: Tab, the first key since the press,
-    // is then not the select's either. It goes on to the sheet, or to nobody while something is written in.
-    const shut = target.matches(".panel select") && (e.key === "Enter" || (e.key === "Tab" && inPanel.current));
-    // Who walks a select of the panel with the keys keeps the focus there. Shift alone is no key yet.
-    if (!["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key)) inPanel.current = false;
+    const select = target.matches(".panel select");
+    // Shift alone is no key yet.
+    const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key);
+    // A list still open keeps its keys. Chromium sends none of them here, Firefox does. A browser that does not
+    // know `:open` throws.
+    let list = false;
+    try {
+      list = select && target.matches(":open");
+    } catch {
+      // The list counts as shut.
+    }
+    // Enter in a select of the panel gives the keys back, as in PowerPoint's box of fonts. A list or a colour picker
+    // opened with the mouse and shut with no pick tells nobody, and its control keeps the focus: the first key since
+    // the press is then not the control's either. A colour has no key of its own while its picker is shut. A select
+    // keeps the arrows, which walk it, a letter while its list is open, and Escape, whose keyup gives the keys back.
+    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || e.key.startsWith("Arrow")) : target.matches(".panel input[type=color]"));
+    const shut = first || (select && e.key === "Enter");
+    // Who walks a select of the panel with the keys keeps the focus there.
+    if (real) inPanel.current = false;
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
       const open = written();
       back(target);
-      if (open || e.key === "Enter") return e.preventDefault();
+      // Tab and Enter do no more. A letter goes on to what is written in, with the keypress that types it there;
+      // another key only brings the caret back. With nothing written in the key goes on to the sheet.
+      if (e.key === "Enter" || (open && e.key === "Tab")) e.preventDefault();
+      if (open || e.key === "Enter" || e.key === "Escape") return;
     }
     // Escape calls a thumbnail's drag off.
     if (e.key === "Escape" && haul) return quit();
@@ -1829,12 +1845,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
       // but a button of the format panel leaves it where it is: a text, a Lineatur or a cell being written in keeps
       // the caret, and a number of the panel its draft. So does the panel's bare ground, where a press on a disabled
-      // button lands.
+      // button lands: a press there may also be the one that shuts a list or a colour picker with no pick, and its
+      // control must keep the focus for the next key to give it back.
       onMouseDown={(e) => {
         const target = e.target as Element;
         const button = target.closest("button");
         const panel = target.closest(".panel");
-        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block")) return e.preventDefault();
+        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block, .panel select, .panel input[type=color]")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
         if (!e.button && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
