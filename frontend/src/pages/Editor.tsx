@@ -275,15 +275,25 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Does in what is written in what a key does there that types no letter, and says whether it did. The browser
   // still counts the key that gave the focus back as the control's: only a letter follows the focus by itself. A
   // text's field takes its own keys first, as Ctrl+B. Deleting and the caret's moves are the browser's, done by hand.
+  // Any other key with Ctrl is the browser's too and follows the focus by itself, as Ctrl+X or Ctrl+Backspace.
   const act = (e: KeyboardEvent) => {
     const view = field.current;
     const mod = e.ctrlKey || e.metaKey;
     const erase = e.key === "Backspace" || e.key === "Delete";
     if (e.altKey || !(mod || erase || MOVES[e.key])) return false;
     if (view?.someProp("handleKeyDown", (f) => f(view, e))) return true;
-    if (mod) return false;
+    const key = e.key.toLowerCase();
+    // Undo and redo of a text and a cell are the sheet's, as with the second key: the browser's own would run in
+    // their place. A Lineatur's are the browser's.
+    if (mod && (key === "z" || key === "y") && document.activeElement!.closest(".ProseMirror, .table")) {
+      (key === "y" || e.shiftKey ? redo : undo)();
+      return true;
+    }
+    // Ctrl and an arrow step by a word. A select would walk by it.
+    const word = e.ctrlKey && (e.key === "ArrowLeft" || e.key === "ArrowRight");
+    if (mod && !word) return false;
     if (erase) document.execCommand(e.key === "Delete" ? "forwardDelete" : "delete");
-    else getSelection()!.modify(e.shiftKey ? "extend" : "move", ...MOVES[e.key]);
+    else getSelection()!.modify(e.shiftKey ? "extend" : "move", MOVES[e.key][0], word ? "word" : MOVES[e.key][1]);
     return true;
   };
   const [multi, setMulti] = useState(false);
@@ -372,8 +382,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
   const free = sel.filter((b) => !b.locked);
-  // Whether the blocks line up among themselves.
-  const among = !onPage && free.length > 1;
+  // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
+  const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
+  // A group with a locked block stays as a whole, so it keeps its shape.
+  const things = [...new Set(sel.map(thing))].map((t) => sel.filter((b) => thing(b) === t)).filter((t) => !t.some((b) => b.locked));
+  // Whether they line up among themselves.
+  const among = !onPage && things.length > 1;
   // What can take another's size: a line has only its length.
   const sizable = free.filter((b) => !isLine(b));
   const ns = numbers(hist.doc);
@@ -431,7 +445,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   useLayoutEffect(() => {
     if (!tight.current) return;
     tight.current = false;
-    const grown = new Map<string, number>();
+    const grown = new Map<string, Partial<Box>>();
     for (const b of sel) {
       // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
@@ -444,7 +458,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = "";
       block.style.transform = was;
-      if (h > b.h) grown.set(b.id, h);
+      if (h <= b.h) continue;
+      // A turned block turns about its centre, and a new height moves that: the centre goes down the block's own
+      // axis, so the edge the words start at stays in its place on the page.
+      const [c, s] = dir(b);
+      const half = (h - b.h) / 2;
+      grown.set(b.id, { h, ...(b.angle && { x: round(b.x - s * half), y: round(b.y + (c - 1) * half) }) });
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -453,7 +472,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         setHist((h) => ({ ...h }));
       });
     if (!grown.size) return;
-    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, h: grown.get(b.id)! } : b)) });
+    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, ...grown.get(b.id) } : b)) });
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
@@ -560,7 +579,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // opened with the mouse and shut with no pick tells nobody, and its control keeps the focus: the first key since
     // the press is then not the control's either. A colour has no key of its own while its picker is shut. A select
     // keeps the arrows, which walk it, a letter while its list is open, and Escape, whose keyup gives the keys back.
-    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || e.key.startsWith("Arrow")) : target.matches(".panel input[type=color]"));
+    // An arrow with Ctrl walks no select.
+    const walks = e.key.startsWith("Arrow") && !e.ctrlKey && !e.metaKey;
+    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || walks) : target.matches(".panel input[type=color]"));
     const shut = first || (select && e.key === "Enter");
     // Who walks a select of the panel with the keys keeps the focus there.
     if (real) inPanel.current = false;
@@ -570,8 +591,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const open = written();
       back(target);
       // Tab and Enter do no more. A letter goes on to what is written in, with the keypress that types it there;
-      // a key that deletes or moves the caret is done there by hand, and any other only brings the caret back. With
-      // nothing written in the key goes on to the sheet.
+      // a key of the field's that types none, as Backspace or Ctrl+Z, is done there by hand, and any other only brings
+      // the caret back. With nothing written in the key goes on to the sheet.
       if (e.key === "Enter" || (open && (e.key === "Tab" || act(e)))) e.preventDefault();
       if (open || e.key === "Enter" || e.key === "Escape") return;
     }
@@ -1321,30 +1342,50 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
   }
 
+  // Puts the blocks where they belong, rounded. What already lies there leaves nothing to undo.
+  function bring(to: [Block, Partial<Record<"x" | "y" | "w" | "h", number>>][]) {
+    const boxes = to.map(([b, box]) => [b, Object.entries(box).map(([side, n]) => [side as "x" | "y" | "w" | "h", round(n)] as const)] as const);
+    if (boxes.every(([b, box]) => box.every(([side, n]) => round(b[side]) === n))) return;
+    place(boxes.map(([b, box]) => [b.id, Object.fromEntries(box)]));
+  }
+  // A thing lines up by the box around its outlines, a turned block's too, and moves whole.
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    // One block lines up with the page. Several do so with each other, or with the page when the switch says so.
-    const lo = among ? Math.min(...free.map((b) => b[axis])) : 0;
-    const hi = among ? Math.max(...free.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
-    place(free.map((b) => [b.id, { [axis]: round(lo + (hi - lo - b[size]) * at) }]));
+    const boxes = things.map((t) => bounds(t.map(outline)));
+    // One thing lines up with the page. Several do so with each other, or with the page when the switch says so.
+    const lo = among ? Math.min(...boxes.map((b) => b[axis])) : 0;
+    const hi = among ? Math.max(...boxes.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
+    bring(things.flatMap((t, i) => t.map((b) => [b, { [axis]: b[axis] + lo + (hi - lo - boxes[i][size]) * at - boxes[i][axis] }])));
   }
-  // As wide as the widest, or as high as the highest. Each keeps its corner; a picture and a symbol keep their shape.
+  // As wide as the widest, or as high as the highest, by the outlines. Each outline keeps its corner; a picture and a
+  // symbol keep their shape.
   function same(side: "w" | "h") {
     const other = side === "w" ? "h" : "w";
-    const to = Math.max(...sizable.map((b) => b[side]));
-    place(sizable.map((b) => [b.id, { [side]: to, ...((b.type === "image" || b.type === "symbol") && { [other]: round((b[other] * to) / b[side]) }) }]));
+    const to = Math.max(...sizable.map((b) => outline(b)[side]));
+    bring(
+      sizable.map((b) => {
+        const [c, s] = dir(b).map(Math.abs);
+        // Of a turned block the side that lies more along this one grows, until the outline is that large.
+        const along = c >= s ? side : other;
+        const across = along === "w" ? "h" : "w";
+        const k = to / outline(b)[side];
+        const sized = b.type === "image" || b.type === "symbol" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
+        const [was, now] = [outline(b), outline(sized)];
+        return [b, { x: sized.x + was.x - now.x, y: sized.y + was.y - now.y, w: sized.w, h: sized.h }];
+      }),
+    );
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
-    const row = [...free].sort((a, b) => a[axis] - b[axis]);
-    const end = row.at(-1)![axis] + row.at(-1)![size];
-    const gap = (end - row[0][axis] - row.reduce((sum, b) => sum + b[size], 0)) / (row.length - 1);
-    let next = row[0][axis];
-    place(
-      row.map((b) => {
-        const at = next;
-        next += b[size] + gap;
-        return [b.id, { [axis]: round(at) }];
+    const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
+    const end = row.at(-1)!.box[axis] + row.at(-1)!.box[size];
+    const gap = (end - row[0].box[axis] - row.reduce((sum, r) => sum + r.box[size], 0)) / (row.length - 1);
+    let next = row[0].box[axis];
+    bring(
+      row.flatMap(({ t, box }) => {
+        const by = next - box[axis];
+        next += box[size] + gap;
+        return t.map((b) => [b, { [axis]: b[axis] + by }]);
       }),
     );
   }
@@ -2549,18 +2590,18 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <h2>Ausrichten</h2>
               {/* What the blocks line up with. One block has only the page. */}
               <div className="seg">
-                <button className={among ? "on" : ""} aria-pressed={among} disabled={free.length < 2} onClick={() => setOnPage(false)}>Auswahl</button>
-                <button className={among ? "" : "on"} aria-pressed={!among} disabled={free.length < 2} onClick={() => setOnPage(true)}>Seite</button>
+                <button className={among ? "on" : ""} aria-pressed={among} disabled={things.length < 2} onClick={() => setOnPage(false)}>Auswahl</button>
+                <button className={among ? "" : "on"} aria-pressed={!among} disabled={things.length < 2} onClick={() => setOnPage(true)}>Seite</button>
               </div>
               <div className="acts">
                 {ALIGNS.map(([axis, at, label, icon]) => (
-                  <Tool key={label} icon={icon} label={label} title={label} disabled={!free.length} onClick={() => align(axis, at)} />
+                  <Tool key={label} icon={icon} label={label} title={label} disabled={!things.length} onClick={() => align(axis, at)} />
                 ))}
               </div>
               <h2>Verteilen</h2>
               <div className="acts">
-                <button disabled={free.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
-                <button disabled={free.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+                <button disabled={things.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
+                <button disabled={things.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
               </div>
               <h2>Größe angleichen</h2>
               <div className="acts">
