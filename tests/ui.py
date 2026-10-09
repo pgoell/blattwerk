@@ -17,6 +17,7 @@ Run one test: `mise run test:one -- tests/test_keys.py::test_name`. Wait with `e
 a fixed time. A probe, to try something out, goes in tests/probe_*.py, which git ignores.
 """
 
+import base64
 import math
 import re
 import struct
@@ -143,6 +144,20 @@ def unpick(page):
     """A click on the empty corner of the page selects nothing."""
     page.locator(".sheet").click(position={"x": 5, "y": 5})
     expect_picked(page)
+
+
+def copy_picture(page, colour=RED):
+    """Puts a picture on the system clipboard, as a copy in another app does."""
+    # The browser lets a page write the clipboard only while it has the focus.
+    unpick(page)
+    page.evaluate(
+        """async (b64) => {
+            const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: "image/png" });
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        }""",
+        base64.b64encode(png(colour)).decode(),
+    )
 
 
 def stopped(page, keys):
