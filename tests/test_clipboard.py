@@ -15,6 +15,7 @@ from ui import (
     at,
     box,
     copy_picture,
+    copy_text,
     expect_picked,
     maths,
     mirror,
@@ -264,10 +265,11 @@ def test_in_a_field_the_keys_work_on_the_words_alone(editor, kind):
     expect(blocks(page)).to_have_count(2)
     page.keyboard.press("Escape")
     unpick(page)
-    # The block copied before the words is still the one a paste on the sheet gives.
+    # The words were copied after the block, so a paste on the sheet gives them, as a text block.
     page.keyboard.press("Control+v")
     expect(blocks(page)).to_have_count(3)
-    assert shapes(saved(page, client))[-1]["props"] == RECT
+    pasted = shapes(saved(page, client))[-1]
+    assert (pasted["type"], pasted["props"]["text"]) == ("text", word)
 
 
 @no_picture
@@ -378,6 +380,108 @@ def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):
     page.keyboard.press("Control+v")
     expect_picture(page, client, 2)
     assert sorted(b["type"] for b in saved(page, client)) == ["image", "shape"]
+
+
+def einfuegen(page, how):
+    """A paste by the keys, by the toolbar's button or by the right-click menu of the empty page."""
+    if how == "keys":
+        page.keyboard.press("Control+v")
+    elif how == "button":
+        button(page, "Einfügen").click()
+    else:
+        page.locator(".sheet").first.click(position={"x": 5, "y": 5}, button="right")
+        page.get_by_role("menuitem", name="Einfügen", exact=True).click()
+
+
+def fresh(page, client, *old):
+    """The one block the server holds beside the `old` ones."""
+    [new] = [b for b in saved(page, client) if b["id"] not in old]
+    return new
+
+
+@pytest.mark.parametrize("how", ["keys", "button", "menu"])
+@pytest.mark.parametrize("clip", ["blocks copied before", "no blocks copied"])
+def test_words_from_another_app_paste_as_a_text_block(editor, clip, how):
+    """#138: the newest copy wins, here the words."""
+    client = user()
+    page = editor(box("a", "shape", RECT, w=40), box("b", "text", TEXT, z=2), client=client)
+    if clip == "blocks copied before":
+        pick(page, "a", "b")
+        page.keyboard.press("Control+c")
+    else:
+        assert page.evaluate("localStorage.getItem('clip')") is None
+    copy_text(page, "Wort")
+    einfuegen(page, how)
+    expect(blocks(page)).to_have_count(3)
+    new = fresh(page, client, "a", "b")
+    assert (new["type"], new["props"]) == ("text", {**TEXT, "text": "Wort"})
+
+
+@pytest.mark.parametrize("how", ["keys", "button", "menu"])
+@pytest.mark.parametrize("kind", ["text", "shape"])
+def test_blocks_copied_after_words_from_another_app_paste_as_blocks(editor, kind, how):
+    """#138: the newest copy wins, here the blocks, with words of their own or with none."""
+    client = user()
+    props = TEXT if kind == "text" else RECT
+    page = editor(box("a", kind, props, w=40), client=client)
+    copy_text(page, "Wort")
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    unpick(page)
+    einfuegen(page, how)
+    expect(blocks(page)).to_have_count(2)
+    new = fresh(page, client, "a")
+    assert (new["type"], new["props"]) == (kind, props)
+
+
+def test_a_pasted_text_is_selected_and_one_undo_takes_it_away(editor):
+    """#138"""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    copy_text(page, "Wort")
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    expect(page.locator(".block.sel")).to_have_text("Wort")
+    # Selected, not opened: the next key is the sheet's.
+    expect(page.locator(FIELD)).to_have_count(0)
+    page.keyboard.press("Control+z")
+    expect(blocks(page)).to_have_count(1)
+    expect(at(page, "a")).to_be_visible()
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+
+
+def test_lines_from_another_app_paste_as_the_paragraphs_of_one_text_that_grows(editor):
+    """#138: Windows ends a line with two signs, and the box is as high as its words need."""
+    client = user()
+    page = editor(box("a", "shape", RECT, w=40), client=client)
+    # Word ends a whole line with a break, which makes no empty last paragraph.
+    copy_text(page, "eins\r\nzwei\ndrei\r\n")
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    # A text with no formatting is drawn as one piece that breaks at each paragraph's end.
+    assert page.locator(".block.sel p").evaluate("el => el.innerText") == "eins\nzwei\ndrei"
+    new = fresh(page, client, "a")
+    assert new["props"]["text"] == "eins\nzwei\ndrei"
+    assert new["h"] > 12
+    # The height came with the paste: one undo takes all of it away.
+    page.keyboard.press("Control+z")
+    expect(blocks(page)).to_have_count(1)
+
+
+@pytest.mark.parametrize("kind", ["text", "table"])
+def test_words_from_another_app_pasted_while_writing_stay_the_fields(editor, kind):
+    """#138"""
+    client = user()
+    page = editor(box("a", kind, TEXT if kind == "text" else TABLE), client=client)
+    copy_text(page, "Wort")
+    pick(page, "a")
+    # Enter opens the text, or the first cell, with all of it picked.
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD if kind == "text" else ".block textarea:focus")
+    expect(field).to_be_focused()
+    page.keyboard.press("Control+v")
+    (expect(field).to_have_text if kind == "text" else expect(field).to_have_value)("Wort")
+    expect(blocks(page)).to_have_count(1)
 
 
 def test_with_nothing_selected_cut_and_copy_leave_the_clipboard(editor):
@@ -496,7 +600,9 @@ def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
     page = editor(box("a", "shape", RECT, w=40))
     unpick(page)
     # The browser's clipboard outlives a test: a picture an earlier one left there would paste.
-    page.evaluate("navigator.clipboard.writeText('x')")
+    # A blank, as a copy of blocks with no words leaves: words no copy of the editor's left there
+    # would paste as a text block.
+    page.evaluate("navigator.clipboard.writeText(' ')")
     page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
     page.keyboard.press("Control+v")
     # The next copy heals it.

@@ -23,6 +23,7 @@ from ui import (
     at,
     box,
     copy_picture,
+    copy_text,
     expect_picked,
     pick,
     saved,
@@ -140,6 +141,44 @@ def test_the_next_account_pastes_nothing_of_the_one_before(editor):
     expect(blocks(page)).to_have_count(1)
     assert stored(page, b) == before
     assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
+
+
+@pytest.mark.parametrize("by", ["keys", "button"])
+def test_the_next_account_pastes_no_words_of_the_one_before(editor, by):
+    """#138: the copy's words still lie on the system's clipboard, and make no text block."""
+    a = user()
+    held = every(a)
+    page = editor(*held, client=a)
+    copy_all(page, len(held))
+    logout(page)
+    # What outlasts the logout tells the words apart and holds none of them.
+    kept = page.evaluate("JSON.stringify(localStorage)")
+    assert "copied" in kept and "Hallo" not in kept and "eins" not in kept
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    before = stored(page, b)
+    page.keyboard.press("Control+v") if by == "keys" else button(page, "Einfügen").click()
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, b) == before
+    # A paste still on its way, as the button's is while it reads the clipboard, would show here.
+    assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
+
+
+@pytest.mark.parametrize("by", ["keys", "button"])
+def test_words_from_another_app_paste_as_a_text_block_for_the_next_account(editor, by):
+    """#138: copied after the logout, they are no one's in the editor."""
+    a = user()
+    held = every(a)
+    page = editor(*held, client=a)
+    copy_all(page, len(held))
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    copy_text(page, "Wort")
+    page.keyboard.press("Control+v") if by == "keys" else button(page, "Einfügen").click()
+    expect(blocks(page)).to_have_count(2)
+    [new] = [b for b in saved(page, b) if b["id"] != "x"]
+    assert (new["type"], new["props"]["text"]) == ("text", "Wort")
 
 
 def test_an_account_with_the_id_of_a_deleted_one_pastes_nothing_of_it(editor):
