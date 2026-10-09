@@ -22,11 +22,14 @@ jobs:
       - name: Ruff and ty
         run: mise run lint
 
-  test:
-    name: Test
+  shards:
+    name: Test shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     # The Chromium step has hung before; a rerun is quicker than the wait.
     timeout-minutes: 6
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-mise
@@ -38,7 +41,19 @@ jobs:
       - name: Chromium for the PDF test
         run: uv run playwright install --with-deps --only-shell chromium
       - name: Pytest
-        run: mise run test
+        run: mise run test -- -n 8 --dist worksteal --durations=20
+        env:
+          SHARD: ${{ matrix.shard }}/4
+
+  # Branch protection requires the check named Test; the shards have other names.
+  test:
+    name: Test
+    needs: shards
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All shards passed
+        run: test "${{ needs.shards.result }}" = success
 
   commits:
     name: Commits
