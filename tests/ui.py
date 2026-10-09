@@ -166,6 +166,13 @@ def copy_picture(page, colour=RED):
     )
 
 
+def copy_text(page, words):
+    """Puts words on the system clipboard, as a copy in another app does: the editor stores none."""
+    # The browser lets a page write the clipboard only while it has the focus.
+    unpick(page)
+    page.evaluate("(words) => navigator.clipboard.writeText(words)", words)
+
+
 def drop(page, x, y, *files, text=None):
     """Drops files on the point of the window, as a drag from the file manager ends there.
 

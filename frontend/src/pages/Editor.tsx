@@ -80,7 +80,7 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -92,14 +92,15 @@ type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
 // The look the brush carries from a text or a shape to the next. A line gives and takes its stroke alone, a table
-// what its cells have, a Lineatur its script and the colour of its lines, `rule`, and a maths block its size and
-// the numbering of its exercises. Every block gives and takes the numbering before it, `mark`.
+// what its cells have and the colour of its lines, `rule`, a Lineatur its script, the colour of its lines, `rule`
+// too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. Every block
+// gives and takes the numbering before it, `mark`.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
-type Coat = Partial<TextProps> & { mark?: string; rule?: string; numbering?: string };
+type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
-  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule"] : ["rule"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
-  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace"] : ["rule", "trace"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
+  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "rule"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
@@ -188,8 +189,6 @@ const outline = <T extends Box>(b: T): T => {
   const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
   return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
 };
-// The cosine and sine of a block's angle.
-const dir = (b: { angle?: number }) => [Math.cos(((b.angle ?? 0) * Math.PI) / 180), Math.sin(((b.angle ?? 0) * Math.PI) / 180)];
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
@@ -459,11 +458,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       frame.style.height = "";
       block.style.transform = was;
       if (h <= b.h) continue;
-      // A turned block turns about its centre, and a new height moves that: the centre goes down the block's own
-      // axis, so the edge the words start at stays in its place on the page.
-      const [c, s] = dir(b);
-      const half = (h - b.h) / 2;
-      grown.set(b.id, { h, ...(b.angle && { x: round(b.x - s * half), y: round(b.y + (c - 1) * half) }) });
+      // The edge the words start at stays in its place on the page, turned or not.
+      grown.set(b.id, tall(b, h));
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -550,13 +546,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
   // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
   // sheet as from anywhere else; one that comes with words, as cells copied in Excel do, stays the field's.
+  // Outside a field, words copied in another app make a text block; the editor's own bring the copied blocks.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal")) return;
     const field = (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select");
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
-    if (!picture || writing.current) return paste();
+    if (!picture || writing.current) {
+      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "")) paste();
+      return;
+    }
     e.preventDefault();
     // The field does not take it too.
     e.stopPropagation();
@@ -884,7 +884,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   function dip(marks?: Marks) {
     if (!source) return;
     const from = { ...(boxed(source) ?? source.props), ...marks, mark: source.mark } as Coat;
-    from.rule = from.color;
+    // A table's `color` is the colour of its text: its lines have `line`.
+    from.rule = source.type === "table" ? source.props.line : from.color;
     // A field says "not bold" where a block says nothing: both are the same look.
     setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false ? undefined : from[name]])));
   }
@@ -895,16 +896,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const dab = (b: Block) => {
       if (!on.includes(b.id)) return b;
       // A line never vanishes: it takes a border only from a block that has one.
-      const own = takes(b).filter((name) => name in coat && name !== "mark" && !(isLine(b) && (coat.stroke ?? "none") === "none"));
-      // The colour of a Lineatur's lines is its `color`.
-      const props = Object.fromEntries(own.map((name) => [name === "rule" ? "color" : name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
+      // Nor do a table's or a Lineatur's lines: a table made outside the editor may name no colour for its own.
+      const own = takes(b).filter((name) => name in coat && name !== "mark" && !(isLine(b) && (coat.stroke ?? "none") === "none") && !(name === "rule" && !coat.rule));
+      // The colour of a Lineatur's lines is its `color`, that of a table's lines its `line`.
+      const props = Object.fromEntries(own.map((name) => [name === "rule" ? (b.type === "table" ? "line" : "color") : name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
       const rich = own.length ? boxed(b)?.rich : undefined;
       // What is left unset goes, so a saved sheet opens as it looks here.
       const all = Object.entries({ ...b.props, ...(rich && cleared(rich, props)), ...props }).filter(([, value]) => value !== undefined);
       const next = { ...b, mark: coat.mark, props: Object.fromEntries(all) } as Block;
       if (!next.mark) delete next.mark;
       // A maths block is as high as its exercises need, as from the panel.
-      return next.type === "maths" && b.type === "maths" && mathsHeight(next.props) !== mathsHeight(b.props) ? { ...next, h: mathsHeight(next.props) } : next;
+      return next.type === "maths" && b.type === "maths" && mathsHeight(next.props) !== mathsHeight(b.props) ? { ...next, ...tall(b, mathsHeight(next.props)) } : next;
     };
     if (pages[n].blocks.every((b) => JSON.stringify(dab(b)) === JSON.stringify(b))) return;
     tight.current = true;
@@ -1121,7 +1123,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
     setAt(n);
     setIds([id]);
-    if (rest.type === "text") setEditing(id);
+    // An empty text opens for typing; a pasted one comes with its words.
+    if (rest.type === "text" && !rest.props.text) setEditing(id);
   }
   // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
   async function sent(file: File) {
@@ -1221,10 +1224,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // In a browser that makes no such copy the words land a moment later: until then a paste still finds the older
   // picture there, which is stale.
   const writing = useRef(0);
+  // A copy with no words still stamps the system's clipboard, with a blank.
+  const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
+  // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
+  // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
+  const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
   function copy() {
     if (!sel.length) return;
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
-    const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
+    const words = wordsOf(sel);
+    localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
     if (pending.current === null) return;
@@ -1238,37 +1247,56 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     copy();
     if (sel.length) remove();
   }
-  function paste() {
-    // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
-    let clip: { owner?: number; blocks?: Block[] } | null = null;
+  // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
+  function clip(): Block[] {
+    let held: { owner?: number; blocks?: Block[] } | null = null;
     try {
-      clip = JSON.parse(localStorage.getItem("clip") ?? "null");
+      held = JSON.parse(localStorage.getItem("clip") ?? "null");
     } catch {
-      return;
+      return [];
     }
-    if (clip?.owner !== user.id) return;
-    const held = clip.blocks;
     const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    if (Array.isArray(held) && held.length && held.every(whole)) put(held);
+    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? held.blocks : [];
+  }
+  function paste() {
+    const held = clip();
+    if (held.length) put(held);
+  }
+  // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
+  // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
+  // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
+  function typed(got: string) {
+    const words = got.replace(/\r\n/g, "\n");
+    const [copied, held] = [localStorage.getItem("copied"), clip()];
+    // A copy of the build before left no mark: its words are those of the stored blocks.
+    const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
+    if (!words.trim() || own) return false;
+    tight.current = true;
+    // Word ends a whole line with a break, which would make an empty last paragraph.
+    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } });
+    return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
   const reading = useRef(false);
-  // The button has no paste of the browser's to go by, so it asks the system's clipboard for a picture itself.
+  // The button has no paste of the browser's to go by, so it asks the system's clipboard itself: for a picture
+  // first, then for words.
   async function pasteAny() {
     if (reading.current) return;
     if (writing.current) return paste();
     reading.current = true;
+    let words = "";
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }));
+        if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
       }
     } catch {
       // No leave to read, or a browser that cannot: the copied blocks are still there.
     } finally {
       reading.current = false;
     }
-    paste();
+    if (!typed(words)) paste();
   }
   function remove() {
     change((bs) => bs.filter((b) => !ids.includes(b.id)));
