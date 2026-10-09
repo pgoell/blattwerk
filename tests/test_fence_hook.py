@@ -109,7 +109,8 @@ def test_a2_refuses_admin(home, command, cwd, refuse):
         "git commit --no-verify -m x",
         "git push --no-verify",
         "git push --no-verify origin feat/x",
-    ]
+    ],
+    allow=["git grep -n -- '--no-verify' .claude tests", "git grep -e --no-verify"],
 )
 def test_a3_refuses_no_verify(home, command, cwd, refuse):
     check(home, command, cwd, refuse)
@@ -157,6 +158,9 @@ VERBS = ("up", "down", "rm", "stop", "kill")
             "docker container stop x",
             "docker stop blattwerk",
             "docker rm -f x",
+            "docker compose --progress plain up -d",
+            "docker compose --ansi never down",
+            "docker compose --progress=plain up -d",
         ]
     )
 )
@@ -219,6 +223,7 @@ def test_a9_refusal_text(home, command, word):
         'sqlite3 "file:$HOME/.local/share/blattwerk/blattwerk.db?mode=ro" '
         '"select count(*) from users"',
         f"sqlite3 -readonly {LIVE}/blattwerk.db .tables",
+        f"sqlite3 --readonly {LIVE}/blattwerk.db .tables",
         f"cp {LIVE}/blattwerk.db {BACKUPS}/blattwerk-2026-10-09-pr227.db",
         f"mkdir -p {BACKUPS}",
         f"ls -la {LIVE}",
@@ -260,6 +265,16 @@ def test_a10_allowed_commands(home, command, cwd, refuse):
         "env FOO=1 git push --force",
         "true || gh pr merge 5 --admin",
         "mise run lint\ngit push --force",
+        "timeout 60 git push --force origin x",
+        "timeout 30 git commit --no-verify -m x",
+        "timeout 120 docker compose down",
+        "timeout -k 5 60 docker compose down",
+        f"timeout 5 rm {LIVE}/blattwerk.db",
+        "sudo -n docker compose up -d",
+        "stdbuf -oL docker compose up",
+        "watch -n 5 docker compose down",
+        f'python3 -c "print(1 << n)"\nrm -rf {LIVE}',
+        f'git commit -m "fix: read cat <<EOF bodies"\nrm -rf {LIVE}',
     ],
 )
 def test_i1_quotes_are_data_and_chains_are_checked(home, command, cwd, refuse):
@@ -287,8 +302,12 @@ SPELLINGS = [
         "rm -rf ~/.local/share",
         "rm -rf ~/.local",
         f"mv {LIVE} /tmp/gone",
+        f"(cd {LIVE} && rm blattwerk.db)",
     ],
     allow=[
+        f"(cd {LIVE} && ls -la) > listing.txt",
+        f"(cd {LIVE} && sqlite3 -readonly blattwerk.db .tables); echo done > out.txt",
+        f"pushd {LIVE} && ls && popd && echo x > notes.txt",
         f"rm {BACKUPS}/old.db",
         f"echo x > {BACKUPS}/note",
         ("rm blattwerk.db", "backups"),
@@ -337,6 +356,9 @@ def test_i3_short_and_other_git_flags(home, command, cwd, refuse):
         f"chown root {LIVE}/blattwerk.db",
         f"ln -s /tmp/x {LIVE}/l",
         f"sed -i s/a/b/ {LIVE}/users/1/x.json",
+        f"cp {LIVE}/blattwerk.db{{,.bak}}",
+        f"cp {LIVE}/blattwerk.db{{.bak,}}",
+        f"cd {LIVE} && cp blattwerk.db{{,.bak}}",
     ],
     allow=[
         f"cp -r {LIVE}/users /tmp/copy",

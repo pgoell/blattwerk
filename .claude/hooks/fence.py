@@ -44,12 +44,24 @@ LIVE = (
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_]\w*)\1")
 LIVE_NAME = re.compile(r"\.local/share/blattwerk(?![\w-])")
 SCRIPTERS = re.compile(r"python[\d.]*|node|perl|ruby")
-PREFIXES = {"sudo", "env", "time", "nohup", "nice", "command", "exec", "xargs"}
-PREFIXES |= {"{", "}", "!", "if", "then", "else", "elif", "do", "while", "until"}
-PREFIX_VALUE_OPTS = {"-n", "-I", "-P", "-L", "-d", "-u", "-g", "--with"}
+BRACE = re.compile(r"(?<!\$)\{")
+# words that run the command after them, each with its options that take a value
+PREFIXES: dict[str, set[str]] = {
+    "sudo": {"-u", "-g", "-C", "-h", "-p"},
+    "env": {"-u", "-C"},
+    "xargs": {"-n", "-I", "-P", "-L", "-d", "-s"},
+    "nice": {"-n"},
+    "ionice": {"-c", "-n"},
+    "watch": {"-n"},
+    "timeout": {"-k", "-s"},
+    "uv run": {"--with"},
+}
+PLAIN = ["time", "nohup", "command", "exec", "stdbuf", "chronic", "{", "}", "!"]
+PLAIN += ["if", "then", "else", "elif", "do", "while", "until"]
+PREFIXES |= {word: set() for word in PLAIN}
 DOCKER_VALUE_OPTS = {"-f", "--file", "-p", "--project-name", "--project-directory", "--env-file"}
 DOCKER_VALUE_OPTS |= {"--profile", "--context", "-H", "--host", "-c", "--config", "-l"}
-DOCKER_VALUE_OPTS |= {"--log-level"}
+DOCKER_VALUE_OPTS |= {"--log-level", "--progress", "--ansi", "--parallel"}
 DOCKER_GROUPS = {"compose", "container", "image", "network", "builder", "buildx"}
 DOCKER_BAD = {"up", "down", "rm", "stop", "kill", "system", "volume"}
 WRITE_ANY = {"rm", "rmdir", "unlink", "shred", "truncate", "touch", "mkdir", "chmod", "chown"}
@@ -68,8 +80,9 @@ def live_dir() -> str:
 
 
 def resolve(path: str, cwd: str) -> str:
-    path = re.split(r"[*?\[]", path)[0]  # a glob counts as the folder it starts in
-    path = os.path.expanduser(os.path.expandvars(path))
+    path = BRACE.split(os.path.expandvars(path))[0]
+    path = re.split(r"[*?\[]", path)[0]  # a glob or a brace list counts as the folder it starts in
+    path = os.path.expanduser(path)
     return os.path.realpath(os.path.join(cwd, path))
 
 
@@ -88,16 +101,34 @@ def guard_script(text: str, what: str) -> None:
 
 def strip_heredocs(text: str, bodies: list[str]) -> str:
     """Move each heredoc body into bodies and leave `<< __HD<n>__` in its place."""
+    quotes = [""]  # the open quote, one entry per nesting of ( and $(
+    bare: list[bool] = []  # for each character of the line: outside quotes?
+    delims: list[str] = []
 
-    def mark(_match: re.Match[str]) -> str:
+    def mark(match: re.Match[str]) -> str:
+        if not bare[match.start()]:
+            return match.group(0)  # a << inside a quoted string is text
+        delims.append(match.group(2))
         bodies.append("")
         return f"<< __HD{len(bodies) - 1}__ "
 
     lines, out, i = text.split("\n"), [], 0
     while i < len(lines):
-        delims = [m.group(2) for m in HEREDOC.finditer(lines[i])]
-        first = len(bodies)
-        out.append(HEREDOC.sub(mark, lines[i]))
+        line, first, escaped = lines[i], len(bodies), False
+        bare.clear()
+        delims.clear()
+        for at, c in enumerate(line):
+            top = quotes[-1]
+            bare.append(not top)
+            if escaped or (c == "\\" and top != "'"):
+                escaped = not escaped
+            elif c in "'\"" and top in ("", c):
+                quotes[-1] = "" if top else c
+            elif c == "(" and (not top or (top == '"' and line[at - 1 : at] == "$")):
+                quotes.append("")  # quoting starts fresh inside $( ... )
+            elif c == ")" and not top and len(quotes) > 1:
+                quotes.pop()
+        out.append(HEREDOC.sub(mark, line))
         i += 1
         for n, delim in enumerate(delims, first):
             start = i
@@ -105,8 +136,7 @@ def strip_heredocs(text: str, bodies: list[str]) -> str:
                 i += 1
             bodies[n] = "\n".join(lines[start:i])
             if i < len(lines):
-                out.append(lines[i].strip()[len(delim) :])
-                i += 1
+                lines[i] = lines[i].strip()[len(delim) :]  # what follows the end word is shell
     return "\n".join(out)
 
 
@@ -180,20 +210,29 @@ def check_shell(text: str, cwd: str, bodies: list[str]) -> None:
     for sub in subs:
         check_shell(sub, cwd, bodies)
     simple: list[str] = []
-    for word in [*split_words(outer), ";"]:
-        if is_operator(word) and "<" not in word and ">" not in word:
-            cwd = check_simple(simple, cwd, bodies)
+    dirs: list[str] = []  # the folders to go back to after `)` and popd
+    for whole in [*split_words(outer), ";"]:
+        for word in re.findall(r"[()]|[^()]+", whole) if is_operator(whole) else [whole]:
+            if not is_operator(word) or "<" in word or ">" in word:
+                simple.append(word)
+                continue
+            cwd = check_simple(simple, cwd, bodies, dirs)
             simple = []
-        else:
-            simple.append(word)
+            if word == "(":
+                dirs.append(cwd)
+            elif word == ")" and dirs:
+                cwd = dirs.pop()
 
 
 def strip_prefixes(words: list[str]) -> list[str]:
     while words:
-        if words[0] in PREFIXES or words[:2] == ["uv", "run"]:
-            words = words[2 if words[0] == "uv" else 1 :]
+        key = "uv run" if words[:2] == ["uv", "run"] else words[0]
+        if key in PREFIXES:
+            words = words[len(key.split()) :]
             while words and words[0].startswith("-") and words[0] != "-":
-                words = words[2 if words[0] in PREFIX_VALUE_OPTS else 1 :]
+                words = words[2 if words[0] in PREFIXES[key] else 1 :]
+            if key == "timeout":
+                words = words[1:]  # the duration
         elif re.match(r"\w+=", words[0]):
             words = words[1:]
         else:
@@ -201,7 +240,7 @@ def strip_prefixes(words: list[str]) -> list[str]:
     return words
 
 
-def check_simple(tokens: list[str], cwd: str, bodies: list[str]) -> str:
+def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]) -> str:
     """Check one simple command; return the folder the next one runs in."""
     words: list[str] = []
     heredocs: list[str] = []
@@ -229,7 +268,10 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str]) -> str:
 
     if name == "gh" and "--admin" in rest:
         raise Refused(ADMIN)
+    if name == "popd":
+        return dirs.pop() if dirs else cwd
     if name in ("cd", "pushd"):
+        dirs += [cwd] if name == "pushd" else []
         return resolve("".join(args[:1]) or "~", cwd)
     if name == "git":
         check_git(rest)
@@ -257,7 +299,7 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str]) -> str:
     elif name == "sqlite3":
         for text in heredocs:
             guard_script(text, "a sqlite3 script")
-        for arg in [] if "-readonly" in rest else args:
+        for arg in [] if {"-readonly", "--readonly"} & set(rest) else args:
             path, _, query = re.sub(r"^file:(//)?", "", arg).partition("?")
             if not (arg.startswith("file:") and "mode=ro" in query):
                 guard(path, cwd, "sqlite3 without mode=ro or -readonly")
@@ -272,6 +314,7 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str]) -> str:
         targets += [w.split("=", 1)[1] for w in rest if w.startswith("--target-directory=")]
         if name == "rsync" or not targets:
             targets = args[-1:] if len(args) > 1 else []
+        targets += [w for w in args if BRACE.search(w)]  # x{,.bak} writes next to x
     elif name == "dd":
         targets = [w[3:] for w in rest if w.startswith("of=")]
     for target in targets:
@@ -288,7 +331,8 @@ def check_git(rest: list[str]) -> None:
         args = commit_flags(args)
     shorts = [w[1:] for w in args if re.fullmatch(r"-[a-zA-Z]+", w)]
     # -n is --no-verify on a commit, a dry run on a push
-    if "--no-verify" in args or (sub == "commit" and any("n" in s for s in shorts)):
+    hooked = ("commit", "push", "merge", "pull", "rebase", "am", "cherry-pick", "revert")
+    if (sub in hooked and "--no-verify" in args) or (sub == "commit" and "n" in "".join(shorts)):
         raise Refused(NO_VERIFY)
     if sub == "push":
         long = any(re.match(r"--(force|mirror)", w) for w in args)
