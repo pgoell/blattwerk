@@ -253,6 +253,8 @@ def test_a10_allowed_commands(home, command, cwd, refuse):
         f'Never merge with --admin, never git push --force.\nrm {LIVE}/x\nEOF\n)"',
         'echo "git push --force"',
         'grep -rn -e "--no-verify" .',
+        "# don't amend\ncat > /tmp/x.sh <<'EOF'\ndocker compose up -d\nEOF",
+        "awk '{print $1}' f # isn't it\ncat <<EOF\ngit push --force\nEOF",
     ],
     refuse=[
         "mise run lint && git push --force",
@@ -363,6 +365,8 @@ def test_i3_short_and_other_git_flags(home, command, cwd, refuse):
     allow=[
         f"cp -r {LIVE}/users /tmp/copy",
         f"rsync -a {LIVE}/ /tmp/copy/",
+        f"cp {LIVE}/blattwerk.db{{,-wal,-shm}} /tmp/copy/",
+        f"rsync -a {LIVE}/{{a,b}} /tmp/copy/",
         f"sed -n 1p {LIVE}/users/1/x.json",
     ],
 )
@@ -383,6 +387,7 @@ READ_ONLY = (
         f"python3 - <<'EOF'\nimport os\nos.remove(os.path.expanduser('{LIVE}/blattwerk.db'))\nEOF",
         f"node -e \"require('fs').rmSync('{ABS}/x')\"",
         f"bash <<'EOF'\nrm {LIVE}/x\nEOF",
+        f"# don't write\npython3 - <<'EOF'\nopen('{ABS}/x', 'w')\nEOF",
     ],
     allow=[
         f'python3 -c "{READ_ONLY}"',

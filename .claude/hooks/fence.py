@@ -119,6 +119,9 @@ def strip_heredocs(text: str, bodies: list[str]) -> str:
         delims.clear()
         for at, c in enumerate(line):
             top = quotes[-1]
+            if c == "#" and not top and not escaped and (at == 0 or line[at - 1].isspace()):
+                bare += [False] * (len(line) - at)  # a comment: its quotes and << are text
+                break
             bare.append(not top)
             if escaped or (c == "\\" and top != "'"):
                 escaped = not escaped
@@ -314,7 +317,7 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]
         targets += [w.split("=", 1)[1] for w in rest if w.startswith("--target-directory=")]
         if name == "rsync" or not targets:
             targets = args[-1:] if len(args) > 1 else []
-        targets += [w for w in args if BRACE.search(w)]  # x{,.bak} writes next to x
+        targets += [w for w in args[-1:] if BRACE.search(w)]  # x{,.bak} writes next to x
     elif name == "dd":
         targets = [w[3:] for w in rest if w.startswith("of=")]
     for target in targets:
