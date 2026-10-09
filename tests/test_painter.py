@@ -342,7 +342,7 @@ def test_karo_and_written_maths_leave_script_and_size(editor):
         cell("karo", "ruling", karo, 0),
         cell("a", "text", {**TEXT, "font": "grund"}, 1),
         cell("b", "ruling", script, 2),
-        cell("c", "ruling", script, 3),
+        cell("c", "ruling", {**script, "color": "#0000ff"}, 3),
         cell("k", "ruling", {"kind": "k7", "color": "#222222"}, 4),
         cell("d", "text", {**TEXT, "size": 20}, 5),
         cell("e", "maths", maths(client, size=28), 6, h=24),
@@ -362,14 +362,33 @@ def test_karo_and_written_maths_leave_script_and_size(editor):
     now = whole(page, client)
     assert now["a"]["props"] == {**TEXT, "font": "grund"}
     assert now["b"]["props"] == {**script, "color": "#ff0000"}
-    assert now["k"]["props"] == {"kind": "k7", "color": "#222222"}
+    assert now["k"]["props"] == {"kind": "k7", "color": "#0000ff"}
     assert now["d"]["props"] == {**TEXT, "size": 20}
     assert (now["e"]["props"], now["e"]["h"]) == (maths(client, size=28), 24)
     assert (now["g"]["props"], now["g"]["h"]) == (written, 40)
-    # A paint that brings a block nothing is no step.
-    expect(page.get_by_label("Rückgängig")).to_be_enabled()
-    page.get_by_label("Rückgängig").click()
+    # A paint that brings a block nothing is no step: the two colours are the only ones.
+    for _ in range(2):
+        expect(page.get_by_label("Rückgängig")).to_be_enabled()
+        page.get_by_label("Rückgängig").click()
     expect(page.get_by_label("Rückgängig")).to_be_disabled()
+
+
+def test_several_blocks_give_the_look_of_the_first_that_has_one(editor):
+    client = user()
+    page = editor(
+        box("n", "name", {}),
+        box("a", "text", FINE, z=2, mark="1."),
+        box("b", "text", TEXT, z=3, mark="a)"),
+        client=client,
+    )
+    # The name field comes first on the page and has a numbering at most: the text beside it gives.
+    pick(page, "a", "n")
+    brush(page).click()
+    expect_brush(page, True)
+    at(page, "b").click()
+    expect_picked(page, "b")
+    assert held(page, client)["b"] == FINE
+    assert marks(page, client)["b"] == "1."
 
 
 def test_the_exercises_numbering_travels(editor):

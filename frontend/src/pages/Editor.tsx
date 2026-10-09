@@ -313,8 +313,8 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
   const stroke = boxes[0]?.props.stroke ?? "none";
-  // The block the brush picks its look up from.
-  const source = sel[0] as Block | undefined;
+  // The block the brush picks its look up from: the first with more of a look than a numbering, or else the first.
+  const source = sel.find((b) => takes(b).length > 1) ?? (sel[0] as Block | undefined);
   const rulers = sel.filter(isLine);
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
@@ -576,7 +576,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       key,
     );
   }
-  // The brush picks up the look of the first selected block. Every key is in it, also where the block has nothing
+  // The brush picks up the look of the source. Every key is in it, also where the block has nothing
   // there: the block painted then loses its own, as in PowerPoint.
   function dip(marks?: Marks) {
     if (!source) return;
