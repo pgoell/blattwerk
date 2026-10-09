@@ -92,7 +92,7 @@ dialog.feedback {
 dialog.feedback::backdrop { background: rgba(0, 0, 0, .4); }
 /* The right click's menu. Its backdrop takes the press beside it and shows nothing. */
 dialog.menu {
-  position: fixed; inset: auto; margin: 0; max-width: none; max-height: none; min-width: 220px; padding: 4px; border: 1px solid var(--line);
+  position: fixed; inset: auto; margin: 0; max-width: none; max-height: 100vh; overflow-y: auto; min-width: 220px; padding: 4px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
 }
 dialog.menu::backdrop { background: none; }

@@ -1532,6 +1532,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     return true;
   }
   function thumbMenu(n: number, x: number, y: number) {
+    // The menu hands the focus back when it closes: to a field, that would keep the sheet's keys.
+    (document.activeElement as HTMLElement | null)?.blur();
     visit(n);
     setMenu({ x, y, thumb: n });
   }

@@ -515,6 +515,29 @@ def test_a_page_entrys_change_is_one_undo_step(editor):
     expect(page.get_by_role("button", name="Rückgängig")).to_be_disabled()
 
 
+def test_undo_works_after_a_page_entry_though_the_title_had_the_focus(editor):
+    """I6"""
+    page = three(editor)
+    page.get_by_label("Titel").click()
+    right_thumb(page, 1)
+    run(page, "Seite löschen")
+    expect_order(page, "ac")
+    # The menu must not hand the focus back to the title, which keeps the keys to itself.
+    page.keyboard.press("Control+z")
+    expect_order(page, "abc")
+
+
+def test_a_menu_higher_than_the_window_scrolls(editor):
+    """I7"""
+    page = editor(*texts("a"))
+    page.set_viewport_size({"width": 900, "height": 320})
+    right(page, "a")
+    box = menu(page).bounding_box()
+    assert box["y"] >= 0 and box["y"] + box["height"] <= 320
+    item(page, "In den Hintergrund").click()
+    expect(menu(page)).to_be_hidden()
+
+
 def test_the_menu_stays_inside_the_window(editor):
     """I7"""
     page = editor(*texts("a"))
