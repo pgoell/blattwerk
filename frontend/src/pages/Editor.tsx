@@ -219,6 +219,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
+  // A thumbnail being dragged: the page it shows, and the gap between the thumbnails it would drop into.
+  const [haul, setHaul] = useState<{ from: number; slot: number }>();
   const [ids, setIds] = useState<string[]>([]);
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   // The blocks that stay put. Moveable reads a selector as its first match only, so it gets the elements.
@@ -276,6 +278,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const touch = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
+  // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
+  const strip = useRef<HTMLDivElement>(null);
+  const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
+  const press = useRef(0);
+  // Set by a drag, for the click that follows it.
+  const dragged = useRef(false);
   const grab = useRef([0, 0]);
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
@@ -451,6 +459,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     const target = e.target as HTMLElement;
+    // Escape calls a thumbnail's drag off.
+    if (e.key === "Escape" && haul) return quit();
     // Escape puts the brush down from anywhere, also from a field that keeps the key to itself.
     if (e.key === "Escape") setBrush(0);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
@@ -566,6 +576,36 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
+  });
+  // A finger held on a thumbnail for half a second drags it. One that moves before then scrolls the panel, and
+  // only a listener set by hand can keep the panel still once the drag is on.
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    function onStart(e: globalThis.TouchEvent) {
+      quit();
+      const thumb = (e.target as Element).closest<HTMLElement>("[data-thumb]");
+      if (!thumb || e.touches.length !== 1) return;
+      const { clientX: x, clientY: y } = e.touches[0];
+      tug.current = { from: +thumb.dataset.thumb!, x, y };
+      press.current = window.setTimeout(() => aim(x, y), 500);
+    }
+    function onMove(e: globalThis.TouchEvent) {
+      if (!tug.current) return;
+      if (tug.current.slot === undefined) return quit();
+      e.preventDefault();
+      aim(e.touches[0].clientX, e.touches[0].clientY);
+    }
+    el.addEventListener("touchstart", onStart);
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", release);
+    el.addEventListener("touchcancel", quit);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", release);
+      el.removeEventListener("touchcancel", quit);
+    };
   });
 
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
@@ -705,6 +745,70 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   function removePage() {
     update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== page) }));
     setIds([]);
+  }
+  // Puts a page at another place among the pages. It is the page in use from then on.
+  function movePage(from: number, to: number) {
+    if (from === to) return;
+    done();
+    flushSync(() => {
+      update((doc) => {
+        const rest = doc.pages.filter((_, i) => i !== from);
+        return { ...doc, pages: [...rest.slice(0, to), doc.pages[from], ...rest.slice(to)] };
+      });
+      setAt(to);
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  // The copy comes after its page and takes its place. It has the page's guide lines, grid and format, and blocks
+  // of its own.
+  function copyPage(n = page) {
+    done();
+    flushSync(() => {
+      update((doc) => ({ ...doc, pages: doc.pages.flatMap((p, i) => (i === n ? [p, { ...p, blocks: cloned(p.blocks, p.blocks) }] : [p])) }));
+      setAt(n + 1);
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  // A drag of a thumbnail goes on at this point of the window. The pointer on the left half of a thumbnail means
+  // the gap before it, on the right half the one after it, and past the last thumbnail the end.
+  function aim(x: number, y: number) {
+    const { from } = tug.current!;
+    // A pen on an iPad is a finger too: its drag is on before the hold is up.
+    clearTimeout(press.current);
+    const rects = [...strip.current!.querySelectorAll("[data-thumb]")].map((el) => el.getBoundingClientRect());
+    const slot = rects.filter((r) => y > r.bottom || (y >= r.top && x > r.left + r.width / 2)).length;
+    tug.current!.slot = slot;
+    dragged.current = true;
+    setHaul((now) => (now?.slot === slot ? now : { from, slot }));
+  }
+  // The place a dragged page would have after the drop.
+  const landing = (from: number, slot: number) => (slot > from ? slot - 1 : slot);
+  function quit() {
+    clearTimeout(press.current);
+    tug.current = undefined;
+    setHaul(undefined);
+  }
+  function release() {
+    const { from, slot } = tug.current ?? {};
+    quit();
+    if (slot !== undefined) movePage(from!, landing(from!, slot));
+  }
+  // On a thumbnail Ctrl with an arrow moves its page by one place, with Shift to the start or the end, and Ctrl+D
+  // copies it. The focus follows the page.
+  function pageKey(e: Key, n: number) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const last = pages.length - 1;
+    const copy = /^d$/i.test(e.key) && !e.shiftKey;
+    const to = copy ? n + 1 : e.key === "ArrowUp" ? (e.shiftKey ? 0 : Math.max(0, n - 1)) : e.key === "ArrowDown" ? (e.shiftKey ? last : Math.min(last, n + 1)) : -1;
+    if (to < 0) return;
+    // The window's own Ctrl+D copies blocks, and Chrome's sets a bookmark.
+    e.preventDefault();
+    e.stopPropagation();
+    if (copy) copyPage(n);
+    else movePage(n, to);
+    strip.current!.querySelector<HTMLElement>(`[data-thumb="${to}"]`)!.focus();
   }
 
   // The page an element lies on; beside the pages, the one in use.
@@ -1562,6 +1666,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             {tools}
             <i className="sep" data-name="Seite" />
             <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
+            <Tool icon={CopyPlus} label="Seite duplizieren" onClick={() => copyPage()} />
             <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
           </div>
         </aside>
@@ -1571,13 +1676,48 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           {leaf && brand}
           <div className="head">
             Seiten
-            <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+            <span>
+              <Tool icon={CopyPlus} label="Seite duplizieren" title="Seite duplizieren" onClick={() => copyPage()} />
+              <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+            </span>
           </div>
-          <div className="pages">
-            {small.pages.map((_, n) => (
-              <button key={n} className={n === page ? "on" : ""} aria-pressed={n === page} onClick={() => visit(n)}>
-                <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />
+          <div className="pages" ref={strip}>
+            {pages.map((_, n) => (
+              <button
+                key={n}
+                data-thumb={n}
+                className={[n === page && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
+                aria-pressed={n === page}
+                // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
+                onClick={() => {
+                  if (!dragged.current) visit(n);
+                  dragged.current = false;
+                }}
+                onKeyDown={(e) => pageKey(e, n)}
+                // The mouse and the pen drag once they have moved 4 px. A finger holds first: see the listeners on the thumbnails.
+                onPointerDown={(e) => {
+                  dragged.current = false;
+                  if (e.pointerType === "touch" || e.button) return;
+                  tug.current = { from: n, x: e.clientX, y: e.clientY };
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  const t = tug.current;
+                  if (e.pointerType === "touch" || !t) return;
+                  if (t.slot !== undefined || Math.hypot(e.clientX - t.x, e.clientY - t.y) >= 4) aim(e.clientX, e.clientY);
+                }}
+                onPointerUp={(e) => e.pointerType !== "touch" && release()}
+                onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
+                // A held finger would open the browser's menu and end the touch.
+                onContextMenu={(e) => tug.current && e.preventDefault()}
+              >
+                {/* The thumbnails draw late: a new page has its button before its picture. */}
+                {n < small.pages.length && <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />}
                 Seite {n + 1}
+                {/* The line where the dragged page will land: before this thumbnail, or after the last one. */}
+                {haul && Math.min(haul.slot, pages.length - 1) === n && (
+                  <span className={haul.slot > n ? "mark end" : "mark"} data-to={landing(haul.from, haul.slot)} />
+                )}
               </button>
             ))}
             <button onClick={addPage}>
