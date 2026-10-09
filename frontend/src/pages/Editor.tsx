@@ -711,17 +711,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   });
 
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
-  // `to` is the page in use after the change. The one before is read as last drawn: a block from the server
-  // comes after the drawing that asked for it.
-  function update(fn: (doc: Doc) => Doc, key = "", to = page) {
+  // `to` is the page in use after the change, and `from` the one before: read as last drawn, for a block from the
+  // server comes after the drawing that asked for it.
+  function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
     const merge = key !== "" && key === mergeKey.current;
     mergeKey.current = key;
-    const from = latest.current.page;
     setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc: fn(h.doc), future: [] }));
   }
-  // Changes one page, the one in use unless `n` names another.
+  // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
-    update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key, n);
+    update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key, n, n);
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
@@ -819,7 +818,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       setIds([]);
       setDraft(undefined);
     });
-    if (n !== page) sheet.current!.scrollIntoView({ behavior: "smooth" });
+    // A page in use that lies partly in view stays put: the desk does not jump to its top.
+    const [on, view] = [sheet.current!.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
+    if (n !== page || on.bottom <= view.top || on.top >= view.bottom) sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
   function undo() {
     const last = hist.past.at(-1);

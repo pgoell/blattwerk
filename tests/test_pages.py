@@ -8,6 +8,7 @@ from test_clipboard import button, every
 from test_drop import PNG, spot
 from ui import (
     FIELD,
+    RECT,
     TEXT,
     at,
     box,
@@ -699,3 +700,64 @@ def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source
     expect(page.locator(".block.sel")).to_have_count(1)
     expect_in_use(page, n)
     assert "b" in order(page)[n] or how == "deleted"
+
+
+def test_undo_of_a_brush_stroke_on_another_page_shows_that_page(editor):
+    """The press that paints also visits the page: the paint comes off where it went on."""
+    red = box("a", "shape", {**RECT, "fill": "#ff0000"})
+    page = editor(red, more=[box("b", "shape", RECT)], theme="")
+    pick(page, "a")
+    page.get_by_label("Format übertragen", exact=True).click()
+    was = at(page, "b").inner_html()
+    same = "([was, same]) => (document.querySelector('[data-id=b]').innerHTML === was) === same"
+    at(page, "b").click()
+    expect_in_use(page, 1)
+    page.wait_for_function(same, arg=[was, False])
+    page.keyboard.press("Control+z")
+    page.wait_for_function(same, arg=[was, True])
+    expect_shown(page, 1)
+
+
+def test_undo_of_a_block_from_the_server_shows_the_page_it_landed_on(editor):
+    page = three(editor)
+    waiting = []
+    page.route("**/api/maths", lambda route: waiting.append(route))
+    with page.expect_request("**/api/maths"):
+        button(page, "Rechnen").click()
+    thumb(page, 2).click()
+    expect_shown(page, 2)
+    [route] = waiting
+    route.continue_()
+    expect(page.locator('.sheet[data-page="0"] .block[data-id]')).to_have_count(2)
+    page.keyboard.press("Control+z")
+    expect_order(page, "abc")
+    expect_shown(page, 0)
+
+
+def nudged(page):
+    """Three pages with "a" moved by a key. Gives the page and where "a" was before."""
+    page = three(page)
+    pick(page, "a")
+    before = left(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(at(page, "a")).not_to_have_css("left", before)
+    return page, before
+
+
+def test_undo_scrolls_to_the_page_in_use_when_it_is_out_of_view(editor):
+    page, before = nudged(editor)
+    page.locator(".desk").evaluate("el => el.scrollTo(0, el.scrollHeight)")
+    expect(page.locator('.sheet[data-page="0"]')).not_to_be_in_viewport()
+    page.keyboard.press("Control+z")
+    expect(at(page, "a")).to_have_css("left", before)
+    expect_shown(page, 0)
+
+
+def test_undo_leaves_the_desk_where_it_is_while_its_page_is_in_view(editor):
+    page, before = nudged(editor)
+    page.locator(".desk").evaluate("el => el.scrollTo(0, 50)")
+    page.keyboard.press("Control+z")
+    expect(at(page, "a")).to_have_css("left", before)
+    # A scroll would have begun by the second frame after the undo.
+    page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+    assert page.locator(".desk").evaluate("el => el.scrollTop") == 50
