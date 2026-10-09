@@ -263,6 +263,29 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (open) open.focus();
     else from.blur();
   };
+  // Where an arrow, Home and End take the caret.
+  const MOVES: Record<string, string[]> = {
+    ArrowLeft: ["left", "character"],
+    ArrowRight: ["right", "character"],
+    ArrowUp: ["backward", "line"],
+    ArrowDown: ["forward", "line"],
+    Home: ["backward", "lineboundary"],
+    End: ["forward", "lineboundary"],
+  };
+  // Does in what is written in what a key does there that types no letter, and says whether it did. The browser
+  // still counts the key that gave the focus back as the control's: only a letter follows the focus by itself. A
+  // text's field takes its own keys first, as Ctrl+B. Deleting and the caret's moves are the browser's, done by hand.
+  const act = (e: KeyboardEvent) => {
+    const view = field.current;
+    const mod = e.ctrlKey || e.metaKey;
+    const erase = e.key === "Backspace" || e.key === "Delete";
+    if (e.altKey || !(mod || erase || MOVES[e.key])) return false;
+    if (view?.someProp("handleKeyDown", (f) => f(view, e))) return true;
+    if (mod) return false;
+    if (erase) document.execCommand(e.key === "Delete" ? "forwardDelete" : "delete");
+    else getSelection()!.modify(e.shiftKey ? "extend" : "move", ...MOVES[e.key]);
+    return true;
+  };
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number }>();
@@ -522,8 +545,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
     const select = target.matches(".panel select");
-    // Shift alone is no key yet.
-    const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key);
+    // Shift alone is no key yet, and a key that only switches something or opens the menu is none either.
+    const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock", "NumLock", "ScrollLock", "ContextMenu"].includes(e.key);
     // A list still open keeps its keys. Chromium sends none of them here, Firefox does. A browser that does not
     // know `:open` throws.
     let list = false;
@@ -546,8 +569,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const open = written();
       back(target);
       // Tab and Enter do no more. A letter goes on to what is written in, with the keypress that types it there;
-      // another key only brings the caret back. With nothing written in the key goes on to the sheet.
-      if (e.key === "Enter" || (open && e.key === "Tab")) e.preventDefault();
+      // a key that deletes or moves the caret is done there by hand, and any other only brings the caret back. With
+      // nothing written in the key goes on to the sheet.
+      if (e.key === "Enter" || (open && (e.key === "Tab" || act(e)))) e.preventDefault();
       if (open || e.key === "Enter" || e.key === "Escape") return;
     }
     // Escape calls a thumbnail's drag off.
