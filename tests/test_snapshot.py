@@ -72,7 +72,26 @@ def test_snapshot_copies_the_database(source, target):
     live.close()
     copy.close()
     assert source.read_bytes() == before
-    assert "users=3" in result.stdout
+
+
+def test_snapshot_prints_no_path_and_no_counts(source, target):
+    """The job log is public."""
+    target.mkdir()
+    (target / "pre-old.db").write_bytes(b"")
+    os.utime(target / "pre-old.db", (1_700_000_000, 1_700_000_000))
+    result = snapshot(source, target, "--keep", "1")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [f"snapshot ok pre-{SHA}.db", "deleted pre-old.db"]
+    assert result.stderr == ""
+    gone = snapshot(source.with_name("none.db"), target)
+    assert str(source.parent) not in gone.stdout + gone.stderr
+    target.chmod(0o500)
+    try:
+        failed = snapshot(source, target)
+    finally:
+        target.chmod(0o700)
+    assert failed.returncode != 0
+    assert str(target) not in failed.stdout + failed.stderr
 
 
 def test_snapshot_opens_the_source_read_only(source, target):

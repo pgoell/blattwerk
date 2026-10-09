@@ -21,7 +21,7 @@ parser.add_argument("--timeout", type=float, default=30)
 args = parser.parse_args()
 
 if not args.source.exists():
-    print(f"no database at {args.source}, nothing to snapshot")
+    print("no database, nothing to snapshot")
     sys.exit(0)
 
 
@@ -58,7 +58,7 @@ try:
     if check != "ok":
         raise RuntimeError(f"integrity_check of the copy: {check}")
     if after != before:
-        raise RuntimeError(f"the copy holds {after}, the database {before}")
+        raise RuntimeError("the copy does not hold the same rows as the database")
     # A rerun for the same commit may come after the new code moved the schema. The first file
     # is the state before that code, so it stays.
     final, n = args.folder / f"pre-{args.sha}.db", 1
@@ -69,16 +69,19 @@ try:
 except Exception as error:
     tmp.unlink(missing_ok=True)
     journal.unlink(missing_ok=True)
-    print(f"snapshot failed: {error}", file=sys.stderr)
+    # The job log is public: an OSError's own text would name the path.
+    reason = error.strerror if isinstance(error, OSError) else str(error)
+    print(f"snapshot failed: {reason}", file=sys.stderr)
     if "readonly" in str(error):
         # The app died in the middle of a write and left its journal. Only a writer can mend that.
         print("Open the site once, so the app mends the database, then rerun.", file=sys.stderr)
     sys.exit(1)
 
-print(final, *(f"{name}={count}" for name, count in after.items()))
+# The job log is public: no path and no row counts.
+print(f"snapshot ok {final.name}")
 # Never the one just written, whatever the clock says of the others.
 snapshots = [p for p in args.folder.glob("pre-*.db") if p.is_file() and p != final]
 others = max(args.keep - 1, 0)
 for old in sorted(snapshots, key=lambda p: p.stat().st_mtime, reverse=True)[others:]:
     old.unlink()
-    print(f"deleted {old}")
+    print(f"deleted {old.name}")
