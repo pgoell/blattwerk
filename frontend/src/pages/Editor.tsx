@@ -591,6 +591,23 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       mergeKey.current = "";
       return;
     }
+    // A text being written in keeps F6, and its own Escape, which ends the writing.
+    const away = !target.closest(".ProseMirror, .sheet textarea:not([readonly])");
+    // F6 walks the focus as in PowerPoint: from the sheet to the bar Einfügen, the header, the panel and back to
+    // the sheet, and with Shift the other way round. Tab cannot: on the sheet it picks blocks. The browser's own
+    // F6 would go to its address bar. A part that is shut, or holds nothing to press, is no stop.
+    if (e.key === "F6" && away && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      const lead = (el: Element | null) => [...(el?.querySelectorAll<HTMLElement>("button:enabled, select:enabled, input:enabled") ?? [])].find((c) => c.getClientRects().length);
+      const parts = ['[role=toolbar][aria-label="Einfügen"]', "header", ".panel"].map((s) => document.querySelector(s)).filter(lead);
+      if (e.shiftKey) parts.reverse();
+      const to = lead(parts[parts.findIndex((el) => el!.contains(target)) + 1] ?? null);
+      if (to) to.focus();
+      else target.blur();
+      return;
+    }
+    // Escape on a button or a field gives the keys back, as in PowerPoint's ribbon, and the selection stays.
+    if (e.key === "Escape" && away && target.closest("button, a, input, select")) return back(target);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
@@ -621,7 +638,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       const to = [...order.slice(from + 1), ...order].find((b) => !ids.includes(b.id));
       if (!to) return;
       done();
-      setIds(grouped([to.id], blocks));
+      const picked = grouped([to.id], blocks);
+      setIds(picked);
+      // The desk scrolls to what is picked, as in PowerPoint: a group as far as it fits, and the block itself last.
+      for (const id of [...picked, to.id]) sheet.current!.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
     };
     // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
     // Shift+Tab the one in front.
