@@ -462,7 +462,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal") || (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select")) return;
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
-    if (!picture) return paste();
+    if (!picture || writing.current) return paste();
     e.preventDefault();
     upload(picture);
   };
@@ -972,11 +972,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The copied blocks lie in the browser's store: they last over a reload and reach another sheet and another tab.
   // They carry the account's id, for the browser may serve another account next.
   // Their words go to the system's clipboard, which pushes out a picture copied before: the newest copy wins.
+  // The words land a moment later: until then a paste still finds the older picture there, which is stale.
+  const writing = useRef(0);
   function copy() {
     if (!sel.length) return;
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
     const words = sel.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n");
-    navigator.clipboard?.writeText(words || " ").catch(() => {});
+    const landed = navigator.clipboard?.writeText(words || " ");
+    if (!landed) return;
+    writing.current++;
+    landed.catch(() => {}).finally(() => writing.current--);
   }
   function cut() {
     copy();
@@ -1000,6 +1005,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The button has no paste of the browser's to go by, so it asks the system's clipboard for a picture itself.
   async function pasteAny() {
     if (reading.current) return;
+    if (writing.current) return paste();
     reading.current = true;
     try {
       for (const item of await navigator.clipboard.read()) {

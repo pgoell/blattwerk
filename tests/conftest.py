@@ -1,12 +1,40 @@
 import json
+import os
 
 import pytest
+from argon2 import PasswordHasher
 from playwright.sync_api import expect, sync_playwright
 from ui import serving, sheet, user
 
-from blattwerk import db
+from blattwerk import auth, db
 
 expect.set_options(timeout=2000)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items):
+    """With SHARD=i/n, keeps every n-th test from the i-th on: CI runs the shards side by side.
+
+    By place in the collection, so the slow files spread over all shards. Each xdist worker
+    collects the same list and reads the same variable, so all agree.
+    """
+    shard = os.environ.get("SHARD")
+    if not shard:
+        return
+    i, n = map(int, shard.split("/"))
+    assert 1 <= i <= n, f"SHARD={shard}: want i/n with 1 <= i <= n"
+    config.hook.pytest_deselected(items=[t for k, t in enumerate(items) if k % n != i - 1])
+    items[:] = items[i - 1 :: n]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cheap(tmp_path_factory):
+    with pytest.MonkeyPatch.context() as patch:
+        # The real hash takes 64 MiB and a fifth of a second, and every test signs a user up.
+        patch.setattr(auth, "hasher", PasswordHasher(time_cost=1, memory_cost=8, parallelism=1))
+        # Between two tests too, no request may reach the data folder of the checkout.
+        patch.setattr(db, "DATA_DIR", tmp_path_factory.mktemp("between"))
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -15,9 +43,13 @@ def data_dir(tmp_path, monkeypatch):
     return tmp_path
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def server():
-    """The app on a real port, for Chromium to call as it does in production."""
+    """The app on a real port, for Chromium to call as it does in production.
+
+    One for the whole run: the app looks up the data folder with each request, so each test still
+    has its own.
+    """
     with serving() as url:
         yield url
 
@@ -66,6 +98,7 @@ def editor(browser, server):
         return page
 
     yield start
-    # Before the server stops: leaving the editor saves.
+    # Leaving the editor saves. A save that comes in late finds no such session in the next
+    # test's data and changes nothing.
     for context in contexts:
         context.close()
