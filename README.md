@@ -73,3 +73,39 @@ docker compose up -d --build
 ```
 
 The database (`blattwerk.db`) and the uploads live in `~/.local/share/blattwerk/`, outside the repo.
+
+Before the build, the deploy makes a way back:
+
+- `scripts/snapshot.py` copies the database to `~/.local/share/blattwerk-backups/pre-<sha>.db`, where `<sha>` is the commit it deploys. It keeps the newest 30 snapshots. If the copy fails, the deploy stops.
+- `scripts/keep-prev.sh` tags the running image as `blattwerk-blattwerk:prev`.
+
+### Going back
+
+Run these in the repo folder on the VPS.
+
+To the old image:
+
+```sh
+docker tag blattwerk-blattwerk:prev blattwerk-blattwerk:latest && docker compose up -d --no-build
+```
+
+The next deploy builds from `master` again, so revert the commit too. `prev` moves on with each deploy whose running container answered.
+
+To a snapshot:
+
+```sh
+docker compose stop
+aside=~/.local/share/blattwerk-backups/before-restore-$(date +%Y%m%d-%H%M%S)
+mkdir -m 700 "$aside"
+mv ~/.local/share/blattwerk/blattwerk.db* "$aside"/
+cp ~/.local/share/blattwerk-backups/pre-<sha>.db ~/.local/share/blattwerk/blattwerk.db
+docker compose start
+```
+
+The `mv` takes a leftover `blattwerk.db-journal` along: SQLite would replay it into the restored file. Everything saved since the snapshot is lost. The snapshot holds no uploads; the hourly backup has them.
+
+A deploy that moved the schema needs both, in this order: the database already has the new shape, the old image alone does not undo that, and the new image would move a restored database again on its first request. Run the snapshot block up to the `cp`, then start the old image in place of `docker compose start`:
+
+```sh
+docker tag blattwerk-blattwerk:prev blattwerk-blattwerk:latest && docker compose up -d --no-build
+```
