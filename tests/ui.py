@@ -98,6 +98,15 @@ def picture(upload_id):
     return block("image", 150, 60, {"upload": upload_id, "ratio": 1.5, "cut": [0, 0, 0, 0]})
 
 
+def maths(client, **more):
+    """A maths block's props as the editor makes them: three sums in a row, 12 mm high at 14 pt."""
+    digits = [[0, 9], [0, 9]]
+    limits = {**MATHS, "a": digits, "b": digits, "carry": "either", "rest": False, "format": "row"}
+    limits = {**limits, **{key: more[key] for key in more if key in limits}}
+    made = client.post("/api/maths", json=limits).json()
+    return {**limits, **made, "columns": 3, "size": 14, **more}
+
+
 def sheet(client, *pages):
     doc = {"pages": [{"blocks": list(p)} for p in pages], "guides": {"x": [], "y": []}, "grid": 0}
     return client.post("/api/sheets", json={"title": "Plus bis 20", "doc": doc}).json()

@@ -77,7 +77,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, norm } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -89,10 +89,15 @@ type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 const SIDES = { top: true, left: true, bottom: true, right: true, center: true, middle: true };
 const CORNERS = ["nw", "ne", "sw", "se"];
 // The look the brush carries from a text or a shape to the next. A line gives and takes its stroke alone, a table
-// what its cells have, and any other block nothing.
+// what its cells have, a Lineatur its script and the colour of its lines, `rule`, and a maths block its size and
+// the numbering of its exercises. Every block gives and takes the numbering before it, `mark`.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
-const takes = (b: Block): readonly (typeof LOOK)[number][] =>
-  isLine(b) ? ["stroke", "strokeWidth", "dash"] : b.type === "table" ? ["font", "size", "color", "align"] : boxed(b) ? LOOK : [];
+type Coat = Partial<TextProps> & { mark?: string; rule?: string; numbering?: string };
+// Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
+const takes = (b: Block): readonly (keyof Coat)[] => {
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule"] : ["rule"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
+  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align"] as const) : (boxed(b) && LOOK) || school), "mark"];
+};
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
 const BARE: Record<string, string | number> = { fill: "none", stroke: "none", strokeWidth: 0.5, valign: "top" };
@@ -217,7 +222,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const [rest, setRest] = useState<HTMLElement[]>([]);
   const [clip, setClip] = useState<Block[]>([]);
   // The format painter: the look it picked up, as it was then, and whether it is on: 1 for one block, 2 until ended.
-  const [coat, setCoat] = useState<Partial<TextProps>>();
+  const [coat, setCoat] = useState<Coat>();
   const [brush, setBrush] = useState(0);
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
@@ -309,7 +314,7 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   const fill = boxes[0]?.props.fill ?? "none";
   const stroke = boxes[0]?.props.stroke ?? "none";
   // The block the brush picks its look up from.
-  const source = sel.find((b) => takes(b).length);
+  const source = sel[0] as Block | undefined;
   const rulers = sel.filter(isLine);
   // A line on its own gets a handle at each end. Moveable cannot resize a box with no height, so lines get no corner handles.
   const line = sel.length === 1 ? free.find(isLine) : undefined;
@@ -571,11 +576,12 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
       key,
     );
   }
-  // The brush picks up the look of the first selected block that has one. Every key is in it, also where the block
-  // has nothing there: the block painted then loses its own, as in PowerPoint.
+  // The brush picks up the look of the first selected block. Every key is in it, also where the block has nothing
+  // there: the block painted then loses its own, as in PowerPoint.
   function dip(marks?: Marks) {
     if (!source) return;
-    const from = { ...(boxed(source) ?? source.props), ...marks } as Partial<TextProps>;
+    const from = { ...(boxed(source) ?? source.props), ...marks, mark: source.mark } as Coat;
+    from.rule = from.color;
     // A field says "not bold" where a block says nothing: both are the same look.
     setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false ? undefined : from[name]])));
   }
@@ -584,14 +590,18 @@ function Canvas({ file, reload }: { file: Sheet; reload: () => void }) {
   function daub(on: string[], n = page) {
     if (!coat) return;
     const dab = (b: Block) => {
-      const own = on.includes(b.id) ? takes(b).filter((name) => name in coat) : [];
+      if (!on.includes(b.id)) return b;
       // A line never vanishes: it takes a border only from a block that has one.
-      if (!own.length || (isLine(b) && (coat.stroke ?? "none") === "none")) return b;
-      const props = Object.fromEntries(own.map((name) => [name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
-      const rich = boxed(b)?.rich;
+      const own = takes(b).filter((name) => name in coat && name !== "mark" && !(isLine(b) && (coat.stroke ?? "none") === "none"));
+      // The colour of a Lineatur's lines is its `color`.
+      const props = Object.fromEntries(own.map((name) => [name === "rule" ? "color" : name, coat[name] ?? (b.type === "shape" ? BARE[name] : undefined)]));
+      const rich = own.length ? boxed(b)?.rich : undefined;
       // What is left unset goes, so a saved sheet opens as it looks here.
       const all = Object.entries({ ...b.props, ...(rich && cleared(rich, props)), ...props }).filter(([, value]) => value !== undefined);
-      return { ...b, props: Object.fromEntries(all) } as Block;
+      const next = { ...b, mark: coat.mark, props: Object.fromEntries(all) } as Block;
+      if (!next.mark) delete next.mark;
+      // A maths block is as high as its exercises need, as from the panel.
+      return next.type === "maths" && b.type === "maths" && mathsHeight(next.props) !== mathsHeight(b.props) ? { ...next, h: mathsHeight(next.props) } : next;
     };
     if (pages[n].blocks.every((b) => JSON.stringify(dab(b)) === JSON.stringify(b))) return;
     tight.current = true;
