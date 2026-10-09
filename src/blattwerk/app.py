@@ -1,5 +1,8 @@
 """Blattomat: the API, the legal pages and the built frontend."""
 
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from importlib.resources import files
 from pathlib import Path
 
@@ -11,7 +14,21 @@ from blattwerk import auth, feedback, maths, pdf, sheets, templates, uploads
 # `npm run build` in frontend/ writes here.
 STATIC = Path(__file__).parent / "static"
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    try:
+        # Opens the database, so the start makes a new file's tables and a request need not.
+        auth.retry_leftovers()
+    except Exception:
+        # A busy database or a full disk must not keep the app down: the next start tries again.
+        log.exception("Could not retry the left over folders")
+    yield
+
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)

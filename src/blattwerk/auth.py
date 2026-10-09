@@ -5,6 +5,9 @@ import logging
 import secrets
 import shutil
 import sqlite3
+import time
+from contextlib import suppress
+from pathlib import Path
 from typing import Annotated
 
 from argon2 import PasswordHasher
@@ -20,6 +23,9 @@ LINK_DAYS = 7
 # Login tries allowed per email and per IP in one window.
 TRIES = 10
 WINDOW = 15 * 60
+# Tries to delete a deleted account's folder, and the seconds between two of them.
+DELETE_TRIES = 3
+DELETE_WAIT = 0.2
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
@@ -156,13 +162,55 @@ def me(user: User) -> dict:
 def delete_account(user: User, response: Response, con: Con) -> dict:
     con.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     folder = db.DATA_DIR / "users" / str(user["id"])
-    # Past a file that will not go, so as much goes as can.
-    shutil.rmtree(folder, ignore_errors=True)
-    if folder.exists():
-        # The account is gone either way; the log is the only trace of what stayed on disk.
+    error = remove(folder)
+    for _ in range(DELETE_TRIES - 1):
+        if not error:
+            break
+        time.sleep(DELETE_WAIT)
+        error = remove(folder)
+    if error:
+        # The account is gone either way. The row outlives a restart: each start tries again,
+        # and the admin page shows it until the folder is gone.
         log.error("Could not delete %s", folder)
+        try:
+            con.execute(
+                "INSERT INTO leftovers (user_id, error) VALUES (?, ?)"
+                " ON CONFLICT (user_id) DO UPDATE SET error = excluded.error",
+                (user["id"], error),
+            )
+        except sqlite3.Error:
+            # The account is gone, so the answer stays 200; the log line above is the trace.
+            log.exception("Could not remember the left over folder %s", folder)
     response.delete_cookie("session")
     return {}
+
+
+def remove(folder: Path) -> str | None:
+    """One try to delete a folder. Gives the first error, or None when the folder is gone."""
+    errors = []
+    # Past a file that will not go, so as much goes as can.
+    shutil.rmtree(folder, onexc=lambda function, path, error: errors.append(error))
+    if not folder.exists():
+        return None
+    return f"{type(errors[0]).__name__}: {errors[0]}" if errors else "The folder is still there"
+
+
+def retry_leftovers() -> None:
+    """At each start: tries the folders a delete left behind again."""
+    # Also with no row to try: the open makes a new file's tables.
+    con = db.open_db()
+    try:
+        # Never the folder of a living account, whatever a restored or hand-made row says.
+        gone = "SELECT user_id FROM leftovers WHERE user_id NOT IN (SELECT id FROM users)"
+        for (user_id,) in con.execute(gone).fetchall():
+            error = remove(db.DATA_DIR / "users" / str(user_id))
+            if error:
+                # `since` stays: the alert tells how long the folder has been there.
+                con.execute("UPDATE leftovers SET error = ? WHERE user_id = ?", (error, user_id))
+            else:
+                con.execute("DELETE FROM leftovers WHERE user_id = ?", (user_id,))
+    finally:
+        con.close()
 
 
 @router.post("/signup")
@@ -198,6 +246,22 @@ def reset(body: Reset, response: Response, con: Con) -> dict:
 def users(admin: Admin, con: Con) -> list[dict]:
     rows = con.execute("SELECT * FROM users ORDER BY id")
     return [{**public(row), "created": row["created"]} for row in rows]
+
+
+@router.get("/admin/leftovers")
+def leftovers(admin: Admin, con: Con) -> list[dict]:
+    rows = con.execute("SELECT * FROM leftovers ORDER BY since, user_id").fetchall()
+    left = []
+    for row in rows:
+        if (db.DATA_DIR / "users" / str(row["user_id"])).exists():
+            folder = f"users/{row['user_id']}"
+            left.append({"folder": folder, "since": row["since"], "error": row["error"]})
+        else:
+            # Someone removed the folder by hand: the alert goes without a restart. A busy
+            # database keeps the row for the next look.
+            with suppress(sqlite3.Error):
+                con.execute("DELETE FROM leftovers WHERE user_id = ?", (row["user_id"],))
+    return left
 
 
 @router.post("/admin/invites")

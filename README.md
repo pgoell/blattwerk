@@ -52,6 +52,12 @@ On the VPS:
 docker compose exec blattwerk /app/.venv/bin/python -m blattwerk invite --admin
 ```
 
+Deleting an account deletes its folder `users/<id>/`. If the folder will not go after three tries, the table `leftovers` remembers it, each start tries again, and `/admin` shows an alert until it is gone.
+
+## Pictures
+
+A picture lies in `users/<id>/uploads/<n>` with a row in `uploads`. Once no sheet and no template of its owner has shown it for 30 days, the owner's next save deletes both. The file's time counts the days: each save that shows the picture or takes it away sets it, so undo and the clipboard can still bring a picture back.
+
 ## PDF
 
 `GET /api/sheets/<id>/pdf` starts headless Chromium (Playwright), which prints the page `/druck/<id>` of this same server over loopback. `?solved=true` gives the answer key. Chromium has no session. It sends a token in the `X-Render-Token` header, signed for that one sheet and good for a minute. The token opens the sheet's document and the pictures on it, and nothing else.
@@ -102,7 +108,7 @@ cp ~/.local/share/blattwerk-backups/pre-<sha>.db ~/.local/share/blattwerk/blattw
 docker compose start
 ```
 
-The `mv` takes a leftover `blattwerk.db-journal` along: SQLite would replay it into the restored file. Everything saved since the snapshot is lost. The snapshot holds no uploads; the hourly backup has them.
+The `mv` takes a leftover `blattwerk.db-journal` along: SQLite would replay it into the restored file. Everything saved since the snapshot is lost. The snapshot holds no uploads; the hourly backup has them. A snapshot older than 30 days may show a picture whose file a save has deleted since: take `users/` from a backup of the same day. After any restore of `users/` from a backup, the files carry their old times, so a picture that no sheet shows may go at its owner's next save.
 
 A deploy that moved the schema needs both, in this order: the database already has the new shape, the old image alone does not undo that, and the new image would move a restored database again on its first request. Run the snapshot block up to the `cp`, then start the old image in place of `docker compose start`:
 

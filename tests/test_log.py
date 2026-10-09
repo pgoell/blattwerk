@@ -22,6 +22,7 @@ def failed_delete(monkeypatch):
     assert client.post("/api/signup", json={**login, "token": token}).status_code == 200
     client.post("/api/feedback", data={"text": "x"})
     monkeypatch.setattr(auth.shutil, "rmtree", lambda *args, **kwargs: None)
+    monkeypatch.setattr(auth, "DELETE_WAIT", 0)
     assert client.delete("/api/me").status_code == 200
 
 

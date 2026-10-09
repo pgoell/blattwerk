@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from blattwerk import pictures
 from blattwerk.auth import User
 from blattwerk.db import Con
 
@@ -117,6 +118,7 @@ def templates(user: User, con: Con) -> list[dict]:
 
 @router.post("/templates")
 def save(body: Template, user: User, con: Con) -> dict:
+    pictures.touch(user["id"], body.doc)
     cur = con.execute(
         "INSERT INTO templates (user_id, name, doc) VALUES (?, ?, ?)",
         (user["id"], body.name, json.dumps(body.doc)),
@@ -126,10 +128,13 @@ def save(body: Template, user: User, con: Con) -> dict:
 
 @router.delete("/templates/{template_id}")
 def delete(template_id: int, user: User, con: Con) -> dict:
-    cur = con.execute(
-        "DELETE FROM templates WHERE id = ? AND user_id = ?", (template_id, user["id"])
-    )
+    mine = (template_id, user["id"])
+    row = con.execute("SELECT doc FROM templates WHERE id = ? AND user_id = ?", mine).fetchone()
     # Someone else's template is as missing as one that never was.
-    if not cur.rowcount:
+    if not row:
         raise HTTPException(404)
+    # A picture's 30 days count from the delete that takes it away.
+    pictures.touch(user["id"], json.loads(row["doc"]))
+    con.execute("DELETE FROM templates WHERE id = ? AND user_id = ?", mine)
+    pictures.sweep(con, user["id"])
     return {}

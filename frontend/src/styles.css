@@ -121,6 +121,7 @@ footer { text-align: center; font-size: 12px; padding: 16px 16px calc(16px + env
 footer a { color: var(--faint); margin: 0 10px; text-decoration: none; }
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.card.alert { border-color: var(--rec); }
 .card > :first-child { margin-top: 0; }
 .card > :last-child { margin-bottom: 0; }
 h1 + .card, h1 + button { margin-top: 14px; }
