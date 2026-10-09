@@ -62,6 +62,7 @@ def test_docs_name_the_product():
 
 def test_no_old_name_in_what_users_get():
     old = re.compile("blattwerk", re.IGNORECASE)
+    assert (STATIC / "index.html").is_file(), "build the frontend first: mise run build"
     for file in STATIC.rglob("*"):
         if file.suffix in TEXTS:
             assert not old.search(file.read_text()), file
