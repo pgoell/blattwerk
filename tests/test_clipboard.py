@@ -37,6 +37,8 @@ PASTE_BMP = """() => {
     const paste = { clipboardData: data, bubbles: true, cancelable: true };
     document.body.dispatchEvent(new ClipboardEvent("paste", paste));
 }"""
+# A browser that gives the page no leave to write the system clipboard.
+REFUSE = "() => { navigator.clipboard.writeText = () => Promise.reject(new Error()); }"
 
 
 def button(page, name):
@@ -342,6 +344,22 @@ def test_a_paste_right_after_a_copy_brings_the_blocks_and_not_an_older_picture(e
     for name in page.eval_on_selector_all(".block", "els => els.map((el) => el.dataset.id)"):
         assert angle(page, name) == 45
         assert mirror(page, name) == (-1, 1)
+
+
+@pytest.mark.parametrize("paste", ["Control+v", "Einfügen"])
+@pytest.mark.parametrize("copy", ["Control+c", "Control+x", "Kopieren", "Ausschneiden"])
+def test_a_copy_the_browser_lets_no_one_write_still_wins_over_an_older_picture(editor, copy, paste):
+    """#174"""
+    client = user()
+    page = editor(box("a", "shape", RECT, w=40), client=client)
+    copy_picture(page)
+    page.evaluate(REFUSE)
+    pick(page, "a")
+    count = 2 if copy in ("Control+c", "Kopieren") else 1
+    for key in (copy, paste):
+        page.keyboard.press(key) if "+" in key else button(page, key).click()
+        expect(blocks(page)).to_have_count(count if key == paste else count - 1)
+    assert [b["type"] for b in saved(page, client)] == ["shape"] * count
 
 
 def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):

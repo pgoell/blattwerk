@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import STAR
+from test_clipboard import REFUSE, STAR
 from test_order import boxes, expect_stack
 from test_pages import expect_in_use, expect_order, three
 from ui import (
@@ -159,6 +159,23 @@ def test_einfuegen_pastes_a_picture_from_another_app(editor):
     corner(page)
     run(page, "Einfügen")
     expect(page.locator(".block .picture img")).to_have_js_property("naturalWidth", 3)
+
+
+@pytest.mark.parametrize("entry", ["Kopieren", "Ausschneiden"])
+def test_a_copy_the_browser_lets_no_one_write_still_wins_over_an_older_picture(editor, entry):
+    """#174"""
+    client = user()
+    page = editor(*texts("a"), client=client)
+    copy_picture(page)
+    page.evaluate(REFUSE)
+    right(page, "a")
+    run(page, entry)
+    count = 2 if entry == "Kopieren" else 1
+    expect(page.locator(".block[data-id]")).to_have_count(count - 1)
+    corner(page)
+    run(page, "Einfügen")
+    expect(page.locator(".block[data-id]")).to_have_count(count)
+    assert [b["type"] for b in saved(page, client)] == ["text"] * count
 
 
 def test_duplizieren_adds_a_copy_and_selects_it(editor):
@@ -606,6 +623,78 @@ def test_a_jittering_finger_held_on_a_block_starts_selecting_several(editor, kin
     hold_drag(page, at(page, "a"), centre(at(page, "a")), by=by, shows="sel")
     expect(several(page)).to_have_attribute("aria-pressed", "true")
     expect_picked(page, *("ab" if kind == "group" else "a"))
+
+
+def spot(page, name):
+    """Where the block lies on its page, as its own style says."""
+    return at(page, name).evaluate("el => [el.style.left, el.style.top]")
+
+
+@pytest.mark.parametrize("kind", [*HELD, "several"])
+def test_a_jittering_finger_held_on_a_selected_block_moves_no_block(editor, kind):
+    """#178"""
+    client = user()
+    if kind in ("group", "several"):
+        blocks = boxes(*"abc", grouped="ab" if kind == "group" else "")
+    else:
+        blocks = [box("a", "shape" if kind == "line" else kind, props(client, kind))]
+    page = editor(*blocks, client=client, touch=True)
+    names = "ab" if len(blocks) > 1 else "a"
+    if kind == "several":
+        several(page).tap()
+    for name in names if kind == "several" else "a":
+        at(page, name).tap()
+    expect_picked(page, *names)
+    before = [spot(page, name) for name in names]
+    # A table's middle is the bar between its columns, which drags no block.
+    start = centre(at(page, "a").locator("[data-cell]").first if kind == "table" else at(page, "a"))
+    with finger(page, start):
+        jitter(at(page, "a"), start, (3, 0), (3, 9))
+        outlast(page)
+        assert [spot(page, name) for name in names] == before
+    assert [spot(page, name) for name in names] == before
+    expect(page.get_by_role("button", name="Rückgängig")).to_be_disabled()
+
+
+def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor):
+    """#178"""
+    page = editor(*texts("a"), touch=True)
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    before, start = spot(page, "a"), centre(at(page, "a"))
+    with finger(page, start):
+        jitter(at(page, "a"), start, (0, 9), (0, 14))
+        far = spot(page, "a")
+        assert far[0] == before[0] and far[1] != before[1]
+        # Once it drags, the block follows the finger back to where it came down too.
+        jitter(at(page, "a"), start, (0, 5))
+        assert spot(page, "a") not in (before, far)
+    expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
+
+
+def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
+    """#179"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        touch("touchCancel")
+        outlast(page)
+        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_picked(page)
+        # The finger comes down again, and its lift is a tap.
+        touch("touchStart", start)
+    expect_picked(page, "a")
+
+
+def test_a_tap_after_a_hold_the_browser_cancelled_selects_one_more(editor):
+    """#179"""
+    page = editor(*texts("a", "b"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        expect(several(page)).to_have_attribute("aria-pressed", "true")
+        touch("touchCancel")
+        touch("touchStart", centre(at(page, "b")))
+    expect_picked(page, "a", "b")
 
 
 def test_a_swipe_over_a_block_starts_no_selecting_of_several(editor):
