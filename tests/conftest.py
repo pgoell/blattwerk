@@ -4,10 +4,11 @@ import os
 import pytest
 from argon2 import PasswordHasher
 from playwright.sync_api import expect, sync_playwright
-from ui import serving, sheet, user
+from ui import BROWSER, serving, sheet, user
 
 from blattwerk import auth, db
 
+WEBKIT = BROWSER == "webkit"
 expect.set_options(timeout=2000)
 
 
@@ -18,6 +19,15 @@ def pytest_collection_modifyitems(config, items):
     By place in the collection, so the slow files spread over all shards. Each xdist worker
     collects the same list and reads the same variable, so all agree.
     """
+    if WEBKIT:
+        # Only a test that opens the browser can differ there. Before the shards, so they split
+        # what is left evenly.
+        config.hook.pytest_deselected(items=[t for t in items if "browser" not in t.fixturenames])
+        items[:] = [t for t in items if "browser" in t.fixturenames]
+        for item in items:
+            for mark in item.iter_markers("webkit_xfail"):
+                issue, why = mark.args
+                item.add_marker(pytest.mark.xfail(strict=True, reason=f"#{issue}: {why}"))
     shard = os.environ.get("SHARD")
     if not shard:
         return
@@ -55,15 +65,20 @@ def server():
 
 
 @pytest.fixture(scope="session")
-def browser():
+def playwright():
     with sync_playwright() as p:
-        browser = p.chromium.launch()
-        yield browser
-        browser.close()
+        yield p
+
+
+@pytest.fixture(scope="session")
+def browser(playwright):
+    browser = getattr(playwright, BROWSER).launch()
+    yield browser
+    browser.close()
 
 
 @pytest.fixture
-def editor(browser, server):
+def editor(browser, server, playwright):
     """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
     contexts = []
 
@@ -74,10 +89,16 @@ def editor(browser, server):
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut.
         """
-        context = browser.new_context(viewport={"width": 1400, "height": 1000}, has_touch=touch)
+        window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": touch}
+        if WEBKIT and touch:
+            # Fingers in WebKit mean an iPad: its sharp screen and its name. Not its window, 834 px
+            # wide: the sheet is so small there that a block's handles lie over the next block.
+            window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
+        context = browser.new_context(**window)
         contexts.append(context)
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
-        context.grant_permissions(["clipboard-read", "clipboard-write"])
+        # WebKit knows no leave to write, and lets the page write without one.
+        context.grant_permissions(["clipboard-read", *([] if WEBKIT else ["clipboard-write"])])
         # The tour would open on the first visit and lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
         if theme is not None:

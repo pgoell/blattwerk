@@ -35,6 +35,7 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-n auto"
+markers = ["webkit_xfail(issue, why): the test fails in WebKit for the reason the issue tells"]
 
 [tool.ruff]
 target-version = "py314"
