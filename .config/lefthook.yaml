@@ -1,7 +1,8 @@
 # Git hooks. Installed by `mise run install`.
 #
-# pre-commit stays fast (lint and format only). Anything slow enough to make
-# you reach for --no-verify belongs in pre-push instead.
+# Both hooks stay fast (lint, format and the commit check). The suite takes
+# minutes: run it with `mise run test` before a push. CI runs it on every
+# pull request and is the gate for the merge.
 
 commit-msg:
   commands:
@@ -15,7 +16,7 @@ pre-commit:
 
 pre-push:
   commands:
-    test:
-      run: mise run test
+    lint:
+      run: mise run lint
     check-commits:
       run: mise run check-commits

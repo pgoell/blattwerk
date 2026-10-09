@@ -24,6 +24,8 @@ mise run test:flaky -- 'tests/test_keys.py::test_name[param]'
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org); the `commit-msg` hook checks them with cocogitto.
 
+The `pre-push` hook runs `mise run lint` and the commit check, not the suite. Run `mise run test` yourself before a push; CI runs it on every pull request and is the gate for the merge.
+
 ## Layout
 
 - `src/blattwerk/`: FastAPI backend. `auth.py` (accounts), `feedback.py`, `db.py` (SQLite), `maths.py` (the exercise generator), `pdf.py` (the PDF export), `app.py` (legal pages and the built frontend).
