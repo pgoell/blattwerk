@@ -182,7 +182,7 @@ type Props = {
   all: boolean;
   change: (props: Pick<TextProps, "text" | "rich">, key: string) => void;
   pick: (picked?: Picked) => void;
-  blur: () => void;
+  blur: (e: FocusEvent) => void;
   end: () => void;
 };
 
@@ -239,7 +239,7 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
       // ProseMirror never hears of the focus. It would put its own selection back 20 ms later, and for 200 ms
       // whenever the caret goes to the very start, as if the browser had moved it: an arrow pressed just then would
       // be lost, and after Home a letter would replace a text that opened with all of it picked.
-      handleDOMEvents: { focus: () => true, blur: () => now.current.blur() },
+      handleDOMEvents: { focus: () => true, blur: (_, e) => now.current.blur(e) },
       // The browser moves the caret for some keys, as for an arrow with all picked, and tells the field only later.
       // A key pressed before that would still replace all, so the field reads the caret first.
       handleKeyDown: () => void document.dispatchEvent(new Event("selectionchange")),
