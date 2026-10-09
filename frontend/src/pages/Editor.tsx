@@ -151,6 +151,8 @@ const LOOSE = 4;
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
+// The pictures the server takes.
+const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
 const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.floor(max / cell) + 1 }, (_, i) => i * cell) : []);
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
@@ -407,16 +409,36 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // good: one that a new drawing swaps while a key is on its way would miss that key.
   const onKey = useRef((_e: KeyboardEvent) => {});
   const onPaste = useRef((_e: ClipboardEvent) => {});
+  const onDrag = useRef((_e: DragEvent) => {});
+  // The sheet and the page in use as last drawn, for what comes back from the server after them.
+  const latest = useRef({ doc: hist.doc, page });
+  latest.current = { doc: hist.doc, page };
   useLayoutEffect(() => {
     const press = (e: KeyboardEvent) => onKey.current(e);
     const pasted = (e: ClipboardEvent) => onPaste.current(e);
+    // A dragged file is caught on the way down, before a text's field or the browser can take it.
+    const dragged = (e: DragEvent) => onDrag.current(e);
     window.addEventListener("keydown", press);
     window.addEventListener("paste", pasted);
+    window.addEventListener("dragover", dragged, true);
+    window.addEventListener("drop", dragged, true);
     return () => {
       window.removeEventListener("keydown", press);
       window.removeEventListener("paste", pasted);
+      window.removeEventListener("dragover", dragged, true);
+      window.removeEventListener("drop", dragged, true);
     };
   }, []);
+  // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
+  // Only the desk takes them. Text dragged in a field and Moveable's own drags bring no files and stay as they are.
+  onDrag.current = (e) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const on = desk.current!.contains(e.target as Node);
+    if (e.type === "dragover") e.dataTransfer.dropEffect = on ? "copy" : "none";
+    else if (on) dropped([...e.dataTransfer.files], e.clientX, e.clientY);
+  };
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps its own.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal") || (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select")) return;
@@ -713,17 +735,66 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (rest.type === "text") setEditing(id);
   }
   // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
-  async function upload(file?: File) {
-    if (!file) return;
+  async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
+    const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+    const w = round(Math.min(100, (100 * width) / height));
+    return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
+  }
+  const refuse = () => alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  async function upload(file?: File) {
+    if (!file) return;
     try {
-      const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
-      const w = round(Math.min(100, (100 * width) / height));
-      add(w, round((w * height) / width), { type: "image", props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } });
+      const { w, h, ...rest } = await sent(file);
+      add(w, h, rest);
     } catch {
-      alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+      refuse();
     }
+  }
+  // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
+  // 5 mm right and down. They stay where they were dropped, also on a block, so they only move as far as the page
+  // needs to hold them. The page and the spot are read at once: the desk may scroll while the pictures are on their way.
+  async function dropped(files: File[], left: number, top: number) {
+    // Beside the pages, the nearest one takes the drop.
+    const rects = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].map((el) => el.getBoundingClientRect());
+    const away = rects.map((r) => Math.hypot(Math.max(r.left - left, 0, left - r.right), Math.max(r.top - top, 0, top - r.bottom)));
+    const was = away.indexOf(Math.min(...away));
+    const [x, y] = [(left - rects[was].left) / k, (top - rects[was].top) / k];
+    const [on, count] = [pages[was], pages.length];
+    const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
+    const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
+    if (made.length) {
+      // The pages may have changed while the pictures were on their way. The page dropped on is looked up where it
+      // is now; one changed since keeps its number while the pages are as many as before. A page that is gone
+      // leaves the drop to the page in use.
+      const { doc, page } = latest.current;
+      const found = doc.pages.indexOf(on);
+      const n = found >= 0 ? found : doc.pages.length === count ? was : page;
+      // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
+      const [w, h] = sizeOf(doc, n);
+      const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
+      const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
+      // All of them are one undo step, on top of what the page holds by then.
+      turn(
+        (p) => {
+          const z = Math.max(0, ...p.blocks.map((b) => b.z));
+          const fresh = made.map((b, i) => ({
+            ...b,
+            x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
+            y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
+            z: z + 1 + i,
+            locked: false,
+          }));
+          return { ...p, blocks: [...p.blocks, ...fresh] };
+        },
+        undefined,
+        n,
+      );
+      setAt(n);
+      setIds(made.map((b) => b.id));
+    }
+    if (made.length < files.length) refuse();
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
@@ -1329,7 +1400,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       <input
         ref={picker}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept={TYPES.join()}
         hidden
         onChange={(e) => {
           upload(e.target.files?.[0]);
