@@ -291,7 +291,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
   // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds.
-  const ahead = useRef<Doc[]>([]);
+  const ahead = useRef<Step[]>([]);
   const grasp = useRef<{ el: Element; id: number }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
@@ -512,7 +512,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
       if (moveable.current?.isDragging()) moveable.current.stopDrag();
       else grasp.current!.el.releasePointerCapture(grasp.current!.id);
-      if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!, future: ahead.current }));
+      if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
       mergeKey.current = "";
       return;
     }
