@@ -384,7 +384,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const free = sel.filter((b) => !b.locked);
   // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
   const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
-  const things = [...new Set(free.map(thing))].map((t) => free.filter((b) => thing(b) === t));
+  // A group with a locked block stays as a whole, so it keeps its shape.
+  const things = [...new Set(sel.map(thing))].map((t) => sel.filter((b) => thing(b) === t)).filter((t) => !t.some((b) => b.locked));
   // Whether they line up among themselves.
   const among = !onPage && things.length > 1;
   // What can take another's size: a line has only its length.
@@ -2594,7 +2595,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               </div>
               <div className="acts">
                 {ALIGNS.map(([axis, at, label, icon]) => (
-                  <Tool key={label} icon={icon} label={label} title={label} disabled={!free.length} onClick={() => align(axis, at)} />
+                  <Tool key={label} icon={icon} label={label} title={label} disabled={!things.length} onClick={() => align(axis, at)} />
                 ))}
               </div>
               <h2>Verteilen</h2>

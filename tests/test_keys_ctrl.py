@@ -9,7 +9,8 @@ from test_keys_panel import SELECTS, expect_words, write
 from test_keys_shut import COLOURS, WRITTEN, opened, shut
 from ui import TEXT, at, box, expect_picked, pick, stopped
 
-# Every control with every way to shut what it opened.
+# Every control with every way to shut what it opened. A press on a colour shuts no picker, and
+# Escape in a list gives the keys back by itself: the key after it is no first key.
 WAYS = [(*c, way) for c in WRITTEN for way in ("beside", "ground", "escape")] + [
     (*s, way) for s in SELECTS for way in ("same", "beside", "ground")
 ]

@@ -352,6 +352,24 @@ def test_a_group_lines_up_with_the_page_as_it_is(editor):
         expect_box(page, "b", **{side: b})
 
 
+def test_a_group_with_a_locked_block_stays_as_it_is(editor):
+    # "b" is locked: the group would lose its shape if "a" moved alone.
+    page = editor(
+        *[{**b, "group": ["g"]} for b in rects(locked=True)],
+        box("c", "shape", RECT, z=3, x=100, y=200, w=20, h=20),
+    )
+    group(page, "a", "b")
+    expect(button(page, "Rechts")).to_be_disabled()
+    # Beside a loose block the group neither moves nor counts: the block has only the page.
+    at(page, "c").click(modifiers=["Shift"])
+    expect_picked(page, "a", "b", "c")
+    expect(switch(page, "Auswahl")).to_be_disabled()
+    button(page, "Rechts").click()
+    expect_box(page, "c", x=190)
+    expect_box(page, "a", x=A["x"])
+    expect_box(page, "b", x=B["x"])
+
+
 def test_a_group_spreads_as_one_thing(editor):
     grouped = {"b": {"group": ["g"]}, "c": {"group": ["g"]}}
     page = editor(*row(10, 40, 70, 150, **grouped))
