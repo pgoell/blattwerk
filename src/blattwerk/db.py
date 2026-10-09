@@ -12,7 +12,8 @@ DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 
 # A link with no user is an invite; a link with a user resets that user's password.
 # An attempt is one login try, keyed by email or IP.
-# AUTOINCREMENT, so a deleted account's id never goes to a later one.
+# AUTOINCREMENT, so a deleted row's id never goes to a later one: a folder is named after its
+# account, and a browser may keep an upload under its address for good.
 USERS = """(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
@@ -20,6 +21,26 @@ USERS = """(
     admin INTEGER NOT NULL DEFAULT 0,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 )"""
+TEMPLATES = """(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    doc TEXT NOT NULL
+)"""
+SHEETS = """(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    doc TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)"""
+UPLOADS = """(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type TEXT NOT NULL
+)"""
+COUNTED = {"users": USERS, "templates": TEMPLATES, "sheets": SHEETS, "uploads": UPLOADS}
 SCHEMA = f"""
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users {USERS};
@@ -34,25 +55,9 @@ CREATE TABLE IF NOT EXISTS links (
     admin INTEGER NOT NULL DEFAULT 0,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS templates (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    doc TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sheets (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    doc TEXT NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
-    updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS uploads (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    type TEXT NOT NULL
-);
+CREATE TABLE IF NOT EXISTS templates {TEMPLATES};
+CREATE TABLE IF NOT EXISTS sheets {SHEETS};
+CREATE TABLE IF NOT EXISTS uploads {UPLOADS};
 CREATE TABLE IF NOT EXISTS attempts (
     key TEXT NOT NULL,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -71,13 +76,25 @@ def open_db() -> sqlite3.Connection:
     return con
 
 
+def old(con: sqlite3.Connection) -> list[str]:
+    """The tables from before AUTOINCREMENT."""
+    tables = dict(con.execute("SELECT name, sql FROM sqlite_master").fetchall())
+    return [name for name in COUNTED if "AUTOINCREMENT" not in tables[name]]
+
+
 def migrated(con: sqlite3.Connection) -> bool:
-    sql = con.execute("SELECT sql FROM sqlite_master WHERE name = 'users'").fetchone()[0]
-    return "AUTOINCREMENT" in sql
+    # An old database may have no `sqlite_sequence` at all, so this reads the tables first.
+    # A new one has it empty: SQLite writes a counter with the table's first row.
+    names = "name IN ('users', 'templates', 'sheets', 'uploads')"
+    counters = f"SELECT count(*) FROM sqlite_sequence WHERE {names}"
+    return not old(con) and con.execute(counters).fetchone()[0] == len(COUNTED)
 
 
 def migrate(con: sqlite3.Connection) -> None:
-    """Rebuilds a `users` table from before AUTOINCREMENT. Every row keeps its id."""
+    """Rebuilds the tables from before AUTOINCREMENT, and gives each of the four its counter.
+
+    Every row keeps its id.
+    """
     # Off, or the DROP would cascade into every user's rows. It only takes outside a transaction.
     con.execute("PRAGMA foreign_keys = OFF")
     try:
@@ -85,23 +102,39 @@ def migrate(con: sqlite3.Connection) -> None:
         try:
             # Another request may have done it while this one waited for the lock.
             if not migrated(con):
-                con.execute(f"CREATE TABLE users_new {USERS}")
-                con.execute("INSERT INTO users_new SELECT * FROM users")
-                # The old table goes before the rename: renaming it away would take the
-                # other tables' REFERENCES along.
-                con.execute("DROP TABLE users")
-                con.execute("ALTER TABLE users_new RENAME TO users")
-                # A folder that a failed delete left behind keeps its id used.
-                used = [int(p.name) for p in (DATA_DIR / "users").glob("*") if p.name.isdecimal()]
-                used += [con.execute("SELECT max(id) FROM users").fetchone()[0] or 0]
-                con.execute("DELETE FROM sqlite_sequence WHERE name = 'users'")
-                con.execute("INSERT INTO sqlite_sequence VALUES ('users', ?)", (max(used),))
+                # A table that has its counter stays: the DROP would throw the counter away.
+                for name in old(con):
+                    con.execute(f"CREATE TABLE {name}_new {COUNTED[name]}")
+                    con.execute(f"INSERT INTO {name}_new SELECT * FROM {name}")
+                    # The old table goes before the rename: renaming it away would take the
+                    # other tables' REFERENCES along.
+                    con.execute(f"DROP TABLE {name}")
+                    con.execute(f"ALTER TABLE {name}_new RENAME TO {name}")
+                seed(con)
             con.execute("COMMIT")
         except BaseException:
             con.execute("ROLLBACK")
             raise
     finally:
         con.execute("PRAGMA foreign_keys = ON")
+
+
+def seed(con: sqlite3.Connection) -> None:
+    """Sets each counter to the highest id in use. A counter never goes down.
+
+    Under the write lock: `sqlite_sequence` lets two rows carry one name.
+    """
+    users = DATA_DIR / "users"
+    # A folder or a picture that a failed delete or an older database left behind keeps its id
+    # used.
+    left = {"users": users.glob("*"), "uploads": users.glob("*/uploads/*")}
+    for name in COUNTED:
+        used = [int(p.name) for p in left.get(name, ()) if p.name.isdecimal()]
+        used += [con.execute(f"SELECT max(id) FROM {name}").fetchone()[0] or 0]
+        counter = "SELECT max(seq) FROM sqlite_sequence WHERE name = ?"
+        used += [con.execute(counter, (name,)).fetchone()[0] or 0]
+        con.execute("DELETE FROM sqlite_sequence WHERE name = ?", (name,))
+        con.execute("INSERT INTO sqlite_sequence VALUES (?, ?)", (name, max(used)))
 
 
 def connect() -> Iterator[sqlite3.Connection]:

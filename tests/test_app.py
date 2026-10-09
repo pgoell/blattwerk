@@ -4,11 +4,12 @@ import re
 import sqlite3
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from blattwerk import auth, db
+from blattwerk import auth, db, sheets, templates, uploads
 from blattwerk.app import app
 
 PASSWORD = "richtig-geheim"
@@ -211,10 +212,58 @@ def test_deleted_account_id_is_not_reused():
     assert client.post("/api/signup", json=body).json()["id"] == 4
 
 
-def old_database(data_dir):
-    """The database as it was before AUTOINCREMENT, with two users who each own one of each."""
+def restarted(client):
+    """The same login on a new app on the same file: the process after a deploy."""
+    fresh = FastAPI()
+    for part in (auth, sheets, templates, uploads):
+        fresh.include_router(part.router)
+    return TestClient(fresh, base_url="https://testserver", cookies=dict(client.cookies))
+
+
+def test_deleted_sheet_id_is_not_reused():
+    client = user("a@example.com")
+    ids = [client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] for _ in "ab"]
+    assert ids == [1, 2]
+    assert client.delete("/api/sheets/2").status_code == 200
+    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 3
+    assert client.delete("/api/sheets/3").status_code == 200
+    again = restarted(client).post("/api/sheets", json={"title": "x", "doc": {}})
+    assert again.json()["id"] == 4
+
+
+def test_deleted_template_id_is_not_reused():
+    client = user("a@example.com")
+    ids = [client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] for _ in "ab"]
+    assert ids == [1, 2]
+    assert client.delete("/api/templates/2").status_code == 200
+    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 3
+    assert client.delete("/api/templates/3").status_code == 200
+    again = restarted(client).post("/api/templates", json={"name": "x", "doc": {}})
+    assert again.json()["id"] == 4
+
+
+def test_deleted_upload_id_is_not_reused():
+    """No call deletes one upload: its row goes with the account, here by hand."""
+    client = user("a@example.com")
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert [client.post("/api/uploads", files=picture).json()["id"] for _ in "ab"] == [1, 2]
+    con = db.open_db()
+    con.execute("DELETE FROM uploads WHERE id = 2")
+    assert client.post("/api/uploads", files=picture).json()["id"] == 3
+    con.execute("DELETE FROM uploads WHERE id = 3")
+    assert restarted(client).post("/api/uploads", files=picture).json()["id"] == 4
+
+
+def old_database(data_dir, live=False):
+    """The database as it was before AUTOINCREMENT, with two users who each own one of each.
+
+    With `live`, as it was after `users` alone had moved.
+    """
     old = db.SCHEMA.replace(" AUTOINCREMENT", "")
     assert old != db.SCHEMA
+    if live:
+        old = old.replace(db.USERS.replace(" AUTOINCREMENT", ""), db.USERS)
+        assert old.count("AUTOINCREMENT") == 1
     con = sqlite3.connect(data_dir / "blattwerk.db", autocommit=True)
     con.executescript(old)
     for i in (1, 2):
@@ -239,11 +288,14 @@ def dump(con):
 
 
 def sequence(con):
-    return [tuple(r) for r in con.execute("SELECT * FROM sqlite_sequence")]
+    return sorted(tuple(r) for r in con.execute("SELECT * FROM sqlite_sequence"))
 
 
-def test_old_users_table_moves_to_autoincrement(data_dir):
-    old_database(data_dir)
+COUNTED = ["users", "templates", "sheets", "uploads"]
+
+
+def moved(data_dir, users):
+    """Opens an old database and checks the move; `users` is the counter it must end with."""
     plain = sqlite3.connect(data_dir / "blattwerk.db")
     before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
     plain.close()
@@ -255,11 +307,13 @@ def test_old_users_table_moves_to_autoincrement(data_dir):
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     sql = dict(tables)
-    assert "AUTOINCREMENT" in sql["users"]
-    assert "users_new" not in sql
+    for table in COUNTED:
+        assert "AUTOINCREMENT" in sql[table], table
+        assert f"{table}_new" not in sql
     for child in TABLES[1:]:
         assert "REFERENCES users (id) ON DELETE CASCADE" in sql[child]
-    assert seq == [("users", 2)]
+    assert dict(seq) == {"users": users, "templates": 2, "sheets": 2, "uploads": 2}
+    assert len(seq) == 4
 
     # A second start changes nothing.
     assert dump(db.open_db()) == after
@@ -268,25 +322,138 @@ def test_old_users_table_moves_to_autoincrement(data_dir):
     for child in TABLES[1:]:
         owners = [r[0] for r in con.execute(f"SELECT user_id FROM {child} ORDER BY 1")]
         assert owners == ([None, 2] if child == "links" else [2]), child
-    assert my_id(user("c@example.com")) == 3
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+    client = user("c@example.com")
+    assert my_id(client) == users + 1
+    # The newest of each is gone with user 2, and its id stays used.
+    con.execute("DELETE FROM users WHERE id = 2")
+    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 3
+    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 3
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert client.post("/api/uploads", files=picture).json()["id"] == 3
+
+
+def test_old_tables_move_to_autoincrement(data_dir):
+    old_database(data_dir)
+    moved(data_dir, users=2)
+
+
+def test_tables_beside_a_moved_users_table_move_too(data_dir):
+    old_database(data_dir, live=True)
+    # Five accounts came and went since `users` moved, and one left its folder.
+    plain = sqlite3.connect(data_dir / "blattwerk.db", autocommit=True)
+    plain.execute("UPDATE sqlite_sequence SET seq = 7 WHERE name = 'users'")
+    plain.close()
+    (data_dir / "users" / "5").mkdir(parents=True)
+    moved(data_dir, users=7)
 
 
 def test_counter_starts_above_the_highest_leftover_folder(data_dir):
     old_database(data_dir)
-    (data_dir / "users" / "5").mkdir(parents=True)
+    (data_dir / "users" / "5" / "uploads").mkdir(parents=True)
+    (data_dir / "users" / "5" / "uploads" / "9").write_bytes(b"png")
+    (data_dir / "users" / "5" / "uploads" / "tmp").write_bytes(b"png")
     (data_dir / "users" / "tmp").mkdir()
     # A digit to str.isdigit, and no number to int.
     (data_dir / "users" / "²").mkdir()
-    assert sequence(db.open_db()) == [("users", 5)]
-    assert my_id(user("c@example.com")) == 6
+    (data_dir / "users" / "5" / "uploads" / "²").write_bytes(b"png")
+    assert dict(sequence(db.open_db())) == {"users": 5, "templates": 2, "sheets": 2, "uploads": 9}
+    client = user("c@example.com")
+    assert my_id(client) == 6
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert client.post("/api/uploads", files=picture).json()["id"] == 10
 
 
-def test_empty_old_users_table_moves_too(data_dir):
+def test_new_database_starts_above_the_highest_leftover_folder(data_dir):
+    (data_dir / "users" / "5" / "uploads").mkdir(parents=True)
+    (data_dir / "users" / "3" / "uploads").mkdir(parents=True)
+    (data_dir / "users" / "3" / "uploads" / "9").write_bytes(b"old")
+    (data_dir / "users" / "5" / "uploads" / "4").write_bytes(b"old")
+    client = user("a@example.com")
+    assert my_id(client) == 6
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert client.post("/api/uploads", files=picture).json()["id"] == 10
+    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
+    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
+    assert (data_dir / "users" / "3" / "uploads" / "9").read_bytes() == b"old"
+    assert sorted(p.name for p in (data_dir / "users").iterdir()) == ["3", "5", "6"]
+
+
+def test_new_database_starts_at_one(data_dir):
+    assert dict(sequence(db.open_db())) == dict.fromkeys(COUNTED, 0)
+    assert my_id(user("a@example.com")) == 1
+
+
+def test_new_database_beside_folders_that_are_no_numbers_starts_at_one(data_dir):
+    (data_dir / "users" / "tmp" / "uploads").mkdir(parents=True)
+    (data_dir / "users" / "tmp" / "uploads" / "x").write_bytes(b"old")
+    # A digit to str.isdigit, and no number to int.
+    (data_dir / "users" / "²" / "uploads").mkdir(parents=True)
+    (data_dir / "users" / "²" / "uploads" / "²").write_bytes(b"old")
+    client = user("a@example.com")
+    assert my_id(client) == 1
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert client.post("/api/uploads", files=picture).json()["id"] == 1
+
+
+def test_counter_never_goes_down(data_dir):
+    for email in ("a@example.com", "b@example.com", "c@example.com"):
+        client = user(email)
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert [client.post("/api/uploads", files=picture).json()["id"] for _ in "ab"] == [1, 2]
+    assert client.delete("/api/me").status_code == 200
+    # Lower than the counters, and found by a start that looks again.
+    (data_dir / "users" / "1" / "uploads").mkdir(parents=True, exist_ok=True)
+    (data_dir / "users" / "1" / "uploads" / "1").write_bytes(b"old")
+    con = db.open_db()
+    before = sequence(con)
+    assert dict(before) == {"users": 3, "templates": 0, "sheets": 0, "uploads": 2}
+    assert sequence(db.open_db()) == before
+    con.execute("BEGIN IMMEDIATE")
+    db.seed(con)
+    con.execute("COMMIT")
+    assert sequence(con) == before
+    # A lost row is put back, and no lower than the rows and files that are left.
+    con.execute("DELETE FROM sqlite_sequence WHERE name IN ('users', 'uploads')")
+    assert dict(sequence(db.open_db())) == {"users": 2, "templates": 0, "sheets": 0, "uploads": 1}
+
+
+def test_empty_old_tables_move_too(data_dir):
     sqlite3.connect(data_dir / "blattwerk.db").executescript(
         db.SCHEMA.replace(" AUTOINCREMENT", "")
     )
-    assert sequence(db.open_db()) == [("users", 0)]
-    assert my_id(user("a@example.com")) == 1
+    assert dict(sequence(db.open_db())) == dict.fromkeys(COUNTED, 0)
+    client = user("a@example.com")
+    assert my_id(client) == 1
+    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
+    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
+    picture = {"file": ("bild", b"png", "image/png")}
+    assert client.post("/api/uploads", files=picture).json()["id"] == 1
+
+
+def test_many_requests_move_an_old_database_once(data_dir):
+    old_database(data_dir)
+    plain = sqlite3.connect(data_dir / "blattwerk.db")
+    before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
+    plain.close()
+    with ThreadPoolExecutor(8) as pool:
+        cons = list(pool.map(lambda _: db.open_db(), range(8)))
+    rows, tables, seq = dump(cons[0])
+    assert rows == before
+    assert seq == [("sheets", 2), ("templates", 2), ("uploads", 2), ("users", 2)]
+    assert not [name for name, _ in tables if name.endswith("_new")]
+    for con in cons:
+        assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        con.close()
+
+
+def test_many_requests_start_a_new_database_once(data_dir):
+    (data_dir / "users" / "5").mkdir(parents=True)
+    with ThreadPoolExecutor(8) as pool:
+        cons = list(pool.map(lambda _: db.open_db(), range(8)))
+    assert sequence(cons[0]) == [("sheets", 0), ("templates", 0), ("uploads", 0), ("users", 5)]
+    for con in cons:
+        con.close()
 
 
 def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
