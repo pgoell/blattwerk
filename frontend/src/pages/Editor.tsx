@@ -77,6 +77,7 @@ import { Link, useParams } from "react-router";
 import { api, post, type User } from "../api";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
+import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
@@ -245,6 +246,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Whether the last press was in the format panel: the field then stays open though it loses the focus.
   const inPanel = useRef(false);
   const [multi, setMulti] = useState(false);
+  // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -759,10 +762,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
 
   // The new page comes after the one in use and takes its place.
-  function addPage() {
+  function addPage(n = page) {
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, page + 1), { blocks: [] }, ...doc.pages.slice(page + 1)] }));
-      setAt(page + 1);
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: [] }, ...doc.pages.slice(n + 1)] }));
+      setAt(n + 1);
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -788,8 +791,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       return { ...next, pages };
     });
   }
-  function removePage() {
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== page) }));
+  function removePage(n = page) {
+    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }));
     setIds([]);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
@@ -1511,6 +1514,57 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
 
   const locked = sel.length > 0 && !free.length;
+  // A right click on the desk picks as in PowerPoint and opens the menu. In a field the browser's own stays: false.
+  function menuAt(el: Element, x: number, y: number) {
+    if (el.closest(".ProseMirror, textarea, input, select")) return false;
+    // Moveable's area and a line's handles lie over a selection, so the block is looked up under them. Beside a block
+    // there the selection stays.
+    const over = moveable.current!.isMoveableElement(el) || !!el.closest(".end, .bar, .crop");
+    const id = (over ? document.elementsFromPoint(x, y).find((o) => o.matches(".block")) : el.closest(".block"))?.getAttribute("data-id");
+    const to = pageOf(el);
+    // A block of the selection keeps it whole. Another one is picked with its group, and the empty page picks nothing.
+    if (to !== page || (id ? !ids.includes(id) : !over)) {
+      done();
+      setAt(to);
+      setIds(id ? grouped([id], pages[to].blocks) : []);
+    }
+    setMenu({ x, y });
+    return true;
+  }
+  function thumbMenu(n: number, x: number, y: number) {
+    // The menu hands the focus back when it closes: to a field, that would keep the sheet's keys.
+    (document.activeElement as HTMLElement | null)?.blur();
+    visit(n);
+    setMenu({ x, y, thumb: n });
+  }
+  const none = !sel.length;
+  const ctrl = APPLE ? "⌘" : "Strg+";
+  const shift = APPLE ? "⇧" : "Umschalt+";
+  const thumbed = menu?.thumb;
+  const items: Item[] =
+    thumbed !== undefined
+      ? [
+          { label: "Neue Seite", icon: FilePlus, run: () => addPage(thumbed) },
+          { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPage(thumbed) },
+          { label: "Seite löschen", icon: FileX, disabled: pages.length < 2, run: () => removePage(thumbed) },
+        ]
+      : [
+          { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: none, run: cut },
+          { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
+          { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, run: pasteAny },
+          { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
+          { label: "Löschen", icon: Trash2, keys: "Entf", disabled: none, run: remove },
+          "sep",
+          { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) },
+          "sep",
+          { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
+          { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
+          "sep",
+          { label: "In den Vordergrund", disabled: none, run: () => raise(true) },
+          { label: "Eine Ebene nach vorn", disabled: none, run: () => raise(true, true) },
+          { label: "Eine Ebene nach hinten", disabled: none, run: () => raise(false, true) },
+          { label: "In den Hintergrund", disabled: none, run: () => raise(false) },
+        ];
   const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
   const brand = (
     <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
@@ -1727,9 +1781,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           <div className="insert" role="toolbar" aria-label="Einfügen">
             {tools}
             <i className="sep" data-name="Seite" />
-            <Tool icon={FilePlus} label="Neue Seite" onClick={addPage} />
+            <Tool icon={FilePlus} label="Neue Seite" onClick={() => addPage()} />
             <Tool icon={CopyPlus} label="Seite duplizieren" onClick={() => copyPage()} />
-            <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+            <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
           </div>
         </aside>
       )}
@@ -1740,7 +1794,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             Seiten
             <span>
               <Tool icon={CopyPlus} label="Seite duplizieren" title="Seite duplizieren" onClick={() => copyPage()} />
-              <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={removePage} />
+              <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
             </span>
           </div>
           <div className="pages" ref={strip}>
@@ -1759,6 +1813,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 // The mouse and the pen drag once they have moved 4 px. A finger holds first: see the listeners on the thumbnails.
                 onPointerDown={(e) => {
                   dragged.current = false;
+                  touch.current = e.pointerType === "touch";
                   if (e.pointerType === "touch" || e.button) return;
                   tug.current = { from: n, x: e.clientX, y: e.clientY };
                   e.currentTarget.setPointerCapture(e.pointerId);
@@ -1770,8 +1825,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 }}
                 onPointerUp={(e) => e.pointerType !== "touch" && release()}
                 onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
-                // A held finger would open the browser's menu and end the touch.
-                onContextMenu={(e) => tug.current && e.preventDefault()}
+                // A held finger would open the browser's menu and end the touch. The mouse gets the page's menu.
+                onContextMenu={(e) => {
+                  if (tug.current || !touch.current) e.preventDefault();
+                  if (!tug.current && !touch.current) thumbMenu(n, e.clientX, e.clientY);
+                }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
                 {n < small.pages.length && <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />}
@@ -1782,7 +1840,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 )}
               </button>
             ))}
-            <button onClick={addPage}>
+            <button onClick={() => addPage()}>
               <i style={{ aspectRatio: small.landscape ? "297 / 210" : "210 / 297" }}>
                 <Plus size={16} aria-hidden />
               </i>
@@ -1829,7 +1887,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
             // Enter and Tab.
             if (!document.activeElement?.closest(".block")) (document.activeElement as HTMLElement | null)?.blur();
-            if (touch.current || moveable.current!.isMoveableElement(e.target as Element)) return;
+            // The right button drags nothing: its menu picks the block.
+            if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
             spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
             pick(e.target as Element, e.shiftKey, e.nativeEvent);
@@ -1846,7 +1905,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             if (touch.current || still) pick(e.target as Element, false);
           }}
           onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
-          onContextMenu={(e) => touch.current && e.preventDefault()}
+          // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
+          onContextMenu={(e) => (touch.current || menuAt(e.target as Element, e.clientX, e.clientY)) && e.preventDefault()}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={(e) => {
@@ -2302,6 +2362,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           close={() => {
             localStorage.setItem("tour", "1");
             setTour(false);
+          }}
+        />
+      )}
+      {menu && (
+        <Menu
+          x={menu.x}
+          y={menu.y}
+          items={items}
+          onClose={() => setMenu(undefined)}
+          // A right click beside the menu opens it anew on what lies there.
+          onElsewhere={(x, y) => {
+            flushSync(() => setMenu(undefined));
+            const el = document.elementFromPoint(x, y);
+            const n = el?.closest<HTMLElement>("[data-thumb]")?.dataset.thumb;
+            if (n) thumbMenu(+n, x, y);
+            else if (el?.closest(".desk")) menuAt(el, x, y);
           }}
         />
       )}
