@@ -196,3 +196,165 @@ def test_escape_in_a_drag_with_ctrl_leaves_no_copy(editor, more):
     expect_look(page, was)
     expect(page.locator(".sheet .block[data-id]")).to_have_count(2 if more else 1)
     expect(page.get_by_label("Rückgängig")).to_be_disabled()
+
+
+# What Escape calls off besides Moveable's drags: the line between a table's columns, a guide line
+# of the sheet or of one page, and in a crop a handle of the frame or the frame itself.
+GRIPS = {
+    "column": ".sheet > .bar",
+    "guide": ".sheet .rule b",
+    "own guide": ".sheet .rule.own b",
+    "crop handle": ".crop .end",
+    "crop frame": ".crop > div",
+}
+LINES = "[...document.querySelectorAll('.sheet .rule, .sheet > .bar, .crop > div')]"
+DRAWN = f"{LOOK} + {LINES}.map((el) => el.style.cssText).join()"
+
+
+def drawn(page):
+    """The blocks, and where the guide lines, a table's column lines and a crop's frame lie."""
+    return page.evaluate(DRAWN)
+
+
+def expect_drawn(page, was, same=True):
+    page.wait_for_function(f"([was, same]) => ({DRAWN} === was) === same", arg=[was, same])
+
+
+def click(page):
+    """Clicks the block "a" clear of its handles and of the line in a table's middle."""
+    box = at(page, "a").bounding_box()
+    page.mouse.click(box["x"] + box["width"] / 4, box["y"] + box["height"] / 2)
+
+
+def laid(editor, thing):
+    """The editor with the block "a" selected and what the thing needs.
+
+    That is a table, a guide line, which took one undo step, or a picture cut on every side, so
+    that its frame has room to move.
+    """
+    if "guide" not in thing:
+        client = user()
+        cut = {"upload": upload(client), "ratio": 1.5, "cut": [0.2, 0.2, 0.2, 0.2]}
+        a = box("a", "image", cut, x=60, w=60, h=40)
+        page = editor(a if "crop" in thing else box("a", "table", TABLE, x=60, w=60), client=client)
+        click(page)
+        expect_picked(page, "a")
+        return page
+    page = editor(box("a", "text", TEXT, x=60, w=60))
+    at(page, "a").click()
+    page.get_by_role("tab", name="Ansicht").click()
+    if thing == "own guide":
+        page.get_by_role("button", name="Nur diese Seite").click()
+    page.get_by_role("button", name="Senkrecht").click()
+    expect(page.locator(GRIPS[thing])).to_have_count(1)
+    return page
+
+
+def crop(page, thing):
+    """Opens the crop for the things that are part of it."""
+    if "crop" in thing:
+        at(page, "a").dblclick()
+        expect(page.locator(".crop")).to_have_count(1)
+
+
+def grab(page, thing, by=(40, 30)):
+    """Presses the mouse on the thing and takes it some way. Gives the way on."""
+    x, y = centre(page.locator(GRIPS[thing]).first)
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x + by[0], y + by[1], steps=5)
+    return x + 2 * by[0], y + 2 * by[1]
+
+
+@pytest.mark.parametrize("thing", GRIPS)
+def test_escape_calls_the_drag_of_a_line_or_a_frame_off(editor, thing):
+    """#199"""
+    page = laid(editor, thing)
+    shut = look(page)
+    crop(page, thing)
+    was = drawn(page)
+    on = grab(page, thing)
+    expect_drawn(page, was, same=False)
+    page.keyboard.press("Escape")
+    expect_drawn(page, was)
+    # The mouse still held moves nothing more, and neither does its release.
+    page.mouse.move(*on, steps=3)
+    assert drawn(page) == was
+    page.mouse.up()
+    # The handle hears that it was let go with the pointer's next move.
+    page.mouse.move(on[0] + 5, on[1], steps=2)
+    assert drawn(page) == was
+    expect_picked(page, "a")
+    if "crop" in thing:
+        # The crop is still open, and the next Escape ends it with nothing cut.
+        expect(page.locator(".crop")).to_have_count(1)
+        page.keyboard.press("Escape")
+        expect(page.locator(".crop")).to_have_count(0)
+        expect_look(page, shut)
+    if "guide" in thing:
+        # The one undo step is the guide line's own.
+        page.keyboard.press("Control+z")
+        expect(page.locator(".sheet .rule")).to_have_count(0)
+    expect(page.get_by_label("Rückgängig")).to_be_disabled()
+
+
+@pytest.mark.parametrize("thing", GRIPS)
+def test_escape_in_the_drag_of_a_line_or_a_frame_keeps_undo_and_redo(editor, thing):
+    """#199: what redo held stays, and the next drag is an undo step of its own."""
+    page = laid(editor, thing)
+    first = look(page)
+    page.keyboard.press("ArrowRight")
+    expect_look(page, first, same=False)
+    second = look(page)
+    # A run of arrows is one undo step, and a press of the mouse ends the run.
+    click(page)
+    page.keyboard.press("ArrowDown")
+    expect_look(page, second, same=False)
+    third = look(page)
+    page.keyboard.press("Control+z")
+    expect_look(page, second)
+    crop(page, thing)
+    was = drawn(page)
+    grab(page, thing)
+    expect_drawn(page, was, same=False)
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    expect_drawn(page, was)
+    if "crop" in thing:
+        page.keyboard.press("Escape")
+        expect(page.locator(".crop")).to_have_count(0)
+    page.keyboard.press("Control+y")
+    expect_look(page, third)
+    if "crop" in thing:
+        # A crop's drag is no undo step: the cut is, when the crop ends.
+        return
+    page.keyboard.press("Control+z")
+    expect_drawn(page, was)
+    grab(page, thing)
+    page.mouse.up()
+    expect_drawn(page, was, same=False)
+    page.keyboard.press("Control+z")
+    expect_drawn(page, was)
+    page.keyboard.press("Control+z")
+    expect_look(page, first)
+    expect(page.locator(GRIPS[thing])).to_have_count(1)
+
+
+@pytest.mark.parametrize("thing", ["guide", "own guide"])
+def test_a_guide_line_dragged_off_the_page_and_called_off_stays(editor, thing):
+    """#199"""
+    page = laid(editor, thing)
+    was = drawn(page)
+    # Left of the page a guide line is let go for good.
+    away = page.locator(".sheet").bounding_box()["x"] - 30 - centre(page.locator(GRIPS[thing]))[0]
+    on = grab(page, thing, by=(away, 0))
+    expect_drawn(page, was, same=False)
+    page.keyboard.press("Escape")
+    expect_drawn(page, was)
+    page.mouse.up()
+    page.mouse.move(on[0] + 5, on[1] + 5, steps=2)
+    assert drawn(page) == was
+    expect(page.locator(GRIPS[thing])).to_have_count(1)
+    page.keyboard.press("Control+z")
+    expect(page.locator(".sheet .rule")).to_have_count(0)
+    expect(page.get_by_label("Rückgängig")).to_be_disabled()

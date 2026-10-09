@@ -302,9 +302,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
   const mergeKey = useRef("");
-  // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds.
+  // For Escape to call a drag off: what redo held when the drag began, and the handle the pointer holds, with the
+  // crop's frame as it was then, which is in no undo step.
   const ahead = useRef<Step[]>([]);
-  const grasp = useRef<{ el: Element; id: number }>(undefined);
+  const grasp = useRef<{ el: Element; id: number; draft: typeof draft }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
   const touch = useRef(false);
@@ -520,18 +521,34 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
-    // Enter in a select of the panel gives the keys back, as in PowerPoint's box of fonts. A list opened with the
-    // mouse and shut with no pick tells nobody, and its select keeps the focus: Tab, the first key since the press,
-    // is then not the select's either. It goes on to the sheet, or to nobody while something is written in.
-    const shut = target.matches(".panel select") && (e.key === "Enter" || (e.key === "Tab" && inPanel.current));
-    // Who walks a select of the panel with the keys keeps the focus there. Shift alone is no key yet.
-    if (!["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key)) inPanel.current = false;
+    const select = target.matches(".panel select");
+    // Shift alone is no key yet.
+    const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock"].includes(e.key);
+    // A list still open keeps its keys. Chromium sends none of them here, Firefox does. A browser that does not
+    // know `:open` throws.
+    let list = false;
+    try {
+      list = select && target.matches(":open");
+    } catch {
+      // The list counts as shut.
+    }
+    // Enter in a select of the panel gives the keys back, as in PowerPoint's box of fonts. A list or a colour picker
+    // opened with the mouse and shut with no pick tells nobody, and its control keeps the focus: the first key since
+    // the press is then not the control's either. A colour has no key of its own while its picker is shut. A select
+    // keeps the arrows, which walk it, a letter while its list is open, and Escape, whose keyup gives the keys back.
+    const first = real && inPanel.current && (select ? e.key === "Tab" || !(list || e.key === "Escape" || e.key.startsWith("Arrow")) : target.matches(".panel input[type=color]"));
+    const shut = first || (select && e.key === "Enter");
+    // Who walks a select of the panel with the keys keeps the focus there.
+    if (real) inPanel.current = false;
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
       const open = written();
       back(target);
-      if (open || e.key === "Enter") return e.preventDefault();
+      // Tab and Enter do no more. A letter goes on to what is written in, with the keypress that types it there;
+      // another key only brings the caret back. With nothing written in the key goes on to the sheet.
+      if (e.key === "Enter" || (open && e.key === "Tab")) e.preventDefault();
+      if (open || e.key === "Enter" || e.key === "Escape") return;
     }
     // Escape calls a thumbnail's drag off.
     if (e.key === "Escape" && haul) return quit();
@@ -539,9 +556,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     if (e.key === "Escape" && brush) return setBrush(0);
     // Escape calls a move, a resize or a turn off while the pointer is still down, as in PowerPoint: the blocks are
     // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
+    // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
       if (moveable.current?.isDragging()) moveable.current.stopDrag();
-      else grasp.current!.el.releasePointerCapture(grasp.current!.id);
+      else {
+        grasp.current!.el.releasePointerCapture(grasp.current!.id);
+        setDraft(grasp.current!.draft);
+      }
       if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
       mergeKey.current = "";
       return;
@@ -999,6 +1020,28 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     return boxes.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }));
   }
+  // What the server sends waits while a pointer is down: a new block takes the selection, and with it Moveable's
+  // target in the middle of a drag. It lands once the pointer is up, as an undo step after the drag's.
+  const pressed = useRef(false);
+  const due = useRef<(() => void)[]>([]);
+  const calm = (run: () => void) => (pressed.current ? due.current.push(run) : run());
+  useEffect(() => {
+    // The right button drags nothing, and its menu may keep the release to itself.
+    const press = (e: globalThis.PointerEvent) => void (pressed.current ||= !e.button);
+    const lift = () => {
+      pressed.current = false;
+      // Moveable ends its drag with the mouse's or the finger's own event, which comes after the pointer's.
+      setTimeout(() => pressed.current || due.current.splice(0).forEach((run) => run()));
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", lift, true);
+    window.addEventListener("pointercancel", lift, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", lift, true);
+      window.removeEventListener("pointercancel", lift, true);
+    };
+  }, []);
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   function add(w: number, h: number, rest: Fresh, n = page) {
     const { doc } = latest.current;
@@ -1026,7 +1069,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark();
     try {
       const { w, h, ...rest } = await sent(file);
-      add(w, h, rest, where());
+      calm(() => add(w, h, rest, where()));
     } catch {
       refuse();
     }
@@ -1043,32 +1086,33 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark(was);
     const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
-    if (made.length) {
-      // The pages may have changed while the pictures were on their way.
-      const n = where();
-      // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
-      const [w, h] = sizeOf(latest.current.doc, n);
-      const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
-      const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
-      // All of them are one undo step, on top of what the page holds by then.
-      turn(
-        (p) => {
-          const z = Math.max(0, ...p.blocks.map((b) => b.z));
-          const fresh = made.map((b, i) => ({
-            ...b,
-            x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
-            y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
-            z: z + 1 + i,
-            locked: false,
-          }));
-          return { ...p, blocks: [...p.blocks, ...fresh] };
-        },
-        undefined,
-        n,
-      );
-      setAt(n);
-      setIds(made.map((b) => b.id));
-    }
+    if (made.length)
+      calm(() => {
+        // The pages may have changed while the pictures were on their way.
+        const n = where();
+        // The stack as a whole stays on the page, so its pictures keep their steps at an edge too.
+        const [w, h] = sizeOf(latest.current.doc, n);
+        const most = [w, h].map((side, axis) => side - Math.max(...made.map((b) => (axis ? b.h : b.w))) - 5 * (made.length - 1));
+        const [cx, cy] = [x - made[0].w / 2, y - made[0].h / 2].map((c, axis) => Math.max(0, Math.min(c, most[axis])));
+        // All of them are one undo step, on top of what the page holds by then.
+        turn(
+          (p) => {
+            const z = Math.max(0, ...p.blocks.map((b) => b.z));
+            const fresh = made.map((b, i) => ({
+              ...b,
+              x: round(Math.max(0, Math.min(cx + 5 * i, w - b.w))),
+              y: round(Math.max(0, Math.min(cy + 5 * i, h - b.h))),
+              z: z + 1 + i,
+              locked: false,
+            }));
+            return { ...p, blocks: [...p.blocks, ...fresh] };
+          },
+          undefined,
+          n,
+        );
+        setAt(n);
+        setIds(made.map((b) => b.id));
+      });
     if (made.length < files.length) refuse();
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
@@ -1077,7 +1121,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const where = mark();
     try {
       const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
-      add(180, mathsHeight(props), { type: "maths", props }, where());
+      calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
     } catch {
       alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
     }
@@ -1427,7 +1471,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
     e.currentTarget.setPointerCapture(e.pointerId);
     ahead.current = hist.future;
-    grasp.current = { el: e.currentTarget, id: e.pointerId };
+    grasp.current = { el: e.currentTarget, id: e.pointerId, draft };
   }
   // Where on the page, in mm, the pointer puts the handle it holds.
   function point(e: PointerEvent) {
@@ -1646,16 +1690,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     // Tap and hold on a block starts selecting several.
     // A finger held on the text being edited picks a word of it.
-    const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+    const el = e.target as Element;
+    const { clientX: x, clientY: y } = e.touches[0];
+    // Moveable's box lies over a selection of several, so the block is looked up under it. Beside a block there the
+    // hold selects no more.
+    const over = el.matches(".moveable-area");
+    const on = over ? document.elementsFromPoint(x, y).find((o) => o.matches(".block")) : el.closest(".block");
+    const id = on?.getAttribute("data-id");
     // A drag asks for it too, and that may begin on Moveable's box over the selection.
-    came.current = [e.touches[0].clientX, e.touches[0].clientY];
-    if (!id || id === editing) return;
-    const to = pageOf(e.target as Element);
+    came.current = [x, y];
+    if (!(id || over) || id === editing) return;
+    const to = pageOf(on ?? el);
     hold.current = window.setTimeout(() => {
       held.current = true;
       setMulti(true);
       setAt(to);
-      setIds((now) => (to !== page ? grouped([id], pages[to].blocks) : [...new Set([...now, ...unit(id)])]));
+      if (id) setIds((now) => (to !== page ? grouped([id], pages[to].blocks) : [...new Set([...now, ...unit(id)])]));
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
@@ -1829,12 +1879,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
       // but a button of the format panel leaves it where it is: a text, a Lineatur or a cell being written in keeps
       // the caret, and a number of the panel its draft. So does the panel's bare ground, where a press on a disabled
-      // button lands.
+      // button lands: a press there may also be the one that shuts a list or a colour picker with no pick, and its
+      // control must keep the focus for the next key to give it back.
       onMouseDown={(e) => {
         const target = e.target as Element;
         const button = target.closest("button");
         const panel = target.closest(".panel");
-        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block")) return e.preventDefault();
+        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block, .panel select, .panel input[type=color]")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
         if (!e.button && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
@@ -2051,6 +2102,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           onPointerDown={(e) => {
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
+            // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
+            held.current = false;
           }}
           onMouseDown={(e) => {
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
@@ -2082,7 +2135,6 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             clearTimeout(hold.current);
             // Lifting the finger after a hold is not a tap.
             if (held.current) e.preventDefault();
-            held.current = false;
           }}
           // The browser took the touch for its own, a scroll: no finger holds, and the next lift is a tap again.
           onTouchCancel={() => {
@@ -2235,11 +2287,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     elementGuidelines={rest}
                     verticalGuidelines={pageXs.map((mm) => mm * k)}
                     horizontalGuidelines={pageYs.map((mm) => mm * k)}
-                    // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
-                    onClick={(e) => touch.current && pick(e.inputTarget, false)}
+                    // Moveable swallows a tap on what is selected, and a group's box covers its blocks. To Moveable the
+                    // lift of a finger that held still is a tap too, on one block and on several: it is none.
+                    onClick={(e) => touch.current && !held.current && pick(e.inputTarget, false)}
                     // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
                     // on the group where the point the mouse reports lies beside what was pressed.
-                    onClickGroup={(e) => cover.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    onClickGroup={(e) => cover.current && !held.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
                     onDragStart={(e) => begin([e.target])}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}

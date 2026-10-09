@@ -44,7 +44,7 @@ LABEL = "(el) => el.getAttribute('aria-label') ?? el.closest('label').firstChild
 def choose(page, label):
     """Picks another font or colour in a control of the panel, as the mouse does.
 
-    Headless Chromium opens no list and no colour picker, so the press is a pointerdown made by
+    No test can press in an open list or a colour picker, so the press is a pointerdown made by
     hand and the focus is given, as a real press gives it. A colour's `input` comes while its
     picker is dragged and its `change` when the picker closes.
     """
