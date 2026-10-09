@@ -31,7 +31,8 @@ def shown(doc: dict) -> set[int]:
     # A client wrote the document, so any part may be missing or of another kind. Only a number
     # names a file in the uploads folder.
     ids = set()
-    pages = doc.get("pages")
+    # A template from before sheets had pages holds its blocks itself, and still draws.
+    pages = doc.get("pages", [doc])
     for page in pages if isinstance(pages, list) else []:
         blocks = page.get("blocks") if isinstance(page, dict) else None
         for block in blocks if isinstance(blocks, list) else []:
@@ -52,16 +53,27 @@ def touch(user_id: int, doc: dict) -> None:
 
 def sweep(con: sqlite3.Connection, user_id: int) -> None:
     """Deletes the user's uploads that none of their sheets and templates has shown for long."""
-    limit = time.time() - KEEP_DAYS * 86400
-    old = []
-    for row in con.execute("SELECT id FROM uploads WHERE user_id = ?", (user_id,)):
-        file = path(user_id, row["id"])
-        try:
-            if file.stat().st_mtime < limit:
-                old.append((row["id"], file))
-        except OSError:
-            # The upload may be between its row and its file. No file error fails the save.
-            pass
+    try:
+        clear(con, user_id)
+    except sqlite3.Error:
+        # The save or the delete before it is stored: a busy database must not make it an error.
+        log.exception("Could not sweep the uploads of user %s", user_id)
+
+
+def aged(file: Path) -> bool:
+    try:
+        made = file.stat()
+    except OSError:
+        # The upload may be between its row and its file.
+        return False
+    # Only the owner can set a file's time. A file of someone else's, as after a restore by
+    # root, never took the time of the save that took its picture away: its age says nothing.
+    return made.st_uid == os.geteuid() and made.st_mtime < time.time() - KEEP_DAYS * 86400
+
+
+def clear(con: sqlite3.Connection, user_id: int) -> None:
+    rows = con.execute("SELECT id FROM uploads WHERE user_id = ?", (user_id,)).fetchall()
+    old = [(row["id"], file) for row in rows if aged(file := path(user_id, row["id"]))]
     if not old:
         return
     docs = con.execute(
@@ -74,6 +86,9 @@ def sweep(con: sqlite3.Connection, user_id: int) -> None:
         if upload_id in used:
             with suppress(OSError):
                 os.utime(file)
+            continue
+        # Another save of this owner may have taken the picture off a sheet since the first look.
+        if not aged(file):
             continue
         try:
             file.unlink(missing_ok=True)

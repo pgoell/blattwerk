@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import time
 from pathlib import Path
 
@@ -219,4 +220,50 @@ def test_file_that_takes_no_time_does_not_fail_the_save(monkeypatch):
 
     monkeypatch.setattr(pictures.os, "utime", refuse)
     assert save(client, made, picture(upload_id))["version"] == made["version"] + 1
+    assert there(upload_id)
+
+
+def test_busy_database_in_the_sweep_does_not_fail_a_stored_save_or_delete(monkeypatch, caplog):
+    client = user("a@example.com")
+    upload_id = send(client).json()["id"]
+    made = sheet(client, [picture(upload_id)])
+
+    def busy(con, user_id):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(pictures, "clear", busy)
+    assert save(client, made)["version"] == made["version"] + 1
+    assert client.delete(f"/api/sheets/{made['id']}").status_code == 200
+    assert caplog.text.count("Could not sweep the uploads of user 1") == 2
+    assert there(upload_id)
+
+
+def test_row_whose_file_is_gone_answers_404():
+    client = user("a@example.com")
+    upload_id = send(client).json()["id"]
+    pictures.path(1, upload_id).unlink()
+    assert client.get(f"/api/uploads/{upload_id}").status_code == 404
+
+
+def test_template_from_before_pages_keeps_its_picture():
+    client = user("a@example.com")
+    upload_id = send(client).json()["id"]
+    body = {"name": "alt", "doc": {"blocks": [picture(upload_id)]}}
+    assert client.post("/api/templates", json=body).status_code == 200
+    age(upload_id)
+    later_save(client)
+    assert there(upload_id)
+    assert fresh(upload_id)
+
+
+def test_file_of_another_system_user_is_never_swept(monkeypatch):
+    # Such a file takes no time from the app, so the save that took its picture away left it old.
+    client = user("a@example.com")
+    upload_id = send(client).json()["id"]
+    made = sheet(client, [picture(upload_id)])
+    age(upload_id)
+    other = os.geteuid() + 1
+    monkeypatch.setattr(pictures.os, "geteuid", lambda: other)
+    save(client, made)
+    later_save(client)
     assert there(upload_id)

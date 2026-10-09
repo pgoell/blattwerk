@@ -46,8 +46,9 @@ def serve(
     row = con.execute(
         "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user_id)
     ).fetchone()
-    # Someone else's picture is as missing as one that never was.
-    if not row:
+    # Someone else's picture is as missing as one that never was, and so is a row whose file a
+    # sweep deleted before it failed to delete the row.
+    if not row or not path(user_id, upload_id).is_file():
         raise HTTPException(404)
     # An upload never changes, so the browser may keep it.
     headers = {"Cache-Control": "private, max-age=31536000, immutable"}

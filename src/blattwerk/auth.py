@@ -6,6 +6,7 @@ import secrets
 import shutil
 import sqlite3
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
@@ -170,12 +171,16 @@ def delete_account(user: User, response: Response, con: Con) -> dict:
     if error:
         # The account is gone either way. The row outlives a restart: each start tries again,
         # and the admin page shows it until the folder is gone.
-        con.execute(
-            "INSERT INTO leftovers (user_id, error) VALUES (?, ?)"
-            " ON CONFLICT (user_id) DO UPDATE SET error = excluded.error",
-            (user["id"], error),
-        )
         log.error("Could not delete %s", folder)
+        try:
+            con.execute(
+                "INSERT INTO leftovers (user_id, error) VALUES (?, ?)"
+                " ON CONFLICT (user_id) DO UPDATE SET error = excluded.error",
+                (user["id"], error),
+            )
+        except sqlite3.Error:
+            # The account is gone, so the answer stays 200; the log line above is the trace.
+            log.exception("Could not remember the left over folder %s", folder)
     response.delete_cookie("session")
     return {}
 
@@ -250,8 +255,10 @@ def leftovers(admin: Admin, con: Con) -> list[dict]:
             folder = f"users/{row['user_id']}"
             left.append({"folder": folder, "since": row["since"], "error": row["error"]})
         else:
-            # Someone removed the folder by hand: the alert goes without a restart.
-            con.execute("DELETE FROM leftovers WHERE user_id = ?", (row["user_id"],))
+            # Someone removed the folder by hand: the alert goes without a restart. A busy
+            # database keeps the row for the next look.
+            with suppress(sqlite3.Error):
+                con.execute("DELETE FROM leftovers WHERE user_id = ?", (row["user_id"],))
     return left
 
 
