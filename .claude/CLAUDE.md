@@ -36,6 +36,7 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 ## Conventions
 
 - Conventional Commits (`feat:`, `fix:`, `chore:` ...). The `commit-msg` hook rejects anything else.
+- The `pre-push` hook runs lint and the commit check only. It does not run the suite: run `mise run test` before a push.
 - Default branch is `master`. With branch protection applied (`mise run repo:apply-settings`), changes land through PRs that pass Lint, Test and Commits.
 - A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start or stop docker containers, or write under `~/.local/share/blattwerk/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.
 - Way back if the hook itself breaks and refuses every Bash and Edit call: no session can mend it, so in a terminal outside Claude Code delete the `hooks` block from `.claude/settings.json` (or bring back a good one: `git checkout origin/master -- .claude/hooks/fence.py`), then start a new session.
