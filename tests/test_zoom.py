@@ -180,6 +180,18 @@ def test_ctrl_wheel_zooms_in_and_out(editor):
     expect_percent(page)
 
 
+def expect_under(page, point, mm, wide, n=0):
+    """Waits until page n, an A4 page, is this wide with these mm of it at the point, to 0.5 mm."""
+    page.wait_for_function(
+        """([x, y, across, down, wide, n]) => {
+            const r = document.querySelector(`.sheet[data-page="${n}"]`).getBoundingClientRect();
+            const off = [(x - r.x) / (r.width / 210) - across, (y - r.y) / (r.width / 210) - down];
+            return Math.abs(r.width - wide) < 2 && Math.abs(off[0]) < 0.5 && Math.abs(off[1]) < 0.5;
+        }""",
+        arg=[*point, *mm, wide, n],
+    )
+
+
 def test_ctrl_wheel_keeps_the_point_under_the_pointer(editor):
     """A2"""
     page = editor(box("a", "text", TEXT))
@@ -190,19 +202,27 @@ def test_ctrl_wheel_keeps_the_point_under_the_pointer(editor):
     assert page.evaluate(
         "([x, y]) => !!document.elementFromPoint(x, y).closest('.sheet.on')", point
     )
-
     for delta, to in ((-100, 1.25), (-100, 1.25**2), (100, 1.25), (100, 1), (100, 0.8)):
         wheel(page, delta, point)
-        # The page has its new width and the same mm of it under the pointer, to half a mm.
-        page.wait_for_function(
-            """([x, y, wide]) => {
-                const r = document.querySelector(".sheet.on").getBoundingClientRect();
-                const mm = [(x - r.x) / (r.width / 210), (y - r.y) / (r.width / 210)];
-                const there = Math.abs(mm[0] - 60) < 0.5 && Math.abs(mm[1] - 80) < 0.5;
-                return Math.abs(r.width - wide) < 2 && there;
-            }""",
-            arg=[*point, wide * to],
-        )
+        expect_under(page, point, (60, 80), wide * to)
+
+
+def test_ctrl_wheel_keeps_the_point_on_a_page_not_in_use(editor):
+    """A2"""
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
+    page = editor(box("a", "text", TEXT), pages=rest)
+    wide = width(page)
+    page.locator('.sheet[data-page="2"]').evaluate("el => el.scrollIntoView()")
+    # The first page is still the one in use, two gaps above the pointer.
+    expect(page.locator('.sheet[data-page="0"]')).to_have_class(re.compile(r"\bon\b"))
+    point = spot(page, 60, 40, 2)
+    expect_under(page, point, (60, 40), wide, 2)
+    for step in (1, 2, 3):
+        wheel(page, -100, point)
+        expect_under(page, point, (60, 40), wide * 1.25**step, 2)
+    for step in (2, 1, 0):
+        wheel(page, 100, point)
+        expect_under(page, point, (60, 40), wide * 1.25**step, 2)
 
 
 def test_space_and_drag_moves_the_desk(editor):
@@ -534,3 +554,62 @@ def test_fit_takes_the_page_in_use(editor):
         expect_fitted(page, n, w, h)
         # No other page has room beside it.
         assert [m for m in range(3) if page.evaluate(INSIDE, m)] == [n]
+
+
+def test_the_buttons_stop_where_the_wheel_stops(editor):
+    """I4"""
+    page = editor(box("a", "text", TEXT))
+    wide = width(page)
+    ends = (("Größer", "Kleiner", -100, 4, 1.25**6), ("Kleiner", "Größer", 100, 0.25, 1.25**-6))
+    for on, back, delta, stop, step in ends:
+        page.locator("button.zoom").first.click()
+        expect_width(page, wide)
+        for notch in range(1, 8):
+            wheel(page, delta)
+            expect_width(page, wide * min(4, max(0.25, 1.25 ** (-notch * delta / 100))))
+        # At the stop the button that leads on does nothing, and the other takes the next step back.
+        page.get_by_label(on, exact=True).first.click()
+        settled(page)
+        assert width(page) == pytest.approx(wide * stop, abs=2)
+        page.get_by_label(back, exact=True).first.click()
+        expect_width(page, wide * step)
+        expect_percent(page)
+
+
+def test_the_hand_takes_the_left_button_only(editor):
+    """I7"""
+    page = editor(box("a", "text", TEXT))
+    main = page.locator("main.editor")
+    x, y = centre(page.locator(".desk"))
+    page.mouse.move(x, y)
+    page.keyboard.down("Space")
+    expect(main).to_have_class(PAN)
+    # Upwards: a pan would scroll the page down.
+    page.mouse.down(button="right")
+    expect(main).not_to_have_class(PANNING)
+    page.mouse.move(x - 30, y - 50, steps=5)
+    settled(page)
+    expect(main).not_to_have_class(PANNING)
+    assert scroll(page) == [0, 0]
+    page.mouse.up(button="right")
+    page.keyboard.up("Space")
+    expect(main).not_to_have_class(PAN)
+    assert scroll(page) == [0, 0]
+
+
+def test_a_plain_wheel_scrolls_under_the_hand(editor):
+    """I3"""
+    page = editor(box("a", "text", TEXT))
+    wide, shown = width(page), percent(page)
+    page.keyboard.down("Space")
+    expect(page.locator(HAND)).to_have_count(1)
+    wheel(page, 100, ctrl=False)
+    expect_scroll(page, 0, 100)
+    wheel(page, 200, ctrl=False)
+    expect_scroll(page, 0, 300)
+    wheel(page, -300, ctrl=False)
+    expect_scroll(page, 0, 0)
+    assert width(page) == pytest.approx(wide, abs=1)
+    assert percent(page) == shown
+    page.keyboard.up("Space")
+    expect(page.locator(HAND)).to_have_count(0)

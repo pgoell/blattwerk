@@ -611,11 +611,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       e.preventDefault();
       // One notch of a mouse wheel is one step of the buttons.
       const next = Math.min(4, Math.max(0.25, zoom * 1.25 ** (-e.deltaY / 100)));
-      let page = sheet.current!.getBoundingClientRect();
+      // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
+      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
+      let page = under.getBoundingClientRect();
       const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
       flushSync(() => setZoom(next));
       // Scroll the page point that was under the pointer back under it.
-      page = sheet.current!.getBoundingClientRect();
+      page = under.getBoundingClientRect();
       desk.current!.scrollBy(page.left + x * fit * next - e.clientX, page.top + y * fit * next - e.clientY);
     }
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -1521,7 +1523,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   function zoomBy(by: number) {
     const n = Math.log(zoom) / Math.log(1.25);
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
-    setZoom(1.25 ** Math.min(6, Math.max(-6, to)));
+    setZoom(Math.min(4, Math.max(0.25, 1.25 ** to)));
   }
   const zoomer = (
     <>
@@ -2028,6 +2030,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           <div
             className="hand"
             onPointerDown={(e) => {
+              // The left button only: the right one opens the menu.
+              if (e.button) return;
               e.currentTarget.setPointerCapture(e.pointerId);
               hand.current = [e.clientX, e.clientY, desk.current!.scrollLeft, desk.current!.scrollTop];
               setPanning(true);
@@ -2036,6 +2040,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             }}
             onPointerMove={(e) => {
               if (!panning) return;
+              // The button came up where the hand could not see it.
+              if (!e.buttons) return setPanning(false);
               desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
               desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
             }}
