@@ -1,3 +1,4 @@
+import os
 import subprocess
 import tomllib
 from pathlib import Path
@@ -28,9 +29,10 @@ def test_target_with_two_params(n, kind):
 def collected(*ids):
     """The ids test:flaky would run, read from pytest's own list."""
     run = tomllib.loads((ROOT / "mise.toml").read_text())["tasks"]["test:flaky"]["run"]
-    res = subprocess.run(
-        [*run.split(), *ids, "--collect-only", "-q"], cwd=ROOT, capture_output=True, text=True
-    )
+    # CI's shard would drop most of the ids here too.
+    env = {k: v for k, v in os.environ.items() if k != "SHARD"}
+    cmd = [*run.split(), *ids, "--collect-only", "-q"]
+    res = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
     assert res.returncode == 0, res.stdout + res.stderr
     return [line for line in res.stdout.splitlines() if "::" in line]
 

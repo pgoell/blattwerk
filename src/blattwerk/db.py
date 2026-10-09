@@ -12,6 +12,8 @@ from fastapi import Depends
 
 DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 log = logging.getLogger(__name__)
+# Seconds a connection waits for another one's lock.
+WAIT = 5
 # An id as the app writes it in a folder's or a file's name.
 ID = re.compile("[1-9][0-9]*")
 
@@ -73,25 +75,23 @@ CREATE TABLE IF NOT EXISTS attempts (
 def open_db() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     # FastAPI may set up and tear down a dependency on different threads.
-    con = sqlite3.connect(DATA_DIR / "blattwerk.db", autocommit=True, check_same_thread=False)
+    con = sqlite3.connect(
+        DATA_DIR / "blattwerk.db", timeout=WAIT, autocommit=True, check_same_thread=False
+    )
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     if not migrated(con):
-        wait = con.execute("PRAGMA busy_timeout").fetchone()[0]
-        # Short, or every request beside a long read would hang for the whole wait.
-        con.execute("PRAGMA busy_timeout = 1000")
         try:
             migrate(con)
         except sqlite3.OperationalError as error:
             if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
                 raise
-            # Another connection holds a read open. The request goes on, and a later one moves
-            # the tables. Until then no INSERT may take an id: a table from before AUTOINCREMENT
-            # or one without its counter would hand out a deleted row's id again.
+            # Another connection kept its read or its write open for the whole wait. The request
+            # goes on, and a later one moves the tables. Until then no INSERT may take an id: a
+            # table from before AUTOINCREMENT or one without its counter would hand out a deleted
+            # row's id again.
             log.warning("Database is busy: the move to AUTOINCREMENT waits, this request reads")
             con.execute("PRAGMA query_only = ON")
-        finally:
-            con.execute(f"PRAGMA busy_timeout = {wait}")
     return con
 
 

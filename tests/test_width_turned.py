@@ -142,13 +142,45 @@ def test_on_a_landscape_page_the_width_is_that_page_s(editor, degrees):
     assert a["w"] == {0: 267, 90: 180}.get(degrees, a["w"])
 
 
-# At 45 and 202 degrees the rounded place leaves a hundredth of room for a second press to find.
-@pytest.mark.parametrize("degrees", [0, 90, 30, 45, 202])
+def again(page, client, a):
+    """Whether a press leaves the block as it is: `a` as the server held it before."""
+    page.get_by_role("button", name="Seitenbreite").click()
+    return held(page, client)["a"] == a
+
+
+# At 45 and 202 degrees the rounded place leaves a hundredth of room for a second press to find,
+# and close to level or upright a hundredth across the block is many along it.
+@pytest.mark.parametrize("degrees", [0, 90, 30, 45, 202, 1, 359, 2.22, 177.53, 267.75])
 def test_a_second_press_changes_nothing(editor, degrees):
     """I4"""
     client = user()
     page = editor(ruling(degrees), client=client)
     pick(page, "a")
+    assert again(page, client, press(page, client)["a"])
+
+
+def test_a_second_press_leaves_a_block_turned_by_one_degree(editor):
+    """I4"""
+    client = user()
+    was = box("a", "ruling", RULING, x=39.75, y=15.87, w=165.42, h=26.86, angle=1)
+    page = editor(was, client=client)
+    pick(page, "a")
     a = press(page, client)["a"]
-    page.get_by_role("button", name="Seitenbreite").click()
-    assert held(page, client)["a"] == a
+    assert a["w"] != was["w"]
+    assert again(page, client, a)
+
+
+@pytest.mark.parametrize(
+    "place",
+    [
+        {"x": 28.82, "y": 252.27, "w": 150.38, "h": 31.27},
+        {"x": 72.56, "y": 261.6, "w": 43.13, "h": 22.15},
+    ],
+)
+def test_a_barely_turned_lineatur_over_the_bottom_margin_stays_as_it_is(editor, place):
+    """A1: inside the margins it has less room along its way than it is high, a sliver."""
+    client = user()
+    was = box("a", "ruling", RULING, **place, angle=359)
+    page = editor(was, client=client)
+    pick(page, "a")
+    assert again(page, client, was)

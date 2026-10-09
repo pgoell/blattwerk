@@ -4,7 +4,7 @@ import re
 import sqlite3
 import subprocess
 import sys
-import time
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -459,8 +459,10 @@ def test_many_requests_start_a_new_database_once(data_dir):
         con.close()
 
 
-def reading(data_dir):
+def reading(data_dir, monkeypatch):
     """Another connection in the middle of a read: no write can commit beside it."""
+    # Short, or each test would wait the whole five seconds.
+    monkeypatch.setattr(db, "WAIT", 0.3)
     reader = sqlite3.connect(data_dir / "blattwerk.db", autocommit=True)
     reader.execute("BEGIN")
     reader.execute("SELECT * FROM users").fetchone()
@@ -472,18 +474,16 @@ def waits(con):
     assert not db.migrated(con)
     assert not con.in_transaction
     assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
-    assert con.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+    assert con.execute("PRAGMA query_only").fetchone()[0] == 1
     names = [r[0] for r in con.execute("SELECT name FROM sqlite_master")]
     assert not [name for name in names if name.endswith("_new")]
 
 
-def test_old_database_opens_beside_a_read_and_moves_after_it(data_dir):
+def test_old_database_opens_beside_a_read_and_moves_after_it(data_dir, monkeypatch):
     old_database(data_dir)
-    reader = reading(data_dir)
+    reader = reading(data_dir, monkeypatch)
     before = {t: reader.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
-    start = time.monotonic()
     con = db.open_db()
-    assert time.monotonic() - start < 3
     waits(con)
     # The old database has no `sqlite_sequence` for `dump` to read.
     for table in TABLES:
@@ -494,13 +494,11 @@ def test_old_database_opens_beside_a_read_and_moves_after_it(data_dir):
     moved(data_dir, users=2)
 
 
-def test_new_database_opens_beside_a_read_and_gets_its_counters_after_it(data_dir):
+def test_new_database_opens_beside_a_read_and_gets_its_counters_after_it(data_dir, monkeypatch):
     # Another request made the tables and has not written the counters yet.
     sqlite3.connect(data_dir / "blattwerk.db").executescript(db.SCHEMA)
-    reader = reading(data_dir)
-    start = time.monotonic()
+    reader = reading(data_dir, monkeypatch)
     con = db.open_db()
-    assert time.monotonic() - start < 3
     waits(con)
     assert sequence(con) == []
     con.close()
@@ -509,9 +507,25 @@ def test_new_database_opens_beside_a_read_and_gets_its_counters_after_it(data_di
     assert my_id(user("a@example.com")) == 1
 
 
-def test_connection_that_waits_for_the_move_only_reads(data_dir):
+def test_old_database_waits_for_a_writer_and_moves(data_dir):
     old_database(data_dir)
-    reader = reading(data_dir)
+    writer = sqlite3.connect(data_dir / "blattwerk.db", autocommit=True, check_same_thread=False)
+    writer.execute("BEGIN IMMEDIATE")
+    # Longer than a second: a move that gave up after one would leave the connection reading.
+    timer = threading.Timer(1.2, writer.execute, ["COMMIT"])
+    timer.start()
+    con = db.open_db()
+    timer.join()
+    assert db.migrated(con)
+    assert con.execute("PRAGMA query_only").fetchone()[0] == 0
+    assert con.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+    con.execute("INSERT INTO users (email, password) VALUES ('c@x.de', 'x')")
+    assert [r["id"] for r in con.execute("SELECT id FROM users")] == [1, 2, 3]
+
+
+def test_connection_that_waits_for_the_move_only_reads(data_dir, monkeypatch):
+    old_database(data_dir)
+    reader = reading(data_dir, monkeypatch)
     con = db.open_db()
     reader.close()
     assert [r["id"] for r in con.execute("SELECT id FROM users")] == [1, 2]
