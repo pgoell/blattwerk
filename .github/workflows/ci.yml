@@ -48,7 +48,10 @@ jobs:
   webkit:
     name: WebKit shard ${{ matrix.shard }}/10
     runs-on: ubuntu-latest
-    # Slower than Chromium, test for test, and its libraries take most of a minute: more shards.
+    # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
+    # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    # Slower than Chromium, test for test: more shards.
     timeout-minutes: 6
     strategy:
       matrix:
@@ -56,14 +59,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-mise
-      - name: Cache WebKit
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-webkit-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-      - name: WebKit and what it needs
-        # It has hung for the whole six minutes; it takes 45 seconds when it works, so try anew.
-        run: timeout 90 uv run playwright install --with-deps webkit || timeout 90 uv run playwright install --with-deps webkit
       - name: Pytest
         # The runner has four cores, and WebKit is slower to start than Chromium.
         run: mise run test:webkit -- -n 4 --dist worksteal --durations=20
