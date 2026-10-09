@@ -72,9 +72,9 @@ Chromium prints the built frontend, so `mise run test` builds it first, and a PD
 
 ## Deploy
 
-A push to `master` deploys to `blattwerk.pgoell.com` once CI is green. `.github/workflows/deploy.yml` runs on the VPS's own runner (`server-infra/runners`): it builds the image from that commit, restarts the container and fails if the app does not answer.
+A push to `master` deploys to `blattwerk.pgoell.com` once CI is green. `.github/workflows/deploy.yml` runs on the VPS's own runner (`server-infra/runners`): it builds the image from that commit, tries it on a copy of the data, and only then replaces the running container.
 
-By hand, on the VPS:
+By hand, on the VPS (no canary, no smoke test, no way back):
 
 ```sh
 docker compose up -d --build
@@ -82,16 +82,28 @@ docker compose up -d --build
 
 The database (`blattwerk.db`) and the uploads live in `~/.local/share/blattwerk/`, outside the repo.
 
-Before the build, the deploy makes a way back:
+The steps, in order. A step that fails stops the deploy.
 
-- `scripts/snapshot.py` copies the database to `~/.local/share/blattwerk-backups/pre-<sha>.db`, where `<sha>` is the commit it deploys. It keeps the newest 30 snapshots. If the copy fails, the deploy stops.
-- `scripts/keep-prev.sh` tags the running image as `blattwerk-blattwerk:prev`.
+1. Build the image. The step ends after 15 minutes, so a stalled download fails the job. The old container keeps running.
+2. Start the canary: `scripts/canary.sh start` copies the data folder to `~/.local/share/blattwerk-canary/` (mode 700; the database through SQLite's backup, read only) and runs the new image there as the container `blattwerk-canary`. The canary never gets the live folder: the script refuses a copy folder that is the live folder, lies inside it or holds it. The canary is not on the proxy's network and has no port, so nobody outside reaches it.
+3. Smoke test the canary: `scripts/smoke.py` signs a smoke user up, opens a sheet, types, saves, loads the sheet again and finds the text, prints the PDF and counts its pages, and fetches the JS bundle. The smoke user lives in the copy only.
+4. Remove the canary and the copy, whether the test passed or failed. The next deploy clears them too, in case a job was killed.
+5. `scripts/snapshot.py` copies the database to `~/.local/share/blattwerk-backups/pre-<sha>.db`, where `<sha>` is the commit it deploys. It keeps the newest 30 snapshots.
+6. `scripts/keep-prev.sh` tags the image of the running container as `blattwerk-blattwerk:prev`, if that container answers `/api/me`, a route that reads the database.
+7. `docker compose up -d` replaces the container. Up to here the live site has not changed.
+8. Wait until the new container answers `/api/me`.
+9. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database.
+10. If step 7, 8 or 9 fails, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image it changes nothing and says so.
+
+The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS.
+
+Step 2 or 5 can fail with "Open the site once and sign in, so the app mends it, then rerun". That happens when the app died in the middle of a write and left `blattwerk.db-journal` beside the database. The deploy reads the database read only and cannot mend it; the app's next write does. Open the site, sign in, then rerun the deploy.
 
 ### Going back
 
 Run these in the repo folder on the VPS.
 
-To the old image:
+To the old image (what `scripts/go-back.sh` does after a failed deploy):
 
 ```sh
 docker tag blattwerk-blattwerk:prev blattwerk-blattwerk:latest && docker compose up -d --no-build

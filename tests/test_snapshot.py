@@ -148,6 +148,17 @@ def test_failed_snapshot_leaves_no_file(source, target, tmp_path):
     assert names(target) == []
 
 
+def test_snapshot_clears_what_a_killed_job_left(source, target):
+    target.mkdir()
+    for name in (".pre-other.db.tmp", ".pre-other.db.tmp-journal", f".pre-{SHA}.db.tmp"):
+        (target / name).write_bytes(b"half a copy")
+    (target / ".pre-notes").write_text("keep")
+    result = snapshot(source, target)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [f"snapshot ok pre-{SHA}.db"]
+    assert names(target) == [".pre-notes", f"pre-{SHA}.db"]
+
+
 def test_prune_keeps_the_newest_30(source, target):
     target.mkdir()
     for n in range(35):
@@ -285,13 +296,15 @@ def test_keep_prev_spares_prev_when_the_app_is_down(tmp_path):
     assert not any(call.startswith("tag") for call in calls)
 
 
-def test_deploy_snapshots_before_the_build():
+def test_deploy_snapshots_after_the_build_and_before_the_cutover():
+    """After the build, so the snapshot is not older than the cutover by the length of a build."""
     text = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
     steps = [
         "actions/checkout",
-        "scripts/snapshot.py",
-        "scripts/keep-prev.sh",
-        "docker compose build",
+        "run: docker compose build",
+        "run: python3 scripts/snapshot.py",
+        "run: bash scripts/keep-prev.sh",
+        "run: docker compose up -d",
     ]
     at = [text.index(step) for step in steps]
     assert at == sorted(at)

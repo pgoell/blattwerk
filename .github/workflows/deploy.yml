@@ -29,21 +29,44 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
+      # The build runs apt for Chromium's libraries, and a slow mirror can stall
+      # it. With an end, a stalled build fails the job. The old container keeps
+      # running meanwhile: nothing has changed yet.
+      - name: Build image
+        timeout-minutes: 15
+        run: docker compose build
+
+      # The new image runs on a copy of the data, off the proxy's network and
+      # with no port. A fail here stops the job before the live container
+      # changes.
+      - name: Start the canary on a copy of the data
+        timeout-minutes: 3
+        run: bash scripts/canary.sh start /home/pascal/.local/share/blattwerk /home/pascal/.local/share/blattwerk-canary
+
+      - name: Smoke test the canary
+        timeout-minutes: 5
+        run: bash scripts/canary.sh smoke
+
+      # Pass, fail or cancel. After a fail the steps below still do not run.
+      - name: Remove the canary and the copy
+        if: always()
+        run: bash scripts/canary.sh stop /home/pascal/.local/share/blattwerk /home/pascal/.local/share/blattwerk-canary
+
       # A schema move runs on the first request after a deploy and has no way
-      # back. A failed copy stops the job here, before anything changes.
+      # back. After the build, so the copy is as new as it can be. A failed copy
+      # stops the job here, before the live container changes.
       - name: Snapshot the database
         env:
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: python3 scripts/snapshot.py /home/pascal/.local/share/blattwerk/blattwerk.db /home/pascal/.local/share/blattwerk-backups "$SHA"
 
-      # The build below moves `latest`. `prev` keeps the image that runs now.
+      # The build above moved `latest`. `prev` takes the image of the container
+      # that runs now, by its id.
       - name: Keep the running image as prev
         run: bash scripts/keep-prev.sh
 
-      - name: Build image
-        run: docker compose build
-
       - name: Deploy
+        id: up
         run: docker compose up -d
 
       # The app's logs hold invite tokens and this repo's job logs are public,
@@ -51,8 +74,7 @@ jobs:
       - name: Wait for the app to answer
         run: |
           for _ in $(seq 1 30); do
-            if docker exec blattwerk /app/.venv/bin/python -c \
-              "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=2)" 2>/dev/null; then
+            if bash scripts/alive.sh blattwerk; then
               echo "blattwerk answers"
               exit 0
             fi
@@ -61,5 +83,17 @@ jobs:
           echo "::error::blattwerk did not answer on :8000. On the VPS: docker logs blattwerk"
           exit 1
 
+      # Three GETs, no user and no write.
+      - name: Smoke test live, read only
+        timeout-minutes: 2
+        run: docker exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000 < scripts/smoke.py
+
+      # Only once `up` has run: before that the old container still runs and
+      # there is nothing to go back from.
+      - name: Go back to prev
+        if: failure() && steps.up.outcome != 'skipped'
+        run: bash scripts/go-back.sh
+
+      # Not after a fail: the broken image stays for a look.
       - name: Clean up old images
         run: docker image prune -f
