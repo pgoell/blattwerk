@@ -272,6 +272,8 @@ def test_counter_starts_above_the_highest_leftover_folder(data_dir):
     old_database(data_dir)
     (data_dir / "users" / "5").mkdir(parents=True)
     (data_dir / "users" / "tmp").mkdir()
+    # A digit to str.isdigit, and no number to int.
+    (data_dir / "users" / "²").mkdir()
     assert sequence(db.open_db()) == [("users", 5)]
     assert my_id(user("c@example.com")) == 6
 

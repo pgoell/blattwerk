@@ -92,7 +92,7 @@ def migrate(con: sqlite3.Connection) -> None:
                 con.execute("DROP TABLE users")
                 con.execute("ALTER TABLE users_new RENAME TO users")
                 # A folder that a failed delete left behind keeps its id used.
-                used = [int(p.name) for p in (DATA_DIR / "users").glob("*") if p.name.isdigit()]
+                used = [int(p.name) for p in (DATA_DIR / "users").glob("*") if p.name.isdecimal()]
                 used += [con.execute("SELECT max(id) FROM users").fetchone()[0] or 0]
                 con.execute("DELETE FROM sqlite_sequence WHERE name = 'users'")
                 con.execute("INSERT INTO sqlite_sequence VALUES ('users', ?)", (max(used),))

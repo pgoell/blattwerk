@@ -647,7 +647,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (!tug.current) return;
       if (tug.current.slot === undefined) {
         // No preventDefault during the hold: it would keep the panel still for the whole swipe.
-        if (Math.hypot(e.touches[0].clientX - tug.current.x, e.touches[0].clientY - tug.current.y) > SLOP) quit();
+        // A second finger may have come down beside the panel, where the start of a touch is not heard.
+        if (e.touches.length > 1 || Math.hypot(e.touches[0].clientX - tug.current.x, e.touches[0].clientY - tug.current.y) > SLOP) quit();
         return;
       }
       e.preventDefault();

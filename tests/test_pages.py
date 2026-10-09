@@ -196,6 +196,26 @@ def test_a_second_finger_calls_the_hold_on_a_thumbnail_off(editor):
     expect_order(page, "abc")
 
 
+def test_a_second_finger_beside_the_panel_calls_the_hold_on_a_thumbnail_off(editor):
+    """I5"""
+    page = three(editor, touch=True)
+    (x, y), other = centre(thumb(page, 0)), centre(page.locator('.sheet[data-page="0"]'))
+    with finger(page, (x, y)):
+        # The panel hears of a finger on the sheet with the first finger's next move.
+        thumb(page, 0).evaluate(
+            """(el, [x, y, ox, oy]) => {
+                const at = (identifier, clientX, clientY) =>
+                    new Touch({ identifier, target: el, clientX, clientY });
+                const touches = [at(0, x + 3, y), at(1, ox, oy)];
+                el.dispatchEvent(new TouchEvent("touchmove", { touches, bubbles: true }));
+            }""",
+            [x, y, *other],
+        )
+        outlast(page)
+        expect_no_drag(page)
+    expect_order(page, "abc")
+
+
 def test_undo_and_redo_take_a_move_after_a_jittered_hold_as_one_step(editor):
     """I6"""
     page = three(editor, touch=True)
