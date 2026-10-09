@@ -62,7 +62,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-webkit-${{ runner.os }}-${{ hashFiles('uv.lock') }}
       - name: WebKit and what it needs
-        run: uv run playwright install --with-deps webkit
+        # It has hung for the whole six minutes; it takes 45 seconds when it works, so try anew.
+        run: timeout 90 uv run playwright install --with-deps webkit || timeout 90 uv run playwright install --with-deps webkit
       - name: Pytest
         # The runner has four cores, and WebKit is slower to start than Chromium.
         run: mise run test:webkit -- -n 4 --dist worksteal --durations=20
