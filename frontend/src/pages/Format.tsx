@@ -117,7 +117,8 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
     // A slanted one that fills the room to a hair stays too: its place is rounded, so a second press would find
     // a little room again, and the more of it the closer the block lies to level or upright.
     const hair = 0.02 + 0.01 / Math.min(Math.abs(c), Math.abs(s));
-    if (back < 0 || on < 0 || !(w > 0 && w < Infinity) || (Math.abs(c * s) > 1e-9 && [back, on].every((end) => Math.abs(end - b.w / 2) < hair))) return {};
+    const slanted = Math.abs(c * s) > 1e-9;
+    if (!(w > 0 && w < Infinity) || (slanted && (back < 0 || on < 0 || [back, on].every((end) => Math.abs(end - b.w / 2) < hair)))) return {};
     // A level block keeps its y as it is.
     return { w, x: round(b.x + (b.w - w + (on - back) * c) / 2), ...(Math.abs(s) > 1e-9 && { y: round(b.y + ((on - back) * s) / 2) }) };
   };

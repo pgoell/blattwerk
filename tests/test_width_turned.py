@@ -110,6 +110,16 @@ def test_a_level_lineatur_gets_the_width_between_the_margins(editor):
     assert "angle" not in a
 
 
+def test_a_level_lineatur_past_the_left_margin_gets_the_width_between_the_margins(editor):
+    """A2: only a slanted block that lies past a margin stays as it is."""
+    client = user()
+    was = box("a", "ruling", RULING, x=-20, y=140, w=30, h=20)
+    page = editor(was, client=client)
+    pick(page, "a")
+    a = press(page, client)["a"]
+    assert (a["x"], a["y"], a["w"], a["h"]) == (15, 140, 180, 20)
+
+
 def test_one_undo_takes_the_width_back_and_one_redo_sets_it_again(editor):
     """I1"""
     client = user()
