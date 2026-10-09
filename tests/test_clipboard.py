@@ -264,6 +264,31 @@ def test_in_a_field_the_keys_work_on_the_words_alone(editor, kind):
     assert shapes(saved(page, client))[-1]["props"] == RECT
 
 
+@pytest.mark.parametrize("kind", ["text", "table", "ruling"])
+def test_a_picture_pasted_while_typing_lands_on_the_sheet(editor, kind):
+    """The field has no place for a picture; its words stay as typed."""
+    client = user()
+    props = {"text": TEXT, "table": TABLE, "ruling": RULING}[kind]
+    page = editor(box("a", kind, props), client=client)
+    copy_picture(page)
+    pick(page, "a")
+    # Enter opens the text, the first cell or the Lineatur, with all of it picked.
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD if kind == "text" else ".block textarea:focus")
+    page.keyboard.type("du")
+    (expect(field).to_have_text if kind == "text" else expect(field).to_have_value)("du")
+    page.keyboard.press("Control+v")
+    expect_picture(page, client, 2)
+    expect(at(page, "a")).to_have_class("block")
+    [held] = [b for b in saved(page, client) if b["id"] == "a"]
+    if kind == "table":
+        assert held["props"]["cells"] == [["du", "Z"], ["3", "7"]]
+    else:
+        assert held["props"]["text"] == "du"
+    if kind == "text":
+        expect(at(page, "a")).to_have_text("du")
+
+
 def test_a_cut_pastes_back_in_place_and_each_further_paste_steps_on(editor):
     """I2"""
     client = user()

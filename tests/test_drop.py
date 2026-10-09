@@ -329,3 +329,53 @@ def test_a_drop_over_every_block_type_lands_on_top(editor, n):
     assert top["type"] == "image"
     assert top["z"] > max(b["z"] for b in before)
     assert [b for b in held if b["id"] != top["id"]] == before
+
+
+# What the pointer shows over the point: the page's answer to dragover. A drag made by a script
+# keeps no effect it is given, so the answer is noted as the page sets it.
+EFFECT = """([x, y]) => {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File([], "bild.png", { type: "image/png" }));
+    let set = "unset";
+    Object.defineProperty(dataTransfer, "dropEffect", { set: (effect) => (set = effect) });
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    document.elementFromPoint(x, y).dispatchEvent(new DragEvent("dragover", init));
+    return set;
+}"""
+
+
+def behind(page):
+    """Opens the feedback dialog. Gives a point of the page beside it, under its backdrop."""
+    point = spot(page, 10, 10)
+    page.get_by_label("Feedback").click()
+    expect(page.locator("dialog.feedback")).to_be_visible()
+    under = page.evaluate("([x, y]) => document.elementFromPoint(x, y).className", point)
+    assert under == "feedback"
+    return point
+
+
+def test_a_drop_while_a_dialog_is_open_adds_nothing(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    point = behind(page)
+    drop(page, *point, PNG)
+    page.keyboard.press("Escape")
+    expect(page.locator("dialog")).to_have_count(0)
+    # A picture of the first drop would be there by the time the second one's is.
+    drop(page, *point, PNG)
+    landed(page, 2)
+    assert [b["type"] for b in new(saved(page, client), "a")] == ["image"]
+
+
+def test_a_dialog_shows_that_it_takes_no_drop_and_the_browser_keeps_none(editor):
+    page = editor(box("a", "text", TEXT))
+    url = page.url
+    point = behind(page)
+    assert page.evaluate(EFFECT, point) == "none"
+    assert drop(page, *point, PNG) == KEPT
+    page.keyboard.press("Escape")
+    expect(page.locator("dialog")).to_have_count(0)
+    assert page.evaluate(EFFECT, point) == "copy"
+    assert drop(page, *point, PNG) == KEPT
+    landed(page, 2)
+    assert page.url == url

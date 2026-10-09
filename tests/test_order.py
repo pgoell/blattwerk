@@ -1,7 +1,23 @@
 """One step forward and one step backward in the stack: the buttons under "Ebene"."""
 
+import pytest
 from playwright.sync_api import expect
-from ui import RECT, at, box, expect_picked, pick
+from ui import (
+    LINE,
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    at,
+    box,
+    expect_picked,
+    maths,
+    pick,
+    picture,
+    unpick,
+    upload,
+    user,
+)
 
 GROUP = {"group": ["g"]}
 
@@ -143,3 +159,64 @@ def test_several_blocks_step_together(editor):
     expect_stack(page, "abcd")
     step(page, "Eine nach hinten")
     expect_stack(page, "bcad")
+
+
+# Asked #143
+
+KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group"]
+LEFT = {"x": 15, "y": 20, "w": 80}
+
+
+def member(kind, client):
+    """The block "a" of one kind, in the group "g"; as a group, in a group of its own inside it."""
+    if kind == "picture":
+        return {**picture(upload(client)), "id": "a", **LEFT, "h": 20, **GROUP}
+    if kind == "maths":
+        return box("a", "maths", maths(client), **LEFT, h=12, **GROUP)
+    if kind == "group":
+        return box("a", "shape", RECT, **LEFT, group=["g", "inner"])
+    if kind == "line":
+        return box("a", "shape", LINE, **LEFT, h=0, **GROUP)
+    props = {"text": TEXT, "shape": RECT, "table": TABLE, "ruling": RULING}[kind]
+    return box("a", kind, props, **LEFT, **GROUP)
+
+
+def seam(page, locator):
+    """A point on the left edge that the mouse is over, while the point it reports lies beside it.
+
+    A mouse reports whole pixels, and a block's edge lies between two: Moveable looks up what
+    lies under the reported point when the button comes up, and finds another element.
+    """
+    held = locator.bounding_box()
+    y = held["y"] + held["height"] / 2
+    page.evaluate("addEventListener('mousemove', (e) => (window.moved = e), true)")
+    for quarter in range(-8, 5):
+        page.mouse.move(held["x"] + quarter / 4, y)
+        if locator.evaluate(
+            """(el) => el.contains(moved.target) &&
+                !el.contains(document.elementFromPoint(moved.clientX, moved.clientY))"""
+        ):
+            return held["x"] + quarter / 4, y
+    raise AssertionError("no such point")
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_a_click_on_a_block_of_a_group_picks_the_whole_group(editor, kind):
+    client = user()
+    page = editor(
+        member(kind, client),
+        box("b", "shape", RECT, z=2, x=110, y=20, w=80, **GROUP),
+        box("c", "table", TABLE, z=3, x=15, y=110, w=80, group=["h"]),
+        box("d", "shape", RECT, z=4, x=110, y=110, w=80, group=["h"]),
+        client=client,
+    )
+    unpick(page)
+    # In a table the press is on a cell and the reported point in the cell before, as in the issue.
+    cell = '[data-cell="1"]'
+    page.mouse.click(*seam(page, at(page, "a").locator(cell) if kind == "table" else at(page, "a")))
+    expect_picked(page, "a", "b")
+    # Shift adds the whole of a second group.
+    page.keyboard.down("Shift")
+    page.mouse.click(*seam(page, at(page, "c").locator(cell)))
+    page.keyboard.up("Shift")
+    expect_picked(page, "a", "b", "c", "d")

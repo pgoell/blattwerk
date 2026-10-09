@@ -290,6 +290,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
   const touch = useRef(false);
+  // Set by a press on Moveable's box over the selection, not on a block.
+  const cover = useRef(false);
   const hold = useRef(0);
   const held = useRef(false);
   // Where the finger of a hold came down.
@@ -440,7 +442,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   useLayoutEffect(() => {
     const press = (e: KeyboardEvent) => onKey.current(e);
     const pasted = (e: ClipboardEvent) => onPaste.current(e);
-    // A dragged file is caught on the way down, before a text's field or the browser can take it.
+    // A dragged file, like a pasted picture, is caught on the way down, before a text's field or the browser can take it.
     const dragged = (e: DragEvent) => onDrag.current(e);
     // A font or a colour picked with the mouse in the panel gives the keys back, as in PowerPoint: to the text being
     // edited, or else to the sheet. A colour's `change` comes when its picker closes, and after the pick is set.
@@ -452,33 +454,41 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     };
     window.addEventListener("change", chosen);
     window.addEventListener("keydown", press);
-    window.addEventListener("paste", pasted);
+    window.addEventListener("paste", pasted, true);
     window.addEventListener("dragover", dragged, true);
     window.addEventListener("drop", dragged, true);
     return () => {
       window.removeEventListener("change", chosen);
       window.removeEventListener("keydown", press);
-      window.removeEventListener("paste", pasted);
+      window.removeEventListener("paste", pasted, true);
       window.removeEventListener("dragover", dragged, true);
       window.removeEventListener("drop", dragged, true);
     };
   }, []);
   // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
-  // Only the desk takes them. Text dragged in a field and Moveable's own drags bring no files and stay as they are.
+  // Only the desk takes them, and not while a dialog is open. Text dragged in a field and Moveable's own drags bring
+  // no files and stay as they are.
   onDrag.current = (e) => {
     if (!e.dataTransfer?.types.includes("Files")) return;
     e.preventDefault();
     e.stopPropagation();
-    const on = desk.current!.contains(e.target as Node);
+    const on = desk.current!.contains(e.target as Node) && !document.querySelector("dialog:modal");
     if (e.type === "dragover") e.dataTransfer.dropEffect = on ? "copy" : "none";
     else if (on) dropped([...e.dataTransfer.files], e.clientX, e.clientY);
   };
-  // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps its own.
+  // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
+  // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
+  // sheet as from anywhere else; one that comes with words, as cells copied in Excel do, stays the field's.
   onPaste.current = (e) => {
-    if (document.querySelector("dialog:modal") || (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select")) return;
+    if (document.querySelector("dialog:modal")) return;
+    const field = (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select");
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
+    const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
+    if (field && (words || !picture || writing.current)) return;
     if (!picture || writing.current) return paste();
     e.preventDefault();
+    // The field does not take it too.
+    e.stopPropagation();
     upload(picture);
   };
   onKey.current = (e) => {
@@ -1924,7 +1934,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         <div
           className="desk"
           ref={desk}
-          onPointerDown={(e) => (touch.current = e.pointerType === "touch")}
+          onPointerDown={(e) => {
+            touch.current = e.pointerType === "touch";
+            cover.current = moveable.current!.isMoveableElement(e.target as Element);
+          }}
           onMouseDown={(e) => {
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
             // Enter and Tab.
@@ -2098,7 +2111,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     horizontalGuidelines={pageYs.map((mm) => mm * k)}
                     // Moveable swallows a tap on what is selected, and a group's box covers its blocks.
                     onClick={(e) => touch.current && pick(e.inputTarget, false)}
-                    onClickGroup={(e) => pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
+                    // on the group where the point the mouse reports lies beside what was pressed.
+                    onClickGroup={(e) => cover.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
                     onDragStart={(e) => begin([e.target])}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
