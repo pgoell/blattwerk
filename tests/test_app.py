@@ -1,5 +1,6 @@
 import json
 import re
+import sqlite3
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -185,6 +186,178 @@ def test_delete_account_removes_user_and_feedback(data_dir):
 def own(client):
     """A user's templates, without the built-in ones."""
     return [t for t in client.get("/api/templates").json() if t["id"] > 0]
+
+
+def my_id(client):
+    return client.get("/api/me").json()["id"]
+
+
+def test_deleted_account_id_is_not_reused():
+    user("a@example.com")
+    newest = user("b@example.com")
+    assert my_id(newest) == 2
+    newest.delete("/api/me")
+    again = user("c@example.com")
+    assert my_id(again) == 3
+    again.delete("/api/me")
+    # A new app on the same file stands in for the process after a deploy.
+    fresh = FastAPI()
+    fresh.include_router(auth.router)
+    client = TestClient(fresh, base_url="https://testserver")
+    body = {"token": invite(), "email": "d@example.com", "password": PASSWORD}
+    assert client.post("/api/signup", json=body).json()["id"] == 4
+
+
+def old_database(data_dir):
+    """The database as it was before AUTOINCREMENT, with two users who each own one of each."""
+    old = db.SCHEMA.replace(" AUTOINCREMENT", "")
+    assert old != db.SCHEMA
+    con = sqlite3.connect(data_dir / "blattwerk.db", autocommit=True)
+    con.executescript(old)
+    for i in (1, 2):
+        con.execute("INSERT INTO users (id, email, password) VALUES (?, ?, 'x')", (i, f"{i}@x.de"))
+        con.execute("INSERT INTO sessions VALUES (?, ?, '2999-01-01')", (f"session{i}", i))
+        con.execute("INSERT INTO links (token, user_id) VALUES (?, ?)", (f"link{i}", i))
+        con.execute("INSERT INTO templates (user_id, name, doc) VALUES (?, 'T', '{}')", (i,))
+        con.execute("INSERT INTO sheets (user_id, title, doc) VALUES (?, 'S', '{}')", (i,))
+        con.execute("INSERT INTO uploads (user_id, type) VALUES (?, 'image/png')", (i,))
+    con.execute("INSERT INTO links (token) VALUES ('invite')")
+    con.close()
+
+
+TABLES = ["users", "sessions", "links", "templates", "sheets", "uploads"]
+
+
+def dump(con):
+    """Every row and every table's definition."""
+    rows = {t: [tuple(r) for r in con.execute(f"SELECT * FROM {t} ORDER BY 1")] for t in TABLES}
+    names = "name, sql FROM sqlite_master ORDER BY name"
+    return rows, [tuple(r) for r in con.execute(f"SELECT {names}")], sequence(con)
+
+
+def sequence(con):
+    return [tuple(r) for r in con.execute("SELECT * FROM sqlite_sequence")]
+
+
+def test_old_users_table_moves_to_autoincrement(data_dir):
+    old_database(data_dir)
+    plain = sqlite3.connect(data_dir / "blattwerk.db")
+    before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
+    plain.close()
+
+    con = db.open_db()
+    rows, tables, seq = after = dump(con)
+    assert rows == before
+    assert [r["user_id"] for r in con.execute("SELECT user_id FROM uploads")] == [1, 2]
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    sql = dict(tables)
+    assert "AUTOINCREMENT" in sql["users"]
+    assert "users_new" not in sql
+    for child in TABLES[1:]:
+        assert "REFERENCES users (id) ON DELETE CASCADE" in sql[child]
+    assert seq == [("users", 2)]
+
+    # A second start changes nothing.
+    assert dump(db.open_db()) == after
+
+    con.execute("DELETE FROM users WHERE id = 1")
+    for child in TABLES[1:]:
+        owners = [r[0] for r in con.execute(f"SELECT user_id FROM {child} ORDER BY 1")]
+        assert owners == ([None, 2] if child == "links" else [2]), child
+    assert my_id(user("c@example.com")) == 3
+
+
+def test_counter_starts_above_the_highest_leftover_folder(data_dir):
+    old_database(data_dir)
+    (data_dir / "users" / "5").mkdir(parents=True)
+    (data_dir / "users" / "tmp").mkdir()
+    # A digit to str.isdigit, and no number to int.
+    (data_dir / "users" / "²").mkdir()
+    assert sequence(db.open_db()) == [("users", 5)]
+    assert my_id(user("c@example.com")) == 6
+
+
+def test_empty_old_users_table_moves_too(data_dir):
+    sqlite3.connect(data_dir / "blattwerk.db").executescript(
+        db.SCHEMA.replace(" AUTOINCREMENT", "")
+    )
+    assert sequence(db.open_db()) == [("users", 0)]
+    assert my_id(user("a@example.com")) == 1
+
+
+def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
+    a = user("a@example.com")
+    a_id = my_id(a)
+    a.post("/api/sheets", json={"title": "Meins", "doc": {}})
+    a.post("/api/templates", json={"name": "Meins", "doc": {}})
+    upload = a.post("/api/uploads", files={"file": ("bild", b"png", "image/png")}).json()["id"]
+    a.post("/api/feedback", data={"text": "x"})
+    con = db.open_db()
+    reset = auth.new_link(con, a_id)
+    early = invite()
+    cookie = a.cookies["session"]
+    assert a.delete("/api/me").status_code == 200
+
+    stale = TestClient(app, base_url="https://testserver", cookies={"session": cookie})
+    assert stale.get("/api/me").status_code == 401
+    b = user("b@example.com")
+    b_id = my_id(b)
+    assert b_id != a_id
+    assert b.get("/api/sheets").json() == []
+    assert own(b) == []
+    assert b.get(f"/api/uploads/{upload}").status_code == 404
+    assert not (data_dir / "users" / str(b_id)).exists()
+    assert not (data_dir / "users" / str(a_id)).exists()
+    assert stale.get("/api/me").status_code == 401
+    # Nothing of A is left for a later account to own: no row, no session, no link.
+    for table in TABLES[1:]:
+        count = f"SELECT count(*) FROM {table} WHERE user_id = ?"
+        assert con.execute(count, (a_id,)).fetchone()[0] == 0, table
+    # A's reset link is dead, and B's password stays B's.
+    new = {"token": reset, "password": "ganz-neu-geheim"}
+    assert stale.post("/api/reset", json=new).status_code == 404
+    login = {"email": "b@example.com", "password": PASSWORD}
+    assert stale.post("/api/login", json=login).status_code == 200
+    # An invite made before the delete is no one's: it opens a new account, not A's.
+    c = TestClient(app, base_url="https://testserver")
+    body = {"token": early, "email": "c@example.com", "password": PASSWORD}
+    assert c.post("/api/signup", json=body).json()["id"] not in (a_id, b_id)
+    assert c.get("/api/sheets").json() == []
+
+
+def test_leftover_folder_never_reaches_a_later_account(data_dir, monkeypatch):
+    a = user("a@example.com")
+    a.post("/api/uploads", files={"file": ("bild", b"png", "image/png")})
+    a.post("/api/feedback", data={"text": "x"})
+    # The delete of the folder fails, as on a full or read-only disk.
+    monkeypatch.setattr(auth.shutil, "rmtree", lambda *args, **kwargs: None)
+    assert a.delete("/api/me").status_code == 200
+    left = data_dir / "users" / "1"
+    files = sorted(left.rglob("*"))
+    assert len(files) == 5
+
+    b = user("b@example.com")
+    assert my_id(b) == 2
+    upload = b.post("/api/uploads", files={"file": ("bild", b"png", "image/png")}).json()["id"]
+    stamp = b.post("/api/feedback", data={"text": "y"}).json()["saved"]
+    assert (data_dir / "users" / "2" / "uploads" / str(upload)).is_file()
+    assert (data_dir / "users" / "2" / "feedback" / stamp).is_dir()
+    assert sorted(left.rglob("*")) == files
+
+
+def test_deleting_an_account_ends_every_session_and_open_link():
+    first = user("a@example.com")
+    second = TestClient(app, base_url="https://testserver")
+    login = {"email": "a@example.com", "password": PASSWORD}
+    assert second.post("/api/login", json=login).status_code == 200
+    reset = auth.new_link(db.open_db(), my_id(first))
+    assert first.delete("/api/me").status_code == 200
+    assert second.get("/api/me").status_code == 401
+    assert second.post("/api/sheets", json={"title": "x", "doc": {}}).status_code == 401
+    new = {"token": reset, "password": "ganz-neu-geheim"}
+    assert second.post("/api/reset", json=new).status_code == 404
+    assert db.open_db().execute("SELECT count(*) FROM links").fetchone()[0] == 0
 
 
 def kinds(page):

@@ -17,8 +17,12 @@ from ui import (
     centre,
     copy_picture,
     expect_picked,
+    finger,
+    hold_drag,
+    jitter,
     maths,
     order,
+    outlast,
     pick,
     picture,
     saved,
@@ -29,6 +33,8 @@ from ui import (
 
 GROUP = {"group": ["g"]}
 KINDS = ["text", "shape", "line", "image", "symbol", "table", "ruling", "name", "points", "maths"]
+# The blocks a held finger is tried on.
+HELD = ["text", "shape", "line", "image", "table", "ruling", "maths", "group"]
 
 
 def menu(page):
@@ -579,3 +585,35 @@ def test_a_held_finger_gets_no_menu_of_the_editors(editor):
     at(page, "a").dispatch_event("contextmenu", {"bubbles": True, "cancelable": True})
     assert kept(page)
     expect(menu(page)).to_have_count(0)
+
+
+def several(page):
+    return page.get_by_label("Mehrere", exact=True)
+
+
+@pytest.mark.parametrize("kind", HELD)
+def test_a_jittering_finger_held_on_a_block_starts_selecting_several(editor, kind):
+    """B3"""
+    client = user()
+    if kind == "group":
+        blocks = boxes(*"abc", grouped="ab")
+    else:
+        blocks = [box("a", "shape" if kind == "line" else kind, props(client, kind))]
+    page = editor(*blocks, client=client, touch=True)
+    expect(several(page)).to_have_attribute("aria-pressed", "false")
+    # The block is selected with the finger still down: a tap would select it on the way up.
+    by = ((3, 0), (0, 4), (-6, -7))
+    hold_drag(page, at(page, "a"), centre(at(page, "a")), by=by, shows="sel")
+    expect(several(page)).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, *("ab" if kind == "group" else "a"))
+
+
+def test_a_swipe_over_a_block_starts_no_selecting_of_several(editor):
+    """I7"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start):
+        jitter(at(page, "a"), start, (14, 0))
+        outlast(page)
+        expect(several(page)).to_have_attribute("aria-pressed", "false")
+        expect_picked(page)

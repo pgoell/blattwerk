@@ -8,6 +8,8 @@ from playwright.sync_api import expect
 from test_clipboard import all_of, blocks, button, every, expect_picture, ready, stored
 from ui import PASSWORD, RECT, TEXT, at, box, copy_picture, expect_picked, pick, saved, sheet, user
 
+from blattwerk import db
+
 CLIP = "localStorage.getItem('clip')"
 
 
@@ -123,8 +125,9 @@ def test_an_account_with_the_id_of_a_deleted_one_pastes_nothing_of_it(editor):
     leave(page)
     # Deleted on another device: this browser's store still holds the copy.
     assert a.delete("/api/me").status_code == 200
+    # The database never hands an id out again. One that was lost and made anew would.
+    db.open_db().execute("UPDATE sqlite_sequence SET seq = 0 WHERE name = 'users'")
     b, email = someone()
-    # The database hands the newest account's id out again.
     assert b.get("/api/me").json()["id"] == gone
     login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
     before = stored(page, b)
