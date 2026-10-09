@@ -9,6 +9,13 @@ if ! docker image inspect blattwerk-blattwerk:prev >/dev/null 2>&1; then
   exit 1
 fi
 
+# The deploy sets PREV_KEPT, empty when keep-prev.sh left `prev` as it was: that image is older
+# than the one that ran, and may not know the database. A person decides then. By hand it is unset.
+if [ "${PREV_KEPT-yes}" != yes ]; then
+  echo "::error::prev is not the image that ran before this deploy, so nothing was changed: the new container stays. README, \"Going back\"."
+  exit 1
+fi
+
 docker tag blattwerk-blattwerk:prev blattwerk-blattwerk:latest
 docker compose up -d --no-build
 # The image only: the database keeps the shape the new code gave it.

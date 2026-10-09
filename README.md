@@ -93,7 +93,7 @@ The steps, in order. A step that fails stops the deploy.
 7. `docker compose up -d` replaces the container. Up to here the live site has not changed.
 8. Wait until the new container answers `/api/me`.
 9. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database.
-10. If step 7, 8 or 9 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image it changes nothing and says so.
+10. If step 7, 8 or 9 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image, or when step 6 did not tag one in this run (the old container did not answer, so `prev` is an older image), it changes nothing and says so: a person decides then.
 
 A deploy that fails after the build and before step 7 (a failed canary, say) leaves the old container running, but `blattwerk-blattwerk:latest` names the failed image until the next good deploy, and `prev` has not moved. Do not run `docker compose up -d` by hand then: it would start the failed image. Revert the commit and let the deploy run.
 

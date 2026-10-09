@@ -270,6 +270,7 @@ def keep_prev(tmp_path, inspect=0, exec_=0, fails=0):
         "EXEC_RC": str(exec_),
         # So many of the first probes fail, whatever EXEC_RC says of the later ones.
         "EXEC_FAILS": str(fails),
+        "GITHUB_OUTPUT": str(tmp_path / "output"),
     }
     command = ["bash", str(ROOT / "scripts" / "keep-prev.sh")]
     result = subprocess.run(command, capture_output=True, text=True, timeout=20, env=env)
@@ -282,6 +283,8 @@ def test_keep_prev_tags_the_running_image(tmp_path):
     assert calls[0] == "inspect -f {{.Image}} blattwerk"
     assert calls[1].startswith("exec blattwerk /app/.venv/bin/python -c ")
     assert calls[2:] == ["tag sha256:abc blattwerk-blattwerk:prev"]
+    # What go-back.sh asks for before it goes back by itself.
+    assert (tmp_path / "output").read_text() == "kept=yes\n"
 
 
 def test_keep_prev_skips_without_container(tmp_path):
@@ -296,6 +299,7 @@ def test_keep_prev_spares_prev_when_the_app_is_down(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "::warning::" in result.stdout
     assert not any(call.startswith("tag") for call in calls)
+    assert not (tmp_path / "output").exists()
     assert len([call for call in calls if call.startswith("exec ")]) == 3
 
 

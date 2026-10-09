@@ -420,6 +420,22 @@ def test_go_back_without_prev_changes_nothing(tmp_path):
     assert calls == [f"image inspect {IMAGE}:prev"]
 
 
+def test_go_back_leaves_a_prev_alone_that_this_deploy_did_not_tag(tmp_path):
+    result, calls = run(tmp_path, "go-back.sh", prev_kept="")
+    assert result.returncode == 1
+    assert "::error::prev is not the image that ran before this deploy" in result.stdout
+    assert calls == [f"image inspect {IMAGE}:prev"]
+    # The deploy hands over what keep-prev.sh said.
+    assert "PREV_KEPT: ${{ steps.prev.outputs.kept }}" in steps()["Go back to prev"]
+    assert "id: prev" in steps()["Keep the running image as prev"]
+
+
+def test_go_back_goes_back_after_keep_prev_tagged(tmp_path):
+    result, calls = run(tmp_path, "go-back.sh", prev_kept="yes")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "compose up -d --no-build" in calls
+
+
 def test_go_back_fails_when_prev_does_not_answer(tmp_path):
     result, calls = run(tmp_path, "go-back.sh", rc_exec=1)
     assert result.returncode == 1
@@ -487,7 +503,7 @@ def test_only_the_cleanup_and_the_way_back_run_after_a_fail():
     assert job == 30
     assert sum(map(int, re.findall(r"^        timeout-minutes: (\d+)$", code(DEPLOY), re.M))) < job
     assert "        id: up\n" in steps()["Deploy"]
-    assert len(re.findall(r"^        id: ", code(DEPLOY), re.M)) == 1
+    assert re.findall(r"^        id: (\w+)$", code(DEPLOY), re.M) == ["prev", "up"]
     assert "run: bash scripts/go-back.sh\n" in steps()["Go back to prev"]
 
 

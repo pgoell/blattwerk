@@ -24,5 +24,7 @@ if [ -z "$answers" ]; then
 fi
 
 docker tag "$image" blattwerk-blattwerk:prev
+# go-back.sh goes back by itself only to a `prev` that this run tagged.
+if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "kept=yes" >>"$GITHUB_OUTPUT"; fi
 image=${image#sha256:}
 echo "prev is ${image:0:12}"

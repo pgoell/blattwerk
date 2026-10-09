@@ -65,6 +65,7 @@ jobs:
       # The build above moved `latest`. `prev` takes the image of the container
       # that runs now, by its id.
       - name: Keep the running image as prev
+        id: prev
         run: bash scripts/keep-prev.sh
 
       - name: Deploy
@@ -96,6 +97,9 @@ jobs:
       # go back from.
       - name: Go back to prev
         if: (failure() || cancelled()) && steps.up.outcome != 'skipped'
+        env:
+          # Empty when keep-prev left an older `prev` in place.
+          PREV_KEPT: ${{ steps.prev.outputs.kept }}
         run: bash scripts/go-back.sh
 
       # Not after a fail: the broken image stays for a look.
