@@ -36,8 +36,10 @@ tmp = args.folder / f".pre-{args.sha}.db.tmp"
 journal = args.folder / f"{tmp.name}-journal"
 try:
     args.folder.mkdir(parents=True, exist_ok=True)
-    tmp.unlink(missing_ok=True)
-    journal.unlink(missing_ok=True)
+    # A killed job left its half-written copy, of this commit or another. Deploys never run side
+    # by side, so none of them is in use.
+    for left in [*args.folder.glob(".pre-*.db.tmp"), *args.folder.glob(".pre-*.db.tmp-journal")]:
+        left.unlink()
     # Made here, so the copy is never readable by others. SQLite keeps the mode.
     os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
     uri = f"{args.source.resolve().as_uri()}?mode=ro"
