@@ -97,6 +97,16 @@ def test_a1_settings_register_the_hook(home):
     argv = ["bash", "-c", command]
     refused(run("gh pr merge 5 --admin", home=home, argv=argv), "--admin")
     allowed(run("mise tasks", home=home, argv=argv))
+    # A checkout of a commit from before the hook must not lock the session out: python3 on a
+    # missing file exits 2, which Claude Code reads as a refusal.
+    gone = subprocess.run(
+        argv,
+        input="{}",
+        text=True,
+        capture_output=True,
+        env={**os.environ, "CLAUDE_PROJECT_DIR": str(home)},
+    )
+    assert gone.returncode == 0, gone.stderr
 
 
 @cases(refuse=["gh pr merge 5 --admin", "gh pr merge --squash --admin 5"])
