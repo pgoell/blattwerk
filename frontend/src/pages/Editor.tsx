@@ -245,7 +245,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
-  // Whether the last press was in the format panel: the field then stays open though it loses the focus.
+  // Whether the last press was in the format panel, with no key since: the field then stays open though it loses
+  // the focus, and a select or a colour picked there hands the keys back.
   const inPanel = useRef(false);
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
@@ -441,11 +442,21 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const pasted = (e: ClipboardEvent) => onPaste.current(e);
     // A dragged file is caught on the way down, before a text's field or the browser can take it.
     const dragged = (e: DragEvent) => onDrag.current(e);
+    // A font or a colour picked with the mouse in the panel gives the keys back, as in PowerPoint: to the text being
+    // edited, or else to the sheet. A colour's `change` comes when its picker closes, and after the pick is set.
+    const chosen = (e: Event) => {
+      const el = e.target as HTMLElement;
+      if (!inPanel.current || !el.matches(".panel select, .panel input[type=color]")) return;
+      if (field.current) field.current.focus();
+      else el.blur();
+    };
+    window.addEventListener("change", chosen);
     window.addEventListener("keydown", press);
     window.addEventListener("paste", pasted);
     window.addEventListener("dragover", dragged, true);
     window.addEventListener("drop", dragged, true);
     return () => {
+      window.removeEventListener("change", chosen);
       window.removeEventListener("keydown", press);
       window.removeEventListener("paste", pasted);
       window.removeEventListener("dragover", dragged, true);
@@ -471,13 +482,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     upload(picture);
   };
   onKey.current = (e) => {
+    // Who walks a select of the panel with the keys keeps the focus there.
+    inPanel.current = false;
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     const target = e.target as HTMLElement;
     // Escape calls a thumbnail's drag off.
     if (e.key === "Escape" && haul) return quit();
-    // Escape puts the brush down from anywhere, also from a field that keeps the key to itself.
-    if (e.key === "Escape") setBrush(0);
+    // Escape puts the brush down from anywhere, also from a field that keeps the key to itself, and does no more.
+    if (e.key === "Escape" && brush) return setBrush(0);
     // Ctrl+B, I and U alone never reach the browser while a block is selected: Chrome has shortcuts of its own on
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
@@ -520,7 +533,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         : {
             delete: remove,
             backspace: remove,
-            escape: done,
+            // Escape ends a crop, or else selects nothing, as in PowerPoint.
+            escape: cropping
+              ? done
+              : () => {
+                  setIds([]);
+                  setMulti(false);
+                },
             arrowleft: () => nudge(-1, 0),
             arrowright: () => nudge(1, 0),
             arrowup: () => nudge(0, -1),
@@ -1684,12 +1703,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
       // A button pressed with the mouse does not take the focus, as PowerPoint's ribbon does not: Enter and Tab stay
       // the sheet's. A dialog's buttons are its own. What had the focus loses it to the main mouse button as before,
-      // unless the button's own group has kept it there.
+      // but a button of the format panel leaves it where it is: a text, a Lineatur or a cell being written in keeps
+      // the caret, and a number of the panel its draft. So does the panel's bare ground, where a press on a disabled
+      // button lands.
       onMouseDown={(e) => {
-        const button = (e.target as Element).closest("button");
+        const target = e.target as Element;
+        const button = target.closest("button");
+        const panel = target.closest(".panel");
+        if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
-        if (!e.button) (document.activeElement as HTMLElement | null)?.blur();
+        if (!e.button && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
       }}
     >
       <header>
@@ -1977,6 +2001,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                           className="written"
                           value={b.props.text ?? ""}
                           readOnly={editing !== b.id}
+                          // Tab from a field of the panel does not stop at a Lineatur that is not written in.
+                          tabIndex={editing === b.id ? undefined : -1}
                           style={writtenStyle(b, K)}
                           onChange={(e) => style("ruling", { text: e.target.value }, "text")}
                           onKeyDown={(e) => (e.key === "Escape" || e.key === "F2") && e.currentTarget.blur()}

@@ -596,11 +596,11 @@ def test_a_button_ends_or_keeps_a_field_as_before(editor):
     page = editor(box("a", "text", TEXT), box("lines", "ruling", RULING, z=2))
     pick(page, "a")
     page.keyboard.press("Enter")
-    # The panel's bold leaves the focus in the field, and its other buttons leave the field open.
+    # The panel's buttons leave the focus in the field.
     page.locator(".panel button.bold").click()
     expect(page.locator(FIELD)).to_be_focused()
     page.get_by_label("Schrift größer").click()
-    expect(page.locator(FIELD)).not_to_be_focused()
+    expect(page.locator(FIELD)).to_be_focused()
     # A button of the bar ends it.
     at(page, "a").locator(".ProseMirror").click()
     expect(page.locator(FIELD)).to_be_focused()

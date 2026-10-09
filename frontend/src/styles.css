@@ -145,6 +145,8 @@ button, .pick {
 }
 button:active, .pick:active { transform: scale(.97); }
 button:disabled, button[aria-disabled=true] { opacity: .4; cursor: default; }
+/* A disabled button swallows the press, and the focus would go with it: the press falls through to the panel. */
+.panel button:disabled { pointer-events: none; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 button.wide { width: 100%; margin-top: 12px; }
 button.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }

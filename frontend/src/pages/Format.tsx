@@ -1,5 +1,5 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { FONTS, MARGIN, RULINGS, boxed, counts, isLine, mathsHeight, parasOf, rowsOf, symbol, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type TableBlock, type Valign } from "../sheet";
@@ -73,8 +73,6 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // Picked words show their own look, and the list is that of the caret's paragraph, or of the text's first.
   const shown = { ...text, ...part?.marks };
   const kind = text && (part ?? parasOf(text)[0]).list;
-  // A press on these buttons leaves the focus, and so the picked words, in the field.
-  const stay = (e: MouseEvent) => e.preventDefault();
   const rulings = of("ruling");
   const tables = of("table");
   const [points] = of("points");
@@ -143,28 +141,28 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             <output>{text.size} pt</output>
             <button aria-label="Schrift größer" onClick={() => look({ size: text.size + 2 })}>＋</button>
           </div>
-          <div className="seg" onMouseDown={stay}>
+          <div className="seg">
             {([["bold", "Fett"], ["italic", "Kursiv"], ["underline", "Unterstrichen"]] as const).map(([prop, label]) => (
               <button key={prop} className={`${prop}${has(sel, part, prop) ? " on" : ""}`} aria-label={label} aria-pressed={has(sel, part, prop)} onClick={() => paint({ [prop]: !has(sel, part, prop) })}>
                 {label[0]}
               </button>
             ))}
           </div>
-          <div className="seg" onMouseDown={stay}>
+          <div className="seg">
             {LISTS.map(([value, label, Icon]) => (
               <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>
                 <Icon size={14} aria-hidden />
               </button>
             ))}
           </div>
-          <div className="seg" onMouseDown={stay}>
+          <div className="seg">
             {ALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={text.align === value ? "on" : ""} aria-label={label} title={label} aria-pressed={text.align === value} onClick={() => look({ align: value })}>
                 <Icon size={14} aria-hidden />
               </button>
             ))}
           </div>
-          <div className="seg" onMouseDown={stay}>
+          <div className="seg">
             {VALIGNS.map(([value, label, Icon]) => (
               <button key={value} className={(text.valign ?? "top") === value ? "on" : ""} aria-label={label} title={label} aria-pressed={(text.valign ?? "top") === value} onClick={() => look({ valign: value })}>
                 <Icon size={14} aria-hidden />
@@ -238,15 +236,15 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
                 );
               const at = i ? cell % n[1] : Math.floor(cell / n[1]);
               return (
-                <div key={name} className="acts" onMouseDown={stay}>
+                <div key={name} className="acts">
                   <button onClick={() => rank(tables[0], axis, at, true)}>{name} {i ? "links" : "darüber"}</button>
                   <button onClick={() => rank(tables[0], axis, at + 1, true)}>{name} {i ? "rechts" : "darunter"}</button>
                 </div>
               );
             })}
-          {/* The last row or column stays. A disabled button would take the focus from the cell all the same. */}
+          {/* The last row or column stays. A disabled button would take the focus from the cell. */}
           {tables.length === 1 && cell !== undefined && (
-            <div className="acts" onMouseDown={stay}>
+            <div className="acts">
               <button aria-disabled={tables[0].props.cells.length < 2} onClick={() => rank(tables[0], "row", Math.floor(cell / tables[0].props.cols.length), false)}>Zeile löschen</button>
               <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", cell % tables[0].props.cols.length, false)}>Spalte löschen</button>
             </div>
