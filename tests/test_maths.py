@@ -3,7 +3,9 @@ import random
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from playwright.sync_api import expect
 from pydantic import ValidationError
+from ui import at, box, expect_picked, maths, pick, saved, user
 
 from blattwerk.maths import ANSWER, CARRY, Settings, below, generate, nth, written
 
@@ -56,8 +58,8 @@ def text(grid, kinds=(0, 1, 2)):
             rows[y][x] = ch
     out = []
     for y, row in enumerate(rows):
-        for x1, x2, at, kind in grid["lines"]:
-            if at == y and kind in kinds:
+        for x1, x2, above, kind in grid["lines"]:
+            if above == y and kind in kinds:
                 out.append((" " * x1 + "-" * (x2 - x1)).rstrip())
         out.append("".join(row).rstrip())
     return "\n".join(out).replace("\u2212", "~")
@@ -181,3 +183,39 @@ def test_turns_down_limits_that_make_no_sense():
     for bad in ({"max": 0}, {"max": 10**7}, {"count": 0}, {"ops": []}, {"a": [(5, 4)]}):
         with pytest.raises(ValidationError):
             settings_for(**bad)
+
+
+def bare(client):
+    """A maths block's props as a sheet saved through the API may hold them: no digit ranges."""
+    props = maths(client)
+    del props["a"], props["b"]
+    return props
+
+
+def test_a_block_with_no_digit_ranges_stays_when_it_is_clicked(editor):
+    client = user()
+    page = editor(box("m", "maths", bare(client)), client=client)
+    at(page, "m").click()
+    expect(at(page, "m")).to_be_visible()
+    expect_picked(page, "m")
+    expect(page.locator(".panel").get_by_label("Zahlenraum")).to_have_value("20")
+
+
+def test_a_block_with_no_digit_ranges_takes_any_digit_and_rolls_anew(editor):
+    client = user()
+    page = editor(box("m", "maths", bare(client)), client=client)
+    pick(page, "m")
+    # Bis 20: Einer and Zehner for each of the two numbers, any digit in each.
+    panel = page.locator(".panel")
+    for place in ("E", "Z"):
+        expect(panel.get_by_label(f"{place} von")).to_have_count(2)
+        for who in (0, 1):
+            expect(panel.get_by_label(f"{place} von").nth(who)).to_have_value("0")
+            expect(panel.get_by_label(f"{place} bis").nth(who)).to_have_value("9")
+    expect(panel.get_by_label("H von")).to_have_count(0)
+    panel.get_by_role("button", name="Neu würfeln").click()
+    expect(page.locator("header [role=status]")).to_have_text("Speichert …")
+    expect(at(page, "m").locator(".maths > div")).to_have_count(3)
+    props = saved(page, client)[0]["props"]
+    assert props["a"] == props["b"] == [[0, 9], [0, 9]]
+    assert props["seed"] != 7 and len(props["exercises"]) == 3

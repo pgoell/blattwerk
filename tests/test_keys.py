@@ -481,13 +481,15 @@ def test_the_panel_sets_the_word_the_caret_is_in(editor):
     page.keyboard.press("Home")
     page.keyboard.press("Shift+End")
     expect(colour).to_have_value("#ff0000")
-    # The colour's input takes the focus, so beside a word no next letter is coloured: the block is,
-    # and the input shows the block's colour there.
-    page.keyboard.press("Home")
+    # Beside a word a colour is for what is typed next, though the colour's input takes the focus:
+    # the block and its words keep theirs, and the input shows the new one.
+    page.keyboard.press("End")
     expect(colour).to_have_value("#222222")
+    # The press in the panel keeps the field open.
+    colour.dispatch_event("pointerdown")
     colour.fill("#0000ff")
-    expect(page.locator(f"{FIELD} span[data-color]")).to_have_count(0)
-    expect(at(page, "a").locator(".frame")).to_have_css("color", "rgb(0, 0, 255)")
+    expect(page.locator(f"{FIELD} span[data-color]")).to_have_text("Hallo")
+    expect(at(page, "a").locator(".frame")).to_have_css("color", "rgb(34, 34, 34)")
     expect(colour).to_have_value("#0000ff")
 
 

@@ -128,8 +128,19 @@ export const EMPTY: Doc = { pages: [{ blocks: [] }], guides: { x: [], y: [] }, g
 // The editor's last save. The list waits for it, so it shows the sheet as it was left.
 export const last = { save: Promise.resolve() as Promise<unknown> };
 
+// A maths block saved with no digit ranges takes any digit in each place of its Zahlenraum.
+function whole(b: Block): Block {
+  if (b.type !== "maths" || (b.props.a && b.props.b)) return b;
+  const any = Array.from(String(b.props.max), (): Range => [0, 9]);
+  return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
+}
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({ pages: pages ?? [{ blocks: blocks! }], guides, grid, landscape });
+export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({
+  pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
+  guides,
+  grid,
+  landscape,
+});
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;

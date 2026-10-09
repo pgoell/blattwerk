@@ -53,9 +53,17 @@ export const bounds = (bs: Box[]) => {
 };
 
 // Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
-// look goes on unless all have it.
+// look goes on unless all have it. A text has it when all its words do, of their own or through the block; one
+// with no words has what the block has.
 export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
-  part ? !!part.marks[name] : sel.every((b) => !boxed(b) || boxed(b)![name]);
+  part
+    ? !!part.marks[name]
+    : sel.every((b) => {
+        const text = boxed(b);
+        if (!text) return true;
+        const runs = parasOf(text).flatMap((p) => p.runs);
+        return runs.length ? runs.every((r) => r[name] ?? text[name]) : !!text[name];
+      });
 
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");

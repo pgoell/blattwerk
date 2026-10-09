@@ -98,11 +98,8 @@ function looks(state: EditorState, base: TextProps) {
       else out[name] ||= m ? m.attrs.v : !!base[name];
     }
   };
-  if (empty) {
-    see(state.storedMarks ?? $from.marks());
-    // The colour's input takes the focus, so beside a word a new colour is the whole block's: it shows that one.
-    if (!word($from)) out.color = base.color;
-  } else
+  if (empty) see(state.storedMarks ?? $from.marks());
+  else
     state.doc.nodesBetween(from, to, (n) => {
       if (n.isText) see(n.marks);
     });
@@ -113,13 +110,14 @@ const picked = (state: EditorState, base: TextProps): Picked => ({
   marks: looks(state, base),
 });
 // Gives the picked words a look. A caret inside a word stands for that word, as in PowerPoint; anywhere else the
-// look is for what is typed next, which needs the caret in the field: without it nothing is done, and false says
-// so. Bold and italic as the block has them need no mark. `key` merges a run of changes into one undo step.
+// look is for what is typed next. Bold, italic and underline then need the caret in the field: without it nothing
+// is done, and false says so. A colour does not, since its input takes the focus while it is picked. Bold and
+// italic as the block has them need no mark. `key` merges a run of changes into one undo step.
 export function tint(view: EditorView, props: Marks, base: TextProps, key = "") {
   const { selection } = view.state;
   const [from, to] = (selection.empty && word(selection.$from)) || [selection.from, selection.to];
   const empty = from === to;
-  if (empty && !view.hasFocus()) return false;
+  if (empty && props.color === undefined && !view.hasFocus()) return false;
   const tr = view.state.tr.setMeta("key", key);
   for (const name of NAMES) {
     const v = props[name];
