@@ -6,7 +6,7 @@ export default function Logo() {
         <path d="M8 24C8 14 14 8 24 8c0 10-6 16-16 16Z" />
         <path d="M8 24 18 14" />
       </svg>
-      Blattwerk
+      Blattomat
     </span>
   );
 }

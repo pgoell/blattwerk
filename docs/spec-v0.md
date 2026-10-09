@@ -1,4 +1,4 @@
-# Blattwerk v0
+# Blattomat v0
 
 A worksheet editor for Grundschule teachers: an A4 canvas like PowerPoint, with blocks made for school sheets, a maths generator with exact limits, and a PDF that matches the screen. It runs in the browser and installs on an iPad from Safari.
 
@@ -19,7 +19,7 @@ What she told us (interview, 2026-10-05):
 
 ## The test
 
-v0 is done when she rebuilds one real sheet from her week in Blattwerk, on the iPad, prints it, and says she would do the next one there too.
+v0 is done when she rebuilds one real sheet from her week in Blattomat, on the iPad, prints it, and says she would do the next one there too.
 
 ## Scope
 

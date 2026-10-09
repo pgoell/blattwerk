@@ -1,6 +1,9 @@
 import json
+import os
 import re
 import sqlite3
+import subprocess
+import sys
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -513,3 +516,25 @@ def test_legal_pages_are_public():
     client = TestClient(app)
     assert "Impressum" in client.get("/impressum").text
     assert "Datenschutzerklärung" in client.get("/datenschutz").text
+
+
+def test_legal_pages_say_blattomat():
+    client = TestClient(app)
+    for path in ("/impressum", "/datenschutz"):
+        res = client.get(path)
+        assert res.status_code == 200
+        title, body = res.text.split("</title>")
+        assert "Blattomat" in title and "Blattomat" in body
+        # The old name is gone, however it was written.
+        assert "blattwerk" not in res.text.lower()
+
+
+def test_cli_help_says_blattomat(tmp_path):
+    # No word after the command: it prints its help and fails. The command keeps its name.
+    env = {**os.environ, "BLATTWERK_DATA_DIR": str(tmp_path)}
+    res = subprocess.run(
+        [sys.executable, "-m", "blattwerk"], capture_output=True, text=True, env=env
+    )
+    assert res.returncode != 0
+    assert "Blattomat" in res.stderr
+    assert "python -m blattwerk invite" in res.stderr

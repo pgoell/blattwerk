@@ -95,6 +95,7 @@ dependencies = [
     { name = "argon2-cffi" },
     { name = "fastapi" },
     { name = "playwright" },
+    { name = "pypdf" },
     { name = "python-multipart" },
     { name = "uvicorn" },
 ]
@@ -103,7 +104,6 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "hypothesis" },
-    { name = "pypdf" },
     { name = "pypdfium2" },
     { name = "pytest" },
     { name = "pytest-repeat" },
@@ -117,6 +117,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "fastapi", specifier = ">=0.142.2" },
     { name = "playwright", specifier = ">=1.63.0" },
+    { name = "pypdf", specifier = ">=6.19.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
@@ -125,7 +126,6 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "hypothesis", specifier = ">=6.168.5" },
-    { name = "pypdf", specifier = ">=6.19.0" },
     { name = "pypdfium2", specifier = ">=5.14.0" },
     { name = "pytest" },
     { name = "pytest-repeat", specifier = ">=0.9.4" },

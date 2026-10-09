@@ -1,4 +1,4 @@
-"""Blattwerk: the API, the legal pages and the built frontend."""
+"""Blattomat: the API, the legal pages and the built frontend."""
 
 from importlib.resources import files
 from pathlib import Path

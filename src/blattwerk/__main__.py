@@ -1,4 +1,4 @@
-"""`python -m blattwerk invite [--admin]` prints the path of a one-use sign-up link."""
+"""Blattomat: `python -m blattwerk invite [--admin]` prints the path of a one-use sign-up link."""
 
 import sys
 

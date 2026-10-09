@@ -1,6 +1,8 @@
-# blattwerk: project instructions
+# Blattomat: project instructions
 
 Worksheet tool for Grundschule teachers
+
+The product is called Blattomat. The repo, the Python package and the host `blattwerk.pgoell.com` still carry the old name `blattwerk`.
 
 ## Layout
 

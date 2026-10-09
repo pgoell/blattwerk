@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import io
 import json
 import secrets
 import sqlite3
@@ -11,6 +12,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from playwright.sync_api import sync_playwright
+from pypdf import PdfWriter
 
 from blattwerk.auth import User
 from blattwerk.db import Con
@@ -84,9 +86,15 @@ def pdf(sheet_id: int, request: Request, user: User, con: Con, solved: bool = Fa
         # says which pages lie on their side.
         data = page.pdf(prefer_css_page_size=True, print_background=True)
         browser.close()
+    # Chromium names itself as the file's maker, and has no setting for that. The title is the
+    # page's own.
+    writer = PdfWriter(clone_from=io.BytesIO(data))
+    writer.add_metadata({"/Creator": "Blattomat", "/Producer": "Blattomat"})
+    out = io.BytesIO()
+    writer.write(out)
     name = quote(sheet["title"] + (" Lösungen" if solved else "") + ".pdf")
     return Response(
-        data,
+        out.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{name}"},
     )

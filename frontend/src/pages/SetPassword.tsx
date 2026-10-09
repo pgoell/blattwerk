@@ -26,7 +26,7 @@ export default function SetPassword({ invite, onDone }: { invite?: boolean; onDo
 
   return (
     <AuthShell
-      title={invite ? "Willkommen bei Blattwerk" : "Neues Passwort"}
+      title={invite ? "Willkommen bei Blattomat" : "Neues Passwort"}
       lead={invite ? "Leg dein Konto an." : "Wähl ein neues Passwort."}
     >
       <form className="card" onSubmit={submit}>
