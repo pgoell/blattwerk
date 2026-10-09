@@ -572,7 +572,7 @@ def test_a_button_pressed_with_the_mouse_takes_no_focus(editor):
     page.keyboard.press("Tab")
     expect_picked(page, "b")
     # Enter opens the copy that Duplizieren made and makes no other.
-    page.get_by_label("Duplizieren").click()
+    page.get_by_label("Duplizieren", exact=True).click()
     expect(page.locator(".block")).to_have_count(3)
     page.keyboard.press("Enter")
     expect(page.locator(FIELD)).to_be_focused()
@@ -583,7 +583,7 @@ def test_a_button_pressed_with_the_mouse_takes_no_focus(editor):
 def test_a_button_reached_by_the_keys_keeps_the_focus(editor):
     page = editor(box("a", "text", TEXT))
     pick(page, "a")
-    copy = page.get_by_label("Duplizieren")
+    copy = page.get_by_label("Duplizieren", exact=True)
     copy.focus()
     for count in (2, 3):
         page.keyboard.press("Enter")

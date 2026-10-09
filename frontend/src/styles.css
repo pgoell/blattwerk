@@ -286,6 +286,12 @@ body:has(.print) { background: #fff; }
 .pages button.on { color: var(--ink); }
 .pages .paper { box-shadow: 0 0 0 1px var(--line); }
 .pages .on .paper { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A thumbnail is dragged to move its page: it fades, and a line shows the gap the page will land in. A finger held
+   on it starts the drag, not the system's menu. */
+.pages [data-thumb] { position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pages .drag { opacity: .4; }
+.pages .mark { position: absolute; top: 0; bottom: 0; left: -8px; width: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; }
+.pages .mark.end { left: auto; right: -8px; }
 .pages i { display: grid; place-items: center; width: 97px; border: 1px dashed var(--edge); border-radius: 2px; color: var(--faint); }
 .tpl { display: flex; align-items: center; padding-right: 8px; }
 .tpl button:first-child { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; padding: 0 6px 0 14px; border: 0; border-radius: 0; background: none; font-weight: 400; text-align: left; }

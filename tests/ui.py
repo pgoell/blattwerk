@@ -109,7 +109,9 @@ def maths(client, **more):
 
 
 def sheet(client, *pages):
-    doc = {"pages": [{"blocks": list(p)} for p in pages], "guides": {"x": [], "y": []}, "grid": 0}
+    """A sheet of the pages: each the list of its blocks, or a whole page with what is its own."""
+    pages = [p if isinstance(p, dict) else {"blocks": list(p)} for p in pages]
+    doc = {"pages": pages, "guides": {"x": [], "y": []}, "grid": 0}
     return client.post("/api/sheets", json={"title": "Plus bis 20", "doc": doc}).json()
 
 
@@ -217,6 +219,23 @@ def saved(page, client):
     return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
 
 
+def doc(page, client):
+    """The whole sheet as the server holds it, once the editor has saved a change."""
+    saved(page, client)
+    return client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]
+
+
+def thumb(page, n):
+    """Page n's thumbnail in the panel Seiten."""
+    return page.locator(f'.pages button[data-thumb="{n}"]')
+
+
+def order(page):
+    """The names of the blocks on each page of the desk, page by page."""
+    named = "(el) => [...el.querySelectorAll('.block[data-id]')].map((b) => b.dataset.id)"
+    return page.eval_on_selector_all(".sheet[data-page]", f"els => els.map({named})")
+
+
 def angle(page, name):
     """The degrees the block is turned by, clockwise, as its own style says: 0 with no turn."""
     found = re.search(
@@ -284,4 +303,21 @@ def swipe(page, *points):
         kind = "touchMove" if i else "touchStart"
         session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [{"x": x, "y": y}]})
     session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    session.detach()
+
+
+def hold_drag(page, held, start, *points):
+    """Holds a finger on `held` at the start until it lifts off for a drag, then moves and lifts."""
+    session = page.context.new_cdp_session(page)
+
+    def touch(kind, *at):
+        touched = [{"x": x, "y": y} for x, y in at]
+        session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
+
+    touch("touchStart", start)
+    # The hold is over when the page says so, however long it asks for.
+    expect(held).to_have_class(re.compile(r"\bdrag\b"))
+    for point in points:
+        touch("touchMove", point)
+    touch("touchEnd")
     session.detach()
