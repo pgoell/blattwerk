@@ -440,7 +440,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
-  const save = useRef((_keepalive: boolean) => {});
+  const save = useRef((_leaving: boolean, _keepalive?: boolean) => {});
   // The version the document here is based on.
   const version = useRef(file.version);
   const busy = useRef(false);
@@ -836,9 +836,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The server turns down a document based on an older version than it holds: then saving stops until the teacher
   // has chosen. The title goes along only when it changed here, so a rename from the list stays.
   // A change behind a save under way waits for the next save. On leaving there is none, so it goes as soon as that
-  // save is done, based on the version that one brought.
-  save.current = (keepalive) => {
-    const behind = busy.current && keepalive && (live.current.doc !== carried.current.doc || title !== carried.current.title);
+  // save is done, based on the version that one brought: on to another page of the app, that is, for in a window
+  // that closes no script runs by then.
+  save.current = (leaving, keepalive = leaving) => {
+    const behind = busy.current && leaving && (live.current.doc !== carried.current.doc || title !== carried.current.title);
     if (clash || (busy.current ? !behind : !dirty)) return;
     const now = (carried.current = { doc: live.current.doc, title });
     const named = title === stored.title ? {} : { title: title.trim() || "Unbenanntes Blatt" };
@@ -861,13 +862,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const timer = setTimeout(() => save.current(false), 2000);
     return () => clearTimeout(timer);
   }, [hist.doc, title, tries, stored, clash]);
-  // Leaving the editor or the app saves at once; `keepalive` lets the request outlive the window.
+  // Leaving the editor or the app saves at once. `keepalive` lets the request outlive the window, and the browser
+  // takes no more than 64 KiB that way: a sheet left for another page of the app is saved without it.
   useEffect(() => {
     const leave = () => save.current(true);
     window.addEventListener("pagehide", leave);
     return () => {
       window.removeEventListener("pagehide", leave);
-      leave();
+      save.current(true, false);
     };
   }, []);
 

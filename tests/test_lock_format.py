@@ -140,6 +140,24 @@ def test_a_larger_font_grows_a_turned_locked_box_from_the_edge_its_words_start_a
     assert stays(a, was)
 
 
+def test_a_larger_font_grows_a_locked_shape_and_a_table_of_one_group(editor):
+    """B3: the panel has a button for the shape's words and one for the table's."""
+    client = user()
+    (form,) = wordy(client, "shape", group=["g"])
+    (grid,) = wordy(client, "table", group=["g"])
+    page = editor(form, {**grid, "id": "frei", "z": 2, "y": 150, "locked": False}, client=client)
+    was = named(doc(page, client))
+    grab(page, "group")
+    for nth in (0, 1):
+        button(page, "Schrift größer").nth(nth).click()
+    now = named(doc(page, client))
+    for name in ("fest", "frei"):
+        assert size(now[name]) == 16
+        assert now[name]["h"] > was[name]["h"]
+        assert place(now[name]) == place(was[name])
+    assert now["fest"]["locked"]
+
+
 def lay_on(page, client, road, kind):
     """Lays the look of the free "a" on the locked "fest", by the brush or by the keys."""
     if road == "brush":
@@ -189,14 +207,25 @@ def on_page(b, w, h):
     return b["x"] >= 0 and b["y"] >= 0 and b["x"] + b["w"] <= w and b["y"] + b["h"] <= h
 
 
-@pytest.mark.parametrize("kind", KINDS)
+# The two kinds `fest` does not make: a Namenszeile and Punkte.
+OTHER = {"name": {}, "points": {"max": 10}}
+
+
+def every(client, kind):
+    """A locked block "fest" of any kind there is."""
+    if kind in OTHER:
+        return [box("fest", kind, OTHER[kind], locked=True)]
+    return fest(client, kind)
+
+
+@pytest.mark.parametrize("kind", [*KINDS, *OTHER])
 def test_quer_and_hoch_bring_a_locked_block_back_onto_the_page(editor, kind):
     """B5, I4: one near the bottom edge when the sheet is laid on its side, and one near the right
     edge of a page that lay so when the sheet stands upright again."""
     client = user()
-    low = [{**b, "y": 265} for b in fest(client, kind)]
+    low = [{**b, "y": 265} for b in every(client, kind)]
     # The second page lies on its side by itself, so its block can lie right of an upright page.
-    far = [{**b, "x": 200, "w": 80, "y": 100} for b in fest(client, kind)]
+    far = [{**b, "x": 200, "w": 80, "y": 100} for b in every(client, kind)]
     page = editor(*low, client=client, pages=[{"blocks": far, "landscape": True}])
     before = doc(page, client)
     page.get_by_role("tab", name="Ansicht").click()
