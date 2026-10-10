@@ -2,7 +2,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { alike, changed, fresh, redone, undone, type Hist, type Step } from "./history";
-import { EMPTY, read, type Block, type Doc } from "./sheet";
+import { bounds, mirrored, swung } from "./pages/Format";
+import { EMPTY, isLine, read, type Block, type Doc } from "./sheet";
 
 // The old sheets and templates of tests/corpus, as the server holds them.
 const files = import.meta.glob<{ doc: Doc }>("../../tests/corpus/*.json", { eager: true, import: "default" });
@@ -243,6 +244,56 @@ describe("undo and redo", () => {
         const away = change(from, block(n, coloured("#ff0000")), "colour");
         expect(away.h.past.length).toBe(from.h.past.length + 1);
         expect(change(away, block(n, coloured("#222222")), "colour").h).toStrictEqual(from.h);
+      }),
+    );
+  });
+});
+
+describe("a group", () => {
+  // A length on the sheet's hundredths of a mm, odd and even.
+  const cent = (min: number, max: number) => fc.integer({ min: min * 100, max: max * 100 }).map((n) => n / 100);
+  // Level blocks as a group holds them: boxes that are mirrored in themselves, texts that are not, and lines.
+  const kind = fc.constantFrom<[string, object]>(["shape", { kind: "triangle" }], ["text", { text: "x" }], ["shape", { kind: "line" }], ["shape", { kind: "arrow", from: "se" }]);
+  const group = fc.array(fc.tuple(cent(0, 150), cent(0, 200), cent(1, 60), cent(1, 60), kind), { minLength: 2, maxLength: 5 }).map((bs) => bs.map(([x, y, w, h, [type, props]], i) => ({ id: `${i}`, type, x, y, w, h, z: i, locked: false, props }) as unknown as Block));
+  // How a block lies, whether or not it names what it has none of.
+  const lie = (bs: Block[]) => bs.map((b) => [b.x + 0, b.y + 0, b.w, b.h, b.angle ?? 0, !!b.flipX, !!b.flipY, isLine(b) ? (b.props.from ?? "nw") : ""]);
+  // The box around the blocks to the hundredth, as a sheet stores a length.
+  const box = (bs: Block[]) => Object.values(bounds(bs)).map((n) => Math.round(n * 100) / 100 + 0);
+  const times = (n: number, go: (bs: Block[]) => Block[], bs: Block[]): Block[] => (n ? times(n - 1, go, go(bs)) : bs);
+
+  it("turns the left block of two to the top, and the right one below", () => {
+    const [a, b] = swung([{ id: "a", x: 60, y: 80, w: 30, h: 20 }, { id: "b", x: 100, y: 80, w: 30, h: 20 }] as Block[], 90);
+    expect([a.x, a.y, a.angle, b.x, b.y, b.angle]).toStrictEqual([80, 60, 90, 80, 100, 90]);
+  });
+
+  it.each([90, -90])("is where it began after four quarter turns by %d", (by) => {
+    fc.assert(fc.property(group, (bs) => void expect(lie(times(4, (to) => swung(to, by), bs))).toStrictEqual(lie(bs))));
+  });
+
+  it("is where it began after a quarter turn and one back", () => {
+    fc.assert(fc.property(group, (bs) => void expect(lie(swung(swung(bs, 90), -90))).toStrictEqual(lie(bs))));
+  });
+
+  it("of one block turns on its spot", () => {
+    fc.assert(
+      fc.property(group, fc.integer({ min: 1, max: 3 }), ([b], n) => {
+        // A line's box goes on its side.
+        fc.pre(!isLine(b));
+        expect(lie(times(n, (to) => swung(to, 90), [b])).map((l) => l.slice(0, 2))).toStrictEqual([[b.x, b.y]]);
+      }),
+    );
+  });
+
+  it.each(["x", "y"] as const)("on its side is where it was after two flips in %s", (axis) => {
+    fc.assert(fc.property(group, (bs) => void expect(lie(mirrored(mirrored(swung(bs, 90), axis), axis))).toStrictEqual(lie(swung(bs, 90)))));
+  });
+
+  it.each(["x", "y"] as const)("is where it began after two flips in %s, and its box has not moved after one", (axis) => {
+    fc.assert(
+      fc.property(group, (bs) => {
+        const once = mirrored(bs, axis);
+        expect(box(once)).toStrictEqual(box(bs));
+        expect(lie(mirrored(once, axis))).toStrictEqual(lie(bs));
       }),
     );
   });

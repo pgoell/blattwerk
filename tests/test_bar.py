@@ -599,4 +599,10 @@ def test_a_long_title_pushes_neither_pdf_nor_undo_out_of_the_window(editor, size
     title.fill("W" * 80)
     expect(title).to_have_value("W" * 80)
     expect_fitted(page)
-    assert page.evaluate(BAR)["names"] == before
+    # The title takes the room of what may fold (#318): those go under "Mehr", the last first, and
+    # the four that never fold stay where `expect_fitted` finds them.
+    names = page.evaluate(BAR)["names"]
+    assert names == before[: len(names)]
+    page.keyboard.press("Enter")
+    expect(title).not_to_be_focused()
+    expect_fitted(page)

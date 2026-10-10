@@ -87,7 +87,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { bounds, drawn, has, norm } from "./Format";
+import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -194,19 +194,14 @@ const span = (boxes: Box[], axis: Axis) => {
   const size = axis === "x" ? "w" : "h";
   return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
 };
-// The level box around a turned block's outline. It has the block's centre.
-const outline = <T extends Box>(b: T): T => {
-  const [c, s] = dir(b).map(Math.abs);
-  const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
-  return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
-};
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
 
-// `wait` is the loading page, which the app draws while this script loads too.
-export default function Editor({ user, wait }: { user: User; wait: ReactNode }) {
+// `wait` is the loading page, which the app draws while this script loads too. `first` is the sheet as the app
+// asked for it meanwhile, or null where it is not there.
+export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: Promise<Sheet | null> }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there.
   const [file, setFile] = useState<Sheet | null>();
@@ -214,7 +209,7 @@ export default function Editor({ user, wait }: { user: User; wait: ReactNode }) 
   function load() {
     api<Sheet>(`/sheets/${id}`).then(setFile, () => setFile(null));
   }
-  useEffect(load, [id]);
+  useEffect(() => void first.then(setFile), [first]);
 
   if (file === undefined) return wait;
   if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
@@ -362,6 +357,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // How far the row runs past the bar's end, and how much of the hint it has squeezed away before that.
     const hint = row.querySelector(".hint")!;
     let over = row.querySelector(".pdf")!.getBoundingClientRect().right + parseFloat(look.paddingRight) - row.getBoundingClientRect().right + hint.scrollWidth - hint.clientWidth;
+    // The title gives way first, so the row may end in the bar with the title cut: what it lacks counts too, up to
+    // the most a title may take. While it is edited that is all of it, and `none` is no number. Safari counts a
+    // whole title a pixel wider than its field: that is no lack.
+    const name = row.querySelector("input")!;
+    const lack = name.scrollWidth - name.clientWidth;
+    if (lack > 1) over += Math.min(lack, (parseFloat(getComputedStyle(name).maxWidth) || Infinity) - name.offsetWidth);
     let n = may.length;
     // A phone's bar wraps and keeps them all.
     if (look.flexWrap === "nowrap" && over > 0.5) {
@@ -376,8 +377,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   });
   // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
   // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
-  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not.
-  useLayoutEffect(refit, [leaf]);
+  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not. So it is when
+  // the title changes, and when its field gains or loses the focus: the bar's width stays, and tells of none.
+  useLayoutEffect(refit, [leaf, title]);
   useLayoutEffect(() => {
     // Before the browser paints the bar at its new width.
     const again = () => flushSync(refit);
@@ -461,11 +463,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
-  const free = sel.filter((b) => !b.locked);
+  // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
+  // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
+  const free = sel.filter((b) => !blocks.some((o) => o.locked && (o === b || (b.group && o.group?.[0] === b.group[0]))));
   // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
   const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
-  // A group with a locked block stays as a whole, so it keeps its shape.
-  const things = [...new Set(sel.map(thing))].map((t) => sel.filter((b) => thing(b) === t)).filter((t) => !t.some((b) => b.locked));
+  const things = [...new Set(free.map(thing))].map((t) => free.filter((b) => thing(b) === t));
   // Whether they line up among themselves.
   const among = !onPage && things.length > 1;
   // What can take another's size: a line has only its length.
@@ -1356,10 +1359,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
   // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
   const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
-  function copy() {
-    if (!sel.length) return;
-    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
-    const words = wordsOf(sel);
+  function copy(held = sel) {
+    if (!held.length) return;
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held }));
+    const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
@@ -1370,9 +1373,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     writing.current++;
     landed.catch(() => {}).finally(() => writing.current--);
   }
+  // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {
-    copy();
-    if (sel.length) remove();
+    copy(free);
+    remove();
   }
   // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
   function clip(): Block[] {
@@ -1425,9 +1429,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     if (!typed(words)) paste();
   }
+  // What is locked stays, and stays picked: "Entsperren" is one click away. With nothing free there is no undo step.
   function remove() {
-    change((bs) => bs.filter((b) => !ids.includes(b.id)));
-    setIds([]);
+    const gone = free.map((b) => b.id);
+    if (!gone.length) return;
+    change((bs) => bs.filter((b) => !gone.includes(b.id)));
+    setIds(ids.filter((id) => !gone.includes(id)));
   }
   const all = () => setIds(blocks.map((b) => b.id));
   // The selection with its groups made whole: grouping and ungrouping work on whole groups.
@@ -1625,18 +1632,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
     const first = from[0].angle ?? 0;
     const a = from.length > 1 ? stop(by) : stop(first + by) - first;
-    const all = bounds(from.map(outline));
-    const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
-    const [c, s] = dir({ angle: a });
-    flushSync(() =>
-      place(
-        from.map((b) => {
-          const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
-          return [b.id, { x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + a) }];
-        }),
-        "drag",
-      ),
-    );
+    flushSync(() => place(swung(from, a).map(({ id, x, y, angle }) => [id, { x, y, angle }]), "drag"));
   };
   // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
   // block may: a hand moves the mouse a pixel or two, and that turns nothing.
@@ -1650,25 +1646,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const under = spot.current && document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".block:not(.sel)"));
     if (under) pick(under, e.inputEvent.shiftKey);
   };
-  // The panel's buttons turn each block by a quarter about its own centre.
-  const spin = (by: number) => place(sel.map((b) => [b.id, { angle: norm((b.angle ?? 0) + by) }]));
-  // Mirrors each selected picture, symbol, shape and text in an outline about its own centre, as the page shows it:
-  // its angle mirrors too. A line's start changes corners instead, and a shape's text stays readable.
-  function mirror(axis: Axis) {
-    const swap: Record<Corner, Corner> = axis === "x" ? { nw: "ne", ne: "nw", sw: "se", se: "sw" } : { nw: "sw", sw: "nw", ne: "se", se: "ne" };
-    const flag = axis === "x" ? "flipX" : "flipY";
-    change((bs) =>
-      bs.map((b) => {
-        if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape" && !drawn(b))) return b;
-        // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
-        // An outline mirrors as a picture does; a box looks the same either way.
-        const flips = b.type !== "shape" || drawn(b);
-        if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        // A level block names no angle, and stays so.
-        return { ...b, ...(b.angle && { angle: norm(-b.angle) }), ...(flips && { [flag]: !b[flag] }) };
-      }),
-    );
-  }
+  // The panel's buttons turn and mirror each thing by itself, in one step: a group picked whole goes as one about
+  // the middle of the box around it, as the handle turns it and as in PowerPoint, and a loose block about its own.
+  const each = (go: (thing: Block[]) => Block[]) => {
+    const to = new Map(things.flatMap(go).map((b) => [b.id, b]));
+    change((bs) => bs.map((b) => to.get(b.id) ?? b));
+  };
+  const spin = (by: number) => each((t) => swung(t, by));
+  const mirror = (axis: Axis) => each((t) => mirrored(t, axis));
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
   // So does a text the resize left higher than its box.
   // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
@@ -1988,6 +1973,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     desk.current!.scrollBy(page.left + pinch.current.x * fit * next - x, page.top + pinch.current.y * fit * next - y);
   }
 
+  // With nothing free in it the selection is held, be it by a locked block of its group that is not picked.
   const locked = sel.length > 0 && !free.length;
   // A right click on the desk picks as in PowerPoint and opens the menu. In a field the browser's own stays: false.
   function menuAt(el: Element, x: number, y: number) {
@@ -2018,15 +2004,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const thumbed = menu?.thumb;
   type Command = Exclude<Item, "sep">;
   const clips: Command[] = [
-    { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: none, run: cut },
+    { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
     { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
     { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, run: pasteAny },
   ];
   const copies: Command[] = [
     { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
-    { label: "Löschen", icon: Trash2, keys: "Entf", disabled: none, run: remove },
+    { label: "Löschen", icon: Trash2, keys: "Entf", disabled: !free.length, run: remove },
   ];
-  const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) };
+  const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place((locked ? wide : sel).map((b) => [b.id, { locked: !locked }])) };
   const groups: Command[] = [
     { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
@@ -2203,6 +2189,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
     >
       <header>
+        {/* Blank.tsx draws this bar's boxes, and the panel's below, for a phone that loads: a change here goes there too. */}
         <div className="top" ref={bar} onPointerOver={holdName}>
           {leaf ? (
             <span className="modes" role="tablist">
@@ -2228,15 +2215,30 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={`pin${left ? " on" : ""}`} aria-pressed={left} onClick={() => showLeft(!left)} />
             </>
           )}
-          <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            type="text"
+            aria-label="Titel"
+            placeholder="Unbenanntes Blatt"
+            maxLength={80}
+            value={title}
+            // A title the bar cuts shows whole under the pointer, and while it is edited: see `refit`.
+            title={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onFocus={refit}
+            // A press that took the focus has its click still to come: the bar waits until the mouse button is up and
+            // the click is through, or the button pressed would move from under the pointer. A key ends it at once.
+            onBlur={() => (document.querySelector(":active") ? addEventListener("mouseup", () => setTimeout(refit), { once: true, capture: true }) : refit())}
+            // Enter ends the edit, as in PowerPoint, and gives the keys back; Escape does so for any field.
+            onKeyDown={(e) => e.key === "Enter" && back(e.currentTarget)}
+          />
           <span className="hint" role="status">
             {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
           </span>
           <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
           <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
           <i className="sep" />
-          {inBar("Ausschneiden") && <Tool icon={Scissors} label="Ausschneiden" disabled={!sel.length} onClick={cut} />}
-          {inBar("Kopieren") && <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={copy} />}
+          {inBar("Ausschneiden") && <Tool icon={Scissors} label="Ausschneiden" disabled={!free.length} onClick={cut} />}
+          {inBar("Kopieren") && <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => copy()} />}
           {inBar("Einfügen") && <Tool icon={ClipboardPaste} label="Einfügen" onClick={pasteAny} />}
           {inBar("Format übertragen") && (
             <Tool
@@ -2259,7 +2261,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             />
           )}
           {inBar("Duplizieren") && <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />}
-          {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />}
+          {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!free.length} onClick={remove} />}
           {inBar(lockIt.label) && <Tool icon={lockIt.icon!} label={lockIt.label} disabled={!sel.length} className={locked ? "on" : ""} onClick={lockIt.run} />}
           {inBar("Gruppieren") && <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />}
           {inBar("Gruppierung aufheben") && <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />}
@@ -2732,7 +2734,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
               </p>
               <Format
-                sel={sel}
+                // A block of a group with a locked one is as fixed there as the locked one.
+                sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}
                 look={look}
                 paint={paint}
@@ -2748,6 +2751,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}
+                alone={(b) => thing(b) === b.id}
                 lock={lock}
                 setLock={setLock}
                 size={[W, H]}
@@ -2821,6 +2825,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                       min={0.1}
                       step={0.1}
                       value={Math.round(Math.hypot(rulers[0].w, rulers[0].h) * 10) / 100}
+                      disabled={free.length < sel.length}
                       onChange={(e) => +e.target.value > 0 && extend(+e.target.value * 10)}
                     />
                   </label>
