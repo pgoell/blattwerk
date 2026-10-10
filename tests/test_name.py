@@ -33,11 +33,18 @@ def test_title_and_home_screen_name(browser, server):
 
 def test_pages_say_blattomat(browser, server, editor):
     page = browser.new_page()
-    page.goto(server)
+
+    def go(url):
+        # The app draws nothing until the server has said who is logged in. The first answer of
+        # a test makes the database, and a busy runner takes longer than `expect` waits.
+        with page.expect_response("**/api/me"):
+            page.goto(url)
+
+    go(server)
     expect(page.locator(".auth .logo")).to_have_text("Blattomat")
-    page.goto(f"{server}/einladung/{auth.new_link(db.open_db())}")
+    go(f"{server}/einladung/{auth.new_link(db.open_db())}")
     expect(page.get_by_role("heading", name="Willkommen bei Blattomat")).to_be_visible()
-    page.goto(f"{server}/ueber")
+    go(f"{server}/ueber")
     expect(page.get_by_role("heading", name="Über Blattomat")).to_be_visible()
     page.close()
 

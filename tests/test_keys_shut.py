@@ -2,7 +2,7 @@
 and shut with no pick."""
 
 import pytest
-from playwright.sync_api import expect
+from playwright.sync_api import TimeoutError, expect
 from test_keys_focus import CONTROLS, KINDS, OPEN
 from test_keys_panel import SELECTS, expect_caret, expect_words, write
 from ui import BROWSER, TEXT, box, expect_picked, pick
@@ -45,6 +45,17 @@ def shut(page, control, way):
         # Chromium's picker keeps the key and the colour the focus. WebKit opened no picker: the
         # key is the first since the press and gives the keys back itself.
         page.keyboard.press("Escape")
+        if BROWSER != "webkit":
+            # The picker is `:open` before it listens for keys. An Escape that comes in between is
+            # lost: the page sees none and the picker stays open. It is pressed again then, and
+            # an open picker keeps that one from the page too.
+            handle = control.element_handle()
+            for _ in range(5):
+                try:
+                    page.wait_for_function("el => !el.matches(':open')", arg=handle, timeout=2000)
+                    break
+                except TimeoutError:
+                    page.keyboard.press("Escape")
     elif way == "same":
         # A press on the select shuts its list as a click on the value it has does: no event comes.
         control.click()

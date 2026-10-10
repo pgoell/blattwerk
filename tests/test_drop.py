@@ -54,7 +54,8 @@ def beside(page, n=0):
 
 def landed(page, count, pictures=1, width=3):
     """Waits for `count` blocks with the dropped pictures alone selected and drawn. Gives those."""
-    expect(blocks(page)).to_have_count(count)
+    # The picture goes to the server before its block is there: a busy runner takes longer for it.
+    expect(blocks(page)).to_have_count(count, timeout=5000)
     expect(page.locator(".block.sel")).to_have_count(pictures)
     drawn = page.locator(".block.sel .picture img")
     expect(drawn).to_have_count(pictures)

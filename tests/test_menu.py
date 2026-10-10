@@ -674,8 +674,8 @@ def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
 
 
-# Not strict: it fails in CI alone, in two runs of seven, and nowhere else. What the page held then
-# is in the failure's text.
+# Not strict: it fails in CI in two runs of seven, and here in 2 of 20 cold starts on one busy core.
+# No block lies under the finger then. What the page held is in the failure's text.
 @pytest.mark.xfail(
     BROWSER == "webkit", strict=False, reason="#225: the tap picks nothing, now and then"
 )

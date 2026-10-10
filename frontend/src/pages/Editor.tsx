@@ -145,6 +145,8 @@ const NAMES: Record<Block["type"], string> = {
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht"];
 const GRIDS = [0, 5, 10, 20];
+// A thumbnail's smallest and largest width in px: three in a row of the panel Seiten, or one nearly as wide as it.
+const THUMBS = [60, 200];
 const NONE: Guides = { x: [], y: [] };
 // A finger that holds never rests still: within this many px of where it came down it has not moved.
 const SLOP = 10;
@@ -156,6 +158,23 @@ const LOOSE = 4;
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
+// Whether two sheets, or parts of them, are the same once saved: a key that holds nothing is saved as no key.
+function alike(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+  const [x, y] = [a, b] as Record<string, unknown>[];
+  return x.length === y.length && Object.keys({ ...x, ...y }).every((key) => alike(x[key], y[key]));
+}
+// What a text or a shape is drawn with, and the panel shows, where it names nothing. A shape's words say more.
+const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
+// The props that change a block. One the block does not name, set to what the block shows there, is left out:
+// a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known:
+// a line or a Lineatur made elsewhere that names no width or colour is drawn by the browser's own.
+const fresh = (b: Block, props: object) => {
+  const text = boxed(b);
+  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika" };
+  return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
+};
 // The pictures the server takes.
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
@@ -215,7 +234,10 @@ type Step = { doc: Doc; from: number; to: number };
 
 function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
   // A step of undo holds the sheet on its far side, and the page in use before and after its change.
-  const [hist, setHist] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  const [hist, draw] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
+  const live = useRef(hist);
+  const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
   const [title, setTitle] = useState(file.title);
   // What the server holds, and how often a save has failed since.
   const [stored, setStored] = useState({ doc: hist.doc, title });
@@ -323,6 +345,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
   const [zoom, setZoom] = useState(1);
+  // A thumbnail's width in px.
+  const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
   const [pan, setPan] = useState(false);
   const [panning, setPanning] = useState(false);
@@ -609,6 +633,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
       }
+      // A drag that has changed nothing yet has no step to take back.
       if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
       mergeKey.current = "";
       return;
@@ -770,19 +795,23 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
   });
-  // Ctrl and the wheel zoom the page about the pointer, not the window. A trackpad's pinch comes the same way. React's
-  // own wheel listener is passive, so this one is set by hand.
+  // Ctrl and the wheel zoom the page about the pointer, and never the window: over the bar and the panels they do
+  // nothing, and over the thumbnails they make those larger and smaller, as in PowerPoint. A trackpad's pinch comes
+  // the same way. React's own wheel listener is passive, so this one is set by hand.
   useEffect(() => {
-    const el = stage.current!;
     function onWheel(e: globalThis.WheelEvent) {
+      const on = e.target as Element;
       if (!e.ctrlKey && !e.metaKey) {
         // The hand lies over the desk, so a wheel on it scrolls the desk from here.
-        if ((e.target as Element).closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
+        if (on.closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
         return;
       }
       e.preventDefault();
       // One notch of a mouse wheel is one step of the buttons.
-      const next = Math.min(4, Math.max(0.25, zoom * 1.25 ** (-e.deltaY / 100)));
+      const by = 1.25 ** (-e.deltaY / 100);
+      if (on.closest(".pages")) return setThumb((w) => Math.min(THUMBS[1], Math.max(THUMBS[0], w * by)));
+      if (!stage.current!.contains(on)) return;
+      const next = Math.min(4, Math.max(0.25, zoom * by));
       // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
       const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
       let page = under.getBoundingClientRect();
@@ -793,8 +822,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
       desk.current!.scrollBy(Math.round(page.left + x * fit * next - e.clientX), Math.round(page.top + y * fit * next - e.clientY));
     }
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
   });
   // A finger held on a thumbnail for half a second drags it. One that moves away before then scrolls the panel, and
   // only a listener set by hand can keep the panel still once the drag is on.
@@ -835,10 +864,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
   // `to` is the page in use after the change, and `from` the one before: read as last drawn, for a block from the
   // server comes after the drawing that asked for it.
+  // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
+  // step, redo stays, and the sheet stays saved.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
+    const doc = fn(live.current.doc);
+    if (alike(doc, live.current.doc)) {
+      // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
+      if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
+      // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
+      // unless a change still waits to be drawn.
+      mergeKey.current = "";
+      if (live.current.doc === latest.current.doc) tight.current = false;
+      return;
+    }
     const merge = key !== "" && key === mergeKey.current;
     mergeKey.current = key;
-    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc: fn(h.doc), future: [] }));
+    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc, future: [] }));
   }
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
@@ -858,12 +899,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table") tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
   }
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
     tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
   }
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
@@ -874,7 +915,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       (bs) =>
         bs.map((b) => {
           const text = ids.includes(b.id) && boxed(b);
-          return text ? ({ ...b, props: { ...b.props, ...(text.rich && cleared(text.rich, props)), ...props } } as Block) : b;
+          return text ? ({ ...b, props: { ...b.props, ...(text.rich && cleared(text.rich, props)), ...fresh(b, props) } } as Block) : b;
         }),
       key,
     );
@@ -976,7 +1017,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // again. Set for the sheet, every page follows. Blocks the page no longer holds move back onto it.
   function lay(landscape: boolean | undefined, n?: number) {
     update((doc) => {
-      const next = { ...doc, ...(n === undefined && { landscape }), pages: doc.pages.map((p, i) => (n === undefined || i === n ? { ...p, landscape: n === undefined ? undefined : landscape } : p)) };
+      // A sheet that says nothing stands upright: "Hoch" leaves it so.
+      const next = { ...doc, ...(n === undefined && landscape !== !!doc.landscape && { landscape }), pages: doc.pages.map((p, i) => (n === undefined || i === n ? { ...p, landscape: n === undefined ? undefined : landscape } : p)) };
       const pages = next.pages.map((p, i) => {
         const [w, h] = sizeOf(next, i);
         if (w === sizeOf(doc, i)[0]) return p;
@@ -1517,7 +1559,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         // An outline mirrors as a picture does; a box looks the same either way.
         const flips = b.type !== "shape" || drawn(b);
         if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        return { ...b, angle: norm(-(b.angle ?? 0)), ...(flips && { [flag]: !b[flag] }) };
+        // A level block names no angle, and stays so.
+        return { ...b, ...(b.angle && { angle: norm(-b.angle) }), ...(flips && { [flag]: !b[flag] }) };
       }),
     );
   }
@@ -1984,6 +2027,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     <main
       className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
+      // The keys end a run of changes as a press of the mouse does: when they take the focus elsewhere, and when
+      // they press a button, also one that finds nothing to change. The next change is a step of its own.
+      onFocusCapture={() => (mergeKey.current = "")}
+      onClickCapture={() => (mergeKey.current = "")}
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
@@ -2130,7 +2177,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
             </span>
           </div>
-          <div className="pages" ref={strip}>
+          {/* As many thumbnails in a row as fit, 12 px apart, in the 206 px that two take at first. */}
+          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px`, "--across": Math.floor(218 / (Math.round(thumb) + 12)) } as CSSProperties}>
             {pages.map((_, n) => (
               <button
                 key={n}
@@ -2165,7 +2213,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
-                {n < small.pages.length && <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />}
+                {n < small.pages.length && <Thumb doc={small} k={thumb / sizeOf(small, n)[0]} page={n} />}
                 Seite {n + 1}
                 {/* The line where the dragged page will land: before this thumbnail, or after it. */}
                 {haul && haul.slot - +haul.after === n && (
