@@ -73,7 +73,7 @@ import {
   ZoomOut,
   type LucideIcon,
 } from "lucide-react";
-import Moveable, { type OnDrag, type OnResize } from "react-moveable";
+import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useParams } from "react-router";
 import { api, post, type User } from "../api";
@@ -1621,6 +1621,18 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       ),
     );
   };
+  // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
+  // block may: a hand moves the mouse a pixel or two, and that turns nothing.
+  const rotate = (e: OnRotate | OnRotateGroup) => {
+    if (spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3) return;
+    spot.current = undefined;
+    twist(e.dist, e.inputEvent.shiftKey);
+  };
+  // The handle lies over the block above the selection, so a click on it is that block's. Over empty paper it is none.
+  const rotated = (e: OnRotateEnd) => {
+    const under = spot.current && document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".block:not(.sel)"));
+    if (under) pick(under, e.inputEvent.shiftKey);
+  };
   // The panel's buttons turn each block by a quarter about its own centre.
   const spin = (by: number) => place(sel.map((b) => [b.id, { angle: norm((b.angle ?? 0) + by) }]));
   // Mirrors each selected picture, symbol, shape and text in an outline about its own centre, as the page shows it:
@@ -2602,12 +2614,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     // A table stays level, and a line turns by its ends.
                     rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some(isLine)}
                     rotationPosition="top"
-                    onRotateStart={(e) => begin([e.target])}
-                    onRotateGroupStart={(e) => begin(e.targets)}
-                    onRotate={(e) => twist(e.dist, e.inputEvent.shiftKey)}
-                    onRotateGroup={(e) => twist(e.dist, e.inputEvent.shiftKey)}
+                    onRotateStart={(e) => {
+                      spot.current = [e.clientX, e.clientY];
+                      begin([e.target]);
+                    }}
+                    onRotateGroupStart={(e) => {
+                      spot.current = [e.clientX, e.clientY];
+                      begin(e.targets);
+                    }}
+                    onRotate={rotate}
+                    onRotateGroup={rotate}
+                    onRotateEnd={rotated}
                     // Moveable measures the box around the blocks anew: turned with them where they share an angle, else level.
-                    onRotateGroupEnd={() => moveable.current!.updateRect()}
+                    onRotateGroupEnd={(e) => {
+                      moveable.current!.updateRect();
+                      rotated(e);
+                    }}
                     onResize={(e) => resize([e])}
                     onResizeGroup={(e) => resize(e.events)}
                     onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
