@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_menu import several, spot
-from ui import TEXT, at, box, centre, expect_picked, finger, jitter, outlast
+from ui import TEXT, apart, at, box, centre, expect_picked, finger, jitter, outlast
 
 OPEN = ".ProseMirror, .block textarea:not([readonly]), .crop"
 NAMES = {"one": "a", "group": "ab", "several": "ab"}
@@ -13,9 +13,8 @@ def chosen(editor, kind):
     """The texts selected by taps, with Mehrere off: "a", or "a" and "b" as a group or several."""
     group = {"group": ["g"]} if kind == "group" else {}
     names = NAMES[kind]
-    page = editor(
-        *(box(n, "text", TEXT, z=z + 1, **group) for z, n in enumerate(names)), touch=True
-    )
+    blocks = (box(n, "text", TEXT, z=z + 1, **group) for z, n in enumerate(names))
+    page = editor(*apart(*blocks), touch=True)
     if kind == "several":
         several(page).tap()
         at(page, "b").tap()

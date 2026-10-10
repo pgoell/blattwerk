@@ -52,6 +52,46 @@ def test_ci_has_the_checks_the_merge_needs():
     assert "run: mise run test " in shards
 
 
+def test_the_native_job_runs_the_headed_tests_and_no_merge_waits_for_it():
+    native = part(CI, "native")
+    assert "name: Native" in native
+    assert "run: mise run test:native" in native
+    assert re.search(r"^    timeout-minutes: \d+$", native, re.M)
+    # The whole Chromium, each try with an end, as the shards load theirs.
+    install = "uv run playwright install chromium"
+    assert f'install="{install}"' in native
+    assert "timeout -k 5 80 $install || timeout -k 5 80 $install" in native
+    assert "native" not in part(CI, "test")
+    assert "Native" not in PROTECTION["required_status_checks"]["contexts"]
+
+
+def test_the_native_tests_use_the_mouse_and_the_keyboard_only():
+    text = (REPO / "tests/test_native.py").read_text()
+    # A locator finds and checks; it neither acts nor sets anything in the page.
+    for call in (
+        "dispatch_event",
+        "evaluate",
+        "eval_on_selector",
+        "wait_for_function",
+        "select_option",
+        "set_input_files",
+        "fill",
+        "focus",
+        "check",
+        "tap",
+        "hover",
+        "dblclick",
+        "drag_to",
+    ):
+        assert not re.search(rf"\.{call}\w*\(", text), call
+    # A click is the mouse's, a key the keyboard's.
+    assert not re.search(r"(?<!\.mouse)\.click\(", text)
+    assert not re.search(r"(?<!\.keyboard)\.(press|type)\(", text)
+    # The file dialog is the system's: its file goes in through the chooser, once.
+    assert text.count("set_files(") == 1
+    assert "expect_file_chooser" in text
+
+
 def test_the_chromium_step_is_bounded_and_runs_no_apt():
     assert "--with-deps" not in code(CI)
     assert "install-deps" not in code(CI)

@@ -11,6 +11,7 @@ from ui import (
     RULING,
     TABLE,
     TEXT,
+    apart,
     at,
     box,
     expect_picked,
@@ -575,9 +576,8 @@ def test_the_brush_works_from_an_open_lineatur(editor):
 
 def test_a_tap_on_the_selected_lineatur_paints(editor):
     client = user()
-    page = editor(
-        box("a", "ruling", SCRIPT), box("b", "ruling", RULING, z=2), client=client, touch=True
-    )
+    blocks = apart(box("a", "ruling", SCRIPT), box("b", "ruling", RULING, z=2))
+    page = editor(*blocks, client=client, touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()
@@ -672,7 +672,8 @@ def test_the_brush_carries_the_border(editor):
 
 def test_a_tap_paints(editor):
     client = user()
-    page = editor(box("a", "text", FINE), box("b", "text", TEXT, z=2), client=client, touch=True)
+    blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
+    page = editor(*blocks, client=client, touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).tap()
@@ -863,7 +864,8 @@ def test_every_block_gives(editor):
 
 def test_a_tap_on_the_selected_block_paints(editor):
     client = user()
-    page = editor(box("a", "text", FINE), box("b", "text", TEXT, z=2), client=client, touch=True)
+    blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
+    page = editor(*blocks, client=client, touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()
