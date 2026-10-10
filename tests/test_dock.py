@@ -30,9 +30,9 @@ DOCK = """() => {
 }"""
 
 
-def narrow(editor, width, touch=False, theme=""):
+def narrow(editor, width, touch=False, theme="", more=()):
     """The editor in a window of that width, opened anew at it, with fingers or a mouse."""
-    page = editor(text("a"), theme=theme, touch=touch)
+    page = editor(text("a"), theme=theme, touch=touch, more=more)
     # The panels a window starts with go by its width as the editor opens.
     page.set_viewport_size({"width": width, "height": 900})
     page.reload()
@@ -91,3 +91,62 @@ def test_for_a_mouse_every_tool_of_the_wrapped_dock_lies_in_the_window(editor, t
     assert got["inside"] and got["dock"], got
     for button in page.locator(TOOLS).all():
         expect(button).to_be_in_viewport(ratio=1)
+
+
+# The desk scrolled to its end: how far the last sheet reaches under the highest dock, the room
+# each of the three keeps free of the dock, and what the dock needs from the desk's lower edge.
+ROOM = """() => {
+    const desk = document.querySelector(".desk");
+    desk.scrollTop = desk.scrollHeight;
+    const tops = (css) => [...document.querySelectorAll(css)]
+        .map((el) => el.getBoundingClientRect().top);
+    const top = Math.min(...tops(".stage .dock"));
+    const px = (el, key) => el ? parseFloat(getComputedStyle(el)[key]) : null;
+    return {
+        over: [...desk.querySelectorAll(".sheet")].at(-1).getBoundingClientRect().bottom - top,
+        desk: px(desk, "paddingBottom"),
+        block: px(desk.querySelector(".block"), "scrollMarginBottom"),
+        drawer: px(document.querySelector(".left, .panel"), "paddingBottom"),
+        needs: desk.getBoundingClientRect().bottom - top,
+        rows: new Set(tops(".stage .dock .ib").map(Math.round)).size,
+    };
+}"""
+
+
+@THEMES
+@pytest.mark.parametrize("width", [360, 701])
+def test_for_a_mouse_the_dock_lies_over_no_part_of_the_sheet_scrolled_to_its_end(
+    editor, theme, width
+):
+    """A1, I2"""
+    # A second page, so the desk has an end to scroll to and Blattform shows its page number.
+    got = narrow(editor, width, theme=theme, more=[text("b")]).evaluate(ROOM)
+    assert got["over"] <= 0 and got["desk"] >= got["needs"], got
+
+
+def test_the_room_under_the_sheet_follows_the_dock_as_the_window_narrows(editor):
+    """I1"""
+    page = editor(text("a"), theme="", more=[text("b")])
+    wide = page.evaluate(ROOM)
+    assert wide["rows"] == 1 and wide["desk"] == 88, wide
+    page.set_viewport_size({"width": 360, "height": 900})
+    page.wait_for_function(f"({ROOM})().rows > 2")
+    page.wait_for_function(f"({ROOM})().over <= 0")
+
+
+def test_for_a_finger_the_desk_keeps_the_room_it_had_under_a_dock_of_one_row(editor):
+    """I4"""
+    got = narrow(editor, 360, touch=True, more=[text("b")]).evaluate(ROOM)
+    assert got["rows"] == 1 and got["desk"] == 88 and got["over"] <= 0, got
+
+
+def test_all_that_keeps_clear_of_the_dock_follows_its_height(editor):
+    """I8"""
+    # An upright window with a mouse: the panels are drawers, and the dock has two rows.
+    page = narrow(editor, 701)
+    page.get_by_role("button", name="Seiten und Vorlagen").click()
+    got = page.evaluate(ROOM)
+    assert got["rows"] == 2 and got["desk"] > 88, got
+    assert got["desk"] == got["block"] == got["drawer"] >= got["needs"], got
+    got = narrow(editor, 1400).evaluate(ROOM)
+    assert got["rows"] == 1 and got["desk"] == got["block"] == 88, got

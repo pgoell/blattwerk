@@ -539,6 +539,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     observer.observe(desk.current!);
     return () => observer.disconnect();
   }, []);
+  // For a mouse the dock wraps to more rows in a narrow window: the styles keep as much room free as it is high.
+  useLayoutEffect(() => {
+    const dock = stage.current!.querySelector<HTMLElement>(".dock")!;
+    const observer = new ResizeObserver(() => stage.current!.parentElement!.style.setProperty("--dock", `${dock.offsetHeight}px`));
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [leaf]);
 
   // Moveable needs the elements, and they exist only after the blocks render.
   useLayoutEffect(() => {

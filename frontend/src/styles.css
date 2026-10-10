@@ -332,8 +332,10 @@ body:has(.print) { background: #fff; }
 
 /* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
 .stage { grid-area: 2 / 2; position: relative; display: grid; min-width: 0; min-height: 0; }
+/* What keeps clear of the dock: 88px under a dock of one row, for a mouse or a finger, and more under one that has wrapped. */
+.editor { --room: max(88px, var(--dock, 0px) + 30px); }
 .desk {
-  overflow: auto; scrollbar-gutter: stable; padding: 32px 32px 88px; touch-action: pan-x pan-y;
+  overflow: auto; scrollbar-gutter: stable; padding: 32px 32px var(--room); touch-action: pan-x pan-y;
   background: var(--desk) radial-gradient(var(--dot) 1px, transparent 1.5px) 0 0 / 20px 20px;
 }
 /* What can go on the page: a bar that floats over the desk's lower edge. */
@@ -381,7 +383,7 @@ body:has(.print) { background: #fff; }
 .sheet { --sel: #16a878; }
 .sheet .moveable-control-box { --moveable-color: var(--sel); }
 /* A block that Tab scrolls to stops clear of the desk's edge and of the bar that floats over the lower one. */
-.block { position: absolute; min-width: 8px; min-height: 8px; scroll-margin: 32px 32px 88px; }
+.block { position: absolute; min-width: 8px; min-height: 8px; scroll-margin: 32px 32px var(--room); }
 /* While the format painter is on, the pointer says so all over the desk, also on Moveable's handles. */
 .editor.brush .desk, .editor.brush .desk * { cursor: copy !important; }
 /* While Space is held a hand lies over the desk, above the guides and Moveable's handles, and its drag moves the desk. */
@@ -602,7 +604,7 @@ body:has(.print) { background: #fff; }
   .editor { grid-template-columns: minmax(0, 1fr); }
   .stage { grid-area: 2 / 1; }
   /* The shadow falls on the desk beside a drawer, not on the bar above it. */
-  .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: 88px; box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
+  .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: var(--room); box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
   .left { justify-self: start; }
   .panel { justify-self: end; }
   .dock { z-index: 5; }
