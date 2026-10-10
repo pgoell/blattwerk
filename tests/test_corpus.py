@@ -13,7 +13,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from pixels import LIMIT, diff, screen_and_print
+from pixels import over, screen_and_print
 from playwright.sync_api import expect
 from ui import sheet, user
 
@@ -151,6 +151,19 @@ def test_the_blanking_turns_letters_to_x_and_digits_to_0_and_replaces_a_picture(
     assert corpus.blanked("Jörg Weiß, 4a") == "Xxxx Xxxx, 0x"
 
 
+def bare(text):
+    """Whether the text is x, 0 and what is neither a letter nor a digit, as the README says."""
+    return all(c in "xX0" or not (c.isalpha() or c.isdigit()) for c in text)
+
+
+def test_a_half_is_no_digit_to_the_blanking_and_to_the_shape():
+    """X7"""
+    # "½" is a number and no digit: the script lets it stand, and the shape must take it.
+    assert corpus.blanked("½ Apfel, 2²") == "½ Xxxxx, 00"
+    assert bare("½ Xxxxx, 00")
+    assert not bare("½ Apfel") and not bare("½ Xxxxx, 2") and not bare("ß")
+
+
 def layout(value, key=""):
     """The value with each string that is no layout told by its length alone."""
     if isinstance(value, str):
@@ -202,7 +215,7 @@ def test_a_corpus_file_holds_no_word_but_layout(file):
     assert set(keys(made)) <= KEYS
     for key, text in corpus.strings(made):
         if not (key in KEPT and re.fullmatch(KEPT[key], text)):
-            assert re.fullmatch(r"[xX0\W_]*", text), f"under {key}"
+            assert bare(text), f"under {key}"
     # A picture shows upload 0, which no one has.
     assert all(b["props"]["upload"] == 0 for b in blocks(made["doc"]) if b["type"] == "image")
 
@@ -213,6 +226,40 @@ def words(texts):
     return {w for w in found if w.strip("x")}
 
 
+# The README's own words, which no teacher wrote: a sheet with "Kind" or "Hand" in it is no leak
+# of "kind" and "by hand" there. A word the README gains counts until it stands here too.
+PROSE = words(
+    [
+        "allow also and blanked blattwerk block colour copy corpus database digit each edit every "
+        "file find folder font for from hand here its keeps kind letter like live looks not now "
+        "numbers old one only opens other page picture place prints python read reword run saves "
+        "script scripts sheets should show size source stay stays stored string suite teachers "
+        "templates tests the them this too upload where with word would wrote"
+    ]
+)
+
+
+def hunt(con, folder):
+    """How many of the database's words the folder's files hold, how many its README holds, and
+    how many were looked for. Numbers alone: a failure must never print a teacher's word."""
+    free = [
+        part for (email,) in con.execute("SELECT email FROM users") for part in email.split("@")
+    ]
+    for _, _, text, doc in corpus.rows(con):
+        free += [text, *(s for key, s in corpus.strings(doc) if not corpus.kept(key, s))]
+    live = words(free)
+    # Not the files' names: the test of what the corpus holds allows them one pattern, and
+    # "sheet" or "template" in a teacher's text would be found in every one.
+    hay = []
+    for file in folder.glob("*.json"):
+        made = json.loads(file.read_text())
+        hay += [s for key, s in corpus.strings(made) if not corpus.kept(key, s)]
+    hay = "\n".join(hay).casefold()
+    # The README's few lines are prose, so there a whole word counts.
+    prose = len(live & (words([(folder / "README.md").read_text()]) - PROSE))
+    return sum(word in hay for word in live), prose, len(live)
+
+
 def test_no_live_word_is_in_the_corpus():
     """Against the copy of the database: the files are the script's, and hold none of its words."""
     if not SOURCE:
@@ -220,30 +267,43 @@ def test_no_live_word_is_in_the_corpus():
     con = sqlite3.connect(f"file:{Path(SOURCE).resolve()}?mode=ro", uri=True)
     rows = list(corpus.rows(con))
     assert [file for file, *_ in rows] == [f.name for f in FILES]
-    free = [
-        part for (email,) in con.execute("SELECT email FROM users") for part in email.split("@")
-    ]
     for file, name, text, doc in rows:
         # The file is what the script makes of the row today.
         assert json.loads((CORPUS / file).read_text()) == {
             name: corpus.blanked(text),
             "doc": corpus.blank(doc),
         }
-        free += [text, *(s for key, s in corpus.strings(doc) if not corpus.kept(key, s))]
-    live = words(free)
-    hay = [f.name for f in FILES]
-    for file in FILES:
-        made = json.loads(file.read_text())
-        hay += [s for key, s in corpus.strings(made) if not corpus.kept(key, s)]
-    hay = "\n".join(hay).casefold()
-    # The README's few lines are prose, so there a whole word counts.
-    prose = len(live & words([(CORPUS / "README.md").read_text()]))
-    found = sum(word in hay for word in live)
-    # Counted first, and the words dropped: a failure must print a number, never a teacher's word.
-    looked = len(live)
-    del live, free, rows, hay
+    del rows
+    found, prose, looked = hunt(con, CORPUS)
     assert (found, prose) == (0, 0)
     print(f"\n{looked} live words looked for in {len(FILES)} corpus files: none found")
+
+
+def test_the_readmes_own_words_and_a_files_name_are_no_live_word(tmp_path):
+    """X6"""
+    # A database no teacher wrote, with words the README and the files' names hold too.
+    source, folder = tmp_path / "made.db", tmp_path / "corpus"
+    said = {"type": "text", "props": {"text": "Das Kind hebt die Hand."}}
+    doc = json.dumps({"pages": [{"blocks": [{"id": "vorlage-1", **said}]}]})
+    con = sqlite3.connect(source)
+    con.execute("CREATE TABLE users (email TEXT)")
+    con.execute("CREATE TABLE sheets (id INTEGER PRIMARY KEY, title TEXT, doc TEXT)")
+    con.execute("CREATE TABLE templates (id INTEGER PRIMARY KEY, name TEXT, doc TEXT)")
+    con.execute("INSERT INTO users VALUES ('sheet@template.example')")
+    con.execute("INSERT INTO sheets (title, doc) VALUES ('Kind und Hand', ?)", (doc,))
+    con.execute("INSERT INTO templates (name, doc) VALUES ('Json', ?)", (doc,))
+    con.commit()
+    corpus.main(str(source), str(folder))
+    readme = (CORPUS / "README.md").read_text()
+    (folder / "README.md").write_text(readme)
+    assert hunt(con, folder) == (0, 0, 10)
+    # A word the README gains, and a file that kept one of its words: both are still found.
+    (folder / "README.md").write_text(f"{readme}\nSie hebt den Arm.")
+    assert hunt(con, folder) == (0, 1, 10)
+    kept = json.loads((folder / "sheet-1.json").read_text())
+    kept["title"] = "Xxxx xxx Hand"
+    (folder / "sheet-1.json").write_text(json.dumps(kept))
+    assert hunt(con, folder) == (1, 1, 10)
 
 
 @pytest.fixture
@@ -331,5 +391,4 @@ def test_a_corpus_file_prints_as_it_shows(browser, server, file):
     client = user()
     sheet_id = client.post("/api/sheets", json={"title": "Blatt", "doc": made["doc"]}).json()["id"]
     for n in range(len(made["doc"]["pages"])):
-        share, _ = diff(*screen_and_print(browser, server, client, sheet_id, n))
-        assert share < LIMIT, f"page {n}"
+        assert not over(*screen_and_print(browser, server, client, sheet_id, n)), f"page {n}"
