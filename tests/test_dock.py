@@ -57,6 +57,51 @@ def test_a_tools_name_shows_whole_over_it_on_hover_in_a_narrow_window(editor):
 
 
 @THEMES
+@pytest.mark.parametrize("width", [360, 600, 701])
+def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(editor, theme, width):
+    """A2, I2, I3"""
+    page = narrow(editor, width, theme=theme)
+    tools = page.locator(TOOLS).all()
+    assert len(tools) > 10
+    last = {360: "Namenszeile", 701: "Sprechblase"}.get(width)
+    shifted = []
+    for button in tools:
+        button.hover()
+        tip = button.evaluate(TIP)
+        name = button.get_attribute("aria-label")
+        assert tip and tip["content"] == f'"{name}"', tip
+        assert tip["cut"] is None, tip
+        on = button.bounding_box()
+        middle = on["x"] + on["width"] / 2
+        half = (tip["box"]["right"] - tip["box"]["left"]) / 2
+        # Centred where that leaves it clear of the window's edges, else as near to it as it gets.
+        want = min(max(middle, 4 + half), width - 4 - half)
+        assert abs(tip["box"]["left"] + half - want) < 0.5, (name, tip)
+        if want != middle:
+            shifted.append(name)
+    # The tool at the end of the first row is one that has no room.
+    assert last is None or last in shifted, shifted
+    assert len(shifted) < len(tools) / 2, shifted
+
+
+@THEMES
+def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(editor, theme):
+    """I3"""
+    page = editor(text("a"), theme=theme)
+    # Only Blattform has the shapes in a panel, at the window's left.
+    shapes = page.locator(".insert .shapes .ib")
+    assert (shapes.count() > 1) == (theme is None)
+    for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *shapes.all()[1:]):
+        button.hover()
+        tip = button.evaluate(TIP)
+        assert tip, button
+        on = button.bounding_box()
+        middle = (tip["box"]["left"] + tip["box"]["right"]) / 2
+        assert abs(middle - on["x"] - on["width"] / 2) < 0.5, tip
+        assert button.evaluate("(el) => getComputedStyle(el, '::after').marginLeft") == "0px"
+
+
+@THEMES
 def test_for_a_mouse_the_dock_wraps_in_a_narrow_window_as_in_a_wider_one(editor, theme):
     """B2"""
     wide = narrow(editor, 701, theme=theme).evaluate(DOCK)

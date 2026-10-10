@@ -301,7 +301,7 @@ body:has(.print) { background: #fff; }
     border-radius: 6px; background: var(--ink); color: var(--bg); font: 500 11.5px/1.4 var(--ui); white-space: nowrap; pointer-events: none;
   }
   /* As many classes as the rule above, or the name falls under the window and a scrollbar squeezes the desk. */
-  .stage .dock .ib:hover::after { top: auto; bottom: calc(100% + 12px); }
+  .stage .dock .ib:hover::after { top: auto; bottom: calc(100% + 12px); margin-left: var(--shift, 0px); }
 }
 
 .left, .panel { overflow: auto; background: var(--panel); }

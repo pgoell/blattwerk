@@ -2689,7 +2689,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             )}
           </>
         ) : (
-          <div className="dock" role="toolbar" aria-label="Einfügen">
+          <div className="dock" role="toolbar" aria-label="Einfügen" onPointerOver={holdName}>
             {tools}
           </div>
         )}
@@ -3000,6 +3000,19 @@ function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
       )}
     </div>
   );
+}
+
+// The name over a tool at the dock's end would poke out of the window: it shifts to stay 4 px inside.
+function holdName(e: PointerEvent<HTMLElement>) {
+  const on = (e.target as Element).closest(".ib");
+  if (!on) return;
+  const name = getComputedStyle(on, "::after");
+  // No name shows where the pointer is no mouse; its width is then no number.
+  const half = (parseFloat(name.width) + parseFloat(name.paddingLeft) + parseFloat(name.paddingRight)) / 2 || 0;
+  const { left, width } = on.getBoundingClientRect();
+  const middle = left + width / 2;
+  const shift = Math.max(4 + half - middle, 0) + Math.min(innerWidth - 4 - half - middle, 0);
+  e.currentTarget.style.setProperty("--shift", `${shift}px`);
 }
 
 // A button that is its icon; the name shows when the pointer rests on it.
