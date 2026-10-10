@@ -1,6 +1,7 @@
 """A line style or a width gives a text or a shape with no border one, as in PowerPoint (#291)."""
 
 import io
+import re
 
 import pytest
 from PIL import Image
@@ -17,11 +18,16 @@ STYLES = {"Durchgezogen": None, "Gestrichelt": "dashed", "Gepunktet": "dotted"}
 # A text as sheets stored it before: a style and a width, and no border to show them.
 OLD = {**TEXT, "dash": "dashed", "strokeWidth": 2}
 BLACK = "#222222"
-# A border's width in px, and the px of a mm of the sheet.
-WIDTH = """(el) => [
-    parseFloat(getComputedStyle(el).borderTopWidth),
-    el.closest(".sheet").getBoundingClientRect().width / 210,
-]"""
+
+
+def shadow(width, colour="rgb(34, 34, 34)"):
+    """What `box-shadow` reads for a solid border so many mm wide: a shadow inside the box.
+
+    Its width is the border's in the px the page is laid out in, not rounded to whole ones.
+    """
+    # To a thousandth of a pixel: each browser writes its own number of digits after that.
+    px = f"{int(width * 96 / 25.4 * 1000) / 1000:.3f}".rstrip("0").rstrip(".")
+    return re.compile(rf"^{re.escape(colour)} 0px 0px 0px {re.escape(px)}\d*px inset$")
 
 
 def button(page, label):
@@ -33,7 +39,7 @@ def none(page):
 
 
 def expect_border(frame, dash=None, width=0.5):
-    """Waits for the frame's border: the box's own where it is solid, else dashes drawn over it."""
+    """Waits for the frame's border: a shadow where it is solid, else dashes drawn over it."""
     drawn = frame.locator("svg.dashes > rect")
     if dash:
         expect(drawn).to_have_attribute("stroke", BLACK)
@@ -42,17 +48,16 @@ def expect_border(frame, dash=None, width=0.5):
         assert drawn.get_attribute("stroke-linecap") == ("round" if dash == "dotted" else None)
     else:
         expect(drawn).to_have_count(0)
-        expect(frame).to_have_css("border-top-style", "solid")
-        expect(frame).to_have_css("border-top-color", "rgb(34, 34, 34)")
-        # The browser rounds a border down to whole pixels.
-        px, mm = frame.evaluate(WIDTH)
-        assert 1 <= px == pytest.approx(width * mm, abs=1)
+        # No CSS border: the browser rounds that down to whole pixels.
+        expect(frame).to_have_css("border-top-style", "none")
+        expect(frame).to_have_css("box-shadow", shadow(width))
 
 
 def expect_bare(page, frame):
     """Waits until the frame has no border, and the panel shows none."""
     expect(frame.locator("svg.dashes")).to_have_count(0)
     expect(frame).to_have_css("border-top-style", "none")
+    expect(frame).to_have_css("box-shadow", "none")
     expect(none(page)).to_be_disabled()
     for label in STYLES:
         expect(button(page, label)).not_to_have_class("on")
@@ -253,6 +258,7 @@ def test_an_old_text_with_a_style_and_no_stroke_stays_bare_on_screen_and_in_the_
     paper.wait_for_selector("body.ready", state="attached")
     expect(paper.locator(".frame svg.dashes")).to_have_count(0)
     expect(paper.locator(".frame")).to_have_css("border-top-style", "none")
+    expect(paper.locator(".frame")).to_have_css("box-shadow", "none")
     paper.close()
     screen, printed = screen_and_print(browser, server, client, sheet_id)
     assert over(screen, printed) == []

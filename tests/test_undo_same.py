@@ -311,7 +311,7 @@ SET = """(el, to) => {
 LOOK = """(el) => [...el.querySelectorAll("*")].map((part) => {
     const s = getComputedStyle(part);
     const all = [s.fontFamily, s.color, s.lineHeight, s.justifyContent, s.textAlign];
-    return [...all, s.borderRadius, s.borderTopWidth, s.backgroundColor].join();
+    return [...all, s.borderRadius, s.borderTopWidth, s.boxShadow, s.backgroundColor].join();
 }).join(";")"""
 
 

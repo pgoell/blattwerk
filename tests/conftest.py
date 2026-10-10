@@ -14,6 +14,15 @@ NATIVE = os.environ.get("BLATTWERK_NATIVE") == "1"
 IPAD = {"width": 834, "height": 1194}
 TURNED = {"width": 1194, "height": 834}
 expect.set_options(timeout=2000)
+# Whether the widest page fills the desk's width, as it does at a zoom of 100 % once the editor
+# has measured the desk.
+MEASURED = """() => {
+    const desk = document.querySelector('.desk'), look = getComputedStyle(desk);
+    const room = desk.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
+    const sheets = [...desk.querySelectorAll('.sheet')];
+    const widest = Math.max(...sheets.map((el) => el.getBoundingClientRect().width));
+    return Math.abs(widest - room) < 1;
+}"""
 
 
 @pytest.hookimpl(trylast=True)
@@ -126,10 +135,15 @@ def editor(browser, server, playwright):
         rest = [*([more] if more else []), *pages]
         page.goto(f"{server}/blatt/{sheet(client, blocks, *rest)['id']}")
         # The editor listens for keys once the sheet has loaded.
-        expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
+        # The first load of a cold browser takes more than the 2 s of every other wait when the
+        # machine has more workers than cores.
+        expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
         # A thumbnail draws blocks too, with no name.
         count = len(blocks) + len(more) + sum(len(p["blocks"]) for p in pages)
         expect(page.locator(".block[data-id]")).to_have_count(count)
+        # The editor first draws the sheet 210 px wide and fits it to the desk once it has measured
+        # the desk, a frame later or more. A place read before then is not where the block ends up.
+        page.wait_for_function(MEASURED, timeout=10000)
         return page
 
     yield start
