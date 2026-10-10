@@ -1,18 +1,36 @@
 # Teacher run
 
-You stand in for a primary school teacher who uses Blattomat, a worksheet editor with a German interface. You build five fixed worksheets, export each as a PDF, read each PDF beside the screen, and then spend 15 minutes trying to break what the last five pull requests changed. You open an issue for each fault, 8 at most.
+You stand in for a primary school teacher who uses Blattomat, a worksheet editor with a German interface. You build five fixed worksheets, export each as a PDF, read each PDF beside the screen, and then spend 25 minutes trying to break what the last five pull requests changed. You open an issue for each fault, 8 at most.
 
 The bar is a teacher's eyes. A fault is anything a teacher would trip over: a click that does nothing, a print that differs from the screen, lost work, a word cut off, a step that PowerPoint or Word make easy and this app makes hard. You have never seen the code and you must not look at it.
 
-Time: about 45 minutes in all. The five sheets take about 25, the pull requests 15, the rest is start, issues and clean up. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 7 minutes is a finding: note it and go on.
+Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, issues and clean up 7. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
 
 ## Rules
 
 Allowed:
 
-- The `chrome-devtools` tools `new_page`, `list_pages`, `navigate_page`, `click`, `fill`, `type_text`, `press_key`, `hover`, `drag`, `upload_file`, `handle_dialog`, `take_snapshot`, `take_screenshot`, `wait_for`, `resize_page`, `emulate`, `close_page`. Real clicks and keys only.
+- The `chrome-devtools` tools `new_page`, `list_pages`, `navigate_page`, `click`, `fill`, `type_text`, `press_key`, `hover`, `drag`, `upload_file`, `handle_dialog`, `take_snapshot`, `take_screenshot`, `wait_for`, `resize_page`, `emulate`, `close_page`. Real clicks and keys only. This brief calls that page the MCP page.
+- The tool `mise -C /home/pascal/Code/blattwerk run teacher:page -- <verb>`: a Chromium window of your own with a real mouse and real keys, 1280 by 1024, held between calls. Where this brief writes only a verb, such as `hover "PDF"`, it goes after the `--`. The tool's verbs as written here, and no other:
+  - `start`: opens the window on the stage's start page, signed out. A second `start` replaces the first.
+  - `stop`: ends it.
+  - `open PATH`: a path on the stage, such as `/` or `/blatt/12`.
+  - `click TARGET`
+  - `double-click TARGET`
+  - `shift-click TARGET`
+  - `hover TARGET`
+  - `drag FROM TO`
+  - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
+  - `key KEYS [N]`: a key as Playwright spells it (`Escape`, `ArrowRight`, `Control+z`, `Delete`), `N` times.
+  - `type TEXT`: into whatever has the focus.
+  - `where NAME`: prints each visible match with its `x,y` and changes nothing.
+  - `resize W H`
+  - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more.
+  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path.
+
+  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's name or a text on the screen. No match is an error. So are several: the tool then lists each with its `x,y`, and you use the pixels. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
 - The shell commands this brief spells out, `date`, and `ls`, `rm` and `pdftoppm` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`.
-- `gh pr list`, `gh issue list` and `gh issue create` as written below. Of a pull request you read the title and the body only.
+- `gh pr list`, `gh issue list`, `gh issue create` and `gh issue edit` as written below. Of a pull request you read the title and the body only.
 
 Forbidden:
 
@@ -25,14 +43,20 @@ Forbidden:
 - `gh pr diff` and `gh pr view --json files`.
 - The live site `blattwerk.pgoell.com`.
 
-The browser is shared with other sessions. Open your own page with `new_page` and act on that page only. Never select, navigate or close a page you did not open. If a call says "Could not connect to Chrome" or "browser is already running", do not kill or restart Chrome: stop the stage (see "Clean up") and end your report with the line `BLOCKED teacher-run: <reason>`. Do the same if the stage does not start or the sign-in fails twice.
+The tool is no way around this list: `open` takes paths of the stage only, and every ban holds in both windows.
+
+Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. Both are signed in as the same teacher.
+
+A sheet is open in one of the two windows at a time. Before you change windows, wait for `Gespeichert`, go back to `Meine Blätter` in the one, then open the sheet in the other. Two windows on one sheet each hold a copy of their own: the later save meets the banner "Dieses Blatt wurde auf einem anderen Gerät geändert", and one copy's work is lost.
+
+The MCP browser is shared with other sessions. Open your own page with `new_page` and act on that page only. Never select, navigate or close a page you did not open. If a call says "Could not connect to Chrome" or "browser is already running", do not kill or restart Chrome: stop the stage (see "Clean up") and end your report with the line `BLOCKED teacher-run: <reason>`. Do the same if the stage does not start or the sign-in fails twice.
 
 ## Start the stage
 
-1. Make your folder and clear old exports:
+1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports:
 
    ```sh
-   rm -rf /tmp/teacher-run && mkdir /tmp/teacher-run && rm -f ~/Downloads/TR*.pdf
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- stop; rm -rf /tmp/teacher-run && mkdir /tmp/teacher-run && rm -f ~/Downloads/TR*.pdf
    ```
 
 2. Start a fresh stage, also if one seems to run already:
@@ -56,17 +80,32 @@ The browser is shared with other sessions. Open your own page with `new_page` an
 1. `new_page` with `http://127.0.0.1:8220`, then `resize_page` to 1280 by 1024. Signed out, every path shows the form `Anmelden`.
 2. Fill `E-Mail` and `Passwort` with the two values the stage printed and click `Anmelden`.
 3. You land on `Meine Blätter` with the line "Noch kein Blatt. Leg dein erstes an."
+4. Sign in to the tool's window now, so it is ready when a step needs it:
+
+   ```sh
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- start
+   ```
+
+   Then, each after the same `teacher:page --`: `click "E-Mail"`, `type "teacher-run@stage.invalid"`, `click "Passwort"`, `type "<the password>"`, `key Enter`. Read `last.png`: it shows `Meine Blätter`.
 
 ## How the editor works
 
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
-- A tour (`Rundgang`) may open on the first sheet. Close it with `Beenden`.
+- After `Neues Blatt`, a click on a sheet or any other navigation, the page first shows only the bar and the footer. That is known (issue #313): do not file it. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
+- A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
+- A tour (`Rundgang`) may open on the first sheet of each window. Close it with `Beenden`.
 - The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
-- Many buttons are icons. A screenshot does not show their names; `take_snapshot` does, and so does `hover`. Find a control by its name in the snapshot.
-- A new block lands at the top of the page and is picked. Drag it, or move it with the arrow keys, so that the blocks stand below one another in the order of the recipe and none overlaps.
-- A new `Text` or `Überschrift` is open for typing. Type, then press Escape. A double click opens a text, a table cell or a Lineatur again.
+- Many buttons are icons. Find a control by its name in `take_snapshot`. A screenshot of the MCP page never shows a name: that Chrome has no mouse, and the app shows an icon's name only to a mouse. In the tool's window `hover "<name>"` or `hover X,Y` shows the name of an icon in the bar or the left panel as a teacher sees it: read `last.png`. What a pull request claims "with a mouse", try in the tool's window.
+- A new block lands at the top of the page and is picked, often on top of the one before. Place the blocks below one another in the order of the recipe, so that none overlaps. The plain way, in the MCP page: `fill` the field `Y` of the right panel with the millimetres from the page's top, then `press_key` Enter. An upright page is 297 high, and `Höhe` beside it is the block's own height. In the tool's window, `drag X,Y X2,Y2` from the block's middle moves it as a teacher does.
+- The arrow keys move the picked block by 1 mm, but only while no field of the right panel has the focus: in `Y`, up and down change the number. One Escape in a field gives the keys back to the sheet and the block stays picked. A second Escape picks nothing, and so does a click on an empty part of the sheet.
+- A new `Text` or `Überschrift` is open for typing. Type, then press Escape. A double click opens a text, a table cell or a Lineatur again, and so does F2 on the one picked block.
 - The sheet saves by itself. The bar says `Gespeichert` when it has.
 - Type each sheet's name into `Titel` before you export: the PDF file takes that name.
+- Only the tool's window can do these:
+  - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
+  - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
+  - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowRight`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. From pure black the arrow to the right changes nothing: use `key ArrowUp`;
+  - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
 
 ## Export and compare
 
@@ -88,6 +127,12 @@ Do this for every sheet.
    - the same borders, lines and colours;
    - nothing cut off at a block's edge or the page's edge, and nothing missing or added.
 5. Write down each difference with the sheet, the block and what differs.
+
+In the tool's window steps 1 to 3 are, for sheet 3: `where "Gespeichert"` until it prints a match, `screenshot 3-screen`, `pdf`, and then, with the path that `pdf` printed:
+
+```sh
+pdftoppm -png -r 60 "/tmp/teacher-run/TR3 Bild und Tabelle.pdf" /tmp/teacher-run/3-pdf
+```
 
 ## The five sheets
 
@@ -120,12 +165,13 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
    python3 -c "import zlib,struct;w,h=240,160;row=lambda y:b'\0'+b''.join((b'\x22\x22\x22' if x<6 or y<6 or x>=w-6 or y>=h-6 else b'\xd0\x30\x30' if x<w//2 else b'\x30\x60\xd0') for x in range(w));c=lambda t,d:struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d));open('/tmp/teacher-run/bild.png','wb').write(b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+c(b'IDAT',zlib.compress(b''.join(row(y) for y in range(h))))+c(b'IEND',b''))"
    ```
 
-2. Click `Überschrift`, type `Mein Haustier`.
+2. In the MCP page: set `Titel` to `TR3 Bild und Tabelle` first, since the tool's window finds the sheet by it. Click `Überschrift`, type `Mein Haustier`.
 3. `upload_file` on the button `Bild` with `/tmp/teacher-run/bild.png`. The picture lands on the sheet.
-4. Click `Tabelle`. It has 3 rows and 3 columns. In the right panel click `Eine Zeile mehr` once, so it says `4 Zeilen`, and turn `Kopfzeile` on.
-5. Double-click a cell to write in it. First row: `Tier`, `Farbe`, `Beine`. Second row: `Hund`, `braun`, `4`. Leave the other rows empty.
-6. Check on screen: the picture whole, red left and blue right, the frame on all four sides; the table below it with 4 rows and 3 columns.
-7. Export and compare. Look at the picture's frame and at the table's lines and words.
+4. Click `Tabelle`. It has 3 rows and 3 columns. In the right panel click `Eine Zeile mehr` once, so it says `4 Zeilen`, and turn `Kopfzeile` on. Place the table below the picture.
+5. Change windows: the cells are not in the snapshot and want a double click. In the MCP page `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. In the tool's window: `open /`, `click "TR3 Bild und Tabelle"`, and `click "Beenden"` if the tour opens.
+6. Read the first cell's place off the screenshot. `double-click X,Y` on it, then `type "Tier"`, `key Tab`, `type "Farbe"`, `key Tab`, `type "Beine"`, `key Tab`, `type "Hund"`, `key Tab`, `type "braun"`, `key Tab`, `type "4"`, `key Escape`. Tab goes to the next cell, and from a row's last cell to the next row's first. Leave the other rows empty.
+7. Check on screen: the picture whole, red left and blue right, the frame on all four sides; the table below it with 4 rows and 3 columns, `Tier`, `Farbe`, `Beine` in the first row and `Hund`, `braun`, `4` in the second.
+8. Export and compare. Here in the tool's window, as "Export and compare" ends. Look at the picture's frame and at the table's lines and words. Then `open /`: the sheet is open in no window, and sheet 4 starts in the MCP page.
 
 ### 4. Two pages, title `TR4 Zwei Seiten`
 
@@ -147,24 +193,34 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 6. Open `TR5 Kopie`, click the tab `Vorlagen`, click `TR Vorlage` again: the sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
 7. On `Meine Blätter` there must be five sheets, each with its title and a small picture of its first page.
 
-## 15 minutes on the last five pull requests
+## 25 minutes on the last five pull requests
 
-1. Note the time with `date`. Stop after 15 minutes, wherever you are.
+1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before.
 2. Read the titles and bodies:
 
    ```sh
-   gh pr list -R pgoell/blattwerk --state merged -L 5 --json number,title,body,url
+   gh pr list -R pgoell/blattwerk --state merged -L 5 --json number,title,body,url --jq '.[] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
    ```
 
 3. For each pull request, say in one line what a teacher can now do or no longer suffers. Skip one that changes nothing a teacher can see (tests, deploy, docs), and give its minutes to the others.
-4. Try each change on one of your five sheets or on a new one, first as the body describes it, then try to break it:
+4. Go deep. Each sentence of a body that says what a teacher now sees or can do is a claim, and each claim gets a try of its own: a pull request with five claims gets five tries, not one. Try each on one of your five sheets or on a new one:
+   - as the body describes it, in the tool's window where the claim is about a mouse, a hover, a drag or a key;
+   - in a narrow window and in a wide one: `resize 820 1180` and `resize 1280 1024`, or `resize_page` in the MCP page. The editor picks its layout when it opens, so open the sheet again after each resize;
+   - followed by `Rückgängig` and `Wiederholen`, and by `key Control+z`;
+   - with the PDF beside the screen, where the claim is about print.
+5. Then try to break it:
    - the steps in an odd order;
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
-   - with several blocks picked (the button `Mehrere`, or Shift and click);
+   - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
    - while a text, a cell or a menu is open;
    - at once after a reload of the page;
-   - in a narrow window, if the pull request names the iPad or narrow windows: `resize_page` to 820 by 1180 and to 1180 by 820, or `emulate` an iPad. After, set the window back to 1280 by 1024 and reload the page: the editor picks its layout when it opens.
-5. After each try, check that the sheet still shows what it should and that the PDF matches it.
+   - if the pull request names the iPad: `resize 1180 820` too, or `emulate` an iPad in the MCP page.
+6. After each try, check that the sheet still shows what it should. At the end set the window back to 1280 by 1024.
+7. If time is left after all five, do not stop early: go on to the five pull requests before them.
+
+   ```sh
+   gh pr list -R pgoell/blattwerk --state merged -L 10 --json number,title,body,url --jq '.[5:][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   ```
 
 ## Issues
 
@@ -188,6 +244,12 @@ gh issue create -R pgoell/blattwerk --label <label> --title "<what goes wrong, i
 
 The body holds: the steps to repeat the fault from an empty sheet, numbered; what you expected; what happened; the path of a screenshot under `/tmp/teacher-run` if one helps. One fault per issue. Never put a real teacher's name, e-mail or sheet content into an issue.
 
+To correct an issue you opened in this run, and no other issue:
+
+```sh
+gh issue edit <number> -R pgoell/blattwerk --title "<title>" --body "<body>" --add-label <label> --remove-label <label>
+```
+
 If you found more than 8, open the 8 worst: regressions first, then lost work and wrong print, then the rest. List the others in your report, one line each.
 
 ## Clean up
@@ -195,13 +257,19 @@ If you found more than 8, open the 8 worst: regressions first, then lost work an
 Do this always, also after a failure or a `BLOCKED`. The stage holds real teachers' files and must not stay.
 
 1. `close_page` on your page.
-2. Stop the stage and read its output. If it reports an error, run it once more and put the output into your report:
+2. End the tool's window, before the stage goes and also if you never started it:
+
+   ```sh
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- stop
+   ```
+
+3. Stop the stage and read its output. If it reports an error, run it once more and put the output into your report:
 
    ```sh
    mise -C /home/pascal/Code/blattwerk run stage:down
    ```
 
-3. Delete what is left of your exports: `rm -f ~/Downloads/TR*.pdf`. Keep `/tmp/teacher-run`: the issues name its screenshots.
+4. Delete what is left of your exports: `rm -f ~/Downloads/TR*.pdf`. Keep `/tmp/teacher-run`: the issues name its screenshots.
 
 ## Report
 

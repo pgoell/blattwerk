@@ -155,3 +155,5 @@ mise run stage:down   # removes the container and the copy
 The copy holds real data: every teacher's sheets and pictures. It has mode 700; remove it with `stage:down` when the work is done. The test teacher `teacher-run@stage.invalid` lives in the copy only, is no admin and sees no other account's sheets. Each `stage:up` makes a new password.
 
 A running stage keeps the image it started with. After a deploy it still runs the old one: run `stage:up` again, which also takes a fresh copy.
+
+`mise run teacher:page -- start` opens a real window on the stage, under xvfb, for what a headless browser cannot do: hover, drag, Shift+click, a slider, a colour picker. Each later call is one verb, such as `click PDF` or `hover 640,20`; it acts, writes the window to `/tmp/teacher-run/last.png` and prints that path. `stop` shuts the window. The verbs are listed at the top of `scripts/teacher-page.py`.
