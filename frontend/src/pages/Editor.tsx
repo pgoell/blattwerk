@@ -28,6 +28,7 @@ import {
   ClipboardPaste,
   Copy,
   CopyPlus,
+  Ellipsis,
   Eraser,
   Eye,
   Group,
@@ -293,8 +294,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // the focus, and a select or a colour picked there hands the keys back.
   const inPanel = useRef(false);
   // What is written in stays open when it loses the focus to the panel: by the keys, or by a press, which on the
-  // word beside a colour names nothing that takes the focus.
-  const stays = (e: { relatedTarget: EventTarget | null }) => inPanel.current || !!(e.relatedTarget as Element | null)?.closest(".panel");
+  // word beside a colour names nothing that takes the focus. So does it under the bar's menu "Mehr", which hands
+  // the focus back when it shuts.
+  const stays = (e: { relatedTarget: EventTarget | null }) => inPanel.current || !!(e.relatedTarget as Element | null)?.closest(menu?.more ? ".panel, .menu" : ".panel");
   // The text, the Lineatur or the cell being written in.
   const written = () => field.current ?? sheet.current?.querySelector<HTMLElement>("textarea:not([readonly])");
   // Gives the keys back from a control of the panel, as PowerPoint does: to what is written in, whose caret is
@@ -338,8 +340,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     return true;
   };
   const [multi, setMulti] = useState(false);
-  // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number }>();
+  // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
+  // `more` it is the bar's menu instead, of the commands the bar has no room for.
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -348,9 +351,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const [pane, setPane] = useState(true);
   // The panel of pages and templates starts shut where it would lie over the desk.
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
-  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open.
-  const leafy = document.documentElement.dataset.theme === "leaf" && innerWidth > 700;
-  const [side, setSide] = useState(() => innerWidth > 700 && !leafy);
+  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. From the
+  // width of an iPad on its side: beside the green panel a narrower window has no room for the bar's one row.
+  // Vorlagen starts shut in Blattform at any width, for the window may grow or turn into that layout.
+  const blatt = document.documentElement.dataset.theme === "leaf";
+  const leafy = blatt && innerWidth >= 1024;
+  const [side, setSide] = useState(() => innerWidth > 700 && !blatt);
   // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
   const drawers = useSyncExternalStore(whenTurned, () => DRAWERS.matches);
   const [drawer, setDrawer] = useState<"left" | "right">();
@@ -361,6 +367,55 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const right = drawers ? drawer === "right" : pane;
   const showLeft = (on: boolean) => (drawers ? setDrawer(on ? "left" : undefined) : setSide(on));
   const showRight = (on: boolean) => (drawers ? setDrawer(on ? "right" : undefined) : setPane(on));
+  // The bar is one row, and what has no room in it lies behind "Mehr": `fits` is how many of the commands that may
+  // fold stay in the bar, counted from its left. While it is not known all of them are drawn in the bar, where they
+  // are measured and the count is set before the browser paints.
+  const bar = useRef<HTMLDivElement>(null);
+  const [fits, setFits] = useState<number>();
+  const feedback = useRef<() => void>(null);
+  // "Mehr" leaves the bar while it is measured, and the focus with it: where the button comes back, so does the focus.
+  const focused = useRef(false);
+  const refit = () => {
+    focused.current ||= !!document.activeElement?.matches(".more");
+    setFits(undefined);
+  };
+  useLayoutEffect(() => {
+    if (fits !== undefined) {
+      if (focused.current) bar.current!.querySelector<HTMLElement>(".more")?.focus();
+      focused.current = false;
+      return;
+    }
+    const row = bar.current!;
+    const look = getComputedStyle(row);
+    const may = [...row.querySelectorAll(".sep ~ :is(.ib, .zoom):not(.pin)")];
+    const widths = may.map((el) => el.getBoundingClientRect().width + parseFloat(look.columnGap));
+    // How far the row runs past the bar's end, and how much of the hint it has squeezed away before that.
+    const hint = row.querySelector(".hint")!;
+    let over = row.querySelector(".pdf")!.getBoundingClientRect().right + parseFloat(look.paddingRight) - row.getBoundingClientRect().right + hint.scrollWidth - hint.clientWidth;
+    let n = may.length;
+    // A phone's bar wraps and keeps them all.
+    if (look.flexWrap === "nowrap" && over > 0.5) {
+      // "Mehr" needs the room of one of them.
+      over += widths[0];
+      while (n && over > 0.5) over -= widths[--n];
+      // The zoom's four stay or go together.
+      const lens = may.findIndex((el) => el.matches(".zoom"));
+      if (lens > 0 && n >= lens && n < lens + 3) n = lens - 1;
+    }
+    setFits(n);
+  });
+  // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
+  // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. An open "Mehr" has shut by
+  // then, as any menu does when the window's size changes.
+  useLayoutEffect(refit, [leaf]);
+  useLayoutEffect(() => {
+    // Before the browser paints the bar at its new width.
+    const again = () => flushSync(refit);
+    const watch = new ResizeObserver(again);
+    watch.observe(bar.current!);
+    document.fonts.ready.then(again);
+    return () => watch.disconnect();
+  }, []);
   // The tour opens by itself the first time the editor does on this device.
   const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
   // Whether the maths exercises show their answers.
@@ -401,6 +456,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const held = useRef(false);
   // Where the finger of a hold or a drag came down.
   const came = useRef([0, 0]);
+  // What Moveable said of a drag while the finger had not yet left there.
+  const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
   const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
@@ -1512,7 +1569,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
     // moved, the blocks are new ones, and they follow the finger back there too. Of a group only the event of the
     // whole says where the finger is: those of its blocks say where a snap would put them.
-    if (touch.current && blocks.includes(start.current[0]) && Math.hypot(finger.clientX - came.current[0], finger.clientY - came.current[1]) <= SLOP) return;
+    // Moveable says nothing more while a snap holds the blocks, so what is dropped here is kept for the finger's
+    // own move to bring back once it has left.
+    const still = touch.current && blocks.includes(start.current[0]) && Math.hypot(finger.clientX - came.current[0], finger.clientY - came.current[1]) <= SLOP;
+    owed.current = still ? events : undefined;
+    if (still) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
@@ -1529,12 +1590,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
   };
   const begin = (els: Element[]) => {
+    owed.current = undefined;
     ahead.current = hist.future;
     start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!);
   };
   // With Ctrl held when a move ends, copies stay where the blocks began.
-  const leave = (moved: boolean) =>
-    moved && mod & CENTRE && change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+  const leave = (moved: boolean) => {
+    owed.current = undefined;
+    if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+  };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
     flushSync(() =>
@@ -1880,6 +1944,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     clearTimeout(hold.current);
     if (e.touches.length === 2) {
       moveable.current!.stopDrag();
+      owed.current = undefined;
       const page = sheet.current!.getBoundingClientRect();
       const [x, y] = centre(e);
       pinch.current = { spread: spread(e), zoom, x: (x - page.left) / k, y: (y - page.top) / k };
@@ -1909,6 +1974,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
+    // A snap the blocks reached before the finger had left where it came down takes them now, if it has.
+    if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
     if (e.touches.length !== 2) return;
     const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
     flushSync(() => setZoom(next));
@@ -1946,6 +2013,21 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const ctrl = APPLE ? "⌘" : "Strg+";
   const shift = APPLE ? "⇧" : "Umschalt+";
   const thumbed = menu?.thumb;
+  type Command = Exclude<Item, "sep">;
+  const clips: Command[] = [
+    { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: none, run: cut },
+    { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
+    { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, run: pasteAny },
+  ];
+  const copies: Command[] = [
+    { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
+    { label: "Löschen", icon: Trash2, keys: "Entf", disabled: none, run: remove },
+  ];
+  const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) };
+  const groups: Command[] = [
+    { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
+    { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
+  ];
   const items: Item[] =
     thumbed !== undefined
       ? [
@@ -1954,16 +2036,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           { label: "Seite löschen", icon: FileX, disabled: pages.length < 2, run: () => removePage(thumbed) },
         ]
       : [
-          { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: none, run: cut },
-          { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
-          { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, run: pasteAny },
-          { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
-          { label: "Löschen", icon: Trash2, keys: "Entf", disabled: none, run: remove },
+          ...clips,
+          ...copies,
           "sep",
-          { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) },
+          lockIt,
           "sep",
-          { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
-          { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
+          ...groups,
           "sep",
           { label: "In den Vordergrund", disabled: none, run: () => raise(true) },
           { label: "Eine Ebene nach vorn", disabled: none, run: () => raise(true, true) },
@@ -1984,6 +2062,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
     setZoom(Math.min(4, Math.max(0.25, 1.25 ** to)));
   }
+  // The whole page in use, width and height, once: it does not follow the window.
+  function fitPage() {
+    const el = desk.current!;
+    // 120 is the desk's padding above and below.
+    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.clientHeight - 120) / H) / fit))));
+    const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
+    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+    el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
+  }
   const zoomer = (
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
@@ -1991,22 +2078,33 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
         {Math.round((k * 2540) / 96)} %
       </button>
-      {/* The whole page in use, width and height, once: it does not follow the window. */}
-      <Tool
-        icon={Fullscreen}
-        label="Ganze Seite"
-        onClick={() => {
-          const el = desk.current!;
-          // 120 is the desk's padding above and below.
-          flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.clientHeight - 120) / H) / fit))));
-          const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
-          // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
-          el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
-        }}
-      />
+      <Tool icon={Fullscreen} label="Ganze Seite" onClick={fitPage} />
       <Tool icon={ZoomIn} label="Größer" onClick={() => zoomBy(1)} />
     </>
   );
+  // The bar's commands that may fold, in the bar's order, and those of them that "Mehr" holds now. A menu has no
+  // double click, so the brush picked there stays on, as after one on its button, until its ticked item is picked
+  // again or Escape puts it down.
+  const folding: Command[] = [
+    ...clips,
+    { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, on: brush > 0, run: () => (brush ? setBrush(0) : (dip(part?.marks), setBrush(2))) },
+    ...copies,
+    lockIt,
+    ...groups,
+    { label: "Lösungen zeigen", icon: Eye, on: solved, run: () => setSolved(!solved) },
+    ...(leaf
+      ? []
+      : [
+          { label: "Kleiner", icon: ZoomOut, run: () => zoomBy(-1) },
+          { label: "Seitenbreite", run: () => setZoom(1) },
+          { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
+          { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
+        ]),
+    { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
+    { label: "Feedback", icon: MessageSquare, run: () => feedback.current!() },
+  ];
+  const more = folding.slice(fits ?? folding.length);
+  const inBar = (label: string) => !more.some((item) => item.label === label);
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
     <>
@@ -2089,8 +2187,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         const button = target.closest("button");
         const panel = target.closest(".panel");
         // A text being written in stays open while a drawer's button in the bar opens the drawer with its format.
-        // A number of the panel does lose the focus to it, and so lands before the drawer shuts.
-        const pin = drawers && target.closest(".pin") && document.activeElement?.closest(".block");
+        // A number of the panel does lose the focus to it, and so lands before the drawer shuts. The text stays open
+        // under "Mehr" as well, until a command is picked there.
+        const pin = target.closest(drawers ? ".pin, .more" : ".more") && document.activeElement?.closest(".block");
         if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block, .panel select, .panel input[type=color]")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
@@ -2098,7 +2197,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
     >
       <header>
-        <div className="top">
+        <div className="top" ref={bar}>
           {leaf ? (
             <span className="modes" role="tablist">
               {["Start", "Ansicht", "Vorlagen"].map((m) => (
@@ -2130,46 +2229,58 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
           <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
           <i className="sep" />
-          <Tool icon={Scissors} label="Ausschneiden" disabled={!sel.length} onClick={cut} />
-          <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={copy} />
-          <Tool icon={ClipboardPaste} label="Einfügen" onClick={pasteAny} />
-          <Tool
-            icon={Paintbrush}
-            label="Format übertragen"
-            disabled={!brush && !source}
-            className={brush ? "on" : ""}
-            aria-pressed={brush > 0}
-            onPointerDown={() => (wet.current = part?.marks)}
-            // One click picks the look up for one block, or puts the brush down. The second click of a double click
-            // keeps the brush on with the look the first one picked up.
-            onClick={(e) => {
-              // A press by the keys has no pointer before it, and must not find an earlier one's words.
-              const marks = wet.current;
-              wet.current = undefined;
-              if (brush && e.detail < 2) return setBrush(0);
-              if (!brush) dip(marks);
-              setBrush(e.detail < 2 ? 1 : 2);
-            }}
-          />
-          <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />
-          <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />
-          <Tool
-            icon={locked ? LockOpen : Lock}
-            label={locked ? "Entsperren" : "Sperren"}
-            disabled={!sel.length}
-            className={locked ? "on" : ""}
-            onClick={() => place(sel.map((b) => [b.id, { locked: !locked }]))}
-          />
-          <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />
-          <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />
-          <i className="sep" />
-          <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
-          {!leaf && zoomer}
+          {inBar("Ausschneiden") && <Tool icon={Scissors} label="Ausschneiden" disabled={!sel.length} onClick={cut} />}
+          {inBar("Kopieren") && <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={copy} />}
+          {inBar("Einfügen") && <Tool icon={ClipboardPaste} label="Einfügen" onClick={pasteAny} />}
+          {inBar("Format übertragen") && (
+            <Tool
+              icon={Paintbrush}
+              label="Format übertragen"
+              disabled={!brush && !source}
+              className={brush ? "on" : ""}
+              aria-pressed={brush > 0}
+              onPointerDown={() => (wet.current = part?.marks)}
+              // One click picks the look up for one block, or puts the brush down. The second click of a double click
+              // keeps the brush on with the look the first one picked up.
+              onClick={(e) => {
+                // A press by the keys has no pointer before it, and must not find an earlier one's words.
+                const marks = wet.current;
+                wet.current = undefined;
+                if (brush && e.detail < 2) return setBrush(0);
+                if (!brush) dip(marks);
+                setBrush(e.detail < 2 ? 1 : 2);
+              }}
+            />
+          )}
+          {inBar("Duplizieren") && <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />}
+          {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />}
+          {inBar(lockIt.label) && <Tool icon={lockIt.icon!} label={lockIt.label} disabled={!sel.length} className={locked ? "on" : ""} onClick={lockIt.run} />}
+          {inBar("Gruppieren") && <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />}
+          {inBar("Gruppierung aufheben") && <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />}
+          {/* With none of them left in the bar, the divider before them is enough. */}
+          {fits !== 0 && <i className="sep" />}
+          {inBar("Lösungen zeigen") && <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />}
+          {!leaf && inBar("Kleiner") && zoomer}
           <Tool icon={PanelRight} label="Format und Ansicht" className={`pin${right ? " on" : ""}`} aria-pressed={right} onClick={() => showRight(!right)} />
-          <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />
-          <Feedback className="ib" aria-label="Feedback">
+          {inBar("Rundgang") && <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />}
+          <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />
           </Feedback>
+          {more.length > 0 && (
+            <Tool
+              icon={Ellipsis}
+              label="Mehr"
+              className="more"
+              aria-haspopup="menu"
+              aria-expanded={!!menu?.more}
+              // The tour's last step is about its own button, which lies in here when the bar has folded it.
+              data-tour={inBar("Rundgang") ? undefined : "help"}
+              onClick={(e) => {
+                const box = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: box.left, y: box.bottom + 4, more: true });
+              }}
+            />
+          )}
           <span className="pdf" data-tour="pdf">
             <button onClick={() => pdf(true)}>
               <FileCheck size={14} aria-hidden />
@@ -2485,6 +2596,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     renderDirections={handles}
                     origin={false}
                     checkInput
+                    // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
+                    // it would take the next tap anywhere for that finger when the first lifted before its timer ran.
+                    pinchOutside={false}
                     snappable={!loose}
                     keepRatio={keep}
                     snapThreshold={6}
@@ -2814,7 +2928,19 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         <Menu
           x={menu.x}
           y={menu.y}
-          items={items}
+          // A command picked in "Mehr" first ends what is written in, as the press of its button in the bar does:
+          // the menu has just handed the focus back to it.
+          items={
+            menu.more
+              ? more.map((item) => ({
+                  ...item,
+                  run: () => {
+                    if (document.activeElement?.closest(".block")) (document.activeElement as HTMLElement).blur();
+                    item.run();
+                  },
+                }))
+              : items
+          }
           onClose={() => setMenu(undefined)}
           // A right click beside the menu opens it anew on what lies there.
           onElsewhere={(x, y) => {

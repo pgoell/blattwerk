@@ -90,16 +90,19 @@ dialog.feedback {
   background: var(--bg); color: var(--ink); text-align: left;
 }
 dialog.feedback::backdrop { background: rgba(0, 0, 0, .4); }
-/* The right click's menu. Its backdrop takes the press beside it and shows nothing. */
+/* The right click's menu, and the bar's of what it has no room for, where a finger picks: a row is as high as a
+   button. Its backdrop takes the press beside it and shows nothing. */
 dialog.menu {
   position: fixed; inset: auto; margin: 0; max-width: none; max-height: 100vh; overflow-y: auto; min-width: 220px; padding: 4px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
 }
 dialog.menu::backdrop { background: none; }
 dialog.menu button {
-  display: flex; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: 5px; background: none; font-weight: 400;
+  display: flex; width: 100%; min-height: var(--ctl); padding: 0 8px; border: 0; border-radius: 5px; background: none; font-weight: 400;
   justify-content: flex-start; gap: 8px; transform: none; white-space: nowrap;
 }
+/* A command that is on has a tick at the row's end. */
+dialog.menu [aria-checked=true]::after { content: "✓"; margin-left: auto; padding-left: 24px; color: var(--accent); }
 dialog.menu button:not(:disabled):is(:hover, :focus) { outline: 0; background: var(--accent-soft); }
 dialog.menu i { width: 14px; }
 dialog.menu kbd { margin-left: auto; padding-left: 24px; font: inherit; color: var(--faint); }
@@ -279,6 +282,16 @@ body:has(.print) { background: #fff; }
 .sep { flex: none; width: 1px; height: 16px; margin: 0 5px; background: var(--line); }
 .zoom { min-width: 52px; padding: 0 4px; border-color: transparent; background: none; color: var(--muted); font: 12px var(--mono); }
 .pdf { display: inline-flex; gap: 8px; margin-left: 8px; }
+/* Wider than a phone, the bar is one row and nothing cuts it off: the editor takes out what has no room and lists
+   it behind "Mehr". Before that the title gives way, down to its least width. The hint keeps the room of its longest
+   text, so a save moves no button, and gives way last, where even the buttons that never fold are too many. */
+@media (min-width: 701px) {
+  .top { flex-wrap: nowrap; }
+  .top > * { flex-shrink: 0; }
+  .top input { flex-shrink: 1000; }
+  .top .hint { display: grid; flex-shrink: 1; min-width: 0; overflow: hidden; }
+  .top .hint::after { content: "Nicht gespeichert"; height: 0; visibility: hidden; }
+}
 /* The sheet was saved from somewhere else: the teacher picks which version stays. */
 .clash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
 /* An icon's name shows while the pointer rests on it: under the bar, over the dock. */
@@ -331,6 +344,10 @@ body:has(.print) { background: #fff; }
 .dock .ib { width: calc(var(--ctl) + 6px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
 .dock .ib svg { width: 17px; height: 17px; }
 .dock .sep { height: 20px; }
+/* For a finger the tools need more room than the desk has between the panels: the dock scrolls. For a mouse it wraps,
+   since a dock that scrolls would cut off the name over a tool. */
+@media (pointer: coarse) { .dock { overflow-x: auto; } }
+@media (pointer: fine) and (min-width: 701px) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {
   position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
@@ -438,6 +455,9 @@ body:has(.print) { background: #fff; }
    have z-index 10. Its stem takes no press, so the top edge's handle under it does. */
 .sheet .moveable-rotation { z-index: 11; pointer-events: none; }
 .sheet .moveable-rotation-control { pointer-events: auto; }
+/* What a finger can hit of it ends a pixel above it, 48 px from the block: a tap on the middle of a block 20 mm above
+   is that block's. It reaches towards the block instead, and leaves the top edge's handle 12 px. */
+.sheet .moveable-rotation-control::after { inset-block: -3px -23px; }
 .block textarea {
   min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; line-height: 1.3;
   resize: none; overflow: hidden; pointer-events: none;
@@ -586,13 +606,5 @@ body:has(.print) { background: #fff; }
   .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: 88px; box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
   .left { justify-self: start; }
   .panel { justify-self: end; }
-  .dock { z-index: 5; overflow-x: auto; }
-  /* The bar is one row that scrolls sideways under the two buttons that open the drawers. */
-  .top { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .top > * { flex-shrink: 0; }
-  .pin { position: sticky; z-index: 1; left: 0; right: 0; background: var(--bg); }
-  .pin.on { background: linear-gradient(var(--accent-soft) 0 0) var(--bg); }
-  /* Each covers the bar's padding beside it too, where the rest would show. */
-  .pin:first-of-type { box-shadow: -12px 0 var(--bg); }
-  .pin:not(:first-of-type) { box-shadow: 12px 0 var(--bg); }
+  .dock { z-index: 5; }
 }

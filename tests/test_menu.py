@@ -556,7 +556,8 @@ def test_undo_works_after_a_page_entry_though_the_title_had_the_focus(editor):
 def test_a_menu_higher_than_the_window_scrolls(editor):
     """I7"""
     page = editor(*texts("a"))
-    page.set_viewport_size({"width": 900, "height": 320})
+    # Wide enough for Blattform's layout: in a narrower window the dock lies over the block.
+    page.set_viewport_size({"width": 1100, "height": 320})
     right(page, "a")
     box = menu(page).bounding_box()
     assert box["y"] >= 0 and box["y"] + box["height"] <= 320
@@ -567,14 +568,15 @@ def test_a_menu_higher_than_the_window_scrolls(editor):
 def test_the_menu_stays_inside_the_window(editor):
     """I7"""
     page = editor(*texts("a"))
-    page.set_viewport_size({"width": 900, "height": 500})
+    # Wide enough for Blattform's layout, whose bar of insert tools leaves the desk's corner free.
+    page.set_viewport_size({"width": 1100, "height": 500})
     desk = page.locator(".desk").bounding_box()
     # The desk's scroll bars lie at its very edge.
     x, y = desk["x"] + desk["width"] - 30, desk["y"] + desk["height"] - 30
     page.mouse.click(x, y, button="right")
     expect(menu(page)).to_be_visible()
     shown = menu(page).bounding_box()
-    assert shown["x"] + shown["width"] <= 900
+    assert shown["x"] + shown["width"] <= 1100
     assert shown["y"] + shown["height"] <= 500
     assert shown["x"] >= 0
     assert shown["y"] >= 0
@@ -720,6 +722,25 @@ def test_a_finger_that_leaves_where_it_came_down_snaps_what_it_drags(editor, kin
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
     # Onto the neighbour's lower edge, and the second block by as much.
     assert [b["y"] for b in saved(page, client)[: len(names)]] == [40, 110][: len(names)]
+
+
+@pytest.mark.parametrize("kind", HELD)
+def test_a_finger_that_snaps_before_it_leaves_takes_the_block_along_in_one_step(editor, kind):
+    """#268: A6, I6"""
+    client = user()
+    page, names, start = beside(editor, client, kind)
+    # The snap takes hold while the finger has not left, and holds as it leaves: Moveable says so
+    # once only, before the block may move.
+    with finger(page, start):
+        jitter(at(page, "a"), start, (3, -9), (3, -14), (3, -15))
+    undo = page.get_by_role("button", name="Rückgängig")
+    expect(undo).to_be_enabled()
+    # Onto the neighbour's lower edge, and a group's second block by as much.
+    assert [b["y"] for b in saved(page, client)[: len(names)]] == [40, 110][: len(names)]
+    undo.tap()
+    expect(undo).to_be_disabled()
+    y = round(40 + GAP / SCALE[True], 2)
+    assert [b["y"] for b in saved(page, client)[: len(names)]] == [y, y + 70][: len(names)]
 
 
 def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor):

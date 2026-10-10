@@ -74,7 +74,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Ausrichten, kopieren, löschen",
-    text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren, Löschen und Gruppieren stehen oben in der Leiste: gruppierte Felder bleiben beisammen.",
+    text: "Zu mehreren Feldern zeigt das Format Ausrichten und Verteilen. Kopieren, Duplizieren, Löschen und Gruppieren stehen oben in der Leiste oder dort unter „Mehr“: gruppierte Felder bleiben beisammen.",
     find: ".panel",
     tab: "Format",
   },
@@ -92,8 +92,8 @@ const STEPS: Step[] = [
   {
     title: "Zoom, Raster und Hilfslinien",
     text: [
-      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Die Lupen zoomen das Blatt, das Auge oben zeigt die Ergebnisse der Rechenaufgaben.",
-      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Das Auge oben zeigt die Ergebnisse der Rechenaufgaben. Mit zwei Fingern zoomst du das Blatt.",
+      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Die Lupen zoomen das Blatt, das Auge oben zeigt die Ergebnisse der Rechenaufgaben. Fehlt der Leiste der Platz, steht beides unter „Mehr“.",
+      "Hier legst du ein Raster aufs Blatt und setzt eigene Hilfslinien. Das Auge, oben in der Leiste oder dort unter „Mehr“, zeigt die Ergebnisse der Rechenaufgaben. Mit zwei Fingern zoomst du das Blatt.",
     ],
     find: ".panel",
     tab: "Ansicht",
@@ -111,7 +111,8 @@ const STEPS: Step[] = [
   },
   {
     title: "Das war's",
-    text: "Den Rundgang findest du jederzeit hinter dem Fragezeichen. Viel Freude mit deinem ersten Blatt!",
+    // Where the bar has folded the button away, the editor puts this mark on "Mehr".
+    text: "Den Rundgang findest du jederzeit hinter dem Fragezeichen, oben in der Leiste oder dort unter „Mehr“. Viel Freude mit deinem ersten Blatt!",
     find: "[data-tour=help]",
   },
 ];

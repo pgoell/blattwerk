@@ -577,7 +577,8 @@ def test_the_brush_works_from_an_open_lineatur(editor):
 def test_a_tap_on_the_selected_lineatur_paints(editor):
     client = user()
     blocks = apart(box("a", "ruling", SCRIPT), box("b", "ruling", RULING, z=2))
-    page = editor(*blocks, client=client, touch=True)
+    # On its side and in the plain layout the iPad's bar has room for the brush's own button.
+    page = editor(*blocks, client=client, touch="landscape", theme="")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()
@@ -673,7 +674,8 @@ def test_the_brush_carries_the_border(editor):
 def test_a_tap_paints(editor):
     client = user()
     blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
-    page = editor(*blocks, client=client, touch=True)
+    # On its side and in the plain layout the iPad's bar has room for the brush's own button.
+    page = editor(*blocks, client=client, touch="landscape", theme="")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).tap()
@@ -865,7 +867,8 @@ def test_every_block_gives(editor):
 def test_a_tap_on_the_selected_block_paints(editor):
     client = user()
     blocks = apart(box("a", "text", FINE), box("b", "text", TEXT, z=2))
-    page = editor(*blocks, client=client, touch=True)
+    # On its side and in the plain layout the iPad's bar has room for the brush's own button.
+    page = editor(*blocks, client=client, touch="landscape", theme="")
     at(page, "a").tap()
     expect_picked(page, "a")
     brush(page).dblclick()

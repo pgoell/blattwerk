@@ -11,11 +11,14 @@ from conftest import IPAD, TURNED
 from playwright.sync_api import TimeoutError as Late
 from playwright.sync_api import expect
 from test_menu import HELD, props
+from test_rotate import HANDLE
 from ui import (
     BROWSER,
     FIELD,
     RECT,
     TEXT,
+    angle,
+    arc,
     at,
     bar,
     box,
@@ -63,21 +66,23 @@ PHONE = {
     ".sheet": [32, 99, 521, 736.8],
     ".dock": [12, 746.9, 576, 46],
 }
+# On its side the bar had two rows and was 91 px high. It is one row now (#272), 49 px high, so all
+# under it lies 42 px higher and the desk and the panels are as much higher.
 ON_ITS_SIDE = {
     None: {
-        "header": [236, 0, 958, 91],
+        "header": [236, 0, 958, 49],
         ".left": [0, 0, 236, 834],
-        ".stage": [236, 91, 694, 743],
-        ".panel": [930, 91, 264, 743],
-        ".sheet": [268, 123, 615, 869.8],
+        ".stage": [236, 49, 694, 785],
+        ".panel": [930, 49, 264, 785],
+        ".sheet": [268, 81, 615, 869.8],
         ".dock": [252, 760, 208, 58],
     },
     "": {
-        "header": [0, 0, 1194, 91],
-        ".left": [0, 91, 236, 743],
-        ".stage": [236, 91, 694, 743],
-        ".panel": [930, 91, 264, 743],
-        ".sheet": [268, 123, 615, 869.8],
+        "header": [0, 0, 1194, 49],
+        ".left": [0, 49, 236, 785],
+        ".stage": [236, 49, 694, 785],
+        ".panel": [930, 49, 264, 785],
+        ".sheet": [268, 81, 615, 869.8],
         ".dock": [248, 760, 670, 58],
     },
 }
@@ -178,16 +183,16 @@ def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor
     top = page.locator("header .top")
     # Two rows of buttons would be twice a button's height.
     assert top.bounding_box()["height"] < 2 * bar(page, "left").bounding_box()["height"]
-    # The rest of the bar scrolls sideways under the two buttons, which stay where they are.
-    assert top.evaluate("el => el.scrollWidth > el.clientWidth")
-    for end in (0, 99999):
-        top.evaluate("(el, x) => el.scrollTo(x, 0)", end)
-        for side in ("left", "right"):
-            assert inside(page, bar(page, side))
-            hit = "([x, y]) => document.elementFromPoint(x, y).closest('button').ariaLabel"
-            label = bar(page, side).get_attribute("aria-label")
-            assert page.evaluate(hit, centre(bar(page, side))) == label
-    expect(page.get_by_role("button", name="PDF", exact=True)).to_be_in_viewport()
+    # The bar does not scroll: what has no room in it lies behind "Mehr" (#272).
+    assert top.evaluate("el => el.scrollWidth <= el.clientWidth")
+    assert top.evaluate("el => getComputedStyle(el).overflowX") == "visible"
+    for side in ("left", "right"):
+        assert inside(page, bar(page, side))
+        hit = "([x, y]) => document.elementFromPoint(x, y).closest('button').ariaLabel"
+        label = bar(page, side).get_attribute("aria-label")
+        assert page.evaluate(hit, centre(bar(page, side))) == label
+    assert inside(page, page.get_by_role("button", name="PDF", exact=True))
+    assert inside(page, page.get_by_label("Mehr", exact=True))
 
 
 @THEMES
@@ -196,7 +201,7 @@ def test_on_its_side_the_ipad_keeps_three_columns(editor, theme):
     page = editor(text("a", 1), theme=theme, touch="landscape")
     expect(page.locator("aside.left")).to_be_visible()
     expect(page.locator("aside.panel")).to_be_visible()
-    expect_places(page, ON_ITS_SIDE[theme], [268, 123, 630, 891])
+    expect_places(page, ON_ITS_SIDE[theme], [268, 81, 630, 891])
 
 
 @THEMES
@@ -216,20 +221,16 @@ def middle(page, kind, name):
     return (x + far) / 2, y
 
 
-# With a group selected, Chromium gives the tap on the next group's middle to the handle that turns
-# the selected one. The handle's area for a finger ends 7 px short of that point, 63 of the 72 px
-# from the group's edge, and `elementFromPoint` finds the block there. WebKit gives the tap to it.
-GROUP = pytest.param(
-    "group",
-    marks=pytest.mark.xfail(
-        BROWSER != "webkit", strict=True, reason="#260: the tap lands on the turn handle"
-    ),
-)
+# The smaller the sheet, the nearer the next block's middle lies to the handle that turns the
+# selected one: 72 px from the block's edge upright, 59 px on its side, where the sheet is 615 px
+# wide, and 60 px in an upright window of 710 px.
+NARROW = {"width": 710, "height": 1000}
 
 
-@pytest.mark.parametrize("kind", [*(kind for kind in HELD if kind != "group"), GROUP])
-def test_a_tap_on_the_middle_of_the_block_next_to_the_selected_one_selects_it(editor, kind):
-    """A6, #260"""
+@pytest.mark.parametrize("window", ["upright", "on-its-side", "narrow"])
+@pytest.mark.parametrize("kind", HELD)
+def test_a_tap_on_the_middle_of_the_block_next_to_the_selected_one_selects_it(editor, kind, window):
+    """A6, A7, #260, #269"""
     client = user()
     if kind == "group":
         # Two groups, each of two shapes side by side that fill a box of 180 by 20 mm.
@@ -244,8 +245,15 @@ def test_a_tap_on_the_middle_of_the_block_next_to_the_selected_one_selects_it(ed
             box(name, "shape" if kind == "line" else kind, made, z=z)
             for z, name in ((1, "a"), (2, "b"))
         ]
-    page = editor(*blocks, client=client, touch=True)
-    expect_wide(page)
+    page = editor(*blocks, client=client, touch="landscape" if window == "on-its-side" else True)
+    if window == "upright":
+        expect_wide(page)
+    else:
+        if window == "narrow":
+            page.set_viewport_size(NARROW)
+        page.wait_for_function(
+            "document.querySelector('.sheet').getBoundingClientRect().width < 650"
+        )
     for name in "aba":
         page.touchscreen.tap(*middle(page, kind, name))
         expect_picked(page, *((name + "1", name + "2") if kind == "group" else name))
@@ -333,10 +341,9 @@ def test_the_format_drawer_opens_and_sets_a_look_while_a_text_stays_open(editor)
     page = editor(text("a", 1), touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
-    # A second tap on the selected text opens it. A finger that lifts as it would in the same
-    # instant as it came down leaves Moveable waiting for a second finger, and the next tap anywhere
-    # is then that one: it would close the text and press nothing.
-    swipe(page, centre(at(page, "a")))
+    # A second tap on the selected text opens it: one of no length, as a quick finger's is to a
+    # busy page. Moveable waits for no second finger after it, so the next tap presses the bar.
+    at(page, "a").tap()
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")
     drawer(page, "right")
@@ -429,6 +436,11 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
     on("Seiten und Vorlagen")
     expect_ringed(page.locator("aside.left"))
     expect(page.locator("aside.panel")).to_have_count(0)
+    # The bar has no room for the tour's own button: the last step is about "Mehr", which holds it.
+    on("Das war's")
+    expect(page.locator("header").get_by_label("Rundgang", exact=True)).to_have_count(0)
+    expect_ringed(page.get_by_label("Mehr", exact=True))
+    expect(tour.locator("p")).to_contain_text("Mehr")
 
 
 @THEMES
@@ -439,3 +451,71 @@ def test_a_phone_lies_as_before(editor, theme):
     page.set_viewport_size({"width": 600, "height": 900})
     page.reload()
     expect_places(page, PHONE, [32, 99, 536, 758])
+
+
+def test_on_its_side_a_finger_turns_a_block_by_its_handle(editor):
+    """I7, #269"""
+    page = editor(box("a", "shape", RECT, x=75, y=80, w=60, h=20), touch="landscape")
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    about = centre(at(page, "a"))
+    swipe(page, *arc(centre(page.locator(HANDLE)), about, 90))
+    # A finger is less exact than a mouse: the browser may keep its first few pixels to itself.
+    assert abs(angle(page, "a") - 90) <= 5
+    assert centre(at(page, "a")) == pytest.approx(about, abs=1)
+
+
+def within(inner, outer):
+    """Whether the first box lies in the second, all of it, to the pixel."""
+    return (
+        inner["x"] >= outer["x"] - 0.5
+        and inner["y"] >= outer["y"] - 0.5
+        and inner["x"] + inner["width"] <= outer["x"] + outer["width"] + 0.5
+        and inner["y"] + inner["height"] <= outer["y"] + outer["height"] + 0.5
+    )
+
+
+def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(editor):
+    """A8, #270"""
+    page = editor(text("a", 1), theme="", touch="landscape")
+    dock, panel = page.locator(".dock"), page.locator("aside.panel")
+    assert within(dock.bounding_box(), page.locator(".stage").bounding_box())
+    # The panel's left part at the dock's height is the panel's own, with the dock at either end.
+    edge = panel.bounding_box()["x"] + 20
+    hit = "([x, y]) => !!document.elementFromPoint(x, y).closest('aside.panel')"
+    for end in (0, 99999):
+        dock.evaluate("(el, x) => el.scrollTo(x, 0)", end)
+        assert page.evaluate(hit, [edge, centre(dock)[1]])
+    # Each tool comes into the dock by scrolling it.
+    tools = dock.get_by_role("button").all()
+    assert len(tools) > 15
+    for tool in tools:
+        tool.scroll_into_view_if_needed()
+        assert within(tool.bounding_box(), dock.bounding_box())
+    dock.evaluate("el => el.scrollTo(0, 0)")
+    last = dock.get_by_label("Doppelpfeil", exact=True)
+    assert not within(last.bounding_box(), dock.bounding_box())
+    last.tap()
+    expect(page.locator(".block[data-id]")).to_have_count(2)
+
+
+@THEMES
+@pytest.mark.parametrize("window", [(1400, 1000), (900, 1200)], ids=["wide", "upright"])
+def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme, window):
+    """I8, #270. Upright the dock scrolled for a mouse too since #267."""
+    page = editor(text("a", 1), theme=theme)
+    page.set_viewport_size({"width": window[0], "height": window[1]})
+    tool = page.locator(".dock .ib").first
+    tool.hover()
+    tip = "el => getComputedStyle(el, '::after').content"
+    assert tool.evaluate(tip) == json.dumps(tool.get_attribute("aria-label"))
+    # The name stands over the dock: a dock that scrolls would cut it off.
+    clips = """el => {
+        const found = [];
+        for (let up = el.parentElement; !up.matches(".stage"); up = up.parentElement) {
+            const { overflowX, overflowY } = getComputedStyle(up);
+            found.push(overflowX, overflowY);
+        }
+        return found.filter((overflow) => overflow !== "visible");
+    }"""
+    assert tool.evaluate(clips) == []
