@@ -43,14 +43,17 @@ if [ $# -ne 1 ]; then set -- usage; fi
 case "$1" in
   up)
     check
-    # Whatever fails from here on, the container and the copy go again.
-    trap 'if [ $? -ne 0 ]; then remove; fi' EXIT
-    # An old stage goes first, so the copy is fresh and its port is free.
-    remove
+    # Before anything goes: in the middle of a deploy a stage that runs stays as it is.
     if ! docker image inspect "$image" >/dev/null 2>&1; then
       echo "stage: there is no image $image. A deploy builds it." >&2
       exit 1
     fi
+    # Whatever fails from here on, the container and the copy go again. A signal too: alone it
+    # would reach the EXIT trap with the 0 of the last command that ended.
+    trap 'exit 130' INT TERM HUP
+    trap 'if [ $? -ne 0 ]; then remove; fi' EXIT
+    # An old stage goes first, so the copy is fresh and its port is free.
+    remove
     if [ -n "$(ss -Hltn "sport = :$port")" ]; then
       echo "stage: port $port is taken. Free it, then run stage:up again." >&2
       exit 1

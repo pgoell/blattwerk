@@ -150,7 +150,7 @@ mise run stage:up     # prints the URL and the login of a test teacher
 mise run stage:down   # removes the container and the copy
 ```
 
-`stage:up` copies `~/.local/share/blattwerk/` to `~/.local/share/blattwerk-stage/` (the database through SQLite's backup, read only) and runs `blattwerk-blattwerk:latest` there as the container `blattwerk-stage`. It answers on `http://127.0.0.1:8220` and nowhere else: it is not on the proxy's network and does not restart by itself. The script writes nothing to the live folder or the backups, and refuses a copy folder that is a symlink, or that is one of the two, lies inside one or holds one.
+`stage:up` copies `~/.local/share/blattwerk/` to `~/.local/share/blattwerk-stage/` (the database through SQLite's backup, read only) and runs `blattwerk-blattwerk:latest` there as the container `blattwerk-stage`. It answers on `http://127.0.0.1:8220`, a port of this machine only: it is not on the proxy's network, so no name on the web leads to it, and it does not restart by itself. It sits on docker's default bridge, where a container without a network of its own could reach it; none runs there today. The script writes nothing to the live folder or the backups, and refuses a copy folder that is a symlink, or that is one of the two, lies inside one or holds one.
 
 The copy holds real data: every teacher's sheets and pictures. It has mode 700; remove it with `stage:down` when the work is done. The test teacher `teacher-run@stage.invalid` lives in the copy only, is no admin and sees no other account's sheets. Each `stage:up` makes a new password.
 

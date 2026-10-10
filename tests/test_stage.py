@@ -6,9 +6,11 @@ tmp folder: no test here starts a container or comes near the real data.
 """
 
 import os
+import signal
 import socket
 import subprocess
 import sys
+import time
 from http.cookies import SimpleCookie
 from pathlib import Path
 from uuid import uuid4
@@ -31,8 +33,15 @@ LOGIN = ["URL: http://127.0.0.1:8220", f"E-Mail: {EMAIL}", "Passwort: geheim-aus
 TAKEN = "LISTEN 0 4096 127.0.0.1:8220 0.0.0.0:*"
 
 # RC_<SUBCOMMAND> sets what a call answers: RC_EXEC for alive.sh, RC_IMAGE for `image inspect`.
+# A call that holds the words of HOLD says so with the file `held`, then waits for a line on the
+# fifo `go`: the script stands still at a step the test picked.
 DOCKER = """#!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
+case "$*" in
+  *"${HOLD:-no call}"*)
+    : > "$DOCKER_LOG.held"
+    read -r _ < "$DOCKER_LOG.go" ;;
+esac
 case "$*" in
   *"blattwerk invite"*) echo /einladung/tok123; exit "${RC_INVITE:-0}" ;;
   *"-e STAGE_INVITE"*)
@@ -53,8 +62,8 @@ printf '%s' "${SS:-}"
 """
 
 
-def run(tmp_path, *args, **answers):
-    """Runs stage.sh with HOME in the tmp folder, gives its result and the docker calls it made."""
+def start(tmp_path, *args, **answers):
+    """Starts stage.sh with HOME in the tmp folder and both stand-ins on the PATH."""
     stubs, log = tmp_path / "bin", tmp_path / "docker.log"
     if not stubs.exists():
         stubs.mkdir()
@@ -72,8 +81,21 @@ def run(tmp_path, *args, **answers):
     }
     env.pop("STAGE_INVITE", None)
     command = ["bash", str(ROOT / "scripts" / "stage.sh"), *map(str, args)]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=20, env=env)
-    return result, log.read_text().splitlines() if log.exists() else []
+    return subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
+    )
+
+
+def run(tmp_path, *args, **answers):
+    """Runs stage.sh, gives its result and the docker calls it made."""
+    script = start(tmp_path, *args, **answers)
+    out, err = script.communicate(timeout=20)
+    return subprocess.CompletedProcess(script.args, script.returncode, out, err), calls(tmp_path)
+
+
+def calls(tmp_path):
+    log = tmp_path / "docker.log"
+    return log.read_text().splitlines() if log.exists() else []
 
 
 @pytest.fixture
@@ -192,8 +214,9 @@ def test_a7_up_twice_in_a_row_starts_from_a_fresh_copy(tmp_path, live, copy):
     (copy / "users" / "9").mkdir()
     (copy / "users" / "9" / "old").write_text("left over")
     result, calls = up(tmp_path)
-    assert calls[0] == f"rm -f {NAME}"
-    assert [call.split()[0] for call in calls].index("run") > 0
+    # The old stage goes once the image is known to be there, and before the new one starts.
+    assert calls[:2] == [f"image inspect {IMAGE}", f"rm -f {NAME}"]
+    assert [call.split()[0] for call in calls].index("run") > 1
     assert not (copy / "users" / "9").exists()
     assert rows(copy / "blattwerk.db") == rows(live / "blattwerk.db")
     assert result.stdout.splitlines()[-3:] == LOGIN
@@ -229,15 +252,55 @@ def test_i2_an_up_that_fails_half_way_leaves_no_container_and_no_copy(tmp_path, 
     assert tree(live) == before
 
 
-@pytest.mark.parametrize(
-    ("answers", "word"), [({"rc_image": 1}, IMAGE), ({"ss": TAKEN}, "port 8220 is taken")]
-)
-def test_i5_up_says_so_and_starts_nothing_without_the_image_or_the_port(
-    tmp_path, share, copy, answers, word
+@pytest.mark.parametrize("sign", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
+@pytest.mark.parametrize("step", ["run -d", "-e STAGE_INVITE"])
+def test_i2_a_signal_in_the_middle_of_up_leaves_no_container_and_no_copy(
+    tmp_path, live, copy, step, sign
 ):
-    result, calls = run(tmp_path, "up", **answers)
+    before = tree(live)
+    log = tmp_path / "docker.log"
+    held, go = log.with_name("docker.log.held"), log.with_name("docker.log.go")
+    os.mkfifo(go)
+    # Read and write: the open waits for no reader, and the line stays until the call reads it.
+    gate = os.open(go, os.O_RDWR)
+    script = start(tmp_path, "up", hold=step)
+    try:
+        end = time.monotonic() + 20
+        while not held.exists():
+            assert script.poll() is None and time.monotonic() < end, "up never reached the step"
+            time.sleep(0.01)
+        assert copy.is_dir()
+        script.send_signal(sign)
+        # bash looks at a signal only once the call it waits for has ended.
+        os.write(gate, b"\n")
+        out, _ = script.communicate(timeout=20)
+    finally:
+        script.kill()
+        os.close(gate)
+    assert script.returncode == 130
+    assert not copy.exists()
+    # The call it stood in was its last but the one that takes the container away.
+    assert step in calls(tmp_path)[-2]
+    assert calls(tmp_path)[-1] == f"rm -f {NAME}"
+    assert "Passwort" not in out
+    assert tree(live) == before
+
+
+def test_i5_up_without_the_image_says_so_and_leaves_a_running_stage_alone(tmp_path, share, copy):
+    up(tmp_path)
+    (copy / "mark").write_text("the stage that runs")
+    result, calls = run(tmp_path, "up", rc_image=1)
     assert result.returncode != 0
-    assert word in result.stderr
+    assert IMAGE in result.stderr
+    # Not even the old stage goes: in the middle of a deploy the image has no name for a while.
+    assert calls == [f"image inspect {IMAGE}"]
+    assert (copy / "mark").exists()
+
+
+def test_i5_up_says_so_and_starts_nothing_when_the_port_is_taken(tmp_path, share, copy):
+    result, calls = run(tmp_path, "up", ss=TAKEN)
+    assert result.returncode != 0
+    assert "port 8220 is taken" in result.stderr
     assert not any(call.startswith("run ") for call in calls)
     assert not copy.exists()
 

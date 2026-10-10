@@ -61,7 +61,8 @@ The browser is shared with other sessions. Open your own page with `new_page` an
 
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
 - A tour (`Rundgang`) may open on the first sheet. Close it with `Beenden`.
-- The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
+- The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
+- Many buttons are icons. A screenshot does not show their names; `take_snapshot` does, and so does `hover`. Find a control by its name in the snapshot.
 - A new block lands at the top of the page and is picked. Drag it, or move it with the arrow keys, so that the blocks stand below one another in the order of the recipe and none overlaps.
 - A new `Text` or `Überschrift` is open for typing. Type, then press Escape. A double click opens a text, a table cell or a Lineatur again.
 - The sheet saves by itself. The bar says `Gespeichert` when it has.
@@ -106,7 +107,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 
 1. Click `Namenszeile`.
 2. Click `Überschrift`, type `Schreibe den Satz ab`.
-3. Click `Lineatur`. In the right panel set `Art der Lineatur` to `Lineatur 2 (Klasse 2)`, click `Eine Zeile mehr` until it says `8 Zeilen`, click `Seitenbreite`.
+3. Click `Lineatur`. In the right panel set `Art der Lineatur` to `Lineatur 2 (Klasse 2)`, click `Eine Zeile mehr` until it says `8 Zeilen`, and click the `Seitenbreite` of the right panel (the zoom has a button of the same name).
 4. Double-click the Lineatur and type `Oma malt im Garten.` Press Escape. Turn `Nachspurtext` on.
 5. Check on screen: 8 rows, each with its four lines, the sentence on the first row between the lines, in grey to trace over.
 6. Export and compare. Look hard at where the letters sit on the lines.
@@ -143,7 +144,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 3. Change the copy: click `Text` (tab `Start`), type `Nur in der Kopie`.
 4. Export and compare.
 5. Open `TR1 Rechnen` again: it must look as in your screenshot of sheet 1, without the new text.
-6. Open `TR5 Kopie`, click `TR Vorlage` again: the sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
+6. Open `TR5 Kopie`, click the tab `Vorlagen`, click `TR Vorlage` again: the sheet shows the template as you saved it, without `Nur in der Kopie`. Click `Rückgängig` once: the text is back.
 7. On `Meine Blätter` there must be five sheets, each with its title and a small picture of its first page.
 
 ## 15 minutes on the last five pull requests
@@ -162,7 +163,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - with several blocks picked (the button `Mehrere`, or Shift and click);
    - while a text, a cell or a menu is open;
    - at once after a reload of the page;
-   - in a narrow window, if the pull request names the iPad or narrow windows: `resize_page` to 820 by 1180 and to 1180 by 820, or `emulate` an iPad. Set the window back to 1280 by 1024 after.
+   - in a narrow window, if the pull request names the iPad or narrow windows: `resize_page` to 820 by 1180 and to 1180 by 820, or `emulate` an iPad. After, set the window back to 1280 by 1024 and reload the page: the editor picks its layout when it opens.
 5. After each try, check that the sheet still shows what it should and that the PDF matches it.
 
 ## Issues
