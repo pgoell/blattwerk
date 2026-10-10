@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from pixels import LIMIT, diff, screen_and_print
+from pixels import LIMIT, as_png, diff, screen_and_print
 from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, png, sheet, user
 
 SHOT = Path(__file__).parent.parent / "scripts" / "shot.py"
@@ -196,6 +196,10 @@ def test_diff_counts_the_pixels_that_differ():
     assert diff(red, white)[0] == 1
     # Less than the tolerance apart is the same: an edge that is smoothed another way.
     assert diff(png(b"\xff\xff\xff"), png(b"\xd0\xd0\xd0"))[0] == 0
+    # A page cut to half its height differs by the half that is gone; a row of rounding does not.
+    page = Image.new("RGB", (200, 300), "white")
+    assert diff(as_png(page), as_png(page.crop((0, 0, 200, 150))))[0] == 0.5
+    assert diff(as_png(page), as_png(page.crop((0, 0, 200, 299))))[0] == 0
     marked = Image.open(io.BytesIO(diff(red, white)[1]))
     assert marked.size == (3, 2) and marked.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
 

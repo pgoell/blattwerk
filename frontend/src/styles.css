@@ -344,9 +344,9 @@ body:has(.print) { background: #fff; }
 .dock .ib { width: calc(var(--ctl) + 6px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
 .dock .ib svg { width: 17px; height: 17px; }
 .dock .sep { height: 20px; }
-/* For a finger the tools need more room than the desk has between the panels: the dock scrolls. For a mouse it wraps,
+/* For a finger the tools need more room than the desk has between the panels: the dock scrolls, as for all that is no mouse. For a mouse it wraps,
    in a narrow window too, since a dock that scrolls would cut off the name over a tool. */
-@media (pointer: coarse) { .dock { overflow-x: auto; } }
+@media not all and (pointer: fine) { .dock { overflow-x: auto; } }
 @media (pointer: fine) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {

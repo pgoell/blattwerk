@@ -96,9 +96,9 @@ def diff(screen, printed):
     picture has within a pixel of it. Of two pictures of other sizes the part both have is
     compared: pdfium rounds a page's height its own way.
     """
-    one, two = (Image.open(io.BytesIO(data)).convert("RGB") for data in (screen, printed))
-    size = min(one.width, two.width), min(one.height, two.height)
-    one, two = one.crop((0, 0, *size)), two.crop((0, 0, *size))
+    first, second = (Image.open(io.BytesIO(data)).convert("RGB") for data in (screen, printed))
+    size = min(first.width, second.width), min(first.height, second.height)
+    one, two = first.crop((0, 0, *size)), second.crop((0, 0, *size))
     # A ruling's line is a pixel and a half wide even at twice the size. Where it lies between
     # two rows the browser draws both half dark and pdfium one dark and one pale. Each pixel as
     # the mean of the nine around it holds the same ink either way.
@@ -108,4 +108,9 @@ def diff(screen, printed):
     off = most.point(lambda v: 255 if v > TOLERANCE else 0)
     pale = Image.blend(one, Image.new("RGB", size, "white"), 0.7)
     pale.paste((255, 0, 0), mask=off)
-    return off.histogram()[255] / (size[0] * size[1]), as_png(pale)
+    # A page of another size or on its side is a difference: what only one picture has counts,
+    # once it is more than the pixel or two of pdfium's rounding.
+    whole = max(first.width, second.width) * max(first.height, second.height)
+    common = size[0] * size[1]
+    lost = whole - common if common < 0.99 * whole else 0
+    return (off.histogram()[255] + lost) / (common + lost), as_png(pale)
