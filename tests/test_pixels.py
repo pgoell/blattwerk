@@ -199,7 +199,7 @@ def test_a_block_that_prints_elsewhere_is_over_the_limit(browser, server):
 # What the share of the page passes over (issue #282), each planted as the print of another page.
 # In WebKit the screen's own lines lie further from the print than these faults do: see TILE and
 # INK in pixels.py.
-BLIND = pytest.mark.webkit_xfail(282, "a line's width and a row's place differ by more on master")
+BLIND = pytest.mark.webkit_xfail(299, "a line's width and a row's place differ by more on master")
 GREY = {"color": "#555555"}
 COLOURS = {
     "fill": (at("shape", FILLED), at("shape", {**FILLED, "fill": "#ffe066"})),
