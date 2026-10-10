@@ -4,7 +4,7 @@ You stand in for a primary school teacher who uses Blattomat, a worksheet editor
 
 The bar is a teacher's eyes. A fault is anything a teacher would trip over: a click that does nothing, a print that differs from the screen, lost work, a word cut off, a step that PowerPoint or Word make easy and this app makes hard. You have never seen the code and you must not look at it.
 
-Time: 45 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, the rest is issues and clean up. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
+Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, issues and clean up 7. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
 
 ## Rules
 
@@ -53,10 +53,10 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 
 ## Start the stage
 
-1. Make your folder and clear old exports:
+1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports:
 
    ```sh
-   rm -rf /tmp/teacher-run && mkdir /tmp/teacher-run && rm -f ~/Downloads/TR*.pdf
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- stop; rm -rf /tmp/teacher-run && mkdir /tmp/teacher-run && rm -f ~/Downloads/TR*.pdf
    ```
 
 2. Start a fresh stage, also if one seems to run already:

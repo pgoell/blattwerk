@@ -63,10 +63,11 @@ def running() -> dict | None:
     """What the holder wrote of itself, or nothing where no holder runs."""
     try:
         state = json.loads((STATE / "page.json").read_text())
-        os.kill(state["pid"], 0)
+        # The pid may be another process's by now: only a holder of this script counts.
+        words = Path(f"/proc/{state['pid']}/cmdline").read_bytes().split(b"\0")
     except FileNotFoundError, ProcessLookupError:
         return None
-    return state
+    return state if __file__.encode() in words and b"hold" in words else None
 
 
 def places(page: Page, name: str) -> list[tuple[int, int]]:
@@ -126,6 +127,9 @@ def go(page: Page, path: str) -> str:
     way = posixpath.normpath(unquote(urlsplit(path).path)).lower()
     if way == "/admin" or way.startswith("/admin/"):
         raise Refused("the admin page is not a teacher's")
+    # A teacher sees pages, not what the pages ask the server.
+    if way == "/api" or way.startswith("/api/"):
+        raise Refused("a path under /api is no page of the app")
     page.goto(BASE + path)
     return shown(page, f"opened {path}")
 

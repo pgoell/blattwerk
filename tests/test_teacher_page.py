@@ -18,6 +18,7 @@ from PIL import Image, ImageChops
 from playwright.sync_api import expect
 from test_bar import TIP
 from ui import (
+    BROWSER,
     FIELD,
     PASSWORD,
     RECT,
@@ -37,6 +38,9 @@ spec = importlib.util.spec_from_file_location("teacher_page", SCRIPT)
 assert spec and spec.loader
 tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tool)
+
+# The tool opens Chromium and no other browser, so the WebKit lane has nothing to learn here.
+pytestmark = pytest.mark.skipif(BROWSER != "chromium", reason="the tool's window is Chromium")
 
 ONE = {**TEXT, "text": "Eins"}
 TWO = {**TEXT, "text": "Zwei"}
@@ -309,6 +313,15 @@ def test_open_refuses_the_admin_page(editor, path):
     assert page.url == was
 
 
+@pytest.mark.parametrize("path", ["/api", "/api/sheets", "/API/me", "/x/../api/me", "/%61pi/me"])
+def test_open_refuses_what_the_pages_ask_the_server(editor, path):
+    page = editor(box("a", "text", ONE))
+    was = page.url
+    with pytest.raises(tool.Refused, match="under /api"):
+        tool.go(page, path)
+    assert page.url == was
+
+
 @pytest.mark.parametrize(
     "path",
     ["http://example.com/", "//example.com/", "/\\example.com", "javascript:alert(1)", "blatt/1"],
@@ -371,6 +384,17 @@ def test_the_command_line_refuses_in_plain_words_and_fails(folder, server, words
 def test_stop_with_nothing_running_says_so_and_is_no_failure(folder, server):
     done = run(folder, server, "stop")
     assert (done.returncode, done.stdout, done.stderr) == (0, "no page was running\n", "")
+
+
+def test_stop_leaves_a_process_alone_that_only_has_the_holders_pid(folder, server):
+    # The holder died without `stop` and the system gave its pid to someone else.
+    other = subprocess.Popen(["sleep", "60"])
+    (folder / "page.json").write_text(f'{{"pid": {other.pid}, "group": {other.pid}}}')
+    done = run(folder, server, "stop")
+    assert (done.returncode, done.stdout, done.stderr) == (0, "no page was running\n", "")
+    assert other.poll() is None
+    other.kill()
+    other.wait()
 
 
 def left(folder):

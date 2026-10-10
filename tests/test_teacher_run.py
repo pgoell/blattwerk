@@ -109,8 +109,11 @@ def test_a9_the_brief_names_what_the_issue_asks():
     prs = section(PRS)
     assert "Stop after 25 minutes" in prs
     assert "gh pr list -R pgoell/blattwerk --state merged -L 5" in prs
-    # The boxes add up: 45 minutes in all, 25 of them here, and no word of the old 15.
-    assert "Time: 45 minutes in all. Start and sign in take 3, the five sheets 15, " in BRIEF
+    # The boxes add up: 50 minutes in all, 25 of them here, and no word of the old 15.
+    assert (
+        "Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, "
+        "the pull requests 25, issues and clean up 7."
+    ) in BRIEF
     assert "then spend 25 minutes trying to break" in BRIEF
     assert "15 minutes" not in BRIEF
     assert "more than 4 minutes is a finding" in BRIEF
@@ -225,11 +228,15 @@ def test_a9_the_brief_starts_the_stage_first_and_stops_it_last():
             PRS,
             "## Issues",
             "## Clean up",
-            f"{MISE} teacher:page -- stop",
             f"{MISE} stage:down",
             "## Report",
         )
     ]
+    # The window goes before the stage whose login it holds.
+    clean = section("## Clean up")
+    assert clean.index(f"{MISE} teacher:page -- stop") < clean.index(f"{MISE} stage:down")
+    # A window of an earlier run goes before the folder that knows where it is.
+    assert f"{MISE} teacher:page -- stop; rm -rf /tmp/teacher-run" in section("## Start the stage")
     assert at == sorted(at)
     # The window ends before the stage it looks at, and both in the part that is done always.
     assert f"{MISE} teacher:page -- stop" in section("## Clean up")
@@ -242,5 +249,7 @@ def test_a9_the_brief_quotes_the_words_on_the_screen():
         # As a word of the screen, or as the name a verb of the tool takes.
         assert f"`{label}`" in BRIEF or f'"{label}"' in BRIEF, label
         assert on_screen(label, source), label
+    # The word every wait of the brief hangs on: the bar picks it in an expression.
+    assert '"Gespeichert"' in source
     # The matcher tells a control's name from a string of the code.
     assert not on_screen("Quer", source)
