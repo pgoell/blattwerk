@@ -12,6 +12,7 @@ import Photos from "./pages/Photos";
 import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
+import type { Sheet } from "./sheet";
 
 // The editor brings the canvas libraries; the login page loads without them.
 const Editor = lazy(() => import("./pages/Editor"));
@@ -37,6 +38,9 @@ export default function App() {
   const { id } = useMatch("/blatt/:id")?.params ?? {};
   const since = useMemo(() => performance.now(), [id, entered]);
   const wait = <Blank since={since} />;
+  // The sheet is asked for as soon as the account is known, side by side with the editor's script and not after
+  // it. Each visit asks anew. A sheet that is not there is null: nobody may hear of it before the script has come.
+  const first = useMemo(() => (user && id ? api<Sheet>(`/sheets/${id}`).catch(() => null) : undefined), [user, id]);
 
   if (user === undefined) return id ? wait : null;
   return (
@@ -49,7 +53,7 @@ export default function App() {
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
-            <Route path="/blatt/:id" element={<Suspense fallback={wait}><Editor user={user} wait={wait} /></Suspense>} />
+            <Route path="/blatt/:id" element={<Suspense fallback={wait}><Editor user={user} wait={wait} first={first!} /></Suspense>} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}

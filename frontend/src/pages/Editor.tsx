@@ -205,8 +205,9 @@ const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MAR
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
 
-// `wait` is the loading page, which the app draws while this script loads too.
-export default function Editor({ user, wait }: { user: User; wait: ReactNode }) {
+// `wait` is the loading page, which the app draws while this script loads too. `first` is the sheet as the app
+// asked for it meanwhile, or null where it is not there.
+export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: Promise<Sheet | null> }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there.
   const [file, setFile] = useState<Sheet | null>();
@@ -214,7 +215,7 @@ export default function Editor({ user, wait }: { user: User; wait: ReactNode }) 
   function load() {
     api<Sheet>(`/sheets/${id}`).then(setFile, () => setFile(null));
   }
-  useEffect(load, [id]);
+  useEffect(() => void first.then(setFile), [first]);
 
   if (file === undefined) return wait;
   if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;

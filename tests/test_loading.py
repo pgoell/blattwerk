@@ -15,7 +15,8 @@ from conftest import IPAD, MEASURED, WEBKIT
 from playwright.sync_api import expect
 from ui import PASSWORD, TEXT, box, expect_picked, sheet, user
 
-# What a sheet waits for, in the order it asks for them.
+# What a sheet waits for: the account first, then the editor's script and the sheet side by side
+# (#320).
 ME = "**/api/me"
 SCRIPT = "**/assets/Editor-*.js"
 SHEET = "**/api/sheets/*"
@@ -23,8 +24,8 @@ BLANK = "main.editor:not([data-ready]) .desk > .sheet.blank"
 READY = 'main.editor[data-ready="1"]'
 # HELD: a test that moves a paused clock up to the word holds the script back, or lets React's
 # own timer run out first (THROTTLE). With the sheet alone held, React draws the loading page anew
-# for the sheet at some real moment after its timer, and a page drawn after the clock was moved
-# waits on a clock that stands.
+# when the script has come, at some real moment after its timer, and a page drawn after the clock
+# was moved waits on a clock that stands.
 # React shows what a held script brought no sooner than this many ms after the page that stood
 # for it.
 THROTTLE = 300
@@ -165,19 +166,51 @@ def test_a_sheet_picked_from_the_list_shows_its_page_while_it_loads(window, serv
     expect_ready(page, 1)
 
 
-def test_a_reload_shows_the_page_while_account_script_and_sheet_load(window, server):
+@pytest.mark.parametrize("first", [SCRIPT, SHEET], ids=["script-first", "sheet-first"])
+def test_a_reload_shows_the_page_while_account_script_and_sheet_load(window, server, first):
     page, client = window()
-    gates = [hold(page, address) for address in (ME, SCRIPT, SHEET)]
+    gates = {address: hold(page, address) for address in (ME, SCRIPT, SHEET)}
     page.goto(f"{server}/blatt/{sheet(client, [box('a', 'text', TEXT)])['id']}")
-    for go, then in zip(gates, (SCRIPT, SHEET, None), strict=True):
-        expect_loading(page)
-        if then:
-            # The next of the three is asked for and held before this one is looked at again.
-            with page.expect_request(then):
-                go()
-        else:
-            go()
+    expect_loading(page)
+    # The script and the sheet are both asked for and held before the page is looked at again.
+    with page.expect_request(SCRIPT), page.expect_request(SHEET):
+        gates.pop(ME)()
+    expect_loading(page)
+    # Whichever of the two comes first, the page waits for the other.
+    with page.expect_response(first):
+        gates.pop(first)()
+    expect_loading(page)
+    gates.popitem()[1]()
     expect_ready(page, 1)
+
+
+def test_the_sheet_is_asked_for_while_the_editors_script_is_on_its_way(window, server):
+    """A17 (#320)"""
+    page, client = window()
+    go = hold(page, SCRIPT)
+    with page.expect_request(SHEET):
+        page.goto(f"{server}/blatt/{sheet(client, [box('a', 'text', TEXT)])['id']}")
+    expect_loading(page)
+    go()
+    expect_ready(page, 1)
+    # Away and back, the sheet is asked for anew.
+    page.get_by_label("Meine Blätter").click()
+    with page.expect_request(SHEET):
+        page.locator(".sheets a").click()
+    expect_ready(page, 1)
+
+
+def test_a_sheet_that_is_not_there_says_so_though_the_script_comes_after(window, server):
+    page, _ = window()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(error))
+    go = hold(page, SCRIPT)
+    with page.expect_response(SHEET):
+        page.goto(f"{server}/blatt/987654")
+    expect_loading(page)
+    go()
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
+    assert not errors
 
 
 def test_a_signed_out_reader_gets_the_login_after_the_loading_page(window, server):
@@ -251,19 +284,19 @@ def test_one_clock_runs_over_account_script_and_sheet(window, server):
     said = page.get_by_role("status")
     expect(said).to_have_text("")
     page.clock.run_for(400)
-    # The account is there: the page is drawn anew, for the script.
-    with page.expect_request(SCRIPT):
+    # The account is there: the page is drawn anew, for the script and the sheet.
+    with page.expect_request(SCRIPT), page.expect_request(SHEET):
         me()
     expect(said).to_have_text("")
     page.clock.run_for(99)
     expect(said).to_have_text("")
     page.clock.run_for(1)
     expect(said).to_have_text("Lädt")
-    # Drawn anew once more, for the sheet, it still says so. React shows what has loaded only a
-    # while after the page that stood for it, by a timer of its own.
-    with page.expect_request(SHEET):
+    # Drawn anew once more, by the editor that waits for the sheet, it still says so. React shows
+    # what has loaded only a while after the page that stood for it, by a timer of its own.
+    with page.expect_response(SCRIPT):
         script()
-        page.clock.run_for(THROTTLE)
+    page.clock.run_for(THROTTLE)
     expect(said).to_have_text("Lädt")
     assert not page.evaluate("window.bare")
     held()
@@ -279,11 +312,11 @@ def test_a_load_within_half_a_second_never_says_that_it_loads(window, server):
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
     expect(page.locator(BLANK)).to_be_visible()
     page.clock.run_for(100)
-    with page.expect_request(SCRIPT):
+    with page.expect_request(SCRIPT), page.expect_request(SHEET):
         me()
-    with page.expect_request(SHEET):
+    with page.expect_response(SCRIPT):
         script()
-        page.clock.run_for(THROTTLE)
+    page.clock.run_for(THROTTLE)
     page.clock.run_for(499 - 100 - THROTTLE)
     held()
     # The editor stands while the clock does, a thousandth of a second before the word was due.
