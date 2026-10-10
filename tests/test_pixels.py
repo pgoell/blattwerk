@@ -9,8 +9,11 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from pixels import LIMIT, as_png, diff, screen_and_print
-from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, png, sheet, user
+from pixels import LIMIT, LOADED, as_png, diff, screen_and_print
+from playwright.sync_api import expect
+from ui import LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
+
+from blattwerk import pdf
 
 SHOT = Path(__file__).parent.parent / "scripts" / "shot.py"
 FILLED = {**RECT, "fill": "#ffd43b", "strokeWidth": 1}
@@ -26,12 +29,6 @@ KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group"
 # A table and a line stay level: the panel Format shuts "Drehung" for them and the selection has
 # no handle to turn them by. A line points where its two ends are.
 TURNED = [kind for kind in KINDS if kind not in ("table", "line")]
-# What WebKit shows another way than Chromium prints it, each just over what it differs by today.
-# A table's lines are one pixel of the screen wide and pale there, half of what prints: 0.004.
-OWN = {
-    "table": 0.006,  # issue #280
-}
-OWN = OWN if BROWSER == "webkit" else {}
 
 
 def photo(client):
@@ -159,7 +156,7 @@ def share(browser, server, client, *pages):
 @pytest.mark.parametrize("kind", KINDS)
 def test_a_block_prints_as_the_screen_shows_it(browser, server, kind):
     client = user()
-    assert share(browser, server, client, blocks(kind, client)) < OWN.get(kind, LIMIT)
+    assert share(browser, server, client, blocks(kind, client)) < LIMIT
 
 
 @pytest.mark.parametrize("kind", TURNED)
@@ -172,7 +169,7 @@ def test_a_turned_block_prints_as_the_screen_shows_it(browser, server, kind):
 @pytest.mark.parametrize("case", FULLER)
 def test_a_fuller_page_prints_as_the_screen_shows_it(browser, server, case):
     client = user()
-    assert share(browser, server, client, fuller(case, client)) < OWN.get(case, LIMIT)
+    assert share(browser, server, client, fuller(case, client)) < LIMIT
 
 
 def test_the_zoom_and_the_page_number_are_no_difference(browser, server):
@@ -224,3 +221,91 @@ def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     assert {p.name for p in out.iterdir()} == {"screen.png", "pdf.png", "diff.png"}
     found = re.search(r"([\d.]+) % of the pixels differ", run.stdout)
     assert found and float(found[1]) < LIMIT * 100
+
+
+def dark(data, part, down=True):
+    """How dark each row of pixels is, from 0 to 1, in the `part` of an upright page given in mm.
+
+    Each column with `down` off.
+    """
+    image = Image.open(io.BytesIO(data)).convert("L")
+    cut = image.crop(tuple(round(v * image.width / 210) for v in part))
+    # Each row as the mean of its pixels.
+    rows = cut.resize((1, cut.height) if down else (cut.width, 1), Image.Resampling.BOX)
+    return [1 - v / 255 for v in rows.tobytes()]
+
+
+def runs(rows):
+    """Each stretch of rows with ink in it: its first row, its darkest and the darkness summed."""
+    found, start = [], None
+    for i, v in enumerate([*rows, 0]):
+        if v > 0.05 and start is None:
+            start = i
+        elif v <= 0.05 and start is not None:
+            found.append((start, max(rows[start:i]), sum(rows[start:i])))
+            start = None
+    return found
+
+
+def test_a_tables_lines_are_as_wide_and_as_dark_as_they_print(browser, server):
+    """A4"""
+    client = user()
+    page = blocks("table", client)
+    screen, printed = screen_and_print(browser, server, client, sheet(client, page)["id"])
+    x, y, w, h = (page[0][side] for side in "xywh")
+    # Clear of the letters: a strip down the first column and one along the first row.
+    for part, down in (
+        ((x + 10, y - 3, x + 14, y + h + 3), True),
+        ((x - 3, y + 1, x + w + 3, y + 2), False),
+    ):
+        shown, paper = (runs(dark(picture, part, down)) for picture in (screen, printed))
+        assert len(shown) == len(paper) == 3
+        for (_, darkest, ink), (_, on_paper, printed_ink) in zip(shown, paper, strict=True):
+            # The ink is the line's width in pixels times its darkness. pdfium fills every pixel a
+            # line touches, half a pixel more than the browser draws: 2.2 against 1.8.
+            assert abs(darkest - on_paper) < 0.05, (darkest, on_paper)
+            assert abs(ink - printed_ink) < 0.5, (ink, printed_ink)
+
+
+# Each cell of a table and each cell's text: left, top, width and height in the page's own pixels.
+PLACES = """() => {
+    const page = document.querySelector('.scaled');
+    const from = page.getBoundingClientRect(), k = from.width / page.offsetWidth;
+    return [...document.querySelectorAll('.table > div, .table p')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return [(r.x - from.x) / k, (r.y - from.y) / k, r.width / k, r.height / k];
+    });
+}"""
+
+
+def test_a_tables_cells_lie_where_they_print(browser, server):
+    """I7"""
+    client = user()
+    mine = sheet(client, fuller("table", client))["id"]
+    # A sharp screen, as an iPad has: there WebKit rounds a border under a pixel down to half.
+    context = browser.new_context(device_scale_factor=2)
+    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
+    shown = context.new_page()
+    shown.goto(f"{server}/blatt/{mine}")
+    shown.locator('main.editor[data-ready="1"]').wait_for()
+    # The page that prints, at one pixel to a pixel as Chromium prints it.
+    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    paper.goto(f"{server}/druck/{mine}")
+    paper.wait_for_selector("body.ready", state="attached")
+    places = [tab.evaluate(f"{LOADED}.then({PLACES})") for tab in (shown, paper)]
+    assert len(places[0]) == 32
+    for here, there in zip(*places, strict=True):
+        assert here == pytest.approx(there, abs=0.01)
+
+    pick(shown, "b60")
+    shown.keyboard.press("Enter")
+    field = shown.locator(".table textarea")
+    expect(field).to_be_focused()
+    (left, top, right, low), cell = (
+        (b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"])
+        for b in (field.bounding_box(), shown.locator('[data-cell="0"]').bounding_box())
+    )
+    assert cell[0] < left < right < cell[2] and cell[1] < top < low < cell[3]
+    paper.close()
+    context.close()

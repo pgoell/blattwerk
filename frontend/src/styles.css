@@ -425,9 +425,10 @@ body:has(.print) { background: #fff; }
 /* A table: its top and left line are its own, and each cell brings the line to its right and the one below it.
    A text too high for its cell starts at the top and is cut off below. An empty cell keeps a line of text's
    height, so a row with no text does not close up, and a table in a block too low for its rows is as high as they
-   are, so its left line reaches the last of them. */
-.block .table { display: grid; min-height: min-content; border: 0 solid; border-width: var(--edge) 0 0 var(--edge); }
-.table > div { display: flex; min-width: 0; min-height: calc(1lh + .3em + var(--edge)); overflow: hidden; padding: .15em .3em; border: 0 solid; border-color: inherit; border-width: 0 var(--edge) var(--edge) 0; }
+   are, so its left line reaches the last of them. A line is the one pixel that Chromium prints: it rounds the
+   quarter millimetre of --edge up to that, and Safari on a sharp screen would round it down to half a pixel. */
+.block .table { display: grid; min-height: min-content; border: 0 solid; border-width: 1px 0 0 1px; }
+.table > div { display: flex; min-width: 0; min-height: calc(1lh + .3em + var(--edge)); overflow: hidden; padding: .15em .3em; border: 0 solid; border-color: inherit; border-width: 0 1px 1px 0; }
 .block .table p { position: relative; flex: 1; min-width: 0; margin: auto 0; line-height: inherit; white-space: pre-wrap; overflow-wrap: break-word; overflow: visible; }
 /* The field lies over the text of its cell, which keeps the room. */
 .table .open { visibility: hidden; }
