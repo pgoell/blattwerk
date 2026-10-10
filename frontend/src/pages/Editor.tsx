@@ -785,7 +785,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (!to) return;
       done();
       const picked = grouped([to.id], blocks);
-      setIds(picked);
+      // Drawn at once: under a narrow window's desk the panel grows with the first block picked, and the desk
+      // scrolls at the height that leaves it.
+      flushSync(() => setIds(picked));
       // The desk scrolls to what is picked, as in PowerPoint: a group as far as it fits, and the block itself last.
       for (const id of [...picked, to.id]) sheet.current!.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
     };
