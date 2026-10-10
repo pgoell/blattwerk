@@ -785,7 +785,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (!to) return;
       done();
       const picked = grouped([to.id], blocks);
-      setIds(picked);
+      // Drawn at once: under a narrow window's desk the panel grows with the first block picked, and the desk
+      // scrolls at the height that leaves it.
+      flushSync(() => setIds(picked));
       // The desk scrolls to what is picked, as in PowerPoint: a group as far as it fits, and the block itself last.
       for (const id of [...picked, to.id]) sheet.current!.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
     };
@@ -2207,7 +2209,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
     >
       <header>
-        <div className="top" ref={bar}>
+        <div className="top" ref={bar} onPointerOver={holdName}>
           {leaf ? (
             <span className="modes" role="tablist">
               {["Start", "Ansicht", "Vorlagen"].map((m) => (
@@ -2322,7 +2324,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       {leaf && !side && (
         <aside className="left">
           {brand}
-          <div className="insert" role="toolbar" aria-label="Einfügen">
+          <div className="insert" role="toolbar" aria-label="Einfügen" onPointerOver={(e) => holdName(e, e.currentTarget.parentElement!)}>
             {tools}
             <i className="sep" data-name="Seite" />
             <Tool icon={FilePlus} label="Neue Seite" onClick={() => addPage()} />
@@ -3002,16 +3004,21 @@ function Crop({ block, box, cut: [l, t, r, b], k, grip, trim }: {
   );
 }
 
-// The name over a tool at the dock's end would poke out of the window: it shifts to stay 4 px inside.
-function holdName(e: PointerEvent<HTMLElement>) {
+// The name of a button at a row's end would poke out of the window, or of the panel that cuts it off:
+// it shifts to stay 4 px inside.
+function holdName(e: PointerEvent<HTMLElement>, within?: Element) {
   const on = (e.target as Element).closest(".ib");
   if (!on) return;
   const name = getComputedStyle(on, "::after");
-  // No name shows where the pointer is no mouse; its width is then no number.
-  const half = (parseFloat(name.width) + parseFloat(name.paddingLeft) + parseFloat(name.paddingRight)) / 2 || 0;
+  // No name hangs there where the pointer is no mouse, and none on a button with its name beside it.
+  if (name.position !== "absolute") return;
+  const half = (parseFloat(name.width) + parseFloat(name.paddingLeft) + parseFloat(name.paddingRight)) / 2;
   const { left, width } = on.getBoundingClientRect();
   const middle = left + width / 2;
-  const shift = Math.max(4 + half - middle, 0) + Math.min(innerWidth - 4 - half - middle, 0);
+  // A panel shows what lies inside its border and its scrollbar.
+  const from = within ? within.getBoundingClientRect().left + within.clientLeft : 0;
+  const to = within ? from + within.clientWidth : innerWidth;
+  const shift = Math.max(from + 4 + half - middle, 0) + Math.min(to - 4 - half - middle, 0);
   e.currentTarget.style.setProperty("--shift", `${shift}px`);
 }
 

@@ -7,7 +7,8 @@ a finger it still scrolls.
 import pytest
 from playwright.sync_api import expect
 from test_bar import THEMES, TIP, text
-from ui import at, expect_picked, pick
+from test_keys_reach import KINDS, low
+from ui import at, expect_picked, pick, user
 
 TOOLS = ".stage .dock .ib"
 # What the dock says of itself: how it lays out its tools, whether they need more room than it
@@ -31,9 +32,9 @@ DOCK = """() => {
 }"""
 
 
-def narrow(editor, width, touch=False, theme="", more=()):
+def narrow(editor, width, touch=False, theme="", more=(), client=None):
     """The editor in a window of that width, opened anew at it, with fingers or a mouse."""
-    page = editor(text("a"), theme=theme, touch=touch, more=more)
+    page = editor(text("a"), theme=theme, touch=touch, more=more, client=client)
     # The panels a window starts with go by its width as the editor opens.
     page.set_viewport_size({"width": width, "height": 900})
     page.reload()
@@ -91,7 +92,10 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
     # Only Blattform has the shapes in a panel, at the window's left.
     shapes = page.locator(".insert .shapes .ib")
     assert (shapes.count() > 1) == (theme is None)
-    for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *shapes.all()[1:]):
+    # The shapes at the first row's ends have no room in the panel; the others have.
+    roomy = [button for button in shapes.all() if button.get_attribute("aria-label") not in ENDS]
+    assert len(roomy) == max(shapes.count() - len(ENDS), 0)
+    for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *roomy):
         button.hover()
         tip = button.evaluate(TIP)
         assert tip, button
@@ -99,6 +103,63 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
         middle = (tip["box"]["left"] + tip["box"]["right"]) / 2
         assert abs(middle - on["x"] - on["width"] / 2) < 0.5, tip
         assert button.evaluate("(el) => getComputedStyle(el, '::after').marginLeft") == "0px"
+
+
+# The shapes of Blattform's left panel whose names have no room centred: the first row's ends.
+ENDS = ["Rechteck", "Sprechblase"]
+# The room the left panel shows: its box without its border and its scrollbars, and whether it
+# or the window scrolls sideways.
+PANEL = """() => {
+    const left = document.querySelector(".left");
+    const around = left.getBoundingClientRect();
+    const x = around.left + left.clientLeft;
+    const y = around.top + left.clientTop;
+    return {
+        box: { left: x, top: y, right: x + left.clientWidth, bottom: y + left.clientHeight },
+        scrolls: left.scrollWidth > left.clientWidth
+            || document.documentElement.scrollWidth > innerWidth,
+    };
+}"""
+
+
+def test_a_shapes_name_shows_whole_in_blattforms_left_panel_and_centred_where_it_has_room(editor):
+    """A3, I6, I7 (#285)"""
+    page = editor(text("a"))
+    shapes = page.locator(".insert .shapes .ib").all()
+    assert len(shapes) > 6
+    shifted = []
+    for button in shapes:
+        button.hover()
+        tip = button.evaluate(TIP)
+        name = button.get_attribute("aria-label")
+        panel = page.evaluate(PANEL)
+        assert tip and tip["content"] == f'"{name}"', (name, tip)
+        assert tip["cut"] is None, (name, tip["box"], tip["cut"])
+        for side, sign in (("left", 1), ("top", 1), ("right", -1), ("bottom", -1)):
+            assert sign * (tip["box"][side] - panel["box"][side]) >= 0, (name, tip["box"], panel)
+        assert not panel["scrolls"], (name, tip["box"])
+        on = button.bounding_box()
+        middle = on["x"] + on["width"] / 2
+        half = (tip["box"]["right"] - tip["box"]["left"]) / 2
+        # Centred where that leaves it clear of the panel's edges, else as near to it as it gets.
+        want = min(max(middle, panel["box"]["left"] + 4 + half), panel["box"]["right"] - 4 - half)
+        assert abs(tip["box"]["left"] + half - want) < 0.5, (name, tip["box"])
+        if want != middle:
+            shifted.append(name)
+    assert shifted == ENDS, shifted
+
+
+def test_for_a_finger_no_shapes_name_shows_in_blattforms_left_panel_and_nothing_shifts(editor):
+    """I8 (#285)"""
+    # The iPad on its side: upright, Blattform has no left panel.
+    page = editor(text("a"), touch="landscape")
+    shapes = page.locator(".insert .shapes .ib").all()
+    assert len(shapes) > 6
+    for button in shapes:
+        button.hover()
+        assert button.evaluate(TIP) is None, button.get_attribute("aria-label")
+        shift = page.locator(".insert").evaluate("(el) => el.style.getPropertyValue('--shift')")
+        assert shift in ("", "0px"), shift
 
 
 @THEMES
@@ -222,3 +283,77 @@ def test_tab_brings_a_block_at_the_pages_end_into_view_clear_of_the_wrapped_dock
         dock: document.querySelector(".stage .dock").getBoundingClientRect().top,
     })""")
     assert got["block"] <= got["dock"], got
+
+
+# Asked #286
+
+# Where the block lies, where the desk ends and the dock begins, and how far the desk is scrolled.
+LIES = """(el) => {
+    const desk = document.querySelector(".desk");
+    const [block, around] = [el, desk].map((e) => e.getBoundingClientRect());
+    const docks = [...document.querySelectorAll(".stage .dock")];
+    return {
+        top: block.top,
+        bottom: block.bottom,
+        desk: [around.top, around.bottom],
+        dock: Math.min(...docks.map((dock) => dock.getBoundingClientRect().top)),
+        scroll: desk.scrollTop,
+    };
+}"""
+
+
+def unpicked(editor, blocks, client=None, n=1):
+    """A window 360 px wide on a second page of the blocks, nothing picked, the keys on page `n`."""
+    page = narrow(editor, 360, more=blocks, client=client)
+    # An empty spot of the page: the click picks nothing and makes the page the one in use.
+    page.locator(f'.sheet[data-page="{n}"]').click(position={"x": 5, "y": 5})
+    expect_picked(page)
+    # With nothing picked the panel holds one line, and the desk has most of the window.
+    expect(page.locator(".panel .hint")).to_be_visible()
+    return page
+
+
+def expect_in_view(page, name):
+    """Waits for the panel Format, then wants the block whole in the desk and above the dock."""
+    expect(page.locator(".panel .what")).to_be_visible()
+    got = at(page, name).evaluate(LIES)
+    assert got["top"] >= got["desk"][0] and got["bottom"] <= min(got["desk"][1], got["dock"]), got
+    expect(at(page, name)).to_be_in_viewport(ratio=1)
+    return got
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_tab_with_nothing_picked_brings_the_block_into_view_over_the_opened_panel(editor, kind):
+    """A1, I2"""
+    client = user()
+    # The first page has an "a" of its own.
+    page = unpicked(editor, [{**b, "id": "low-" + b["id"]} for b in low(kind, client)], client)
+    names = ["low-a", "low-b"] if kind == "group" else ["low-a"]
+    for name in names:
+        expect(at(page, name)).not_to_be_in_viewport()
+    page.keyboard.press("Tab")
+    expect_picked(page, *names)
+    # Of a group the block Tab went to, which is scrolled to last.
+    expect_in_view(page, "low-a")
+
+
+def test_shift_tab_with_nothing_picked_brings_the_block_into_view_over_the_opened_panel(editor):
+    """I1"""
+    page = unpicked(editor, [{**text("c"), "y": 277}])
+    expect(at(page, "c")).not_to_be_in_viewport()
+    page.keyboard.press("Shift+Tab")
+    expect_picked(page, "c")
+    expect_in_view(page, "c")
+
+
+def test_tab_to_a_block_that_stays_in_view_over_the_opened_panel_leaves_the_desk(editor):
+    """I4"""
+    page = unpicked(editor, [text("b")], n=0)
+    # Not at its start, where a desk that scrolled up would show nothing.
+    page.locator(".desk").evaluate("el => el.scrollTop = 20")
+    was = at(page, "a").evaluate(LIES)
+    assert was["scroll"] == 20, was
+    page.keyboard.press("Tab")
+    expect_picked(page, "a")
+    got = expect_in_view(page, "a")
+    assert got["scroll"] == 20 and got["desk"][1] < was["desk"][1], (was, got)
