@@ -73,7 +73,7 @@ const hull = (bs: Box[]) => bounds(bs.map((b) => outline({ ...b, x: b.x - lean(b
 // its side, and the line starts at the next corner.
 const quarter = (bs: Block[]): Block[] => {
   const all = hull(bs);
-  const d =Math.trunc(Math.round((all.w - all.h) * 100) / 2) / 100;
+  const d = Math.trunc(Math.round((all.w - all.h) * 100) / 2) / 100;
   return bs.map((b) => {
     const to = isLine(b) ? { ...b, w: b.h, h: b.w, props: { ...b.props, from: NEXT[b.props.from ?? "nw"] } } : { ...b, angle: norm((b.angle ?? 0) + 90) };
     // As far from the left as the centre was from the bottom, and as far from the top as it was from the left.
