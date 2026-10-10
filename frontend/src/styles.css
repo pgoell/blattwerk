@@ -606,5 +606,5 @@ body:has(.print) { background: #fff; }
   .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: 88px; box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
   .left { justify-self: start; }
   .panel { justify-self: end; }
-  .dock { z-index: 5; overflow-x: auto; }
+  .dock { z-index: 5; }
 }

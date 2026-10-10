@@ -26,6 +26,7 @@ from ui import (
     drawer,
     expect_picked,
     saved,
+    swipe,
     user,
 )
 
@@ -499,9 +500,11 @@ def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(edito
 
 
 @THEMES
-def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme):
-    """I8, #270"""
+@pytest.mark.parametrize("window", [(1400, 1000), (900, 1200)], ids=["wide", "upright"])
+def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme, window):
+    """I8, #270. Upright the dock scrolled for a mouse too since #267."""
     page = editor(text("a", 1), theme=theme)
+    page.set_viewport_size({"width": window[0], "height": window[1]})
     tool = page.locator(".dock .ib").first
     tool.hover()
     tip = "el => getComputedStyle(el, '::after').content"
