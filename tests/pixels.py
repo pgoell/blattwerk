@@ -31,23 +31,20 @@ LIMIT = 0.004 if BROWSER == "webkit" else 0.0015
 # page in tiles of 10 mm.
 #
 # The share of a tile's pixels that differ. In Chromium an outline that prints 0.5 mm lower is
-# 0.068 and a word 0.050. A page the tests compare has 0.015 at most, at the dashes of a box
-# with a border of 3 mm, and the dots of such a border 0.025 (the pages of test_border_width.py).
+# 0.068 and a word 0.050. A page the tests compare has 0.007 at most, where a Karo runs off the
+# page's edge.
 # WebKit lays rows of text up to 0.54 mm lower and ends a picture 0.4 mm short (ROWS and EDGE in
 # test_pixels.py, what the browsers round): 0.065 in a school's script and 0.062 at a picture's
 # right edge. That is more than the 0.059 of that outline and the 0.0045 of that word, so there
 # it sees neither. It sees a sentence 1 mm lower, 0.099.
-TILE = 0.075 if BROWSER == "webkit" else 0.03
+TILE = 0.07 if BROWSER == "webkit" else 0.01
 # The share of a tile's ink that only one picture has, where ink is how far a pixel's red, green
 # or blue lies below white. It sees a line that is gone, 1, and a colour: #555555 for #222222 is
 # 0.25 to 0.27 in a text and a ruling, #ffe066 for #ffd43b 0.28, in both browsers. Chromium has
-# 0.202 at most, at the corner of a dashed box with a border of 3 mm, and 0.196 in a table, where
-# pdfium fills every pixel a line touches. WebKit has 0.341 at the lower right corner of a picture
-# that is cut and flipped (the page "pictures" of test_pixels.py, around 135, 125 mm: blue 3.7 on
-# the screen, 5.6 in print), so there it sees the line that is gone and no colour. Its other
-# pages have 0.224 at most, at a box's border of 0.5 mm: a limit of 0.25 would see all three
-# colours.
-INK = 0.38 if BROWSER == "webkit" else 0.225
+# 0.196 at most, in a table, where pdfium fills every pixel a line touches. WebKit has 0.224 at
+# most, at a box's border of 0.5 mm, so it sees all three colours. CI's Chromium runs on another
+# machine's fonts than a laptop's, so its limit leaves more room.
+INK = 0.25 if BROWSER == "webkit" else 0.21
 # The ink a tile has to hold for all of it to count: a third of a hairline's, 0.3 mm wide and
 # dark, through the tile's middle. Less ink than this is measured against this much.
 FLOOR = 3

@@ -404,6 +404,8 @@ body:has(.print) { background: #fff; }
 .block .ruling { display: block; width: 100%; height: 100%; overflow: visible; }
 /* The text on a ruling: its place and its line height are set to the rows. */
 .block .written { position: absolute; left: 0; width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
+/* A cut picture is larger than its box and clips itself at the cut (Draw in sheet.tsx). The box clips too, on whole
+   pixels: without that the part cut off would give the desk room to scroll to. */
 .block .picture { position: relative; overflow: hidden; }
 .picture img { position: absolute; max-width: none; }
 .block .fields { display: flex; align-items: flex-end; gap: 1em; font-family: Andika; line-height: 1.3; }

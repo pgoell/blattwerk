@@ -349,7 +349,11 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
     >
       {d && (
         <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ ...over, ...flipped(block) }}>
-          <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+          {p.kind === "bubble" && p.dash && edge > 0 ? (
+            <Dashes way={bubble(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
+          ) : (
+            <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+          )}
         </svg>
       )}
       {ring && (
@@ -363,20 +367,31 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
 }
 
 // The dashes of a box's border. The middle of the stroke is `w` by `h` mm, half the stroke's width inside the box.
-// The dashes stretch or shrink a little so that a whole number of them goes around: the last one meets the first.
 function Ring({ w, h, edge, p }: { w: number; h: number; edge: number; p: TextProps }) {
-  const round = p.kind === "circle";
   const r = p.kind === "rounded" ? Math.max(0, Math.min(4 - edge / 2, w / 2, h / 2)) : 0;
-  // The browser and the PDF each measure the way along a curve their own way, and the dots of a circle printed
-  // further along than the screen had them. So an ellipse is drawn as 180 short lines, from its top: those measure the
-  // same everywhere.
-  const points = round ? Array.from({ length: 180 }, (_, i) => [(edge + w * (1 + Math.sin((i * Math.PI) / 90))) / 2, (edge + h * (1 - Math.cos((i * Math.PI) / 90))) / 2]) : [];
-  // Around the ellipse along those lines, around a box less what its round corners cut off.
-  const around = round ? points.reduce((sum, [x, y], i) => sum + Math.hypot(x - points[(i + 1) % 180][0], y - points[(i + 1) % 180][1]), 0) : 2 * (w + h) - (8 - 2 * Math.PI) * r;
+  const [rx, ry] = p.kind === "circle" ? [w / 2, h / 2] : [r, r];
+  return <Dashes way={around(edge / 2, edge / 2, edge / 2 + w, edge / 2 + h, rx, ry)} edge={edge} p={p} fill="none" />;
+}
+// The way round a box with round corners, as points: clockwise, and it ends where the top left corner does. The
+// browser and the PDF each measure the way along a curve their own way, and the dots after one printed further
+// along than the screen had them. So a quarter turn is 45 short lines: those measure the same everywhere. A
+// bubble's `tail` lies in the foot.
+function around(left: number, top: number, right: number, low: number, rx: number, ry: number, tail: number[][] = []) {
+  const turn = (x: number, y: number, from: number) =>
+    Array.from({ length: rx ? 46 : 1 }, (_, i) => [x + rx * Math.sin(((from + i / 45) * Math.PI) / 2), y - ry * Math.cos(((from + i / 45) * Math.PI) / 2)]);
+  return [...turn(right - rx, top + ry, 0), ...turn(right - rx, low - ry, 1), ...tail, ...turn(left + rx, low - ry, 2), ...turn(left + rx, top + ry, 3)];
+}
+// The dashes along a way round, which starts at its last point: a box with square corners is a `<rect>`. They
+// stretch or shrink a little so that a whole number of them goes around: the last one meets the first.
+function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: number; p: TextProps } & SVGAttributes<SVGElement>) {
+  const [[right], [, low], , [left, top]] = way;
+  const length = way.reduce((sum, [x, y], i) => sum + Math.hypot(x - way.at(i - 1)![0], y - way.at(i - 1)![1]), 0);
   const each = edge * (p.dash === "dashed" ? 7 : 2.5);
-  const fit = around / Math.max(1, Math.round(around / each)) / each;
-  const look = { fill: "none", stroke: p.stroke, strokeWidth: edge, strokeDasharray: dashes(p.dash, edge * fit), strokeLinecap: p.dash === "dotted" ? ("round" as const) : undefined };
-  return round ? <polygon points={points.join(" ")} strokeLinejoin="round" {...look} /> : <rect x={edge / 2} y={edge / 2} width={w} height={h} rx={r} ry={r} {...look} />;
+  const fit = length / Math.max(1, Math.round(length / each)) / each;
+  // A dash that starts right where the way does has the end of the last one before it, a hair long: a doubled dot
+  // in print, and on the screen a join that fills a box's corner. So the way starts a hair inside the last gap.
+  const all = { stroke: p.stroke, strokeWidth: edge, strokeDasharray: dashes(p.dash, edge * fit), strokeDashoffset: -edge / 100, strokeLinecap: p.dash === "dotted" ? ("round" as const) : undefined, ...look };
+  return way.length > 4 ? <path d={`M${[way.at(-1), ...way.slice(0, -1)].join(" L")} Z`} strokeLinejoin="round" {...all} /> : <rect x={left} y={top} width={right - left} height={low - top} {...all} />;
 }
 
 // The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box: the
@@ -395,6 +410,11 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
     const arc = (x: number, y: number) => `A${r},${r} 0 0 1 ${x},${y}`;
     return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
   },
+};
+// The bubble's way round as points, for its dashes: the same outline.
+const bubble = (w: number, h: number, e: number) => {
+  const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
+  return around(e, e, w - e, low, r, r, [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]]);
 };
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
@@ -550,13 +570,16 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
     );
   const [l, t, r, b] = block.props.cut;
   const [w, h] = [1 - l - r, 1 - t - b];
+  // The picture clips itself at its cut. The box clips on whole pixels: alone it let a strip of the part that is
+  // cut off, up to a pixel wide, show beyond the cut and print. A whole picture is left as it was.
+  const clipPath = l || t || r || b ? `inset(${[t, r, b, l].map((share) => `${share * 100}%`).join(" ")})` : undefined;
   return (
     <div className="picture" style={flipped(block)}>
       <img
         src={`/api/uploads/${block.props.upload}`}
         alt=""
         draggable={false}
-        style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%` }}
+        style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
       />
     </div>
   );

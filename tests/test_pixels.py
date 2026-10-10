@@ -210,10 +210,10 @@ def test_a_block_that_prints_elsewhere_is_over_the_limit(browser, server):
 
 
 # What the share of the page passes over (issue #282), each planted as the print of another page.
-# WebKit sees none of the five. A colour is 0.26 to 0.28 of a tile's ink, and a cut and flipped
-# picture's corner differs by 0.341. A shift is 0.059 of a tile for the outline and 0.0045 for the
-# word, and rows of a school's script differ by 0.065: see TILE and INK in pixels.py.
-BLIND = pytest.mark.webkit_xfail(299, "a picture's corner and a row's place differ by more")
+# WebKit sees the colours and neither shift. A shift is 0.059 of a tile for the outline and 0.0045
+# for the word, and rows of a school's script differ by 0.065, which is what the browsers round
+# (ROWS below): see TILE in pixels.py.
+BLIND = pytest.mark.webkit_xfail(299, "a row's place differs by more")
 GREY = {"color": "#555555"}
 COLOURS = {
     "fill": (at("shape", FILLED), at("shape", {**FILLED, "fill": "#ffe066"})),
@@ -228,7 +228,6 @@ SHIFTS = {
 }
 
 
-@BLIND
 @pytest.mark.parametrize("case", COLOURS)
 def test_a_wrong_colour_is_over_the_limit(browser, server, case):
     """X1"""
