@@ -53,8 +53,8 @@ GESTURES = [
 BARE = [
     pytest.param("bare text", "Farbe", id="bare-text-colour"),
     pytest.param("bare text", "Zeilenabstand", id="bare-text-spacing"),
+    # Not "Randstärke": a width turns on the border of a text that has none, a change (#291).
     pytest.param("bare text", "Transparenz", id="bare-text-opacity"),
-    pytest.param("bare text", "Randstärke", id="bare-text-width"),
     pytest.param("bare shape", "Farbe", id="bare-shape-colour"),
     pytest.param("bare shape", "Zeilenabstand", id="bare-shape-spacing"),
     pytest.param("bare shape", "Transparenz", id="bare-shape-opacity"),

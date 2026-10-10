@@ -310,6 +310,10 @@ def unpicked(editor, blocks, client=None, n=1):
     expect_picked(page)
     # With nothing picked the panel holds one line, and the desk has most of the window.
     expect(page.locator(".panel .hint")).to_be_visible()
+    # Playwright scrolls the desk for that click when the spot is covered or out of view at that
+    # moment, as in a window still settling (#300). The blocks lie 62 px under the window, so the
+    # desk starts at its top.
+    page.locator(".desk").evaluate("(el) => el.scrollTo(0, 0)")
     return page
 
 
@@ -335,6 +339,32 @@ def test_tab_with_nothing_picked_brings_the_block_into_view_over_the_opened_pane
     expect_picked(page, *names)
     # Of a group the block Tab went to, which is scrolled to last.
     expect_in_view(page, "low-a")
+
+
+def test_the_block_starts_out_of_view_though_the_click_scrolled_the_desk(editor, monkeypatch):
+    """#300"""
+    # Something lies over the spot for a third of a second, so Playwright scrolls and tries again.
+    cover = """() => {
+        const el = document.createElement("div");
+        el.style.cssText = "position:fixed;inset:0;z-index:99999";
+        document.body.append(el);
+        setTimeout(() => el.remove(), 300);
+    }"""
+
+    real = narrow
+
+    def covered(*args, **more):
+        page = real(*args, **more)
+        page.evaluate(cover)
+        return page
+
+    with monkeypatch.context() as patch:
+        patch.setitem(globals(), "narrow", covered)
+        page = unpicked(editor, [{**text("c"), "y": 250}])
+    expect(at(page, "c")).not_to_be_in_viewport()
+    page.keyboard.press("Tab")
+    expect_picked(page, "c")
+    expect_in_view(page, "c")
 
 
 def test_shift_tab_with_nothing_picked_brings_the_block_into_view_over_the_opened_panel(editor):
