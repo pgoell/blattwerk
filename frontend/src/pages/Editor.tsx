@@ -87,7 +87,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { bounds, drawn, has, norm } from "./Format";
+import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -193,12 +193,6 @@ const centre = (e: TouchEvent) => [(e.touches[0].clientX + e.touches[1].clientX)
 const span = (boxes: Box[], axis: Axis) => {
   const size = axis === "x" ? "w" : "h";
   return [Math.min(...boxes.map((b) => b[axis])), Math.max(...boxes.map((b) => b[axis] + b[size]))];
-};
-// The level box around a turned block's outline. It has the block's centre.
-const outline = <T extends Box>(b: T): T => {
-  const [c, s] = dir(b).map(Math.abs);
-  const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
-  return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
 };
 // A new block's next step along one axis: 5 mm on, or back at the margin where the page ends.
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
@@ -1625,18 +1619,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
     const first = from[0].angle ?? 0;
     const a = from.length > 1 ? stop(by) : stop(first + by) - first;
-    const all = bounds(from.map(outline));
-    const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
-    const [c, s] = dir({ angle: a });
-    flushSync(() =>
-      place(
-        from.map((b) => {
-          const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
-          return [b.id, { x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + a) }];
-        }),
-        "drag",
-      ),
-    );
+    flushSync(() => place(swung(from, a).map(({ id, x, y, angle }) => [id, { x, y, angle }]), "drag"));
   };
   // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
   // block may: a hand moves the mouse a pixel or two, and that turns nothing.
@@ -1650,25 +1633,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const under = spot.current && document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".block:not(.sel)"));
     if (under) pick(under, e.inputEvent.shiftKey);
   };
-  // The panel's buttons turn each block by a quarter about its own centre.
-  const spin = (by: number) => place(sel.map((b) => [b.id, { angle: norm((b.angle ?? 0) + by) }]));
-  // Mirrors each selected picture, symbol, shape and text in an outline about its own centre, as the page shows it:
-  // its angle mirrors too. A line's start changes corners instead, and a shape's text stays readable.
-  function mirror(axis: Axis) {
-    const swap: Record<Corner, Corner> = axis === "x" ? { nw: "ne", ne: "nw", sw: "se", se: "sw" } : { nw: "sw", sw: "nw", ne: "se", se: "ne" };
-    const flag = axis === "x" ? "flipX" : "flipY";
-    change((bs) =>
-      bs.map((b) => {
-        if (!ids.includes(b.id) || (b.type !== "image" && b.type !== "symbol" && b.type !== "shape" && !drawn(b))) return b;
-        // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
-        // An outline mirrors as a picture does; a box looks the same either way.
-        const flips = b.type !== "shape" || drawn(b);
-        if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        // A level block names no angle, and stays so.
-        return { ...b, ...(b.angle && { angle: norm(-b.angle) }), ...(flips && { [flag]: !b[flag] }) };
-      }),
-    );
-  }
+  // The panel's buttons turn and mirror each thing by itself, in one step: a group picked whole goes as one about
+  // the middle of the box around it, as the handle turns it and as in PowerPoint, and a loose block about its own.
+  const each = (go: (thing: Block[]) => Block[]) => {
+    const to = new Map(things.flatMap(go).map((b) => [b.id, b]));
+    change((bs) => bs.map((b) => to.get(b.id) ?? b));
+  };
+  const spin = (by: number) => each((t) => swung(t, by));
+  const mirror = (axis: Axis) => each((t) => mirrored(t, axis));
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
   // So does a text the resize left higher than its box.
   // `dx` and `dy` say which handle moved: -1 the left or top edges, 1 the right or bottom ones.
@@ -2748,6 +2720,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}
+                alone={(b) => thing(b) === b.id}
                 lock={lock}
                 setLock={setLock}
                 size={[W, H]}
