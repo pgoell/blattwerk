@@ -87,7 +87,7 @@ const quarter = (bs: Block[]): Block[] => {
 // spot. Quarters are exact, and a line goes by them only.
 export const swung = (bs: Block[], by: number): Block[] => {
   if (by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
-  const all = hull(bs);
+  const all = bounds(bs.map(outline));
   const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
   const [c, s] = dir({ angle: by });
   return bs.map((b) => {

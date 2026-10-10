@@ -422,6 +422,21 @@ def test_entsperren_frees_a_locked_block_and_entf_then_deletes_it(editor, road):
     assert doc(page, client)["pages"][0]["blocks"] == []
 
 
+@pytest.mark.parametrize("whole", [True, False], ids=["whole", "part"])
+def test_entsperren_frees_a_group_that_a_locked_block_holds(editor, whole):
+    """A10: the group reads as held, picked whole or by its free block, and one click frees it."""
+    page, client, _ = opened(editor, "group")
+    if whole:
+        grab(page, "group")
+    else:
+        part(page)
+    in_bar(page, "Entsperren").click()
+    expect(in_bar(page, "Sperren")).to_be_visible()
+    assert [b["locked"] for b in doc(page, client)["pages"][0]["blocks"]] == [False, False]
+    page.keyboard.press("Delete")
+    assert len(doc(page, client)["pages"][0]["blocks"]) == (0 if whole else 1)
+
+
 def test_a_key_that_a_lock_stops_makes_no_undo_step(editor):
     """I2"""
     page, client, before = opened(editor, "text", los())

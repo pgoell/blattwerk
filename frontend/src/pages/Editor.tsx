@@ -1971,7 +1971,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     desk.current!.scrollBy(page.left + pinch.current.x * fit * next - x, page.top + pinch.current.y * fit * next - y);
   }
 
-  const locked = sel.length > 0 && sel.every((b) => b.locked);
+  // With nothing free in it the selection is held, be it by a locked block of its group that is not picked.
+  const locked = sel.length > 0 && !free.length;
   // A right click on the desk picks as in PowerPoint and opens the menu. In a field the browser's own stays: false.
   function menuAt(el: Element, x: number, y: number) {
     if (el.closest(".ProseMirror, textarea, input, select")) return false;
@@ -2009,7 +2010,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
     { label: "Löschen", icon: Trash2, keys: "Entf", disabled: !free.length, run: remove },
   ];
-  const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) };
+  const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place((locked ? wide : sel).map((b) => [b.id, { locked: !locked }])) };
   const groups: Command[] = [
     { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
