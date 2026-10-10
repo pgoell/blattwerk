@@ -11,7 +11,7 @@ from blattwerk import pdf
 # How dark a border of #222222 is, from 0 to 1.
 BLACK = 1 - 0x22 / 255
 K = 96 / 25.4
-WIDTHS = [0.2, 0.5, 1, 3]
+WIDTHS = [0.2, 0.25, 0.5, 1, 3]
 LOOKS = [(width, dash) for dash in (None, "dashed", "dotted") for width in WIDTHS]
 SIZE = {"w": 60, "h": 30}
 WORDS = "Der Igel sucht im Herbst nach Futter und baut sich ein Nest aus Laub."
@@ -95,11 +95,8 @@ def widths(browser, server, width, dash):
     found = {}
     for block in blocks:
         kind = block["props"].get("kind")
-        # No dot of these two stands alone in a strip: a round box prints its first dot with a part
-        # of the last one over it, as on master, and a bubble's dots turn its corner too close by.
         # A triangle has no top edge, only a tip.
-        lone = dash == "dotted" and kind in ("rounded", "bubble")
-        tops = [] if lone or kind == "triangle" else [False]
+        tops = [] if kind == "triangle" else [False]
         # The top edge, and the foot of a solid border: a dash need not lie on the foot's middle.
         # An outline's foot, a bubble's tail, is not level.
         for foot in tops + [True] * (not dash and kind != "bubble"):
@@ -245,9 +242,10 @@ def test_a_text_in_a_border_keeps_its_place_and_its_rows(browser, server, width)
 
 
 @pytest.mark.parametrize("width", [0.5, 3])
-def test_a_click_on_the_border_or_inside_picks_a_shape_with_no_fill(editor, width):
+@pytest.mark.parametrize("dash", [None, "dashed"])
+def test_a_click_on_the_border_or_inside_picks_a_shape_with_no_fill(editor, width, dash):
     """I5"""
-    page = editor(box("a", "shape", {**RECT, **look(width)}, x=40, y=60, **SIZE))
+    page = editor(box("a", "shape", {**RECT, **look(width, dash)}, x=40, y=60, **SIZE))
     block = at(page, "a")
     size = block.bounding_box()
     at(page, "a").click(position={"x": 1, "y": size["height"] / 2})
