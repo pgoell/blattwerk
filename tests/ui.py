@@ -124,6 +124,16 @@ def box(name, kind, props, z=1, **more):
     return {**block(kind, 20 + 30 * z, 20, props), "id": name, "z": z, **more}
 
 
+def apart(*blocks):
+    """The blocks 70 mm below one another, for a finger at the iPad's size.
+
+    The sheet is 255 px wide there, 1.2 px to the mm, and a selected block's handles take a finger
+    41 px below it and 62 px above: over the middle of a block that lies 10 mm away. From 20 mm
+    down, so that the first two as one box have nothing to snap to within 12 mm below.
+    """
+    return [{**b, "y": 20 + 70 * i} for i, b in enumerate(blocks)]
+
+
 def at(page, name):
     return page.locator(f'.block[data-id="{name}"]')
 

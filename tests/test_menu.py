@@ -13,6 +13,7 @@ from ui import (
     RULING,
     TABLE,
     TEXT,
+    apart,
     at,
     box,
     centre,
@@ -637,7 +638,9 @@ def test_a_jittering_finger_held_on_a_selected_block_moves_no_block(editor, kind
     """#178"""
     client = user()
     if kind in ("group", "several"):
-        blocks = boxes(*"abc", grouped="ab" if kind == "group" else "")
+        # Apart: a tap reaches each block, and no block or middle of the page lies near enough to
+        # snap to. A snap moves the blocks before the finger has left (#261).
+        blocks = apart(*boxes(*"abc", grouped="ab" if kind == "group" else ""))
     else:
         blocks = [box("a", "shape" if kind == "line" else kind, props(client, kind))]
     page = editor(*blocks, client=client, touch=True)
@@ -711,7 +714,7 @@ STATE = """([x, y]) => ({
 
 def test_a_tap_after_a_hold_the_browser_cancelled_selects_one_more(editor):
     """#179"""
-    page = editor(*texts("a", "b"), touch=True)
+    page = editor(*apart(*texts("a", "b")), touch=True)
     start = centre(at(page, "a"))
     with finger(page, start) as touch:
         expect(several(page)).to_have_attribute("aria-pressed", "true")

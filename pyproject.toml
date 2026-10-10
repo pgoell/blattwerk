@@ -35,7 +35,10 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-n auto"
-markers = ["webkit_xfail(issue, why): the test fails in WebKit for the reason the issue tells"]
+markers = [
+  "webkit_xfail(issue, why): the test fails in WebKit for the reason the issue tells",
+  "native: runs headed under xvfb (mise run test:native), with the mouse and the keys only",
+]
 
 [tool.ruff]
 target-version = "py314"

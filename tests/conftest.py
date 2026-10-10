@@ -9,6 +9,9 @@ from ui import BROWSER, serving, sheet, user
 from blattwerk import auth, db
 
 WEBKIT = BROWSER == "webkit"
+# The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
+NATIVE = os.environ.get("BLATTWERK_NATIVE") == "1"
+IPAD = {"width": 834, "height": 1194}
 expect.set_options(timeout=2000)
 
 
@@ -19,6 +22,13 @@ def pytest_collection_modifyitems(config, items):
     By place in the collection, so the slow files spread over all shards. Each xdist worker
     collects the same list and reads the same variable, so all agree.
     """
+
+    # A test marked native runs in the headed lane, and that lane runs nothing else.
+    def other(test):
+        return (test.get_closest_marker("native") is None) == NATIVE
+
+    config.hook.pytest_deselected(items=[t for t in items if other(t)])
+    items[:] = [t for t in items if not other(t)]
     if WEBKIT:
         # Only a test that opens the browser can differ there. Before the shards, so they split
         # what is left evenly.
@@ -72,7 +82,7 @@ def playwright():
 
 @pytest.fixture(scope="session")
 def browser(playwright):
-    browser = getattr(playwright, BROWSER).launch()
+    browser = getattr(playwright, BROWSER).launch(headless=not NATIVE)
     yield browser
     browser.close()
 
@@ -90,10 +100,12 @@ def editor(browser, server, playwright):
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut.
         """
         window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": touch}
+        if touch:
+            # Fingers mean an iPad, and its own window: 834 by 1194.
+            window["viewport"] = IPAD
         if WEBKIT and touch:
-            # Fingers in WebKit mean an iPad: its sharp screen and its name. Not its window, 834 px
-            # wide: the sheet is so small there that a block's handles lie over the next block.
-            window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
+            # In WebKit its sharp screen and its name too.
+            window = {**playwright.devices["iPad Pro 11"], "viewport": IPAD}
         context = browser.new_context(**window)
         contexts.append(context)
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.

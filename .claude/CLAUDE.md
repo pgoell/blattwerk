@@ -21,6 +21,8 @@ mise run test:flaky -- tests/test_keys.py::test_name  # 20 times side by side
 mise run test:flaky -- 'tests/test_keys.py::test_name[param]'  # one parametrised case, 20 times
 mise run test:webkit    # the browser tests in WebKit, in Docker where the host lacks its libraries
 mise run test:webkit -- -n 0 -x tests/test_keys.py::test_name  # one of them
+mise run test:native    # tests/test_native.py in a real window under xvfb; needs `uv run playwright install chromium` once
+mise run test:native -- tests/test_native.py::test_name  # one of them; test:one and test:flaky deselect a native test
 mise run shot -- sheet.json out/                       # the editor and the PDF as PNG
 mise run lint           # ruff check, ruff format --check, ty check, tsc
 mise run dev:api        # backend on :8000

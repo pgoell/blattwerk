@@ -60,6 +60,13 @@ description = "Run the browser tests in WebKit; node ids and pytest flags go aft
 depends = ["build"]
 run = "bash scripts/test-webkit.sh"
 
+[tasks."test:native"]
+description = "Run the tests marked native in a real window under xvfb; node ids go after --"
+depends = ["build"]
+# One worker: two windows on one screen would fight for the keys.
+env = { BLATTWERK_NATIVE = "1" }
+run = "xvfb-run -a uv run pytest -n 0"
+
 [tasks.shot]
 description = "Print a sheet: the editor as PNG and the PDF as PNG, into the folder given"
 depends = ["build"]

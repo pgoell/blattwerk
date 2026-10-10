@@ -70,6 +70,32 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}/10
 
+  # The lists, the colour picker and the file dialog in a real window. Not required yet: the gate
+  # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
+  # master to pass, and must not wait for a job no merge waits for.
+  native:
+    name: Native
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # The image of the WebKit job: it has xvfb and the libraries a window needs.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Chromium with a window wants more shared memory than a container has of its own.
+      options: --ipc=host
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-mise
+      # The whole Chromium, not the shell the PDF test prints with. The image holds the build of
+      # its tag, which follows uv.lock, so this step loads nothing; after a bump, one retry.
+      - name: Chromium with a window
+        timeout-minutes: 3
+        run: |
+          install="uv run playwright install chromium"
+          timeout -k 5 80 $install || timeout -k 5 80 $install
+      - name: Pytest
+        run: mise run test:native -- --durations=20
+
   # Branch protection requires the check named Test; the shards have other names.
   test:
     name: Test
