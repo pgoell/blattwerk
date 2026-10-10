@@ -321,6 +321,8 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
   const ring = !d && !!p.dash && edge > 0;
   // An outline is no border, so the padding alone keeps the text where a border would.
   const own = d || ring ? 0 : edge;
+  // The print rounds a border down to whole pixels. Dashes leave the room it would take, so the text keeps its place.
+  const room = ring ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
   return (
     <div
@@ -330,7 +332,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         background: d ? undefined : clear(p),
         border: own ? `${edge * k}px solid ${p.stroke}` : undefined,
         borderRadius: p.kind === "circle" ? "50%" : p.kind === "rounded" ? 4 * k : 0,
-        padding: `${(down - own) * k}px ${(across - own) * k}px`,
+        padding: `${(down - room) * k}px ${(across - room) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
         ...((d || ring) && { position: "relative", isolation: "isolate" }),
       }}

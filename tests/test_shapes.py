@@ -20,9 +20,12 @@ from ui import (
     expect_picked,
     pick,
     saved,
+    sheet,
     unpick,
     user,
 )
+
+from blattwerk import pdf
 
 FLIPS = ("Horizontal spiegeln", "Vertikal spiegeln")
 RED = {**RECT, "fill": "#ff0000"}
@@ -589,15 +592,41 @@ def test_a_solid_border_is_the_boxes_own_and_dashes_lie_over_the_fill(editor):
     expect(solid).to_have_css("border-top-color", "rgb(34, 34, 34)")
     expect(dashed.locator(DASHES)).to_have_count(1)
     expect(dashed).to_have_css("background-color", "rgb(255, 212, 59)")
-    # The text stands where the solid border has it, within the pixel a browser rounds a border to.
-    places = [(each.bounding_box(), each.locator("p").bounding_box()) for each in (solid, dashed)]
-    (ax, ay), (bx, by) = ((p["x"] - f["x"], p["y"] - f["y"]) for f, p in places)
-    assert (ax, ay) == pytest.approx((bx, by), abs=1)
     # In the middle of the top stroke: the first dash, 8 mm long from the corner, then the fill.
     shot = pixels(at(page, "b"))
     row = round(shot.height / ROOM["h"])
     assert shot.getpixel((round(shot.width * 4 / ROOM["w"]), row)) == (34, 34, 34)
     assert shot.getpixel((round(shot.width * 11.5 / ROOM["w"]), row)) == (255, 212, 59)
+
+
+LINES = """els => els.map((el) => {
+    const box = el.getBoundingClientRect();
+    const words = document.createRange();
+    words.selectNodeContents(el.querySelector("p"));
+    const lines = [...words.getClientRects()];
+    return lines.flatMap((l) => [l.x - box.x, l.y - box.y, l.width, l.height]);
+})"""
+
+
+@pytest.mark.parametrize("width", [0.5, 2, 3])
+def test_a_text_in_a_dashed_box_prints_where_a_solid_border_has_it(browser, server, width):
+    """I5"""
+    client = user()
+    words = "Der Igel sucht im Herbst nach Futter und baut sich ein Nest aus Laub."
+    look = {**TEXT, "text": words, "stroke": "#222222", "strokeWidth": width}
+    low = {**ROOM, "y": 140}
+    blocks = [box("a", "text", look, **ROOM), box("b", "text", {**look, "dash": "dashed"}, **low)]
+    mine = sheet(client, blocks)["id"]
+    # The page the PDF is printed from, at one pixel to a pixel as Chromium prints it. A border is
+    # rounded down to whole pixels there, and a narrower box could break a line elsewhere.
+    page = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    page.goto(f"{server}/druck/{mine}")
+    page.wait_for_selector("body.ready", state="attached")
+    solid, dashed = page.locator(".frame").evaluate_all(LINES)
+    page.close()
+    # Each line of the text, from the box's corner: more than one, and the same in both.
+    assert len(solid) > 4
+    assert dashed == pytest.approx(solid, abs=0.01)
 
 
 @pytest.mark.parametrize("kind", ["rect", "rounded", "circle", "text"])
