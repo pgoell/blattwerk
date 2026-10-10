@@ -4,8 +4,9 @@
     python - --read-only <url> < scripts/smoke.py
 
 Runs in the app's container with the image's own python, fed on stdin, so it is one file. The
-read-only half is three GETs and writes nothing. The full run signs a smoke user up with the
-invite, types into a sheet, saves, reloads and prints the PDF: only ever on a copy of the data.
+read-only half is three GETs and one look into the database for a user, and writes nothing. The
+full run signs a smoke user up with the invite, types into a sheet, saves, reloads and prints the
+PDF: only ever on a copy of the data.
 The job log is public, so the output names the steps and nothing else.
 """
 
@@ -15,6 +16,7 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 import sys
 import urllib.error
 import urllib.request
@@ -25,6 +27,10 @@ from urllib.parse import urljoin
 # Milliseconds a wait in the browser may take.
 WAIT = 30_000
 JS = {"text/javascript", "application/javascript"}
+NO_USER = (
+    "the database the app reads has no user: the container's volume may point at the wrong "
+    "folder. On a new machine make the admin with `python -m blattwerk invite --admin`, then rerun"
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("url")
@@ -95,6 +101,21 @@ def read_only() -> None:
         fail(f"status {status}")
 
 
+def users() -> None:
+    """Reads the database itself: the app makes a missing one anew, and that one answers 401 too."""
+    folder = os.environ.get("BLATTWERK_DATA_DIR")
+    if not folder:
+        fail("BLATTWERK_DATA_DIR is not set")
+    # mode=ro: opens no file that is not there, and writes nothing.
+    con = sqlite3.connect(f"file:{folder}/blattwerk.db?mode=ro", uri=True, timeout=5)
+    try:
+        count = con.execute("SELECT count(*) FROM users").fetchone()[0]
+    finally:
+        con.close()
+    if not count:
+        fail(NO_USER)
+
+
 def full(token: str) -> None:
     # Here, not at the top: the read-only half gets by with the standard library.
     from playwright.sync_api import sync_playwright
@@ -157,7 +178,10 @@ try:
         step = "invite"
         fail("SMOKE_INVITE is not set")
     read_only()
-    if not args.read_only:
+    if args.read_only:
+        passed("users")
+        users()
+    else:
         passed("signup")
         full(token)
     passed("end")

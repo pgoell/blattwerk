@@ -286,7 +286,7 @@ def test_keep_prev_tags_the_running_image(tmp_path):
     assert calls[1].startswith("exec blattwerk /app/.venv/bin/python -c ")
     assert calls[2:] == ["tag sha256:abc blattwerk-blattwerk:prev"]
     # What go-back.sh asks for before it goes back by itself.
-    assert (tmp_path / "output").read_text() == "kept=yes\n"
+    assert (tmp_path / "output").read_text() == "kept=yes\nimage=sha256:abc\n"
 
 
 def test_keep_prev_skips_without_container(tmp_path):
@@ -326,7 +326,7 @@ def test_keep_prev_goes_on_when_the_running_image_has_no_name(tmp_path):
 
 
 def test_deploy_keeps_prev_before_the_build_and_snapshots_after_it():
-    """prev before the build: the build moves `latest`, and the running image loses its name.
+    """prev before the build: there the running image surely still has its name.
 
     The snapshot after it, so it is not older than the cutover by the length of a build.
     """
@@ -334,9 +334,10 @@ def test_deploy_keeps_prev_before_the_build_and_snapshots_after_it():
     steps = [
         "actions/checkout",
         "run: bash scripts/keep-prev.sh",
-        "run: docker compose build",
+        "scripts/canary.sh; then",
+        "run: docker build -t blattwerk-blattwerk:canary .",
         "run: python3 scripts/snapshot.py",
-        "run: docker compose up -d",
+        "run: docker compose up -d --no-build",
     ]
     at = [text.index(step) for step in steps]
     assert at == sorted(at)

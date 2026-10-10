@@ -18,14 +18,24 @@ from blattwerk import auth, db, pdf, sheets
 
 SCRIPT = Path(__file__).parent.parent / "scripts" / "smoke.py"
 HALF = ["page", "bundle", "database"]
+ONLY = [*HALF, "users"]
 WHOLE = [*HALF, "signup", "login", "sheet", "editor", "save", "reload", "pdf"]
 HTML = b'<html><script>let a = 1;</script><script type="module" src="/assets/app.js"></script>'
+NO_USER = (
+    "smoke failed: users: the database the app reads has no user: the container's volume may "
+    "point at the wrong folder. On a new machine make the admin with "
+    "`python -m blattwerk invite --admin`, then rerun\n"
+)
 
 
-def smoke(*args, invite=None):
-    env = {key: value for key, value in os.environ.items() if key != "SMOKE_INVITE"}
+def smoke(*args, invite=None, data=None):
+    """Runs the script. `data` is the folder the container would name in BLATTWERK_DATA_DIR."""
+    ours = ("SMOKE_INVITE", "BLATTWERK_DATA_DIR")
+    env = {key: value for key, value in os.environ.items() if key not in ours}
     if invite:
         env["SMOKE_INVITE"] = invite
+    if data:
+        env["BLATTWERK_DATA_DIR"] = str(data)
     with SCRIPT.open() as script:
         return subprocess.run(
             [sys.executable, "-", *args],
@@ -164,22 +174,49 @@ def test_full_run_fails_when_the_reloaded_editor_lacks_the_word(server, monkeypa
     assert run.stderr == "smoke failed: reload: TimeoutError\n"
 
 
-def test_read_only_passes_and_leaves_every_row_count(server):
+def test_read_only_passes_and_leaves_every_row_count(server, data_dir):
     sheet(user(), [box("a", "text", TEXT)])
     before = counts()
     assert before["users"] == before["sheets"] == before["sessions"] == 1
-    run = smoke("--read-only", server)
+    run = smoke("--read-only", server, data=data_dir)
     assert run.stderr == ""
-    assert run.stdout.splitlines() == [*HALF, "smoke ok"]
+    assert run.stdout.splitlines() == [*ONLY, "smoke ok"]
     assert run.returncode == 0
     assert counts() == before
 
 
-def test_read_only_sends_three_gets_and_nothing_else():
+def test_read_only_sends_three_gets_and_nothing_else(data_dir):
+    user()
+    file = data_dir / "blattwerk.db"
+    before = file.read_bytes(), file.stat().st_mtime_ns, sorted(data_dir.rglob("*"))
+    # This app never opens the database, so whatever changed the folder would be the script.
     with answering() as (url, log):
-        run = smoke("--read-only", url)
+        run = smoke("--read-only", url, data=data_dir)
     assert (run.returncode, run.stderr) == (0, "")
     assert log == [("GET", "/"), ("GET", "/assets/app.js"), ("GET", "/api/me")]
+    assert (file.read_bytes(), file.stat().st_mtime_ns, sorted(data_dir.rglob("*"))) == before
+
+
+def test_read_only_fails_on_a_database_without_a_user(server, data_dir):
+    # No file yet: the app makes it with the first request, as it does on an empty volume.
+    assert not (data_dir / "blattwerk.db").exists()
+    run = smoke("--read-only", server, data=data_dir)
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == HALF
+    assert run.stderr == NO_USER
+    assert counts()["users"] == 0
+
+
+def test_read_only_fails_without_the_data_folder_and_names_no_path(data_dir):
+    with answering() as (url, _):
+        unset = smoke("--read-only", url)
+        missing = smoke("--read-only", url, data=data_dir)
+    assert (unset.returncode, missing.returncode) == (1, 1)
+    assert unset.stderr == "smoke failed: users: BLATTWERK_DATA_DIR is not set\n"
+    assert missing.stderr == "smoke failed: users: OperationalError\n"
+    assert unset.stdout.splitlines() == missing.stdout.splitlines() == HALF
+    # A database that is not there stays not there.
+    assert list(data_dir.iterdir()) == []
 
 
 def test_read_only_fails_when_the_bundle_is_the_page():

@@ -84,22 +84,29 @@ The database (`blattwerk.db`) and the uploads live in `~/.local/share/blattwerk/
 
 The steps, in order. A step that fails stops the deploy.
 
-1. `scripts/keep-prev.sh` tags the image of the running container as `blattwerk-blattwerk:prev`, if that container answers `/api/me`, a route that reads the database. Before the build: the build moves `latest`, the running image then has no name, and docker can tag it no more.
-2. Build the image. The step ends after 15 minutes, so a stalled download fails the job. The old container keeps running.
+1. `scripts/keep-prev.sh` tags the image of the running container as `blattwerk-blattwerk:prev`, if that container answers `/api/me`, a route that reads the database. It writes down the id of that image for step 11. First, before the build: here the running image surely still has its name, and nothing has had a chance to fail. Docker cannot tag an image that has no name left.
+2. Build the image as `blattwerk-blattwerk:canary`. `latest` still names the image that runs. The step ends after 15 minutes, so a stalled download fails the job. The old container keeps running.
 3. Start the canary: `scripts/canary.sh start` copies the data folder to `~/.local/share/blattwerk-canary/` (mode 700; the database through SQLite's backup, read only) and runs the new image there as the container `blattwerk-canary`. The canary never gets the live folder: the script refuses a copy folder that is the live folder, lies inside it or holds it. The canary is not on the proxy's network and has no port, so nobody outside reaches it.
 4. Smoke test the canary: `scripts/smoke.py` signs a smoke user up, opens a sheet, types, saves, loads the sheet again and finds the text, prints the PDF and counts its pages, and fetches the JS bundle. The smoke user lives in the copy only.
 5. Remove the canary and the copy, whether the test passed or failed. The next deploy clears them too, in case a job was killed.
 6. `scripts/snapshot.py` copies the database to `~/.local/share/blattwerk-backups/pre-<sha>.db`, where `<sha>` is the commit it deploys. It keeps the newest 30 snapshots.
-7. `docker compose up -d` replaces the container. Up to here the live site has not changed.
-8. Wait until the new container answers `/api/me`.
-9. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database.
-10. If step 7, 8 or 9 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. Without a `prev` image, or when step 1 did not tag one in this run (the old container did not answer or its image had no name left, so `prev` is an older image), it changes nothing and says so: a person decides then.
+7. Name the tested image `latest`: `docker tag blattwerk-blattwerk:canary blattwerk-blattwerk:latest`. Only an image that passed the canary gets that name.
+8. `docker compose up -d --no-build` replaces the container. Up to here the live site has not changed. The step after it fails the deploy if the container does not run the image the canary tried.
+9. Wait until the new container answers `/api/me`.
+10. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database. The database the container sees must also hold at least one user. On a new machine with no user yet, make the admin with the line from "Accounts" and rerun.
+11. If step 7, 8, 9 or 10 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. In four cases it changes nothing and says so, and a person decides then:
+    - there is no `prev` image;
+    - step 1 did not tag one in this run (the old container did not answer or its image had no name left, so `prev` is an older image);
+    - `prev` no longer has the id that step 1 wrote down;
+    - `prev` is the image that already runs (a rerun whose build came out of the cache, say), so there is nothing older to go back to. The container stays, and `latest` names the image that runs again.
 
-A deploy that fails after the build and before step 7 (a failed canary, say) leaves the old container running, but `blattwerk-blattwerk:latest` names the failed image until the next good deploy. `prev` names the image that runs, if step 1 tagged it. Do not run `docker compose up -d` by hand then: it would start the failed image. Revert the commit and let the deploy run.
+Each step has a time limit of its own, and the job's limit lies above their sum. So the job's limit cannot end the run between step 8 and step 11.
 
-A rerun of the deploy of a commit from before the canary is no way back either: the workflow file comes from `master`, the scripts from that commit, which has no `scripts/canary.sh`. Revert on `master` instead.
+A deploy that fails before step 7 (a failed canary, say) leaves the old container running, and `blattwerk-blattwerk:latest` still names the image that runs. `canary` names the failed image until the next build. A `docker compose up -d` by hand changes nothing then. Revert the commit and let the deploy run.
 
-The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS. The canary is gone by then; `docker run --rm blattwerk-blattwerk:latest` shows why an image does not start.
+A rerun of the deploy of a commit from before the canary is no way back either: the workflow file comes from `master`, the scripts from that commit, which has no `scripts/canary.sh`. A rerun of a commit that has the canary but is older than the `canary` image name fails before the build: its `scripts/canary.sh` starts `latest`, so its canary would try the image that already runs and not the build. Revert on `master` instead.
+
+The job log is public, so the steps print no token, no path of a user's file and no app logs. To see why a container failed: `docker logs blattwerk` on the VPS. The canary is gone by then; `docker run --rm blattwerk-blattwerk:canary` shows why an image does not start.
 
 Step 3 or 6 can fail with "Open the site once and sign in, so the app mends it, then rerun". That happens when the app died in the middle of a write and left `blattwerk.db-journal` beside the database. The deploy reads the database read only and cannot mend it; the app's next write does. Open the site, sign in, then rerun the deploy.
 

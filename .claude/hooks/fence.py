@@ -32,17 +32,20 @@ SETTINGS = (
     "`mise run repo:check-settings` only reads them.",
 )
 DOCKER = (
-    "the docker subcommand `{}` starts, stops or removes containers and volumes on the live host",
+    "the docker subcommand `{}` starts, stops, restarts or removes containers, images and volumes "
+    "on the live host",
     "Reading is fine (docker ps, logs, inspect). `mise run test:webkit` runs its own container.",
 )
 LIVE = (
-    "{} writes under the live folder {}",
+    "{} writes under the {} {}",
     "Read it only: ls, cat, cp to another folder, `sqlite3 -readonly`, or a "
     "`file:...?mode=ro` URI. Keep test data in a temp folder.",
 )
 
 HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_]\w*)\1")
-LIVE_NAME = re.compile(r"\.local/share/blattwerk(?![\w-])")
+FENCED = {"blattwerk": "live folder", "blattwerk-canary": "canary copy"}  # the deploy's copy
+LIVE_NAME = re.compile(r"\.local/share/blattwerk(-canary)?(?![\w-])")
+DATA_DIR = re.compile(r"BLATTWERK_DATA_DIR=(.+)")
 SCRIPTERS = re.compile(r"python[\d.]*|node|perl|ruby")
 BRACE = re.compile(r"(?<!\$)\{")
 # words that run the command after them, each with its options that take a value
@@ -63,7 +66,9 @@ DOCKER_VALUE_OPTS = {"-f", "--file", "-p", "--project-name", "--project-director
 DOCKER_VALUE_OPTS |= {"--profile", "--context", "-H", "--host", "-c", "--config", "-l"}
 DOCKER_VALUE_OPTS |= {"--log-level", "--progress", "--ansi", "--parallel"}
 DOCKER_GROUPS = {"compose", "container", "image", "network", "builder", "buildx"}
-DOCKER_BAD = {"up", "down", "rm", "stop", "kill", "system", "volume"}
+DOCKER_BAD = {"up", "down", "rm", "stop", "kill", "system", "volume", "restart", "rmi", "prune"}
+DOCKER_BAD |= {"remove"}
+FIND_ACTS = {"-delete", "-exec", "-execdir", "-ok", "-okdir"}
 WRITE_ANY = {"rm", "rmdir", "unlink", "shred", "truncate", "touch", "mkdir", "chmod", "chown"}
 WRITE_ANY |= {"tee", "mv"}
 WRITE_LAST = {"cp", "rsync", "install", "ln"}
@@ -75,8 +80,9 @@ class Refused(Exception):
         self.todo = rule[1]
 
 
-def live_dir() -> str:
-    return os.path.realpath(os.path.join(os.environ["HOME"], ".local/share/blattwerk"))
+def live_dirs() -> list[tuple[str, str]]:
+    share = os.path.join(os.environ["HOME"], ".local/share")
+    return [(label, os.path.realpath(os.path.join(share, name))) for name, label in FENCED.items()]
 
 
 def resolve(path: str, cwd: str) -> str:
@@ -87,16 +93,25 @@ def resolve(path: str, cwd: str) -> str:
 
 
 def guard(path: str, cwd: str, what: str, parents: bool = False) -> None:
-    """Refuse when path lies under the live folder (or, for rm and mv, holds it)."""
-    live, full = live_dir(), resolve(path, cwd)
-    holds = parents and (live + os.sep).startswith(full.rstrip(os.sep) + os.sep)
-    if (full + os.sep).startswith(live + os.sep) or holds:
-        raise Refused(LIVE, what, live)
+    """Refuse when path lies under a fenced folder (or, with parents, holds one)."""
+    full = resolve(path, cwd)
+    for label, live in live_dirs():
+        holds = parents and (live + os.sep).startswith(full.rstrip(os.sep) + os.sep)
+        if (full + os.sep).startswith(live + os.sep) or holds:
+            raise Refused(LIVE, what, label, live)
 
 
 def guard_script(text: str, what: str) -> None:
-    if LIVE_NAME.search(text) and "mode=ro" not in text:
-        raise Refused(LIVE, what + " that names the live folder without mode=ro", live_dir())
+    match = LIVE_NAME.search(text)
+    if match and "mode=ro" not in text:
+        label, live = live_dirs()[bool(match.group(1))]
+        raise Refused(LIVE, f"{what} that names the {label} without mode=ro", label, live)
+
+
+def guard_env(word: str, cwd: str) -> None:
+    match = DATA_DIR.match(word)
+    if match:
+        guard(match.group(1), cwd, "a command with BLATTWERK_DATA_DIR set")
 
 
 def strip_heredocs(text: str, bodies: list[str]) -> str:
@@ -167,7 +182,11 @@ def lift_subs(text: str) -> tuple[str, list[str]]:
     while i < len(text):
         c = text[i]
         if c == "\\" and quote != "'":
-            out.append("" if text[i + 1 : i + 2] == "\n" else text[i : i + 2])
+            after = text[i + 1 : i + 2]
+            # find's \( and \) are words: as ( and ) they would split the command in two
+            out.append(
+                "" if after == "\n" else "__PAREN__" if after in ("(", ")") else text[i : i + 2]
+            )
             i += 2
             continue
         if quote != "'" and (c == "`" or text.startswith("$(", i)):
@@ -227,7 +246,7 @@ def check_shell(text: str, cwd: str, bodies: list[str]) -> None:
                 cwd = dirs.pop()
 
 
-def strip_prefixes(words: list[str]) -> list[str]:
+def strip_prefixes(words: list[str], cwd: str) -> list[str]:
     while words:
         key = "uv run" if words[:2] == ["uv", "run"] else words[0]
         if key in PREFIXES:
@@ -237,6 +256,7 @@ def strip_prefixes(words: list[str]) -> list[str]:
             if key == "timeout":
                 words = words[1:]  # the duration
         elif re.match(r"\w+=", words[0]):
+            guard_env(words[0], cwd)
             words = words[1:]
         else:
             break
@@ -263,7 +283,7 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]
             guard(target, cwd, "a redirect")
         i += 2
 
-    words = strip_prefixes(words)
+    words = strip_prefixes(words, cwd)
     if not words:
         return cwd
     name, rest = os.path.basename(words[0]), words[1:]
@@ -288,6 +308,11 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]
         sub = docker_sub(rest)
         if sub in DOCKER_BAD:
             raise Refused(DOCKER, sub)
+        for source in docker_mounts(rest) if sub in ("run", "create") else []:
+            guard(source, cwd, f"docker {sub} with a mount that is not read only", parents=True)
+    if name in ("export", "declare", "typeset"):
+        for word in rest:
+            guard_env(word, cwd)
 
     inline = [rest[n + 1] for n, w in enumerate(rest[:-1]) if w in ("-c", "-e")]
     if SCRIPTERS.fullmatch(name):
@@ -320,8 +345,19 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]
         targets += [w for w in args[-1:] if BRACE.search(w)]  # x{,.bak} writes next to x
     elif name == "dd":
         targets = [w[3:] for w in rest if w.startswith("of=")]
+    elif name == "find" and FIND_ACTS & set(rest):
+        n = 0
+        while n < len(rest) and re.fullmatch(r"-[HLPD]|-O\d*|--", rest[n]):
+            n += 2 if rest[n] == "-D" else 1
+        # the paths end at a predicate
+        while n < len(rest) and not re.match(r"[-(!]|__PAREN__", rest[n]):
+            targets.append(rest[n])
+            n += 1
+        targets = targets or ["."]
+    # a find that only reads through -exec may start above a fenced folder
+    parents = name in ("rm", "mv") or (name == "find" and bool({"-delete", *WRITE_ANY} & set(rest)))
     for target in targets:
-        guard(target, cwd, name, parents=name in ("rm", "mv"))
+        guard(target, cwd, name, parents=parents)
     return cwd
 
 
@@ -371,6 +407,30 @@ def docker_sub(rest: list[str]) -> str:
         if not word.startswith("-") and word not in DOCKER_GROUPS:
             return word
     return ""
+
+
+def docker_mounts(rest: list[str]) -> list[str]:
+    """The host paths that a docker run mounts without read only."""
+    pairs = [
+        (w, rest[n + 1]) for n, w in enumerate(rest[:-1]) if w in ("-v", "--volume", "--mount")
+    ]
+    pairs += [
+        (w.split("=", 1)[0], w.split("=", 1)[1]) for w in rest if re.match(r"--(volume|mount)=", w)
+    ]
+    pairs += [("-v", w[2:]) for w in rest if re.match(r"-v[^-]", w)]
+    sources = []
+    for flag, value in pairs:
+        if flag == "--mount":
+            fields = dict(f.partition("=")[::2] for f in value.split(","))
+            source = fields.get("source") or fields.get("src") or ""
+            ro = any(fields.get(key, "false") != "false" for key in ("readonly", "ro"))
+        else:
+            parts = value.split(":")
+            source = parts[0] if len(parts) > 1 else ""
+            ro = "ro" in "".join(parts[2:3]).split(",")
+        if re.match(r"[/.~$]", source) and not ro:  # any other name is a docker volume
+            sources.append(source)
+    return sources
 
 
 def main() -> None:

@@ -23,13 +23,17 @@ if [ -z "$answers" ]; then
   exit 0
 fi
 
-# A build without a deploy after it took the running image's name away, and docker cannot tag an
-# image it has no name for. The deploy must go on all the same, or no deploy could ever mend it.
+# Docker cannot tag an image it has no name for, and the running image has none when something
+# moved `latest` off it with no deploy after. The deploy must go on all the same, or no deploy
+# could ever mend it.
 if ! docker tag "$image" blattwerk-blattwerk:prev 2>/dev/null; then
   echo "::warning::the running image has no name left to tag, so prev stays as it is"
   exit 0
 fi
-# go-back.sh goes back by itself only to a `prev` that this run tagged.
-if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "kept=yes" >>"$GITHUB_OUTPUT"; fi
+# go-back.sh goes back by itself only to a `prev` that this run tagged, and that still has this id.
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  echo "kept=yes" >>"$GITHUB_OUTPUT"
+  echo "image=$image" >>"$GITHUB_OUTPUT"
+fi
 image=${image#sha256:}
 echo "prev is ${image:0:12}"

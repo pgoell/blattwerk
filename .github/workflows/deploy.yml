@@ -23,27 +23,42 @@ jobs:
     # pull request from a branch named master.
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
     runs-on: [self-hosted, Linux, X64]
-    # No step without a limit of its own can hang for GitHub's six hours.
-    timeout-minutes: 30
+    # Every step that runs a command has a limit of its own, and this one lies
+    # above their sum with room for the checkout. So the job's limit never ends
+    # the run between `up` and the way back.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
-      # Before the build: the build moves `latest`, and with that the image of
-      # the running container loses its only name. Docker's containerd store
-      # then knows it no more, and nothing can tag it.
+      # First, before the build: here the running image surely still has its
+      # name `latest`, and nothing has had a chance to fail yet. An image with
+      # no name left is one docker's containerd store cannot tag.
       - name: Keep the running image as prev
         id: prev
+        timeout-minutes: 2
         run: bash scripts/keep-prev.sh
+
+      # A rerun of an old commit brings its own scripts. A canary.sh that starts
+      # `latest` would try the image that already runs, pass, and let the
+      # untried build go live.
+      - name: Refuse a commit whose canary does not run the build
+        timeout-minutes: 1
+        run: |
+          if ! grep -q 'blattwerk-blattwerk:canary' scripts/canary.sh; then
+            echo "::error::this commit is older than the canary's own image name, so its canary would not try its build. Revert on master instead of a rerun."
+            exit 1
+          fi
 
       # The build runs apt for Chromium's libraries, and a slow mirror can stall
       # it. With an end, a stalled build fails the job. The old container keeps
-      # running meanwhile: nothing has changed yet.
+      # running meanwhile: nothing has changed yet. The build gets a name of its
+      # own, so `latest` still names the image that runs.
       - name: Build image
         timeout-minutes: 15
-        run: docker compose build
+        run: docker build -t blattwerk-blattwerk:canary .
 
       # The new image runs on a copy of the data, off the proxy's network and
       # with no port. A fail here stops the job before the live container
@@ -59,23 +74,46 @@ jobs:
       # Pass, fail or cancel. After a fail the steps below still do not run.
       - name: Remove the canary and the copy
         if: always()
+        timeout-minutes: 2
         run: bash scripts/canary.sh stop /home/pascal/.local/share/blattwerk /home/pascal/.local/share/blattwerk-canary
 
       # A schema move runs on the first request after a deploy and has no way
       # back. After the build, so the copy is as new as it can be. A failed copy
       # stops the job here, before the live container changes.
       - name: Snapshot the database
+        timeout-minutes: 3
         env:
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: python3 scripts/snapshot.py /home/pascal/.local/share/blattwerk/blattwerk.db /home/pascal/.local/share/blattwerk-backups "$SHA"
 
+      # Only now, after the canary passed: up to here `latest` names the image
+      # that runs, so a failed canary leaves nothing for a hand-run
+      # `docker compose up -d` to put live.
+      - name: Name the tested image latest
+        id: promote
+        timeout-minutes: 1
+        run: docker tag blattwerk-blattwerk:canary blattwerk-blattwerk:latest
+
+      # No build: were `latest` missing, compose would build an image that no
+      # canary has tried.
       - name: Deploy
-        id: up
-        run: docker compose up -d
+        timeout-minutes: 3
+        run: docker compose up -d --no-build
+
+      # Were compose to keep the old container, every check below would pass
+      # on the old image.
+      - name: Check that the container runs the tested image
+        timeout-minutes: 1
+        run: |
+          if [ "$(docker inspect -f '{{.Image}}' blattwerk)" != "$(docker image inspect -f '{{.Id}}' blattwerk-blattwerk:canary)" ]; then
+            echo "::error::the blattwerk container does not run the image the canary tried"
+            exit 1
+          fi
 
       # The app's logs hold invite tokens and this repo's job logs are public,
       # so a failure points at the logs and does not print them.
       - name: Wait for the app to answer
+        timeout-minutes: 3
         run: |
           for _ in $(seq 1 30); do
             if bash scripts/alive.sh blattwerk; then
@@ -87,22 +125,29 @@ jobs:
           echo "::error::blattwerk did not answer on :8000. On the VPS: docker logs blattwerk"
           exit 1
 
-      # Three GETs, no user and no write.
+      # Three GETs and one read of the database, which must hold a user. No
+      # smoke user and no write.
       - name: Smoke test live, read only
         timeout-minutes: 2
         run: docker exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000 < scripts/smoke.py
 
       # After a fail, and after a cancel too: a cancel in the wait or in the
-      # live smoke test would leave an untested image live. Only once `up` has
-      # run: before that the old container still runs and there is nothing to
-      # go back from.
+      # live smoke test would leave an untested image live. Only once the tag
+      # step has run: before that `latest` names the image that runs and the
+      # old container is untouched, so there is nothing to go back from. From
+      # the tag step on `latest` has moved, even if `up` never ran.
       - name: Go back to prev
-        if: (failure() || cancelled()) && steps.up.outcome != 'skipped'
+        if: (failure() || cancelled()) && steps.promote.outcome != 'skipped'
+        timeout-minutes: 3
         env:
           # Empty when keep-prev left an older `prev` in place.
           PREV_KEPT: ${{ steps.prev.outputs.kept }}
+          # The id keep-prev tagged: go-back wants `prev` to still be that one.
+          PREV_IMAGE: ${{ steps.prev.outputs.image }}
         run: bash scripts/go-back.sh
 
-      # Not after a fail: the broken image stays for a look.
+      # Not after a fail: the failed image stays for a look, under the name
+      # `canary` until the next build.
       - name: Clean up old images
+        timeout-minutes: 2
         run: docker image prune -f
