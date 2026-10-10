@@ -329,6 +329,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
   // that border took, not the stroke's, so their texts keep their place and break their lines where they did.
   const room = ring || solid ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
+  const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   return (
     <div
       className="frame"
@@ -337,7 +338,10 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         background: d ? undefined : clear(p),
         border: own ? `${edge * k}px ${p.dash} ${p.stroke}` : undefined,
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
-        borderRadius: p.kind === "circle" ? "50%" : p.kind === "rounded" ? 4 * k : 0,
+        borderRadius: radius,
+        // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
+        // as the box, so a text too long for a circle ends at the circle.
+        clipPath: `inset(-1px round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
         ...((d || ring) && { position: "relative", isolation: "isolate" }),

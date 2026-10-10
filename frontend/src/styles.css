@@ -475,11 +475,11 @@ body:has(.print) { background: #fff; }
 .block textarea:focus-visible { box-shadow: none; }
 /* A text or a shape with its text, on the page and in a thumbnail. The frame sets the text, which is as high as
    its lines, at its top, middle or bottom. */
-.block .frame { display: flex; flex-direction: column; overflow: visible; clip-path: inset(-1px); }
+.block .frame { display: flex; flex-direction: column; overflow: visible; }
 /* A stroke lies flush with the frame's edge, and that edge is seldom on a whole pixel. Chromium cuts both the frame
    and a drawing at whole pixels, which took up to 0.1 mm off the foot of an outline and of dashes. So the frame cuts
-   a pixel outside its edge, by a clip-path, which Safari knows too, and the drawing not at all. A text is cut by its
-   own box. */
+   a pixel outside its edge, by the clip-path that sheet.tsx sets, which Safari knows too and which is round where the
+   box is, and the drawing is not cut at all. */
 .frame .outline, .frame .dashes { overflow: visible; }
 .frame p {
   min-height: 0; margin: 0; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; color: inherit;

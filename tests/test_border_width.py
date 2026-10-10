@@ -36,6 +36,9 @@ def page(width, dash):
         "text in a group": ("text", text, 20, 135, {"group": ["g"]}),
         "rect turned": ("shape", shape, 30, 190, {"angle": 90}),
         "text turned": ("text", text, 120, 190, {"angle": 90}),
+        "circle in a group": ("shape", {**shape, "kind": "circle"}, 110, 135, {"group": ["g"]}),
+        "circle turned": ("shape", {**shape, "kind": "circle"}, 75, 190, {"angle": 90}),
+        "triangle turned": ("shape", {**shape, "kind": "triangle"}, 153, 190, {"angle": 90}),
     }
     return [
         box(name, kind, props, x=x, y=y, **SIZE, **more)
@@ -94,7 +97,9 @@ def widths(browser, server, width, dash):
         kind = block["props"].get("kind")
         # No dot of these two stands alone in a strip: a round box prints its first dot with a part
         # of the last one over it, as on master, and a bubble's dots turn its corner too close by.
-        tops = [] if dash == "dotted" and kind in ("rounded", "bubble") else [False]
+        # A triangle has no top edge, only a tip.
+        lone = dash == "dotted" and kind in ("rounded", "bubble")
+        tops = [] if lone or kind == "triangle" else [False]
         # The top edge, and the foot of a solid border: a dash need not lie on the foot's middle.
         # An outline's foot, a bubble's tail, is not level.
         for foot in tops + [True] * (not dash and kind != "bubble"):
@@ -160,6 +165,17 @@ def test_a_text_too_long_for_its_box_is_cut_at_the_box(browser, server):
         # Rows of words in the box's lower third, and none below it, past that pixel.
         assert max(dark(picture, (112, 200, 168, 209))) > 0.2
         assert max(dark(picture, (105, 211.3, 175, 230))) == 0
+
+
+def test_a_text_too_long_for_its_circle_is_cut_at_the_circle(browser, server):
+    """A13: the frame cuts round where the box is round, as sheets saved before print."""
+    client = user()
+    words = {**RECT, **look(0.5), "kind": "circle", "text": "Igel " * 80, "align": "left"}
+    pictures = grey(browser, server, client, [box("a", "shape", words, x=40, y=60, **SIZE)])
+    for picture in pictures:
+        # Words in the circle's middle, and none in its box's corner, which lies outside it.
+        assert max(dark(picture, (60, 70, 80, 80))) > 0.2
+        assert max(dark(picture, (43, 61.8, 48, 64.5))) == 0
 
 
 @pytest.mark.parametrize("width", [0.5, 1])
