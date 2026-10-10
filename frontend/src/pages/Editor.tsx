@@ -865,7 +865,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // `to` is the page in use after the change, and `from` the one before: read as last drawn, for a block from the
   // server comes after the drawing that asked for it.
   // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
-  // step, redo stays, and the sheet stays saved.
+  // step, redo stays, and the sheet stays saved. So it is with a gesture that ends where it began.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
     const doc = fn(live.current.doc);
     if (alike(doc, live.current.doc)) {
@@ -878,6 +878,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       return;
     }
     const merge = key !== "" && key === mergeKey.current;
+    // A gesture that comes back to where it began, as a slider dragged away and back, is none either: its step
+    // goes, and redo holds what it held. The gesture may go on: its next change is a new step from the same start.
+    if (merge && alike(doc, live.current.past.at(-1)!.doc)) {
+      mergeKey.current = "";
+      return setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
+    }
+    if (!merge) ahead.current = live.current.future;
     mergeKey.current = key;
     setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc, future: [] }));
   }
@@ -2031,6 +2038,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       // they press a button, also one that finds nothing to change. The next change is a step of its own.
       onFocusCapture={() => (mergeKey.current = "")}
       onClickCapture={() => (mergeKey.current = "")}
+      // So does each value picked in a list, also when the arrows walk the list with no press between.
+      onChangeCapture={(e) => (e.target as Element).matches("select") && (mergeKey.current = "")}
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
