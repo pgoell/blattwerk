@@ -661,9 +661,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
-    // In a text's field, in a table's cell, in the panel's fields for place and size and on its sliders only undo and
-    // redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range]");
+    // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
+    // only undo and redo are the sheet's.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range], select");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
