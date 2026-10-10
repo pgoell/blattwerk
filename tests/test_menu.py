@@ -722,6 +722,25 @@ def test_a_finger_that_leaves_where_it_came_down_snaps_what_it_drags(editor, kin
     assert [b["y"] for b in saved(page, client)[: len(names)]] == [40, 110][: len(names)]
 
 
+@pytest.mark.parametrize("kind", HELD)
+def test_a_finger_that_snaps_before_it_leaves_takes_the_block_along_in_one_step(editor, kind):
+    """#268: A6, I6"""
+    client = user()
+    page, names, start = beside(editor, client, kind)
+    # The snap takes hold while the finger has not left, and holds as it leaves: Moveable says so
+    # once only, before the block may move.
+    with finger(page, start):
+        jitter(at(page, "a"), start, (3, -9), (3, -14), (3, -15))
+    undo = page.get_by_role("button", name="Rückgängig")
+    expect(undo).to_be_enabled()
+    # Onto the neighbour's lower edge, and a group's second block by as much.
+    assert [b["y"] for b in saved(page, client)[: len(names)]] == [40, 110][: len(names)]
+    undo.tap()
+    expect(undo).to_be_disabled()
+    y = round(40 + GAP / SCALE[True], 2)
+    assert [b["y"] for b in saved(page, client)[: len(names)]] == [y, y + 70][: len(names)]
+
+
 def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor):
     """#178"""
     page = editor(*texts("a"), touch=True)

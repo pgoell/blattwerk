@@ -401,6 +401,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const held = useRef(false);
   // Where the finger of a hold or a drag came down.
   const came = useRef([0, 0]);
+  // What Moveable said of a drag while the finger had not yet left there.
+  const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
   const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
@@ -1512,7 +1514,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
     // moved, the blocks are new ones, and they follow the finger back there too. Of a group only the event of the
     // whole says where the finger is: those of its blocks say where a snap would put them.
-    if (touch.current && blocks.includes(start.current[0]) && Math.hypot(finger.clientX - came.current[0], finger.clientY - came.current[1]) <= SLOP) return;
+    // Moveable says nothing more while a snap holds the blocks, so what is dropped here is kept for the finger's
+    // own move to bring back once it has left.
+    const still = touch.current && blocks.includes(start.current[0]) && Math.hypot(finger.clientX - came.current[0], finger.clientY - came.current[1]) <= SLOP;
+    owed.current = still ? events : undefined;
+    if (still) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
@@ -1529,12 +1535,15 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     flushSync(() => place(from.map((b) => [b.id, { x: round(b.x + dx), y: round(b.y + dy) }]), "drag"));
   };
   const begin = (els: Element[]) => {
+    owed.current = undefined;
     ahead.current = hist.future;
     start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!);
   };
   // With Ctrl held when a move ends, copies stay where the blocks began.
-  const leave = (moved: boolean) =>
-    moved && mod & CENTRE && change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+  const leave = (moved: boolean) => {
+    owed.current = undefined;
+    if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+  };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
     flushSync(() =>
@@ -1880,6 +1889,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     clearTimeout(hold.current);
     if (e.touches.length === 2) {
       moveable.current!.stopDrag();
+      owed.current = undefined;
       const page = sheet.current!.getBoundingClientRect();
       const [x, y] = centre(e);
       pinch.current = { spread: spread(e), zoom, x: (x - page.left) / k, y: (y - page.top) / k };
@@ -1909,6 +1919,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
+    // A snap the blocks reached before the finger had left where it came down takes them now, if it has.
+    if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
     if (e.touches.length !== 2) return;
     const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
     flushSync(() => setZoom(next));
