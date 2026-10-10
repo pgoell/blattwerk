@@ -198,6 +198,14 @@ def test_the_brief_finds_its_verbs_where_it_writes_them():
     assert named == set(listed)
 
 
+def test_the_colour_recipe_presses_each_arrow_60_times():
+    # Issue #314: one arrow moved #222222 to a grey the eye cannot tell from it.
+    how = section("## How the editor works")
+    assert "then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker" in how
+    # No recipe of the brief ends a colour on one arrow up or to the side.
+    assert not re.search(r"`key Arrow(?:Up|Left|Right)`, `key Enter`", BRIEF)
+
+
 def test_the_filter_trims_a_long_body():
     # The first run's 39 KB were cut off; the filter leaves each body its first 2500 characters.
     command = re.search(r"gh pr list [^\n]* -L 5 [^\n]*--jq '(.+)'$", section(PRS), re.M)
@@ -253,3 +261,16 @@ def test_a9_the_brief_quotes_the_words_on_the_screen():
     assert '"Gespeichert"' in source
     # The matcher tells a control's name from a string of the code.
     assert not on_screen("Quer", source)
+
+
+def test_the_brief_waits_for_a_sheet_that_loads():
+    # A sheet that loads shows the editor's frame and an empty page (#313): a snapshot of that
+    # holds no control. The brief names what stands there, and both words to wait for.
+    how = next(line for line in section("## How the editor works").splitlines() if "`Lädt`" in line)
+    assert "`wait_for` the text `Gespeichert` before the first snapshot of a sheet" in how
+    assert "the text `Neues Blatt` before the first snapshot of `Meine Blätter`" in how
+    assert 'run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match' in how
+    # The loading page says the word the brief quotes, and neither of those it waits for.
+    blank = (REPO / "frontend/src/components/Blank.tsx").read_text()
+    assert '"Lädt"' in blank
+    assert "Gespeichert" not in blank and "Neues Blatt" not in blank

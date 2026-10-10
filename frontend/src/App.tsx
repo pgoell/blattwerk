@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, NavLink, Outlet, Route, Routes } from "react-router";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
 import { api, type User } from "./api";
+import Blank from "./components/Blank";
 import Feedback from "./components/Feedback";
 import Logo from "./components/Logo";
 import About from "./pages/About";
@@ -24,12 +25,20 @@ export default function App() {
   }, []);
 
   // A login or a logout empties the block clipboard: what one account copied is not the next one's.
+  const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
     setUser(to);
+    setEntered((n) => n + 1);
   };
 
-  if (user === undefined) return null;
+  // A sheet shows its loading page at once, and one clock runs while the account, the editor's script and the
+  // sheet load. A login on a sheet's address starts the clock anew: the time at the login page is no loading.
+  const { id } = useMatch("/blatt/:id")?.params ?? {};
+  const since = useMemo(() => performance.now(), [id, entered]);
+  const wait = <Blank since={since} />;
+
+  if (user === undefined) return id ? wait : null;
   return (
     <>
       <Routes>
@@ -40,7 +49,7 @@ export default function App() {
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
-            <Route path="/blatt/:id" element={<Suspense><Editor user={user} /></Suspense>} />
+            <Route path="/blatt/:id" element={<Suspense fallback={wait}><Editor user={user} wait={wait} /></Suspense>} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}

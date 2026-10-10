@@ -91,7 +91,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 ## How the editor works
 
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
-- After `Neues Blatt`, a click on a sheet or any other navigation, the page first shows only the bar and the footer. That is known (issue #313): do not file it. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
+- After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
 - A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
 - A tour (`Rundgang`) may open on the first sheet of each window. Close it with `Beenden`.
 - The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
@@ -104,7 +104,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 - Only the tool's window can do these:
   - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
   - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
-  - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowRight`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. From pure black the arrow to the right changes nothing: use `key ArrowUp`;
+  - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only;
   - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
 
 ## Export and compare
