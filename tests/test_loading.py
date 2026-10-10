@@ -21,6 +21,10 @@ SCRIPT = "**/assets/Editor-*.js"
 SHEET = "**/api/sheets/*"
 BLANK = "main.editor:not([data-ready]) .desk > .sheet.blank"
 READY = 'main.editor[data-ready="1"]'
+# HELD: a test that moves a paused clock up to the word holds the script back, or lets React's
+# own timer run out first (THROTTLE). With the sheet alone held, React draws the loading page anew
+# for the sheet at some real moment after its timer, and a page drawn after the clock was moved
+# waits on a clock that stands.
 # React shows what a held script brought no sooner than this many ms after the page that stood
 # for it.
 THROTTLE = 300
@@ -190,7 +194,8 @@ def test_the_clock_starts_anew_when_a_reader_signs_in_on_a_sheets_address(window
     page, _ = window(signed=False)
     email = f"{uuid4().hex}@example.com"
     client = user(email)
-    go = hold(page, SHEET)
+    # The script, not the sheet: see HELD.
+    go = hold(page, SCRIPT)
     page.clock.install()
     page.clock.pause_at(page.evaluate("Date.now()") + 1000)
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
@@ -322,7 +327,8 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
 
 def test_a_screen_reader_hears_that_it_loads(window, server):
     page, client = window()
-    go = hold(page, SHEET)
+    # The script, not the sheet: see HELD.
+    go = hold(page, SCRIPT)
     page.clock.install()
     page.clock.pause_at(page.evaluate("Date.now()") + 1000)
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
@@ -358,7 +364,8 @@ def light(colour):
 @pytest.mark.parametrize("theme", ["", None], ids=["plain", "blattform"])
 def test_the_loading_page_is_white_on_a_dark_desk_and_its_word_reads(window, server, theme):
     page, client = window(theme=theme, dark=True)
-    go = hold(page, SHEET)
+    # The script, not the sheet: see HELD.
+    go = hold(page, SCRIPT)
     page.clock.install()
     page.clock.pause_at(page.evaluate("Date.now()") + 1000)
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
