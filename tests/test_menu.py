@@ -569,7 +569,12 @@ def test_the_menu_stays_inside_the_window(editor):
     """I7"""
     page = editor(*texts("a"))
     # Wide enough for Blattform's layout, whose bar of insert tools leaves the desk's corner free.
+    heard = "new Promise((done) => addEventListener('resize', done, { once: true }))"
+    page.evaluate(f"() => {{ window.heard = {heard} }}")
     page.set_viewport_size({"width": 1100, "height": 500})
+    # A window hears of its new size with its next frame, and a menu shuts when it does: one opened
+    # before then is gone again.
+    page.evaluate("window.heard")
     desk = page.locator(".desk").bounding_box()
     # The desk's scroll bars lie at its very edge.
     x, y = desk["x"] + desk["width"] - 30, desk["y"] + desk["height"] - 30
