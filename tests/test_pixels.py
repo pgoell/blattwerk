@@ -223,12 +223,22 @@ def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     assert found and float(found[1]) < LIMIT * 100
 
 
-def dark(data, part, down=True):
+def grey(browser, server, client, page):
+    """The page on the screen and in the PDF, in grey and both of the screen's size."""
+    mine = sheet(client, page)["id"]
+    screen, printed = (
+        Image.open(io.BytesIO(data)).convert("L")
+        for data in screen_and_print(browser, server, client, mine)
+    )
+    # pdfium rounds a page's size up: a pixel more would move every part cut out by a pixel.
+    return screen, printed.crop((0, 0, *screen.size))
+
+
+def dark(image, part, down=True):
     """How dark each row of pixels is, from 0 to 1, in the `part` of an upright page given in mm.
 
     Each column with `down` off.
     """
-    image = Image.open(io.BytesIO(data)).convert("L")
     cut = image.crop(tuple(round(v * image.width / 210) for v in part))
     # Each row as the mean of its pixels.
     rows = cut.resize((1, cut.height) if down else (cut.width, 1), Image.Resampling.BOX)
@@ -251,7 +261,7 @@ def test_a_tables_lines_are_as_wide_and_as_dark_as_they_print(browser, server):
     """A4"""
     client = user()
     page = blocks("table", client)
-    screen, printed = screen_and_print(browser, server, client, sheet(client, page)["id"])
+    screen, printed = grey(browser, server, client, page)
     x, y, w, h = (page[0][side] for side in "xywh")
     # Clear of the letters: a strip down the first column and one along the first row.
     for part, down in (
@@ -309,3 +319,59 @@ def test_a_tables_cells_lie_where_they_print(browser, server):
     assert cell[0] < left < right < cell[2] and cell[1] < top < low < cell[3]
     paper.close()
     context.close()
+
+
+def lower(screen, printed, block):
+    """How many pixels lower each of seven rows of 14 pt lies on the screen than in the PDF."""
+    # A row's place is where its ink has its middle, in the band the row is set in.
+    pitch = 14 * 25.4 / 72 * 1.3
+    found = []
+    for row in range(7):
+        top = block["y"] + row * pitch
+        band = (block["x"], top, block["x"] + block["w"], top + pitch)
+        middles = [
+            sum(i * v for i, v in enumerate(ink)) / sum(ink)
+            for ink in (dark(picture, band) for picture in (screen, printed))
+        ]
+        found.append(middles[0] - middles[1])
+    return found
+
+
+def right_edge(image, block):
+    """The pixel a block's ink ends at on the right, counted to a part of a pixel."""
+    y = block["y"] + block["h"] / 4
+    columns = dark(image, (0, y - 5, 210, y + 5), down=False)
+    last = max(i for i, v in enumerate(columns) if v > 0.05)
+    return last + min(1, columns[last] / columns[last - 1])
+
+
+# How far the screen may lie from the print (issue #281), in pixels of pictures twice the page's
+# size, eight to a millimetre: each just over what it is today. No fix, since this much is what
+# the browsers round. Chromium prints at one pixel to a CSS pixel, 0.26 mm, and sets a picture's
+# edges on whole ones: the PDF has the right edge at 165.1 mm for 165, and pdfium fills the pixel
+# it touches. WebKit lays a text's rows out 0.6 CSS pixels lower than Chromium, by font heights
+# it rounds its own way, and draws the letters lower again by up to as much.
+# Rows: 4.3 in WebKit (0.54 mm) in a school's script, 2.5 in Andika, and 0.8 in Chromium.
+ROWS = 4.5 if BROWSER == "webkit" else 1
+# A picture's right edge: 3 in WebKit (0.38 mm), of which 2.3 are the print's, and 1.1 in Chromium.
+EDGE = 3.5 if BROWSER == "webkit" else 1.5
+
+
+@pytest.mark.parametrize(
+    "look", [{"font": "sas", "bold": True}, {}], ids=["school script", "andika"]
+)
+def test_a_row_of_text_lies_as_low_as_it_prints(browser, server, look):
+    """A5"""
+    client = user()
+    page = [at("text", {**TEXT, "text": LONG, **look}, h=120)]
+    screen, printed = grey(browser, server, client, page)
+    found = lower(screen, printed, page[0])
+    assert max(abs(by) for by in found) < ROWS, found
+
+
+def test_a_picture_ends_where_it_prints(browser, server):
+    """A6"""
+    client = user()
+    page = blocks("picture", client)
+    screen, printed = (right_edge(image, page[0]) for image in grey(browser, server, client, page))
+    assert abs(screen - printed) < EDGE, (screen, printed)
