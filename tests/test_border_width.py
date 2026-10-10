@@ -241,14 +241,24 @@ def test_a_text_in_a_border_keeps_its_place_and_its_rows(browser, server, width)
             assert round(height / row) == ROWS[width]
 
 
+# A place on each kind's border, as shares of its box: the left edge, the foot, the top tip.
+BORDER = {"rect": (0, 0.5), "triangle": (0.5, 1), "star": (0.5, 0)}
+
+
+@pytest.mark.parametrize("kind", BORDER)
 @pytest.mark.parametrize("width", [0.5, 3])
-@pytest.mark.parametrize("dash", [None, "dashed"])
-def test_a_click_on_the_border_or_inside_picks_a_shape_with_no_fill(editor, width, dash):
+@pytest.mark.parametrize("dash", [None, "dashed", "dotted"])
+def test_a_click_on_the_border_or_inside_picks_a_shape_with_no_fill(editor, width, dash, kind):
     """I5"""
-    page = editor(box("a", "shape", {**RECT, **look(width, dash)}, x=40, y=60, **SIZE))
+    props = {**RECT, **look(width, dash), "kind": kind}
+    page = editor(box("a", "shape", props, x=40, y=60, **SIZE))
     block = at(page, "a")
     size = block.bounding_box()
-    at(page, "a").click(position={"x": 1, "y": size["height"] / 2})
+    x, y = (
+        min(max(1, share * size[side]), size[side] - 1)
+        for share, side in zip(BORDER[kind], ("width", "height"), strict=True)
+    )
+    at(page, "a").click(position={"x": x, "y": y})
     expect_picked(page, "a")
     unpick(page)
     # As before this change: a click inside picks it too.

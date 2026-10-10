@@ -349,8 +349,8 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
     >
       {d && (
         <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ ...over, ...flipped(block) }}>
-          {p.kind === "bubble" && p.dash && edge > 0 ? (
-            <Dashes way={bubble(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
+          {p.dash && edge > 0 ? (
+            <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
           ) : (
             <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
           )}
@@ -381,40 +381,48 @@ function around(left: number, top: number, right: number, low: number, rx: numbe
     Array.from({ length: rx ? 46 : 1 }, (_, i) => [x + rx * Math.sin(((from + i / 45) * Math.PI) / 2), y - ry * Math.cos(((from + i / 45) * Math.PI) / 2)]);
   return [...turn(right - rx, top + ry, 0), ...turn(right - rx, low - ry, 1), ...tail, ...turn(left + rx, low - ry, 2), ...turn(left + rx, top + ry, 3)];
 }
-// The dashes along a way round, which starts at its last point: a box with square corners is a `<rect>`. They
-// stretch or shrink a little so that a whole number of them goes around: the last one meets the first.
+// The dashes along a way round, which starts at its last point: a box with square corners is a `<rect>`, a triangle
+// and a star start at their last corner. They stretch or shrink a little so that a whole number of them goes around:
+// the last one meets the first.
 function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: number; p: TextProps } & SVGAttributes<SVGElement>) {
-  const [[right], [, low], , [left, top]] = way;
   const length = way.reduce((sum, [x, y], i) => sum + Math.hypot(x - way.at(i - 1)![0], y - way.at(i - 1)![1]), 0);
   const each = edge * (p.dash === "dashed" ? 7 : 2.5);
   const fit = length / Math.max(1, Math.round(length / each)) / each;
   // A dash that starts right where the way does has the end of the last one before it, a hair long: a doubled dot
   // in print, and on the screen a join that fills a box's corner. So the way starts a hair inside the last gap.
   const all = { stroke: p.stroke, strokeWidth: edge, strokeDasharray: dashes(p.dash, edge * fit), strokeDashoffset: -edge / 100, strokeLinecap: p.dash === "dotted" ? ("round" as const) : undefined, ...look };
-  return way.length > 4 ? <path d={`M${[way.at(-1), ...way.slice(0, -1)].join(" L")} Z`} strokeLinejoin="round" {...all} /> : <rect x={left} y={top} width={right - left} height={low - top} {...all} />;
+  if (way.length !== 4) return <path d={`M${[way.at(-1), ...way.slice(0, -1)].join(" L")} Z`} strokeLinejoin="round" {...all} />;
+  // Four points are a box's own corners: no outline has four.
+  const [[right], [, low], , [left, top]] = way;
+  return <rect x={left} y={top} width={right - left} height={low - top} {...all} />;
 }
 
-// The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box: the
-// points of a polygon, or a path. The triangle has its tip at the top. The star is a five-point one stretched to
-// the box. The bubble is a round box over the top three quarters, with a tail down to the lower left.
-const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string>> = {
-  triangle: (w, h, e) => `${w / 2},${e} ${w - e},${h - e} ${e},${h - e}`,
+// The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box. Each
+// one's way round as points, which its dashes go along. The triangle has its tip at the top. The star is a
+// five-point one stretched to the box. The bubble is a round box over the top three quarters, with a tail down to
+// the lower left.
+const POINTS: Partial<Record<Kind, (w: number, h: number, e: number) => number[][]>> = {
+  triangle: (w, h, e) => [[w / 2, e], [w - e, h - e], [e, h - e]],
   star: (w, h, e) =>
     Array.from({ length: 10 }, (_, i) => {
       const [r, a] = [i % 2 ? 0.38 : 1, (i * Math.PI) / 5];
       // An upright star reaches sin 72° to each side, and cos 36° below its middle.
-      return `${e + (w - 2 * e) * (0.5 + (r * Math.sin(a)) / 1.902)},${e + ((h - 2 * e) * (1 - r * Math.cos(a))) / 1.809}`;
-    }).join(" "),
+      return [e + (w - 2 * e) * (0.5 + (r * Math.sin(a)) / 1.902), e + ((h - 2 * e) * (1 - r * Math.cos(a))) / 1.809];
+    }),
+  bubble: (w, h, e) => {
+    const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
+    return around(e, e, w - e, low, r, r, [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]]);
+  },
+};
+// Drawn solid: the same points for a polygon, or a path with true arcs.
+const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string>> = {
+  triangle: (w, h, e) => POINTS.triangle!(w, h, e).join(" "),
+  star: (w, h, e) => POINTS.star!(w, h, e).join(" "),
   bubble: (w, h, e) => {
     const [r, right, low] = [Math.min(4, w / 5, h / 4), w - e, e + 0.75 * (h - 2 * e)];
     const arc = (x: number, y: number) => `A${r},${r} 0 0 1 ${x},${y}`;
     return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
   },
-};
-// The bubble's way round as points, for its dashes: the same outline.
-const bubble = (w: number, h: number, e: number) => {
-  const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
-  return around(e, e, w - e, low, r, r, [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]]);
 };
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);

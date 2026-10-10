@@ -555,8 +555,9 @@ def test_the_frame_switch_offers_the_new_shapes(editor, kind):
     pick(page, "a")
     expect(at(page, "a").locator("svg.outline")).to_have_count(0)
     for label, name, tag in [
-        ("Dreieck", "triangle", "polygon"),
-        ("Stern", "star", "polygon"),
+        # Dashed, each is a path: its dashes are fitted to its way round (#309).
+        ("Dreieck", "triangle", "path"),
+        ("Stern", "star", "path"),
         ("Sprechblase", "bubble", "path"),
     ]:
         frame(page, label).click()

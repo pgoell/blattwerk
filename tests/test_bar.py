@@ -176,6 +176,51 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
     expect(more(page)).to_be_focused()
 
 
+def test_mehr_gets_the_focus_back_when_the_bar_was_fitted_anew_under_its_menu(editor):
+    """#287: the bar's width changes under the open menu, as when its type loads late. "Mehr" left
+    the bar to be measured, and the menu handed the focus back to a button that was gone."""
+    page = editor(text("a"), theme="", touch=True)
+    expect_fitted(page)
+    more(page).focus()
+    page.keyboard.press("Enter")
+    expect(menu(page)).to_be_visible()
+    # The bar hears of its new width with the next frame.
+    page.evaluate(
+        """() => {
+            const top = document.querySelector("header .top");
+            top.style.width = `${top.clientWidth - 30}px`;
+            return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+        }"""
+    )
+    page.keyboard.press("Escape")
+    expect(menu(page)).to_have_count(0)
+    expect_fitted(page)
+    expect(more(page)).to_be_focused()
+
+
+def test_the_bar_is_fitted_anew_when_a_right_click_beside_the_menu_shuts_it(editor):
+    """Review: the bar waited under the open menu, and a right click beside it shuts the menu with
+    no close of its own. The bar is measured then, or it stays too wide for its place."""
+    page = editor(text("a"), theme="", touch=True)
+    expect_fitted(page)
+    more(page).focus()
+    page.keyboard.press("Enter")
+    expect(menu(page)).to_be_visible()
+    # Further than the bar's slack: only a bar measured anew fits. It hears with the next frame.
+    box = page.evaluate(
+        """() => {
+            const top = document.querySelector("header .top");
+            top.style.width = `${top.clientWidth - 250}px`;
+            const { x, y } = top.getBoundingClientRect();
+            const frame = (then) => requestAnimationFrame(then);
+            return new Promise((done) => frame(() => frame(() => done({ x, y }))));
+        }"""
+    )
+    page.mouse.click(box["x"] + 5, box["y"] + 5, button="right")
+    expect(menu(page)).to_have_count(0)
+    expect_fitted(page)
+
+
 def test_a_turn_gives_the_focus_back_to_mehr_that_the_keys_opened(editor):
     """Review"""
     page = editor(text("a"), theme="", touch=True)
