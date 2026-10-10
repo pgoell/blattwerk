@@ -550,13 +550,16 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
     );
   const [l, t, r, b] = block.props.cut;
   const [w, h] = [1 - l - r, 1 - t - b];
+  // The picture clips itself at its cut. The box clips on whole pixels: alone it let a strip of the part that is
+  // cut off, up to a pixel wide, show beyond the cut and print. A whole picture is left as it was.
+  const clipPath = l || t || r || b ? `inset(${[t, r, b, l].map((share) => `${share * 100}%`).join(" ")})` : undefined;
   return (
     <div className="picture" style={flipped(block)}>
       <img
         src={`/api/uploads/${block.props.upload}`}
         alt=""
         draggable={false}
-        style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%` }}
+        style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
       />
     </div>
   );
