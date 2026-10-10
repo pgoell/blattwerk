@@ -44,3 +44,16 @@ export const returned = (h: Hist, ahead: Step[]): Hist => ({ past: h.past.slice(
 // Undo of the step `last`, the last of `past`, and redo of `next`, the first of `future`.
 export const undone = (h: Hist, last = h.past.at(-1)!): Hist => ({ past: h.past.slice(0, -1), doc: last.doc, future: [{ ...last, doc: h.doc }, ...h.future] });
 export const redone = (h: Hist, next = h.future[0]): Hist => ({ past: [...h.past, { ...next, doc: h.doc }], doc: next.doc, future: h.future.slice(1) });
+
+// The gesture under way: the key its changes share, "" for none, and what redo held when it began.
+export type Gesture = { key: string; ahead: Step[] };
+// What a change to `doc` makes of the history and of the gesture. Changes that share a key within one gesture make
+// one step. A change that leaves the sheet as it is makes nothing: no step, and redo stays.
+export function changed(h: Hist, gesture: Gesture, doc: Doc, key: string, from: number, to: number): { h: Hist; gesture: Gesture } | undefined {
+  if (alike(doc, h.doc)) return;
+  const merge = key !== "" && key === gesture.key;
+  // A gesture that comes back to where it began, as a slider dragged away and back, is none either: its step
+  // goes, and redo holds what it held. The gesture may go on: its next change is a new step from the same start.
+  if (merge && alike(bare(doc, h.past.at(-1)!.doc), h.past.at(-1)!.doc)) return { h: returned(h, gesture.ahead), gesture: { key: "", ahead: gesture.ahead } };
+  return { h: stepped(h, doc, merge, from, to), gesture: { key, ahead: merge ? gesture.ahead : h.future } };
+}

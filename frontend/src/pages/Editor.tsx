@@ -81,7 +81,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
-import { alike, bare, fresh, redone, returned, stepped, undone, type Hist, type Step } from "../history";
+import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
@@ -934,8 +934,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
   // step, redo stays, and the sheet stays saved. So it is with a gesture that ends where it began.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
-    const doc = fn(live.current.doc);
-    if (alike(doc, live.current.doc)) {
+    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, fn(live.current.doc), key, from, to);
+    if (!next) {
       // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
       if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
       // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
@@ -944,16 +944,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (live.current.doc === latest.current.doc) tight.current = false;
       return;
     }
-    const merge = key !== "" && key === mergeKey.current;
-    // A gesture that comes back to where it began, as a slider dragged away and back, is none either: its step
-    // goes, and redo holds what it held. The gesture may go on: its next change is a new step from the same start.
-    if (merge && alike(bare(doc, live.current.past.at(-1)!.doc), live.current.past.at(-1)!.doc)) {
-      mergeKey.current = "";
-      return setHist((h) => returned(h, ahead.current));
-    }
-    if (!merge) ahead.current = live.current.future;
-    mergeKey.current = key;
-    setHist((h) => stepped(h, doc, merge, from, to));
+    ahead.current = next.gesture.ahead;
+    mergeKey.current = next.gesture.key;
+    // `setHist` hands its step the history as it stands, and that is what `changed` was given.
+    setHist(() => next.h);
   }
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
