@@ -92,7 +92,10 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
     # Only Blattform has the shapes in a panel, at the window's left.
     shapes = page.locator(".insert .shapes .ib")
     assert (shapes.count() > 1) == (theme is None)
-    for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *shapes.all()[1:]):
+    # The shapes at the first row's ends have no room in the panel; the others have.
+    roomy = [button for button in shapes.all() if button.get_attribute("aria-label") not in ENDS]
+    assert len(roomy) == max(shapes.count() - len(ENDS), 0)
+    for button in (page.locator(".top").get_by_label("Einfügen", exact=True), *roomy):
         button.hover()
         tip = button.evaluate(TIP)
         assert tip, button
@@ -100,6 +103,63 @@ def test_a_name_in_the_bar_and_in_the_shapes_stands_centred_under_its_button(edi
         middle = (tip["box"]["left"] + tip["box"]["right"]) / 2
         assert abs(middle - on["x"] - on["width"] / 2) < 0.5, tip
         assert button.evaluate("(el) => getComputedStyle(el, '::after').marginLeft") == "0px"
+
+
+# The shapes of Blattform's left panel whose names have no room centred: the first row's ends.
+ENDS = ["Rechteck", "Sprechblase"]
+# The room the left panel shows: its box without its border and its scrollbars, and whether it
+# or the window scrolls sideways.
+PANEL = """() => {
+    const left = document.querySelector(".left");
+    const around = left.getBoundingClientRect();
+    const x = around.left + left.clientLeft;
+    const y = around.top + left.clientTop;
+    return {
+        box: { left: x, top: y, right: x + left.clientWidth, bottom: y + left.clientHeight },
+        scrolls: left.scrollWidth > left.clientWidth
+            || document.documentElement.scrollWidth > innerWidth,
+    };
+}"""
+
+
+def test_a_shapes_name_shows_whole_in_blattforms_left_panel_and_centred_where_it_has_room(editor):
+    """A3, I6, I7 (#285)"""
+    page = editor(text("a"))
+    shapes = page.locator(".insert .shapes .ib").all()
+    assert len(shapes) > 6
+    shifted = []
+    for button in shapes:
+        button.hover()
+        tip = button.evaluate(TIP)
+        name = button.get_attribute("aria-label")
+        panel = page.evaluate(PANEL)
+        assert tip and tip["content"] == f'"{name}"', (name, tip)
+        assert tip["cut"] is None, (name, tip["box"], tip["cut"])
+        for side, sign in (("left", 1), ("top", 1), ("right", -1), ("bottom", -1)):
+            assert sign * (tip["box"][side] - panel["box"][side]) >= 0, (name, tip["box"], panel)
+        assert not panel["scrolls"], (name, tip["box"])
+        on = button.bounding_box()
+        middle = on["x"] + on["width"] / 2
+        half = (tip["box"]["right"] - tip["box"]["left"]) / 2
+        # Centred where that leaves it clear of the panel's edges, else as near to it as it gets.
+        want = min(max(middle, panel["box"]["left"] + 4 + half), panel["box"]["right"] - 4 - half)
+        assert abs(tip["box"]["left"] + half - want) < 0.5, (name, tip["box"])
+        if want != middle:
+            shifted.append(name)
+    assert shifted == ENDS, shifted
+
+
+def test_for_a_finger_no_shapes_name_shows_in_blattforms_left_panel_and_nothing_shifts(editor):
+    """I8 (#285)"""
+    # The iPad on its side: upright, Blattform has no left panel.
+    page = editor(text("a"), touch="landscape")
+    shapes = page.locator(".insert .shapes .ib").all()
+    assert len(shapes) > 6
+    for button in shapes:
+        button.hover()
+        assert button.evaluate(TIP) is None, button.get_attribute("aria-label")
+        shift = page.locator(".insert").evaluate("(el) => el.style.getPropertyValue('--shift')")
+        assert shift in ("", "0px"), shift
 
 
 @THEMES
