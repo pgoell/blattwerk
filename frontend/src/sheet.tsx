@@ -528,8 +528,10 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
       </div>
     );
   if (block.type === "points")
+    // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
+    // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
     return (
-      <div className="points" style={{ fontSize: 12 * PT * k }}>
+      <div className="points" style={{ fontSize: 12 * PT * k, lineHeight: `${2 * Math.round((block.h * k) / 2 - 1)}px` }}>
         / {block.props.max} Punkte
       </div>
     );
