@@ -362,8 +362,9 @@ body:has(.print) { background: #fff; }
 }
 /* Pages lie one under the other; a ring marks the one in use. */
 .sheet + .sheet { margin-top: 32px; }
-/* The page that stands while a sheet loads: upright, as wide as the desk, and after a moment it says that it loads. */
-.sheet.blank { aspect-ratio: 210 / 297; display: grid; place-items: center; color: var(--muted); }
+/* The page that stands while a sheet loads: upright, as wide as the desk, and after a moment it says that it loads,
+   in a grey that reads on its white in every theme. */
+.sheet.blank { aspect-ratio: 210 / 297; display: grid; place-items: center; color: #62636c; }
 .sheet.on:not(:only-child) { outline: 2px solid var(--accent); outline-offset: 4px; }
 /* A page's blocks, on the desk and in a thumbnail: laid out at the PDF's scale and drawn at the page's by a transform. */
 .scaled { position: absolute; left: 0; top: 0; transform-origin: 0 0; }

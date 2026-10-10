@@ -8,11 +8,12 @@ time counts, Playwright's clock stands still and the test moves it: none waits o
 
 import json
 import re
+from uuid import uuid4
 
 import pytest
 from conftest import IPAD, MEASURED, WEBKIT
 from playwright.sync_api import expect
-from ui import TEXT, box, expect_picked, sheet, user
+from ui import PASSWORD, TEXT, box, expect_picked, sheet, user
 
 # What a sheet waits for, in the order it asks for them.
 ME = "**/api/me"
@@ -72,10 +73,11 @@ def window(browser, server, playwright):
     """
     contexts = []
 
-    def start(theme=None, touch=False, dark=False, signed=True):
-        look = {"viewport": IPAD if touch else {"width": 1400, "height": 1000}, "has_touch": touch}
+    def start(theme=None, touch=None, dark=False, signed=True):
+        """`touch` is the window of a device with fingers, as IPAD."""
+        look = {"viewport": touch or {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if WEBKIT and touch:
-            look = {**playwright.devices["iPad Pro 11"], "viewport": IPAD}
+            look = {**playwright.devices["iPad Pro 11"], "viewport": touch}
         context = browser.new_context(**look, color_scheme="dark" if dark else "light")
         contexts.append(context)
         # The tour would open on the first visit and lie over the sheet.
@@ -184,6 +186,36 @@ def test_a_signed_out_reader_gets_the_login_after_the_loading_page(window, serve
     expect(page.locator("main.editor")).to_have_count(0)
 
 
+def test_the_clock_starts_anew_when_a_reader_signs_in_on_a_sheets_address(window, server):
+    page, _ = window(signed=False)
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    go = hold(page, SHEET)
+    page.clock.install()
+    page.clock.pause_at(page.evaluate("Date.now()") + 1000)
+    page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    # The reader takes more than half a second to sign in: that is no loading.
+    page.clock.run_for(600)
+    # The session cookie is Secure and this server speaks http, so it goes by hand.
+    cookie = {"name": "session", "value": client.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(email)
+    page.get_by_label("Passwort").fill(PASSWORD)
+    with page.expect_request(SCRIPT):
+        page.get_by_role("button", name="Anmelden").click()
+    said = page.locator(BLANK)
+    expect(said).to_be_visible()
+    expect(said).to_have_text("")
+    page.clock.run_for(499)
+    expect(said).to_have_text("")
+    page.clock.run_for(1)
+    expect(said).to_have_text("Lädt")
+    go()
+    page.clock.resume()
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+
+
 def test_the_word_comes_half_a_second_after_the_page_with_the_script_held(window, server):
     page, client = window()
     go = hold(page, SCRIPT)
@@ -257,7 +289,7 @@ def test_a_load_within_half_a_second_never_says_that_it_loads(window, server):
     assert not page.evaluate("window.said")
 
 
-CASES = {"blattform": (None, False), "plain": ("", False), "ipad": (None, True)}
+CASES = {"blattform": (None, None), "plain": ("", None), "ipad": (None, IPAD)}
 
 
 @pytest.mark.parametrize(("theme", "touch"), CASES.values(), ids=CASES)
@@ -272,19 +304,20 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     page.wait_for_function(MEASURED, timeout=10000)
     after = page.evaluate(PLACES)
     assert before.keys() == after.keys()
-    for part, was in before.items():
-        now = after[part]
-        if isinstance(was, list):
-            assert now == pytest.approx(was, abs=1), part
-        else:
-            assert now == was, part
+    exact = {part for part, was in before.items() if not isinstance(was, list)}
+    moved = {
+        part: (was, after[part])
+        for part, was in before.items()
+        if after[part] != (was if part in exact else pytest.approx(was, abs=1))
+    }
+    assert not moved
     # Nor did the page lie elsewhere for a frame between the two, as when the editor drew it
     # small before it had measured the desk.
     assert page.evaluate(SHIFTS) == 0
     # An upright A4 page, and the layout the case is about.
     assert before[".sheet"][3] / before[".sheet"][2] == pytest.approx(297 / 210, abs=0.01)
     assert before["leaf"] == (theme is None and not touch)
-    assert (before[".panel"] is None) == touch
+    assert (before[".panel"] is None) == (touch is IPAD)
 
 
 def test_a_screen_reader_hears_that_it_loads(window, server):
@@ -315,17 +348,33 @@ def test_a_sheet_that_is_not_there_says_so_after_the_loading_page(window, server
     expect(page.locator("#root > nav")).to_be_visible()
 
 
-def test_the_loading_page_is_white_on_a_dark_desk(window, server):
-    page, client = window(theme="", dark=True)
+def light(colour):
+    """How light a colour of the screen is, from 0 to 1, as the rule for contrast counts it."""
+    parts = [int(n) / 255 for n in re.findall(r"\d+", colour)[:3]]
+    red, green, blue = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in parts)
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+@pytest.mark.parametrize("theme", ["", None], ids=["plain", "blattform"])
+def test_the_loading_page_is_white_on_a_dark_desk_and_its_word_reads(window, server, theme):
+    page, client = window(theme=theme, dark=True)
     go = hold(page, SHEET)
+    page.clock.install()
+    page.clock.pause_at(page.evaluate("Date.now()") + 1000)
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
     expect_loading(page)
     colour = "el => getComputedStyle(el).backgroundColor"
     white = page.locator(".sheet.blank").evaluate(colour)
     assert white == "rgb(255, 255, 255)"
-    red, green, blue = map(int, re.findall(r"\d+", page.locator(".desk").evaluate(colour))[:3])
-    assert max(red, green, blue) < 64
+    # Blattform keeps its pale desk on a dark device.
+    assert (light(page.locator(".desk").evaluate(colour)) < 0.05) == (theme == "")
+    # The word is dark enough on the white page, whatever the theme makes of its other greys.
+    page.clock.run_for(500)
+    expect(page.locator(BLANK)).to_have_text("Lädt")
+    word = page.locator(".sheet.blank").evaluate("el => getComputedStyle(el).color")
+    assert (light(white) + 0.05) / (light(word) + 0.05) >= 4.5
     go()
+    page.clock.resume()
     expect_ready(page)
     assert page.locator(".sheet").evaluate(colour) == white
 

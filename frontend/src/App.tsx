@@ -25,15 +25,17 @@ export default function App() {
   }, []);
 
   // A login or a logout empties the block clipboard: what one account copied is not the next one's.
+  const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
     setUser(to);
+    setEntered((n) => n + 1);
   };
 
   // A sheet shows its loading page at once, and one clock runs while the account, the editor's script and the
-  // sheet load.
+  // sheet load. A login on a sheet's address starts the clock anew: the time at the login page is no loading.
   const { id } = useMatch("/blatt/:id")?.params ?? {};
-  const since = useMemo(() => performance.now(), [id]);
+  const since = useMemo(() => performance.now(), [id, entered]);
   const wait = <Blank since={since} />;
 
   if (user === undefined) return id ? wait : null;

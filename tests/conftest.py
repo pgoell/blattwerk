@@ -141,8 +141,8 @@ def editor(browser, server, playwright):
         # A thumbnail draws blocks too, with no name.
         count = len(blocks) + len(more) + sum(len(p["blocks"]) for p in pages)
         expect(page.locator(".block[data-id]")).to_have_count(count)
-        # The editor first draws the sheet 210 px wide and fits it to the desk once it has measured
-        # the desk, a frame later or more. A place read before then is not where the block ends up.
+        # The editor fits the sheet to the desk as it opens, and the desk's observer may set the
+        # width anew a frame later. A place read before then is not where the block ends up.
         page.wait_for_function(MEASURED, timeout=10000)
         return page
 

@@ -506,9 +506,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
 
   useLayoutEffect(() => {
     // The page that stood while the sheet loaded fills the desk, and so does this one from its first frame: the
-    // observer tells the width only after that frame.
+    // observer tells the width only after that frame. A desk with no width yet leaves the page as it is.
     const look = getComputedStyle(desk.current!);
-    setRoom(desk.current!.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight));
+    const width = desk.current!.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
+    if (width > 0) setRoom(width);
     const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
     observer.observe(desk.current!);
     return () => observer.disconnect();
