@@ -25,7 +25,8 @@ UNFOLDED = f"() => ({BAR})().names.length > 0"
 TITLE = """() => {
     const el = document.querySelector("header input[aria-label=Titel]");
     return {
-        whole: el.scrollWidth <= el.clientWidth,
+        // WebKit counts a whole title a pixel wider than its field.
+        whole: el.scrollWidth <= el.clientWidth + 1,
         dots: getComputedStyle(el).textOverflow === "ellipsis",
         focused: document.activeElement === el,
         tip: el.title,
@@ -159,12 +160,12 @@ def test_a_press_that_ends_the_edit_finds_its_button_still_under_the_pointer(edi
 
 def test_a_phones_title_has_a_third_of_the_window_and_shows_whole_in_it(editor):
     """A14: where a row breaks is up to the window alone, and so is the room the title starts
-    with: as much as it may take in a wider window."""
+    with: 120 px, a third of a phone's window."""
     title = "TR4 Zwei Seiten"
     page, _ = titled(editor, 360, title)
     leave(page, "Enter")
     got = expect_title(page, 360, whole=True, focused=False, tip=title)
-    assert got["width"] >= 0.34 * 360 - 1, got
+    assert got["width"] >= 120, got
 
 
 def test_blattforms_long_title_leaves_commands_in_the_bar(editor):

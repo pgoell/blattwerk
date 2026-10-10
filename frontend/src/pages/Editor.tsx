@@ -358,9 +358,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const hint = row.querySelector(".hint")!;
     let over = row.querySelector(".pdf")!.getBoundingClientRect().right + parseFloat(look.paddingRight) - row.getBoundingClientRect().right + hint.scrollWidth - hint.clientWidth;
     // The title gives way first, so the row may end in the bar with the title cut: what it lacks counts too, up to
-    // the most a title may take. While it is edited that is all of it, and `none` is no number.
+    // the most a title may take. While it is edited that is all of it, and `none` is no number. Safari counts a
+    // whole title a pixel wider than its field: that is no lack.
     const name = row.querySelector("input")!;
-    over += Math.min(name.scrollWidth - name.clientWidth, (parseFloat(getComputedStyle(name).maxWidth) || Infinity) - name.offsetWidth);
+    const lack = name.scrollWidth - name.clientWidth;
+    if (lack > 1) over += Math.min(lack, (parseFloat(getComputedStyle(name).maxWidth) || Infinity) - name.offsetWidth);
     let n = may.length;
     // A phone's bar wraps and keeps them all.
     if (look.flexWrap === "nowrap" && over > 0.5) {
