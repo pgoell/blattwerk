@@ -165,12 +165,14 @@ function alike(a: unknown, b: unknown): boolean {
   const [x, y] = [a, b] as Record<string, unknown>[];
   return x.length === y.length && Object.keys({ ...x, ...y }).every((key) => alike(x[key], y[key]));
 }
-// What the panel shows for a block that names nothing there.
+// What a text or a shape is drawn with, and the panel shows, where it names nothing. A shape's words say more.
 const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
 // The props that change a block. One the block does not name, set to what the block shows there, is left out:
-// a press on "Oben" for a text that stands at the top is no change.
+// a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known:
+// a line or a Lineatur made elsewhere that names no width or colour is drawn by the browser's own.
 const fresh = (b: Block, props: object) => {
-  const shown: Record<string, unknown> = { ...SHOWN, ...boxed(b) };
+  const text = boxed(b);
+  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika" };
   return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
 };
 // The pictures the server takes.

@@ -17,6 +17,7 @@ from ui import (
     maths,
     pick,
     picture,
+    saved,
     upload,
     user,
 )
@@ -271,6 +272,104 @@ def test_the_view_set_as_it_is_adds_no_undo_step(editor, own):
             panel.get_by_role("button", name=name, exact=True).click()
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
+
+
+# What a block shows where it names nothing, by the block's kind: the prop, its control (none
+# for buttons), a value away from what is shown, what is shown, and that as the sheet stores it.
+# A button is its name and which of that name it is.
+UNNAMED = [
+    ("text", "font", "Schriftart", None, "andika", "andika"),
+    ("text", "color", "Farbe", "#ff0000", "#222222", "#222222"),
+    ("text", "spacing", "Zeilenabstand", "2", "1.3", 1.3),
+    ("text", "strokeWidth", "Randstärke", "2", "0.5", 0.5),
+    ("text", "opacity", "Transparenz", "50", "0", 1),
+    ("text", "valign", None, ("Unten", 0), ("Oben", 0), "top"),
+    ("text", "kind", None, ("Rund", 0), ("Eckig", 0), "rect"),
+    ("shape", "font", "Schriftart", None, "andika", "andika"),
+    ("shape", "color", "Farbe", "#ff0000", "#222222", "#222222"),
+    ("shape", "spacing", "Zeilenabstand", "2", "1.3", 1.3),
+    ("shape", "opacity", "Transparenz", "50", "0", 1),
+    # A shape's words stand in the middle where a text's stand at the top.
+    ("shape", "valign", None, ("Oben", 0), ("Mitte", 1), "middle"),
+    ("shape", "align", None, ("Links", 0), ("Mitte", 0), "center"),
+    ("table", "font", "Schriftart der Tabelle", None, "andika", "andika"),
+    ("ruling", "font", "Schriftart auf den Zeilen", None, "andika", "andika"),
+    ("group", "font", "Schriftart", None, "andika", "andika"),
+    ("group", "valign", None, ("Unten", 0), ("Oben", 0), "top"),
+]
+SET = """(el, to) => {
+    el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    const own = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    own.set.call(el, to);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+}"""
+
+
+# How a block is drawn, as the browser works it out: a colour named or not looks the same.
+LOOK = """(el) => [...el.querySelectorAll("*")].map((part) => {
+    const s = getComputedStyle(part);
+    const all = [s.fontFamily, s.color, s.lineHeight, s.justifyContent, s.textAlign];
+    return [...all, s.borderRadius, s.borderTopWidth, s.backgroundColor].join();
+}).join(";")"""
+
+
+def put(page, label, to):
+    """Sets a control of the panel, each time with a press of its own. Gives what it then shows."""
+    if label is None:
+        name, nth = to
+        button = page.locator(".panel").get_by_role("button", name=name, exact=True).nth(nth)
+        button.click()
+        expect(button).to_have_class("on")
+        return None
+    control = field(page, label)
+    if control.evaluate("el => el.tagName") == "SELECT":
+        other = "el => [...el.options].find((o) => !o.selected && o.value).value"
+        control.dispatch_event("pointerdown")
+        control.select_option(to or control.evaluate(other))
+    else:
+        control.evaluate(SET, to)
+    if to:
+        expect(control).to_have_value(to)
+    return control.input_value()
+
+
+@pytest.mark.parametrize("kind, prop, label, away, back, stored", UNNAMED)
+def test_a_block_set_away_from_what_it_shows_and_back_shows_it_again(
+    editor, kind, prop, label, away, back, stored
+):
+    client = user()
+    blocks = {
+        "text": [box("a", "text", {**TEXT, "fill": "#ffff00", "stroke": "#222222"})],
+        "shape": [box("a", "shape", {**RECT, "fill": "#ffff00"})],
+        "table": [box("a", "table", TABLE)],
+        "ruling": [box("a", "ruling", RULING)],
+        "group": [
+            box("a", "text", TEXT, w=40, group=["g"]),
+            box("b", "text", TEXT, z=2, x=60, y=50, w=40, group=["g"]),
+        ],
+    }[kind]
+    assert all(prop not in b["props"] for b in blocks)
+    page = editor(*blocks, client=client)
+    at(page, "a").click()
+    expect_picked(page, *(b["id"] for b in blocks))
+    drawn = at(page, "a").evaluate(LOOK)
+    shown = put(page, label, away)
+    assert steps(page) == 1
+    assert at(page, "a").evaluate(LOOK) != drawn
+    put(page, label, back)
+    # Each of the two is a change, and the block is drawn as at first.
+    assert steps(page) == 2
+    assert at(page, "a").evaluate(LOOK) == drawn
+    for b in saved(page, client):
+        assert b["props"][prop] == stored
+    # One step back the block has the value set first, and after the other it names none.
+    page.get_by_label("Rückgängig", exact=True).click()
+    assert at(page, "a").evaluate(LOOK) != drawn
+    if shown:
+        expect(field(page, label)).to_have_value(shown)
+    page.get_by_label("Rückgängig", exact=True).click()
+    assert at(page, "a").evaluate(LOOK) == drawn
+    assert all(prop not in b["props"] for b in saved(page, client))
 
 
 # Asked #238, A2
