@@ -245,7 +245,11 @@ def test_where_gives_a_label_and_its_field_as_one_place_the_fields(editor, brows
     context = browser.new_context()
     login = context.new_page()
     login.goto(server)
-    assert tool.where(login, "E-Mail") == f"E-Mail at {middle(login.locator('#email'))}"
+    # The form still settles by a pixel while it loads, so the one place is asked what it is.
+    found = tool.where(login, "E-Mail")
+    assert found.count("\n") == 0
+    x, y = map(int, found.removeprefix("E-Mail at ").split(","))
+    assert login.evaluate("([x, y]) => document.elementFromPoint(x, y).id", [x, y]) == "email"
     context.close()
 
 
