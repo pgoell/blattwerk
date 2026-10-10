@@ -467,11 +467,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
-  const free = sel.filter((b) => !b.locked);
+  // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
+  // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
+  const free = sel.filter((b) => !blocks.some((o) => o.locked && (o === b || (b.group && o.group?.[0] === b.group[0]))));
   // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
   const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
-  // A group with a locked block stays as a whole, so it keeps its shape.
-  const things = [...new Set(sel.map(thing))].map((t) => sel.filter((b) => thing(b) === t)).filter((t) => !t.some((b) => b.locked));
+  const things = [...new Set(free.map(thing))].map((t) => free.filter((b) => thing(b) === t));
   // Whether they line up among themselves.
   const among = !onPage && things.length > 1;
   // What can take another's size: a line has only its length.
@@ -1362,10 +1363,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
   // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
   const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
-  function copy() {
-    if (!sel.length) return;
-    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: sel }));
-    const words = wordsOf(sel);
+  function copy(held = sel) {
+    if (!held.length) return;
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held }));
+    const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
@@ -1376,9 +1377,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     writing.current++;
     landed.catch(() => {}).finally(() => writing.current--);
   }
+  // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {
-    copy();
-    if (sel.length) remove();
+    copy(free);
+    remove();
   }
   // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
   function clip(): Block[] {
@@ -1431,9 +1433,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     }
     if (!typed(words)) paste();
   }
+  // What is locked stays, and stays picked: "Entsperren" is one click away. With nothing free there is no undo step.
   function remove() {
-    change((bs) => bs.filter((b) => !ids.includes(b.id)));
-    setIds([]);
+    const gone = free.map((b) => b.id);
+    if (!gone.length) return;
+    change((bs) => bs.filter((b) => !gone.includes(b.id)));
+    setIds(ids.filter((id) => !gone.includes(id)));
   }
   const all = () => setIds(blocks.map((b) => b.id));
   // The selection with its groups made whole: grouping and ungrouping work on whole groups.
@@ -1994,7 +1999,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     desk.current!.scrollBy(page.left + pinch.current.x * fit * next - x, page.top + pinch.current.y * fit * next - y);
   }
 
-  const locked = sel.length > 0 && !free.length;
+  const locked = sel.length > 0 && sel.every((b) => b.locked);
   // A right click on the desk picks as in PowerPoint and opens the menu. In a field the browser's own stays: false.
   function menuAt(el: Element, x: number, y: number) {
     if (el.closest(".ProseMirror, textarea, input, select")) return false;
@@ -2024,13 +2029,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const thumbed = menu?.thumb;
   type Command = Exclude<Item, "sep">;
   const clips: Command[] = [
-    { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: none, run: cut },
+    { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
     { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
     { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, run: pasteAny },
   ];
   const copies: Command[] = [
     { label: "Duplizieren", icon: CopyPlus, keys: `${ctrl}D`, disabled: none, run: () => put(sel) },
-    { label: "Löschen", icon: Trash2, keys: "Entf", disabled: none, run: remove },
+    { label: "Löschen", icon: Trash2, keys: "Entf", disabled: !free.length, run: remove },
   ];
   const lockIt: Command = { label: locked ? "Entsperren" : "Sperren", icon: locked ? LockOpen : Lock, disabled: none, run: () => place(sel.map((b) => [b.id, { locked: !locked }])) };
   const groups: Command[] = [
@@ -2255,8 +2260,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
           <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
           <i className="sep" />
-          {inBar("Ausschneiden") && <Tool icon={Scissors} label="Ausschneiden" disabled={!sel.length} onClick={cut} />}
-          {inBar("Kopieren") && <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={copy} />}
+          {inBar("Ausschneiden") && <Tool icon={Scissors} label="Ausschneiden" disabled={!free.length} onClick={cut} />}
+          {inBar("Kopieren") && <Tool icon={Copy} label="Kopieren" disabled={!sel.length} onClick={() => copy()} />}
           {inBar("Einfügen") && <Tool icon={ClipboardPaste} label="Einfügen" onClick={pasteAny} />}
           {inBar("Format übertragen") && (
             <Tool
@@ -2279,7 +2284,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             />
           )}
           {inBar("Duplizieren") && <Tool icon={CopyPlus} label="Duplizieren" disabled={!sel.length} onClick={() => put(sel)} />}
-          {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!sel.length} onClick={remove} />}
+          {inBar("Löschen") && <Tool icon={Trash2} label="Löschen" disabled={!free.length} onClick={remove} />}
           {inBar(lockIt.label) && <Tool icon={lockIt.icon!} label={lockIt.label} disabled={!sel.length} className={locked ? "on" : ""} onClick={lockIt.run} />}
           {inBar("Gruppieren") && <Tool icon={Group} label="Gruppieren" disabled={!joinable} onClick={join} />}
           {inBar("Gruppierung aufheben") && <Tool icon={Ungroup} label="Gruppierung aufheben" disabled={!splittable} onClick={split} />}
@@ -2752,7 +2757,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
               </p>
               <Format
-                sel={sel}
+                // A block of a group with a locked one is as fixed there as the locked one.
+                sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}
                 look={look}
                 paint={paint}
@@ -2841,6 +2847,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                       min={0.1}
                       step={0.1}
                       value={Math.round(Math.hypot(rulers[0].w, rulers[0].h) * 10) / 100}
+                      disabled={free.length < sel.length}
                       onChange={(e) => +e.target.value > 0 && extend(+e.target.value * 10)}
                     />
                   </label>

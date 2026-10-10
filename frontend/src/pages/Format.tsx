@@ -229,17 +229,17 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             ))}
           </select>
           <div className="seg">
-            <button aria-label="Eine Zeile weniger" onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) - 1)}>−</button>
+            <button aria-label="Eine Zeile weniger" disabled={fixed} onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) - 1)}>−</button>
             <output>{rowsOf(rulings[0])} Zeilen</output>
-            <button aria-label="Eine Zeile mehr" onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) + 1)}>＋</button>
+            <button aria-label="Eine Zeile mehr" disabled={fixed} onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) + 1)}>＋</button>
           </div>
           <label>
             Farbe
             <input type="color" value={rulings[0].props.color} onChange={(e) => style("ruling", { color: e.target.value }, "color")} />
           </label>
           <div className="row">
-            <button onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
-            <button onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
+            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
+            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
           </div>
           <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
           {RULINGS[rulings[0].props.kind].at && (
@@ -268,9 +268,9 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
               if (cell === undefined)
                 return (
                   <div key={name} className="seg">
-                    <button aria-label={`Eine ${name} weniger`} onClick={() => rank(tables[0], axis, n[i] - 1, false)}>−</button>
+                    <button aria-label={`Eine ${name} weniger`} disabled={fixed} onClick={() => rank(tables[0], axis, n[i] - 1, false)}>−</button>
                     <output>{n[i]} {name}n</output>
-                    <button aria-label={`Eine ${name} mehr`} onClick={() => rank(tables[0], axis, n[i], true)}>＋</button>
+                    <button aria-label={`Eine ${name} mehr`} disabled={fixed} onClick={() => rank(tables[0], axis, n[i], true)}>＋</button>
                   </div>
                 );
               const at = i ? cell % n[1] : Math.floor(cell / n[1]);
