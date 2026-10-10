@@ -972,7 +972,17 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
     tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
+    // A line style or a width turns on the border of each box that has none, as in PowerPoint.
+    const edge = "dash" in props || "strokeWidth" in props;
+    change(
+      (bs) =>
+        bs.map((b) => {
+          if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text")) return b;
+          const on = edge && (b.props.stroke ?? "none") === "none" && { stroke: "#222222" };
+          return { ...b, props: { ...b.props, ...fresh(b, props), ...on } } as Block;
+        }),
+      key,
+    );
   }
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
@@ -2781,9 +2791,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                       onChange={(e) => look({ strokeWidth: +e.target.value }, "strokeWidth")}
                     />
                   </label>
+                  {/* No style is lit while there is no border to show it. */}
                   <div className="seg">
                     {DASHES.map(([dash, label, sign]) => (
-                      <button key={label} className={boxes[0].props.dash === dash ? "on" : ""} aria-label={label} title={label} onClick={() => look({ dash })}>
+                      <button key={label} className={stroke !== "none" && boxes[0].props.dash === dash ? "on" : ""} aria-label={label} title={label} onClick={() => look({ dash })}>
                         {sign}
                       </button>
                     ))}
