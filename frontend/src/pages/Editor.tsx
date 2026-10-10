@@ -2222,7 +2222,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             title={title}
             onChange={(e) => setTitle(e.target.value)}
             onFocus={refit}
-            onBlur={refit}
+            // A press that took the focus has its click still to come: the bar waits until the mouse button is up and
+            // the click is through, or the button pressed would move from under the pointer. A key ends it at once.
+            onBlur={() => (document.querySelector(":active") ? addEventListener("mouseup", () => setTimeout(refit), { once: true, capture: true }) : refit())}
             // Enter ends the edit, as in PowerPoint, and gives the keys back; Escape does so for any field.
             onKeyDown={(e) => e.key === "Enter" && back(e.currentTarget)}
           />

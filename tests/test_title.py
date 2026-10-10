@@ -9,6 +9,7 @@ import json
 import pytest
 from playwright.sync_api import expect
 from test_bar import BAR, expect_fitted, more, sized, text
+from ui import at, pick
 
 WIDTHS = pytest.mark.parametrize("width", [1280, 820, 360])
 ENDS = pytest.mark.parametrize("end", ["Enter", "Escape", "click"])
@@ -18,6 +19,8 @@ SHORT = "TR3 Bild"
 ROW = "Rechnen bis 100 mit Zehnerübergang"
 LONG = "Die Geschichte vom kleinen Igel, der eines Nachts nicht schlafen wollte"
 TOO = "Mm" * 40
+# Whether the bar holds a command that may fold.
+UNFOLDED = f"() => ({BAR})().names.length > 0"
 # What the title's field says of itself, and whether the window scrolls sideways.
 TITLE = """() => {
     const el = document.querySelector("header input[aria-label=Titel]");
@@ -76,8 +79,10 @@ def test_a_title_the_bar_has_no_room_for_ends_in_three_dots(editor, width):
     got = expect_title(page, width, whole=False, dots=True, focused=False, tip=LONG)
     if width > 700:
         # As much as the bar has room for: the most a title may take, or all that folds is folded.
+        # At 1280 the layout is Blattform's own, whose shorter bar gives a title a fifth.
         names = page.evaluate(BAR)["names"]
-        assert abs(got["width"] - 0.34 * width) <= 1 or not names, json.dumps([got, names])
+        most = (0.2 if width == 1280 else 0.34) * width
+        assert abs(got["width"] - most) <= 1 or not names, json.dumps([got, names])
 
 
 @WIDTHS
@@ -113,7 +118,8 @@ def test_a_title_past_its_share_of_the_bar_gives_the_room_back_when_the_edit_end
     leave(page, end)
     cut = expect_title(page, 1280, whole=False, dots=True, focused=False, tip=TOO)
     assert abs(cut["width"] - 0.34 * 1280) <= 1 < wide["width"] - cut["width"], (wide, cut)
-    assert page.evaluate(BAR)["names"]
+    # After a click the bar unfolds when the press is through, a moment later.
+    page.wait_for_function(UNFOLDED, timeout=2000)
 
 
 def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(editor):
@@ -125,4 +131,46 @@ def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(
     pin.click()
     expect(pin).to_have_attribute("aria-pressed", "false")
     expect(field).not_to_be_focused()
-    assert len(page.evaluate(BAR)["names"]) > 0
+    page.wait_for_function(UNFOLDED, timeout=2000)
+
+
+def test_a_press_that_ends_the_edit_finds_its_button_still_under_the_pointer(editor):
+    """I8: Rückgängig lies right after the title and moves with its end. A press there takes the
+    focus from the title when the mouse button goes down, and the bar waits until it is up."""
+    page, field = titled(editor, 1280, SHORT, theme="")
+    pick(page, "a")
+    page.keyboard.press("Delete")
+    expect(page.locator(".block[data-id]")).to_have_count(0)
+    field.fill(TOO)
+    expect_title(page, 1280, focused=True)
+    undo = page.get_by_label("Rückgängig", exact=True)
+    was = undo.bounding_box()
+    # A real mouse, which goes up where it went down: a click by its locator would aim anew.
+    page.mouse.move(was["x"] + was["width"] / 2, was["y"] + was["height"] / 2)
+    page.mouse.down()
+    page.mouse.up()
+    expect(at(page, "a")).to_be_visible()
+    # The button did move, once the press was over and the bar unfolded what has room again.
+    cut = expect_title(page, 1280, whole=False, dots=True, focused=False)
+    assert abs(cut["width"] - 0.34 * 1280) <= 1, cut
+    page.wait_for_function(UNFOLDED, timeout=2000)
+    assert undo.bounding_box()["x"] < was["x"] - 40
+
+
+def test_a_phones_title_has_a_third_of_the_window_and_shows_whole_in_it(editor):
+    """A14: where a row breaks is up to the window alone, and so is the room the title starts
+    with: as much as it may take in a wider window."""
+    title = "TR4 Zwei Seiten"
+    page, _ = titled(editor, 360, title)
+    leave(page, "Enter")
+    got = expect_title(page, 360, whole=True, focused=False, tip=title)
+    assert got["width"] >= 0.34 * 360 - 1, got
+
+
+def test_blattforms_long_title_leaves_commands_in_the_bar(editor):
+    """A14, I8: beside the green panel the bar is short, and a title with no focus may take less
+    of it: cut, it folds some commands and not all."""
+    page, _ = titled(editor, 1280, TOO)
+    leave(page, "Enter")
+    expect_title(page, 1280, whole=False, dots=True, focused=False, tip=TOO)
+    assert page.evaluate(BAR)["names"][:3] == ["Ausschneiden", "Kopieren", "Einfügen"]
