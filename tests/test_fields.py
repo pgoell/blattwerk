@@ -503,6 +503,28 @@ def test_farbe_shows_the_colour_for_what_is_typed_next_and_one_undo_takes_it_awa
     expect(at(page, "a").locator(".frame")).to_have_css("color", "rgb(0, 0, 255)")
 
 
+# Issue #308: a press in the panel right after the caret moved
+
+
+def test_a_press_in_the_panel_reads_a_caret_that_has_just_moved(editor):
+    page = editor(box("a", "text", WORDS))
+    caret(page, "du", 1)
+    control = page.locator(".panel").get_by_label("Farbe", exact=True)
+    # The browser tells of a caret's move in a later task. Move and press in one task: the press
+    # comes first, as it may in a busy browser.
+    control.evaluate(
+        """(el) => {
+            getSelection().modify("move", "forward", "character");
+            el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+            el.focus();
+        }"""
+    )
+    colour(page, "#00ff00")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.type(" da so")
+    expect(page.locator(f"{FIELD} span[data-color]")).to_have_text(["Hallo ", " da so"])
+
+
 # Review: a text with no words keeps the colour as its own
 
 

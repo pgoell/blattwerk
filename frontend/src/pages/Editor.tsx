@@ -2173,6 +2173,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");
+        // The browser tells the field only later where the caret went, and the field hears nothing once the panel
+        // has the focus: a look picked there would go to the word the caret has left. So the field reads it now.
+        if (inPanel.current && field.current) document.dispatchEvent(new Event("selectionchange"));
         // What is written in lost the focus to the panel and has no blur left to end it: a press beside the panel
         // and the blocks, as on the title, ends it.
         if (!inPanel.current && document.activeElement?.closest(".panel") && !(e.target as Element).closest(".block")) setEditing("");
