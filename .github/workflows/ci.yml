@@ -71,9 +71,11 @@ jobs:
           SHARD: ${{ matrix.shard }}/10
 
   # The lists, the colour picker and the file dialog in a real window. Not required yet: the gate
-  # Test and branch protection leave it out.
+  # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
+  # master to pass, and must not wait for a job no merge waits for.
   native:
     name: Native
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # The image of the WebKit job: it has xvfb and the libraries a window needs.
     container:

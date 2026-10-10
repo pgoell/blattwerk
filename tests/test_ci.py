@@ -62,6 +62,8 @@ def test_the_native_job_runs_the_headed_tests_and_no_merge_waits_for_it():
     assert f'install="{install}"' in native
     assert "timeout -k 5 80 $install || timeout -k 5 80 $install" in native
     assert "native" not in part(CI, "test")
+    # The deploy waits for the whole run on master to pass, so the job runs on a PR alone.
+    assert "    if: github.event_name == 'pull_request'\n" in native
     assert "Native" not in PROTECTION["required_status_checks"]["contexts"]
 
 
