@@ -30,6 +30,8 @@ mise run dev:api        # backend on :8000
 mise run dev:web        # frontend dev server, proxies /api
 mise run stage:up       # the live image on a copy of the live data, on 127.0.0.1:8220; prints a test teacher's login
 mise run stage:down     # removes the stage's container and its copy
+mise run teacher:page -- start             # a real window with a real mouse on the stage, under xvfb
+mise run teacher:page -- hover Rückgängig  # one verb a call: click, drag, key, type, screenshot, pdf, stop
 mise run build          # frontend into src/blattwerk/static
 mise run fmt            # ruff format
 mise run check-commits  # cocogitto on unpushed commits

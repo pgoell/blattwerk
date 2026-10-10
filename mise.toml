@@ -86,6 +86,10 @@ run = "bash scripts/stage.sh up"
 description = "Remove the stage's container and its copy of the data"
 run = "bash scripts/stage.sh down"
 
+[tasks."teacher:page"]
+description = "A real window with a real mouse on the stage, for the teacher run; a verb goes after --: start, click, hover, screenshot, stop"
+run = "uv run python scripts/teacher-page.py"
+
 # ─── Lint & format ──────────────────────────────────────────────────────────
 
 [tasks.lint]
