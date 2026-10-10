@@ -281,7 +281,9 @@ body:has(.print) { background: #fff; }
 .top .brand { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; color: var(--muted); }
 .top .logo { font-size: 0; gap: 0; }
 /* The sheet's title reads as text until the pointer or the caret is on it; whether it is saved stands beside it. */
-.top input { flex: 0 1 auto; width: auto; min-width: 80px; max-width: 34vw; field-sizing: content; margin-left: 4px; padding: 0 6px; background: none; border-color: transparent; font-weight: 500; }
+.top input { flex: 0 1 auto; width: auto; min-width: 80px; max-width: 34vw; field-sizing: content; margin-left: 4px; padding: 0 6px; background: none; border-color: transparent; font-weight: 500; text-overflow: ellipsis; }
+/* While it is edited the title takes what its text needs: the editor folds more of the bar away for it. */
+.top input:focus { max-width: none; }
 .top input:hover { border-color: var(--line); }
 .top .hint { margin: 0 auto 0 4px; color: var(--faint); white-space: nowrap; }
 .sep { flex: none; width: 1px; height: 16px; margin: 0 5px; background: var(--line); }
@@ -619,6 +621,8 @@ body:has(.print) { background: #fff; }
   /* The bar wraps here. The title starts at its least width and takes the room its row has left, so where the rows
      break is up to the window alone and the loading page, which has no title yet, can lay out the same rows. */
   .top input { flex: 1 1 80px; max-width: none; }
+  /* While it is edited the title has a row of its own. */
+  .top input:focus { flex-basis: 100%; }
   .left { grid-area: 2 / 1; width: auto; max-height: 32dvh; border-right: 0; border-bottom: 1px solid var(--split); }
   .stage { grid-area: 3 / 1; }
   .panel { grid-area: 4 / 1; width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--split); }

@@ -363,6 +363,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     // How far the row runs past the bar's end, and how much of the hint it has squeezed away before that.
     const hint = row.querySelector(".hint")!;
     let over = row.querySelector(".pdf")!.getBoundingClientRect().right + parseFloat(look.paddingRight) - row.getBoundingClientRect().right + hint.scrollWidth - hint.clientWidth;
+    // The title gives way first, so the row may end in the bar with the title cut: what it lacks counts too, up to
+    // the most a title may take. While it is edited that is all of it, and `none` is no number.
+    const name = row.querySelector("input")!;
+    over += Math.min(name.scrollWidth - name.clientWidth, (parseFloat(getComputedStyle(name).maxWidth) || Infinity) - name.offsetWidth);
     let n = may.length;
     // A phone's bar wraps and keeps them all.
     if (look.flexWrap === "nowrap" && over > 0.5) {
@@ -377,8 +381,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   });
   // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
   // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
-  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not.
-  useLayoutEffect(refit, [leaf]);
+  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not. So it is when
+  // the title changes, and when its field gains or loses the focus: the bar's width stays, and tells of none.
+  useLayoutEffect(refit, [leaf, title]);
   useLayoutEffect(() => {
     // Before the browser paints the bar at its new width.
     const again = () => flushSync(refit);
@@ -2230,7 +2235,20 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={`pin${left ? " on" : ""}`} aria-pressed={left} onClick={() => showLeft(!left)} />
             </>
           )}
-          <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            type="text"
+            aria-label="Titel"
+            placeholder="Unbenanntes Blatt"
+            maxLength={80}
+            value={title}
+            // A title the bar cuts shows whole under the pointer, and while it is edited: see `refit`.
+            title={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onFocus={refit}
+            onBlur={refit}
+            // Enter ends the edit, as in PowerPoint, and gives the keys back; Escape does so for any field.
+            onKeyDown={(e) => e.key === "Enter" && back(e.currentTarget)}
+          />
           <span className="hint" role="status">
             {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
           </span>
