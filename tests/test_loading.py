@@ -294,14 +294,26 @@ def test_a_load_within_half_a_second_never_says_that_it_loads(window, server):
     assert not page.evaluate("window.said")
 
 
-CASES = {"blattform": (None, None), "plain": ("", None), "ipad": (None, IPAD)}
+# A phone's bar wraps to rows, and how many is up to the window's width alone: a long title adds
+# none (#319).
+PHONE = {"width": 390, "height": 844}
+LONG = "Die Geschichte vom kleinen Igel, der nicht schlafen wollte."
+CASES = {
+    "blattform": (None, None, None),
+    "plain": ("", None, None),
+    "ipad": (None, IPAD, None),
+    "phone": (None, PHONE, None),
+    "phone-plain": ("", PHONE, None),
+    "phone-long-title": (None, PHONE, LONG),
+    **{f"phone-{wide}": (None, {**PHONE, "width": wide}, LONG) for wide in (320, 360, 414)},
+}
 
 
-@pytest.mark.parametrize(("theme", "touch"), CASES.values(), ids=CASES)
-def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, theme, touch):
+@pytest.mark.parametrize(("theme", "touch", "title"), CASES.values(), ids=CASES)
+def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, theme, touch, title):
     page, client = window(theme=theme, touch=touch)
     go = hold(page, SHEET)
-    page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
+    page.goto(f"{server}/blatt/{sheet(client, [], **({'title': title} if title else {}))['id']}")
     expect_loading(page)
     before = page.evaluate(PLACES)
     go()
@@ -323,6 +335,8 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     assert before[".sheet"][3] / before[".sheet"][2] == pytest.approx(297 / 210, abs=0.01)
     assert before["leaf"] == (theme is None and not touch)
     assert (before[".panel"] is None) == (touch is IPAD)
+    # A phone's bar has more rows than one, or the case shows nothing.
+    assert (before["header"][3] > 100) == (touch is not None and touch["width"] <= 700)
 
 
 def test_a_screen_reader_hears_that_it_loads(window, server):

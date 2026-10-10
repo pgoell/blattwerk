@@ -2203,6 +2203,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       }}
     >
       <header>
+        {/* Blank.tsx draws this bar's boxes, and the panel's below, for a phone that loads: a change here goes there too. */}
         <div className="top" ref={bar} onPointerOver={holdName}>
           {leaf ? (
             <span className="modes" role="tablist">
