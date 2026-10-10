@@ -91,7 +91,7 @@ The steps, in order. A step that fails stops the deploy.
 5. Remove the canary and the copy, whether the test passed or failed. The next deploy clears them too, in case a job was killed.
 6. `scripts/snapshot.py` copies the database to `~/.local/share/blattwerk-backups/pre-<sha>.db`, where `<sha>` is the commit it deploys. It keeps the newest 30 snapshots.
 7. Name the tested image `latest`: `docker tag blattwerk-blattwerk:canary blattwerk-blattwerk:latest`. Only an image that passed the canary gets that name.
-8. `docker compose up -d --no-build` replaces the container. Up to here the live site has not changed.
+8. `docker compose up -d --no-build` replaces the container. Up to here the live site has not changed. The step after it fails the deploy if the container does not run the image the canary tried.
 9. Wait until the new container answers `/api/me`.
 10. Smoke test live, read only: three GETs, no user and no write. `/` must give the page, the script that page names must come as JavaScript, and `/api/me` without a cookie must give 401, which the app says only after it has read the database. The database the container sees must also hold at least one user. On a new machine with no user yet, make the admin with the line from "Accounts" and rerun.
 11. If step 7, 8, 9 or 10 fails or is cancelled, `scripts/go-back.sh` puts the `prev` image back and the run fails. It changes the image only, never the database: if the failed deploy moved the schema, follow "Going back" below. In four cases it changes nothing and says so, and a person decides then:

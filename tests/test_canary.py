@@ -557,6 +557,7 @@ def test_deploy_tries_the_canary_before_it_touches_live():
         "Snapshot the database",
         "Name the tested image latest",
         "Deploy",
+        "Check that the container runs the tested image",
         "Wait for the app to answer",
         "Smoke test live, read only",
         "Go back to prev",
@@ -609,6 +610,21 @@ def test_a_commit_whose_canary_runs_latest_is_refused_before_the_build(tmp_path)
         done = subprocess.run(["bash", "-c", check], cwd=tmp_path, capture_output=True, text=True)
         assert done.returncode == code_, done.stdout
     assert "Revert on master" in done.stdout
+
+
+@pytest.mark.parametrize(("running", "code_"), [("sha256:new", 0), ("sha256:old", 1)])
+def test_a_container_that_kept_the_old_image_fails_the_deploy(tmp_path, running, code_):
+    (check,) = re.findall(
+        r"^        run: \|\n((?:          .*\n)+)",
+        steps()["Check that the container runs the tested image"],
+        re.M,
+    )
+    stub = tmp_path / "docker"
+    stub.write_text(f'#!/bin/sh\n[ "$1" = image ] && echo sha256:new || echo {running}\n')
+    stub.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
+    done = subprocess.run(["bash", "-c", check], env=env, capture_output=True, text=True)
+    assert done.returncode == code_, done.stdout
 
 
 def test_the_build_has_an_end():

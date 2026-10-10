@@ -100,6 +100,16 @@ jobs:
         timeout-minutes: 3
         run: docker compose up -d --no-build
 
+      # Were compose to keep the old container, every check below would pass
+      # on the old image.
+      - name: Check that the container runs the tested image
+        timeout-minutes: 1
+        run: |
+          if [ "$(docker inspect -f '{{.Image}}' blattwerk)" != "$(docker image inspect -f '{{.Id}}' blattwerk-blattwerk:canary)" ]; then
+            echo "::error::the blattwerk container does not run the image the canary tried"
+            exit 1
+          fi
+
       # The app's logs hold invite tokens and this repo's job logs are public,
       # so a failure points at the logs and does not print them.
       - name: Wait for the app to answer
