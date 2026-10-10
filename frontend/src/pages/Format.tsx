@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, type Align, type Axis, type Block, type Box, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -27,10 +27,12 @@ type Props = {
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   cropping: boolean;
-  // Turns every selected block by so many degrees about its own centre.
+  // Turns what is selected by so many degrees: a group picked whole as one, a loose block about its own centre.
   spin: (by: number) => void;
-  // Mirrors the selected pictures, symbols and shapes across or down.
+  // Mirrors what is selected across or down: a group picked whole as one, a loose block in itself.
   mirror: (axis: Axis) => void;
+  // Whether the block is a thing by itself: loose, or picked out of its group.
+  alone: (b: Block) => boolean;
   // Whether a new width sets the height to match, in the fields and on the handles.
   lock: boolean;
   setLock: (on: boolean) => void;
@@ -51,6 +53,69 @@ export const bounds = (bs: Box[]) => {
   const [x, y] = [Math.min(...bs.map((b) => b.x)), Math.min(...bs.map((b) => b.y))];
   return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
 };
+// The level box around a turned block's outline. It has the block's centre.
+export const outline = <T extends Box>(b: T): T => {
+  const [c, s] = dir(b).map(Math.abs);
+  const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
+  return { ...b, x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+};
+// The corner a line starts at after a quarter turn clockwise.
+const NEXT: Record<Corner, Corner> = { nw: "ne", ne: "se", se: "sw", sw: "nw" };
+// A block on its side whose width and height differ by an odd count of hundredths has its outline half a
+// hundredth off the sheet's hundredths. This is how far its stored place lies from the one it is meant to have,
+// to the right and up: so four quarter turns lead back to the hundredth.
+const lean = (b: Box) => ((b.angle ?? 0) % 180 === 90 && Math.round((b.w + b.h) * 100) % 2 ? Math.sign(b.w - b.h) * 0.005 : 0);
+// The box around the blocks as they are meant to lie, turned or not: the frame a group shows.
+const hull = (bs: Box[]) => bounds(bs.map((b) => outline({ ...b, x: b.x - lean(b), y: b.y + lean(b) })));
+// A quarter turn clockwise of the blocks as one. The box around them goes on its side about its middle, to the
+// hundredth: half a hundredth too many goes away one time and comes back the next. In it each block's centre goes
+// round and keeps its distances to the edges, so all stays on the hundredths. A line has no angle: its box goes on
+// its side, and the line starts at the next corner.
+const quarter = (bs: Block[]): Block[] => {
+  const all = hull(bs);
+  const d =Math.trunc(Math.round((all.w - all.h) * 100) / 2) / 100;
+  return bs.map((b) => {
+    const to = isLine(b) ? { ...b, w: b.h, h: b.w, props: { ...b.props, from: NEXT[b.props.from ?? "nw"] } } : { ...b, angle: norm((b.angle ?? 0) + 90) };
+    // As far from the left as the centre was from the bottom, and as far from the top as it was from the left.
+    const x = all.x + d + (all.y + all.h - (b.y + lean(b) + b.h / 2));
+    const y = all.y - d + (b.x - lean(b) + b.w / 2 - all.x);
+    return { ...to, x: round(x - to.w / 2 + lean(to)), y: round(y - to.h / 2 - lean(to)) };
+  });
+};
+// The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
+// selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
+// spot. Quarters are exact, and a line goes by them only.
+export const swung = (bs: Block[], by: number): Block[] => {
+  if (by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
+  const all = hull(bs);
+  const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
+  const [c, s] = dir({ angle: by });
+  return bs.map((b) => {
+    const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
+    return { ...b, x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + by) };
+  });
+};
+// The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
+// to the other side, and the box stays. A picture, a symbol, a shape and a text in an outline are mirrored in
+// themselves too, as the page shows them, and their angle with them. A line's start changes corners instead. A
+// shape's text stays readable, and so does all else: in a group it moves and leans the other way, alone it stays.
+export const mirrored = (bs: Block[], axis: Axis): Block[] => {
+  const swap: Record<Corner, Corner> = axis === "x" ? { nw: "ne", ne: "nw", sw: "se", se: "sw" } : { nw: "sw", sw: "nw", ne: "se", se: "ne" };
+  const [flag, size] = axis === "x" ? (["flipX", "w"] as const) : (["flipY", "h"] as const);
+  const all = hull(bs);
+  return bs.map((b) => {
+    const own = b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b);
+    if (!own && bs.length === 1) return b;
+    // As far from the far edge as it was from the near one. A block on its side leans the same way after.
+    const at = { [axis]: round(2 * all[axis] + all[size] - b[axis] - b[size] + (axis === "x" ? 2 : -2) * lean(b)) };
+    // `isLine` tells the compiler that every shape it turns down is no shape, so the type is read first.
+    // An outline mirrors as a picture does; a box looks the same either way.
+    const flips = own && (b.type !== "shape" || drawn(b));
+    if (isLine(b)) return { ...b, ...at, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
+    // A level block names no angle, and stays so.
+    return { ...b, ...at, ...(b.angle && { angle: norm(-b.angle) }), ...(flips && { [flag]: !b[flag] }) };
+  });
+};
 
 // Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
 // look goes on unless all have it. A text has it when all its words do, of their own or through the block; one
@@ -68,12 +133,13 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, spin, mirror, lock, setLock, size: [W, H] }: Props) {
+export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
-  // symbol, a shape or a text in an outline can flip.
+  // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
+  // with it by quarters, and whatever is in it changes sides in a flip.
   const fixed = sel.some((b) => b.locked);
-  const level = fixed || sel.some((b) => b.type === "table" || isLine(b));
-  const plain = fixed || !sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
+  const level = fixed || sel.some((b) => b.type === "table" || (isLine(b) && alone(b)));
+  const plain = fixed || !sel.some((b) => !alone(b) || b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
   const of = <T extends Block["type"]>(type: T) => sel.filter((b): b is Extract<Block, { type: T }> => b.type === type);
   // The first block of a type shows its settings; a change goes to all of them.
   // A shape that is no line holds text as a text block does.
