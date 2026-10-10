@@ -397,6 +397,12 @@ def test_stop_leaves_a_process_alone_that_only_has_the_holders_pid(folder, serve
     other.wait()
 
 
+def test_stop_takes_a_file_that_names_no_holder_for_nothing_running(folder, server):
+    (folder / "page.json").write_text("{")
+    done = run(folder, server, "stop")
+    assert (done.returncode, done.stdout, done.stderr) == (0, "no page was running\n", "")
+
+
 def left(folder):
     """The processes that still name the folder: the browser has its profile there."""
     found = []

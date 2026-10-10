@@ -65,9 +65,12 @@ def running() -> dict | None:
         state = json.loads((STATE / "page.json").read_text())
         # The pid may be another process's by now: only a holder of this script counts.
         words = Path(f"/proc/{state['pid']}/cmdline").read_bytes().split(b"\0")
-    except FileNotFoundError, ProcessLookupError:
+    # A file that is cut short or holds something else names no holder either.
+    except OSError, ValueError, KeyError, TypeError:
         return None
-    return state if __file__.encode() in words and b"hold" in words else None
+    # By the script's name, not its path: another checkout's holder is one too.
+    script = Path(__file__).name.encode()
+    return state if any(w.endswith(script) for w in words) and b"hold" in words else None
 
 
 def places(page: Page, name: str) -> list[tuple[int, int]]:
@@ -270,9 +273,9 @@ def hold() -> None:
 def stop() -> bool:
     """Ends the holder, its browser and its xvfb. Says whether one ran."""
     state = running()
-    (STATE / "page.json").unlink(missing_ok=True)
     if not state:
         return False
+    (STATE / "page.json").unlink(missing_ok=True)
     # The holder shuts the browser itself, and xvfb-run then ends its screen.
     os.kill(state["pid"], signal.SIGTERM)
     try:
