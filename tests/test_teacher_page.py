@@ -198,8 +198,13 @@ def test_type_writes_into_the_text_that_enter_opened(editor):
     expect(page.locator(FIELD)).to_have_text("du da")
 
 
+def far(colour):
+    """How far `#rrggbb` lies from the text's #222222, in its widest channel: 60 is plain to see."""
+    return max(abs(int(colour[n : n + 2], 16) - 0x22) for n in (1, 3, 5))
+
+
 @pytest.mark.native
-def test_key_arrow_and_enter_pick_a_colour_in_the_real_picker(editor):
+def test_key_arrows_60_times_and_enter_pick_a_colour_the_eye_can_tell(editor):
     page = editor(box("a", "text", ONE))
     words = at(page, "a").get_by_text("Eins")
     field = page.locator(".panel").get_by_label("Farbe", exact=True)
@@ -210,13 +215,21 @@ def test_key_arrow_and_enter_pick_a_colour_in_the_real_picker(editor):
     expect(page.locator(POPUP)).to_have_count(1)
     # The picker is `:open` before it listens: an arrow that came too early is pressed again.
     for _ in range(5):
-        tool.key(page, "ArrowRight")
+        tool.key(page, "ArrowUp")
         if field.input_value() != "#222222":
             break
     expect(field).not_to_have_value("#222222")
+    # As the brief's recipe says: one arrow alone is a step too small to see.
+    tool.key(page, "ArrowUp", "60")
+    tool.key(page, "ArrowRight", "60")
     tool.key(page, "Enter")
     expect(page.locator(POPUP)).to_have_count(0)
-    expect(words).not_to_have_css("color", "rgb(34, 34, 34)")
+    picked = field.input_value()
+    assert far(picked) >= 60, picked
+    red, green, blue = (int(picked[n : n + 2], 16) for n in (1, 3, 5))
+    # The arrows to the right gave the grey a tint.
+    assert red > green
+    expect(words).to_have_css("color", f"rgb({red}, {green}, {blue})")
 
 
 # The window
@@ -468,12 +481,13 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
         call("click", "Beenden")
         call("click", "Eins")
         call("click", "Farbe")
-        call("key", "ArrowRight")
+        call("key", "ArrowUp", "60")
+        call("key", "ArrowRight", "60")
         call("key", "Enter")
         late = time.monotonic() + 10
         while colour() == "#222222" and time.monotonic() < late:
             time.sleep(0.1)
-        assert colour() not in ("#222222", None)
+        assert far(colour()) >= 60, colour()
         assert call("stop") == "stopped"
     finally:
         run(folder, server, "stop")

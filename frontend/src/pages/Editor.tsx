@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as Key,
   type PointerEvent,
+  type ReactNode,
   type TouchEvent,
 } from "react";
 import { flushSync } from "react-dom";
@@ -77,6 +78,7 @@ import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, 
 import Selecto from "react-selecto";
 import { Link, useParams } from "react-router";
 import { api, post, type User } from "../api";
+import { DRAWERS, opening } from "../components/Blank";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
@@ -147,8 +149,6 @@ const NAMES: Record<Block["type"], string> = {
 };
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht"];
-// An iPad held upright: the panels are drawers over the desk. The same words as in styles.css.
-const DRAWERS = matchMedia("(orientation: portrait) and (min-width: 701px) and (max-width: 1099px)");
 const whenTurned = (heard: () => void) => {
   DRAWERS.addEventListener("change", heard);
   return () => DRAWERS.removeEventListener("change", heard);
@@ -205,7 +205,8 @@ const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MAR
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
 
-export default function Editor({ user }: { user: User }) {
+// `wait` is the loading page, which the app draws while this script loads too.
+export default function Editor({ user, wait }: { user: User; wait: ReactNode }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there.
   const [file, setFile] = useState<Sheet | null>();
@@ -215,8 +216,7 @@ export default function Editor({ user }: { user: User }) {
   }
   useEffect(load, [id]);
 
-  // The empty editor keeps the app's bar away while the sheet loads.
-  if (file === undefined) return <main className="editor" />;
+  if (file === undefined) return wait;
   if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A version loaded anew starts the editor over.
   return <Canvas key={`${file.id}.${file.version}`} file={file} user={user} reload={load} />;
@@ -317,14 +317,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The panel's lock: a new width sets the height to match, in its fields and on the handles.
   const [lock, setLock] = useState(false);
   const [pane, setPane] = useState(true);
-  // The panel of pages and templates starts shut where it would lie over the desk.
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
-  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. From the
-  // width of an iPad on its side: beside the green panel a narrower window has no room for the bar's one row.
-  // Vorlagen starts shut in Blattform at any width, for the window may grow or turn into that layout.
-  const blatt = document.documentElement.dataset.theme === "leaf";
-  const leafy = blatt && innerWidth >= 1024;
-  const [side, setSide] = useState(() => innerWidth > 700 && !blatt);
+  // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. `opening`
+  // tells when the layout is that one and how the panel of pages and templates starts.
+  const { leafy } = opening();
+  const [side, setSide] = useState(() => opening().side);
   // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
   const drawers = useSyncExternalStore(whenTurned, () => DRAWERS.matches);
   const [drawer, setDrawer] = useState<"left" | "right">();
@@ -508,6 +505,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const ys = loose ? [] : [...pageYs, ...still.map(outline).flatMap((b) => [b.y, b.y + b.h / 2, b.y + b.h])];
 
   useLayoutEffect(() => {
+    // The page that stood while the sheet loaded fills the desk, and so does this one from its first frame: the
+    // observer tells the width only after that frame.
+    const look = getComputedStyle(desk.current!);
+    setRoom(desk.current!.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight));
     const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
     observer.observe(desk.current!);
     return () => observer.disconnect();
