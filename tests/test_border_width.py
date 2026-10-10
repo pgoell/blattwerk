@@ -4,7 +4,7 @@ import math
 
 import pytest
 from pixels import LOADED, dark, grey, measures, runs, screen_and_print
-from ui import BROWSER, RECT, TEXT, at, box, expect_picked, pick, sheet, unpick, user
+from ui import RECT, TEXT, at, box, expect_picked, pick, sheet, unpick, user
 
 from blattwerk import pdf
 
@@ -148,9 +148,18 @@ def test_the_foot_of_an_outline_and_of_dashes_is_as_wide_as_it_is_set(browser, s
     )
     # Cut at a whole pixel, 0.5 mm printed 0.44 to 0.46 wide and showed 0.36 to 0.39.
     assert printed == pytest.approx([width] * 4, abs=0.03)
-    # WebKit still cuts an outline's foot on the screen at some places, by a pixel of an iPad:
-    # 0.06 for 0.2 mm and 0.38 for 0.5 mm, as before.
-    assert screen == pytest.approx(printed, abs=0.15 if BROWSER == "webkit" else 0.05)
+    assert screen == pytest.approx(printed, abs=0.05)
+
+
+def test_a_text_too_long_for_its_box_is_cut_at_the_box(browser, server):
+    """The frame cuts a pixel outside its edge, for a stroke's sake. A text ends at the box."""
+    client = user()
+    words = {**TEXT, **look(0.5), "text": "Igel " * 80}
+    pictures = grey(browser, server, client, [box("a", "text", words, x=110, y=181, **SIZE)])
+    for picture in pictures:
+        # Rows of words in the box's lower third, and none below it, past that pixel.
+        assert max(dark(picture, (112, 200, 168, 209))) > 0.2
+        assert max(dark(picture, (105, 211.3, 175, 230))) == 0
 
 
 @pytest.mark.parametrize("width", [0.5, 1])
