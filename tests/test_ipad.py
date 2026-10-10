@@ -26,7 +26,6 @@ from ui import (
     drawer,
     expect_picked,
     saved,
-    swipe,
     user,
 )
 
@@ -339,10 +338,9 @@ def test_the_format_drawer_opens_and_sets_a_look_while_a_text_stays_open(editor)
     page = editor(text("a", 1), touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
-    # A second tap on the selected text opens it. A finger that lifts as it would in the same
-    # instant as it came down leaves Moveable waiting for a second finger, and the next tap anywhere
-    # is then that one: it would close the text and press nothing.
-    swipe(page, centre(at(page, "a")))
+    # A second tap on the selected text opens it: one of no length, as a quick finger's is to a
+    # busy page. Moveable waits for no second finger after it, so the next tap presses the bar.
+    at(page, "a").tap()
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")
     drawer(page, "right")

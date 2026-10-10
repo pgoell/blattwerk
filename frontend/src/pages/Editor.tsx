@@ -2497,6 +2497,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     renderDirections={handles}
                     origin={false}
                     checkInput
+                    // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
+                    // it would take the next tap anywhere for that finger when the first lifted before its timer ran.
+                    pinchOutside={false}
                     snappable={!loose}
                     keepRatio={keep}
                     snapThreshold={6}
