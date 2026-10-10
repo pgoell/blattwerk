@@ -21,17 +21,15 @@ LONG = (
     "sie im Winter genug zu fressen haben. Manchmal vergessen sie ein Versteck, und im "
     "Frühling wächst dort ein neuer Baum. Die Vögel ziehen in den Süden."
 )
-FULLER = ["school script", "lists", "table", "strokes", "pictures", "rulings on its side"]
+FULLER = ["school script", "lists", "table", "strokes", "dashes", "pictures", "rulings on its side"]
 KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group", "name", "points"]
 # A table and a line stay level: the panel Format shuts "Drehung" for them and the selection has
 # no handle to turn them by. A line points where its two ends are.
 TURNED = [kind for kind in KINDS if kind not in ("table", "line")]
 # What WebKit shows another way than Chromium prints it, each just over what it differs by today.
 # A table's lines are one pixel of the screen wide and pale there, half of what prints: 0.004.
-# A dashed border has longer dashes and wider gaps and a dotted one square dots: 0.015.
 OWN = {
     "table": 0.006,  # issue #280
-    "strokes": 0.02,  # issue #279
 }
 OWN = OWN if BROWSER == "webkit" else {}
 
@@ -123,6 +121,17 @@ def fuller(case, client):
             at("shape", {**thick, "kind": "bubble", "text": "Blase"}, y=180, h=40, w=60),
             at("shape", {**thick, "kind": "triangle", "opacity": 0.5}, y=181, h=30, **half),
             at("shape", {**LINE, "strokeWidth": 2, "dash": "dashed", "kind": "arrow"}, y=270, h=10),
+        ]
+    if case == "dashes":
+        # Each kind of box that has a border, and a text with one: level, and turned over a fill.
+        thick = {**RECT, "strokeWidth": 3}
+        edged = {**WORDS, "stroke": "#222222", "strokeWidth": 1, "dash": "dashed"}
+        return [
+            at("shape", {**thick, "kind": "rounded", "dash": "dashed"}, y=30, h=30),
+            at("shape", {**thick, "dash": "dotted"}, y=70, h=30),
+            at("shape", {**thick, "kind": "circle", "dash": "dashed"}, y=110, h=40),
+            at("text", edged, y=160, h=30),
+            at("text", {**edged, "fill": "#ffd43b"}, y=215, h=40, angle=30),
         ]
     if case == "pictures":
         # A quarter cut off the left and half off the bottom: the blue field and a strip of green.

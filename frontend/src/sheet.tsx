@@ -317,29 +317,50 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
   const p = boxed(block)!;
   const [down, across, edge] = inset(p, block.type === "shape");
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
+  // Each browser draws the dashes of a CSS border its own way, so a box's dashes are drawn over it, as a line's are.
+  const ring = !d && !!p.dash && edge > 0;
   // An outline is no border, so the padding alone keeps the text where a border would.
-  const own = d ? 0 : edge;
+  const own = d || ring ? 0 : edge;
+  const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
   return (
     <div
       className="frame"
       style={{
         ...textStyle(p, k),
         background: d ? undefined : clear(p),
-        border: own ? `${edge * k}px ${p.dash ?? "solid"} ${p.stroke}` : undefined,
+        border: own ? `${edge * k}px solid ${p.stroke}` : undefined,
         borderRadius: p.kind === "circle" ? "50%" : p.kind === "rounded" ? 4 * k : 0,
         padding: `${(down - own) * k}px ${(across - own) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
-        ...(d && { position: "relative", isolation: "isolate" }),
+        ...((d || ring) && { position: "relative", isolation: "isolate" }),
       }}
     >
       {d && (
-        <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1, ...flipped(block) }}>
+        <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ ...over, ...flipped(block) }}>
           <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+        </svg>
+      )}
+      {ring && (
+        <svg className="dashes" viewBox={`0 0 ${block.w} ${block.h}`} style={over}>
+          <Ring w={block.w - edge} h={block.h - edge} edge={edge} p={p} />
         </svg>
       )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
     </div>
   );
+}
+
+// The dashes of a box's border. The middle of the stroke is `w` by `h` mm, half the stroke's width inside the box.
+// The dashes stretch or shrink a little so that a whole number of them goes around: the last one meets the first.
+function Ring({ w, h, edge, p }: { w: number; h: number; edge: number; p: TextProps }) {
+  const round = p.kind === "circle";
+  const r = p.kind === "rounded" ? Math.max(0, Math.min(4 - edge / 2, w / 2, h / 2)) : 0;
+  // Around an ellipse by Ramanujan's rule, around a box less what its round corners cut off.
+  const around = round ? (Math.PI / 2) * (3 * (w + h) - Math.sqrt((3 * w + h) * (w + 3 * h))) : 2 * (w + h) - (8 - 2 * Math.PI) * r;
+  const each = edge * (p.dash === "dashed" ? 7 : 2.5);
+  const fit = around / Math.max(1, Math.round(around / each)) / each;
+  // Radii as large as the box make an ellipse of it.
+  return <rect x={edge / 2} y={edge / 2} width={w} height={h} rx={round ? w : r} ry={round ? h : r} fill="none" stroke={p.stroke} strokeWidth={edge} strokeDasharray={dashes(p.dash, edge * fit)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} />;
 }
 
 // The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box: the

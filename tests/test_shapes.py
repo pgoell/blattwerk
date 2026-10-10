@@ -1,8 +1,11 @@
 """Triangle, star, speech bubble, double arrow and a see-through fill, in Chromium."""
 
+import io
 import re
 
 import pytest
+from PIL import Image
+from pixels import as_png, diff
 from playwright.sync_api import expect
 from ui import (
     FIELD,
@@ -27,6 +30,8 @@ RED = {**RECT, "fill": "#ff0000"}
 ROOM = {"x": 75, "y": 80, "w": 60, "h": 40}
 # The one element that draws a triangle, a star or a bubble.
 OUTLINE = "svg.outline > *"
+# The one that draws the dashes of a box's border.
+DASHES = "svg.dashes > rect"
 CLEAR = "rgba(0, 0, 0, 0)"
 
 
@@ -565,4 +570,61 @@ def test_the_frame_switch_offers_the_new_shapes(editor, kind):
     # And back to a box.
     frame(page, "Eckig").click()
     expect(at(page, "a").locator("svg.outline")).to_have_count(0)
-    expect(at(page, "a").locator(".frame")).to_have_css("border-top-color", "rgb(0, 0, 255)")
+    expect(at(page, "a").locator(DASHES)).to_have_attribute("stroke", "#0000ff")
+
+
+def pixels(locator):
+    return Image.open(io.BytesIO(locator.screenshot())).convert("RGB")
+
+
+def test_a_solid_border_is_the_boxes_own_and_dashes_lie_over_the_fill(editor):
+    """I5"""
+    look = {**RECT, "fill": "#ffd43b", "strokeWidth": 2, "text": "Hallo", "valign": "top"}
+    low = {**ROOM, "y": 140}
+    dash = {**look, "dash": "dashed"}
+    page = editor(box("a", "shape", look, **ROOM), box("b", "shape", dash, **low))
+    solid, dashed = (at(page, name).locator(".frame") for name in "ab")
+    expect(solid.locator("svg")).to_have_count(0)
+    expect(solid).to_have_css("border-top-style", "solid")
+    expect(solid).to_have_css("border-top-color", "rgb(34, 34, 34)")
+    expect(dashed.locator(DASHES)).to_have_count(1)
+    expect(dashed).to_have_css("background-color", "rgb(255, 212, 59)")
+    # The text stands where the solid border has it, within the pixel a browser rounds a border to.
+    places = [(each.bounding_box(), each.locator("p").bounding_box()) for each in (solid, dashed)]
+    (ax, ay), (bx, by) = ((p["x"] - f["x"], p["y"] - f["y"]) for f, p in places)
+    assert (ax, ay) == pytest.approx((bx, by), abs=1)
+    # In the middle of the top stroke: the first dash, 8 mm long from the corner, then the fill.
+    shot = pixels(at(page, "b"))
+    row = round(shot.height / ROOM["h"])
+    assert shot.getpixel((round(shot.width * 4 / ROOM["w"]), row)) == (34, 34, 34)
+    assert shot.getpixel((round(shot.width * 11.5 / ROOM["w"]), row)) == (255, 212, 59)
+
+
+@pytest.mark.parametrize("kind", ["rect", "rounded", "circle", "text"])
+def test_dashes_grow_with_the_zoom_and_are_the_same_in_a_thumbnail(editor, kind):
+    """I6"""
+    look = {**RECT, "strokeWidth": 2, "dash": "dashed"}
+    props = {**TEXT, **look} if kind == "text" else {**look, "kind": kind}
+    # With the panel Seiten open.
+    page = editor(box("a", "text" if kind == "text" else "shape", props, **ROOM), theme="")
+    stroke = at(page, "a").locator(DASHES)
+    wide = "el.closest('.sheet, .paper').getBoundingClientRect().width"
+    mm = f"el => el.getScreenCTM().a * 210 / {wide}"
+    small = page.locator(f".pages {DASHES}")
+    expect(small).to_have_attribute("stroke-dasharray", stroke.get_attribute("stroke-dasharray"))
+    # A mm of the stroke is a mm of its page, on the desk and in the thumbnail.
+    assert stroke.evaluate(mm) == pytest.approx(1, abs=0.001)
+    assert small.evaluate(mm) == pytest.approx(1, abs=0.001)
+    px = page.locator(".sheet.on").bounding_box()["width"]
+    before = pixels(at(page, "a"))
+    page.get_by_label("Größer", exact=True).first.click()
+    page.wait_for_function(
+        "(w) => document.querySelector('.sheet.on').getBoundingClientRect().width > w - 2",
+        arg=px * 1.25,
+    )
+    # The larger picture, made as small as the first, has each dash where the first has it.
+    after = pixels(at(page, "a")).resize(before.size)
+    assert diff(as_png(before), as_png(after))[0] < 0.01
+    # And a pattern that kept its size on the screen would not: the first, cut out of the larger.
+    kept = pixels(at(page, "a")).crop((0, 0, *before.size))
+    assert diff(as_png(before), as_png(kept))[0] > 0.01
