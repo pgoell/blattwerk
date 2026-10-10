@@ -274,6 +274,9 @@ def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(ed
     page.set_viewport_size(IPAD)
     drawer(page, "right")
     page.set_viewport_size(TURNED)
+    # A window hears of a turn with its next frame: without the wait WebKit takes the two turns
+    # for none.
+    page.evaluate("new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))")
     expect(page.locator(shut)).to_have_count(0)
     page.set_viewport_size(IPAD)
     expect_wide(page)
