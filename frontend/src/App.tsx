@@ -12,7 +12,7 @@ import Photos from "./pages/Photos";
 import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
-import type { Sheet } from "./sheet";
+import { last, type Sheet } from "./sheet";
 
 // The editor brings the canvas libraries; the login page loads without them.
 const Editor = lazy(() => import("./pages/Editor"));
@@ -40,7 +40,14 @@ export default function App() {
   const wait = <Blank since={since} />;
   // The sheet is asked for as soon as the account is known, side by side with the editor's script and not after
   // it. Each visit asks anew. A sheet that is not there is null: nobody may hear of it before the script has come.
-  const first = useMemo(() => (user && id ? api<Sheet>(`/sheets/${id}`).catch(() => null) : undefined), [user, id]);
+  // Each sheet has an editor of its own: on to another sheet, the one left saves and goes, the loading page stands
+  // at once, and a late answer for the sheet left finds nobody to show it.
+  // The sheet left saves as it goes, and the next one is asked for when that save is done: back on the sheet left,
+  // the answer holds what was saved. An effect, not the render: the editor left has started its save by then.
+  const [first, setFirst] = useState<{ id: string; sheet: Promise<Sheet | null> }>();
+  useEffect(() => {
+    setFirst(user && id ? { id, sheet: last.save.then(() => api<Sheet>(`/sheets/${id}`)).catch(() => null) } : undefined);
+  }, [user, id]);
 
   if (user === undefined) return id ? wait : null;
   return (
@@ -53,7 +60,7 @@ export default function App() {
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
-            <Route path="/blatt/:id" element={<Suspense fallback={wait}><Editor user={user} wait={wait} first={first!} /></Suspense>} />
+            <Route path="/blatt/:id" element={first && first.id === id ? <Suspense fallback={wait}><Editor key={id} user={user} wait={wait} first={first.sheet} /></Suspense> : wait} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/konto" element={<Account user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}

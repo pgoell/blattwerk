@@ -440,10 +440,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
-  const save = useRef((_keepalive: boolean) => {});
+  const save = useRef((_leaving: boolean) => {});
   // The version the document here is based on.
   const version = useRef(file.version);
   const busy = useRef(false);
+  // What the last save carried, answered or not.
+  const carried = useRef(stored);
 
   const { pages, guides, grid } = hist.doc;
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
@@ -465,6 +467,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const sel = blocks.filter((b) => ids.includes(b.id));
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
+  // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
+  // A sheet laid on its side brings it back onto the page as any other block.
   const free = sel.filter((b) => !blocks.some((o) => o.locked && (o === b || (b.group && o.group?.[0] === b.group[0]))));
   // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
   const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
@@ -831,12 +835,23 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A change is saved two seconds after the last one, one save at a time, and a save that failed is tried again.
   // The server turns down a document based on an older version than it holds: then saving stops until the teacher
   // has chosen. The title goes along only when it changed here, so a rename from the list stays.
-  save.current = (keepalive) => {
-    if (!dirty || clash || busy.current) return;
-    busy.current = true;
-    const now = { doc: hist.doc, title };
+  // A change behind a save under way waits for the next save. On leaving there is none, so it goes as soon as that
+  // save is done, based on the version that one brought: on to another page of the app, that is, for in a window
+  // that closes no script runs by then.
+  save.current = (leaving) => {
+    const behind = busy.current && leaving && (live.current.doc !== carried.current.doc || title !== carried.current.title);
+    if (clash || (busy.current ? !behind : !dirty)) return;
+    const now = (carried.current = { doc: live.current.doc, title });
     const named = title === stored.title ? {} : { title: title.trim() || "Unbenanntes Blatt" };
-    last.save = post<Sheet>(`/sheets/${file.id}`, { doc: now.doc, version: version.current, ...named }, { method: "PATCH", keepalive })
+    const send = () => {
+      busy.current = true;
+      const body = { doc: now.doc, version: version.current, ...named };
+      // `keepalive` lets a save on leaving outlive the window. The browser sends no such request over 64 KiB, so a
+      // larger sheet goes without it: left for another page of the app, it arrives all the same.
+      const keepalive = leaving && new Blob([JSON.stringify(body)]).size < 60 * 1024;
+      return post<Sheet>(`/sheets/${file.id}`, body, { method: "PATCH", keepalive });
+    };
+    last.save = (behind ? last.save.then(send) : send())
       .then(
         (saved) => {
           version.current = saved.version;
@@ -851,7 +866,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const timer = setTimeout(() => save.current(false), 2000);
     return () => clearTimeout(timer);
   }, [hist.doc, title, tries, stored, clash]);
-  // Leaving the editor or the app saves at once; `keepalive` lets the request outlive the window.
+  // Leaving the editor or the app saves at once.
   useEffect(() => {
     const leave = () => save.current(true);
     window.addEventListener("pagehide", leave);
