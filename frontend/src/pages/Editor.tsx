@@ -2027,6 +2027,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     <main
       className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
+      // The keys end a run of changes as a press of the mouse does: when they take the focus elsewhere, and when
+      // they press a button, also one that finds nothing to change. The next change is a step of its own.
+      onFocusCapture={() => (mergeKey.current = "")}
+      onClickCapture={() => (mergeKey.current = "")}
       onPointerDown={(e) => {
         mergeKey.current = "";
         inPanel.current = !!(e.target as Element).closest(".panel");

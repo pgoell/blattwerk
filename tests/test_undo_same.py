@@ -1,5 +1,7 @@
 """A press that changes nothing adds no undo step, as in PowerPoint."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from ui import (
@@ -471,6 +473,81 @@ def test_a_nudge_after_a_press_that_changes_nothing_is_its_own_step(editor):
     page.keyboard.press("Control+z")
     expect(field(page, "Y")).to_have_value("50")
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+
+
+# The controls that find nothing to change before the sheet is asked: the block's kind, how the
+# control is worked, its name, and which of that name it is.
+GUARDED = [
+    # The nudges go down, so the block stays at the left edge.
+    ("text", "press", "Links", 1),
+    *(("text", *control) for control in ORDER),
+    ("text", "type", "X", 0),
+    ("text", "type", "Drehung", 0),
+    ("table", "press", "Eine Zeile weniger", 0),
+    ("maths", "press", "+", 0),
+    ("picture", "twice", "Zuschneiden", 0),
+]
+ACTIVE = "(el) => el === document.activeElement"
+
+
+def reach(page, control):
+    """Takes the focus to a control of the panel as the keys do: F6 to the panel, then Tab."""
+    for _ in range(6):
+        if page.evaluate("!!document.activeElement.closest('.panel')"):
+            break
+        page.keyboard.press("F6")
+    for _ in range(150):
+        if control.evaluate(ACTIVE):
+            return
+        page.keyboard.press("Tab")
+    raise AssertionError("Tab never came to the control")
+
+
+@pytest.mark.parametrize("kind, how, label, nth", GUARDED)
+def test_a_control_that_finds_nothing_to_change_ends_a_run_of_nudges(editor, kind, how, label, nth):
+    page = opened(editor, kind)
+    y, undo = field(page, "Y"), page.get_by_label("Rückgängig", exact=True)
+    panel = page.locator(".panel")
+    page.keyboard.press("ArrowDown")
+    expect(y).to_have_value("1")
+    # By the mouse: its press ends the run.
+    work(page, how, label, nth)
+    if how == "type":
+        # A number's field has the keys: a press on the empty page gives them back.
+        page.locator(".sheet").first.click(position={"x": 400, "y": 400})
+        at(page, "a").click()
+    page.keyboard.press("ArrowDown")
+    expect(y).to_have_value("2")
+    # By the keys alone, with no press of the mouse.
+    if how == "type":
+        number = field(page, label)
+        reach(page, number)
+        page.keyboard.type(number.input_value())
+        page.keyboard.press("Enter")
+        # F6 walks on from the panel to the sheet.
+        page.keyboard.press("F6")
+        expect(page.locator("body")).to_be_focused()
+    else:
+        # The button for crop mode has another name while the mode is on.
+        name = re.compile("^(Zuschneiden|Fertig)$") if how == "twice" else label
+        button = panel.get_by_role("button", name=name, exact=True).nth(nth)
+        reach(page, button)
+        page.keyboard.press("Space")
+        if how == "twice":
+            expect(button).to_have_text("Fertig")
+            page.keyboard.press("Space")
+            expect(button).to_have_text("Zuschneiden")
+    # The button keeps the focus, and the arrows are still the block's.
+    page.keyboard.press("ArrowDown")
+    expect(y).to_have_value("3")
+    page.keyboard.press("ArrowDown")
+    expect(y).to_have_value("4")
+    # The two nudges after the control are one step, and each one before it is its own.
+    for was in ("2", "1", "0"):
+        expect(undo).to_be_enabled()
+        undo.click()
+        expect(y).to_have_value(was)
+    expect(undo).to_be_disabled()
 
 
 # Implied #238, I3
