@@ -661,7 +661,8 @@ def test_the_brush_carries_the_border(editor):
         client=client,
     )
     paint(page, "a", "b")
-    expect(at(page, "b").locator(".frame")).to_have_css("border-top-color", "rgb(0, 0, 255)")
+    # A dashed border is drawn over the box.
+    expect(at(page, "b").locator(".dashes rect")).to_have_attribute("stroke", "#0000ff")
     paint(page, "c", "d")
     now = held(page, client)
     assert {key: now["b"][key] for key in border} == border

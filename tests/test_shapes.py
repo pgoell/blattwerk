@@ -1,8 +1,11 @@
 """Triangle, star, speech bubble, double arrow and a see-through fill, in Chromium."""
 
+import io
 import re
 
 import pytest
+from PIL import Image
+from pixels import as_png, diff
 from playwright.sync_api import expect
 from ui import (
     FIELD,
@@ -17,9 +20,12 @@ from ui import (
     expect_picked,
     pick,
     saved,
+    sheet,
     unpick,
     user,
 )
+
+from blattwerk import pdf
 
 FLIPS = ("Horizontal spiegeln", "Vertikal spiegeln")
 RED = {**RECT, "fill": "#ff0000"}
@@ -27,6 +33,8 @@ RED = {**RECT, "fill": "#ff0000"}
 ROOM = {"x": 75, "y": 80, "w": 60, "h": 40}
 # The one element that draws a triangle, a star or a bubble.
 OUTLINE = "svg.outline > *"
+# The one that draws the dashes of a box's border.
+DASHES = "svg.dashes > rect"
 CLEAR = "rgba(0, 0, 0, 0)"
 
 
@@ -565,4 +573,98 @@ def test_the_frame_switch_offers_the_new_shapes(editor, kind):
     # And back to a box.
     frame(page, "Eckig").click()
     expect(at(page, "a").locator("svg.outline")).to_have_count(0)
-    expect(at(page, "a").locator(".frame")).to_have_css("border-top-color", "rgb(0, 0, 255)")
+    expect(at(page, "a").locator(DASHES)).to_have_attribute("stroke", "#0000ff")
+
+
+def pixels(locator):
+    return Image.open(io.BytesIO(locator.screenshot())).convert("RGB")
+
+
+def test_a_solid_border_is_the_boxes_own_and_dashes_lie_over_the_fill(editor):
+    """I5"""
+    look = {**RECT, "fill": "#ffd43b", "strokeWidth": 2, "text": "Hallo", "valign": "top"}
+    low = {**ROOM, "y": 140}
+    dash = {**look, "dash": "dashed"}
+    page = editor(box("a", "shape", look, **ROOM), box("b", "shape", dash, **low))
+    solid, dashed = (at(page, name).locator(".frame") for name in "ab")
+    expect(solid.locator("svg")).to_have_count(0)
+    expect(solid).to_have_css("border-top-style", "solid")
+    expect(solid).to_have_css("border-top-color", "rgb(34, 34, 34)")
+    expect(dashed.locator(DASHES)).to_have_count(1)
+    expect(dashed).to_have_css("background-color", "rgb(255, 212, 59)")
+    # In the middle of the top stroke: the first dash, 8 mm long from the corner, then the fill.
+    shot = pixels(at(page, "b"))
+    row = round(shot.height / ROOM["h"])
+    assert shot.getpixel((round(shot.width * 4 / ROOM["w"]), row)) == (34, 34, 34)
+    assert shot.getpixel((round(shot.width * 11.5 / ROOM["w"]), row)) == (255, 212, 59)
+
+
+@pytest.mark.parametrize("w, h, kind", [(2, 2, "rect"), (3, 20, "rounded"), (40, 2.5, "circle")])
+def test_a_box_too_small_for_drawn_dashes_keeps_a_border(editor, w, h, kind):
+    """A3: the stroke's middle line has no length there, and a drawn one would show nothing."""
+    look = {**RECT, "kind": kind, "strokeWidth": 3, "dash": "dashed"}
+    page = editor(box("a", "shape", look, x=50, y=50, w=w, h=h))
+    frame = at(page, "a").locator(".frame")
+    expect(frame.locator("svg")).to_have_count(0)
+    expect(frame).to_have_css("border-top-style", "dashed")
+    expect(frame).to_have_css("border-top-color", "rgb(34, 34, 34)")
+
+
+LINES = """els => els.map((el) => {
+    const box = el.getBoundingClientRect();
+    const words = document.createRange();
+    words.selectNodeContents(el.querySelector("p"));
+    const lines = [...words.getClientRects()];
+    return lines.flatMap((l) => [l.x - box.x, l.y - box.y, l.width, l.height]);
+})"""
+
+
+@pytest.mark.parametrize("width", [0.5, 2, 3])
+def test_a_text_in_a_dashed_box_prints_where_a_solid_border_has_it(browser, server, width):
+    """I5"""
+    client = user()
+    words = "Der Igel sucht im Herbst nach Futter und baut sich ein Nest aus Laub."
+    look = {**TEXT, "text": words, "stroke": "#222222", "strokeWidth": width}
+    low = {**ROOM, "y": 140}
+    blocks = [box("a", "text", look, **ROOM), box("b", "text", {**look, "dash": "dashed"}, **low)]
+    mine = sheet(client, blocks)["id"]
+    # The page the PDF is printed from, at one pixel to a pixel as Chromium prints it. A border is
+    # rounded down to whole pixels there, and a narrower box could break a line elsewhere.
+    page = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    page.goto(f"{server}/druck/{mine}")
+    page.wait_for_selector("body.ready", state="attached")
+    solid, dashed = page.locator(".frame").evaluate_all(LINES)
+    page.close()
+    # Each line of the text, from the box's corner: more than one, and the same in both.
+    assert len(solid) > 4
+    assert dashed == pytest.approx(solid, abs=0.01)
+
+
+@pytest.mark.parametrize("kind", ["rect", "rounded", "circle", "text"])
+def test_dashes_grow_with_the_zoom_and_are_the_same_in_a_thumbnail(editor, kind):
+    """I6"""
+    look = {**RECT, "strokeWidth": 2, "dash": "dashed"}
+    props = {**TEXT, **look} if kind == "text" else {**look, "kind": kind}
+    # With the panel Seiten open.
+    page = editor(box("a", "text" if kind == "text" else "shape", props, **ROOM), theme="")
+    stroke = at(page, "a").locator(DASHES)
+    wide = "el.closest('.sheet, .paper').getBoundingClientRect().width"
+    mm = f"el => el.getScreenCTM().a * 210 / {wide}"
+    small = page.locator(f".pages {DASHES}")
+    expect(small).to_have_attribute("stroke-dasharray", stroke.get_attribute("stroke-dasharray"))
+    # A mm of the stroke is a mm of its page, on the desk and in the thumbnail.
+    assert stroke.evaluate(mm) == pytest.approx(1, abs=0.001)
+    assert small.evaluate(mm) == pytest.approx(1, abs=0.001)
+    px = page.locator(".sheet.on").bounding_box()["width"]
+    before = pixels(at(page, "a"))
+    page.get_by_label("Größer", exact=True).first.click()
+    page.wait_for_function(
+        "(w) => document.querySelector('.sheet.on').getBoundingClientRect().width > w - 2",
+        arg=px * 1.25,
+    )
+    # The larger picture, made as small as the first, has each dash where the first has it.
+    after = pixels(at(page, "a")).resize(before.size)
+    assert diff(as_png(before), as_png(after))[0] < 0.01
+    # And a pattern that kept its size on the screen would not: the first, cut out of the larger.
+    kept = pixels(at(page, "a")).crop((0, 0, *before.size))
+    assert diff(as_png(before), as_png(kept))[0] > 0.01

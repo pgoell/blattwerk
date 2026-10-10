@@ -366,7 +366,7 @@ TIP = """(el) => {
     const px = (...names) => names.reduce((sum, name) => sum + parseFloat(tip[name]), 0);
     const width = px("width", "paddingLeft", "paddingRight");
     const height = px("height", "paddingTop", "paddingBottom");
-    const left = on.left + on.width / 2 - width / 2;
+    const left = on.left + on.width / 2 - width / 2 + px("marginLeft");
     const top = on.bottom + px("top") - on.height;
     const box = { left, top, right: left + width, bottom: top + height };
     let cut = null;
