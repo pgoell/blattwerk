@@ -9,7 +9,20 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from pixels import INK, LIMIT, LOADED, TILE, as_png, diff, measures, over, screen_and_print
+from pixels import (
+    INK,
+    LIMIT,
+    LOADED,
+    TILE,
+    as_png,
+    dark,
+    diff,
+    grey,
+    measures,
+    over,
+    runs,
+    screen_and_print,
+)
 from playwright.sync_api import expect
 from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
 
@@ -304,40 +317,6 @@ def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     for name, limit in ("tile", TILE), ("ink", INK):
         told = re.search(rf"{name} ([\d.]+), within the limit of ([\d.]+)", run.stdout)
         assert told and float(told[1]) < limit == float(told[2])
-
-
-def grey(browser, server, client, page):
-    """The page on the screen and in the PDF, in grey and both of the screen's size."""
-    mine = sheet(client, page)["id"]
-    screen, printed = (
-        Image.open(io.BytesIO(data)).convert("L")
-        for data in screen_and_print(browser, server, client, mine)
-    )
-    # pdfium rounds a page's size up: a pixel more would move every part cut out by a pixel.
-    return screen, printed.crop((0, 0, *screen.size))
-
-
-def dark(image, part, down=True):
-    """How dark each row of pixels is, from 0 to 1, in the `part` of an upright page given in mm.
-
-    Each column with `down` off.
-    """
-    cut = image.crop(tuple(round(v * image.width / 210) for v in part))
-    # Each row as the mean of its pixels.
-    rows = cut.resize((1, cut.height) if down else (cut.width, 1), Image.Resampling.BOX)
-    return [1 - v / 255 for v in rows.tobytes()]
-
-
-def runs(rows):
-    """Each stretch of rows with ink in it: its first row, its darkest and the darkness summed."""
-    found, start = [], None
-    for i, v in enumerate([*rows, 0]):
-        if v > 0.05 and start is None:
-            start = i
-        elif v <= 0.05 and start is not None:
-            found.append((start, max(rows[start:i]), sum(rows[start:i])))
-            start = None
-    return found
 
 
 def test_a_tables_lines_are_as_wide_and_as_dark_as_they_print(browser, server):

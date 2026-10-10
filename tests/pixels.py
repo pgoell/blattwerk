@@ -11,7 +11,7 @@ import httpx
 import pypdfium2
 from PIL import Image, ImageChops
 from PIL.ImageFilter import BoxBlur, MaxFilter, MinFilter
-from ui import BROWSER
+from ui import BROWSER, sheet
 
 # The side of the square around a pixel in which the other picture may have it: one pixel to
 # each side. WebKit sets every other row of a text one pixel of the page lower than Chromium,
@@ -175,6 +175,40 @@ def diff(screen, printed):
     """The share of the page's pixels that differ, and the PNG that `measures` gives."""
     found, marked = measures(screen, printed)
     return found["page"][0], marked
+
+
+def grey(browser, server, client, page):
+    """The page on the screen and in the PDF, in grey and both of the screen's size."""
+    mine = sheet(client, page)["id"]
+    screen, printed = (
+        Image.open(io.BytesIO(data)).convert("L")
+        for data in screen_and_print(browser, server, client, mine)
+    )
+    # pdfium rounds a page's size up: a pixel more would move every part cut out by a pixel.
+    return screen, printed.crop((0, 0, *screen.size))
+
+
+def dark(image, part, down=True):
+    """How dark each row of pixels is, from 0 to 1, in the `part` of an upright page given in mm.
+
+    Each column with `down` off.
+    """
+    cut = image.crop(tuple(round(v * image.width / 210) for v in part))
+    # Each row as the mean of its pixels.
+    rows = cut.resize((1, cut.height) if down else (cut.width, 1), Image.Resampling.BOX)
+    return [1 - v / 255 for v in rows.tobytes()]
+
+
+def runs(rows):
+    """Each stretch of rows with ink in it: its first row, its darkest and the darkness summed."""
+    found, start = [], None
+    for i, v in enumerate([*rows, 0]):
+        if v > 0.05 and start is None:
+            start = i
+        elif v <= 0.05 and start is not None:
+            found.append((start, max(rows[start:i]), sum(rows[start:i])))
+            start = None
+    return found
 
 
 def over(screen, printed):
