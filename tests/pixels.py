@@ -180,7 +180,7 @@ def diff(screen, printed):
 def over(screen, printed):
     """Each measure that is over its limit, told with its number and its place.
 
-    None where the print matches the screen.
+    An empty list where the print matches the screen.
     """
     found, _ = measures(screen, printed)
     return [
