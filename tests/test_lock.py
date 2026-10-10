@@ -78,6 +78,11 @@ def opened(editor, kind, *others, **window):
     if window:
         page = sized(editor, *blocks, client=client, **window)
         expect_fitted(page)
+        # A long title takes the bar's room (#318), so that "Mehr" holds every command that folds.
+        page.get_by_label("Titel").fill("W" * 80)
+        page.get_by_label("Titel").press("Enter")
+        expect(in_bar(page, "Ausschneiden")).to_have_count(0)
+        expect(page.locator(".top .hint")).to_have_text("Gespeichert", timeout=10000)
     else:
         page = editor(*blocks, client=client)
     return page, client, doc(page, client)
@@ -148,7 +153,7 @@ def command(page, road, name):
     return entry(page, name)
 
 
-# The window in which "Mehr" holds Löschen and Sperren, and the bar still Ausschneiden.
+# The window in which, under a long title, "Mehr" holds Ausschneiden, Kopieren, Löschen and Sperren.
 NARROW = {"width": 701, "height": 1000, "touch": False, "theme": ""}
 ROADS = ["bar", "mehr", "right"]
 
@@ -186,11 +191,10 @@ def test_a_menus_loeschen_and_ausschneiden_are_off_for_a_locked_block(editor, ro
     page, client, before = opened(editor, kind, **window(road))
     grab(page, kind)
     expect(command(page, road, "Löschen")).to_be_disabled()
-    # The bar still holds it in this window, and its item under "Mehr" is the same command.
-    cut = in_bar(page, "Ausschneiden") if road == "mehr" else entry(page, "Ausschneiden")
-    expect(cut).to_be_disabled()
-    copy = in_bar(page, "Kopieren") if road == "mehr" else entry(page, "Kopieren")
-    expect(copy).to_be_enabled()
+    # The menu is open: "Mehr" or the right click's.
+    item = folded if road == "mehr" else entry
+    expect(item(page, "Ausschneiden")).to_be_disabled()
+    expect(item(page, "Kopieren")).to_be_enabled()
     page.keyboard.press("Escape")
     unchanged(page, client, before)
 
@@ -334,9 +338,7 @@ def test_loeschen_and_ausschneiden_take_only_the_free_blocks_of_a_pick(editor, r
     expect_picked(page, "fest")
     at(page, "auch").click(modifiers=["Shift"])
     expect_picked(page, "fest", "auch")
-    # The bar still holds it in the narrow window.
-    cut = in_bar(page, "Ausschneiden") if road == "mehr" else command(page, road, "Ausschneiden")
-    cut.click()
+    command(page, road, "Ausschneiden").click()
     expect(at(page, "auch")).to_have_count(0)
     expect_picked(page, "fest")
     assert page.evaluate(CLIP) == ["auch"]

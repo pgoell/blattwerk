@@ -620,10 +620,10 @@ body:has(.print) { background: #fff; }
 /* A narrow window stacks the panels: pages and templates over the desk, the format under it. */
 @media (max-width: 700px) {
   .editor { grid-template: auto auto minmax(0, 1fr) auto / minmax(0, 1fr); }
-  /* The bar wraps here. The title starts at a third of the window, the most it has in a wider one, and takes the
-     room its row has left, so where the rows break is up to the window alone and the loading page, which has no
-     title yet, can lay out the same rows. */
-  .top input { flex: 1 1 34vw; max-width: none; }
+  /* The bar wraps here. The title starts at 120 px, a third of a phone's window, and takes the room its row has
+     left, so where the rows break is up to the window alone and the loading page, which has no title yet, can lay
+     out the same rows. A wider start would cost a window of 600 px a row of the desk. */
+  .top input { flex: 1 1 120px; max-width: none; }
   /* While it is edited the title has a row of its own. */
   .top input:focus { flex-basis: 100%; }
   .left { grid-area: 2 / 1; width: auto; max-height: 32dvh; border-right: 0; border-bottom: 1px solid var(--split); }

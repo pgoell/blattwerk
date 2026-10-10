@@ -478,9 +478,7 @@ def test_a_bar_buttons_name_stays_in_a_narrow_window_and_under_its_button_where_
         if want != middle:
             shifted.append(name)
     # The button at the end of the first row is one that has no room; it is off, as most are here.
-    # At 600 that row ends four buttons sooner than it did: the title starts at a third of the
-    # window, 204 px, whatever it says (#318), where "Plus bis 20" took its own 80.
-    assert {360: "Wiederholen", 600: "Format übertragen"}[width] in shifted, shifted
+    assert {360: "Wiederholen", 600: "Gruppieren"}[width] in shifted, shifted
     assert len(shifted) < len(buttons) / 2, shifted
 
 
