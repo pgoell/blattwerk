@@ -1506,10 +1506,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
 
   // Moveable reports px of the layout, the document keeps mm. It reads the new size back at once, so render before returning.
   // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
-  const drag = (events: OnDrag[]) => {
+  const drag = (events: OnDrag[], finger: { clientX: number; clientY: number } = events[0]) => {
     // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
-    // moved, the blocks are new ones, and they follow the finger back there too.
-    if (touch.current && blocks.includes(start.current[0]) && Math.hypot(events[0].clientX - came.current[0], events[0].clientY - came.current[1]) <= SLOP) return;
+    // moved, the blocks are new ones, and they follow the finger back there too. Of a group only the event of the
+    // whole says where the finger is: those of its blocks say where a snap would put them.
+    if (touch.current && blocks.includes(start.current[0]) && Math.hypot(finger.clientX - came.current[0], finger.clientY - came.current[1]) <= SLOP) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
     const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
@@ -2499,7 +2500,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                     onDragStart={(e) => begin([e.target])}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
-                    onDragGroup={(e) => drag(e.events)}
+                    onDragGroup={(e) => drag(e.events, e)}
                     onDragEnd={(e) => leave(e.isDrag)}
                     onDragGroupEnd={(e) => leave(e.isDrag)}
                     // Ctrl resizes about the centre.
