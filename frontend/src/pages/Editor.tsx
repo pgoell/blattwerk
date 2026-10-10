@@ -2963,6 +2963,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           // A right click beside the menu opens it anew on what lies there.
           onElsewhere={(x, y) => {
             flushSync(() => setMenu(undefined));
+            // This way no `onClose` comes: the bar that waited under the menu is measured now.
+            if (late.current) refit();
             const el = document.elementFromPoint(x, y);
             const n = el?.closest<HTMLElement>("[data-thumb]")?.dataset.thumb;
             if (n) thumbMenu(+n, x, y);
