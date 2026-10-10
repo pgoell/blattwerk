@@ -599,6 +599,17 @@ def test_a_solid_border_is_the_boxes_own_and_dashes_lie_over_the_fill(editor):
     assert shot.getpixel((round(shot.width * 11.5 / ROOM["w"]), row)) == (255, 212, 59)
 
 
+@pytest.mark.parametrize("w, h, kind", [(2, 2, "rect"), (3, 20, "rounded"), (40, 2.5, "circle")])
+def test_a_box_too_small_for_drawn_dashes_keeps_a_border(editor, w, h, kind):
+    """A3: the stroke's middle line has no length there, and a drawn one would show nothing."""
+    look = {**RECT, "kind": kind, "strokeWidth": 3, "dash": "dashed"}
+    page = editor(box("a", "shape", look, x=50, y=50, w=w, h=h))
+    frame = at(page, "a").locator(".frame")
+    expect(frame.locator("svg")).to_have_count(0)
+    expect(frame).to_have_css("border-top-style", "dashed")
+    expect(frame).to_have_css("border-top-color", "rgb(34, 34, 34)")
+
+
 LINES = """els => els.map((el) => {
     const box = el.getBoundingClientRect();
     const words = document.createRange();
