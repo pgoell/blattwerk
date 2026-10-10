@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from pixels import LIMIT, LOADED, as_png, diff, screen_and_print
+from pixels import INK, LIMIT, LOADED, TILE, as_png, diff, measures, over, screen_and_print
 from playwright.sync_api import expect
 from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
 
@@ -148,28 +148,28 @@ def fuller(case, client):
     return {"blocks": [*rulings, at("ruling", written, y=150, h=40, x=150)], "landscape": True}
 
 
-def share(browser, server, client, *pages):
-    """The share of the first page's pixels that differ between the editor and the PDF."""
-    return diff(*screen_and_print(browser, server, client, sheet(client, *pages)["id"]))[0]
+def faults(browser, server, client, *pages):
+    """What of the first page is over a limit between the editor and the PDF."""
+    return over(*screen_and_print(browser, server, client, sheet(client, *pages)["id"]))
 
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_a_block_prints_as_the_screen_shows_it(browser, server, kind):
     client = user()
-    assert share(browser, server, client, blocks(kind, client)) < LIMIT
+    assert not faults(browser, server, client, blocks(kind, client))
 
 
 @pytest.mark.parametrize("kind", TURNED)
 def test_a_turned_block_prints_as_the_screen_shows_it(browser, server, kind):
     client = user()
     # Not a right angle: that would hide a turn about another point.
-    assert share(browser, server, client, blocks(kind, client, angle=30)) < LIMIT
+    assert not faults(browser, server, client, blocks(kind, client, angle=30))
 
 
 @pytest.mark.parametrize("case", FULLER)
 def test_a_fuller_page_prints_as_the_screen_shows_it(browser, server, case):
     client = user()
-    assert share(browser, server, client, fuller(case, client)) < LIMIT
+    assert not faults(browser, server, client, fuller(case, client))
 
 
 def test_the_zoom_and_the_page_number_are_no_difference(browser, server):
@@ -177,23 +177,73 @@ def test_the_zoom_and_the_page_number_are_no_difference(browser, server):
     # Three pages: the last ones lie where the zoom and "Seite 1 von 3" float over the desk.
     mine = sheet(client, *(blocks(kind, client) for kind in ("text", "shape", "ruling")))["id"]
     for page in (1, 2):
-        assert diff(*screen_and_print(browser, server, client, mine, page))[0] < LIMIT
+        assert not over(*screen_and_print(browser, server, client, mine, page))
+
+
+def planted(browser, server, here, there):
+    """The screen of one page against the print of another: each measure's highest value."""
+    client = user()
+    shown, paper = (sheet(client, page)["id"] for page in (here, there))
+    screen, _ = screen_and_print(browser, server, client, shown)
+    _, printed = screen_and_print(browser, server, client, paper)
+    return {name: value for name, (value, _) in measures(screen, printed)[0].items()}
 
 
 def test_a_block_that_prints_elsewhere_is_over_the_limit(browser, server):
-    client = user()
     # A sentence 10 mm lower: far less of the page than a filled box.
-    here, there = (sheet(client, blocks("text", client, y=y))["id"] for y in (100, 110))
-    screen, _ = screen_and_print(browser, server, client, here)
-    _, printed = screen_and_print(browser, server, client, there)
-    found = diff(screen, printed)[0]
-    assert found > LIMIT, found
+    client = user()
+    found = planted(browser, server, *(blocks("text", client, y=y) for y in (100, 110)))
+    assert found["page"] > LIMIT, found
+
+
+# What the share of the page passes over (issue #282), each planted as the print of another page.
+# In WebKit the screen's own lines lie further from the print than these faults do: see TILE and
+# INK in pixels.py.
+BLIND = pytest.mark.webkit_xfail(299, "a line's width and a row's place differ by more on master")
+GREY = {"color": "#555555"}
+COLOURS = {
+    "fill": (at("shape", FILLED), at("shape", {**FILLED, "fill": "#ffe066"})),
+    "ruling": (at("ruling", {**RULING, **GREY}), at("ruling", RULING)),
+    "text": (at("text", {**WORDS, "color": "#222222"}), at("text", {**WORDS, **GREY})),
+}
+# A box of 30 mm and a word: the same shift of a box or a sentence 120 mm wide is 0.0025 of the
+# page, over Chromium's limit.
+SHIFTS = {
+    "outline": lambda y: at("shape", RECT, y=y, w=30, h=30),
+    "word": lambda y: at("text", {**TEXT, "text": "Igel"}, y=y, w=30, h=30),
+}
+
+
+@BLIND
+@pytest.mark.parametrize("case", COLOURS)
+def test_a_wrong_colour_is_over_the_limit(browser, server, case):
+    """X1"""
+    found = planted(browser, server, *([block] for block in COLOURS[case]))
+    assert found["ink"] > INK, found
+    assert found["page"] < LIMIT and found["tile"] < TILE, found
+
+
+def test_a_missing_hairline_is_over_the_limit(browser, server):
+    """X2"""
+    hairline = at("shape", {**LINE, "strokeWidth": 0.3}, y=160, h=10)
+    found = planted(browser, server, [at("text", WORDS), hairline], [at("text", WORDS)])
+    assert found["ink"] > INK, found
+    assert found["page"] < LIMIT, found
+
+
+@BLIND
+@pytest.mark.parametrize("case", SHIFTS)
+def test_a_shift_of_half_a_millimetre_is_over_the_limit(browser, server, case):
+    """X3"""
+    found = planted(browser, server, *([SHIFTS[case](y)] for y in (60, 60.5)))
+    assert found["tile"] > TILE, found
+    assert found["page"] < LIMIT, found
 
 
 def test_grid_and_guide_lines_are_no_difference(browser, server):
     client = user()
     page = {"blocks": blocks("text", client), "grid": 5, "guides": {"x": [50], "y": [80]}}
-    assert share(browser, server, client, page) < LIMIT
+    assert not faults(browser, server, client, page)
 
 
 def test_diff_counts_the_pixels_that_differ():
@@ -210,6 +260,32 @@ def test_diff_counts_the_pixels_that_differ():
     assert marked.size == (3, 2) and marked.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
 
 
+def drawn(*boxes):
+    """An upright page of four pixels to a millimetre with a box of each place and colour."""
+    page = Image.new("RGB", (840, 1188), "white")
+    for place, colour in boxes:
+        page.paste(colour, tuple(4 * v for v in place))
+    return as_png(page)
+
+
+def test_a_measure_over_its_limit_names_its_tile_and_its_number():
+    box, line = (40, 40, 80, 80), (40, 150, 80, 151)
+    page = drawn((box, "#222222"), (line, "#222222"))
+    assert over(page, page) == []
+    # A paler box moves no pixel past the tolerance, and lacks a fifth of the ink.
+    (found,) = over(page, drawn((box, "#555555"), (line, "#222222")))
+    assert re.fullmatch(r"ink 0\.2\d+, limit [\d.]+ around \d5, \d5 mm: red .*", found), found
+    # A line that is gone is all the ink of its tiles, and little of the page.
+    found = measures(page, drawn((box, "#222222")))[0]
+    assert found["ink"][0] == 1 and found["page"][0] < LIMIT
+    assert re.fullmatch(
+        r" around \d5, 1[45]5 mm: red .* on the screen, 0\.0 in print", found["ink"][1]
+    )
+    # A box 2 mm lower: the tiles its edges lie in.
+    found = measures(page, drawn(((40, 42, 80, 82), "#222222"), (line, "#222222")))[0]
+    assert found["tile"][0] > 0.1 > found["page"][0]
+
+
 def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     pages = tmp_path / "pages.json"
     pages.write_text(json.dumps([[box("a", "text", TEXT)]]))
@@ -219,8 +295,15 @@ def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     )
     assert run.returncode == 0, run.stderr
     assert {p.name for p in out.iterdir()} == {"screen.png", "pdf.png", "diff.png"}
-    found = re.search(r"([\d.]+) % of the pixels differ", run.stdout)
-    assert found and float(found[1]) < LIMIT * 100
+    # The browser it starts is the one whose limits it reads.
+    assert f"In {BROWSER}:" in run.stdout
+    found = re.search(
+        r"([\d.]+) % of the pixels differ, within the limit of ([\d.]+) %", run.stdout
+    )
+    assert found and float(found[1]) < LIMIT * 100 and float(found[2]) == LIMIT * 100
+    for name, limit in ("tile", TILE), ("ink", INK):
+        told = re.search(rf"{name} ([\d.]+), within the limit of ([\d.]+)", run.stdout)
+        assert told and float(told[1]) < limit == float(told[2])
 
 
 def grey(browser, server, client, page):

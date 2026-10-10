@@ -1,11 +1,11 @@
 """The sheet as the editor shows it and as the PDF prints it, and how far the two pictures differ.
 
 screen, printed = screen_and_print(browser, server, client, sheet_id)
-share, marked = diff(screen, printed)
-assert share < LIMIT
+assert not over(screen, printed)
 """
 
 import io
+from array import array
 
 import httpx
 import pypdfium2
@@ -26,6 +26,28 @@ TOLERANCE = 64
 # page's edge. WebKit draws the screen and Chromium the PDF: rows of a school's script lie up to
 # three pixels off there, 0.002 of the page.
 LIMIT = 0.004 if BROWSER == "webkit" else 0.0015
+# The page's share is blind to a small fault (issue #282): an outline 0.5 mm lower is 0.0025 of
+# the page, a hairline that is gone 0.0009, another colour 0. So two measures more, each of the
+# page in tiles of 10 mm.
+#
+# The share of a tile's pixels that differ. In Chromium an outline that prints 0.5 mm lower is
+# 0.047 and a sentence 0.122. Master has 0.035 at most, where a dotted circle has its dots a
+# little further along, and 0.031 where "/ 10 Punkte" lies two pixels lower than it prints.
+# WebKit lays rows of text up to 0.54 mm lower and ends a box 0.4 mm short (ROWS and EDGE in
+# test_pixels.py): 0.067 on master, which is more than the 0.039 of that outline. It sees a
+# sentence 1 mm lower, 0.099.
+TILE = 0.08 if BROWSER == "webkit" else 0.04
+# The share of a tile's ink that only one picture has, where ink is how far a pixel's red, green
+# or blue lies below white. It sees a line that is gone, 1, and a colour: #555555 for #222222 is
+# 0.25 to 0.27 in a text and a ruling, #ffe066 for #ffd43b 0.28. Master in Chromium has 0.196 at
+# most, in a table, where pdfium fills every pixel a line touches. In WebKit a line under a pixel
+# shows half as wide as it prints (a name's line: 0.61) and a border of 0.5 mm wider (0.41), so
+# there it sees the line that is gone and no colour.
+INK = 0.7 if BROWSER == "webkit" else 0.22
+# The ink a tile has to hold for all of it to count: a third of a hairline's, 0.3 mm wide and
+# dark, through the tile's middle. Less ink than this is measured against this much.
+FLOOR = 3
+LIMITS = {"page": LIMIT, "tile": TILE, "ink": INK}
 # What the editor draws on the page and the PDF does not print: the Karo paper, the guide lines,
 # what marks the selection, the hint in an empty text, the page's round corners, and the zoom and
 # the page's number that float over the desk's lower edge. The white ring keeps the desk out of
@@ -89,8 +111,20 @@ def beyond(one, two):
     return ImageChops.lighter(ImageChops.subtract(one, lightest), ImageChops.subtract(darkest, one))
 
 
-def diff(screen, printed):
-    """The share of the pixels that differ, and a PNG of the screen in pale with those in red.
+def tiles(image, grid):
+    """The picture's mean around the middle of each tile, row by row."""
+    # Made smaller with a triangle as wide as two tiles: each tile weighs its middle most and
+    # shares its edge with the next, so a line on the edge of a tile is no difference when it
+    # falls a pixel to the other side in one picture.
+    return array("f", image.convert("F").resize(grid, Image.Resampling.BILINEAR).tobytes())
+
+
+def measures(screen, printed):
+    """How far the two pictures differ, and a PNG of the screen in pale with what differs in red.
+
+    Each measure by name, with its highest value and where that is: "page", the share of the
+    pixels that differ; "tile", that share in the worst tile of 10 mm; "ink", the share of a
+    tile's ink that only one picture has, in the worst tile and colour.
 
     A pixel differs when its red, green or blue lies more than TOLERANCE from all the other
     picture has within a pixel of it. Of two pictures of other sizes the part both have is
@@ -113,4 +147,44 @@ def diff(screen, printed):
     whole = max(first.width, second.width) * max(first.height, second.height)
     common = size[0] * size[1]
     lost = whole - common if common < 0.99 * whole else 0
-    return (off.histogram()[255] + lost) / (common + lost), as_png(pale)
+    found = {"page": ((off.histogram()[255] + lost) / (common + lost), "")}
+    # An A4 page, upright or on its side.
+    across = 30 if size[0] > size[1] else 21
+    grid = across, max(1, round(across * size[1] / size[0]))
+
+    def where(tile):
+        row, column = divmod(tile, across)
+        return f" around {column * 10 + 5}, {row * 10 + 5} mm"
+
+    shares = tiles(off, grid)
+    worst = max(range(len(shares)), key=shares.__getitem__)
+    found["tile"] = shares[worst] / 255, where(worst) if shares[worst] else ""
+    found["ink"] = 0.0, ""
+    inks = (ImageChops.invert(picture).split() for picture in (one, two))
+    for colour, shown, paper in zip(("red", "green", "blue"), *inks, strict=True):
+        pairs = zip(tiles(shown, grid), tiles(paper, grid), strict=True)
+        for tile, (here, there) in enumerate(pairs):
+            part = abs(here - there) / max(here, there, FLOOR)
+            if part > found["ink"][0]:
+                told = f"{where(tile)}: {colour} {here:.1f} on the screen, {there:.1f} in print"
+                found["ink"] = part, told
+    return found, as_png(pale)
+
+
+def diff(screen, printed):
+    """The share of the page's pixels that differ, and the PNG that `measures` gives."""
+    found, marked = measures(screen, printed)
+    return found["page"][0], marked
+
+
+def over(screen, printed):
+    """Each measure that is over its limit, told with its number and its place.
+
+    An empty list where the print matches the screen.
+    """
+    found, _ = measures(screen, printed)
+    return [
+        f"{name} {value:.4f}, limit {LIMITS[name]}{where}"
+        for name, (value, where) in found.items()
+        if value >= LIMITS[name]
+    ]

@@ -81,6 +81,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
+import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
@@ -166,36 +167,6 @@ const LOOSE = 4;
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
-// Whether two sheets, or parts of them, are the same once saved: a key that holds nothing is saved as no key.
-function alike(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
-  const [x, y] = [a, b] as Record<string, unknown>[];
-  return x.length === y.length && Object.keys({ ...x, ...y }).every((key) => alike(x[key], y[key]));
-}
-// What a text or a shape is drawn with, and the panel shows, where it names nothing. A shape's words say more.
-const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
-// The props that change a block. One the block does not name, set to what the block shows there, is left out:
-// a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known,
-// and the colour of a table's words, which is the sheet's: a line or a Lineatur made elsewhere that names no width
-// or colour is drawn by the browser's own.
-const fresh = (b: Block, props: object) => {
-  const text = boxed(b);
-  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika", ...(b.type === "table" && { color: "#222222" }) };
-  return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
-};
-// The sheet without the props that a block of `start` does not name and shows as they are set: a colour moved
-// away and back to the one the block showed is back at its start.
-const bare = (doc: Doc, start: Doc): Doc => ({
-  ...doc,
-  pages: doc.pages.map((p, n) => ({
-    ...p,
-    blocks: p.blocks.map((b) => {
-      const was = start.pages[n]?.blocks.find((o) => o.id === b.id);
-      return was ? ({ ...b, props: fresh(was, b.props) } as Block) : b;
-    }),
-  })),
-});
 // The pictures the server takes.
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
@@ -251,11 +222,8 @@ export default function Editor({ user }: { user: User }) {
   return <Canvas key={`${file.id}.${file.version}`} file={file} user={user} reload={load} />;
 }
 
-type Step = { doc: Doc; from: number; to: number };
-
 function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
-  // A step of undo holds the sheet on its far side, and the page in use before and after its change.
-  const [hist, draw] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  const [hist, draw] = useState<Hist>(() => ({ past: [], doc: read(file.doc), future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
@@ -731,7 +699,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         setDraft(grasp.current!.draft);
       }
       // A drag that has changed nothing yet has no step to take back.
-      if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
+      if (mergeKey.current === "drag") setHist((h) => returned(h, ahead.current));
       mergeKey.current = "";
       return;
     }
@@ -966,8 +934,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
   // step, redo stays, and the sheet stays saved. So it is with a gesture that ends where it began.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
-    const doc = fn(live.current.doc);
-    if (alike(doc, live.current.doc)) {
+    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, fn(live.current.doc), key, from, to);
+    if (!next) {
       // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
       if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
       // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
@@ -976,16 +944,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       if (live.current.doc === latest.current.doc) tight.current = false;
       return;
     }
-    const merge = key !== "" && key === mergeKey.current;
-    // A gesture that comes back to where it began, as a slider dragged away and back, is none either: its step
-    // goes, and redo holds what it held. The gesture may go on: its next change is a new step from the same start.
-    if (merge && alike(bare(doc, live.current.past.at(-1)!.doc), live.current.past.at(-1)!.doc)) {
-      mergeKey.current = "";
-      return setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
-    }
-    if (!merge) ahead.current = live.current.future;
-    mergeKey.current = key;
-    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc, future: [] }));
+    ahead.current = next.gesture.ahead;
+    mergeKey.current = next.gesture.key;
+    // `setHist` hands its step the history as it stands, and that is what `changed` was given.
+    setHist(() => next.h);
   }
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
@@ -1095,11 +1057,11 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
   function undo() {
     const last = hist.past.at(-1);
-    if (last) show(last.from, (h) => ({ past: h.past.slice(0, -1), doc: last.doc, future: [{ ...last, doc: h.doc }, ...h.future] }));
+    if (last) show(last.from, (h) => undone(h, last));
   }
   function redo() {
     const next = hist.future[0];
-    if (next) show(next.to, (h) => ({ past: [...h.past, { ...next, doc: h.doc }], doc: next.doc, future: h.future.slice(1) }));
+    if (next) show(next.to, (h) => redone(h, next));
   }
 
   // The new page comes after the one in use and takes its place.

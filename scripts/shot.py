@@ -3,7 +3,8 @@
     mise run shot -- pages.json out/
 
 pages.json holds the pages of the sheet, each a list of blocks. Writes screen.png, pdf.png and
-diff.png, the screen in pale with the pixels that differ in red, and prints their share.
+diff.png, the screen in pale with the pixels that differ in red, and prints each measure of
+tests/pixels.py against its limit. BLATTWERK_BROWSER names the browser, as in the tests.
 """
 
 import json
@@ -27,14 +28,21 @@ db.DATA_DIR = Path(tempfile.mkdtemp())
 
 with ui.serving() as base, sync_playwright() as p:
     client = ui.user()
-    browser = p.chromium.launch()
+    # The browser whose limits pixels.py holds.
+    browser = getattr(p, ui.BROWSER).launch()
     sheet_id = ui.sheet(client, *pages)["id"]
     screen, printed = pixels.screen_and_print(browser, base, client, sheet_id)
     browser.close()
 
-share, marked = pixels.diff(screen, printed)
+found, marked = pixels.measures(screen, printed)
 for name, data in ("screen.png", screen), ("pdf.png", printed), ("diff.png", marked):
     (out / name).write_bytes(data)
     print(out / name)
-verdict = "over" if share > pixels.LIMIT else "within"
-print(f"{share * 100:.3f} % of the pixels differ, {verdict} the limit of {pixels.LIMIT * 100} %")
+print(f"In {ui.BROWSER}:")
+for name, (value, where) in found.items():
+    limit = pixels.LIMITS[name]
+    verdict = "over" if value >= limit else "within"
+    if name == "page":
+        print(f"{value * 100:.3f} % of the pixels differ, {verdict} the limit of {limit * 100} %")
+    else:
+        print(f"{name} {value:.3f}, {verdict} the limit of {limit}{where}")
