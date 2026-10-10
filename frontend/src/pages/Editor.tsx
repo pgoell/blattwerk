@@ -145,6 +145,8 @@ const NAMES: Record<Block["type"], string> = {
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht"];
 const GRIDS = [0, 5, 10, 20];
+// A thumbnail's smallest and largest width in px: three in a row of the panel Seiten, or one nearly as wide as it.
+const THUMBS = [60, 200];
 const NONE: Guides = { x: [], y: [] };
 // A finger that holds never rests still: within this many px of where it came down it has not moved.
 const SLOP = 10;
@@ -341,6 +343,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
   const [zoom, setZoom] = useState(1);
+  // A thumbnail's width in px.
+  const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
   const [pan, setPan] = useState(false);
   const [panning, setPanning] = useState(false);
@@ -789,19 +793,23 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
   });
-  // Ctrl and the wheel zoom the page about the pointer, not the window. A trackpad's pinch comes the same way. React's
-  // own wheel listener is passive, so this one is set by hand.
+  // Ctrl and the wheel zoom the page about the pointer, and never the window: over the bar and the panels they do
+  // nothing, and over the thumbnails they make those larger and smaller, as in PowerPoint. A trackpad's pinch comes
+  // the same way. React's own wheel listener is passive, so this one is set by hand.
   useEffect(() => {
-    const el = stage.current!;
     function onWheel(e: globalThis.WheelEvent) {
+      const on = e.target as Element;
       if (!e.ctrlKey && !e.metaKey) {
         // The hand lies over the desk, so a wheel on it scrolls the desk from here.
-        if ((e.target as Element).closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
+        if (on.closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
         return;
       }
       e.preventDefault();
       // One notch of a mouse wheel is one step of the buttons.
-      const next = Math.min(4, Math.max(0.25, zoom * 1.25 ** (-e.deltaY / 100)));
+      const by = 1.25 ** (-e.deltaY / 100);
+      if (on.closest(".pages")) return setThumb((w) => Math.min(THUMBS[1], Math.max(THUMBS[0], w * by)));
+      if (!stage.current!.contains(on)) return;
+      const next = Math.min(4, Math.max(0.25, zoom * by));
       // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
       const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
       let page = under.getBoundingClientRect();
@@ -812,8 +820,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
       desk.current!.scrollBy(Math.round(page.left + x * fit * next - e.clientX), Math.round(page.top + y * fit * next - e.clientY));
     }
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
   });
   // A finger held on a thumbnail for half a second drags it. One that moves away before then scrolls the panel, and
   // only a listener set by hand can keep the panel still once the drag is on.
@@ -2163,7 +2171,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
               <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
             </span>
           </div>
-          <div className="pages" ref={strip}>
+          {/* As many thumbnails in a row as fit, 12 px apart, in the 206 px that two take at first. */}
+          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px`, "--across": Math.floor(218 / (thumb + 12)) } as CSSProperties}>
             {pages.map((_, n) => (
               <button
                 key={n}
@@ -2198,7 +2207,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
                 }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
-                {n < small.pages.length && <Thumb doc={small} k={97 / sizeOf(small, n)[0]} page={n} />}
+                {n < small.pages.length && <Thumb doc={small} k={thumb / sizeOf(small, n)[0]} page={n} />}
                 Seite {n + 1}
                 {/* The line where the dragged page will land: before this thumbnail, or after it. */}
                 {haul && haul.slot - +haul.after === n && (
