@@ -344,10 +344,10 @@ body:has(.print) { background: #fff; }
 .dock .ib { width: calc(var(--ctl) + 6px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
 .dock .ib svg { width: 17px; height: 17px; }
 .dock .sep { height: 20px; }
-/* For a finger the tools need more room than the desk has between the panels: the dock scrolls. For a mouse it wraps,
-   since a dock that scrolls would cut off the name over a tool. */
-@media (pointer: coarse) { .dock { overflow-x: auto; } }
-@media (pointer: fine) and (min-width: 701px) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }
+/* For a finger the tools need more room than the desk has between the panels: the dock scrolls, as for all that is no mouse. For a mouse it wraps,
+   in a narrow window too, since a dock that scrolls would cut off the name over a tool. */
+@media not all and (pointer: fine) { .dock { overflow-x: auto; } }
+@media (pointer: fine) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {
   position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
@@ -595,7 +595,6 @@ body:has(.print) { background: #fff; }
   .left { grid-area: 2 / 1; width: auto; max-height: 32dvh; border-right: 0; border-bottom: 1px solid var(--split); }
   .stage { grid-area: 3 / 1; }
   .panel { grid-area: 4 / 1; width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--split); }
-  .dock { overflow-x: auto; }
 }
 /* An iPad held upright: the sheet takes the window's width, and each panel is a drawer that lies over the desk. The
    bar of insert tools floats over a drawer too, which keeps its last rows clear of it. */

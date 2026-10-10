@@ -1,0 +1,31 @@
+{
+ "title": "Xxxxxxxxxxx Xxxxx",
+ "doc": {
+  "pages": [
+   {
+    "blocks": [
+     {
+      "id": "6ece6eb4-66ef-4532-b8f6-a686d55ef95a",
+      "x": 65,
+      "y": 15,
+      "w": 80,
+      "h": 12,
+      "z": 1,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "",
+       "size": 14,
+       "align": "left"
+      }
+     }
+    ]
+   }
+  ],
+  "guides": {
+   "x": [],
+   "y": []
+  },
+  "grid": 0
+ }
+}
