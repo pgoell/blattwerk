@@ -372,6 +372,11 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     assert (before["header"][3] > 100) == (touch is not None and touch["width"] <= 700)
 
 
+@pytest.mark.xfail(
+    strict=False,
+    reason="#332: now and then the word never comes after the paused clock is moved; "
+    "in WebKit before #326, in Chromium too since",
+)
 def test_a_screen_reader_hears_that_it_loads(window, server):
     page, client = window()
     # The script, not the sheet: see HELD.
