@@ -1,7 +1,7 @@
 // Properties of the sheet model: what `read` makes of a stored sheet, and the steps of undo and redo.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { alike, bare, fresh, redone, returned, stepped, undone, type Hist, type Step } from "./history";
+import { alike, changed, fresh, redone, undone, type Hist, type Step } from "./history";
 import { EMPTY, read, type Block, type Doc } from "./sheet";
 
 // The old sheets and templates of tests/corpus, as the server holds them.
@@ -35,9 +35,11 @@ describe("read", () => {
   it("turns an old template into pages and fills a maths block's digit ranges", () => {
     const text = { id: "t", type: "text", x: 15, y: 15, w: 50, h: 10, z: 0, locked: false, props: { text: "x", size: 14, align: "left" } };
     const sums = { id: "m", type: "maths", x: 15, y: 30, w: 100, h: 20, z: 1, locked: false, props: { max: 100, b: [[1, 5]] } };
-    const made = read({ ...old([text, sums] as unknown as Block[]), landscape: true });
+    // A range the block holds stays, whichever of the two it is.
+    const more = { ...sums, id: "n", props: { max: 20, a: [[2, 3]] } };
+    const made = read({ ...old([text, sums, more] as unknown as Block[]), landscape: true });
     expect(sent(made)).toStrictEqual({
-      pages: [{ blocks: [text, { ...sums, props: { max: 100, a: [[0, 9], [0, 9], [0, 9]], b: [[1, 5]] } }] }],
+      pages: [{ blocks: [text, { ...sums, props: { max: 100, a: [[0, 9], [0, 9], [0, 9]], b: [[1, 5]] } }, { ...more, props: { max: 20, a: [[2, 3]], b: [[0, 9], [0, 9]] } }] }],
       guides: { x: [], y: [] },
       grid: 5,
       landscape: true,
@@ -60,12 +62,11 @@ describe("read", () => {
 // what redo held when that gesture began.
 type State = { h: Hist; key: string; ahead: Step[] };
 const start = (doc: Doc): State => ({ h: { past: [], doc, future: [] }, key: "", ahead: [] });
-function change(s: State, fn: (doc: Doc) => Doc, key = ""): State {
-  const doc = fn(s.h.doc);
-  if (alike(doc, s.h.doc)) return key !== "" && key === s.key ? s : { ...s, key: "" };
-  const merge = key !== "" && key === s.key;
-  if (merge && alike(bare(doc, s.h.past.at(-1)!.doc), s.h.past.at(-1)!.doc)) return { ...s, h: returned(s.h, s.ahead), key: "" };
-  return { h: stepped(s.h, doc, merge, 0, 0), key, ahead: merge ? s.ahead : s.h.future };
+function change(s: State, fn: (doc: Doc) => Doc, key = "", from = 0, to = 0): State {
+  const next = changed(s.h, s, fn(s.h.doc), key, from, to);
+  if (next) return { h: next.h, ...next.gesture };
+  // The one part that is the editor's own, in `update`: a change of nothing ends every gesture but its own.
+  return key !== "" && key === s.key ? s : { ...s, key: "" };
 }
 const undo = (s: State): State => (s.h.past.length ? { ...s, h: undone(s.h), key: "" } : s);
 const redo = (s: State): State => (s.h.future.length ? { ...s, h: redone(s.h), key: "" } : s);
@@ -172,7 +173,29 @@ describe("undo and redo", () => {
 
   it("a change that leaves the sheet alike adds no step and keeps redo", () => {
     fc.assert(
-      fc.property(played, fc.constantFrom(...same), key, (s, fn, k) => void expect(change(s, fn, k).h).toBe(s.h)),
+      fc.property(played, fc.constantFrom(...same), key, (s, fn, k) => void expect(changed(s.h, s, fn(s.h.doc), k, 0, 0)).toBeUndefined()),
+    );
+  });
+
+  it("a step keeps the pages of its change: undo holds them, and redo gives them back", () => {
+    fc.assert(
+      fc.property(played, fc.nat(9), fc.nat(9), (s, from, to) => {
+        const { h } = change(s, add, "", from, to);
+        expect(h.past.at(-1)).toStrictEqual({ doc: s.h.doc, from, to });
+        expect(undone(h).future[0]).toStrictEqual({ doc: h.doc, from, to });
+        expect(redone(undone(h))).toStrictEqual(h);
+      }),
+    );
+  });
+
+  // The editor hands undo and redo the step it has drawn.
+  it("undo and redo of a step handed to them take that step's sheet and pages", () => {
+    fc.assert(
+      fc.property(played, first, fc.nat(9), fc.nat(9), ({ h }, doc, from, to) => {
+        const step = { doc, from, to };
+        expect(undone(h, step)).toStrictEqual({ past: h.past.slice(0, -1), doc, future: [{ doc: h.doc, from, to }, ...h.future] });
+        expect(redone(h, step)).toStrictEqual({ past: [...h.past, { doc: h.doc, from, to }], doc, future: h.future.slice(1) });
+      }),
     );
   });
 

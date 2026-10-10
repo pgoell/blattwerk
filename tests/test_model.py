@@ -1,21 +1,29 @@
 """The sheet model's own tests: vitest and fast-check on frontend/src, with no browser."""
 
+import os
+import signal
 import subprocess
 from pathlib import Path
-
-import pytest
-from ui import BROWSER
 
 FRONTEND = Path(__file__).parent.parent / "frontend"
 
 
-# The WebKit lane would only repeat it: node knows no browser.
-@pytest.mark.skipif(BROWSER == "webkit", reason="runs in node, the same in every lane")
 def test_the_properties_of_the_sheet_model_hold():
     """One run of `mise run test:model`. A property that fails prints its seed, and the seed is
     in what vitest wrote, so it stands in the failure here."""
-    # The run takes a second. A minute is its whole budget, on a machine busy with the suite too.
-    run = subprocess.run(
-        ["npm", "test", "--prefix", str(FRONTEND)], capture_output=True, text=True, timeout=60
+    # A group of its own: npm starts vitest, and a kill of npm alone would leave vitest running.
+    run = subprocess.Popen(
+        ["npm", "test", "--prefix", str(FRONTEND)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
     )
-    assert run.returncode == 0, run.stdout + run.stderr
+    try:
+        # The run takes a second. A minute is its whole budget, on a machine busy with the suite.
+        said, _ = run.communicate(timeout=60)
+    except subprocess.TimeoutExpired:
+        os.killpg(run.pid, signal.SIGKILL)
+        said, _ = run.communicate()
+        raise AssertionError(f"no end after a minute, and until then:\n{said}") from None
+    assert run.returncode == 0, said
