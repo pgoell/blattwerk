@@ -331,6 +331,10 @@ body:has(.print) { background: #fff; }
 .dock .ib { width: calc(var(--ctl) + 6px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
 .dock .ib svg { width: 17px; height: 17px; }
 .dock .sep { height: 20px; }
+/* For a finger the tools need more room than the desk has between the panels: the dock scrolls. For a mouse it wraps,
+   since a dock that scrolls would cut off the name over a tool. */
+@media (pointer: coarse) { .dock { overflow-x: auto; } }
+@media (pointer: fine) and (min-width: 701px) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }
 /* A4; blocks are placed in millimetres, scaled to the zoom. */
 .sheet {
   position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
@@ -438,6 +442,9 @@ body:has(.print) { background: #fff; }
    have z-index 10. Its stem takes no press, so the top edge's handle under it does. */
 .sheet .moveable-rotation { z-index: 11; pointer-events: none; }
 .sheet .moveable-rotation-control { pointer-events: auto; }
+/* What a finger can hit of it ends a pixel above it, 48 px from the block: a tap on the middle of a block 20 mm above
+   is that block's. It reaches towards the block instead, and leaves the top edge's handle 12 px. */
+.sheet .moveable-rotation-control::after { inset-block: -3px -23px; }
 .block textarea {
   min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; line-height: 1.3;
   resize: none; overflow: hidden; pointer-events: none;
