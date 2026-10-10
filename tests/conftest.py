@@ -143,7 +143,7 @@ def editor(browser, server, playwright):
         expect(page.locator(".block[data-id]")).to_have_count(count)
         # The editor first draws the sheet 210 px wide and fits it to the desk once it has measured
         # the desk, a frame later or more. A place read before then is not where the block ends up.
-        page.wait_for_function(MEASURED)
+        page.wait_for_function(MEASURED, timeout=10000)
         return page
 
     yield start
