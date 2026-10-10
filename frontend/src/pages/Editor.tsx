@@ -354,6 +354,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
   const drawers = useSyncExternalStore(whenTurned, () => DRAWERS.matches);
   const [drawer, setDrawer] = useState<"left" | "right">();
+  // Each turn upright starts with both shut.
+  useEffect(() => setDrawer(undefined), [drawers]);
   const leaf = leafy && !drawers;
   const left = drawers ? drawer === "left" : side;
   const right = drawers ? drawer === "right" : pane;
@@ -2085,13 +2087,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       onMouseDown={(e) => {
         const target = e.target as Element;
         const button = target.closest("button");
-        // A drawer's button in the bar counts as its panel: a text being written in must stay open while the
-        // drawer with its format opens.
-        const panel = target.closest(drawers ? ".panel, .pin" : ".panel");
+        const panel = target.closest(".panel");
+        // A text being written in stays open while a drawer's button in the bar opens the drawer with its format.
+        // A number of the panel does lose the focus to it, and so lands before the drawer shuts.
+        const pin = drawers && target.closest(".pin") && document.activeElement?.closest(".block");
         if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block, .panel select, .panel input[type=color]")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
-        if (!e.button && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
+        if (!e.button && !pin && !(panel && document.activeElement?.closest(".block, .panel"))) (document.activeElement as HTMLElement | null)?.blur();
       }}
     >
       <header>

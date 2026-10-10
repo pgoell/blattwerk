@@ -270,6 +270,27 @@ def test_a_turn_upright_shuts_the_panels_and_a_turn_back_shows_them_as_before(ed
     expect(page.locator(shut)).to_have_count(0)
     expect(page.locator(".insert")).to_have_count(0 if theme == "" else 1)
     expect_picked(page, "a")
+    # A drawer left open upright is shut again after the next turn upright.
+    page.set_viewport_size(IPAD)
+    drawer(page, "right")
+    page.set_viewport_size(TURNED)
+    expect(page.locator(shut)).to_have_count(0)
+    page.set_viewport_size(IPAD)
+    expect_wide(page)
+
+
+def test_a_number_typed_in_the_format_drawer_lands_when_its_button_shuts_the_drawer(editor):
+    """Review: the bar's button took no focus from the field, which went with the drawer."""
+    client = user()
+    page = editor(text("a", 1), client=client, touch=True)
+    at(page, "a").tap()
+    drawer(page, "right")
+    field = page.locator(".panel").get_by_label("X", exact=True)
+    field.tap()
+    field.fill("25")
+    bar(page, "right").tap()
+    expect(page.locator("aside.panel")).to_have_count(0)
+    assert saved(page, client)[0]["x"] == 25
 
 
 def test_opening_one_drawer_shuts_the_other(editor):
