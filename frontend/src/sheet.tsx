@@ -382,8 +382,8 @@ function around(left: number, top: number, right: number, low: number, rx: numbe
   return [...turn(right - rx, top + ry, 0), ...turn(right - rx, low - ry, 1), ...tail, ...turn(left + rx, low - ry, 2), ...turn(left + rx, top + ry, 3)];
 }
 // The dashes along a way round, which starts at its last point: a box with square corners is a `<rect>`, a triangle
-// and a star start at their last corner. They
-// stretch or shrink a little so that a whole number of them goes around: the last one meets the first.
+// and a star start at their last corner. They stretch or shrink a little so that a whole number of them goes around:
+// the last one meets the first.
 function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: number; p: TextProps } & SVGAttributes<SVGElement>) {
   const length = way.reduce((sum, [x, y], i) => sum + Math.hypot(x - way.at(i - 1)![0], y - way.at(i - 1)![1]), 0);
   const each = edge * (p.dash === "dashed" ? 7 : 2.5);
