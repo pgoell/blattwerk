@@ -251,6 +251,18 @@ def bar(page, side):
     return page.get_by_label({"left": "Seiten und Vorlagen", "right": "Format und Ansicht"}[side])
 
 
+def tool(page, label):
+    """The bar's command of that name: its button or, where the bar has no room for it, its item
+    in "Mehr", which this opens."""
+    # The bar is measured anew once its type has loaded, and may fold the button then.
+    page.evaluate("document.fonts.ready.then(() => 0)")
+    button = page.locator("header .top").get_by_label(label, exact=True)
+    if button.count():
+        return button
+    page.locator("header .top").get_by_label("Mehr", exact=True).click()
+    return page.get_by_role("menuitem", name=label, exact=True)
+
+
 def drawer(page, side):
     """Opens a panel on the iPad held upright, where both start shut and lie over the sheet."""
     bar(page, side).tap()

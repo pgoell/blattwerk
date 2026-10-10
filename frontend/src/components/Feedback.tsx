@@ -1,10 +1,12 @@
 // Feedback from any page: a button that opens a form for text, voice notes and pictures.
-import { useRef, useState, type ButtonHTMLAttributes, type FormEvent } from "react";
+import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type Ref } from "react";
 import { api } from "../api";
 import PhotoPicker, { shrink } from "./PhotoPicker";
 import VoiceNotes from "./VoiceNotes";
 
-export default function Feedback(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+// With `opener` the form has no button of its own: the editor's bar has folded it into a menu, whose item opens the
+// form through it. The form and what is written in it stay while the button comes and goes.
+export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { opener?: Ref<() => void> }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [clips, setClips] = useState<Blob[]>([]);
@@ -31,6 +33,7 @@ export default function Feedback(props: ButtonHTMLAttributes<HTMLButtonElement>)
     setStatus("");
     setOpen(true);
   }
+  useImperativeHandle(opener, () => show);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +63,7 @@ export default function Feedback(props: ButtonHTMLAttributes<HTMLButtonElement>)
 
   return (
     <>
-      <button type="button" {...props} onClick={show} />
+      {!opener && <button type="button" {...props} onClick={show} />}
       {open && (
         <dialog className="feedback" ref={(el) => void (el && !el.open && el.showModal())} onClose={() => setOpen(false)}>
           <form onSubmit={submit}>

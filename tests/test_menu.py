@@ -567,14 +567,15 @@ def test_a_menu_higher_than_the_window_scrolls(editor):
 def test_the_menu_stays_inside_the_window(editor):
     """I7"""
     page = editor(*texts("a"))
-    page.set_viewport_size({"width": 900, "height": 500})
+    # Wide enough for Blattform's layout, whose bar of insert tools leaves the desk's corner free.
+    page.set_viewport_size({"width": 1100, "height": 500})
     desk = page.locator(".desk").bounding_box()
     # The desk's scroll bars lie at its very edge.
     x, y = desk["x"] + desk["width"] - 30, desk["y"] + desk["height"] - 30
     page.mouse.click(x, y, button="right")
     expect(menu(page)).to_be_visible()
     shown = menu(page).bounding_box()
-    assert shown["x"] + shown["width"] <= 900
+    assert shown["x"] + shown["width"] <= 1100
     assert shown["y"] + shown["height"] <= 500
     assert shown["x"] >= 0
     assert shown["y"] >= 0

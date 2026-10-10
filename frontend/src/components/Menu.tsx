@@ -2,7 +2,8 @@
 import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 
-export type Item = { label: string; icon?: LucideIcon; keys?: string; disabled?: boolean; run: () => void } | "sep";
+// `on` is set for a command that is on or off, and marks the one that is on.
+export type Item = { label: string; icon?: LucideIcon; keys?: string; disabled?: boolean; on?: boolean; run: () => void } | "sep";
 
 type Props = { x: number; y: number; items: Item[]; onClose: () => void; onElsewhere: (x: number, y: number) => void };
 
@@ -17,6 +18,12 @@ export default function Menu({ x, y, items, onClose, onElsewhere }: Props) {
     d.style.top = `${Math.max(0, Math.min(y, innerHeight - box.height))}px`;
     d.querySelector<HTMLElement>("button:enabled")?.focus();
   }, [x, y]);
+  // In a window of another size, as after a turn of the iPad, the menu's place is no longer right: it shuts.
+  useLayoutEffect(() => {
+    const shut = () => ref.current!.close();
+    addEventListener("resize", shut);
+    return () => removeEventListener("resize", shut);
+  }, []);
 
   // Beside the menu is the dialog's backdrop: a press there has the dialog as its target and lies outside its box.
   const beside = (e: MouseEvent) => {
@@ -52,6 +59,7 @@ export default function Menu({ x, y, items, onClose, onElsewhere }: Props) {
             key={i}
             role="menuitem"
             aria-label={item.label}
+            aria-checked={item.on}
             disabled={item.disabled}
             onClick={() => {
               ref.current!.close();

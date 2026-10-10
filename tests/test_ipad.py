@@ -65,21 +65,23 @@ PHONE = {
     ".sheet": [32, 99, 521, 736.8],
     ".dock": [12, 746.9, 576, 46],
 }
+# On its side the bar had two rows and was 91 px high. It is one row now (#272), 49 px high, so all
+# under it lies 42 px higher and the desk and the panels are as much higher.
 ON_ITS_SIDE = {
     None: {
-        "header": [236, 0, 958, 91],
+        "header": [236, 0, 958, 49],
         ".left": [0, 0, 236, 834],
-        ".stage": [236, 91, 694, 743],
-        ".panel": [930, 91, 264, 743],
-        ".sheet": [268, 123, 615, 869.8],
+        ".stage": [236, 49, 694, 785],
+        ".panel": [930, 49, 264, 785],
+        ".sheet": [268, 81, 615, 869.8],
         ".dock": [252, 760, 208, 58],
     },
     "": {
-        "header": [0, 0, 1194, 91],
-        ".left": [0, 91, 236, 743],
-        ".stage": [236, 91, 694, 743],
-        ".panel": [930, 91, 264, 743],
-        ".sheet": [268, 123, 615, 869.8],
+        "header": [0, 0, 1194, 49],
+        ".left": [0, 49, 236, 785],
+        ".stage": [236, 49, 694, 785],
+        ".panel": [930, 49, 264, 785],
+        ".sheet": [268, 81, 615, 869.8],
         ".dock": [248, 760, 670, 58],
     },
 }
@@ -180,16 +182,16 @@ def test_upright_the_bar_is_one_row_and_keeps_both_drawer_buttons_in_view(editor
     top = page.locator("header .top")
     # Two rows of buttons would be twice a button's height.
     assert top.bounding_box()["height"] < 2 * bar(page, "left").bounding_box()["height"]
-    # The rest of the bar scrolls sideways under the two buttons, which stay where they are.
-    assert top.evaluate("el => el.scrollWidth > el.clientWidth")
-    for end in (0, 99999):
-        top.evaluate("(el, x) => el.scrollTo(x, 0)", end)
-        for side in ("left", "right"):
-            assert inside(page, bar(page, side))
-            hit = "([x, y]) => document.elementFromPoint(x, y).closest('button').ariaLabel"
-            label = bar(page, side).get_attribute("aria-label")
-            assert page.evaluate(hit, centre(bar(page, side))) == label
-    expect(page.get_by_role("button", name="PDF", exact=True)).to_be_in_viewport()
+    # The bar does not scroll: what has no room in it lies behind "Mehr" (#272).
+    assert top.evaluate("el => el.scrollWidth <= el.clientWidth")
+    assert top.evaluate("el => getComputedStyle(el).overflowX") == "visible"
+    for side in ("left", "right"):
+        assert inside(page, bar(page, side))
+        hit = "([x, y]) => document.elementFromPoint(x, y).closest('button').ariaLabel"
+        label = bar(page, side).get_attribute("aria-label")
+        assert page.evaluate(hit, centre(bar(page, side))) == label
+    assert inside(page, page.get_by_role("button", name="PDF", exact=True))
+    assert inside(page, page.get_by_label("Mehr", exact=True))
 
 
 @THEMES
@@ -198,7 +200,7 @@ def test_on_its_side_the_ipad_keeps_three_columns(editor, theme):
     page = editor(text("a", 1), theme=theme, touch="landscape")
     expect(page.locator("aside.left")).to_be_visible()
     expect(page.locator("aside.panel")).to_be_visible()
-    expect_places(page, ON_ITS_SIDE[theme], [268, 123, 630, 891])
+    expect_places(page, ON_ITS_SIDE[theme], [268, 81, 630, 891])
 
 
 @THEMES
@@ -433,6 +435,11 @@ def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
     on("Seiten und Vorlagen")
     expect_ringed(page.locator("aside.left"))
     expect(page.locator("aside.panel")).to_have_count(0)
+    # The bar has no room for the tour's own button: the last step is about "Mehr", which holds it.
+    on("Das war's")
+    expect(page.locator("header").get_by_label("Rundgang", exact=True)).to_have_count(0)
+    expect_ringed(page.get_by_label("Mehr", exact=True))
+    expect(tour.locator("p")).to_contain_text("Mehr")
 
 
 @THEMES
