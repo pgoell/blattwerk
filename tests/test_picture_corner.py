@@ -5,7 +5,7 @@ import math
 
 import pytest
 from PIL import Image
-from pixels import measures, screen_and_print
+from pixels import LIMITS, measures, screen_and_print
 from playwright.sync_api import expect
 from test_pixels import photo
 from ui import at, box, expect_picked, pick, sheet, user
@@ -105,7 +105,7 @@ def test_a_cut_and_flipped_picture_shows_its_corners_as_they_print(browser, serv
     page.append(box("whole", "image", whole, x=150, y=30, w=45, h=30, flipX=True, flipY=True))
     found, _ = measures(*screen_and_print(browser, server, client, sheet(client, page)["id"]))
     # A strip of the orange field under the blue one was 0.34 of a tile's blue ink.
-    assert found["ink"][0] < 0.25, found
+    assert found["ink"][0] < LIMITS["ink"], found
 
 
 def test_a_click_on_the_cut_off_part_picks_nothing(editor):

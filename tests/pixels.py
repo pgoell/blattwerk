@@ -42,8 +42,9 @@ TILE = 0.07 if BROWSER == "webkit" else 0.01
 # or blue lies below white. It sees a line that is gone, 1, and a colour: #555555 for #222222 is
 # 0.25 to 0.27 in a text and a ruling, #ffe066 for #ffd43b 0.28, in both browsers. Chromium has
 # 0.196 at most, in a table, where pdfium fills every pixel a line touches. WebKit has 0.224 at
-# most, at a box's border of 0.5 mm, so it sees all three colours.
-INK = 0.25 if BROWSER == "webkit" else 0.205
+# most, at a box's border of 0.5 mm, so it sees all three colours. CI's Chromium runs on another
+# machine's fonts than a laptop's, so its limit leaves more room.
+INK = 0.25 if BROWSER == "webkit" else 0.21
 # The ink a tile has to hold for all of it to count: a third of a hairline's, 0.3 mm wide and
 # dark, through the tile's middle. Less ink than this is measured against this much.
 FLOOR = 3
