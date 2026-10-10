@@ -1,5 +1,5 @@
-"""The deploy's canary and its way back: alive.sh, canary.sh, go-back.sh and their place in
-deploy.yml. The scripts run against a docker that only writes down what it was asked.
+"""The deploy's canary and its way back: alive.sh, canary.sh, keep-prev.sh, go-back.sh and their
+place in deploy.yml. The scripts run against a docker that only writes down what it was asked.
 """
 
 import hashlib
@@ -22,9 +22,12 @@ IMAGE = "blattwerk-blattwerk"
 SMOKE = "print('the smoke test')\n"
 
 # RC_<SUBCOMMAND> sets what a call answers: RC_EXEC for alive.sh, RC_IMAGE for `image inspect`.
+# ID_PREV and ID_RUNNING are the ids of the `prev` image and of the running container's image.
 DOCKER = """#!/usr/bin/env bash
 echo "$*" >> "$DOCKER_LOG"
 case "$*" in
+  "image inspect -f {{.Id}} "*) echo "${ID_PREV:-sha256:prev}" ;;
+  "inspect -f {{.Image}} blattwerk") echo "${ID_RUNNING:-sha256:running}" ;;
   *"blattwerk invite") echo /einladung/tok123; exit "${RC_INVITE:-0}" ;;
   *"-e SMOKE_INVITE"*)
     printenv SMOKE_INVITE > "$DOCKER_LOG.invite"
@@ -156,7 +159,9 @@ def test_start_runs_the_new_image_on_the_copy_and_nowhere_else(tmp_path, live, c
     assert result.returncode == 0, result.stdout + result.stderr
     (line,) = [call for call in calls if call.startswith("run ")]
     words = line.split()
-    assert words[-1] == f"{IMAGE}:latest"
+    # The image the build step named, never `latest`: that one runs live.
+    assert words[-1] == f"{IMAGE}:canary"
+    assert f"{IMAGE}:latest" not in (ROOT / "scripts" / "canary.sh").read_text()
     assert words[words.index("--name") + 1] == NAME
     assert words.count("-v") == 1
     assert not any(word.startswith(("--volume", "--mount")) for word in words)
@@ -288,7 +293,7 @@ def test_start_fails_when_the_canary_never_answers_and_prints_no_logs(tmp_path, 
     assert "the canary did not answer" in error
     # The `always()` step removes the container at once, so its logs are no hint to give.
     assert "docker logs" not in error
-    assert error.endswith(f"docker run --rm {IMAGE}:latest")
+    assert error.endswith(f"docker run --rm {IMAGE}:canary")
     assert not any(call.startswith("logs") for call in calls)
     # The job's `always()` step removes the container and the copy.
     assert copy.exists()
@@ -398,42 +403,126 @@ def test_stop_is_fine_when_nothing_is_there(tmp_path, live, copy):
 # ── go-back.sh ──
 
 
-def test_go_back_puts_prev_in_place_and_points_at_the_readme(tmp_path):
+ASK_PREV = f"image inspect -f {{{{.Id}}}} {IMAGE}:prev"
+ASK_RUNNING = "inspect -f {{.Image}} blattwerk"
+WENT_BACK = [f"tag {IMAGE}:prev {IMAGE}:latest", "compose up -d --no-build"]
+
+
+def test_go_back_by_hand_puts_prev_in_place_and_points_at_the_readme(tmp_path):
+    """By hand: neither PREV_KEPT nor PREV_IMAGE is set."""
     result, calls = run(tmp_path, "go-back.sh")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert calls[:3] == [
-        f"image inspect {IMAGE}:prev",
-        f"tag {IMAGE}:prev {IMAGE}:latest",
-        "compose up -d --no-build",
-    ]
-    assert all(call.startswith("exec blattwerk ") for call in calls[3:])
+    assert calls[:4] == [ASK_PREV, ASK_RUNNING, *WENT_BACK]
+    assert calls[4:]
+    assert all(call.startswith("exec blattwerk ") for call in calls[4:])
     (error,) = [line for line in result.stdout.splitlines() if line.startswith("::error::")]
     assert "went back to the prev image" in error
     assert "schema" in error
     assert 'README, "Going back"' in error
+    assert result.stdout.endswith("blattwerk answers on the prev image\n")
 
 
 def test_go_back_without_prev_changes_nothing(tmp_path):
     result, calls = run(tmp_path, "go-back.sh", rc_image=1)
     assert result.returncode == 1
     assert "::error::no prev image" in result.stdout
-    assert calls == [f"image inspect {IMAGE}:prev"]
+    assert calls == [ASK_PREV]
 
 
 def test_go_back_leaves_a_prev_alone_that_this_deploy_did_not_tag(tmp_path):
     result, calls = run(tmp_path, "go-back.sh", prev_kept="")
     assert result.returncode == 1
     assert "::error::prev is not the image that ran before this deploy" in result.stdout
-    assert calls == [f"image inspect {IMAGE}:prev"]
+    assert calls == [ASK_PREV]
     # The deploy hands over what keep-prev.sh said.
     assert "PREV_KEPT: ${{ steps.prev.outputs.kept }}" in steps()["Go back to prev"]
     assert "id: prev" in steps()["Keep the running image as prev"]
 
 
 def test_go_back_goes_back_after_keep_prev_tagged(tmp_path):
-    result, calls = run(tmp_path, "go-back.sh", prev_kept="yes")
+    result, calls = run(
+        tmp_path, "go-back.sh", prev_kept="yes", prev_image="sha256:old", id_prev="sha256:old"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "compose up -d --no-build" in calls
+    assert calls[:4] == [ASK_PREV, ASK_RUNNING, *WENT_BACK]
+
+
+def test_keep_prev_writes_down_the_id_it_tagged(tmp_path):
+    output = tmp_path / "output"
+    result, calls = run(tmp_path, "keep-prev.sh", github_output=output, id_running="sha256:abc123")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls[-1] == f"tag sha256:abc123 {IMAGE}:prev"
+    assert output.read_text() == "kept=yes\nimage=sha256:abc123\n"
+    assert result.stdout == "prev is abc123\n"
+    # The deploy hands the id over.
+    assert "PREV_IMAGE: ${{ steps.prev.outputs.image }}" in steps()["Go back to prev"]
+
+
+def test_keep_prev_goes_on_and_writes_nothing_down_when_the_tag_fails(tmp_path):
+    """An image with no name left cannot be tagged, and the deploy must go on all the same."""
+    output = tmp_path / "output"
+    result, calls = run(tmp_path, "keep-prev.sh", github_output=output, rc_tag=1)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls[-1].startswith("tag ")
+    assert "::warning::the running image has no name left" in result.stdout
+    assert not output.exists()
+
+
+def test_go_back_leaves_a_prev_alone_that_is_not_the_id_keep_prev_wrote_down(tmp_path):
+    result, calls = run(
+        tmp_path, "go-back.sh", prev_kept="yes", prev_image="sha256:old", id_prev="sha256:older"
+    )
+    assert result.returncode == 1
+    (error,) = [line for line in result.stdout.splitlines() if line.startswith("::error::")]
+    assert "prev is not the image that ran before this deploy" in error
+    assert "nothing was changed" in error
+    assert "went back" not in result.stdout
+    assert calls == [ASK_PREV]
+
+
+def test_go_back_says_so_when_prev_is_the_image_that_already_runs(tmp_path):
+    """A rerun with a cached build: the build is the image that ran, and prev names it too."""
+    result, calls = run(
+        tmp_path,
+        "go-back.sh",
+        prev_kept="yes",
+        prev_image="sha256:same",
+        id_prev="sha256:same",
+        id_running="sha256:same",
+    )
+    assert result.returncode == 1
+    (error,) = [line for line in result.stdout.splitlines() if line.startswith("::error::")]
+    assert "prev is the image that already runs" in error
+    assert "nothing older to go back to" in error
+    assert "went back" not in result.stdout
+    # No `up`: the container stays. `latest` names what runs again, whatever the deploy made of it.
+    assert calls == [ASK_PREV, ASK_RUNNING, WENT_BACK[0]]
+
+
+def test_go_back_goes_back_when_no_container_is_there(tmp_path):
+    result, calls = run(tmp_path, "go-back.sh", rc_inspect=1, id_running="sha256:prev")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls[:4] == [ASK_PREV, ASK_RUNNING, *WENT_BACK]
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [
+        {},
+        {"rc_image": 1},
+        {"prev_kept": ""},
+        {"prev_image": "sha256:old"},
+        {"id_running": "sha256:prev"},
+        {"rc_exec": 1},
+    ],
+)
+def test_go_back_names_no_path(tmp_path, answers):
+    """The job log is public."""
+    result, _ = run(tmp_path, "go-back.sh", **answers)
+    text = result.stdout + result.stderr
+    assert str(tmp_path) not in text
+    assert "/home" not in text
+    assert "/data" not in text
 
 
 def test_go_back_fails_when_prev_does_not_answer(tmp_path):
@@ -460,11 +549,13 @@ def steps():
 def test_deploy_tries_the_canary_before_it_touches_live():
     assert list(steps()) == [
         "Keep the running image as prev",
+        "Refuse a commit whose canary does not run the build",
         "Build image",
         "Start the canary on a copy of the data",
         "Smoke test the canary",
         "Remove the canary and the copy",
         "Snapshot the database",
+        "Name the tested image latest",
         "Deploy",
         "Wait for the app to answer",
         "Smoke test live, read only",
@@ -476,16 +567,68 @@ def test_deploy_tries_the_canary_before_it_touches_live():
     assert "run: bash scripts/canary.sh smoke\n" in step["Smoke test the canary"]
     assert "run: bash scripts/canary.sh stop " in step["Remove the canary and the copy"]
     assert "run: bash scripts/keep-prev.sh\n" in step["Keep the running image as prev"]
-    assert "run: docker compose up -d\n" in step["Deploy"]
     assert "if bash scripts/alive.sh blattwerk; then" in step["Wait for the app to answer"]
     assert "continue-on-error" not in DEPLOY
+    # keep-prev is the first thing after the checkout.
+    assert re.findall(r"^      - (?:name|uses): (.+)$", code(DEPLOY), re.M)[:2] == [
+        "actions/checkout@v7",
+        "Keep the running image as prev",
+    ]
+
+
+def test_latest_moves_only_once_the_canary_passed():
+    """After a failed canary `latest` still names the image that runs."""
+    step = steps()
+    assert f"run: docker build -t {IMAGE}:canary .\n" in step["Build image"]
+    promote = step["Name the tested image latest"]
+    assert f"run: docker tag {IMAGE}:canary {IMAGE}:latest\n" in promote
+    assert "        id: promote\n" in promote
+    assert "        if: " not in promote
+    assert "run: docker compose up -d --no-build\n" in step["Deploy"]
+    # Nothing else in the deploy builds, names `latest` or starts the container.
+    assert "compose build" not in code(DEPLOY)
+    assert "--build" not in code(DEPLOY)
+    assert re.findall(r"^.*compose up.*$", code(DEPLOY), re.M) == [
+        "        run: docker compose up -d --no-build"
+    ]
+    assert code(DEPLOY).count(f"{IMAGE}:latest") == 1
+    assert [name for name, text in step.items() if "docker tag" in text] == [
+        "Name the tested image latest"
+    ]
+
+
+def test_a_commit_whose_canary_runs_latest_is_refused_before_the_build(tmp_path):
+    """A rerun of an old commit: the workflow is master's, canary.sh the commit's own."""
+    names = list(steps())
+    refuse = "Refuse a commit whose canary does not run the build"
+    assert names.index(refuse) < names.index("Build image")
+    (check,) = re.findall(r"^        run: \|\n((?:          .*\n)+)", steps()[refuse], re.M)
+    for script, code_ in ((ROOT / "scripts" / "canary.sh").read_text(), 0), ("x:latest", 1):
+        (tmp_path / "scripts").mkdir(exist_ok=True)
+        (tmp_path / "scripts" / "canary.sh").write_text(script)
+        done = subprocess.run(["bash", "-c", check], cwd=tmp_path, capture_output=True, text=True)
+        assert done.returncode == code_, done.stdout
+    assert "Revert on master" in done.stdout
 
 
 def test_the_build_has_an_end():
     build = steps()["Build image"]
-    assert "run: docker compose build\n" in build
     (limit,) = map(int, re.findall(r"^        timeout-minutes: (\d+)$", build, re.M))
-    assert 0 < limit <= 30
+    assert limit == 15
+
+
+def test_every_step_has_an_end_and_the_job_ends_after_them_all():
+    """The job's limit must not end the run between `up` and the way back."""
+    limits = {}
+    for name, text in steps().items():
+        assert "        run: " in text
+        (limits[name],) = map(int, re.findall(r"^        timeout-minutes: (\d+)$", text, re.M))
+    assert all(limit > 0 for limit in limits.values())
+    # go-back.sh waits a minute for the app, after an `up`.
+    assert limits["Go back to prev"] >= 2
+    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", code(DEPLOY), re.M))
+    # Room for the checkout, the one step without a limit.
+    assert sum(limits.values()) + 5 <= job
 
 
 def test_only_the_cleanup_and_the_way_back_run_after_a_fail():
@@ -495,15 +638,11 @@ def test_only_the_cleanup_and_the_way_back_run_after_a_fail():
     }
     assert {name: found for name, found in conditions.items() if found} == {
         "Remove the canary and the copy": ["always()"],
-        # A cancel in the wait or in the live smoke test must not leave the new image live.
-        "Go back to prev": ["(failure() || cancelled()) && steps.up.outcome != 'skipped'"],
+        # A cancel in the wait or in the live smoke test must not leave the new image live. And
+        # from the tag step on, not from `up` on: `latest` has moved by then.
+        "Go back to prev": ["(failure() || cancelled()) && steps.promote.outcome != 'skipped'"],
     }
-    # The job has an end too, above the sum of the steps' own limits.
-    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", code(DEPLOY), re.M))
-    assert job == 30
-    assert sum(map(int, re.findall(r"^        timeout-minutes: (\d+)$", code(DEPLOY), re.M))) < job
-    assert "        id: up\n" in steps()["Deploy"]
-    assert re.findall(r"^        id: (\w+)$", code(DEPLOY), re.M) == ["prev", "up"]
+    assert re.findall(r"^        id: (\w+)$", code(DEPLOY), re.M) == ["prev", "promote"]
     assert "run: bash scripts/go-back.sh\n" in steps()["Go back to prev"]
 
 

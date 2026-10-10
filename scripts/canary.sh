@@ -77,13 +77,14 @@ except Exception as error:
         print("Open the site once and sign in, so the app mends it, then rerun.")
     sys.exit(1)
 PY
-    # No network of the proxy and no port: only `docker exec` reaches the canary.
-    docker run -d --name "$name" -v "$copy:/data" blattwerk-blattwerk:latest >/dev/null
+    # No network of the proxy and no port: only `docker exec` reaches the canary. The build's own
+    # name: `latest` names the image that runs live until this one has passed.
+    docker run -d --name "$name" -v "$copy:/data" blattwerk-blattwerk:canary >/dev/null
     end=$((SECONDS + ${ALIVE_WAIT:-60}))
     until bash "$here/alive.sh" "$name"; do
       if ((SECONDS >= end)); then
         # No `docker logs` hint: the stop that follows removes the container at once.
-        echo "::error::the canary did not answer on :8000 and is removed by now. On the VPS, to see why the image does not start: docker run --rm blattwerk-blattwerk:latest"
+        echo "::error::the canary did not answer on :8000 and is removed by now. On the VPS, to see why the image does not start: docker run --rm blattwerk-blattwerk:canary"
         exit 1
       fi
       sleep 1
