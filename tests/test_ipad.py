@@ -64,7 +64,8 @@ PHONE = {
     ".stage": [0, 67, 600, 741.9],
     ".panel": [0, 808.9, 600, 91.1],
     ".sheet": [32, 99, 521, 736.8],
-    ".dock": [12, 746.9, 576, 46],
+    # Two rows since #274: for a mouse the dock wraps here too.
+    ".dock": [12, 710.9, 576, 82],
 }
 # On its side the bar had two rows and was 91 px high. It is one row now (#272), 49 px high, so all
 # under it lies 42 px higher and the desk and the panels are as much higher.
