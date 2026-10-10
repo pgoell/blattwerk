@@ -1,0 +1,30 @@
+{
+ "name": "xxxx",
+ "doc": {
+  "pages": [
+   {
+    "blocks": [
+     {
+      "id": "4b0e0cd0-c054-4aba-8cdc-4742d24fa706",
+      "x": 0.07,
+      "y": -0.35,
+      "w": 210.49,
+      "h": 303.18,
+      "z": 1,
+      "locked": false,
+      "type": "ruling",
+      "props": {
+       "kind": "k7",
+       "color": "#555555"
+      }
+     }
+    ]
+   }
+  ],
+  "guides": {
+   "x": [],
+   "y": []
+  },
+  "grid": 0
+ }
+}

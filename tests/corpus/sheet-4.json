@@ -1,0 +1,286 @@
+{
+ "title": "Xxxxxxxxxxx Xxxxx",
+ "doc": {
+  "pages": [
+   {
+    "blocks": [
+     {
+      "id": "vorlage-5",
+      "x": 15,
+      "y": 15,
+      "w": 135,
+      "h": 10,
+      "z": 5,
+      "locked": false,
+      "type": "name",
+      "props": {}
+     },
+     {
+      "id": "vorlage-6",
+      "x": 155,
+      "y": 14,
+      "w": 40,
+      "h": 12,
+      "z": 6,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 60
+      }
+     },
+     {
+      "id": "vorlage-7",
+      "x": 15,
+      "y": 32,
+      "w": 180,
+      "h": 14,
+      "z": 7,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxxxxxxxx",
+       "size": 24,
+       "align": "center",
+       "bold": true
+      }
+     },
+     {
+      "id": "vorlage-8",
+      "x": 25,
+      "y": 55,
+      "w": 125,
+      "h": 12,
+      "z": 8,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-9",
+      "x": 155,
+      "y": 55,
+      "w": 40,
+      "h": 12,
+      "z": 9,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     },
+     {
+      "id": "vorlage-10",
+      "x": 25,
+      "y": 168.5,
+      "w": 125,
+      "h": 12,
+      "z": 10,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-11",
+      "x": 155,
+      "y": 168.5,
+      "w": 40,
+      "h": 12,
+      "z": 11,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     }
+    ]
+   },
+   {
+    "blocks": [
+     {
+      "id": "vorlage-12",
+      "x": 15,
+      "y": 15,
+      "w": 135,
+      "h": 10,
+      "z": 12,
+      "locked": false,
+      "type": "name",
+      "props": {}
+     },
+     {
+      "id": "vorlage-13",
+      "x": 155,
+      "y": 14,
+      "w": 40,
+      "h": 12,
+      "z": 13,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 60
+      }
+     },
+     {
+      "id": "vorlage-14",
+      "x": 25,
+      "y": 35,
+      "w": 125,
+      "h": 12,
+      "z": 14,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-15",
+      "x": 155,
+      "y": 35,
+      "w": 40,
+      "h": 12,
+      "z": 15,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     },
+     {
+      "id": "vorlage-16",
+      "x": 25,
+      "y": 158.5,
+      "w": 125,
+      "h": 12,
+      "z": 16,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-17",
+      "x": 155,
+      "y": 158.5,
+      "w": 40,
+      "h": 12,
+      "z": 17,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     }
+    ]
+   },
+   {
+    "blocks": [
+     {
+      "id": "vorlage-18",
+      "x": 15,
+      "y": 15,
+      "w": 135,
+      "h": 10,
+      "z": 18,
+      "locked": false,
+      "type": "name",
+      "props": {}
+     },
+     {
+      "id": "vorlage-19",
+      "x": 155,
+      "y": 14,
+      "w": 40,
+      "h": 12,
+      "z": 19,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 60
+      }
+     },
+     {
+      "id": "vorlage-20",
+      "x": 25,
+      "y": 35,
+      "w": 125,
+      "h": 12,
+      "z": 20,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-21",
+      "x": 155,
+      "y": 35,
+      "w": 40,
+      "h": 12,
+      "z": 21,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     },
+     {
+      "id": "vorlage-22",
+      "x": 25,
+      "y": 158.5,
+      "w": 125,
+      "h": 12,
+      "z": 22,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxxx",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "vorlage-23",
+      "x": 155,
+      "y": 158.5,
+      "w": 40,
+      "h": 12,
+      "z": 23,
+      "locked": false,
+      "type": "points",
+      "props": {
+       "max": 10
+      }
+     }
+    ]
+   }
+  ],
+  "guides": {
+   "x": [],
+   "y": []
+  },
+  "grid": 0
+ }
+}

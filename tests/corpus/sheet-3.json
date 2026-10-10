@@ -1,0 +1,81 @@
+{
+ "title": "Xxxxxxxxxxx Xxxxx",
+ "doc": {
+  "pages": [
+   {
+    "blocks": [
+     {
+      "id": "0850d336-02bc-4595-ae97-997ce26ab931",
+      "x": 65,
+      "y": 15,
+      "w": 80,
+      "h": 12,
+      "z": 1,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "Xxxxxx xxxxxx & xxxxxxxx",
+       "size": 14,
+       "align": "center",
+       "font": "sas"
+      }
+     },
+     {
+      "id": "29f47214-edd0-4ae3-a143-fc38c9fa87f2",
+      "x": 18.92,
+      "y": 12.33,
+      "w": 172.15,
+      "h": 11.8,
+      "z": 2,
+      "locked": false,
+      "type": "shape",
+      "props": {
+       "kind": "rect",
+       "fill": "none",
+       "stroke": "#222222",
+       "strokeWidth": 0.5
+      }
+     },
+     {
+      "id": "10d320e3-fcc7-4f53-b1ba-4618d6f5d45e",
+      "x": 65,
+      "y": 45.36,
+      "w": 74.48,
+      "h": 26.45,
+      "z": 3,
+      "locked": false,
+      "type": "text",
+      "props": {
+       "text": "",
+       "size": 14,
+       "align": "left"
+      },
+      "mark": "1."
+     },
+     {
+      "id": "9af16c05-50b8-4c0f-b5dc-1d6d817e8e0f",
+      "x": 18.92,
+      "y": 38.58,
+      "w": 60,
+      "h": 40,
+      "z": 4,
+      "locked": false,
+      "type": "shape",
+      "props": {
+       "kind": "rect",
+       "fill": "none",
+       "stroke": "#ffffff",
+       "strokeWidth": 0.25
+      },
+      "mark": "1."
+     }
+    ]
+   }
+  ],
+  "guides": {
+   "x": [],
+   "y": []
+  },
+  "grid": 0
+ }
+}
