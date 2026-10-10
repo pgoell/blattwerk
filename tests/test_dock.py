@@ -7,6 +7,7 @@ a finger it still scrolls.
 import pytest
 from playwright.sync_api import expect
 from test_bar import THEMES, TIP, text
+from ui import at, expect_picked, pick
 
 TOOLS = ".stage .dock .ib"
 # What the dock says of itself: how it lays out its tools, whether they need more room than it
@@ -150,3 +151,29 @@ def test_all_that_keeps_clear_of_the_dock_follows_its_height(editor):
     assert got["desk"] == got["block"] == got["drawer"] >= got["needs"], got
     got = narrow(editor, 1400).evaluate(ROOM)
     assert got["rows"] == 1 and got["desk"] == got["block"] == 88, got
+
+
+def test_of_blattforms_two_docks_the_higher_one_sets_the_room(editor):
+    """I2, I8"""
+    page = editor(text("a"), more=[text("b")])
+    expect(page.locator(".stage .dock")).to_have_count(2)
+    assert page.evaluate(ROOM)["desk"] == 88
+    # The page number is the lower of the two, so it is made the higher here.
+    page.locator(".stage .dock.at").evaluate("el => el.style.minHeight = '90px'")
+    page.wait_for_function(f"({ROOM})().desk === 120")
+
+
+def test_tab_brings_a_block_at_the_pages_end_into_view_clear_of_the_wrapped_dock(editor):
+    """I8"""
+    page = narrow(editor, 360, more=[text("b"), {**text("c", z=2), "y": 277}])
+    # A block is picked first: the panel under the desk has opened, and the desk has its height.
+    pick(page, "b")
+    expect(at(page, "c")).not_to_be_in_viewport()
+    page.keyboard.press("Tab")
+    expect_picked(page, "c")
+    expect(at(page, "c")).to_be_in_viewport(ratio=1)
+    got = page.evaluate("""() => ({
+        block: document.querySelector('.block[data-id="c"]').getBoundingClientRect().bottom,
+        dock: document.querySelector(".stage .dock").getBoundingClientRect().top,
+    })""")
+    assert got["block"] <= got["dock"], got

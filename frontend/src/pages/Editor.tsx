@@ -541,11 +541,14 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }, []);
   // For a mouse the dock wraps to more rows in a narrow window: the styles keep as much room free as it is high.
   useLayoutEffect(() => {
-    const dock = stage.current!.querySelector<HTMLElement>(".dock")!;
-    const observer = new ResizeObserver(() => stage.current!.parentElement!.style.setProperty("--dock", `${dock.offsetHeight}px`));
-    observer.observe(dock);
+    // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
+    const docks = [...stage.current!.querySelectorAll<HTMLElement>(".dock")];
+    const observer = new ResizeObserver(() =>
+      stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`),
+    );
+    for (const el of docks) observer.observe(el);
     return () => observer.disconnect();
-  }, [leaf]);
+  }, [leaf, pages.length > 1]);
 
   // Moveable needs the elements, and they exist only after the blocks render.
   useLayoutEffect(() => {
