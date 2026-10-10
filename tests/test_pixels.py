@@ -11,7 +11,7 @@ import pytest
 from PIL import Image
 from pixels import LIMIT, LOADED, as_png, diff, screen_and_print
 from playwright.sync_api import expect
-from ui import LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
+from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
 
 from blattwerk import pdf
 
