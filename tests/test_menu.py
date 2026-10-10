@@ -556,7 +556,8 @@ def test_undo_works_after_a_page_entry_though_the_title_had_the_focus(editor):
 def test_a_menu_higher_than_the_window_scrolls(editor):
     """I7"""
     page = editor(*texts("a"))
-    page.set_viewport_size({"width": 900, "height": 320})
+    # Wide enough for Blattform's layout: in a narrower window the dock lies over the block.
+    page.set_viewport_size({"width": 1100, "height": 320})
     right(page, "a")
     box = menu(page).bounding_box()
     assert box["y"] >= 0 and box["y"] + box["height"] <= 320
