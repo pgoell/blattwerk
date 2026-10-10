@@ -24,6 +24,15 @@ from ui import TEXT, at, box, pick, sheet
 # Goes to an address as the router does: the app stays, and the script of the editor with it.
 GO = "(to) => { history.pushState(null, '', to); dispatchEvent(new PopStateEvent('popstate')); }"
 # Two frames on, React has drawn what an answer or a new address brought.
+# Notes of each save from here on whether it may outlive the window.
+KEPT = """() => {
+    const ask = window.fetch;
+    window.kept = [];
+    window.fetch = (to, how) => {
+        if (how?.method === 'PATCH') window.kept.push(!!how.keepalive);
+        return ask(to, how);
+    };
+}"""
 FRAMES = "new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
 STATUS = "header [role=status]"
 
@@ -375,6 +384,7 @@ def test_a_large_sheet_is_saved_on_leaving_for_another_sheet(run):
     assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=large).status_code == 200
     run.go("a")
     run.land("a")
+    page.evaluate(KEPT)
     with page.expect_response(gate.answers("PATCH"), timeout=10000) as saved:
         run.nudge()
         run.go("b")
@@ -382,6 +392,19 @@ def test_a_large_sheet_is_saved_on_leaving_for_another_sheet(run):
     run.land("b")
     assert [run.whose(request) for request in run.sent] == ["a"]
     assert run.held("a")["doc"]["pages"][0]["blocks"][0]["x"] == 16
+    assert page.evaluate("window.kept") == [False]
+
+
+def test_a_small_sheets_save_on_leaving_may_outlive_the_window(run):
+    """A5: the tab may close right after the teacher left the sheet."""
+    page, gate = run.page, run.gates["a"]
+    run.go("a")
+    run.land("a")
+    page.evaluate(KEPT)
+    with page.expect_response(gate.answers("PATCH")):
+        run.nudge()
+        run.go("b")
+    assert page.evaluate("window.kept") == [True]
 
 
 def test_a_save_under_way_on_leaving_leaves_the_next_sheet_alone(run):

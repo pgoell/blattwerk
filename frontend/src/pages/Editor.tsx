@@ -440,7 +440,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
-  const save = useRef((_leaving: boolean, _keepalive?: boolean) => {});
+  const save = useRef((_leaving: boolean) => {});
   // The version the document here is based on.
   const version = useRef(file.version);
   const busy = useRef(false);
@@ -838,14 +838,18 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // A change behind a save under way waits for the next save. On leaving there is none, so it goes as soon as that
   // save is done, based on the version that one brought: on to another page of the app, that is, for in a window
   // that closes no script runs by then.
-  save.current = (leaving, keepalive = leaving) => {
+  save.current = (leaving) => {
     const behind = busy.current && leaving && (live.current.doc !== carried.current.doc || title !== carried.current.title);
     if (clash || (busy.current ? !behind : !dirty)) return;
     const now = (carried.current = { doc: live.current.doc, title });
     const named = title === stored.title ? {} : { title: title.trim() || "Unbenanntes Blatt" };
     const send = () => {
       busy.current = true;
-      return post<Sheet>(`/sheets/${file.id}`, { doc: now.doc, version: version.current, ...named }, { method: "PATCH", keepalive });
+      const body = { doc: now.doc, version: version.current, ...named };
+      // `keepalive` lets a save on leaving outlive the window. The browser sends no such request over 64 KiB, so a
+      // larger sheet goes without it: left for another page of the app, it arrives all the same.
+      const keepalive = leaving && new Blob([JSON.stringify(body)]).size < 60 * 1024;
+      return post<Sheet>(`/sheets/${file.id}`, body, { method: "PATCH", keepalive });
     };
     last.save = (behind ? last.save.then(send) : send())
       .then(
@@ -862,14 +866,13 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const timer = setTimeout(() => save.current(false), 2000);
     return () => clearTimeout(timer);
   }, [hist.doc, title, tries, stored, clash]);
-  // Leaving the editor or the app saves at once. `keepalive` lets the request outlive the window, and the browser
-  // takes no more than 64 KiB that way: a sheet left for another page of the app is saved without it.
+  // Leaving the editor or the app saves at once.
   useEffect(() => {
     const leave = () => save.current(true);
     window.addEventListener("pagehide", leave);
     return () => {
       window.removeEventListener("pagehide", leave);
-      save.current(true, false);
+      leave();
     };
   }, []);
 
