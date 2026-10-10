@@ -168,13 +168,26 @@ function alike(a: unknown, b: unknown): boolean {
 // What a text or a shape is drawn with, and the panel shows, where it names nothing. A shape's words say more.
 const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
 // The props that change a block. One the block does not name, set to what the block shows there, is left out:
-// a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known:
-// a line or a Lineatur made elsewhere that names no width or colour is drawn by the browser's own.
+// a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known,
+// and the colour of a table's words, which is the sheet's: a line or a Lineatur made elsewhere that names no width
+// or colour is drawn by the browser's own.
 const fresh = (b: Block, props: object) => {
   const text = boxed(b);
-  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika" };
+  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika", ...(b.type === "table" && { color: "#222222" }) };
   return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
 };
+// The sheet without the props that a block of `start` does not name and shows as they are set: a colour moved
+// away and back to the one the block showed is back at its start.
+const bare = (doc: Doc, start: Doc): Doc => ({
+  ...doc,
+  pages: doc.pages.map((p, n) => ({
+    ...p,
+    blocks: p.blocks.map((b) => {
+      const was = start.pages[n]?.blocks.find((o) => o.id === b.id);
+      return was ? ({ ...b, props: fresh(was, b.props) } as Block) : b;
+    }),
+  })),
+});
 // The pictures the server takes.
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
@@ -880,7 +893,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     const merge = key !== "" && key === mergeKey.current;
     // A gesture that comes back to where it began, as a slider dragged away and back, is none either: its step
     // goes, and redo holds what it held. The gesture may go on: its next change is a new step from the same start.
-    if (merge && alike(doc, live.current.past.at(-1)!.doc)) {
+    if (merge && alike(bare(doc, live.current.past.at(-1)!.doc), live.current.past.at(-1)!.doc)) {
       mergeKey.current = "";
       return setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
     }

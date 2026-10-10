@@ -21,6 +21,11 @@ PROPS = {
     "line": {**LINE, "fill": "#ffff00", "strokeWidth": 0.25},
     "ruling": RULING,
     "table": {**TABLE, "color": "#222222", "line": "#222222"},
+    # As the editor makes them: they name no colour of the words, no spacing and no opacity. The
+    # fill is there for the slider "Transparenz".
+    "bare text": {**TEXT, "fill": "#ffff00"},
+    "bare shape": {**RECT, "fill": "#ffff00"},
+    "bare table": {**TABLE, "line": "#222222"},
 }
 # Every list of the panel, by the block's kind: its name, the key that walks it, and the two values
 # the key picks after the one the block has.
@@ -44,6 +49,17 @@ GESTURES = [
     ("table", "Farbe"),
     ("table", "Linien"),
 ]
+# The same on blocks that name nothing of it: back at what the block shows, the gesture is none.
+BARE = [
+    pytest.param("bare text", "Farbe", id="bare-text-colour"),
+    pytest.param("bare text", "Zeilenabstand", id="bare-text-spacing"),
+    pytest.param("bare text", "Transparenz", id="bare-text-opacity"),
+    pytest.param("bare text", "Randstärke", id="bare-text-width"),
+    pytest.param("bare shape", "Farbe", id="bare-shape-colour"),
+    pytest.param("bare shape", "Zeilenabstand", id="bare-shape-spacing"),
+    pytest.param("bare shape", "Transparenz", id="bare-shape-opacity"),
+    pytest.param("bare table", "Farbe", id="bare-table-colour"),
+]
 COLOURS = ["#ff0000", "#00ff00"]
 PRESS = """(el) => el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))"""
 INPUT = """(el, to) => {
@@ -58,7 +74,7 @@ def opened(editor, kind, n=1):
     client = user()
     props = maths(client, count=12) if kind == "maths" else PROPS[kind]
     names = "ab"[:n]
-    kind = "shape" if kind == "line" else kind
+    kind = "shape" if kind == "line" else kind.split()[-1]
     page = editor(*(box(name, kind, props, z=z) for z, name in enumerate(names, 1)), client=client)
     pick(page, *names)
     return page, client
@@ -81,8 +97,15 @@ def gesture(page, label, *stops):
     Stop 0 is the value the control has, 1 and 2 are two others.
     """
     control = field(page, label)
-    if control.get_attribute("type") == "color":
-        to = [control.input_value(), *COLOURS]
+    was, low, high = (
+        control.input_value(),
+        control.get_attribute("min"),
+        control.get_attribute("max"),
+    )
+    # A slider that is not at its lower end takes its values as a colour does: no press of the
+    # mouse finds the place of the value it has.
+    if was != low:
+        to = [was, *([high, str((float(low) + float(high)) / 2)] if high else COLOURS)]
         control.evaluate(PRESS)
         for stop in stops:
             control.evaluate(INPUT, to[stop])
@@ -119,7 +142,7 @@ def test_each_value_picked_in_a_list_with_the_arrows_is_its_own_undo_step(
 # Asked #258, A12
 
 
-@pytest.mark.parametrize("kind, label", GESTURES)
+@pytest.mark.parametrize("kind, label", [*GESTURES, *BARE])
 def test_a_colour_or_a_slider_moved_away_and_back_in_one_go_adds_no_undo_step(editor, kind, label):
     page, _ = opened(editor, kind)
     was = field(page, label).input_value()
@@ -134,7 +157,7 @@ def test_a_colour_or_a_slider_moved_away_and_back_in_one_go_adds_no_undo_step(ed
 # Implied #258, I1
 
 
-@pytest.mark.parametrize("kind, label", GESTURES)
+@pytest.mark.parametrize("kind, label", [*GESTURES, *BARE])
 def test_a_gesture_back_at_its_start_keeps_redo_and_leaves_the_sheet_saved(editor, kind, label):
     page, _ = opened(editor, kind)
     redo = page.get_by_label("Wiederholen", exact=True)
