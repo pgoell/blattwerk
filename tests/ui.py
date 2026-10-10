@@ -260,7 +260,8 @@ def tool(page, label):
     if button.count():
         return button
     page.locator("header .top").get_by_label("Mehr", exact=True).click()
-    return page.get_by_role("menuitem", name=label, exact=True)
+    # By its name: a command that is on or off is a `menuitemcheckbox`, the others a `menuitem`.
+    return page.locator("dialog.menu").get_by_label(label, exact=True)
 
 
 def drawer(page, side):

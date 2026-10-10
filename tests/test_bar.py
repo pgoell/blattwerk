@@ -13,6 +13,7 @@ from playwright.sync_api import expect
 from ui import (
     FIELD,
     TEXT,
+    apart,
     at,
     box,
     centre,
@@ -110,7 +111,8 @@ def menu(page):
 
 
 def item(page, name):
-    return menu(page).get_by_role("menuitem", name=name, exact=True)
+    # By its name: a command that is on or off is a `menuitemcheckbox`, the others a `menuitem`.
+    return menu(page).get_by_label(name, exact=True)
 
 
 def listed(page):
@@ -118,7 +120,7 @@ def listed(page):
     if not more(page).count():
         return []
     more(page).click()
-    names = menu(page).get_by_role("menuitem").evaluate_all("els => els.map((el) => el.ariaLabel)")
+    names = menu(page).locator("button").evaluate_all("els => els.map((el) => el.ariaLabel)")
     page.keyboard.press("Escape")
     expect(menu(page)).to_have_count(0)
     return names
@@ -140,10 +142,51 @@ def test_the_bar_is_one_row_with_pdf_and_undo_in_the_window(editor, theme, width
 def test_the_bar_is_one_row_at_every_width_from_700_to_1400(editor, theme, touch, turned):
     """A2"""
     page = editor(text("a"), theme=theme, touch=touch)
-    for width in sorted({*range(700, 1401, 50), 701, 1099, 1100}):
+    for width in sorted({*range(700, 1401, 50), 701, 1023, 1024, 1099, 1100}):
         resize(page, width, width - 250 if turned else width + 300)
         # A phone's bar, at 700, wraps as before.
         expect_fitted(page, row=width > 700)
+
+
+@THEMES
+@pytest.mark.parametrize(
+    "size", [(1023, 768), (1024, 768), (1024, 1366), (744, 1133), (820, 1180), (1100, 800)]
+)
+def test_the_bar_is_one_row_in_a_window_that_opens_at_its_size(editor, theme, size):
+    """A2: Blattform's layout goes by the window's width as the editor draws, so a page that
+    loads at a size can differ from one that was resized to it."""
+    page = editor(text("a"), theme=theme, touch=True)
+    resize(page, *size)
+    page.reload()
+    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible()
+    expect(page.locator(".block[data-id]")).to_have_count(1)
+    expect_fitted(page)
+    # Blattform's own layout starts at 1024 px, on its side.
+    leaf = theme is None and size[0] >= 1024 and size[0] > size[1]
+    expect(page.locator("main.editor.leaf")).to_have_count(int(leaf))
+
+
+def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
+    """Review: "Mehr" leaves the bar while it is measured, and took the focus along."""
+    page = sized(editor, text("a"), width=900, height=1200, touch=False, theme="")
+    expect_fitted(page)
+    more(page).focus()
+    resize(page, 890, 1200)
+    expect_fitted(page)
+    expect(more(page)).to_be_focused()
+
+
+def test_a_turn_gives_the_focus_back_to_mehr_that_the_keys_opened(editor):
+    """Review"""
+    page = editor(text("a"), theme="", touch=True)
+    expect_fitted(page)
+    more(page).focus()
+    page.keyboard.press("Enter")
+    expect(menu(page)).to_be_visible()
+    resize(page, **TURNED)
+    expect(menu(page)).to_have_count(0)
+    expect_fitted(page)
+    expect(more(page)).to_be_focused()
 
 
 @THEMES
@@ -232,24 +275,36 @@ def test_commands_run_from_mehr_do_what_their_buttons_do(editor):
     expect(form.get_by_label("Schreiben")).to_have_value("zu eng")
 
 
-def test_format_uebertragen_from_mehr_paints_one_block(editor):
-    """A3: one run picks the look up for one block, as one click on the button does."""
+def test_format_uebertragen_from_mehr_stays_on_until_it_is_picked_again(editor):
+    """A3: a menu has no double click, so the brush picked there paints block after block."""
     client = user()
-    blocks = [box("a", "text", {**TEXT, "bold": True}), text("b", 2), text("c", 3)]
-    page = sized(editor, *blocks, client=client, width=701, height=1000, touch=False, theme="")
+    blocks = apart(
+        box("a", "text", {**TEXT, "bold": True}), text("b", 2), text("c", 3), text("d", 4)
+    )
+    page = editor(*blocks, client=client, touch=True, theme="")
     expect_fitted(page)
     assert "Format übertragen" not in page.evaluate(BAR)["names"]
-    pick(page, "a")
-    tool(page, "Format übertragen").click()
-    at(page, "b").click()
-    expect(page.locator("main.editor.brush")).to_have_count(0)
-    at(page, "c").click()
-    expect_picked(page, "c")
-    more(page).click()
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    tool(page, "Format übertragen").tap()
+    brushing = page.locator("main.editor.brush")
+    expect(brushing).to_have_count(1)
+    for name in "bc":
+        at(page, name).tap()
+        expect_picked(page, name)
+        expect(brushing).to_have_count(1)
+    # The item shows that the brush is on, and picking it again puts the brush down.
+    more(page).tap()
+    expect(item(page, "Format übertragen")).to_have_attribute("aria-checked", "true")
+    item(page, "Format übertragen").tap()
+    expect(brushing).to_have_count(0)
+    at(page, "d").tap()
+    expect_picked(page, "d")
+    more(page).tap()
     expect(item(page, "Format übertragen")).to_have_attribute("aria-checked", "false")
     page.keyboard.press("Escape")
     look = {b["id"]: b["props"].get("bold", False) for b in saved(page, client)}
-    assert look == {"a": True, "b": True, "c": False}
+    assert look == {"a": True, "b": True, "c": True, "d": False}
 
 
 def test_mehr_opens_by_a_tap(editor):
@@ -282,7 +337,7 @@ def test_mehr_opens_and_runs_by_the_keys(editor):
     for key in ("Enter", "Space"):
         page.keyboard.press(key)
         expect(menu(page)).to_be_visible()
-        items = menu(page).get_by_role("menuitem")
+        items = menu(page).locator("button")
         # The first command that is on has the focus, and the arrows walk from it.
         expect(items.nth(0)).to_be_focused()
         page.keyboard.press("ArrowDown")

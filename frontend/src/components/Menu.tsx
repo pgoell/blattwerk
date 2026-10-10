@@ -57,7 +57,7 @@ export default function Menu({ x, y, items, onClose, onElsewhere }: Props) {
         ) : (
           <button
             key={i}
-            role="menuitem"
+            role={item.on === undefined ? "menuitem" : "menuitemcheckbox"}
             aria-label={item.label}
             aria-checked={item.on}
             disabled={item.disabled}

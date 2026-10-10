@@ -373,8 +373,18 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const bar = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState<number>();
   const feedback = useRef<() => void>(null);
+  // "Mehr" leaves the bar while it is measured, and the focus with it: where the button comes back, so does the focus.
+  const focused = useRef(false);
+  const refit = () => {
+    focused.current ||= !!document.activeElement?.matches(".more");
+    setFits(undefined);
+  };
   useLayoutEffect(() => {
-    if (fits !== undefined) return;
+    if (fits !== undefined) {
+      if (focused.current) bar.current!.querySelector<HTMLElement>(".more")?.focus();
+      focused.current = false;
+      return;
+    }
     const row = bar.current!;
     const look = getComputedStyle(row);
     const may = [...row.querySelectorAll(".sep ~ :is(.ib, .zoom):not(.pin)")];
@@ -397,10 +407,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
   // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. An open "Mehr" has shut by
   // then, as any menu does when the window's size changes.
-  useLayoutEffect(() => setFits(undefined), [leaf]);
+  useLayoutEffect(refit, [leaf]);
   useLayoutEffect(() => {
     // Before the browser paints the bar at its new width.
-    const again = () => flushSync(() => setFits(undefined));
+    const again = () => flushSync(refit);
     const watch = new ResizeObserver(again);
     watch.observe(bar.current!);
     document.fonts.ready.then(again);
@@ -2072,11 +2082,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       <Tool icon={ZoomIn} label="Größer" onClick={() => zoomBy(1)} />
     </>
   );
-  // The bar's commands that may fold, in the bar's order, and those of them that "Mehr" holds now. From the menu the
-  // brush picks the look up for one block, as one click on its button does.
+  // The bar's commands that may fold, in the bar's order, and those of them that "Mehr" holds now. A menu has no
+  // double click, so the brush picked there stays on, as after one on its button, until its ticked item is picked
+  // again or Escape puts it down.
   const folding: Command[] = [
     ...clips,
-    { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, on: brush > 0, run: () => (brush ? setBrush(0) : (dip(part?.marks), setBrush(1))) },
+    { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, on: brush > 0, run: () => (brush ? setBrush(0) : (dip(part?.marks), setBrush(2))) },
     ...copies,
     lockIt,
     ...groups,
