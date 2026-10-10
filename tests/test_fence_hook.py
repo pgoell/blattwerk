@@ -729,6 +729,24 @@ def test_odd_input_never_crashes(home, command, cwd, refuse):
     check(home, command, cwd, refuse)
 
 
+# The stage goes up and down through its task alone: the task guards its one copy folder, and a
+# docker call by hand could as well name the live container.
+@cases(
+    allow=["mise run stage:up", "mise run stage:down", "bash scripts/stage.sh up"],
+    refuse=[
+        "docker rm -f blattwerk-stage",
+        "docker stop blattwerk-stage",
+        "docker rm -f blattwerk",
+        "docker stop blattwerk",
+        "docker compose up -d",
+        "docker compose down",
+        "docker restart blattwerk",
+    ],
+)
+def test_stage_a8_the_tasks_pass_and_docker_by_hand_does_not(home, command, cwd, refuse):
+    check(home, command, cwd, refuse)
+
+
 @pytest.mark.parametrize("stdin", ["not json", ""], ids=["not json", "empty"])
 def test_i8_invalid_stdin(home, stdin):
     refused(run(None, home=home, stdin=stdin))
