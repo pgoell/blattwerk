@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 from pixels import as_png, diff
 from playwright.sync_api import expect
+from test_border import shadow
 from ui import (
     FIELD,
     LINE,
@@ -34,7 +35,7 @@ ROOM = {"x": 75, "y": 80, "w": 60, "h": 40}
 # The one element that draws a triangle, a star or a bubble.
 OUTLINE = "svg.outline > *"
 # The one that draws the dashes of a box's border.
-DASHES = "svg.dashes > rect"
+DASHES = "svg.dashes > *"
 CLEAR = "rgba(0, 0, 0, 0)"
 
 
@@ -109,6 +110,7 @@ def expect_no_box(page):
     box = page.locator(".block .frame")
     expect(box).to_have_css("background-color", CLEAR)
     expect(box).to_have_css("border-top-width", "0px")
+    expect(box).to_have_css("box-shadow", "none")
 
 
 def test_the_bar_inserts_a_triangle(editor):
@@ -200,12 +202,12 @@ def test_the_slider_makes_a_fill_see_through(editor):
     expect(filled).to_have_css("background-color", "rgba(255, 0, 0, 0.25)")
     # The text and the border stay solid.
     expect(filled).to_have_css("opacity", "1")
-    expect(filled).to_have_css("border-top-color", "rgb(34, 34, 34)")
+    expect(filled).to_have_css("box-shadow", shadow(0.5))
     assert "rgba" not in filled.locator("p").evaluate("el => getComputedStyle(el).color")
     pick(page, "b")
     slider(page).fill("55")
     expect(at(page, "b").locator(".frame")).to_have_css("background-color", "rgba(0, 255, 0, 0.45)")
-    expect(at(page, "b").locator(".frame")).to_have_css("border-top-color", "rgb(34, 34, 34)")
+    expect(at(page, "b").locator(".frame")).to_have_css("box-shadow", shadow(0.5))
     pick(page, "c")
     slider(page).fill("100")
     star = at(page, "c").locator(OUTLINE)
@@ -588,8 +590,8 @@ def test_a_solid_border_is_the_boxes_own_and_dashes_lie_over_the_fill(editor):
     page = editor(box("a", "shape", look, **ROOM), box("b", "shape", dash, **low))
     solid, dashed = (at(page, name).locator(".frame") for name in "ab")
     expect(solid.locator("svg")).to_have_count(0)
-    expect(solid).to_have_css("border-top-style", "solid")
-    expect(solid).to_have_css("border-top-color", "rgb(34, 34, 34)")
+    expect(solid).to_have_css("border-top-style", "none")
+    expect(solid).to_have_css("box-shadow", shadow(2))
     expect(dashed.locator(DASHES)).to_have_count(1)
     expect(dashed).to_have_css("background-color", "rgb(255, 212, 59)")
     # In the middle of the top stroke: the first dash, 8 mm long from the corner, then the fill.

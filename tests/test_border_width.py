@@ -4,7 +4,7 @@ import math
 
 import pytest
 from pixels import LOADED, dark, grey, measures, runs, screen_and_print
-from ui import RECT, TEXT, at, box, expect_picked, pick, sheet, unpick, user
+from ui import BROWSER, RECT, TEXT, at, box, expect_picked, pick, sheet, unpick, user
 
 from blattwerk import pdf
 
@@ -117,6 +117,40 @@ def test_the_screen_shows_a_border_as_wide_as_it_prints(browser, server, width, 
     for name, (screen, printed) in widths(browser, server, width, dash).items():
         # Less than a pixel of an iPad, 0.13 mm: WebKit lays a border's inner edge on a whole one.
         assert screen == pytest.approx(printed, abs=0.1), (name, screen, printed)
+
+
+def foot(picture, block, width):
+    """The width in mm of the stroke along a block's foot, where it is widest: on a dash."""
+    x, y, w, h = (block[side] for side in "xywh")
+    found = []
+    # Strips of half a mm over the middle 20 mm: the widest lies on a dash.
+    for step in range(40):
+        left = x + w / 2 - 10 + step / 2
+        rows = dark(picture, (left, y + h - width - 1, left + 0.5, y + h + 2))
+        found.append(sum(rows) / (picture.width / 210) / BLACK)
+    return max(found)
+
+
+@pytest.mark.parametrize("width", [0.2, 0.5, 1])
+def test_the_foot_of_an_outline_and_of_dashes_is_as_wide_as_it_is_set(browser, server, width):
+    """A5, A6: a drawn stroke lies flush with the box's foot, which is seldom on a whole pixel."""
+    client = user()
+    shape = {**RECT, **look(width)}
+    blocks = [
+        box("triangle", "shape", {**shape, "kind": "triangle"}, x=20, y=55, **SIZE),
+        box("dashed", "shape", {**shape, "dash": "dashed"}, x=20, y=95, **SIZE),
+        box("dashed text", "text", {**TEXT, **look(width, "dashed")}, x=110, y=95, **SIZE),
+        box("triangle below", "shape", {**shape, "kind": "triangle"}, x=20, y=181, **SIZE),
+    ]
+    screen, printed = (
+        [foot(picture, block, width) for block in blocks]
+        for picture in grey(browser, server, client, blocks)
+    )
+    # Cut at a whole pixel, 0.5 mm printed 0.44 to 0.46 wide and showed 0.36 to 0.39.
+    assert printed == pytest.approx([width] * 4, abs=0.03)
+    # WebKit still cuts an outline's foot on the screen at some places, by a pixel of an iPad:
+    # 0.06 for 0.2 mm and 0.38 for 0.5 mm, as before.
+    assert screen == pytest.approx(printed, abs=0.15 if BROWSER == "webkit" else 0.05)
 
 
 @pytest.mark.parametrize("width", [0.5, 1])
