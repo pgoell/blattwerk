@@ -83,6 +83,19 @@ def test_ctrl_wheel_over_the_thumbnails_makes_them_larger_and_smaller(editor):
     expect_unchanged(page)
 
 
+def test_thumbnails_made_smaller_and_larger_again_stand_two_in_a_row_as_before(editor):
+    page = opened(editor, pages=2)
+    tops = "[...document.querySelectorAll('.pages [data-thumb]')].map((el) => el.offsetTop)"
+    was = page.evaluate(tops)
+    assert was[0] == was[1]
+    over = centre(page.locator(PAPER))
+    wheel(page, 100, over)
+    expect_thumb(page, 97 / 1.25)
+    wheel(page, -100, over)
+    expect_thumb(page, 97)
+    assert page.evaluate(tops) == was
+
+
 def test_a_pinch_over_the_thumbnails_sizes_them_smoothly(editor):
     page = opened(editor)
     over = centre(page.locator(PAPER))

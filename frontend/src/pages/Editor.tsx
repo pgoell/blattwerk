@@ -2178,7 +2178,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             </span>
           </div>
           {/* As many thumbnails in a row as fit, 12 px apart, in the 206 px that two take at first. */}
-          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px`, "--across": Math.floor(218 / (thumb + 12)) } as CSSProperties}>
+          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px`, "--across": Math.floor(218 / (Math.round(thumb) + 12)) } as CSSProperties}>
             {pages.map((_, n) => (
               <button
                 key={n}
