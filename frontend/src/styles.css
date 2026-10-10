@@ -577,3 +577,22 @@ body:has(.print) { background: #fff; }
   .panel { grid-area: 4 / 1; width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--split); }
   .dock { overflow-x: auto; }
 }
+/* An iPad held upright: the sheet takes the window's width, and each panel is a drawer that lies over the desk. The
+   bar of insert tools floats over a drawer too, which keeps its last rows clear of it. */
+@media (orientation: portrait) and (min-width: 701px) and (max-width: 1099px) {
+  .editor { grid-template-columns: minmax(0, 1fr); }
+  .stage { grid-area: 2 / 1; }
+  /* The shadow falls on the desk beside a drawer, not on the bar above it. */
+  .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: 88px; box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
+  .left { justify-self: start; }
+  .panel { justify-self: end; }
+  .dock { z-index: 5; overflow-x: auto; }
+  /* The bar is one row that scrolls sideways under the two buttons that open the drawers. */
+  .top { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .top > * { flex-shrink: 0; }
+  .pin { position: sticky; z-index: 1; left: 0; right: 0; background: var(--bg); }
+  .pin.on { background: linear-gradient(var(--accent-soft) 0 0) var(--bg); }
+  /* Each covers the bar's padding beside it too, where the rest would show. */
+  .pin:first-of-type { box-shadow: -12px 0 var(--bg); }
+  .pin:not(:first-of-type) { box-shadow: 12px 0 var(--bg); }
+}

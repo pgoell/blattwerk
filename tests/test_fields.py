@@ -14,6 +14,7 @@ from ui import (
     caret,
     centre,
     drag,
+    drawer,
     expect_picked,
     grow,
     pick,
@@ -124,6 +125,7 @@ def test_a_finger_sets_a_field(editor):
     page = editor(box("a", "shape", RECT, **ROOM), client=client, touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
+    drawer(page, "right")
     x = field(page, "X")
     # The phone shows its keys for numbers, with a comma.
     expect(x).to_have_attribute("inputmode", "decimal")

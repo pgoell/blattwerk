@@ -13,6 +13,7 @@ from ui import (
     box,
     centre,
     drag,
+    drawer,
     expect_picked,
     pick,
     saved,
@@ -288,18 +289,29 @@ def test_a_finger_inserts_a_shape_and_moves_the_slider(editor, size):
     client = user()
     page = editor(box("a", "shape", RED, **ROOM), client=client, touch=True)
     page.set_viewport_size({"width": size[0], "height": size[1]})
-    # Every shape's button lies inside the bar, and nothing in the bar runs out of it sideways.
-    bar = page.locator(".insert").bounding_box()
-    buttons = page.locator(".insert .shapes .ib")
-    expect(buttons).to_have_count(9)
-    for each in buttons.all():
-        place = each.bounding_box()
-        assert place["x"] >= bar["x"]
-        assert place["x"] + place["width"] <= bar["x"] + bar["width"]
-        assert place["y"] + place["height"] <= bar["y"] + bar["height"]
-    for css in (".insert .shapes", ".insert", ".left"):
-        assert page.locator(css).evaluate("el => el.scrollWidth <= el.clientWidth")
-    insert(page, "Stern").tap()
+    upright = size[0] < size[1]
+    if upright:
+        # Held upright the shapes stand in the bar at the lower edge, which lies inside the window
+        # and scrolls sideways.
+        expect(page.locator(".dock .shapes .ib")).to_have_count(9)
+        bar = page.locator(".dock").bounding_box()
+        assert bar["x"] >= 0
+        assert bar["x"] + bar["width"] <= size[0]
+        assert bar["y"] + bar["height"] <= size[1]
+        page.locator(".dock").get_by_label("Stern", exact=True).tap()
+    else:
+        # Every shape's button lies inside the bar, and nothing in the bar runs out of it sideways.
+        bar = page.locator(".insert").bounding_box()
+        buttons = page.locator(".insert .shapes .ib")
+        expect(buttons).to_have_count(9)
+        for each in buttons.all():
+            place = each.bounding_box()
+            assert place["x"] >= bar["x"]
+            assert place["x"] + place["width"] <= bar["x"] + bar["width"]
+            assert place["y"] + place["height"] <= bar["y"] + bar["height"]
+        for css in (".insert .shapes", ".insert", ".left"):
+            assert page.locator(css).evaluate("el => el.scrollWidth <= el.clientWidth")
+        insert(page, "Stern").tap()
     expect(page.locator(".block")).to_have_count(2)
     expect(page.locator(f".block.sel {OUTLINE}")).to_have_count(1)
     # Low on the block: on the narrow window the star lies right above it, and the finger's area of
@@ -308,6 +320,8 @@ def test_a_finger_inserts_a_shape_and_moves_the_slider(editor, size):
     low = at(page, "a").bounding_box()
     at(page, "a").tap(position={"x": low["width"] / 2, "y": low["height"] - 6})
     expect_picked(page, "a")
+    if upright:
+        drawer(page, "right")
     place = slider(page).bounding_box()
     slider(page).tap(position={"x": place["width"] / 2, "y": place["height"] / 2})
     expect(slider(page)).not_to_have_value("0")

@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type KeyboardEvent as Key,
@@ -144,6 +145,12 @@ const NAMES: Record<Block["type"], string> = {
 };
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht"];
+// An iPad held upright: the panels are drawers over the desk. The same words as in styles.css.
+const DRAWERS = matchMedia("(orientation: portrait) and (min-width: 701px) and (max-width: 1099px)");
+const whenTurned = (heard: () => void) => {
+  DRAWERS.addEventListener("change", heard);
+  return () => DRAWERS.removeEventListener("change", heard);
+};
 const GRIDS = [0, 5, 10, 20];
 // A thumbnail's smallest and largest width in px: three in a row of the panel Seiten, or one nearly as wide as it.
 const THUMBS = [60, 200];
@@ -342,8 +349,16 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // The panel of pages and templates starts shut where it would lie over the desk.
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
   // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open.
-  const leaf = document.documentElement.dataset.theme === "leaf" && innerWidth > 700;
-  const [side, setSide] = useState(() => innerWidth > 700 && !leaf);
+  const leafy = document.documentElement.dataset.theme === "leaf" && innerWidth > 700;
+  const [side, setSide] = useState(() => innerWidth > 700 && !leafy);
+  // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
+  const drawers = useSyncExternalStore(whenTurned, () => DRAWERS.matches);
+  const [drawer, setDrawer] = useState<"left" | "right">();
+  const leaf = leafy && !drawers;
+  const left = drawers ? drawer === "left" : side;
+  const right = drawers ? drawer === "right" : pane;
+  const showLeft = (on: boolean) => (drawers ? setDrawer(on ? "left" : undefined) : setSide(on));
+  const showRight = (on: boolean) => (drawers ? setDrawer(on ? "right" : undefined) : setPane(on));
   // The tour opens by itself the first time the editor does on this device.
   const [tour, setTour] = useState(() => !localStorage.getItem("tour"));
   // Whether the maths exercises show their answers.
@@ -2069,7 +2084,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       onMouseDown={(e) => {
         const target = e.target as Element;
         const button = target.closest("button");
-        const panel = target.closest(".panel");
+        // A drawer's button in the bar counts as its panel: a text being written in must stay open while the
+        // drawer with its format opens.
+        const panel = target.closest(drawers ? ".panel, .pin" : ".panel");
         if (panel && !button && !target.closest("input, select, textarea, label") && document.activeElement?.closest(".block, .panel select, .panel input[type=color]")) return e.preventDefault();
         if (e.defaultPrevented || !button || button.closest("dialog")) return;
         e.preventDefault();
@@ -2099,7 +2116,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           ) : (
             <>
               {brand}
-              <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={side ? "on" : ""} aria-pressed={side} onClick={() => setSide(!side)} />
+              <Tool icon={PanelLeft} label="Seiten und Vorlagen" className={`pin${left ? " on" : ""}`} aria-pressed={left} onClick={() => showLeft(!left)} />
             </>
           )}
           <input type="text" aria-label="Titel" placeholder="Unbenanntes Blatt" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -2144,7 +2161,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           <i className="sep" />
           <Tool icon={Eye} label="Lösungen zeigen" className={solved ? "on" : ""} aria-pressed={solved} onClick={() => setSolved(!solved)} />
           {!leaf && zoomer}
-          <Tool icon={PanelRight} label="Format und Ansicht" className={pane ? "on" : ""} aria-pressed={pane} onClick={() => setPane(!pane)} />
+          <Tool icon={PanelRight} label="Format und Ansicht" className={`pin${right ? " on" : ""}`} aria-pressed={right} onClick={() => showRight(!right)} />
           <Tool icon={CircleHelp} label="Rundgang" data-tour="help" onClick={() => setTour(true)} />
           <Feedback className="ib" aria-label="Feedback">
             <MessageSquare size={16} aria-hidden />
@@ -2189,7 +2206,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
           </div>
         </aside>
       )}
-      {side && (
+      {left && (
         <aside className="left">
           {leaf && brand}
           <div className="head">
@@ -2563,7 +2580,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         onSelectEnd={(e) => setIds((now) => grouped([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)], blocks))}
       />
 
-      {pane && (
+      {right && (
         <aside className="panel">
           {!leaf && (
             <div className="tabs" role="tablist">
@@ -2779,9 +2796,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         <Tour
           seen={{ doc: hist.doc, blocks: blocks.length, sel: sel.length, editing: !!editing, tab }}
           show={(t) => {
-            if (t === "Vorlagen") return setSide(true);
+            if (t === "Vorlagen") return showLeft(true);
             setTab(t);
-            setPane(true);
+            showRight(true);
           }}
           close={() => {
             localStorage.setItem("tour", "1");
