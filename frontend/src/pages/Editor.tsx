@@ -156,6 +156,21 @@ const LOOSE = 4;
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
+// Whether two sheets, or parts of them, are the same once saved: a key that holds nothing is saved as no key.
+function alike(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+  const [x, y] = [a, b] as Record<string, unknown>[];
+  return x.length === y.length && Object.keys({ ...x, ...y }).every((key) => alike(x[key], y[key]));
+}
+// What the panel shows for a block that names nothing there.
+const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
+// The props that change a block. One the block does not name, set to what the block shows there, is left out:
+// a press on "Oben" for a text that stands at the top is no change.
+const fresh = (b: Block, props: object) => {
+  const shown: Record<string, unknown> = { ...SHOWN, ...boxed(b) };
+  return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
+};
 // The pictures the server takes.
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 // The grid's lines along one side of the page.
@@ -215,7 +230,10 @@ type Step = { doc: Doc; from: number; to: number };
 
 function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
   // A step of undo holds the sheet on its far side, and the page in use before and after its change.
-  const [hist, setHist] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  const [hist, draw] = useState<{ past: Step[]; doc: Doc; future: Step[] }>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
+  const live = useRef(hist);
+  const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
   const [title, setTitle] = useState(file.title);
   // What the server holds, and how often a save has failed since.
   const [stored, setStored] = useState({ doc: hist.doc, title });
@@ -609,6 +627,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
       }
+      // A drag that has changed nothing yet has no step to take back.
       if (mergeKey.current === "drag") setHist((h) => ({ past: h.past.slice(0, -1), doc: h.past.at(-1)!.doc, future: ahead.current }));
       mergeKey.current = "";
       return;
@@ -835,10 +854,22 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // Changes that share a key within one gesture (a drag, typing, a colour picker) make one undo step.
   // `to` is the page in use after the change, and `from` the one before: read as last drawn, for a block from the
   // server comes after the drawing that asked for it.
+  // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
+  // step, redo stays, and the sheet stays saved.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
+    const doc = fn(live.current.doc);
+    if (alike(doc, live.current.doc)) {
+      // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
+      if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
+      // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
+      // unless a change still waits to be drawn.
+      mergeKey.current = "";
+      if (live.current.doc === latest.current.doc) tight.current = false;
+      return;
+    }
     const merge = key !== "" && key === mergeKey.current;
     mergeKey.current = key;
-    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc: fn(h.doc), future: [] }));
+    setHist((h) => ({ past: merge ? h.past : [...h.past, { doc: h.doc, from, to }], doc, future: [] }));
   }
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
@@ -858,12 +889,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table") tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
   }
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
     tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...props } } as Block) : b)), key);
+    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "shape" || b.type === "text") ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
   }
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
@@ -874,7 +905,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
       (bs) =>
         bs.map((b) => {
           const text = ids.includes(b.id) && boxed(b);
-          return text ? ({ ...b, props: { ...b.props, ...(text.rich && cleared(text.rich, props)), ...props } } as Block) : b;
+          return text ? ({ ...b, props: { ...b.props, ...(text.rich && cleared(text.rich, props)), ...fresh(b, props) } } as Block) : b;
         }),
       key,
     );
@@ -976,7 +1007,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // again. Set for the sheet, every page follows. Blocks the page no longer holds move back onto it.
   function lay(landscape: boolean | undefined, n?: number) {
     update((doc) => {
-      const next = { ...doc, ...(n === undefined && { landscape }), pages: doc.pages.map((p, i) => (n === undefined || i === n ? { ...p, landscape: n === undefined ? undefined : landscape } : p)) };
+      // A sheet that says nothing stands upright: "Hoch" leaves it so.
+      const next = { ...doc, ...(n === undefined && landscape !== !!doc.landscape && { landscape }), pages: doc.pages.map((p, i) => (n === undefined || i === n ? { ...p, landscape: n === undefined ? undefined : landscape } : p)) };
       const pages = next.pages.map((p, i) => {
         const [w, h] = sizeOf(next, i);
         if (w === sizeOf(doc, i)[0]) return p;
@@ -1517,7 +1549,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
         // An outline mirrors as a picture does; a box looks the same either way.
         const flips = b.type !== "shape" || drawn(b);
         if (isLine(b)) return { ...b, props: { ...b.props, from: swap[b.props.from ?? "nw"] } };
-        return { ...b, angle: norm(-(b.angle ?? 0)), ...(flips && { [flag]: !b[flag] }) };
+        // A level block names no angle, and stays so.
+        return { ...b, ...(b.angle && { angle: norm(-b.angle) }), ...(flips && { [flag]: !b[flag] }) };
       }),
     );
   }
