@@ -40,7 +40,18 @@ export default function App() {
   // sheet load. A login on a sheet's address starts the clock anew: the time at the login page is no loading.
   const { id } = useMatch("/blatt/:id")?.params ?? {};
   const since = useMemo(() => performance.now(), [id, entered]);
-  const wait = <Blank since={since} />;
+  // The clock is kept here and not in the loading page: the account, the editor's script and the sheet each draw
+  // that page anew, and one drawn before the half second whose effect ran after it set a timer for a time gone by.
+  // `late` holds the `since` it is true for, so a new sheet or a login starts with no word.
+  const [late, setLate] = useState<number>();
+  useEffect(() => {
+    if (!id) return;
+    const left = 500 - (performance.now() - since);
+    if (left <= 0) return setLate(since);
+    const timer = setTimeout(() => setLate(since), left);
+    return () => clearTimeout(timer);
+  }, [since]);
+  const wait = <Blank late={late === since} />;
   // The sheet is asked for as soon as the account is known, side by side with the editor's script and not after
   // it. Each visit asks anew. A sheet that is not there is null: nobody may hear of it before the script has come.
   // Each sheet has an editor of its own: on to another sheet, the one left saves and goes, the loading page stands
