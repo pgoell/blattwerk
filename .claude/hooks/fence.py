@@ -67,6 +67,7 @@ DOCKER_VALUE_OPTS |= {"--profile", "--context", "-H", "--host", "-c", "--config"
 DOCKER_VALUE_OPTS |= {"--log-level", "--progress", "--ansi", "--parallel"}
 DOCKER_GROUPS = {"compose", "container", "image", "network", "builder", "buildx"}
 DOCKER_BAD = {"up", "down", "rm", "stop", "kill", "system", "volume", "restart", "rmi", "prune"}
+DOCKER_BAD |= {"remove"}
 FIND_ACTS = {"-delete", "-exec", "-execdir", "-ok", "-okdir"}
 WRITE_ANY = {"rm", "rmdir", "unlink", "shred", "truncate", "touch", "mkdir", "chmod", "chown"}
 WRITE_ANY |= {"tee", "mv"}
@@ -181,7 +182,11 @@ def lift_subs(text: str) -> tuple[str, list[str]]:
     while i < len(text):
         c = text[i]
         if c == "\\" and quote != "'":
-            out.append("" if text[i + 1 : i + 2] == "\n" else text[i : i + 2])
+            after = text[i + 1 : i + 2]
+            # find's \( and \) are words: as ( and ) they would split the command in two
+            out.append(
+                "" if after == "\n" else "__PAREN__" if after in ("(", ")") else text[i : i + 2]
+            )
             i += 2
             continue
         if quote != "'" and (c == "`" or text.startswith("$(", i)):
@@ -342,14 +347,17 @@ def check_simple(tokens: list[str], cwd: str, bodies: list[str], dirs: list[str]
         targets = [w[3:] for w in rest if w.startswith("of=")]
     elif name == "find" and FIND_ACTS & set(rest):
         n = 0
-        while n < len(rest) and re.fullmatch(r"-[HLP]|-O\d*", rest[n]):
-            n += 1
-        while n < len(rest) and not re.match(r"[-(!]", rest[n]):  # the paths end at a predicate
+        while n < len(rest) and re.fullmatch(r"-[HLPD]|-O\d*|--", rest[n]):
+            n += 2 if rest[n] == "-D" else 1
+        # the paths end at a predicate
+        while n < len(rest) and not re.match(r"[-(!]|__PAREN__", rest[n]):
             targets.append(rest[n])
             n += 1
         targets = targets or ["."]
+    # a find that only reads through -exec may start above a fenced folder
+    parents = name in ("rm", "mv") or (name == "find" and bool({"-delete", *WRITE_ANY} & set(rest)))
     for target in targets:
-        guard(target, cwd, name, parents=name in ("rm", "mv", "find"))
+        guard(target, cwd, name, parents=parents)
     return cwd
 
 
