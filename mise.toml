@@ -67,6 +67,10 @@ depends = ["build"]
 env = { BLATTWERK_NATIVE = "1" }
 run = "xvfb-run -a uv run pytest -n 0"
 
+[tasks."test:model"]
+description = "Run the sheet model's property tests: vitest and fast-check, no browser"
+run = "npm test --prefix frontend"
+
 [tasks.shot]
 description = "Print a sheet: the editor as PNG and the PDF as PNG, into the folder given"
 depends = ["build"]
