@@ -127,9 +127,9 @@ def box(name, kind, props, z=1, **more):
 def apart(*blocks):
     """The blocks 70 mm below one another, for a finger at the iPad's size.
 
-    The sheet is 255 px wide there, 1.2 px to the mm, and a selected block's handles take a finger
-    41 px below it and 62 px above: over the middle of a block that lies 10 mm away. From 20 mm
-    down, so that the first two as one box have nothing to snap to within 12 mm below.
+    A selected block's handles take a finger 41 px below it and 62 px above, and a block that is
+    dragged snaps to one near it. From 20 mm down, so that the first two as one box have nothing
+    to snap to within 12 mm below.
     """
     return [{**b, "y": 20 + 70 * i} for i, b in enumerate(blocks)]
 
@@ -244,6 +244,17 @@ def doc(page, client):
     """The whole sheet as the server holds it, once the editor has saved a change."""
     saved(page, client)
     return client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]
+
+
+def bar(page, side):
+    """The bar's button for the panel on that side: "left" for Seiten, "right" for Format."""
+    return page.get_by_label({"left": "Seiten und Vorlagen", "right": "Format und Ansicht"}[side])
+
+
+def drawer(page, side):
+    """Opens a panel on the iPad held upright, where both start shut and lie over the sheet."""
+    bar(page, side).tap()
+    expect(bar(page, side)).to_have_attribute("aria-pressed", "true")
 
 
 def thumb(page, n):

@@ -11,6 +11,7 @@ from ui import (
     TEXT,
     at,
     box,
+    drawer,
     expect_picked,
     maths,
     pick,
@@ -135,6 +136,7 @@ def test_a_finger_lines_up_with_the_page(editor):
     at(page, "a").tap()
     at(page, "b").tap()
     expect_picked(page, "a", "b")
+    drawer(page, "right")
     switch(page, "Seite").tap()
     expect_switch(page, "Seite")
     button(page, "Links").tap()

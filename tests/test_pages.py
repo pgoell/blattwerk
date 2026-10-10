@@ -17,6 +17,7 @@ from ui import (
     copy_picture,
     doc,
     drag,
+    drawer,
     drop,
     finger,
     hold_drag,
@@ -40,7 +41,11 @@ OWN = {"guides": {"x": [70], "y": [120, 200]}, "grid": 5, "landscape": True}
 def three(editor, **more):
     """Three pages with one text each, "a", "b" and "c", and the panel Seiten open."""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
-    return editor(box("a", "text", TEXT), pages=rest, theme="", **more)
+    page = editor(box("a", "text", TEXT), pages=rest, theme="", **more)
+    if more.get("touch") is True:
+        # The iPad upright starts with the panel shut.
+        drawer(page, "left")
+    return page
 
 
 def expect_order(page, names):
@@ -252,6 +257,7 @@ def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor
     names = "abcdefghijklmn"
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in names[1:]]
     page = editor(box("a", "text", TEXT), pages=rest, theme="", touch=True)
+    drawer(page, "left")
     panel = page.locator("aside.left")
     assert panel.evaluate("el => el.scrollHeight > el.clientHeight")
     x, y = centre(thumb(page, 6))

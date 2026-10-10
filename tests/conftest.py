@@ -12,6 +12,7 @@ WEBKIT = BROWSER == "webkit"
 # The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
 NATIVE = os.environ.get("BLATTWERK_NATIVE") == "1"
 IPAD = {"width": 834, "height": 1194}
+TURNED = {"width": 1194, "height": 834}
 expect.set_options(timeout=2000)
 
 
@@ -93,19 +94,20 @@ def editor(browser, server, playwright):
     contexts = []
 
     def start(*blocks, client=None, more=(), pages=(), theme=None, touch=False):
-        """`more` holds the blocks of a second page. With `touch` the window takes fingers too.
+        """`more` holds the blocks of a second page. With `touch` the window takes fingers too,
+        and with `touch="landscape"` the iPad lies on its side.
 
         `pages` holds the pages after the first, each a whole page: its blocks and, where it has
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut.
         """
-        window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": touch}
+        window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if touch:
-            # Fingers mean an iPad, and its own window: 834 by 1194.
-            window["viewport"] = IPAD
+            # Fingers mean an iPad, and its own window: 834 by 1194, or on its side.
+            window["viewport"] = TURNED if touch == "landscape" else IPAD
         if WEBKIT and touch:
             # In WebKit its sharp screen and its name too.
-            window = {**playwright.devices["iPad Pro 11"], "viewport": IPAD}
+            window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
         context = browser.new_context(**window)
         contexts.append(context)
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.

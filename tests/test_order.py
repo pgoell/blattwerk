@@ -11,6 +11,7 @@ from ui import (
     TEXT,
     at,
     box,
+    drawer,
     expect_picked,
     maths,
     pick,
@@ -95,6 +96,7 @@ def test_a_finger_steps_the_order(editor):
     page = editor(*boxes(*"abc"), touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")
+    drawer(page, "right")
     step(page, "Eine nach vorn", tap=True)
     expect_stack(page, "bac")
     step(page, "Eine nach vorn", tap=True)
