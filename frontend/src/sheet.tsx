@@ -1,5 +1,6 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import type { CSSProperties, ReactNode, SVGAttributes } from "react";
+import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
+import type { Breaks } from "./syllables";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -24,7 +25,9 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // from 0 (unseen) to 1 or absent (solid); the border and the text are always solid.
 // `rich` holds the text's paragraphs once a part of it has a look of its own, or it has a list. `text` always holds
 // the same words plain, and is all that a sheet saved before has.
-export type TextProps = { text: string; rich?: Para[]; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+// `syllables` draws a bow under each syllable of each word (Silbenbögen); `breaks` holds the words the teacher
+// split by hand. Sheets saved before have neither.
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -66,7 +69,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks } };
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
@@ -359,7 +362,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
           <Ring w={block.w - edge} h={block.h - edge} edge={edge} p={p} />
         </svg>
       )}
-      {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
+      {children ?? (p.rich ? <Rich paras={p.rich} syllables={p.syllables} breaks={p.breaks} /> : <p><Words text={p.text} syllables={p.syllables} breaks={p.breaks} /></p>)}
     </div>
   );
 }
@@ -425,9 +428,35 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
 
+// The module that splits words into syllables holds the hyphenation patterns, so it loads only once a block asks
+// for syllables. Until it is there such a block shows its words without bows.
+type Splitter = typeof import("./syllables");
+let splitter: Splitter | undefined;
+let loading: Promise<Splitter> | undefined;
+const waiting = new Set<() => void>();
+export const splitting = () =>
+  (loading ??= import("./syllables").then((module) => {
+    splitter = module;
+    waiting.forEach((tell) => tell());
+    return module;
+  }));
+const listen = (tell: () => void) => (waiting.add(tell), () => void waiting.delete(tell));
+// The splitter once it is loaded, for a block with `on`; it loads at the first block that asks.
+export function useSplitter(on?: boolean) {
+  const module = useSyncExternalStore(listen, () => splitter);
+  useEffect(() => void (on && splitting()), [on]);
+  return on ? module : undefined;
+}
+// A text's words, each syllable in a span of its own that the stylesheet draws a bow under (.syl).
+export function Words({ text, syllables, breaks }: { text: string; syllables?: boolean; breaks?: Breaks }) {
+  const module = useSplitter(syllables);
+  if (!module) return <>{text}</>;
+  return <>{module.pieces(text, breaks).map((piece, i) => (piece.syl ? <span key={i} className="syl">{piece.text}</span> : piece.text))}</>;
+}
+
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own.
-function Rich({ paras }: { paras: Para[] }) {
+function Rich({ paras, syllables, breaks }: { paras: Para[]; syllables?: boolean; breaks?: Breaks }) {
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   return (
     <div className="rich">
@@ -435,7 +464,7 @@ function Rich({ paras }: { paras: Para[] }) {
         <p key={i} data-list={para.list} data-level={para.level || undefined}>
           {para.runs.map(({ text, bold, italic, underline, color }, j) => (
             <span key={j} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
-              {text}
+              <Words text={text} syllables={syllables} breaks={breaks} />
             </span>
           ))}
           {/* A paragraph with no text is still a line high. */}
@@ -479,7 +508,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
-  const { cells, cols, line, head } = block.props;
+  const { cells, cols, line, head, syllables, breaks } = block.props;
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
@@ -490,7 +519,7 @@ function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: 
     <div className="table" style={style as CSSProperties}>
       {cells.flat().map((text, i) => (
         <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
-          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
+          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p><Words text={text} syllables={syllables} breaks={breaks} /></p>}
         </div>
       ))}
     </div>
