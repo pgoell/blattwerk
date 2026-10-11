@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
-import { forget, useSaves } from "../saves";
+import Failed from "../components/Failed";
+import { ask, forget, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
@@ -13,12 +14,23 @@ export default function SheetList() {
   const navigate = useNavigate();
 
   // Asked for at once, and again whenever a save lands: a sheet just left shows as it was left once its save is in.
+  // A load that failed says so where no list stands yet, and `tries` counts the tries after it. A list that stands
+  // stays as it is.
   const { landed } = useSaves();
+  const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     let on = true;
-    api<Sheet[]>("/sheets").then((all) => on && setSheets(all));
+    ask<Sheet[]>("/sheets").then(
+      (all) => on && setSheets(all),
+      () => on && setFailed(true),
+    );
     return () => void (on = false);
-  }, [landed]);
+  }, [landed, tries]);
+  const retry = () => {
+    setFailed(false);
+    setTries((n) => n + 1);
+  };
 
   async function create() {
     const sheet = await post<Sheet>("/sheets", { title: "Unbenanntes Blatt", doc: EMPTY });
@@ -49,6 +61,7 @@ export default function SheetList() {
         <Plus size={16} aria-hidden />
         Neues Blatt
       </button>
+      {failed && !sheets && <Failed retry={retry}><p><strong>Die Blätter konnten nicht geladen werden</strong></p></Failed>}
       {sheets?.length === 0 && <p className="lead">Noch kein Blatt. Leg dein erstes an.</p>}
       <ul className="sheets">
         {sheets?.map((sheet) => (

@@ -106,11 +106,14 @@ function keep(s: Saver) {
 }
 
 // An answer that has not come after 20 s counts as none. By a timer of the page: a test's clock moves that one.
-function ask<T>(path: string, init?: RequestInit) {
+export function ask<T>(path: string, init?: RequestInit) {
   const stop = new AbortController();
   const limit = setTimeout(() => stop.abort(), 20000);
   return api<T>(path, { ...init, signal: stop.signal }).finally(() => clearTimeout(limit));
 }
+// A sheet as its editor asks for it: null where it is not there, "failed" where the server could not say. Never
+// refused, for the editor's script may come to listen after the answer.
+export const get = (id: string) => ask<Sheet>(`/sheets/${id}`).catch((e: Error) => (e.message === "404" ? null : ("failed" as const)));
 
 function plan(s: Saver, ms: number) {
   clearTimeout(s.timer);
