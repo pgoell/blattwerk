@@ -336,7 +336,8 @@ def test_a_table_bank_holds_the_gap_cells_words_below_the_rows(editor):
     frame = bank.bounding_box()
     block = at(page, "t").bounding_box()
     assert abs(frame["y"] - (last["y"] + last["height"])) <= 1
-    assert abs(frame["width"] - table["width"]) <= 1
+    # The table's own line stands left of it.
+    assert abs(frame["width"] - table["width"]) <= 2
     assert frame["y"] + frame["height"] <= block["y"] + block["height"] + 1
     sides = (
         "el => ['Top', 'Right', 'Bottom', 'Left']"
