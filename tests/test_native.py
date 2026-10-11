@@ -27,7 +27,14 @@ LISTS = [
 START = ["X", "Y", "Breite", "Höhe", "Drehung", "Seitenverhältnis sperren"]
 FONT = ["Schriftart", "Schrift kleiner", "Schrift größer", "Fett", "Kursiv", "Unterstrichen"]
 PLACE = ["Aufzählung", "Nummerierung", "Links", "Mitte", "Rechts", "Oben", "Mitte", "Unten"]
-TURN = ["Farbe", "Zeilenabstand", "Silbenbögen", "Rechtsdrehung 90°", "Linksdrehung 90°"]
+TURN = [
+    "Farbe",
+    "Zeilenabstand",
+    "Silbenbögen",
+    "Silbenfarbe",
+    "Rechtsdrehung 90°",
+    "Linksdrehung 90°",
+]
 FLIP = ["Horizontal spiegeln", "Vertikal spiegeln"]
 OUTLINE = ["Keine", "1 2 3", "a b c", "Symbol", "Eckig", "Abgerundet", "Rund", "Dreieck"]
 FILL = ["Stern", "Sprechblase", "Füllung", "Rand"]
