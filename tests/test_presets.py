@@ -5,10 +5,13 @@ takes one too, every preset box opens on a double click, and the name line's wor
 """
 
 import copy
+import io
 from typing import cast
 
+import httpx
 import pytest
 from playwright.sync_api import expect
+from pypdf import PdfReader
 from ui import TEXT, at, box, doc, pick, saved, user
 
 from blattwerk.templates import BUILT_IN
@@ -165,6 +168,52 @@ def test_a_locked_score_or_name_line_does_not_open(editor, kind):
     page.keyboard.press("Enter")
     expect(page.locator(SCORE)).to_have_count(0)
     expect(page.locator(WORD)).to_have_count(0)
+
+
+def test_a_name_lines_words_can_be_changed_and_are_printed(editor, server):
+    client = user()
+    page = editor(box("a", "name", {}), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD).first).to_be_focused()
+    page.keyboard.type("Vorname")
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD)).to_have_count(0)
+    fields = next(b for b in saved(page, client) if b["id"] == "a")["props"]["fields"]
+    assert fields == ["Vorname", "Datum", "Klasse"]
+    sheet_id = page.url.rsplit("/", 1)[1]
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=cookie, timeout=60)
+    text = " ".join(PdfReader(io.BytesIO(res.content)).pages[0].extract_text().split())
+    assert "Vorname:" in text
+
+
+def test_a_name_line_left_as_it_is_gets_no_fields_prop(editor):
+    client = user()
+    page = editor(box("a", "name", {}), box("b", "text", TEXT, z=2), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD).first).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD)).to_have_count(0)
+    blocks = doc(page, client)["pages"][0]["blocks"]
+    assert "fields" not in next(b for b in blocks if b["id"] == "a")["props"]
+
+
+def test_an_emptied_word_drops_its_field_and_a_blur_outside_keeps_the_words(editor):
+    client = user()
+    page = editor(box("a", "name", {}), box("b", "text", TEXT, z=2), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD).first).to_be_focused()
+    # Tab moves to the next word, which is emptied: its field goes, and the other two stay.
+    page.keyboard.press("Tab")
+    page.keyboard.press("Backspace")
+    # A click on the other block leaves the line, and that keeps the words.
+    at(page, "b").click()
+    expect(page.locator(WORD)).to_have_count(0)
+    fields = next(b for b in saved(page, client) if b["id"] == "a")["props"]["fields"]
+    assert fields == ["Name", "Klasse"]
 
 
 @pytest.mark.parametrize("sheet_name", SHEETS)
