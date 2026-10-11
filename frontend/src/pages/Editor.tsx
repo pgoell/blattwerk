@@ -105,6 +105,8 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // gives and takes the numbering before it, `mark`. The Silbenbögen go along, `syllables`, but not the words split
 // by hand, `breaks`: they belong to the words.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+// The part of it that belongs to the words, with the breaks set by hand: a line takes none of these.
+const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "breaks"];
 type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
@@ -1011,8 +1013,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       (bs) =>
         bs.map((b) => {
           if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text")) return b;
-          // A line holds no words and no fill: of all this it takes its stroke alone.
-          const own = isLine(b) ? Object.fromEntries(Object.entries(props).filter(([name]) => takes(b).includes(name as keyof Coat))) : props;
+          // A line holds no words: what belongs to them passes it by, and the frame's look lands as on any shape.
+          const own = isLine(b) ? Object.fromEntries(Object.entries(props).filter(([name]) => !WORDS.includes(name))) : props;
           if (!Object.keys(own).length) return b;
           const on = edge && (b.props.stroke ?? "none") === "none" && { stroke: "#222222" };
           return { ...b, props: { ...b.props, ...fresh(b, own), ...on } } as Block;
