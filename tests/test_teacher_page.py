@@ -266,6 +266,50 @@ def test_where_gives_a_label_and_its_field_as_one_place_the_fields(editor, brows
     context.close()
 
 
+def test_where_finds_a_part_of_a_text_where_no_whole_one_matches(editor):
+    # Issue #321: `where "28"` found nothing, though the number stood in an exercise.
+    sum_, more = {**TEXT, "text": "28 + 5"}, {**TEXT, "text": "Eins und"}
+    page = editor(box("a", "text", sum_), box("b", "text", ONE, z=2), box("c", "text", more, z=3))
+    assert tool.where(page, "28") == f"28 at {middle(at(page, 'a').get_by_text('28 + 5'))}"
+    # A whole name goes first: the text that only holds it is not listed beside it.
+    assert tool.where(page, "Eins") == f"Eins at {middle(at(page, 'b').get_by_text('Eins'))}"
+    # With capitals as written: a wait for `Gespeichert` does not end on "Nicht gespeichert".
+    with pytest.raises(tool.Refused, match='nothing on the page is called "eins"'):
+        tool.where(page, "eins")
+    # A verb that acts still wants the whole name.
+    with pytest.raises(tool.Refused, match='nothing on the page is called "28"'):
+        tool.click(page, "28")
+    expect_picked(page)
+
+
+def test_where_says_that_a_name_may_lie_under_mehr_in_a_narrow_window(editor):
+    # Issue #321: at 820 wide the zoom's buttons have no room in the bar.
+    page = editor(box("a", "text", ONE), theme="")
+    assert tool.where(page, "Ganze Seite").startswith("Ganze Seite at ")
+    tool.resize(page, "820", "1180")
+    expect(page.get_by_label("Mehr", exact=True)).to_be_visible()
+    with pytest.raises(tool.Refused) as refused:
+        tool.where(page, "Ganze Seite")
+    assert str(refused.value) == (
+        'nothing on the page is called "Ganze Seite": it may lie under "Mehr"'
+    )
+
+
+def test_value_reads_a_colour_and_a_slider_and_changes_nothing(editor):
+    # Issue #321: a border's new colour is hard to tell in a screenshot.
+    client = user()
+    page = shape(editor, client)
+    assert tool.value(page, "Rand") == "Rand is #222222"
+    assert tool.value(page, "Randstärke") == "Randstärke is 0.5"
+    expect_picked(page, "a")
+    expect(slider(page)).not_to_be_focused()
+    with pytest.raises(tool.Refused, match='no field on the page is called "Drei"'):
+        tool.value(page, "Drei")
+    # A button has a name and holds no value.
+    with pytest.raises(tool.Refused, match='no field on the page is called "PDF"'):
+        tool.value(page, "PDF")
+
+
 def test_resize_sets_the_windows_size(editor, folder):
     page = editor(box("a", "text", ONE))
     said = tool.resize(page, "900", "700")
@@ -308,6 +352,17 @@ def test_pdf_saves_what_the_bars_button_sends(editor, folder, name, args):
     path = Path(tool.pdf(page, *args))
     assert path.parent == folder and path.suffix == ".pdf", (name, path)
     assert path.read_bytes().startswith(b"%PDF")
+
+
+def test_pdf_gives_the_focus_back_to_the_slider_that_had_it(editor):
+    # Issue #321: after `pdf` the bar's button had the focus, and `key End` did nothing.
+    page = shape(editor)
+    tool.click(page, "Randstärke")
+    expect(slider(page)).to_be_focused()
+    tool.pdf(page)
+    expect(slider(page)).to_be_focused()
+    tool.key(page, "End")
+    expect(slider(page)).to_have_value("3")
 
 
 def test_open_goes_to_a_path_of_the_app(editor, server):

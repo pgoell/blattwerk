@@ -52,6 +52,8 @@ LABELS = [
     "Art der Lineatur",
     "Eine Zeile mehr",
     "Seitenbreite",
+    "Ganze Seite",
+    "Mehr",
     "Nachspurtext",
     "Tabelle",
     "Kopfzeile",
@@ -206,6 +208,95 @@ def test_the_colour_recipe_presses_each_arrow_60_times():
     assert not re.search(r"`key Arrow(?:Up|Left|Right)`, `key Enter`", BRIEF)
 
 
+# What issue #321 found in the brief's second run, T1 to T9.
+
+
+def test_t1_no_command_of_the_brief_chains_another():
+    # Auto mode refused `stop; rm -rf … && mkdir … && rm -f …` as one line.
+    blocks = re.findall(r"^ *```sh\n(.*?)^ *```$", BRIEF, re.M | re.S)
+    assert len(blocks) > 10
+    for block in blocks:
+        lines = block.strip().splitlines()
+        assert len(lines) == 1, block
+        # What stands in quotes is a script or a word for another program, not the shell's.
+        bare = re.sub(r"\"[^\"]*\"|'[^']*'", "", lines[0])
+        assert not re.search(r";|&&|\|", bare), block
+    # The matcher sees a chain: the line the brief had.
+    assert re.search(r";|&&|\|", "teacher:page -- stop; rm -rf /tmp/teacher-run && mkdir x")
+    start = section("## Start the stage")
+    for line in ("rm -rf /tmp/teacher-run", "mkdir /tmp/teacher-run", "rm -f ~/Downloads/TR*.pdf"):
+        assert f"```sh\n   {line}\n   ```" in start, line
+    assert "Run each line as a command of its own" in start
+
+
+def test_t2_the_export_fits_the_whole_page_before_its_screenshot():
+    # The editor opens at 88 % with the page cut.
+    export = section("## Export and compare")
+    first = next(line for line in export.splitlines() if line.startswith("1. "))
+    assert first.index("Click `Ganze Seite` in the bar first") < first.index("`take_screenshot`")
+    by_tool = next(line for line in export.splitlines() if line.startswith("In the tool's window"))
+    assert by_tool.index('`click "Ganze Seite"`') < by_tool.index("`screenshot 3-screen`")
+
+
+def test_t3_the_two_pages_of_sheet_4_are_shot_in_the_tools_window():
+    # The MCP page has no wheel, and PageUp does nothing there.
+    sheet4 = section("### 4. ")
+    assert "the MCP page cannot scroll back to page 1" in sheet4
+    last = sheet4.strip().splitlines()[-1]
+    assert last.startswith("6. Export and compare. Here in the tool's window.")
+    at = [last.index(f"`{call}`") for call in ("screenshot 4-screen-1", "wheel X,Y 1000", "pdf")]
+    assert at == sorted(at)
+    assert at[1] < last.index("`screenshot 4-screen-2`") < at[2]
+    # The sheet is in one window at a time: it leaves the MCP page first, and the tool's after.
+    assert '`open /`, `click "TR4 Zwei Seiten"`' in sheet4
+    assert last.endswith("Then `open /`: sheet 5 starts in the MCP page.")
+    assert "from the tool's window: see sheet 4" in section("## Export and compare")
+
+
+def test_t4_the_picture_and_the_table_of_sheet_3_each_get_a_y():
+    # The picture landed on top of the heading. The heading ends 29 mm from the top, and the
+    # picture, 100 mm wide at most, is 67 high.
+    steps = section("### 3. ").splitlines()
+    picture = next(line for line in steps if line.startswith("3. "))
+    table = next(line for line in steps if line.startswith("4. "))
+    assert "on top of the heading. Move it below: `fill` the field `Y` with `40`" in picture
+    assert "below the picture: `fill` the field `Y` with `115`" in table
+    assert 15 + 14 < 40 and 40 + 67 < 115
+
+
+def test_t5_the_colour_recipe_reads_the_colour_with_the_verb_value():
+    how = section("## How the editor works")
+    assert 'read the colour before and after, with `value "Rand"`' in how
+    assert "  - `value NAME`: prints what the field of that name holds" in BRIEF
+
+
+def test_t6_a_reload_in_the_tools_window_is_open_and_not_f5():
+    prs = section(PRS)
+    assert "`key F5` does not reload the tool's window: there a reload is `open /blatt/N`" in prs
+    # No step of the brief asks for the key.
+    assert BRIEF.count("F5") == 1
+
+
+def test_t7_where_takes_a_part_and_a_target_the_whole_name():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `where NAME`"))
+    assert "A whole name or text goes first." in listed
+    assert "each name or text that holds `NAME`, with capitals as written" in listed
+    assert "a control's whole name or a whole text on the screen" in BRIEF
+
+
+def test_t8_a_name_the_narrow_bar_folded_away_lies_under_mehr():
+    allowed = section("## Rules").split("\nForbidden:\n")[0]
+    assert "at 820 wide the zoom's `Ganze Seite`" in allowed
+    assert 'the error then says the name may lie under `Mehr`, so `click "Mehr"`' in allowed
+    # The words are the tool's.
+    assert 'it may lie under "Mehr"' in (REPO / "scripts/teacher-page.py").read_text()
+
+
+def test_t9_the_brief_says_that_pdf_leaves_the_focus_where_it_was():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `pdf [TARGET]`"))
+    assert "The focus stays where it was: a slider you clicked before still takes" in listed
+
+
 def test_the_filter_trims_a_long_body():
     # The first run's 39 KB were cut off; the filter leaves each body its first 2500 characters.
     command = re.search(r"gh pr list [^\n]* -L 5 [^\n]*--jq '(.+)'$", section(PRS), re.M)
@@ -244,7 +335,8 @@ def test_a9_the_brief_starts_the_stage_first_and_stops_it_last():
     clean = section("## Clean up")
     assert clean.index(f"{MISE} teacher:page -- stop") < clean.index(f"{MISE} stage:down")
     # A window of an earlier run goes before the folder that knows where it is.
-    assert f"{MISE} teacher:page -- stop; rm -rf /tmp/teacher-run" in section("## Start the stage")
+    start = section("## Start the stage")
+    assert start.index(f"{MISE} teacher:page -- stop\n") < start.index("rm -rf /tmp/teacher-run\n")
     assert at == sorted(at)
     # The window ends before the stage it looks at, and both in the part that is done always.
     assert f"{MISE} teacher:page -- stop" in section("## Clean up")
