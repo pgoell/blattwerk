@@ -143,7 +143,7 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
           <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.keepAsNew(s.id).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`))}>
             Als neues Blatt behalten
           </button>
-          <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && String(s.id) === id && navigate("/"))}>
+          <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && location.pathname === `/blatt/${s.id}` && navigate("/"))}>
             Verwerfen
           </button>
           {s.choice && <span>{s.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}

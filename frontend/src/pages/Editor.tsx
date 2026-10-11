@@ -235,7 +235,8 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
   const navigate = useNavigate();
   const keep = () => void keepAsNew(Number(id)).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`));
-  const drop = () => void discard(Number(id)).then((gone) => gone && navigate("/"));
+  // Only from the dead sheet's own address: the teacher may have gone on while the server was asked.
+  const drop = () => void discard(Number(id)).then((gone) => gone && location.pathname === `/blatt/${id}` && navigate("/"));
   function load() {
     setChoice("busy");
     ask<Sheet>(`/sheets/${id}`).then(
