@@ -477,9 +477,9 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
         Lücke
       </button>
       <button className={same ? "on" : ""} aria-pressed={same} onClick={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")}>
-        Gleiche Breite
+        Lücken gleich breit
       </button>
-      {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidth")} />}
+      {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
       <div className="seg">
         <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
         <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>

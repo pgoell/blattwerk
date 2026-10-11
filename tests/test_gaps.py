@@ -8,20 +8,16 @@ never how a gap looks.
 import pytest
 from playwright.sync_api import expect
 from test_lock import fest
-from test_painter import held
-from ui import FIELD, TABLE, TEXT, box, pick, user
+from test_painter import held, paint
+from ui import FIELD, RECT, TABLE, TEXT, at, box, caret, pick, user
 
 WORDS = "eins zwei drei vier fünf sechs sieben acht neun zehn"
 WORDY = {**TEXT, "text": WORDS}
+GAPPED = {**TEXT, "rich": [{"runs": [{"text": "Hallo", "gap": True}]}], "gapWidth": 12, "bank": 7}
 
 
 def panel(page, label):
-    # "Gleiche Breite" names also the arrangement's button, which is disabled for one block.
-    return (
-        page.locator(".panel")
-        .get_by_role("button", name=label, exact=True)
-        .and_(page.locator("button:enabled"))
-    )
+    return page.locator(".panel").get_by_role("button", name=label, exact=True)
 
 
 def gapped(rich):
@@ -76,20 +72,20 @@ def test_ctrl_l_makes_no_gap_in_a_block_or_in_an_open_text(editor):
     assert held(page, client)["a"]["text"] == "Hallo"
 
 
-def test_gleiche_breite_stores_a_width_that_the_field_changes_and_off_removes_it(editor):
+def test_lucken_gleich_breit_stores_a_width_that_the_field_changes_and_off_removes_it(editor):
     """A3: the width is stored at 30 mm with no gap drawn; a number changes it; off removes it."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     pick(page, "a")
-    panel(page, "Gleiche Breite").click()
-    expect(panel(page, "Gleiche Breite")).to_have_attribute("aria-pressed", "true")
+    panel(page, "Lücken gleich breit").click()
+    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-pressed", "true")
     assert held(page, client)["a"]["gapWidth"] == 30
     width = page.locator(".panel").get_by_label("Breite der Lücken", exact=True)
     width.fill("12")
     width.press("Enter")
     assert held(page, client)["a"]["gapWidth"] == 12
-    panel(page, "Gleiche Breite").click()
-    expect(panel(page, "Gleiche Breite")).to_have_attribute("aria-pressed", "false")
+    panel(page, "Lücken gleich breit").click()
+    expect(panel(page, "Lücken gleich breit")).to_have_attribute("aria-pressed", "false")
     assert "gapWidth" not in held(page, client)["a"]
 
 
@@ -122,15 +118,17 @@ def test_jedes_n_te_wort_gaps_every_fifth_word_and_every_third_when_n_is_three(e
 
 
 def test_each_gap_change_is_one_undo_step_and_redo_brings_it_back(editor):
-    """A10: each gap change, width, switch, shuffle and every n-th word is one undo step."""
+    """A10: each gap change, width, width typed, switch, shuffle and every n-th word is one step."""
     client = user()
     page = editor(box("a", "text", WORDY), client=client)
     pick(page, "a")
+    width = page.locator(".panel").get_by_label("Breite der Lücken", exact=True)
     states = [held(page, client)["a"]]
     actions = [
         lambda: panel(page, "Lücke").click(),
         lambda: panel(page, "Lücke").click(),
-        lambda: panel(page, "Gleiche Breite").click(),
+        lambda: panel(page, "Lücken gleich breit").click(),
+        lambda: (width.fill("12"), width.press("Enter")),
         lambda: panel(page, "Lösungswörter").click(),
         lambda: panel(page, "Neu mischen").click(),
         lambda: panel(page, "Jedes n-te Wort").click(),
@@ -160,19 +158,50 @@ def test_lucke_gaps_each_held_block_as_a_whole_when_no_field_is_open(editor, kin
         assert held(page, client)["t"]["gaps"] == [[True, True], [True, True]]
 
 
+def test_lucke_gaps_the_words_of_a_shape_with_text(editor):
+    """A13: a shape that holds words gets its gap like a text."""
+    client = user()
+    page = editor(box("a", "shape", {**RECT, "text": "Hund"}), client=client)
+    pick(page, "a")
+    panel(page, "Lücke").click()
+    assert held(page, client)["a"]["rich"] == [{"runs": [{"text": "Hund", "gap": True}]}]
+
+
+def test_lucke_in_an_open_table_cell_gaps_only_that_cell(editor):
+    """A13: with a cell open, Lücke flags that cell alone; gaps has the shape of cells."""
+    client = user()
+    page = editor(box("t", "table", TABLE), client=client)
+    pick(page, "t")
+    at(page, "t").locator("[data-cell='2']").dblclick()
+    panel(page, "Lücke").click()
+    assert held(page, client)["t"]["gaps"] == [[False, False], [True, False]]
+
+
+def test_lucke_on_a_group_of_two_texts_gaps_each(editor):
+    """A13: a group of two texts picked whole: each text gets its gap."""
+    client = user()
+    page = editor(
+        box("a", "text", TEXT, group=["g"]),
+        box("b", "text", {**TEXT, "text": "Maus"}, z=2, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    page.keyboard.press("Control+a")
+    expect(page.locator(".block.sel")).to_have_count(2)
+    panel(page, "Lücke").click()
+    now = held(page, client)
+    assert gapped(now["a"]["rich"]) == ["Hallo"]
+    assert gapped(now["b"]["rich"]) == ["Maus"]
+
+
 def test_a_caret_in_a_word_gaps_that_word(editor):
     """I1: with a caret in a word and no pick, Lücke gaps that word alone."""
     client = user()
     page = editor(box("a", "text", WORDY), client=client)
-    pick(page, "a")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("Home")
-    for _ in range(7):
-        page.keyboard.press("ArrowRight")
+    caret(page, "fünf", 2)
     panel(page, "Lücke").click()
-    expect(page.locator(f"{FIELD} .gap")).to_have_text("zwei")
-    assert gapped(held(page, client)["a"]["rich"]) == ["zwei"]
+    expect(page.locator(f"{FIELD} .gap")).to_have_text("fünf")
+    assert gapped(held(page, client)["a"]["rich"]) == ["fünf"]
 
 
 def test_a_letter_typed_after_a_gap_is_no_part_of_it(editor):
@@ -192,6 +221,23 @@ def test_a_letter_typed_after_a_gap_is_no_part_of_it(editor):
     ]
 
 
+def test_a_letter_typed_right_before_a_gap_is_no_part_of_it(editor):
+    """I3: a letter typed just before the gap stays out of it."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Control+a")
+    panel(page, "Lücke").click()
+    page.keyboard.press("Home")
+    page.keyboard.type("x")
+    expect(page.locator(FIELD)).to_have_text("xHallo")
+    assert held(page, client)["a"]["rich"] == [
+        {"runs": [{"text": "x"}, {"text": "Hallo", "gap": True}]}
+    ]
+
+
 def test_the_lucke_button_shows_pressed_in_a_gap_and_keeps_the_field_focused(editor):
     """I4: pressed while the caret stands in a gap; a press on it keeps the field and its typing."""
     client = user()
@@ -201,20 +247,81 @@ def test_the_lucke_button_shows_pressed_in_a_gap_and_keeps_the_field_focused(edi
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.press("Control+a")
     panel(page, "Lücke").click()
+    # At the very start a gap is no mark of the caret; one step in, the caret is inside it.
     page.keyboard.press("Home")
+    page.keyboard.press("ArrowRight")
     expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")
     panel(page, "Lücke").click()
     expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "false")
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")
-    expect(page.locator(FIELD)).to_have_text("xHallo")
+    expect(page.locator(FIELD)).to_have_text("Hxallo")
 
 
-@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths", "ruling"])
-def test_a_block_that_holds_no_words_shows_no_lucke_button(editor, kind):
-    """A13: a line, a picture, a symbol, maths and a Lineatur have no gap to make."""
+def test_no_hidden_word_is_lost_when_a_gap_is_made_removed_or_typed_at(editor):
+    """A12: after each gap change, and typing next to or in a gap, every word is still held."""
     client = user()
-    page = editor(*({**b, "locked": False} for b in fest(client, kind)), client=client)
+    page = editor(box("a", "text", WORDY), client=client)
+    caret(page, "fünf", 2)
+    panel(page, "Lücke").click()
+    assert gapped(held(page, client)["a"]["rich"]) == ["fünf"]
+    assert held(page, client)["a"]["text"] == WORDS
+    panel(page, "Lücke").click()
+    assert "rich" not in held(page, client)["a"]
+    panel(page, "Lücke").click()
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.type("x")
+    expect(page.locator(FIELD)).to_have_text(WORDS.replace("fünf", "fünfx"))
+    now = held(page, client)["a"]
+    assert gapped(now["rich"]) == ["fünf"]
+    assert now["text"] == WORDS.replace("fünf", "fünfx")
+    page.keyboard.press("ArrowLeft")
+    page.keyboard.press("ArrowLeft")
+    page.keyboard.type("q")
+    expect(page.locator(FIELD)).to_have_text(WORDS.replace("fünf", "fünqfx"))
+    now = held(page, client)["a"]
+    assert gapped(now["rich"]) == ["fünqf"]
+    assert now["text"] == WORDS.replace("fünf", "fünqfx")
+
+
+def test_a_copied_gap_is_a_gap_too_and_undo_redo_and_reload_keep_every_word(editor):
+    """A12: a pasted gap is a gap; the first stays whole; undo, redo and reload keep the words."""
+    client = user()
+    page = editor(box("a", "text", WORDY), client=client)
+    caret(page, "fünf", 2)
+    panel(page, "Lücke").click()
+    before = held(page, client)["a"]
+    page.keyboard.press("Home")
+    for _ in range(20):
+        page.keyboard.press("ArrowRight")
+    for _ in range(4):
+        page.keyboard.press("Shift+ArrowRight")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    expect(page.locator(FIELD)).to_have_text(WORDS + "fünf")
+    now = held(page, client)["a"]
+    assert gapped(now["rich"]) == ["fünf", "fünf"]
+    assert now["text"] == WORDS + "fünf"
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert held(page, client)["a"] == before
+    step(page, lambda: page.keyboard.press("Control+y"))
+    assert held(page, client)["a"] == now
+    page.reload()
+    expect(at(page, "a")).to_be_visible()
+    assert held(page, client)["a"] == now
+
+
+@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths", "ruling", "name", "points"])
+def test_a_block_that_holds_no_words_shows_no_gap_controls(editor, kind):
+    """A13: a line, picture, symbol, maths, Lineatur, name line and score box have none."""
+    client = user()
+    if kind in ("name", "points"):
+        blocks = [box("fest", kind, {"max": 5} if kind == "points" else {})]
+    else:
+        blocks = [{**b, "locked": False} for b in fest(client, kind)]
+    page = editor(*blocks, client=client)
     pick(page, "fest")
     expect(page.locator(".panel h2").first).to_be_visible()
     # "Lücke" also names a maths exercise's format, so the gap's own neighbours are looked for.
@@ -227,9 +334,79 @@ def test_a_block_that_holds_no_words_shows_no_lucke_button(editor, kind):
 
 
 def test_a_sheet_without_gaps_saves_back_as_it_was(editor):
-    """A15: a text with no gap, once the panel is opened on it, is saved with no gap fields."""
+    """A15: a sheet with no gap, of plain and rich text, a shape and a table, saves as it was."""
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
+    rich = {
+        **TEXT,
+        "text": "Hallo Welt",
+        "rich": [{"runs": [{"text": "Hallo ", "bold": True}, {"text": "Welt"}]}],
+    }
+    old = [
+        box("a", "text", TEXT),
+        box("b", "text", rich, z=2),
+        box("c", "shape", {**RECT, "text": "Hund"}, z=3),
+        box("t", "table", TABLE, z=4),
+    ]
+    page = editor(*old, client=client)
+    sheet_id = page.url.rsplit("/", 1)[1]
+    before = client.get(f"/api/sheets/{sheet_id}").json()["doc"]
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Escape")
+    with page.expect_response(lambda res: res.request.method == "PATCH"):
+        page.get_by_label("Titel", exact=True).fill("Anders")
+    assert client.get(f"/api/sheets/{sheet_id}").json()["doc"] == before
+    for block in before["pages"][0]["blocks"]:
+        assert not {"gap", "gaps", "gapWidth", "bank"} & set(block["props"])
+
+
+def test_tab_reaches_the_gap_controls_and_space_and_enter_press_them(editor):
+    """I5: by keyboard alone, the gap controls; Space presses Lücke, Enter presses Lösungswörter."""
+    client = user()
+    page = editor(box("a", "text", WORDY), client=client)
     pick(page, "a")
-    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "false")
-    assert "rich" not in held(page, client)["a"]
+    page.get_by_label("Zeilenabstand").focus()
+    page.keyboard.press("Tab")
+    page.keyboard.press("Tab")
+    page.keyboard.press("Tab")
+    expect(panel(page, "Lücke")).to_be_focused()
+    page.keyboard.press("Space")
+    expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")
+    page.keyboard.press("Tab")
+    expect(panel(page, "Lücken gleich breit")).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(page.locator(".panel").get_by_label("n", exact=True)).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(panel(page, "Jedes n-te Wort")).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(panel(page, "Lösungswörter")).to_be_focused()
+    page.keyboard.press("Enter")
+    assert "bank" in held(page, client)["a"]
+
+
+def test_the_brush_carries_no_gap_gap_width_or_bank(editor):
+    """I6: the format painter gives no gap, width or solution words to another text."""
+    client = user()
+    page = editor(
+        box("a", "text", GAPPED), box("b", "text", {**TEXT, "text": "Maus"}, z=2), client=client
+    )
+    paint(page, "a", "b")
+    now = held(page, client)["b"]
+    assert not {"rich", "gapWidth", "bank"} & set(now)
+
+
+def test_a_copy_and_a_duplicate_keep_the_gaps_and_their_settings(editor):
+    """I6: copy and paste, and duplicate, keep the gaps, the width and the solution words."""
+    client = user()
+    page = editor(box("a", "text", GAPPED), client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block[data-id]")).to_have_count(2)
+    page.keyboard.press("Control+d")
+    expect(page.locator(".block[data-id]")).to_have_count(3)
+    values = list(held(page, client).values())
+    assert values == [values[0]] * 3
+    assert gapped(values[0]["rich"]) == ["Hallo"]
+    assert values[0]["gapWidth"] == 12 and values[0]["bank"] == 7

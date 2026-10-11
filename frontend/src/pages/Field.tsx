@@ -69,7 +69,7 @@ const docOf = (p: TextProps) =>
       schema.node(
         "paragraph",
         { list: para.list ?? null, level: para.level ?? 0 },
-        para.runs.filter((r) => r.text).map((r) => schema.text(r.text, [...(r.gap ? [schema.mark("gap")] : []), ...NAMES.filter((name) => fits(name, r[name])).map((name) => schema.mark(name, { v: r[name] }))])),
+        para.runs.filter((r) => r.text).map((r) => schema.text(r.text, [...(r.gap === true ? [schema.mark("gap")] : []), ...NAMES.filter((name) => fits(name, r[name])).map((name) => schema.mark(name, { v: r[name] }))])),
       ),
     ),
   );
