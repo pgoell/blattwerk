@@ -2,9 +2,13 @@
 for, and what the merge waits for. The tests read the files; nothing here runs a hook or a job.
 """
 
+import importlib.util
 import json
 import re
 from pathlib import Path
+
+import pytest
+from shards import split
 
 REPO = Path(__file__).resolve().parents[1]
 HOOKS = (REPO / ".config/lefthook.yaml").read_text()
@@ -107,3 +111,75 @@ def test_the_chromium_step_is_bounded_and_runs_no_apt():
     # A step that runs out leaves the tests their two minutes.
     (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", shards, re.M))
     assert limit + 2 < job
+
+
+IDS = [f"tests/test_x.py::test_{k}[{k} ä b]" for k in range(40)] + [
+    f"tests/test_y.py::test_{k}" for k in range(7)
+]
+SECONDS = {f"tests/test_x.py::test_{k}": 0.5 + k for k in range(0, 40, 2)}
+
+
+@pytest.mark.parametrize("n", [1, 6, 12])
+def test_a_split_puts_every_test_in_exactly_one_shard(n):
+    shards = split(IDS, SECONDS, n)
+    assert len(shards) == n
+    assert sorted(i for shard in shards for i in shard) == sorted(IDS)
+
+
+def test_a_split_weighs_the_shards_alike():
+    seconds = {f"tests/test_f.py::f{k}": k + 1.0 for k in range(30)}
+    ids = [f"tests/test_f.py::f{k}[{c}]" for k in range(30) for c in range(10)]
+    loads = [sum(seconds[i.split("[")[0]] for i in shard) for shard in split(ids, seconds, 12)]
+    assert max(loads) <= 1.05 * min(loads)
+
+
+def test_a_split_is_the_same_each_time_and_in_any_order():
+    assert split(IDS, SECONDS, 6) == split(list(reversed(IDS)), SECONDS, 6)
+
+
+def test_a_test_never_measured_weighs_the_median():
+    seconds = {"tests/t.py::a": 1.0, "tests/t.py::b": 5.0, "tests/t.py::c": 9.0}
+    ids = [*seconds, *(f"tests/t.py::u{k}" for k in range(6))]
+    # The median of the three is 5 s: the six unmeasured weigh that much each.
+    loads = [sum(seconds.get(i, 5.0) for i in shard) for shard in split(ids, seconds, 3)]
+    assert loads == [15.0, 15.0, 15.0]
+
+
+def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
+    for job in (part(CI, "shards"), part(CI, "webkit")):
+        assert "fail-fast: false" in job
+        (run,) = re.findall(r"run: mise run test\S* -- .*", job)
+        assert " -v" in run
+        assert "--durations=0" in run
+
+
+def test_webkit_runs_in_twelve_shards():
+    for job, name in (("shards", "Test shard"), ("webkit", "WebKit shard")):
+        text = part(CI, job)
+        (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
+        numbers = [int(k) for k in listed.split(",")]
+        assert numbers == list(range(1, len(numbers) + 1))
+        n = len(numbers)
+        if job == "webkit":
+            assert n == 12
+        assert f"name: {name} ${{{{ matrix.shard }}}}/{n}" in text
+        assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in text
+
+
+def test_the_shard_times_script_reads_the_durations_of_a_log():
+    spec = importlib.util.spec_from_file_location("shard_times", REPO / "scripts/shard-times.py")
+    assert spec and spec.loader
+    shard_times = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shard_times)
+    log = "\n".join(
+        [
+            "Test shard 1/6\tPytest\t2026-10-10T10:00:01Z 0.12s setup    tests/t.py::t_x[a b]",
+            "Test shard 1/6\tPytest\t2026-10-10T10:00:02Z 1.50s call     tests/t.py::t_x[a b]",
+            "Test shard 1/6\tPytest\t2026-10-10T10:00:03Z 0.30s teardown tests/t.py::t_x[a b]",
+            "Test shard 1/6\tPytest\t2026-10-10T10:00:04Z 2.00s call     tests/t.py::t_y",
+            "Test shard 1/6\tPytest\t2026-10-10T10:00:05Z ==== 2 passed in 4.00s ====",
+        ]
+    )
+    assert shard_times.read(log) == pytest.approx(
+        {"tests/t.py::t_x[a b]": 1.92, "tests/t.py::t_y": 2.0}
+    )

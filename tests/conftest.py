@@ -1,7 +1,11 @@
+import faulthandler
 import json
 import os
+import signal
 import threading
+import time
 from concurrent.futures import Future
+from pathlib import Path
 
 import anyio
 import pytest
@@ -9,6 +13,7 @@ from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect, sync_playwright
+from shards import split, times
 from ui import BROWSER, serving, sheet, user
 
 from blattwerk import auth, db
@@ -39,10 +44,10 @@ MEASURED = """() => {
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
-    """With SHARD=i/n, keeps every n-th test from the i-th on: CI runs the shards side by side.
+    """With SHARD=i/n, keeps the i-th of n shards: CI runs the shards side by side.
 
-    By place in the collection, so the slow files spread over all shards. Each xdist worker
-    collects the same list and reads the same variable, so all agree.
+    The shards split by measured time (tests/shards.py). Each xdist worker collects the same list
+    and reads the same variable, and the split is deterministic, so all agree.
     """
 
     for test in items:
@@ -69,8 +74,86 @@ def pytest_collection_modifyitems(config, items):
         return
     i, n = map(int, shard.split("/"))
     assert 1 <= i <= n, f"SHARD={shard}: want i/n with 1 <= i <= n"
-    config.hook.pytest_deselected(items=[t for k, t in enumerate(items) if k % n != i - 1])
-    items[:] = items[i - 1 :: n]
+    mine = set(split([t.nodeid for t in items], times(BROWSER), n)[i - 1])
+    config.hook.pytest_deselected(items=[t for t in items if t.nodeid not in mine])
+    items[:] = [t for t in items if t.nodeid in mine]
+
+
+# Seconds without a finished test before the run counts as hung. The slowest tests have 120 s of
+# their own (SLOW), and a report comes at each phase, so a run that is only slow never gets here.
+HANG_AFTER = float(os.environ.get("BLATTWERK_HANG", "180"))
+GUARD = None  # the Hang of the controller; None in a worker
+
+
+class Hang:
+    """Ends the run when no test has finished for HANG_AFTER seconds, and says where it sat."""
+
+    def __init__(self, err):
+        self.err = err  # the real stderr, as a file descriptor
+        self.timer = None
+        self.running = set()
+
+    def say(self, line):
+        os.write(self.err, f"{line}\n".encode())
+
+    def restart(self):
+        self.cancel()
+        self.timer = threading.Timer(HANG_AFTER, self.fire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer:
+            self.timer.cancel()
+
+    def fire(self):
+        self.say(
+            f"No test has finished for {HANG_AFTER:g} s: the run hangs. "
+            "The stacks of every process follow."
+        )
+        for node in sorted(self.running):
+            self.say(f"Started and not finished: {node}")
+        # The workers are the children of this process; each prints its stacks on SIGUSR1.
+        me = os.getpid()
+        children = Path(f"/proc/{me}/task/{me}/children")
+        pids = [int(pid) for pid in children.read_text().split()] if children.is_file() else []
+        for pid in pids:
+            os.kill(pid, signal.SIGUSR1)
+        time.sleep(2)
+        faulthandler.dump_traceback(file=self.err, all_threads=True)
+        # A worker that hangs never ends by itself, and would keep the pipes of the job open.
+        for pid in pids:
+            os.kill(pid, signal.SIGKILL)
+        os._exit(1)
+
+
+def pytest_configure(config):
+    """Each process prints its stacks on SIGUSR1, to the real stderr (capture moves fd 2)."""
+    global GUARD
+    err = os.dup(2)
+    faulthandler.register(signal.SIGUSR1, file=err, all_threads=True)
+    if not hasattr(config, "workerinput"):
+        GUARD = Hang(err)
+
+
+def pytest_unconfigure(config):
+    if GUARD:
+        GUARD.cancel()
+
+
+def pytest_runtest_logstart(nodeid, location):
+    if GUARD:
+        GUARD.running.add(nodeid)
+
+
+def pytest_runtest_logfinish(nodeid, location):
+    if GUARD:
+        GUARD.running.discard(nodeid)
+
+
+def pytest_runtest_logreport(report):
+    if GUARD:
+        GUARD.restart()
 
 
 def one_loop():
