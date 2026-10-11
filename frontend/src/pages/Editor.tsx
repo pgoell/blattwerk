@@ -87,7 +87,7 @@ import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
-import { ask, attach, discard, flush, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -1859,6 +1859,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
   // the server gives it. With no limit of time: a long sheet takes long to print.
   async function pdf(key: boolean) {
+    // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
+    const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
     await attempt("Das PDF konnte nicht erstellt werden.", async () => {
       await flush(file.id);
       await ask("/me");
@@ -1874,7 +1876,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       link.click();
       // After the browser has taken the file.
       setTimeout(() => URL.revokeObjectURL(link.href), 60000);
-    });
+    }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
   // A template stored or deleted with the session run out brings the login. A second press while one is on its way
