@@ -178,6 +178,11 @@ it("reads an emoji inside a word as part of the word, with its marks", () => {
   expect(shown("Fens😀")).toBe("Fens");
 });
 
+it("keeps a letter that is also a pictograph a letter", () => {
+  expect(words("ℹ Haus")).toEqual(["ℹ", "Haus"]);
+  expect(plain("aℹb")).toBe("aℹb");
+});
+
 it("keeps an emoji at a word's end out of the word", () => {
   expect(words("Fenster😀️ Maus")).toEqual(["Fenster", "Maus"]);
   expect(pieces("Fenster😀️").at(-1)).toEqual({ text: "😀️", syl: false });

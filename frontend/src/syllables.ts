@@ -17,7 +17,7 @@ const MARK = "­";
 const hyphenate = createHyphenator(patterns, { hyphenChar: MARK, minWordLength: 1 }) as (word: string) => string;
 // Hidden: a soft hyphen, a zero width joiner, and an emoji (a flag's letters too) with the variation selector or skin tone after it. A word
 // holds them between two of its letters, and a reader sees none of them as a letter.
-const HIDE = String.raw`(?:[­‍]|[\p{Extended_Pictographic}\p{Regional_Indicator}][️\p{Emoji_Modifier}]*)`;
+const HIDE = String.raw`(?:[­‍]|(?!\p{L})[\p{Extended_Pictographic}\p{Regional_Indicator}][️\p{Emoji_Modifier}]*)`;
 // A run of letters, and the marks typed after them. It starts with a letter, so a variation selector after an emoji
 // starts no word.
 const RUN = String.raw`\p{L}[\p{L}\p{M}]*`;
