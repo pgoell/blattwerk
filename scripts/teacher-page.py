@@ -16,6 +16,11 @@
     screenshot [NAME]      writes the window to NAME.png, `screen` if none
     pdf [TARGET]           clicks the bar's `PDF`, or `Lösungen`, and saves what comes down; the
                            focus stays where it was
+    expire                 ends the window's sign-in, as if the session had run out; the page stays
+    box yes VERB [ARGS]    runs VERB and answers the box it meets with yes; `box no` answers no
+    tidy                   deletes each TR*.pdf in ~/Downloads and names it; needs no window
+
+A box that a verb meets is answered no unless `box yes` asks yes, and the output names its words.
 
 A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a name: the words
 on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
@@ -34,6 +39,7 @@ import json
 import os
 import posixpath
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -253,6 +259,40 @@ def pdf(page: Page, target: str = "PDF") -> str:
     return str(path)
 
 
+def expire(page: Page) -> str:
+    """Ends the window's sign-in, as if its session had run out. The page stays as it is."""
+    page.context.clear_cookies()
+    return shown(page, "the session has run out: the next action meets Anmelden")
+
+
+def answered(page: Page, yes: bool) -> list[tuple[str, str]]:
+    """Answers each box that opens on the page, yes or no. Returns what each asked: its kind and
+    its words. The holder leaves the boxes to this, so only one client answers them.
+    """
+    asked: list[tuple[str, str]] = []
+
+    def answer(dialog) -> None:
+        asked.append((dialog.type, dialog.message))
+        if yes:
+            dialog.accept()
+        else:
+            dialog.dismiss()
+
+    page.on("dialog", answer)
+    return asked
+
+
+def tidy() -> str:
+    """Deletes each TR*.pdf directly in the downloads folder, and names each one it deleted."""
+    downloads = Path(os.environ.get("TEACHER_PAGE_DOWNLOADS", Path.home() / "Downloads"))
+    found = sorted(path for path in downloads.glob("TR*.pdf") if path.is_file())
+    for path in found:
+        path.unlink()
+    if not found:
+        return "nothing to delete"
+    return "\n".join(f"deleted {path.name}" for path in found)
+
+
 VERBS: dict[str, Callable[..., str]] = {
     "open": go,
     "click": click,
@@ -268,6 +308,7 @@ VERBS: dict[str, Callable[..., str]] = {
     "resize": resize,
     "screenshot": screenshot,
     "pdf": pdf,
+    "expire": expire,
 }
 
 
@@ -286,6 +327,8 @@ def hold() -> None:
             accept_downloads=True,
             args=["--remote-debugging-port=0"],
         )
+        # A box waits for the verb that meets it: the holder answers none.
+        context.on("dialog", lambda dialog: None)
         context.pages[0].goto(BASE)
         # Chromium picked a free port and wrote it down.
         port = (profile / "DevToolsActivePort").read_text().split()[0]
@@ -351,6 +394,29 @@ def joined():
         yield browser.contexts[0].pages[0]
 
 
+def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
+    """Runs a verb of the window. Each box it meets is answered, and the output names it."""
+    if name not in VERBS:
+        known = ", ".join(["start", "stop", *VERBS, "tidy", "box"])
+        raise Refused(f'no verb "{name}": there are {known}')
+    try:
+        inspect.signature(VERBS[name]).bind(None, *args)
+    except TypeError:
+        takes = " ".join(list(inspect.signature(VERBS[name]).parameters)[1:]).upper()
+        raise Refused(f"{name} takes: {takes}") from None
+    with joined() as page:
+        asked = answered(page, yes)
+        said = VERBS[name](page, *args)
+    lines = []
+    for kind, text in asked:
+        word = "yes" if yes else "no"
+        line = f'A box asked: "{text}" ({kind}). Answered {word}.'
+        if not yes:
+            line += f" To say yes: box yes {shlex.join([name, *args])}"
+        lines.append(line)
+    return "\n".join([said, *lines])
+
+
 def main(name: str = "", *args: str) -> str:
     if name == "hold":
         hold()
@@ -359,16 +425,13 @@ def main(name: str = "", *args: str) -> str:
         return start()
     if name == "stop":
         return "stopped" if stop() else "no page was running"
-    if name not in VERBS:
-        known = ", ".join(["start", "stop", *VERBS])
-        raise Refused(f'no verb "{name}": there are {known}')
-    try:
-        inspect.signature(VERBS[name]).bind(None, *args)
-    except TypeError:
-        takes = " ".join(list(inspect.signature(VERBS[name]).parameters)[1:]).upper()
-        raise Refused(f"{name} takes: {takes}") from None
-    with joined() as page:
-        return VERBS[name](page, *args)
+    if name == "tidy":
+        return tidy()
+    if name == "box":
+        if len(args) < 2 or args[0] not in ("yes", "no"):
+            raise Refused('box takes yes or no, then a verb: box yes click "Löschen"')
+        return verb(args[1], args[2:], args[0] == "yes")
+    return verb(name, args, False)
 
 
 if __name__ == "__main__":

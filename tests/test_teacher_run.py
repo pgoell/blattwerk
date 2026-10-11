@@ -110,7 +110,7 @@ def test_a9_the_brief_names_what_the_issue_asks():
     # The time box of the last part, and where its pull requests come from.
     prs = section(PRS)
     assert "Stop after 25 minutes" in prs
-    assert "gh pr list -R pgoell/blattwerk --state merged -L 5" in prs
+    assert "gh pr list -R pgoell/blattwerk --state merged -L 20" in prs
     # The boxes add up: 50 minutes in all, 25 of them here, and no word of the old 15.
     assert (
         "Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, "
@@ -179,7 +179,8 @@ def test_every_verb_of_the_brief_is_a_verb_of_the_tool_and_has_a_test():
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
     # `start` and `stop` open and end the window; the tool keeps them apart from the rest.
-    verbs = {"start", "stop", *tool.VERBS}
+    # `tidy` and `box` are no verb of a window: `main` takes them beside `start` and `stop`.
+    verbs = {"start", "stop", "tidy", "box", *tool.VERBS}
     listed, named = brief_verbs()
     assert len(listed) == len(set(listed))
     assert named - verbs == set()
@@ -187,6 +188,8 @@ def test_every_verb_of_the_brief_is_a_verb_of_the_tool_and_has_a_test():
     tests = (REPO / "tests/test_teacher_page.py").read_text()
     for verb in tool.VERBS:
         assert re.search(rf"^def test_{verb.replace('-', '_')}_", tests, re.M), verb
+    assert re.search(r"^def test_tidy_", tests, re.M)
+    assert re.search(r"^def test_(a_)?box_", tests, re.M)
 
 
 def test_the_brief_finds_its_verbs_where_it_writes_them():
@@ -224,7 +227,8 @@ def test_t1_no_command_of_the_brief_chains_another():
     # The matcher sees a chain: the line the brief had.
     assert re.search(r";|&&|\|", "teacher:page -- stop; rm -rf /tmp/teacher-run && mkdir x")
     start = section("## Start the stage")
-    for line in ("rm -rf /tmp/teacher-run", "mkdir /tmp/teacher-run", "rm -f ~/Downloads/TR*.pdf"):
+    tidy = f"{MISE} teacher:page -- tidy"
+    for line in ("rm -rf /tmp/teacher-run", "mkdir /tmp/teacher-run", tidy):
         assert f"```sh\n   {line}\n   ```" in start, line
     assert "Run each line as a command of its own" in start
 
@@ -299,10 +303,18 @@ def test_t9_the_brief_says_that_pdf_leaves_the_focus_where_it_was():
 
 def test_the_filter_trims_a_long_body():
     # The first run's 39 KB were cut off; the filter leaves each body its first 2500 characters.
-    command = re.search(r"gh pr list [^\n]* -L 5 [^\n]*--jq '(.+)'$", section(PRS), re.M)
+    command = re.search(r"gh pr list [^\n]* -L 20 [^\n]*--jq '(.+)'$", section(PRS), re.M)
     assert command
     url = "https://github.com/pgoell/blattwerk/pull/7"
-    prs = [{"number": 7, "title": "fix: a thing", "url": url, "body": "ä" * 10000}]
+    prs = [
+        {
+            "number": 7,
+            "title": "fix: a thing",
+            "url": url,
+            "body": "ä" * 10000,
+            "mergedAt": "2026-10-10T10:00:00Z",
+        }
+    ]
     out = subprocess.run(
         ["jq", "-r", command.group(1)],
         input=json.dumps(prs),
@@ -366,3 +378,77 @@ def test_the_brief_waits_for_a_sheet_that_loads():
     blank = (REPO / "frontend/src/components/Blank.tsx").read_text()
     assert '"Lädt"' in blank
     assert "Gespeichert" not in blank and "Neues Blatt" not in blank
+
+
+# What issue #366 found in the brief's third run, T1 to T9.
+
+
+def test_t1_the_brief_clears_downloads_with_the_verb_tidy():
+    # The session's permission check refused `rm -f ~/Downloads/TR*.pdf`.
+    assert "rm -f ~/Downloads" not in BRIEF
+    assert f"{MISE} teacher:page -- tidy" in section("## Start the stage")
+    assert f"{MISE} teacher:page -- tidy" in section("## Clean up")
+
+
+def test_t2_both_pr_lists_take_20_and_keep_five_by_merge_time():
+    prs = section(PRS)
+    commands = [line.strip() for line in prs.splitlines() if line.strip().startswith("gh pr list")]
+    assert len(commands) == 2
+    for command in commands:
+        assert "-L 20 --json number,title,body,url,mergedAt" in command
+        assert "--jq 'sort_by(.mergedAt) | reverse | " in command
+    assert ".[0:5][] |" in commands[0]
+    assert ".[5:10][] |" in commands[1]
+    assert "-L 5 " not in prs
+
+
+def test_t3_the_title_is_set_by_select_all_and_type_not_by_fill():
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if "name in `Titel`" in line)
+    assert '`click "Titel"`, `key Control+a`, `type "' in bullet
+    assert "`press_key` Control+A, `type_text` the name, `press_key` Enter" in bullet
+    assert "Do not `fill` it" in bullet
+    assert "`fill` the field `Titel`" not in BRIEF and "`fill` `Titel`" not in BRIEF
+
+
+def test_t4_the_brief_answers_a_box_with_box_yes_or_box_no():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `box "))
+    assert "`box yes VERB [ARGS]`" in listed and "`box no VERB [ARGS]`" in listed
+    assert "A verb without `box` answers no." in listed
+    assert "löschen" in listed and "`open`" in listed
+
+
+def test_t5_the_brief_does_not_say_a_chained_line_is_refused():
+    start = section("## Start the stage")
+    assert "refused" not in start
+    assert "Run each line as a command of its own." in start
+
+
+def test_t6_the_brief_lists_expire_and_says_when_to_use_it():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `expire`"))
+    assert "the page stays as it is" in listed
+    line = "with the session run out: `expire`, then go on working; the MCP page stays signed in."
+    assert line in section(PRS)
+
+
+def test_t7_tidy_runs_after_the_stage_is_down_and_once_more_at_the_end():
+    clean = section("## Clean up")
+    assert clean.index(f"{MISE} stage:down") < clean.index(f"{MISE} teacher:page -- tidy")
+    assert "very last command before the report" in clean
+    report = section("## Report")
+    assert re.search(r"^8\. What the last `tidy` deleted, if anything\.$", report, re.M)
+
+
+def test_t8_the_brief_says_that_wait_for_answers_with_the_snapshot():
+    how = next(line for line in section("## How the editor works").splitlines() if "`Lädt`" in line)
+    assert "The answer of `wait_for` is a snapshot of the whole page" in how
+    assert "take no `take_snapshot` right after it" in how
+
+
+def test_t9_the_brief_says_to_start_at_once_and_ask_nobody():
+    # The order comes right after the first paragraph, before the bar and the time.
+    order = BRIEF.split("\n\n")[2]
+    assert "whoever pasted it" in order
+    assert "Start at once." in order
+    assert "Ask nobody for a go" in order
+    assert "end with one of the two last lines" in order
