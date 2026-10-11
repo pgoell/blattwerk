@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 import { useLocation } from "react-router";
 
 // One rule for every action that needs the server: where it cannot be done, the app stays as it is and a line
@@ -56,7 +56,9 @@ export const clear = () => show([]);
 export function Faults() {
   const list = useSyncExternalStore(listen, () => faults);
   const { pathname } = useLocation();
-  useEffect(() => () => show([]), [pathname]);
+  // With the page, not after it: a plain effect clears some time after the new page shows, and took along the
+  // line of a failure that came in between (#383).
+  useLayoutEffect(() => () => show([]), [pathname]);
   return list.map((f) => (
     <p key={f.what} className="notice fault" role="alert">
       {f.text}
