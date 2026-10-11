@@ -9,7 +9,6 @@ from pathlib import Path
 
 import anyio
 import pytest
-import pytest_timeout
 from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
@@ -168,8 +167,10 @@ def pytest_exception_interact(node):
     stack dump does the same. So a teardown that hung after a failure had no end, and the shard
     sat silent until the job's limit (#391). No debugger opens here: the limit starts anew.
     """
-    if isinstance(node, pytest.Item):
-        settings = pytest_timeout._get_item_settings(node)
+    # Asked for by name: the WebKit venv of a laptop may be older than the plugin (test-webkit.sh).
+    limits = node.config.pluginmanager.getplugin("timeout")
+    if limits and isinstance(node, pytest.Item):
+        settings = limits._get_item_settings(node)
         if settings.timeout:
             node.config.pluginmanager.hook.pytest_timeout_set_timer(item=node, settings=settings)
 
