@@ -8,6 +8,7 @@ import { mixed, word } from "../scramble";
 import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
+import { filled, room } from "../words";
 import { SYMBOLS } from "../symbols";
 
 type Props = {
@@ -174,17 +175,6 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
     style("ruling", { kind }, "ruling");
     place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row))]), "ruling");
   };
-  // How far a point can go until it meets a margin, moving `by` each step. No limit where it does not move.
-  const room = (at: number, by: number, max: number) => (Math.abs(by) < 1e-9 ? Infinity : ((by > 0 ? max - MARGIN : MARGIN) - at) / by);
-  // A ruling grows down its own axis, which a turn points anywhere on the page, until a corner of its far edge
-  // would cross the margin it grows towards. Whole rows, and one at least.
-  const fill = (b: RulingBlock) => {
-    const [c, s] = dir(b);
-    // The corner the block starts at; the other end of that edge lies its width along.
-    const [x, y] = [b.x + (b.w - b.w * c + b.h * s) / 2, b.y + (b.h - b.w * s - b.h * c) / 2];
-    const most = Math.min(room(x, -s, W), room(x + b.w * c, -s, W), room(y, c, H), room(y + b.w * s, c, H));
-    return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
-  };
   // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
   // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
   // less room there than it is high.
@@ -340,7 +330,7 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
           </label>
           <div className="row">
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
-            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
+            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, filled(b, W, H)]))}>Bis Seitenende</button>
           </div>
           <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
           {RULINGS[rulings[0].props.kind].at && (
