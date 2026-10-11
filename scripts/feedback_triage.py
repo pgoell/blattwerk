@@ -49,7 +49,7 @@ Answer with one JSON object and nothing else:
 - body: English, Markdown, in your own words. Never quote the teacher and never translate word by word. Say what the teacher wanted, what happened instead, and the steps to repeat it where the send gives them.
 - issue: the number of the open issue on the very same point, or null. When in doubt, null.
 
-The issue will be public. Never write: a person's name, an e-mail address, a number or id of a user or of a sheet, a file name, a link, the name of a child, a class (such as 3b), a school or a place. Never copy out anything written on a sheet or on the screen's sheet in a picture: no title, header, name or exercise text. Say what kind of thing it is instead ("a text box in the sheet's header"). Names of the app's own buttons and menus are fine. The reader of the issue cannot see the pictures, so do not call them attached.
+The issue will be public. Never write: a person's name, an e-mail address, a number or id of a user or of a sheet, a file name, a link, the name of a child, a class (such as 3b), a school or a place. Never copy out anything written on a sheet or on the screen's sheet in a picture: no title, header, name or exercise text. Say what kind of thing it is instead ("a text box in the sheet's header"). Use English words throughout and do not repeat a German word of the teacher's text: plain code refuses an issue that repeats a capitalised word of it. Labels of the app's own buttons and menus that you see on a screen picture are fine. Write nothing about yourself, this machine or its owner. The reader of the issue cannot see the pictures, so do not call them attached.
 If you cannot state the point without such words, answer with the verdict "question", so a person reads the send."""
 
 
@@ -124,9 +124,11 @@ def ask(model: str, prompt: str, images: list[dict]) -> object:
         "--tools", "", "--strict-mcp-config", "--no-session-persistence",
         "--setting-sources", "", "--system-prompt", SYSTEM,
     ]  # fmt: skip
+    # claude tells the model the folder it stands in, and a home folder names its owner.
     done = subprocess.run(
-        command, input=json.dumps(message) + "\n", capture_output=True, text=True, timeout=600
-    )
+        command, input=json.dumps(message) + "\n", capture_output=True, text=True, timeout=600,
+        cwd="/",
+    )  # fmt: skip
     events = []
     for line in done.stdout.splitlines():
         try:

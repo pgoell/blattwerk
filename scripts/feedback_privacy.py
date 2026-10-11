@@ -15,6 +15,11 @@ PROVIDERS = set(
     freenet.de live.de live.com aol.com proton.me protonmail.com""".split()  # noqa: SIM905
 )
 
+# English sentence starts: a send may be English, so these are no names.
+SAID = set(
+    """The And But For Not You Why How Can When What This That There With""".split()  # noqa: SIM905
+)
+
 # (?<=_) lets "user_id=3" hit, since \b does not sit between "_" and "i".
 ID = re.compile(
     r"(?:\b|(?<=_))(user\w*|nutzer\w*|benutzer\w*|konto\w*|account\w*|teacher\w*|lehrer\w*|uid|id)"
@@ -55,10 +60,17 @@ def _fold(s: str) -> str:
     return "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
 
 
-def _whole_word(piece: str, text: str) -> bool:
+def _whole_word(piece: str, text: str, flags: int = re.IGNORECASE) -> bool:
     # Not glued to other letters: "kraus" hits "kraus98", not "krause".
     pattern = rf"(?<![^\W\d_]){re.escape(piece)}(?![^\W\d_])"
-    return re.search(pattern, text, re.IGNORECASE) is not None
+    return re.search(pattern, text, flags) is not None
+
+
+def _send_word(source: str, text: str) -> bool:
+    # A capitalised word of the send (a name, a noun) kept in the same spelling.
+    # Case-sensitive: "Text" in the send is no hit for "text" in English.
+    words = set(re.findall(r"(?<![^\W\d_])[A-ZÄÖÜ][a-zäöüß]{2,}(?![^\W\d_])", source)) - SAID
+    return any(_whole_word(w, text, 0) for w in words)
 
 
 def _pieces(s: str, min_len: int) -> list[str]:
@@ -121,4 +133,6 @@ def check(text: str, emails: list[str], names: list[str], source: str) -> list[s
         found.append("school name")
     if _copied(source, text):
         found.append("copied words")
+    if _send_word(source, text):
+        found.append("word from the send")
     return found

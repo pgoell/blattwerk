@@ -23,6 +23,7 @@ EMAILS = [
 ]
 NAMES = ["2026-10-08T06-50-36-363466", "feedback.json", "screenshot-1.jpg", "/blatt/41"]
 SOURCE = "die plus und minus tasten ändern den zoom immer um zwei prozent"
+SEND = "Lena findet Aufgabe 3 zu schwer, und Tim aus der Klasse auch. Der Text passt nicht ins PDF."
 
 KINDS = [
     "user email",
@@ -124,6 +125,33 @@ def test_hit(reason, text):
 @pytest.mark.parametrize("text", CLEAN)
 def test_clean(text):
     assert check(text, EMAILS, NAMES, SOURCE) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Lena's view: Task 3 is too hard",
+        "Tim cannot solve it",
+        "the Aufgabe is too hard",
+    ],
+)
+def test_word_from_send_hit(text):
+    assert "word from the send" in check(text, EMAILS, NAMES, SEND)
+
+
+@pytest.mark.parametrize(
+    "text, source",
+    [
+        (
+            "A pupil finds task 3 too hard, and so does a second one. "
+            "The text does not fit into the PDF.",
+            SEND,
+        ),
+        ("The task is too hard", "The task is simple and fine."),
+    ],
+)
+def test_word_from_send_clean(text, source):
+    assert check(text, EMAILS, NAMES, source) == []
 
 
 def test_reason_names_the_kind_only():

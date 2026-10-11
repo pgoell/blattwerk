@@ -580,20 +580,18 @@ def test_cron_runs_the_code_of_origin_master(world, tmp_path):
     _git(repo, "update-ref", "refs/remotes/origin/master", "HEAD")
     # The working copy is not what origin/master holds: the cron job must run the committed one.
     (repo / "scripts" / "feedback_triage.py").write_text("raise SystemExit(9)\n")
+    (repo / "scripts" / "feedback-cron.sh").write_text("exit 9\n")
     world.send(1, STAMP, text="bugword")
     world.answer({"*": verdict()})
+    # The crontab's own line: the shell file comes from origin/master too.
+    line = 'git show origin/master:scripts/feedback-cron.sh | bash -s -- "$@"'
     result = subprocess.run(
-        [
-            str(repo / "scripts" / "feedback-cron.sh"),
-            "--data",
-            str(world.data),
-            "--state",
-            str(world.state),
-        ],
+        ["bash", "-c", line, "cron", "--data", str(world.data), "--state", str(world.state)],
         capture_output=True,
         text=True,
         timeout=60,
         env=world.env(),
+        cwd=repo,
     )
     assert result.returncode == 0, result.stderr
     assert [c[:2] for c in world.writes()] == [["issue", "create"]]
