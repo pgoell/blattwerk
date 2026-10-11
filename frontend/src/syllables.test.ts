@@ -169,7 +169,7 @@ it("reads a soft hyphen inside a word as part of the word, wherever it lies", ()
 });
 
 it("reads an emoji inside a word as part of the word, with its marks", () => {
-  for (const word of ["Fen😀ster", "Fen😀️ster", "Fen👨‍👩ster", "Fen👍🏽ster"]) {
+  for (const word of ["Fen😀ster", "Fen😀️ster", "Fen👨‍👩ster", "Fen👍🏽ster", "Fen🇩🇪ster"]) {
     expect(keyOf(word), word).toBe("fenster");
     expect(pieces(word).filter((p) => p.syl).map((p) => plain(p.text)), word).toEqual(["Fens", "ter"]);
     expect(words(word), word).toEqual(["Fenster"]);
