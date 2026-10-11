@@ -38,8 +38,10 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // the turn runs on from word to word through the block's text, where else each word starts with the first.
 // `gapWidth` makes every gap of the text at least so many mm wide, and `bank` adds a box with the hidden words under
 // the text (Lösungswörter): it is the seed their order is shuffled by.
+// `lines` numbers the lines of the text as they break, left of the box (Zeilennummern): every line with 1, every fifth
+// with 5. Absent is off.
 // Sheets saved before have none of these.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -397,6 +399,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
 // Every gap of a block is at least this many mm wide: a finite number above 0, at most 200. Else none.
 const gapWidth = (mm: unknown) => (typeof mm === "number" && Number.isFinite(mm) && mm > 0 ? Math.min(mm, 200) : 0);
+// The step of a text's line numbers: a whole number from 1 to 100. A sheet may come from anywhere: else none.
+export const stepOf = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : 0);
 // The width in px of a block's gaps, for the CSS of `.even .gap`.
 const gapVar = (mm: number, k: number) => (mm ? ({ "--gap": `${mm * k}px` } as CSSProperties) : {});
 // The box of the solution words under a text: each word once, in the seeded order of its block.
@@ -725,6 +729,111 @@ export const bowed = () =>
     requestAnimationFrame(look);
   });
 
+// The numbers are 0.7 em of their text: small, so they stay out of the way of the text.
+const NUMBER_EM = 0.7;
+// The line numbers of a text, beside `svg`, which is the block's own. The lines are counted as they break, over all
+// the paragraphs of the text: an empty paragraph is no line. A number stands on every `step`th line that lies in
+// the box; a line cut off below the box has none. Measured like the bows, in the block's own pixels.
+function numbering(svg: SVGSVGElement, block: TextBlock) {
+  const host = svg.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
+  const step = stepOf(block.props.lines);
+  const turn = svg.parentElement!.style.transform;
+  svg.parentElement!.style.transform = "none";
+  const { left, top } = svg.getBoundingClientRect();
+  const box = host.getBoundingClientRect();
+  const scale = box.width / host.offsetWidth;
+  const em = parseFloat(getComputedStyle(host).fontSize);
+  const base = FONTS[block.props.font ?? "andika"][2];
+  const shown: SVGTextElement[] = [];
+  let count = 0;
+  for (const p of scale ? host.querySelectorAll("p") : [])
+    if (!p.querySelector("p")) {
+      const nodes: Text[] = [];
+      const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      while (walk.nextNode()) if (walk.currentNode.parentElement!.tagName !== "TEXTAREA") nodes.push(walk.currentNode as Text);
+      if (nodes.map((node) => node.data).join("") === "") continue;
+      // A line is a row of rects that the text's nodes lie in, as the bows cluster their syllables.
+      const rows: { top: number; bottom: number }[] = [];
+      for (const node of nodes) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.right <= rect.left) continue;
+          const middle = (rect.top + rect.bottom) / 2;
+          if (!rows.some((row) => middle > row.top && middle < row.bottom)) rows.push({ top: rect.top, bottom: rect.bottom });
+        }
+      }
+      rows.sort((a, b) => a.top - b.top);
+      for (const row of rows) {
+        count++;
+        const middle = (row.top + row.bottom) / 2;
+        if (count % step || middle <= box.top || middle >= box.bottom) continue;
+        const text = document.createElementNS(SVG, "text");
+        text.setAttribute("class", "ln");
+        text.dataset.line = String(count);
+        text.setAttribute("text-anchor", "end");
+        // Two mm left of the box, which is laid out at K pixels a mm.
+        text.setAttribute("x", `${-2 * K}`);
+        text.setAttribute("y", `${((middle - top) / scale + base * em).toFixed(2)}`);
+        text.setAttribute("font-size", `${(NUMBER_EM * em).toFixed(2)}`);
+        text.setAttribute("font-family", "Andika");
+        text.setAttribute("fill", GREYS[1]);
+        text.textContent = String(count);
+        shown.push(text);
+      }
+    }
+  svg.parentElement!.style.transform = turn;
+  svg.replaceChildren(...shown);
+  svg.classList.remove("unsplit");
+}
+// A change inside the bows is no change of the letters: the bows are redrawn inside the frame and move none.
+const inBows = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest(".bows");
+// The line numbers of a text that asks for them, drawn beside its box as the bows are. `unsplit` stands while they
+// are not those of the text shown, so the PDF waits for them.
+export function Numbers({ block }: { block: TextBlock; k: number }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const tools = useRef({ draw: () => {}, seen: () => {} });
+  const size = useRef([0, 0]);
+  useLayoutEffect(() => {
+    const own = svg.current!;
+    const host = () => own.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
+    let frame = 0;
+    // One measure a frame, however much changed.
+    const later = () => {
+      own.classList.add("unsplit");
+      frame ||= requestAnimationFrame(() => tools.current.draw());
+    };
+    const resized = new ResizeObserver(() => (host().offsetWidth !== size.current[0] || host().offsetHeight !== size.current[1]) && later());
+    resized.observe(host());
+    const changed = new MutationObserver((records) => records.some((record) => !inBows(record.target)) && later());
+    changed.observe(host(), { characterData: true, childList: true, subtree: true });
+    document.fonts.addEventListener("loadingdone", later);
+    // What React just wrote into the text is drawn for at once, so no frame shows old numbers and none measures twice.
+    tools.current.seen = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      changed.takeRecords();
+    };
+    return () => {
+      cancelAnimationFrame(frame);
+      resized.disconnect();
+      changed.disconnect();
+      document.fonts.removeEventListener("loadingdone", later);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    tools.current.draw = () => {
+      tools.current.seen();
+      const host = svg.current!.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
+      size.current = [host.offsetWidth, host.offsetHeight];
+      numbering(svg.current!, block);
+    };
+    svg.current!.classList.add("unsplit");
+    tools.current.draw();
+  }, [block.props, block.w, block.h, block.angle]);
+  return <svg ref={svg} className="numbers unsplit" aria-hidden />;
+}
+
 // The runs of a paragraph in groups: consecutive gap runs share one group, every other run has one of its own.
 const runGroups = (runs: Run[]) =>
   runs.reduce<Run[][]>((all, r) => {
@@ -991,8 +1100,10 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
 export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
   if (!block.mark) return null;
   const style = textStyle(boxed(block) ?? { text: "", size: 14, align: "left" }, k);
+  // The line numbers stand between the mark and the box: the mark moves left of their column.
+  const column = block.type === "text" && stepOf(block.props.lines) > 0 ? `calc(.4em + ${(2 + 1.6 * NUMBER_EM * block.props.size * PT) * k}px)` : undefined;
   return (
-    <b className="mark" style={{ ...style, textDecoration: "none", paddingTop: block.type === "text" ? inset(block.props, false)[0] * k : 0, translate: isLine(block) ? "0 -50%" : undefined }}>
+    <b className="mark" style={{ ...style, textDecoration: "none", paddingTop: block.type === "text" ? inset(block.props, false)[0] * k : 0, paddingRight: column, translate: isLine(block) ? "0 -50%" : undefined }}>
       {n ? <Count mark={block.mark} n={n} /> : <img src={symbol(block.mark)} alt="" />}
     </b>
   );
@@ -1010,6 +1121,7 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
         {all.pages[page].blocks.map((b) => (
           <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />
+            {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} k={K} />}
             <Mark block={b} k={K} n={ns.get(b.id)} />
           </div>
         ))}
