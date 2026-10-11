@@ -1105,7 +1105,17 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
       const pages = next.pages.map((p, i) => {
         const [w, h] = sizeOf(next, i);
         if (w === sizeOf(doc, i)[0]) return p;
-        return { ...p, blocks: p.blocks.map((b) => ({ ...b, x: Math.max(0, Math.min(b.x, w - b.w)), y: Math.max(0, Math.min(b.y, h - b.h)) })) };
+        // As PowerPoint: a group comes back as one, by its outermost, so its blocks keep their places in it, and a
+        // turned block counts by its outline. Left and top win where it is larger than the page. What lies on the
+        // page stays as it is: a block on its side has an outline a hair off its hundredths.
+        const unit = (b: Block) => b.group?.[0] ?? b.id;
+        const back = (at: number, size: number, max: number) => Math.round((Math.max(0, Math.min(at, max - size)) - at) * 100) / 100;
+        const blocks = p.blocks.map((b) => {
+          const all = bounds(p.blocks.filter((o) => unit(o) === unit(b)).map(outline));
+          const [dx, dy] = [back(all.x, all.w, w), back(all.y, all.h, h)];
+          return dx || dy ? { ...b, x: Math.round((b.x + dx) * 100) / 100, y: Math.round((b.y + dy) * 100) / 100 } : b;
+        });
+        return { ...p, blocks };
       });
       return { ...next, pages };
     });
