@@ -14,6 +14,7 @@ import asyncio
 
 import pytest
 from anyio.from_thread import start_blocking_portal
+from playwright.sync_api import sync_playwright
 
 
 async def deaf():
@@ -33,6 +34,12 @@ def test_hangs():
         portal.call(leave_a_deaf_task)
 
 
+# The hang of #344: inside a call of the browser.
+def test_hangs_in_the_browser():
+    with sync_playwright() as p:
+        p.chromium.launch().new_page().wait_for_timeout(10**9)
+
+
 @pytest.mark.parametrize("n", range(3))
 def test_passes(n):
     pass
@@ -44,14 +51,22 @@ def test_a_test_that_hangs_fails_alone_by_its_name_and_the_run_goes_on(tmp_path)
     # CI's shard and the WebKit lane are not the child's.
     drop = ("SHARD", "BLATTWERK_", "PYTEST_")
     env = {k: v for k, v in os.environ.items() if not k.startswith(drop)}
-    # The repo's own config, with a short limit: the method is the config's. Two workers, as CI
-    # has several: each takes two tests at the start, so one test follows the hang in its worker.
-    cmd = [sys.executable, "-m", "pytest", "-c", "pyproject.toml", "-n", "2", "-o", "timeout=2"]
-    res = subprocess.run(
-        [*cmd, str(tmp_path)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60
-    )
-    out = res.stdout + res.stderr
-    assert "timeout method: signal" in out, out
-    assert re.search(r"FAILED .*::test_hangs - Failed: Timeout", out), out
-    assert "1 failed, 3 passed" in out, out
-    assert res.returncode == 1, out
+    cmd = [sys.executable, "-m", "pytest", "-c", "pyproject.toml", "-n", "2", str(tmp_path)]
+
+    def run(*more):
+        res = subprocess.run(
+            [*cmd, *more], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60
+        )
+        return res.returncode, res.stdout + res.stderr
+
+    # The repo's own config gives each test a minute.
+    _, out = run("--collect-only")
+    assert "timeout: 60.0s" in out, out
+    # With a short limit: the method is the config's. Two workers, as CI has several.
+    code, out = run("-o", "timeout=3")
+    assert "timeout method: thread" in out, out
+    for name in ("test_hangs", "test_hangs_in_the_browser"):
+        assert re.search(rf"crashed while running '[^']*::{name}'", out), out
+        assert f"FAILED test_hangs.py::{name} " in out, out
+    assert "2 failed, 3 passed" in out, out
+    assert code == 1, out

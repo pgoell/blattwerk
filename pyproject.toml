@@ -37,12 +37,14 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-n auto"
-# A test that hangs fails alone and by its name, and the run goes on (#340). The slowest test
-# takes 40 s on CI. By signal: the thread method would end the whole worker.
-timeout = 90
-timeout_method = "signal"
-# A test that hangs says where after two minutes, in the log: CI ends a job that hangs with no word.
-faulthandler_timeout = 120
+# A test that hangs fails alone and by its name within a minute, and the run goes on (#340). The
+# few tests that take over 30 s on CI carry a longer limit of their own. By thread: the worker of
+# the hung test ends, xdist names the test and starts another worker. A signal fails the test and
+# keeps the worker, but one that fires inside a Playwright call leaves the worker spinning (#344).
+timeout = 60
+timeout_method = "thread"
+# The worker that ends takes its stacks along, so a test that hangs says where shortly before.
+faulthandler_timeout = 50
 markers = [
   "webkit_xfail(issue, why): the test fails in WebKit for the reason the issue tells",
   "native: runs headed under xvfb (mise run test:native), with the mouse and the keys only",

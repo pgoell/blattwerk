@@ -1293,7 +1293,7 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
     const w = round(Math.min(100, (100 * width) / height));
     return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
   }
-  // Not where the session ran out: the login shows then, and the picture is added again after it.
+  // Not where the session ran out: the login shows then, and the teacher adds the picture again after it.
   const refuse = (why?: unknown[]) => why?.some((e) => (e as Error | undefined)?.message === "401") || alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
   async function upload(file?: File) {
     if (!file) return;
