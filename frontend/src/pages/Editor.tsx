@@ -79,16 +79,17 @@ import Selecto from "react-selecto";
 import { Link, useParams } from "react-router";
 import { api, post, type User } from "../api";
 import { DRAWERS, opening } from "../components/Blank";
+import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attach, download, flush, open, overwrite, refused, reset, set, useSaves } from "../saves";
+import { attach, download, flush, get, open, overwrite, refused, reset, set, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
+import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -201,12 +202,18 @@ const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MAR
 const Thumb = memo(Paper);
 
 // `wait` is the loading page, which the app draws while this script loads too. `first` is the sheet as the app
-// asked for it meanwhile, or null where it is not there.
-export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: Promise<Sheet | null> }) {
+// asked for it meanwhile, null where it is not there, or "failed" where the load failed.
+export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: ReturnType<typeof get> }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there. `n` counts the loads.
-  const [file, setFile] = useState<{ sheet: Sheet | null; n: number }>();
-  const show = (sheet: Sheet | null) => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1 }));
+  const [file, setFile] = useState<{ sheet: Sheet | null | "failed"; n: number }>();
+  const show = (sheet: Sheet | null | "failed") => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1 }));
+  // The tries after a load that failed. Each asks anew, with the loading page up meanwhile.
+  const [tries, setTries] = useState(0);
+  const retry = () => {
+    setFile(undefined);
+    setTries((n) => n + 1);
+  };
   const here = useRef(true);
   useEffect(() => {
     here.current = true;
@@ -227,14 +234,16 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   }
   const over = () => overwrite(Number(id)).then((gone) => gone && here.current && show(null));
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
-  // teacher has gone on is not for the saver either.
+  // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
+  // browser kept waits through a load that failed, and shows with the try that brings the sheet.
   useEffect(() => {
     let on = true;
-    first.then((sheet) => on && show(sheet && open(sheet, user.id)));
+    (tries ? get(id!) : first).then((sheet) => on && show(sheet && sheet !== "failed" ? open(sheet, user.id) : sheet));
     return () => void (on = false);
-  }, [first]);
+  }, [first, tries]);
 
   if (file === undefined) return wait;
+  if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
   return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} />;
@@ -1105,7 +1114,17 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
       const pages = next.pages.map((p, i) => {
         const [w, h] = sizeOf(next, i);
         if (w === sizeOf(doc, i)[0]) return p;
-        return { ...p, blocks: p.blocks.map((b) => ({ ...b, x: Math.max(0, Math.min(b.x, w - b.w)), y: Math.max(0, Math.min(b.y, h - b.h)) })) };
+        // As PowerPoint: a group comes back as one, by its outermost, so its blocks keep their places in it, and a
+        // turned block counts by its outline. Left and top win where it is larger than the page. What lies on the
+        // page stays as it is: `hull` knows the half hundredth by which a block on its side may lie off.
+        const unit = (b: Block) => b.group?.[0] ?? b.id;
+        const back = (at: number, size: number, max: number) => Math.round((Math.max(0, Math.min(at, max - size)) - at) * 100) / 100;
+        const blocks = p.blocks.map((b) => {
+          const all = hull(p.blocks.filter((o) => unit(o) === unit(b)));
+          const [dx, dy] = [back(all.x, all.w, w), back(all.y, all.h, h)];
+          return dx || dy ? { ...b, x: Math.round((b.x + dx) * 100) / 100, y: Math.round((b.y + dy) * 100) / 100 } : b;
+        });
+        return { ...p, blocks };
       });
       return { ...next, pages };
     });

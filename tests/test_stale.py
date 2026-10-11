@@ -186,7 +186,8 @@ class Run:
         if state == "out":
             expect_loading(self.page)
         elif state == "gone":
-            expect(self.page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
+            failed = "Das Blatt konnte nicht geladen werden"
+            expect(self.page.get_by_role("heading", name=failed)).to_be_visible()
         else:
             expect(self.page.locator(READY)).to_be_visible()
             first = self.page.locator(".sheet[data-page]").first

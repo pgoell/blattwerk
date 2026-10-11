@@ -65,14 +65,15 @@ export default function App() {
   }, [since]);
   const wait = <Blank late={late === since} />;
   // The sheet is asked for as soon as the account is known, side by side with the editor's script and not after
-  // it. Each visit asks anew. A sheet that is not there is null: nobody may hear of it before the script has come.
+  // it. Each visit asks anew. A sheet that is not there is null, and a load that failed says so: nobody may hear of
+  // either before the script has come.
   // Each sheet has an editor of its own: on to another sheet, the one left saves and goes, the loading page stands
   // at once, and a late answer for the sheet left finds nobody to show it.
   // The sheet left saves as it goes, and no load waits for that save: back on the sheet left, its saver shows what
   // the answer does not hold yet.
-  const [first, setFirst] = useState<{ id: string; sheet: Promise<Sheet | null> }>();
+  const [first, setFirst] = useState<{ id: string; sheet: ReturnType<typeof saves.get> }>();
   useEffect(() => {
-    setFirst(user && id ? { id, sheet: api<Sheet>(`/sheets/${id}`).catch(() => null) } : undefined);
+    setFirst(user && id ? { id, sheet: saves.get(id) } : undefined);
   }, [user, id]);
 
   if (user === undefined) return id ? wait : null;
