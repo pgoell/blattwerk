@@ -167,6 +167,27 @@ def test_a_button_pressed_under_another_accounts_session_calls_no_sheet_deleted(
     assert titles(client) == ["a"]
 
 
+def test_a_failure_that_comes_when_the_teacher_has_gone_on_still_says_so_with_no_try(
+    window, server
+):
+    """Second review, 1: the delete was said yes to, so its failure is told on the next page
+    too. The line has no button there: the try would act on a page that is gone."""
+    page, client = window()
+    listed(page, server, client)
+    page.on("dialog", lambda d: d.accept())
+    held = []
+    page.route("**/api/sheets/*", lambda route: held.append(route))
+    with page.expect_request(lambda request: request.method == "DELETE"):
+        page.get_by_role("button", name=ACTIONS["remove"][0]).click()
+    page.get_by_role("link", name="Konto").click()
+    expect(page.get_by_role("heading", name="Konto")).to_be_visible()
+    held[0].fulfill(status=500)
+    line = page.get_by_role("alert")
+    expect(line).to_contain_text(f"{ACTIONS['remove'][1]} {WHY[500]}")
+    expect(line.get_by_role("button", name=AGAIN)).to_have_count(0)
+    assert titles(client) == ["a"]
+
+
 @pytest.mark.parametrize("action", ["create", "duplicate"])
 def test_a_try_under_way_takes_no_second_press(window, server, action):
     """I1"""

@@ -57,9 +57,9 @@ export default function App() {
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
-    clear();
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
-    if (to?.id !== was.current) (forgetDraft(), forgetPhotos());
+    // So does a line of an action that failed.
+    if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
     saves.enter(to?.id);
     setUser(to);
     setEntered((n) => n + 1);

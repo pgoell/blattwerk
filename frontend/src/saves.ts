@@ -394,7 +394,8 @@ export async function discard(id: number) {
       signedOut();
       throw new Error("401");
     }
-    if (!s.dead) forget(id);
+    if (s.dead) return false;
+    forget(id);
     return true;
   } catch (e) {
     s.choice = ["401", "stale"].includes((e as Error).message) ? undefined : "failed";
