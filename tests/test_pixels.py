@@ -271,9 +271,72 @@ def fuller(case, client):
     return {"blocks": [*rulings, at("ruling", written, y=150, h=40, x=150)], "landscape": True}
 
 
-def faults(browser, server, client, *pages):
+def faults(browser, server, client, *pages, **look):
     """What of the first page is over a limit between the editor and the PDF."""
-    return over(*screen_and_print(browser, server, client, sheet(client, *pages)["id"]))
+    return over(*screen_and_print(browser, server, client, sheet(client, *pages)["id"], **look))
+
+
+# A text of two paragraphs, a gap on the last line of each, and a gap of two words in the first.
+GAP_RUNS = [
+    [
+        {"text": "Der "},
+        {"text": "Hund", "gap": True},
+        {"text": " bellt laut und die Katze schläft heute lange im warmen Haus, "},
+        {"text": "Maus pfeift leise", "gap": True},
+    ],
+    [{"text": "Die Vögel singen "}, {"text": "laut", "gap": True}],
+]
+
+
+def gapped(case):
+    """The gap cases of a page: a text, one with gap widths, a box with a gap, a table, and a text
+    with bows and colours. Each has a gap on the last line of a paragraph."""
+    text = {
+        **TEXT,
+        "text": "Der Hund bellt",
+        "rich": [{"runs": runs} for runs in GAP_RUNS],
+        "bank": 1,
+    }
+    if case == "text":
+        return [at("text", text, y=20, h=90)]
+    if case == "gapWidth":
+        return [at("text", {**text, "gapWidth": 30}, y=20, h=90)]
+    if case == "shape":
+        shape = {**TEXT, **FILLED, "kind": "rounded", "rich": [{"runs": GAP_RUNS[1]}]}
+        return [at("shape", shape, y=120, h=20)]
+    if case == "table":
+        props = {**TABLE, "line": "#222222", "gaps": [[True, False], [False, True]], "bank": 1}
+        return [at("table", props, y=150, h=40)]
+    # Bows and colours on a gap's page: the words after the gap keep their colours.
+    return [at("text", {**text, "syllables": True, "tints": BLUE_RED}, y=20, h=90)]
+
+
+GAPPED = ["text", "gapWidth", "shape", "table", "bows"]
+
+
+@pytest.mark.parametrize("case", GAPPED)
+def test_a_gap_prints_as_the_screen_hides_it(browser, server, case):
+    """A11 (1): the pupil's view, the words hidden on the screen."""
+    client = user()
+    assert not faults(browser, server, client, gapped(case), hide_gaps=True)
+
+
+@pytest.mark.parametrize("case", GAPPED)
+def test_a_gap_prints_as_the_answer_key_shows_it(browser, server, case):
+    """A11 (2): the answer key, the words in their colour on the screen and in the PDF."""
+    client = user()
+    assert not faults(browser, server, client, gapped(case), solved=True)
+
+
+def test_a_gap_left_out_of_the_print_is_over_the_limit(browser, server):
+    """A11 (3): a gap on the screen and none in print: the hidden words show in print."""
+    client = user()
+    shown = sheet(client, gapped("text"))["id"]
+    plain = {**TEXT, "text": "Der Hund bellt", "rich": [{"runs": [{"text": "Der Hund bellt"}]}]}
+    paper = sheet(client, [at("text", plain, y=20, h=90)])["id"]
+    screen, _ = screen_and_print(browser, server, client, shown, hide_gaps=True)
+    _, printed = screen_and_print(browser, server, client, paper)
+    assert over(screen, printed)
 
 
 @pytest.mark.parametrize("kind", KINDS)

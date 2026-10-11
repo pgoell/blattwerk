@@ -9,10 +9,10 @@ from array import array
 
 import httpx
 import pypdfium2
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 from PIL.ImageFilter import BoxBlur, MaxFilter, MinFilter
 from playwright.sync_api import expect
-from ui import BROWSER, sheet
+from ui import BROWSER, sheet, tool
 
 # The side of the square around a pixel in which the other picture may have it: one pixel to
 # each side. WebKit sets every other row of a text one pixel of the page lower than Chromium,
@@ -73,8 +73,22 @@ def as_png(image):
     return out.getvalue()
 
 
-def screen_and_print(browser, server, client, sheet_id, page=0):
-    """The sheet's page in the editor and the same page of the PDF, each a PNG of one width."""
+def cover_label(image, width_mm):
+    """Paints over the answer key's mark in the top right corner, which only the print shows."""
+    # The mark stands 5 mm from the top and 15 mm from the right edge, in about 20 mm of width.
+    px = image.width / width_mm
+    ImageDraw.Draw(image).rectangle(
+        [(width_mm - 40) * px, 2 * px, (width_mm - 10) * px, 12 * px], fill="white"
+    )
+    return image
+
+
+def screen_and_print(browser, server, client, sheet_id, page=0, hide_gaps=False, solved=False):
+    """The sheet's page in the editor and the same page of the PDF, each a PNG of one width.
+
+    `hide_gaps` hides the grey words of the gaps on the screen, as the pupil's sheet has them.
+    `solved` shows the answer key: the screen has "Lösungen zeigen" on, the PDF asks for it.
+    """
     session = client.cookies["session"]
     # At twice the size: a ruling's line is 0.2 mm, less than a pixel at one, where the browser
     # draws it pale over two rows and pdfium dark on one.
@@ -88,6 +102,11 @@ def screen_and_print(browser, server, client, sheet_id, page=0):
     tab.goto(f"{server}/blatt/{sheet_id}")
     tab.locator('main.editor[data-ready="1"]').wait_for()
     tab.add_style_tag(content=HIDE)
+    if hide_gaps:
+        tab.add_style_tag(content=".gap > span { visibility: hidden !important }")
+    if solved:
+        tool(tab, "Lösungen zeigen").click()
+        expect(tab.locator(".sheet .gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
     # As the page that is printed does: a picture and a font come in after the blocks are laid out.
     tab.evaluate(LOADED)
     # A text's bows are drawn once its words are split and measured.
@@ -96,14 +115,22 @@ def screen_and_print(browser, server, client, sheet_id, page=0):
     # Before the PDF is asked for: leaving the editor saves.
     context.close()
     cookie = {"Cookie": f"session={session}"}
-    res = httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=cookie, timeout=60)
+    res = httpx.get(
+        f"{server}/api/sheets/{sheet_id}/pdf", params={"solved": solved}, headers=cookie, timeout=60
+    )
     assert res.status_code == 200
     paper = pypdfium2.PdfDocument(res.content)[page]
     width = Image.open(io.BytesIO(screen)).width
     # pdfium fills every pixel a table's line touches, one more than the line is wide at any
     # size. Drawn twice as large and halved, that is half a pixel.
     large = paper.render(scale=2 * width / paper.get_width()).to_pil()
-    return screen, as_png(large.reduce(2))
+    printed = as_png(large.reduce(2))
+    if solved:
+        # The mark of the key is printed only, so it is painted over on both pictures.
+        width_mm = paper.get_width() * 25.4 / 72
+        screen = as_png(cover_label(Image.open(io.BytesIO(screen)).convert("RGB"), width_mm))
+        printed = as_png(cover_label(Image.open(io.BytesIO(printed)).convert("RGB"), width_mm))
+    return screen, printed
 
 
 def beyond(one, two):

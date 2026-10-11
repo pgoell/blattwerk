@@ -88,8 +88,9 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import Field, { list, tint, type Marks, type Picked } from "./Field";
+import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
+import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -106,7 +107,7 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand: a line takes none of these.
-const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks"];
+const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank"];
 type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
@@ -1099,6 +1100,49 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = parasOf(on)[0].list === kind ? undefined : kind;
     tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && boxed(b) ? ({ ...b, props: { ...b.props, ...listed(boxed(b)!, to) } } as Block) : b)));
+  }
+  // The gaps of a Lückentext. In a text being written in, the picked words become a gap or stop being one; in a table
+  // cell being written in, that cell does. Else every selected block that holds words is a gap as a whole.
+  // A block with no words takes no gap: its props stay as they are.
+  const wordy = (b: Block) => {
+    const text = boxed(b);
+    return b.type === "table" ? b.props.cells.flat().some(Boolean) : !!text && parasOf(text).some((p) => p.runs.some((r) => r.text));
+  };
+  function gapping(on: boolean) {
+    if (field.current) return hole(field.current, on);
+    if (!sel.some(wordy)) return;
+    tight.current = true;
+    if (table && editing === table.id) {
+      const { cols, cells, gaps } = table.props;
+      const [r, c] = [Math.floor(slot / cols.length), slot % cols.length];
+      const next = cells.map((row, i) => row.map((_, j) => (i === r && j === c ? on : !!gaps?.[i]?.[j])));
+      return style("table", { gaps: next.some((row) => row.some(Boolean)) ? next : undefined }, "");
+    }
+    change(
+      (bs) =>
+        bs.map((b) => {
+          if (!ids.includes(b.id) || !wordy(b)) return b;
+          if (b.type === "table") return { ...b, props: { ...b.props, gaps: allCells(b.props.cells, on) } } as Block;
+          const text = boxed(b);
+          return text ? ({ ...b, props: { ...b.props, ...stored(allGaps(parasOf(text), on)) } } as Block) : b;
+        }),
+      "",
+    );
+  }
+  // Every n-th word of each selected block that holds words is a gap, counted through its text, in one undo step.
+  function gapEvery(n: number) {
+    if (!sel.some(wordy)) return;
+    tight.current = true;
+    change(
+      (bs) =>
+        bs.map((b) => {
+          if (!ids.includes(b.id) || !wordy(b)) return b;
+          if (b.type === "table") return { ...b, props: { ...b.props, gaps: everyNthCell(b.props.cells, n) } } as Block;
+          const text = boxed(b);
+          return text ? ({ ...b, props: { ...b.props, ...stored(everyNth(parasOf(text), n)) } } as Block) : b;
+        }),
+      "",
+    );
   }
   // Gives the selected lines a length in mm. Each keeps its angle and the top left corner of its box.
   function extend(to: number) {
@@ -2883,6 +2927,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 look={look}
                 paint={paint}
                 itemize={itemize}
+                gap={gapping}
+                every={gapEvery}
                 part={part}
                 // A text that a typed size left higher than its box grows back, as after a resize by handle.
                 place={(boxes, key) => {

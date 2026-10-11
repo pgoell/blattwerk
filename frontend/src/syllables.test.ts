@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { expect, it } from "vitest";
-import { cuts, keyOf, pieces, plain, shown, split, words } from "./syllables";
+import { counted, cuts, keyOf, oldKeyOf, pieces, plain, shown, split, words } from "./syllables";
 import { WORDS } from "./syllables.words";
 
 // A word with its breaks written in, as the list has them.
@@ -198,6 +198,41 @@ it("holds a break set by hand for the plain word in the word with hidden charact
   // A break set on the plain word holds for the word with the hyphen, and the same syllables come out.
   expect(cuts("Fens­ter", { fenster: [4] })).toEqual([5]);
   expect(pieces("Fens­ter", { fenster: [4] }).map((p) => plain(p.text))).toEqual(pieces("Fenster", { fenster: [4] }).map((p) => p.text));
+});
+
+it("holds a word in composed and decomposed letters under one key", () => {
+  expect(keyOf("Bären".normalize("NFC"))).toBe(keyOf("Bären".normalize("NFD")));
+  expect(keyOf("Bären".normalize("NFD"))).toBe("bären");
+});
+
+it("counts a break set by hand in letters, so composed and decomposed spellings cut alike", () => {
+  expect(cuts("Bären".normalize("NFC"), { bären: [2] })).toEqual([2]);
+  expect(cuts("Bären".normalize("NFD"), { bären: [2] })).toEqual([3]);
+  expect(pieces("Bären".normalize("NFD"), { bären: [2] }).map((p) => p.text)).toEqual(["Bä".normalize("NFD"), "ren"]);
+  expect(counted("Bären".normalize("NFD"), [4])).toEqual([3]);
+  expect(counted("Bären".normalize("NFC"), [3])).toEqual([3]);
+  // Place 2 of the decomposed word lies between "a" and its dots: inside a letter, so none.
+  expect(counted("Bären".normalize("NFD"), [2])).toEqual([]);
+});
+
+it("stores a break in the characters of the composed word, and a break inside a letter counts for none", () => {
+  // An "n" with a mark that has no composed form: the number counts characters, as a break stored before did.
+  const word = "Man̈ana";
+  expect(cuts(word, { "man̈ana": [4] })).toEqual([4]);
+  expect(cuts(word, { "man̈ana": [3, 4] })).toEqual([4]);
+  expect(cuts(word, { "man̈ana": [3] })).toEqual([]);
+  expect(counted(word, [4])).toEqual([4]);
+});
+
+it("keeps the breaks of İstanbul, whose key is one character longer than the word", () => {
+  expect(keyOf("İstanbul").length).toBe("İstanbul".length + 1);
+  expect(cuts("İstanbul", { [keyOf("İstanbul")]: [2] })).toEqual([2]);
+});
+
+it("reads a break stored under the old decomposed key, and the new key wins over it", () => {
+  expect(oldKeyOf("Bären".normalize("NFD"))).toBe("bären");
+  expect(cuts("Bären".normalize("NFD"), { "bären": [3] })).toEqual([3]);
+  expect(cuts("Bären".normalize("NFD"), { "bären": [4], "bären": [3] })).toEqual([5]);
 });
 
 it("gives a text with hidden characters in its words again from its pieces", () => {
