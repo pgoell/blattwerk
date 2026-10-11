@@ -37,6 +37,7 @@ TURN = [
     "n",
     "Jedes n-te Wort",
     "Lösungswörter",
+    "Schüttelwörter",
     "Rechtsdrehung 90°",
     "Linksdrehung 90°",
 ]
@@ -45,7 +46,7 @@ OUTLINE = ["Keine", "1 2 3", "a b c", "Symbol", "Eckig", "Abgerundet", "Rund", "
 FILL = ["Stern", "Sprechblase", "Füllung", "Rand"]
 DASH = ["Randstärke", "Durchgezogen", "Gestrichelt", "Gepunktet"]
 ORDER = {
-    # A text alone has the switch of the line numbers, after the solution words.
+    # A text alone has the switch of the line numbers after the solution words and Schüttelwörter.
     "text": (
         TEXT,
         [*START, *FONT, *PLACE, *TURN[:-2], "Zeilennummern", *TURN[-2:], *OUTLINE, *FILL, *DASH],

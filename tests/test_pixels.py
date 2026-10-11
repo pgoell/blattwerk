@@ -352,6 +352,51 @@ def test_a_gap_left_out_of_the_print_is_over_the_limit(browser, server):
     assert over(screen, printed)
 
 
+def mixed_case(case):
+    """The scrambled-word cases of a page (Schüttelwörter): a text that wraps onto several rows, one
+    with a line after each word, one with a line under each, one in capitals, and a shape with its
+    text. A line on a second row is where a wrong drawing hid."""
+    text = {**TEXT, "text": MIXED_TEXT, "mix": 7}
+    if case == "plain":
+        return [at("text", text, y=20, h=60)]
+    if case == "after":
+        return [at("text", {**text, "mixLine": "after"}, y=20, h=90)]
+    if case == "under":
+        return [at("text", {**text, "mixLine": "under"}, y=20, h=120)]
+    if case == "caps":
+        return [at("text", {**text, "mixCaps": True}, y=20, h=60)]
+    return [at("shape", {**FILLED, **text, "kind": "rounded"}, y=120, h=60)]
+
+
+MIXED_TEXT = "Der Hund bellt laut und die Katze schläft in der Straße vor dem Haus"
+MIXED = ["plain", "after", "under", "caps", "shape"]
+
+
+@pytest.mark.parametrize("case", MIXED)
+def test_a_mixed_text_prints_as_the_screen_shows_it(browser, server, case):
+    """The pupil's view: the mixed words on the screen, the lines empty there as in print."""
+    client = user()
+    assert not faults(browser, server, client, mixed_case(case))
+
+
+@pytest.mark.parametrize("case", MIXED)
+def test_a_mixed_text_prints_as_the_answer_key_shows_it(browser, server, case):
+    """The answer key: the words as typed on their lines, in red, on the screen and in the PDF."""
+    client = user()
+    assert not faults(browser, server, client, mixed_case(case), solved=True)
+
+
+def test_a_mix_left_out_of_the_print_is_over_the_limit(browser, server):
+    """The mixed words on the screen and the plain words in print: the letters differ."""
+    client = user()
+    shown = sheet(client, mixed_case("after"))["id"]
+    plain = {**TEXT, "text": MIXED_TEXT}
+    paper = sheet(client, [at("text", plain, y=20, h=90)])["id"]
+    screen, _ = screen_and_print(browser, server, client, shown)
+    _, printed = screen_and_print(browser, server, client, paper)
+    assert over(screen, printed)
+
+
 @pytest.mark.parametrize("kind", KINDS)
 def test_a_block_prints_as_the_screen_shows_it(browser, server, kind):
     client = user()

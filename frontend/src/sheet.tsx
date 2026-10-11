@@ -1,7 +1,8 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
+import { mixed, type Part } from "./scramble";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -40,8 +41,12 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // the text (Lösungswörter): it is the seed their order is shuffled by.
 // `lines` numbers the lines of the text as they break, left of the box (Zeilennummern): every line with 1, every fifth
 // with 5. Absent is off.
+// `mix` is the seed of the scrambled words (Schüttelwörter): each word shows its letters in another order, the same
+// on every draw. `mixFirst` keeps each word's first letter in place, `mixCaps` sets the letters in capitals. `mixLine`
+// puts a line after each mixed word ("after") or under it ("under"), which the pupil writes the word on. The answer
+// key shows the word the teacher typed on the line, or in place of the mixed word when there is no line.
 // Sheets saved before have none of these.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -340,6 +345,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const tints = pairOf(p.tints);
   const width = gapWidth(p.gapWidth);
   const words = typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
+  // A sheet may come from anywhere: a mix that is no number, or a line that is neither word, draws the plain text.
+  const scramble = typeof p.mix === "number" && Number.isFinite(p.mix);
+  const line = p.mixLine === "after" || p.mixLine === "under" ? p.mixLine : undefined;
   const [down, across, edge] = inset(p, block.type === "shape");
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
@@ -388,7 +396,14 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
           <Ring w={block.w - edge} h={block.h - edge} edge={edge} p={p} />
         </svg>
       )}
-      {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
+      {children ??
+        (scramble ? (
+          <Rich paras={parasOf(p)} mix={mixed(parasOf(p), { seed: p.mix!, first: p.mixFirst === true, caps: p.mixCaps === true })} line={line} solved={solved} />
+        ) : p.rich ? (
+          <Rich paras={p.rich} />
+        ) : (
+          <p>{p.text}</p>
+        ))}
       {words.length > 0 && <Bank words={words} seed={p.bank!} />}
       {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
@@ -403,9 +418,10 @@ const gapWidth = (mm: unknown) => (typeof mm === "number" && Number.isFinite(mm)
 export const stepOf = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : 0);
 // The width in px of a block's gaps, for the CSS of `.even .gap`.
 const gapVar = (mm: number, k: number) => (mm ? ({ "--gap": `${mm * k}px` } as CSSProperties) : {});
-// The box of the solution words under a text: each word once, in the seeded order of its block.
+// The box of the solution words under a text: each word once, in the seeded order of its block. Where another order
+// exists, the box never stands in reading order: the words are shuffled again until they do not.
 function Bank({ words, seed }: { words: string[]; seed: number }) {
-  return <div className="bank">{shuffled(words, seed).map((word, i) => <span key={i}>{word}</span>)}</div>;
+  return <div className="bank">{shuffled(words, seed, words).map((word, i) => <span key={i}>{word}</span>)}</div>;
 }
 
 // The dashes of a box's border. The middle of the stroke is `w` by `h` mm, half the stroke's width inside the box.
@@ -583,10 +599,13 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
           word = piece.word;
           if (!across) count = 0;
         }
-        const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
         // The end lies in the node of the syllable's last letter, not at the start of the next.
         const [last, stop] = spot(from + module.shown(piece.text).length - 1);
+        // A mixed word has no syllables: a syllable that starts or ends in its letters gets neither bow nor colour,
+        // and the colours of the words after it go on as if it had none, in the key too.
+        if (first.parentElement!.closest(".mixed") || last.parentElement!.closest(".mixed")) continue;
+        const colour = tints?.[count++ % 2];
         // A gap shows neither bow nor colour, so the hidden letters stay hidden, a syllable that
         // starts or ends in a gap too; the answer key shows both.
         const hidden = first.parentElement!.closest(".gap") || last.parentElement!.closest(".gap");
@@ -752,7 +771,11 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
     if (!p.querySelector("p")) {
       const nodes: Text[] = [];
       const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
-      while (walk.nextNode()) if (walk.currentNode.parentElement!.tagName !== "TEXTAREA") nodes.push(walk.currentNode as Text);
+      // The line under a scrambled word is no line of the text: its word lies in the column under the mixed one.
+      while (walk.nextNode()) {
+        const el = walk.currentNode.parentElement!;
+        if (el.tagName !== "TEXTAREA" && !el.closest(".mix.under .gap")) nodes.push(walk.currentNode as Text);
+      }
       // A line is a row of rects that the text's words lie in. Spaces are no words: a line of spaces alone is as
       // empty as one with nothing, in a paragraph or between two line breaks. Two words stand in one line when
       // their tops are less than half a line apart: the box of a school script's letters is two lines high and
@@ -863,28 +886,52 @@ const runGroups = (runs: Run[]) =>
   }, []);
 
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
-// stores is drawn as text alone, never as markup of its own.
-function Rich({ paras }: { paras: Para[] }) {
+// stores is drawn as text alone, never as markup of its own. `mix` holds the parts of each paragraph in place of its
+// runs (see `mixed`): a part with a `source` is one scrambled word, the others are runs as they are.
+function Rich({ paras, mix, line, solved }: { paras: Para[]; mix?: Part[][]; line?: "after" | "under"; solved?: boolean }) {
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   const run = ({ text, bold, italic, underline, color }: Run, key: number) => (
     <span key={key} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
       {text}
     </span>
   );
+  // Consecutive gap runs make one gap: its outer span draws the line, its inner one holds the words.
+  const gaps = (runs: Run[]) =>
+    runGroups(runs).map((group, g) =>
+      group[0].gap === true ? (
+        <span key={g} className="gap" data-gap="true">
+          <span>{group.map((r, j) => run(r, j))}</span>
+        </span>
+      ) : (
+        run(group[0], g)
+      ),
+    );
+  // A scrambled word: the mixed letters, or the word as typed where the key shows it in their place, and a line for
+  // the word as typed, after or under the mixed one.
+  const scrambled = (source: string, runs: Run[], j: number) => (
+    <span key={j} className={classes("mix", line === "under" && "under")} data-mix={source}>
+      {solved && !line ? <span className="mixkey">{source}</span> : <span className="mixed">{runs.map((r, k) => run(r, k))}</span>}
+      {line && (
+        <>
+          {" "}
+          <span className="gap line">
+            <span>{source}</span>
+            {/* Drawn, not a background: a browser lays a thin gradient paler on the screen than the print has it. */}
+            <svg aria-hidden>
+              <line y1="50%" x2="100%" y2="50%" />
+            </svg>
+          </span>
+        </>
+      )}
+    </span>
+  );
   return (
     <div className="rich">
       {paras.map((para, i) => (
         <p key={i} data-list={para.list} data-level={para.level || undefined}>
-          {/* Consecutive gap runs make one gap: its outer span draws the line, its inner one holds the words. */}
-          {runGroups(para.runs).map((group, g) =>
-            group[0].gap === true ? (
-              <span key={g} className="gap" data-gap="true">
-                <span>{group.map((r, j) => run(r, j))}</span>
-              </span>
-            ) : (
-              run(group[0], g)
-            ),
-          )}
+          {mix
+            ? mix[i].map((part, j) => <Fragment key={j}>{part.source !== undefined ? scrambled(part.source, part.runs, j) : gaps(part.runs)}</Fragment>)
+            : gaps(para.runs)}
           {/* A paragraph with no text is still a line high. */}
           {!para.runs.length && <br />}
         </p>
@@ -1056,22 +1103,26 @@ export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >=
 // sheet has it already. `end` runs after Enter, `blur` on leaving the field.
 export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
   const [draft, setDraft] = useState(String(max));
-  // What is typed, the score shown by the sheet, the score last sent to it, and whether Escape ended the field.
+  // What is typed, the score shown by the sheet, the score last sent to it, whether Escape ended the field, and whether
+  // the teacher typed in it. A field nobody typed in sends nothing: in the panel its max is the first picked box's, and
+  // sending that would set every picked box to it.
   const typed = useRef(String(max));
   const shown = useRef(max);
   const sent = useRef<number>(undefined);
   const off = useRef(false);
+  const dirty = useRef(false);
   const latest = useRef({ change, end, blur });
   latest.current = { change, end, blur };
   shown.current = max;
   useEffect(() => {
     typed.current = String(max);
     sent.current = undefined;
+    dirty.current = false;
     setDraft(String(max));
   }, [max]);
   // Runs on Enter, on a blur and when the field goes, so a score is kept once for each way the field ends.
   function keep() {
-    if (off.current) return;
+    if (off.current || !dirty.current) return;
     const next = score(typed.current);
     if (next === undefined) {
       typed.current = String(shown.current);
@@ -1079,6 +1130,7 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
     }
     if (next === sent.current) return;
     sent.current = next;
+    dirty.current = false;
     latest.current.change(next);
   }
   // The field goes on the press that ends it, which takes no blur with it: so its score is kept as it leaves.
@@ -1090,6 +1142,7 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
       aria-label="Punkte"
       value={draft}
       onChange={(e) => {
+        dirty.current = true;
         typed.current = e.target.value;
         setDraft(e.target.value);
       }}
@@ -1100,6 +1153,8 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === "F2") {
+          // Enter is a choice, also of the number that stands there: several picked boxes all take it.
+          dirty.current = true;
           keep();
           latest.current.end?.();
         }

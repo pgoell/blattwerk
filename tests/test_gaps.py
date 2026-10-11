@@ -476,6 +476,34 @@ def test_a_shape_with_no_words_takes_no_gap_and_no_step(editor):
     assert held(page, client)["s"] == before
 
 
+def test_neu_mischen_never_leaves_the_solution_words_as_they_stood(editor):
+    """I3: every press of Neu mischen shows the solution words in another order than before."""
+    client = user()
+    gapped_words = {
+        **TEXT,
+        "text": "Hund Katze Vogel",
+        "rich": [
+            {
+                "runs": [
+                    {"text": "Hund", "gap": True},
+                    {"text": " "},
+                    {"text": "Katze", "gap": True},
+                    {"text": " "},
+                    {"text": "Vogel", "gap": True},
+                ]
+            }
+        ],
+        "bank": 7,
+    }
+    page = editor(box("a", "text", gapped_words), client=client)
+    pick(page, "a")
+    expect(page.locator(".bank span")).to_have_count(3)
+    for _ in range(15):
+        before = page.locator(".bank span").all_text_contents()
+        step(page, lambda: panel(page, "Neu mischen").click())
+        expect(page.locator(".bank span")).not_to_have_text(before)
+
+
 def test_lucken_gleich_breit_takes_the_same_width_at_any_zoom(editor):
     """A3: the width measured at the default zoom is the width measured zoomed in."""
     client = user()
