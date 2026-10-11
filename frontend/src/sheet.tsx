@@ -643,10 +643,11 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
   const draw = () => {
     const own = svg.current!;
     size.current = [own.parentElement!.offsetWidth, own.parentElement!.offsetHeight];
-    unmark(marks.current);
-    marks.current = [];
-    if (module) marks.current = bows(own, module, how);
-    else
+    // The old ranges go once the new ones are in: a colour that stays is never without a letter, and keeps its rule.
+    const old = marks.current;
+    marks.current = module ? bows(own, module, how) : [];
+    unmark(old);
+    if (!module)
       splitting().catch(() => {
         own.replaceChildren();
         own.classList.remove("unsplit");

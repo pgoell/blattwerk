@@ -76,6 +76,13 @@ SPANS = """(block) => {
     });
 }"""
 NAMES = "[...CSS.highlights.keys()].filter((name) => name.startsWith('tint-')).sort()"
+# Counts each rule for a colour that comes or goes from now on.
+RULES = """() => {
+    window.rules = 0;
+    const own = [...document.head.querySelectorAll("style")].find((el) =>
+        el.textContent.startsWith("::highlight(tint-"));
+    new MutationObserver((all) => (window.rules += all.length)).observe(own, { childList: true });
+}"""
 COUNT = """() => {
     let n = 0;
     for (const [name, marked] of CSS.highlights)
@@ -613,8 +620,12 @@ def test_the_colours_follow_each_letter_typed_and_the_switch_leaves_the_caret(ed
     tinted(page, "a").to_have_text([("Fens", BLUE), ("ter", RED)])
     # The field is still written in, at the place the caret had.
     expect(page.locator(FIELD)).to_be_focused()
+    # A letter typed makes no rule anew: the colours that stay keep theirs.
+    page.evaluate(RULES)
     page.keyboard.type("x")
     expect(page.locator(FIELD)).to_have_text("Fensxter")
+    tinted(page, "a").to_have_text([("Fensx", BLUE), ("ter", RED)])
+    assert page.evaluate("window.rules") == 0
     page.keyboard.press("Backspace")
     page.keyboard.press("End")
     for typed, shown in (
