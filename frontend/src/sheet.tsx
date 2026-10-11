@@ -21,8 +21,9 @@ export const TINTS: Tints = ["#1a56db", "#e02424"];
 export const GREYS: Tints = ["#000000", "#707070"];
 export type List = "bullet" | "number";
 // A stretch of a text with a look of its own. `bold` and `italic` stand in for the block's, on or off; an underline
-// and a colour lie on top of the block's.
-export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string };
+// and a colour lie on top of the block's. `gap` makes the stretch a gap of a Lückentext: the pupil's sheet shows a line
+// to write on in its place, as wide as its words, the editor shows the words in grey and the answer key in its colour.
+export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; gap?: boolean };
 // A paragraph of a text: an item of a list with `list`, moved in by `level` steps, 0 to 2.
 export type Para = { runs: Run[]; list?: List; level?: number };
 // Sheets saved before text had these settings lack them: a text is then Andika, black, with lines 1.3 apart.
@@ -34,8 +35,10 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `syllables` draws a bow under each syllable of each word (Silbenbögen); `breaks` holds the words the teacher
 // split by hand. `tints` colours the syllables in turn (Silbenfarbe): the pair of colours, and with `tintsAcross`
 // the turn runs on from word to word through the block's text, where else each word starts with the first.
+// `gapWidth` makes every gap of the text at least so many mm wide, and `bank` adds a box with the hidden words under
+// the text (Lösungswörter): it is the seed their order is shuffled by.
 // Sheets saved before have none of these.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -78,8 +81,9 @@ export type MathsProps = Limits & Made & { columns: number; size: number; number
 export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
-// has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
+// has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
+// a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number } };
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
