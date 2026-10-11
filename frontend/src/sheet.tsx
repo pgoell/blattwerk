@@ -869,45 +869,62 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
 // A score as it is typed: a whole number from 1 to 999, or else none.
 export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >= 1 ? +text : undefined);
 
-// The field of a score, in a box or in the panel. Enter, or the field losing the focus, keeps a score that is a whole
-// number from 1 to 999 and leaves any other text the old one. Escape leaves the old one too. `end` runs after Enter.
+// The field of a score, in a box or in the panel. However it ends, except by Escape, it keeps the typed score when that is
+// a whole number from 1 to 999; any other text leaves the old one. `change` gets the score and makes no step when the
+// sheet has it already. `end` runs after Enter, `blur` on leaving the field.
 export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
   const [draft, setDraft] = useState(String(max));
-  // The score the sheet holds, and whether Escape has ended the field: then a blur keeps nothing.
-  const kept = useRef(max);
+  // What is typed, the score shown by the sheet, the score last sent to it, and whether Escape ended the field.
+  const typed = useRef(String(max));
+  const shown = useRef(max);
+  const sent = useRef<number>(undefined);
   const off = useRef(false);
+  const latest = useRef({ change, end, blur });
+  latest.current = { change, end, blur };
+  shown.current = max;
   useEffect(() => {
-    kept.current = max;
+    typed.current = String(max);
+    sent.current = undefined;
     setDraft(String(max));
   }, [max]);
-  function done() {
+  // Runs on Enter, on a blur and when the field goes, so a score is kept once for each way the field ends.
+  function keep() {
     if (off.current) return;
-    const next = score(draft);
-    if (next === undefined) return setDraft(String(kept.current));
-    if (next === kept.current) return;
-    kept.current = next;
-    change(next);
+    const next = score(typed.current);
+    if (next === undefined) {
+      typed.current = String(shown.current);
+      return setDraft(typed.current);
+    }
+    if (next === sent.current) return;
+    sent.current = next;
+    latest.current.change(next);
   }
+  // The field goes on the press that ends it, which takes no blur with it: so its score is kept as it leaves.
+  useEffect(() => keep, []);
   return (
     <input
       className="score"
       inputMode="numeric"
       aria-label="Punkte"
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        typed.current = e.target.value;
+        setDraft(e.target.value);
+      }}
       onFocus={() => (off.current = false)}
       onBlur={(e) => {
-        done();
-        blur?.(e);
+        keep();
+        latest.current.blur?.(e);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === "F2") {
-          done();
-          end?.();
+          keep();
+          latest.current.end?.();
         }
         if (e.key !== "Escape") return;
         off.current = true;
-        setDraft(String(kept.current));
+        typed.current = String(shown.current);
+        setDraft(typed.current);
         e.currentTarget.blur();
       }}
     />

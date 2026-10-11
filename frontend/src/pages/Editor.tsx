@@ -305,7 +305,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
   const [words, setWords] = useState<string[]>([]);
   const wordsKept = useRef("");
-  const nameWriting = useRef("");
+  // The name line being written in, and the page it stands on.
+  const nameWriting = useRef<{ id: string; n: number } | undefined>(undefined);
   const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
@@ -639,14 +640,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     entire.current = false;
   }, [editing, slot]);
   // A name line's words are kept once its field ends, however it ends: a press on the sheet can end it with no blur.
-  // An emptied word drops its field, and with none left nothing changes.
+  // They go to the page the line stands on. An emptied word drops its field, and with none left nothing changes.
   useEffect(() => {
     const line = nameWriting.current;
     if (editing || !line) return;
-    nameWriting.current = "";
+    nameWriting.current = undefined;
     const fields = words.map((w) => w.trim()).filter(Boolean);
     if (escaped.current || !fields.length || fields.join("\n") === wordsKept.current) return;
-    change((bs) => bs.map((b) => (b.id === line ? ({ ...b, props: { ...b.props, fields } } as Block) : b)));
+    if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
   });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -1004,6 +1006,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
+  }
+  // Sets the number of a score box on page n, the page it stands on: the page in use may have changed since it was
+  // opened. Nothing is changed, and no step made, when the box is not there.
+  function scoreOn(id: string, max: number, n: number) {
+    if (!live.current.doc.pages[n]?.blocks.some((b) => b.id === id && b.type === "points")) return;
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === id && b.type === "points" ? ({ ...b, props: { ...b.props, max } } as Block) : b)) }), "", n);
   }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
@@ -1983,7 +1991,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (free[0].type === "name") {
         setWords(free[0].props.fields ?? FIELDS);
         wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
-        nameWriting.current = id;
+        nameWriting.current = { id, n: page };
         escaped.current = false;
       }
       setEditing(id);
@@ -2647,7 +2655,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           onBlur={(e) => stays(e) || setEditing("")}
                         />
                       ) : b.type === "points" && editing === b.id ? (
-                        <ScoreInput max={b.props.max} change={(max) => style("points", { max })} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
+                        <ScoreInput max={b.props.max} change={(max) => scoreOn(b.id, max, n)} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
                       ) : b.type === "name" && editing === b.id ? (
                         // Each word is a field of its own, in its place on the line. Enter and leaving the line keep them.
                         words.map((word, i) => (
