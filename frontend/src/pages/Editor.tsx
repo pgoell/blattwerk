@@ -88,7 +88,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -107,7 +107,7 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand: a line takes none of these.
-const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank"];
+const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "lines"];
 type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
@@ -2730,6 +2730,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
+                    {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} k={K} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>
                 ))}
