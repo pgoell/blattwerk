@@ -80,7 +80,7 @@ This repo is public and a send is private, so the work is split:
 - Plain code (`scripts/feedback_triage.py`) does the rest. Before any write to GitHub, `scripts/feedback_privacy.py` checks title and body against every e-mail address in the users table and the names in them, user ids, the send's file names, links, class and school names, four words in a row copied from the send, and any capitalised word of the send (a name the teacher wrote). On a hit it files nothing and leaves the send for Pascal.
 - No file of a send is ever uploaded. A voice note is not heard: the summary lists it under "To hear".
 
-The job opens the data folder read only. Its own files live in `~/.local/share/blattwerk-feedback/` (mode 700): `read.json` (the sends already read), `summaries/<date>.md` (one a day, none on a day without a new send) and `cron.log`. A send that fails is tried again on the next run.
+The job opens the data folder read only. Its own files live in `~/.local/share/blattwerk-feedback/` (mode 700): `read.json` (the sends already read), `pending.json` (the tries of a send that failed, and the cut-off folders already named), `summaries/<date>.md` (one a day, none on a day without a new send or a cut-off folder) and `cron.log`. A send that fails is tried again on the next run, up to five runs; then the summary says the job gave up on it. A gh write that gets no answer in time is not sent again. It stands on the summary, to look at on GitHub.
 
 The check cannot know a name it has never seen: a child's name that stands only on a photo, or a name the teacher wrote without its capital. There the model's instructions are the only guard. Read the summary now and then.
 
