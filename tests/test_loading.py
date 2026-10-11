@@ -348,6 +348,9 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     go = hold(page, SHEET)
     page.goto(f"{server}/blatt/{sheet(client, [], **({'title': title} if title else {}))['id']}")
     expect_loading(page)
+    # The hint's font comes in after the page is drawn. Until then the text wraps to another row
+    # (#341).
+    page.wait_for_function("() => document.fonts.status === 'loaded'", timeout=10000)
     before = page.evaluate(PLACES)
     go()
     expect_ready(page)
@@ -417,20 +420,22 @@ def test_the_loading_page_is_white_on_a_dark_desk_and_its_word_reads(window, ser
     page.clock.pause_at(page.evaluate("Date.now()") + 1000)
     page.goto(f"{server}/blatt/{sheet(client, [])['id']}")
     expect_loading(page)
-    colour = "el => getComputedStyle(el).backgroundColor"
-    white = page.locator(".sheet.blank").evaluate(colour)
+    # Found and read in one step: React may draw the loading page anew at any time, and a node
+    # it has taken out has no colour at all (#350).
+    look = "([found, what]) => getComputedStyle(document.querySelector(found))[what]"
+    white = page.evaluate(look, [".sheet.blank", "backgroundColor"])
     assert white == "rgb(255, 255, 255)"
     # Blattform keeps its pale desk on a dark device.
-    assert (light(page.locator(".desk").evaluate(colour)) < 0.05) == (theme == "")
+    assert (light(page.evaluate(look, [".desk", "backgroundColor"])) < 0.05) == (theme == "")
     # The word is dark enough on the white page, whatever the theme makes of its other greys.
     page.clock.run_for(500)
     expect(page.locator(BLANK)).to_have_text("Lädt")
-    word = page.locator(".sheet.blank").evaluate("el => getComputedStyle(el).color")
+    word = page.evaluate(look, [".sheet.blank", "color"])
     assert (light(white) + 0.05) / (light(word) + 0.05) >= 4.5
     go()
     page.clock.resume()
     expect_ready(page)
-    assert page.locator(".sheet").evaluate(colour) == white
+    assert page.evaluate(look, [".sheet", "backgroundColor"]) == white
 
 
 def test_keys_pressed_while_it_loads_do_no_harm_and_the_editor_takes_them_after(window, server):

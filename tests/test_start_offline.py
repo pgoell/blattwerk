@@ -186,7 +186,16 @@ def test_an_older_try_that_fails_late_does_not_show_the_failure_over_a_newer_try
     page.goto(server)
     expect_unreached(page)
     # Both tries go out in one script: the press first, then the online event. Both are held.
-    page.evaluate(f"document.querySelector('[role=alert] button').click(); {ONLINE}")
+    # The script ends before its two requests have left the browser: wait for the second.
+    out = []
+
+    def second(request):
+        if request.url.endswith("/api/me"):
+            out.append(request)
+        return len(out) == 2
+
+    with page.expect_event("request", second):
+        page.evaluate(f"document.querySelector('[role=alert] button').click(); {ONLINE}")
     page.evaluate(TURNS)
     assert len(checks) == 3
     # The older try fails while the newer one is out: the page keeps the loading state.
