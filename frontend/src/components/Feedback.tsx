@@ -6,18 +6,18 @@ import PhotoPicker, { shrink } from "./PhotoPicker";
 import VoiceNotes from "./VoiceNotes";
 
 // What is typed outlives the form: a send that finds the session gone brings the login, which takes the form away,
-// and the text stands in the form opened after it. The app empties it when the account is another.
-let draft = "";
-export const forgetDraft = () => void (draft = "");
+// and the text, the voice notes and the pictures stand in the form opened after it. The app empties it when the
+// account is another.
+const NONE = { text: "", clips: [] as Blob[], photos: [] as File[] };
+let draft = NONE;
+export const forgetDraft = () => void (draft = NONE);
 
 // With `opener` the form has no button of its own: the editor's bar has folded it into a menu, whose item opens the
 // form through it. The form and what is written in it stay while the button comes and goes.
 export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { opener?: Ref<() => void> }) {
   const [open, setOpen] = useState(false);
-  const [text, write] = useState(draft);
-  const setText = (to: string) => write((draft = to));
-  const [clips, setClips] = useState<Blob[]>([]);
-  const [photos, setPhotos] = useState<File[]>([]);
+  const [{ text, clips, photos }, write] = useState(draft);
+  const keep = (change: Partial<typeof NONE>) => write((draft = { ...draft, ...change }));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
@@ -58,9 +58,7 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       if (screen) data.append("screenshot", screen, "screenshot");
       // With no limit of time: voice notes and pictures may take long.
       await signed(api("/feedback", { method: "POST", body: data }));
-      setText("");
-      setClips([]);
-      setPhotos([]);
+      keep(NONE);
       setStatus("Danke! Ist angekommen.");
     } catch {
       setStatus("Das hat nicht geklappt. Dein Feedback ist noch da, versuch es gleich nochmal.");
@@ -78,11 +76,11 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
             <h1>Feedback</h1>
             <p className="lead">Was fällt dir auf, was fehlt, was nervt? Ein Bild von dieser Seite, so wie du sie gerade siehst, geht von selbst mit.</p>
             <label htmlFor="feedback-text">Schreiben</label>
-            <textarea id="feedback-text" value={text} onChange={(e) => setText(e.target.value)} />
+            <textarea id="feedback-text" value={text} onChange={(e) => keep({ text: e.target.value })} />
             <label>Sprechen</label>
-            <VoiceNotes clips={clips} onChange={setClips} />
+            <VoiceNotes clips={clips} onChange={(clips) => keep({ clips })} />
             <label>Bilder</label>
-            <PhotoPicker photos={photos} onChange={setPhotos} name="Bild" />
+            <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
             <div className="row">
               <button type="button" onClick={() => setOpen(false)}>Schließen</button>
               <button className="primary" disabled={busy}>Abschicken</button>

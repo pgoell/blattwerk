@@ -337,6 +337,7 @@ def test_a_wrong_password_at_the_login_says_so_and_the_right_one_signs_in(window
 # the account page.
 SHEET = "the sheet"
 TYPED = "Die Lineatur fehlt mir."
+PHOTO = {"name": "blatt.png", "mimeType": "image/png", "buffer": png()}
 NO_MATHS = "Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?"
 NO_FEEDBACK = "Das hat nicht geklappt. Dein Feedback ist noch da, versuch es gleich nochmal."
 HEADS = {
@@ -365,11 +366,13 @@ def limits(page):
 def written(page):
     page.get_by_role("button", name="Feedback").click()
     page.locator("dialog.feedback textarea").fill(TYPED)
+    page.locator("dialog.feedback input[type=file]").set_input_files(PHOTO)
 
 
 def photographed(page):
-    file = {"name": "blatt.png", "mimeType": "image/png", "buffer": png()}
-    page.locator("input[type=file]").set_input_files(file)
+    page.locator("input[type=file]").set_input_files(PHOTO)
+    page.get_by_label("Was ist das?").fill("Mathe Kl. 3")
+    page.get_by_label("Was gefällt dir daran?").fill(TYPED)
 
 
 def to_sheet(page):
@@ -492,28 +495,38 @@ def test_a_call_that_finds_the_session_gone_brings_the_login_and_its_page_shows_
 
 
 @pytest.mark.parametrize("who", ["same", "other"])
-def test_feedback_typed_when_the_session_ran_out_waits_for_its_teacher_and_nobody_else(
-    window, server, who
+@pytest.mark.parametrize("call", ["feedback", "photos"])
+def test_what_was_entered_when_the_session_ran_out_waits_for_its_teacher_and_nobody_else(
+    window, server, call, who
 ):
-    """I6: the login takes the form away. The teacher opens it again and finds the text, and
-    sends it; another teacher who signs in there finds an empty form."""
-    page, client, on, answers, _ = before(window, server, "feedback")
+    """I6: the login takes the form away. After it the teacher finds the text and the picture
+    again, on the photos' page at once and in the feedback form opened again, and sends them;
+    another teacher who signs in there finds an empty form."""
+    page, client, on, answers, _ = before(window, server, call)
     page.context.clear_cookies()
     with page.expect_response(answers) as got:
         click("Abschicken")(page)
     assert got.value.status == 401
     expect_login(page, on)
     login(page, server, client if who == "same" else user())
-    click("Feedback")(page)
-    form = page.locator("dialog.feedback")
-    expect(form.locator("textarea")).to_have_value(TYPED if who == "same" else "")
+    if call == "feedback":
+        click("Feedback")(page)
+    form = page.locator("dialog.feedback" if call == "feedback" else "main form")
+
+    def holds(text, pictures):
+        expect(form.locator("textarea")).to_have_value(text)
+        expect(form.locator("figure")).to_have_count(pictures)
+        if call == "photos":
+            expect(form.get_by_label("Was ist das?")).to_have_value(text and "Mathe Kl. 3")
+
     if who == "other":
-        return
+        return holds("", 0)
+    holds(TYPED, 1)
     with page.expect_response(answers) as got:
         click("Abschicken")(page)
     assert got.value.ok
-    expect(form.get_by_role("status")).to_have_text("Danke! Ist angekommen.")
-    expect(form.locator("textarea")).to_have_value("")
+    expect(form.get_by_role("status")).to_contain_text("Danke! Ist angekommen.")
+    holds("", 0)
 
 
 @pytest.mark.parametrize("call", ["maths block", "maths limit", "feedback"])
