@@ -282,11 +282,11 @@ export function reset(sheet: Sheet, owner: number) {
 }
 // The server's sheet is what is saved now, so what the editor shows is unsaved, also where it is back at what was
 // saved before, and goes. Where the server cannot be asked the clash stands, for another try. Says whether the
-// sheet is gone.
+// sheet is gone, or what the server said instead of the sheet.
 export async function overwrite(id: number) {
   const s = savers.get(id);
   const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch((e: Error) => e.message));
-  if (typeof sheet === "string") return refused(id, sheet);
+  if (typeof sheet === "string") return refused(id, sheet) || sheet;
   if (!s || !sheet || s.dead || !s.clash) return false;
   s.base = sheet.version;
   s.saved = { doc: read(sheet.doc), title: sheet.title };
