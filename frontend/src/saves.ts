@@ -378,6 +378,30 @@ export async function keepAsNew(id: number) {
     return "failed" as const;
   }
 }
+// The other answer: what was kept of a sheet deleted elsewhere is dropped, and this says true then. It is the only
+// copy, so the teacher is asked once more, and only the owner's own session may drop it: with the session gone or
+// another account's the login shows and all stays, as for `keepAsNew`. Where the server cannot say who is signed
+// in, the saver says so and the choice stands.
+export async function discard(id: number) {
+  const s = savers.get(id);
+  if (!s || s.dead || !s.gone || s.choice === "busy") return false;
+  if (!confirm(`Was von „${s.want.title}“ noch da ist, endgültig verwerfen?`)) return false;
+  s.choice = "busy";
+  tell();
+  try {
+    const who = await ask<{ id: number }>("/me");
+    if (who.id !== s.owner) {
+      signedOut();
+      throw new Error("401");
+    }
+    if (!s.dead) forget(id);
+    return true;
+  } catch (e) {
+    s.choice = ["401", "stale"].includes((e as Error).message) ? undefined : "failed";
+    if (!s.dead) tell();
+    return false;
+  }
+}
 
 // Waits for the save under way, which may hold an older document, then sends what is unsaved and waits for that:
 // until it landed, failed, or was given up after 20 s. A save that fails is not waited for again.

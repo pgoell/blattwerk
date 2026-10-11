@@ -18,7 +18,7 @@ from playwright.sync_api import expect
 from test_admin import admin, admin_page  # noqa: F401
 from test_loading import window  # noqa: F401
 from test_stale import TURNS
-from ui import TEXT, box, sheet
+from ui import TEXT, box, sheet, user
 
 AGAIN = "Erneut versuchen"
 WHY = {
@@ -35,6 +35,10 @@ ACTIONS = {
     "remove": ("a löschen", "Das Blatt konnte nicht gelöscht werden."),
 }
 API = "**/api/**"
+# Notes whether the page ever says that a sheet was deleted, however briefly.
+SEEN = """new MutationObserver(() => {
+    if (document.body.textContent.includes('gelöscht.')) window.said = true;
+}).observe(document.body, { subtree: true, childList: true, characterData: true })"""
 
 
 def cut(page, how, loads=False):
@@ -138,6 +142,29 @@ def test_a_button_on_a_sheet_deleted_elsewhere_says_so_and_takes_the_row_away(
     assert titles(client) == ["b"]
     line.get_by_role("button", name="Schließen").click()
     expect(line).to_have_count(0)
+
+
+@pytest.mark.parametrize("action", ["rename", "duplicate", "remove"])
+def test_a_button_pressed_under_another_accounts_session_calls_no_sheet_deleted(
+    window, server, action
+):
+    """A10, review 1: another teacher signed in in another tab, so the server says 404 for a
+    sheet that is still there. Nothing says that it was deleted, and the window goes on as that
+    teacher."""
+    page, client = window()
+    listed(page, server, client)
+    other = user()
+    sheet(other, [box("a", "text", TEXT)], title="theirs")
+    page.on("dialog", lambda d: d.accept("Neu" if d.type == "prompt" else None))
+    page.context.clear_cookies()
+    cookie = {"name": "session", "value": other.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.evaluate(SEEN)
+    page.get_by_role("button", name=ACTIONS[action][0]).click()
+    expect(page.locator(".sheets li strong")).to_have_text(["theirs"])
+    assert not page.evaluate("window.said")
+    expect(page.get_by_role("alert")).to_have_count(0)
+    assert titles(client) == ["a"]
 
 
 @pytest.mark.parametrize("action", ["create", "duplicate"])

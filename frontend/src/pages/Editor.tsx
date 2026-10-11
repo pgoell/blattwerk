@@ -87,7 +87,7 @@ import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
-import { ask, attach, flush, forget, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, discard, flush, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -235,10 +235,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
   const navigate = useNavigate();
   const keep = () => void keepAsNew(Number(id)).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`));
-  const drop = () => {
-    forget(Number(id));
-    navigate("/");
-  };
+  const drop = () => void discard(Number(id)).then((gone) => gone && navigate("/"));
   function load() {
     setChoice("busy");
     ask<Sheet>(`/sheets/${id}`).then(
@@ -1883,12 +1880,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // stores no second template. The name stays until the template is stored.
   const storing = useRef(false);
   async function store() {
-    const made = { name: name.trim(), doc: hist.doc };
+    const made = { name: name.trim() };
     await attempt("Die Vorlage konnte nicht gespeichert werden.", async () => {
       if (storing.current) return;
       storing.current = true;
       try {
-        const saved = await signed(post<Template>("/templates", made));
+        // The page as it stands at the try: a later one stores what the teacher sees then.
+        const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
         setTemplates((ts) => [...ts, saved]);
         setName((now) => (now.trim() === made.name ? "" : now));
       } finally {
@@ -1904,7 +1902,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   async function forget(t: Template) {
     if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
     await attempt("Die Vorlage konnte nicht gelöscht werden.", async () => {
-      await signed(api(`/templates/${t.id}`, { method: "DELETE" }));
+      // One deleted on another device is gone as asked: a 404 is no failure here.
+      await signed(api(`/templates/${t.id}`, { method: "DELETE" })).catch((e: Error) => (e.message === "404" ? undefined : Promise.reject(e)));
       setTemplates((ts) => ts.filter((o) => o.id !== t.id));
     });
   }

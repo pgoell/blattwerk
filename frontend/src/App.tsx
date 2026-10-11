@@ -4,7 +4,7 @@ import { api, type User } from "./api";
 import Blank from "./components/Blank";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
-import { Faults } from "./fault";
+import { clear, Faults } from "./fault";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
@@ -57,6 +57,7 @@ export default function App() {
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
+    clear();
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
     if (to?.id !== was.current) (forgetDraft(), forgetPhotos());
     saves.enter(to?.id);
@@ -142,7 +143,7 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
           <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.keepAsNew(s.id).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`))}>
             Als neues Blatt behalten
           </button>
-          <button type="button" disabled={s.choice === "busy"} onClick={() => (saves.forget(s.id), String(s.id) === id && navigate("/"))}>
+          <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && String(s.id) === id && navigate("/"))}>
             Verwerfen
           </button>
           {s.choice && <span>{s.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}

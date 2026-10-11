@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
-import { api, post } from "../api";
+import { api, post, type Refusal } from "../api";
 import Failed from "../components/Failed";
 import { attempt } from "../fault";
 import { ask, forget, served, signed, useSaves } from "../saves";
@@ -29,6 +29,7 @@ export default function SheetList() {
     return () => void (on = false);
   }, [landed, tries]);
   const retry = () => {
+    setLate(false);
     setFailed(false);
     setTries((n) => n + 1);
   };
@@ -54,9 +55,14 @@ export default function SheetList() {
         out.current.add(key);
         await run().finally(() => out.current.delete(key));
       },
-      // The sheet was deleted on another device: its row goes, and no try would bring it back.
-      (status) => {
-        if (status !== "404" || !sheet) return;
+      // The sheet was deleted on another device: its row goes, and no try would bring it back. Only where the 404
+      // was served for the sheet's owner: under another account's session the sheet is still there, and the app
+      // asks who is signed in. One that names nobody is a failure like any other.
+      (status, e) => {
+        const { by } = e as Refusal;
+        if (status !== "404" || !sheet || by === undefined) return;
+        // The list is that account's from now on, and is asked for anew.
+        if (by !== sheet.user_id) return (served(by), setTries((n) => n + 1), null);
         setSheets((all) => all?.filter((s) => s.id !== sheet.id));
         return "Dieses Blatt wurde auf einem anderen Gerät gelöscht.";
       },

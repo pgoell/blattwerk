@@ -59,6 +59,13 @@ def makes(request):
     return request.method == "POST" and request.url.endswith("/api/sheets")
 
 
+def yes(page, asked=None):
+    """`Verwerfen` asks once more, and the teacher says yes. `asked` takes each question."""
+    page.on(
+        "dialog", lambda d: (asked.append(d.message) if asked is not None else None, d.accept())
+    )
+
+
 def delete(run):
     """Another device deletes A."""
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
@@ -68,6 +75,7 @@ def deleted(run):
     """A is open and changed, another device deletes it, and the save finds it so. Gives the
     page, A's gate and where the block shows."""
     page, gate = start(run)
+    yes(page)
     change(run)
     moved = at(page, "a").evaluate(LEFT)
     delete(run)
@@ -79,6 +87,7 @@ def left(run):
     """The teacher changed A and went on to the list at once, another device deleted A, and the
     save finds it so with no editor there."""
     page, _ = leave(run, "held", "list")
+    yes(page)
     delete(run)
     with page.expect_response(f"{run.server}/api/sheets") as listed:
         answer(run, "a")
@@ -243,6 +252,7 @@ def test_the_start_with_a_kept_change_of_a_deleted_sheet_asks_above_the_list(run
     if kept != "named":
         run.page.context.add_init_script(OLD)
     page, _, sent = again(run, None)
+    yes(page)
     line = page.locator(NOTICE)
     expect_choice(line, LINE if kept == "named" else LINE.replace("a", "Unbenanntes Blatt", 1))
     expect(page.locator(".sheets li")).to_have_count(2)
@@ -414,3 +424,59 @@ def test_a_choice_under_another_accounts_session_makes_no_sheet_there(run):
     line.get_by_role("button", name=KEEP).click()
     expect_new(run, page)
     assert other.get("/api/sheets").json() == []
+
+
+@pytest.mark.parametrize("session", ["none", "another teacher's"])
+def test_dropping_needs_the_owners_own_session(run, session):
+    """A10, review 2: with the session gone, or another teacher's, `Verwerfen` drops nothing.
+    The login shows, the change stays for its owner, and after the owner's login it goes."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    kept = record(page, a)
+    if session == "none":
+        page.context.clear_cookies()
+    else:
+        swap(page, run.server, user())
+    page.locator(".clash").get_by_role("button", name=DROP).click()
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    page.evaluate(TURNS)
+    assert record(page, a) == kept
+    page.clock.resume()
+    login(page, run.server, run.client)
+    line = page.locator(NOTICE)
+    expect_choice(line, LINE)
+    assert record(page, a) == kept
+    line.get_by_role("button", name=DROP).click()
+    expect_list(page)
+    assert record(page, a) is None
+
+
+def test_dropping_asks_once_more_and_a_no_keeps_all(run):
+    """Review 3: what shows is the only copy, so one press alone drops nothing."""
+    page, _ = start(run)
+    asked = []
+    page.on("dialog", lambda d: (asked.append(d.message), d.dismiss()))
+    change(run)
+    delete(run)
+    answer(run, "a")
+    banner = page.locator(".clash")
+    kept = record(page, run.ids["a"])
+    banner.get_by_role("button", name=DROP).click()
+    page.evaluate(TURNS)
+    assert asked == ["Was von „a“ noch da ist, endgültig verwerfen?"]
+    expect_choice(banner, SAYS)
+    assert record(page, run.ids["a"]) == kept
+
+
+def test_dropping_with_no_connection_says_so_and_the_choice_stands(run):
+    """Review 2: who is signed in cannot be asked, so nothing is dropped."""
+    page, _, _ = deleted(run)
+    kept = record(page, run.ids["a"])
+    page.context.set_offline(True)
+    banner = page.locator(".clash")
+    banner.get_by_role("button", name=DROP).click()
+    expect(banner).to_contain_text(WORD)
+    assert record(page, run.ids["a"]) == kept
+    page.context.set_offline(False)
+    banner.get_by_role("button", name=DROP).click()
+    expect_list(page)

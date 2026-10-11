@@ -31,19 +31,26 @@ export const why = (s: string) =>
 // Runs an action that asks the server. Gives what it gave, or undefined where it failed, and says so then. Not for
 // a session that ran out ("401"), nor for an answer about the session before ("stale"): the login shows or has
 // shown. `own` gives the whole line for a refusal that is the action's own, a file the server does not take, say:
-// that line has no button, for the same try would end the same.
-export async function attempt<T>(what: string, run: () => Promise<T>, own?: (status: string) => string | undefined): Promise<T | undefined> {
+// that line has no button, for the same try would end the same. It gets the refusal too, and null from it says
+// nothing at all. Nor is anything said once the teacher has gone on to another page: the line and its button
+// would stand where the action no longer is.
+export async function attempt<T>(what: string, run: () => Promise<T>, own?: (status: string, e: unknown) => string | null | undefined): Promise<T | undefined> {
   drop(what);
+  const page = location.pathname;
   try {
     return await run();
   } catch (e) {
     const s = status(e);
-    if (s === "401" || (e as Error)?.message === "stale") return;
-    const text = own?.(s);
+    if (s === "401" || (e as Error)?.message === "stale" || location.pathname !== page) return;
+    const text = own?.(s, e);
+    if (text === null) return;
     const fault = text ? { what, text } : { what, text: `${what} ${why(s)}`, retry: () => void attempt(what, run, own) };
     show([...faults.filter((f) => f.what !== what), fault]);
   }
 }
+
+// A login or a logout takes every line away: its button would act for the account before.
+export const clear = () => show([]);
 
 // The lines, above every page. They go with a try, a press on `Schließen`, and with the page they were said on.
 export function Faults() {
