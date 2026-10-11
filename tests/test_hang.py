@@ -75,9 +75,8 @@ def test_a_failed_test_keeps_its_limit_for_its_teardown(tmp_path):
 
 
 def test_a_run_where_no_test_finishes_ends_with_the_stacks_of_its_workers(tmp_path):
-    # Ten seconds: the guard counts from the start, and on a busy runner the two workers take
-    # more than three to come up. Then it would fire before the test had begun.
-    res = run(tmp_path, "-n", "2", guard="10")
+    # The guard counts from the first report on, so slow workers cannot set it off too early.
+    res = run(tmp_path, "-n", "2")
     assert res.returncode == 1, res.stdout + res.stderr
     assert "the run hangs" in res.stderr
     assert "Started and not finished: " in res.stderr

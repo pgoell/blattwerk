@@ -141,12 +141,6 @@ def pytest_configure(config):
         GUARD = Hang(err)
 
 
-def pytest_sessionstart(session):
-    # From the start: the workers that never come up are a hang too.
-    if GUARD:
-        GUARD.restart()
-
-
 def pytest_unconfigure(config):
     if GUARD:
         GUARD.cancel()
