@@ -447,6 +447,12 @@ const draw = (not: (number | undefined)[] = []): number => {
   const seed = 1 + Math.floor(Math.random() * 2147483647);
   return not.includes(seed) ? draw(not) : seed;
 };
+// A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
+// so there is always one, the names of the props where none is given.
+const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
+  if (held.some(boxed)) look(props, key);
+  if (held.some((b) => b.type === "table")) style("table", props, key);
+};
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
 // have, the box of solution words, and every n-th word. Each switch is on unless all have it, as bold. With a table
@@ -460,11 +466,7 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
   const lit = part ? !!part.gap : cells ? !!cells.gaps?.[Math.floor(cell! / cells.cols.length)]?.[cell! % cells.cols.length] : held.every((b) => (b.type === "table" ? allCellGap(b.props.cells, b.props.gaps) : allGap(parasOf(boxed(b)!))));
   const same = held.every((b) => worded(b)!.gapWidth !== undefined);
   const bank = held.every((b) => worded(b)!.bank !== undefined);
-  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
-  const set = (props: object, key?: string) => {
-    if (held.some(boxed)) look(props, key);
-    if (held.some((b) => b.type === "table")) style("table", props, key);
-  };
+  const set = both(held, look, style);
   // The widest gap drawn in the selected blocks, in whole mm, or 30 when none is drawn.
   const widest = () => {
     const drawn = [...document.querySelectorAll<HTMLElement>(".block.sel .gap")];
@@ -510,12 +512,8 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   useEffect(() => {
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
-  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
-  const set = (props: object, key?: string) => {
-    if (held.some(boxed)) look(props, key);
-    if (held.some((b) => b.type === "table")) style("table", props, key);
-  };
-  const one = split && held.length === 1 ? worded(held[0])! : undefined;
+  const set = both(held, look, style);
+  const one = split &&held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
