@@ -86,7 +86,8 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { ask, attach, download, flush, forget, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { attempt, status } from "../fault";
+import { ask, attach, flush, forget, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -875,7 +876,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }, []);
 
   useEffect(() => {
-    signed(api<Template[]>("/templates")).then(setTemplates, () => {});
+    attempt("Die Vorlagen konnten nicht geladen werden.", () => signed(api<Template[]>("/templates")).then(setTemplates));
   }, []);
 
   // The sheet's saver (saves.ts) saves a change two seconds after the last one, tries a failed save again, and goes
@@ -1006,14 +1007,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     tight.current = true;
     // A line style or a width turns on the border of each box that has none, as in PowerPoint.
     const edge = "dash" in props || "strokeWidth" in props;
-    // A line holds no words: the Silbenbögen and the words split by hand pass it by.
-    const words = "syllables" in props || "breaks" in props;
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text") || (words && isLine(b))) return b;
+          if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text")) return b;
+          // A line holds no words and no fill: of all this it takes its stroke alone.
+          const own = isLine(b) ? Object.fromEntries(Object.entries(props).filter(([name]) => takes(b).includes(name as keyof Coat))) : props;
+          if (!Object.keys(own).length) return b;
           const on = edge && (b.props.stroke ?? "none") === "none" && { stroke: "#222222" };
-          return { ...b, props: { ...b.props, ...fresh(b, props), ...on } } as Block;
+          return { ...b, props: { ...b.props, ...fresh(b, own), ...on } } as Block;
         }),
       key,
     );
@@ -1294,31 +1296,46 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
-    const [{ id }, { width, height }] = await Promise.all([signed(api<{ id: number }>("/uploads", { method: "POST", body })), createImageBitmap(file)]);
+    // What the server says counts before what the browser makes of the file: WebKit reads no file while it has no
+    // connection, and the file is not the one to blame then.
+    const drawn = createImageBitmap(file);
+    drawn.catch(() => {});
+    const { id } = await signed(api<{ id: number }>("/uploads", { method: "POST", body }));
+    const { width, height } = await drawn;
     const w = round(Math.min(100, (100 * width) / height));
     return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
   }
-  // Not where the session ran out: the login shows then, and the teacher adds the picture again after it.
-  const refuse = (why?: unknown[]) => why?.some((e) => (e as Error | undefined)?.message === "401") || alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  // With no connection or a fault of the server the picture can be sent again. Any other refusal is the file's own:
+  // one the server does not take, or one the browser cannot read.
+  const NO_PICTURE = "Das Bild konnte nicht hochgeladen werden.";
+  const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
   async function upload(file?: File) {
     if (!file) return;
-    const where = mark();
-    try {
-      const { w, h, ...rest } = await sent(file);
-      calm(() => add(w, h, rest, where()));
-    } catch (e) {
-      refuse([e]);
-    }
+    await attempt(
+      NO_PICTURE,
+      async () => {
+        const where = mark();
+        const { w, h, ...rest } = await sent(file);
+        calm(() => add(w, h, rest, where()));
+      },
+      unfit,
+    );
   }
   // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
   // 5 mm right and down. They stay where they were dropped, also on a block, so they only move as far as the page
   // needs to hold them. The page and the spot are read at once: the desk may scroll while the pictures are on their way.
-  async function dropped(files: File[], left: number, top: number) {
+  // The ones that did not arrive are sent again by the line's button, and land on the same spot.
+  function dropped(files: File[], left: number, top: number) {
     // Beside the pages, the nearest one takes the drop.
     const rects = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].map((el) => el.getBoundingClientRect());
     const away = rects.map((r) => Math.hypot(Math.max(r.left - left, 0, left - r.right), Math.max(r.top - top, 0, top - r.bottom)));
     const was = away.indexOf(Math.min(...away));
     const [x, y] = [(left - rects[was].left) / k, (top - rects[was].top) / k];
+    let rest = files;
+    return attempt(NO_PICTURE, () => landed(rest, was, x, y, (still) => void (rest = still)), unfit);
+  }
+  // Sends the files and lands those that arrived. Tells which did not, and throws why.
+  async function landed(files: File[], was: number, x: number, y: number, keep: (still: File[]) => void) {
     const where = mark(was);
     const got = await Promise.allSettled(files.map((f) => (TYPES.includes(f.type) ? sent(f) : Promise.reject())));
     const made = got.flatMap((r) => (r.status === "fulfilled" ? [{ ...r.value, id: crypto.randomUUID() }] : []));
@@ -1349,19 +1366,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         setAt(n);
         setIds(made.map((b) => b.id));
       });
-    if (made.length < files.length) refuse(got.map((r) => r.status === "rejected" && r.reason));
+    keep(files.filter((_, i) => got[i].status === "rejected"));
+    const why = got.flatMap((r) => (r.status === "rejected" ? [r.reason as Error | undefined] : []));
+    // The session run out says nothing, and a picture that can be sent again counts before a file's own fault.
+    if (why.length) throw why.find((e) => e?.message === "401") ?? why.find((e) => !unfit(status(e))) ?? why[0];
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
     const limits = { ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as Range[], b: [[0, 9], [0, 9]] as Range[], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed: newSeed() };
-    const where = mark();
-    try {
+    await attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
+      const where = mark();
       const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
       calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
-    } catch (e) {
-      // Not where the session ran out, nor for an answer about the session before: the login shows or has shown.
-      if (!["401", "stale"].includes((e as Error).message)) alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
-    }
+    });
   }
   function put(from: Block[]) {
     const copies = land(
@@ -1838,21 +1855,44 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
   // which may hold an older document. A save that fails or never answers holds the PDF up for 20 s at most.
-  // The download goes by an address, and with the session gone the server's bare answer would take the app's
-  // place: the session is asked for first, and where it is gone the login shows instead.
+  // The session is asked for first: where it is gone the login shows, and nothing goes to the PDF's address. The
+  // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
+  // the server gives it. With no limit of time: a long sheet takes long to print.
   async function pdf(key: boolean) {
-    await flush(file.id);
-    if ((await ask("/me").catch((e: Error) => e.message)) === "401") return;
-    download(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`);
+    await attempt("Das PDF konnte nicht erstellt werden.", async () => {
+      await flush(file.id);
+      await ask("/me");
+      const res = await signed(
+        fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res;
+        }),
+      );
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(await res.blob());
+      link.download = decodeURIComponent(/filename\*=UTF-8''(.+)/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "Blatt.pdf");
+      link.click();
+      // After the browser has taken the file.
+      setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+    });
   }
 
-  // A template stored or deleted with the session run out brings the login. The panel has no word for a failure:
-  // the button does nothing then, as before.
+  // A template stored or deleted with the session run out brings the login. A second press while one is on its way
+  // stores no second template. The name stays until the template is stored.
+  const storing = useRef(false);
   async function store() {
-    const saved = await signed(post<Template>("/templates", { name: name.trim(), doc: hist.doc })).catch(() => undefined);
-    if (!saved) return;
-    setTemplates((ts) => [...ts, saved]);
-    setName("");
+    const made = { name: name.trim(), doc: hist.doc };
+    await attempt("Die Vorlage konnte nicht gespeichert werden.", async () => {
+      if (storing.current) return;
+      storing.current = true;
+      try {
+        const saved = await signed(post<Template>("/templates", made));
+        setTemplates((ts) => [...ts, saved]);
+        setName((now) => (now.trim() === made.name ? "" : now));
+      } finally {
+        storing.current = false;
+      }
+    });
   }
   // A template takes the place of the sheet; undo brings the sheet back.
   function apply(t: Template) {
@@ -1861,8 +1901,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   async function forget(t: Template) {
     if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
-    const gone = await signed(api(`/templates/${t.id}`, { method: "DELETE" })).then(() => true, () => false);
-    if (gone) setTemplates((ts) => ts.filter((o) => o.id !== t.id));
+    await attempt("Die Vorlage konnte nicht gelöscht werden.", async () => {
+      await signed(api(`/templates/${t.id}`, { method: "DELETE" }));
+      setTemplates((ts) => ts.filter((o) => o.id !== t.id));
+    });
   }
 
   // `press` is the mouse press that selects, so the same press can drag.

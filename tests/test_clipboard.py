@@ -562,14 +562,12 @@ def test_a_pasted_picture_is_selected_and_one_undo_takes_it_away(editor):
     assert [b["id"] for b in saved(page, client)] == ["a"]
 
 
-def test_a_refused_file_shows_the_alert_and_adds_nothing(editor):
+def test_a_refused_file_says_so_in_a_line_and_adds_nothing(editor):
     """I7"""
     page = editor(box("a", "text", TEXT))
     unpick(page)
-    with page.expect_event("dialog") as info:
-        page.evaluate(PASTE_BMP)
-    assert info.value.message.startswith(REFUSED)
-    info.value.accept()
+    page.evaluate(PASTE_BMP)
+    expect(page.locator(".notice.fault")).to_contain_text(REFUSED)
     expect(blocks(page)).to_have_count(1)
 
 

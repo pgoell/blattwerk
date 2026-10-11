@@ -213,18 +213,19 @@ def test_a_file_that_is_no_picture_is_refused(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     url = page.url
-    # An alert holds the page up until it is answered, so the page notes what it would have said.
-    page.evaluate("() => { window.said = []; window.alert = (words) => said.push(words); }")
+    line = page.locator(".notice.fault")
     drop(page, *spot(page, 105, 150), PDF)
-    page.wait_for_function("said.length === 1")
-    assert page.evaluate("said[0]").startswith(REFUSED)
+    expect(line).to_contain_text(REFUSED)
     expect(blocks(page)).to_have_count(1)
     assert page.url == url
+    line.get_by_role("button", name="Schließen").click()
+    expect(line).to_have_count(0)
     drop(page, *spot(page, 105, 150), PDF, PNG)
     landed(page, 2)
     assert [b["type"] for b in new(saved(page, client), "a")] == ["image"]
-    # One for each drop, however many of its files are refused.
-    assert page.evaluate("said.length") == 2
+    # One line, however many of the drop's files are refused.
+    expect(line).to_contain_text(REFUSED)
+    expect(line).to_have_count(1)
     assert page.url == url
 
 

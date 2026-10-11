@@ -446,15 +446,9 @@ addEventListener("pagehide", () =>
 );
 document.addEventListener("visibilitychange", () => document.hidden && savers.forEach(keep));
 addEventListener("online", () => savers.forEach((s) => s.tries && send(s)));
-// The browser asks before the window shuts while a change is unsaved. Not for a download: that goes by an address
-// too, and leaves the page where it is.
-let stays = 0;
-export function download(to: string) {
-  stays = Date.now() + 1000;
-  location.href = to;
-}
+// The browser asks before the window shuts while a change is unsaved.
 addEventListener("beforeunload", (e) => {
-  if (Date.now() < stays || ![...savers.values()].some(unsaved)) return;
+  if (![...savers.values()].some(unsaved)) return;
   e.preventDefault();
   e.returnValue = true;
 });
