@@ -19,7 +19,7 @@ import pytest
 from fastapi import HTTPException
 from playwright.sync_api import expect
 from test_loading import READY, expect_loading, expect_ready, window  # noqa: F401
-from test_stale import KEPT, STATUS, TURNS, Gate, Run, blocks, named
+from test_stale import GO, KEPT, STATUS, TURNS, Gate, Run, blocks, named
 from ui import PASSWORD, TEXT, at, box, user
 
 from blattwerk import sheets
@@ -968,3 +968,81 @@ def test_the_other_version_that_answers_after_the_teacher_overwrote_it_changes_n
     assert next_save.value.status == 200
     expect(banner).to_have_count(0)
     assert x_of(run, "a") == 17
+
+
+def test_an_undone_change_whose_save_arrives_after_a_reload_is_undone_on_the_server_too(run):
+    """Second review 1: the save of a change gets no answer for 20 s, the teacher undoes the
+    change, the tab is loaded anew, and then that save reaches the server. The editor's
+    document is sent again, as the tab before would have: the server ends with what shows."""
+    page, gate = start(run)
+    first = change(run).post_data_json
+    give_up(run, "a")
+    page.get_by_role("button", name="Rückgängig").click()
+    page.evaluate(TURNS)
+    page.clock.run_for(1000)
+    page.evaluate(TURNS)
+    kept = record(page, run.ids["a"])
+    assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 15
+    assert [doc["pages"][0]["blocks"][0]["x"] for doc in kept["sent"]] == [16]
+    page.clock.resume()
+    with down():
+        page.reload()
+        expect_ready(page, 1)
+        expect(page.locator(STATUS)).to_have_text("Speichert …")
+    assert x_of(run, "a") == 15
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=first).status_code == 200
+    assert let_go(page, gate).status == 409
+    expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    expect(page.locator(".clash")).to_have_count(0)
+    assert x_of(run, "a") == 15
+    assert run.held("a")["version"] == 3
+    assert record(page, run.ids["a"]) is None
+
+
+CHOICES = ["Andere Version laden", "Mit dieser überschreiben"]
+
+
+@pytest.mark.parametrize("choice", CHOICES)
+def test_a_clash_whose_sheet_was_deleted_elsewhere_ends_at_either_choice(run, choice):
+    """Second review 2"""
+    page, _ = start(run)
+    clash(run)
+    assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
+    page.locator(".clash").get_by_role("button", name=choice).click()
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
+    page.evaluate(GO, "/")
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
+    expect(page.locator(".sheets li")).to_have_count(2)
+    expect(page.locator(NOTICE)).to_have_count(0)
+    assert record(page, run.ids["a"]) is None
+    assert shut(page) == []
+
+
+@pytest.mark.parametrize("choice", CHOICES)
+def test_a_clash_with_the_session_gone_brings_the_login_and_stands_again_after_it(run, choice):
+    """Second review 3"""
+    page, _ = start(run)
+    clash(run)
+    moved = at(page, "a").evaluate(LEFT)
+    email = run.client.get("/api/me").json()["email"]
+    page.context.clear_cookies()
+    page.locator(".clash").get_by_role("button", name=choice).click()
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    said = unsaved("a", "Melde dich neu an, dann wird sie gespeichert.")
+    expect(page.locator(NOTICE)).to_have_text(said)
+    assert kept_x(page, run) == 16
+    page.clock.resume()
+    # The session cookie is Secure and this server speaks http, so it goes by hand.
+    cookie = {"name": "session", "value": run.client.cookies["session"], "url": run.server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(email)
+    page.get_by_label("Passwort").fill(PASSWORD)
+    page.get_by_role("button", name="Anmelden").click()
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    banner = page.locator(".clash")
+    for name in CHOICES:
+        expect(banner.get_by_role("button", name=name)).to_be_visible()
+    expect(at(page, "a")).to_have_css("left", moved)
+    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
+    assert x_of(run, "a") == 99
+    assert len(run.sent) == 1

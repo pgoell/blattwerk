@@ -85,7 +85,7 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attach, download, flush, open, overwrite, reset, set, useSaves } from "../saves";
+import { attach, download, flush, open, overwrite, refused, reset, set, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
@@ -214,16 +214,18 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   }, []);
 
   // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on,
-  // or has chosen this version meanwhile, changes nothing.
+  // or has chosen this version meanwhile, changes nothing. Either choice may find the sheet deleted elsewhere, which
+  // ends the clash, or the session gone, which brings the login.
   function load() {
     api<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
         const other = here.current && reset(sheet, user.id);
         if (other) show(other);
       },
-      (e: Error) => here.current && e.message === "404" && show(null),
+      (e: Error) => here.current && refused(Number(id), e.message) && show(null),
     );
   }
+  const over = () => overwrite(Number(id)).then((gone) => gone && here.current && show(null));
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either.
   useEffect(() => {
@@ -235,10 +237,10 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file === undefined) return wait;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} />;
 }
 
-function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
+function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload: () => void; over: () => void }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -2296,7 +2298,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             Dieses Blatt wurde auf einem anderen Gerät geändert.
             <button onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
-            <button onClick={() => overwrite(file.id)}>Mit dieser überschreiben</button>
+            <button onClick={over}>Mit dieser überschreiben</button>
           </div>
         )}
       </header>

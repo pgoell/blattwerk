@@ -114,12 +114,13 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
   const open = saves.useSaves().list.filter((s) => s.owner === owner && String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late));
   return open.map((s) => (
     <p key={s.id} className="notice" role="status">
-      {s.clash ? (
+      {s.stopped ? (
+        // First of all: without a login a clash has no sheet to open either.
+        `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert.`
+      ) : s.clash ? (
         <>
           „{s.title}“ wurde auf einem anderen Gerät geändert. <Link to={`/blatt/${s.id}`}>Öffne das Blatt</Link>, um zu wählen.
         </>
-      ) : s.stopped ? (
-        `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert.`
       ) : (
         `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Blattomat versucht es weiter.`
       )}

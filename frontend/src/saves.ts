@@ -220,8 +220,9 @@ export function open(sheet: Sheet, owner: number): Sheet {
       s.clash = unsaved(s) && sheet.version !== record.base && !ours;
       // A save that went from the tab before may still arrive, or has and the answer here is older: the saver
       // knows those documents as this browser's own when a save of its own is turned down. Once the server is
-      // past the version they were based on, it takes none of them any more.
-      if (sheet.version === record.base && unsaved(s)) s.lost = (record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
+      // past the version they were based on, it takes none of them any more. They keep the saver unsaved also
+      // where the teacher has undone the change: what the editor shows is sent again, as the tab before would have.
+      if (sheet.version === record.base) s.lost =(record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
       s.kept = true;
       keep(s);
     }
@@ -276,18 +277,33 @@ export function reset(sheet: Sheet, owner: number) {
   return open(sheet, owner);
 }
 // The server's sheet is what is saved now, so what the editor shows is unsaved, also where it is back at what was
-// saved before, and goes. Where the server cannot be asked the clash stands, for another try.
+// saved before, and goes. Where the server cannot be asked the clash stands, for another try. Says whether the
+// sheet is gone.
 export async function overwrite(id: number) {
   const s = savers.get(id);
-  const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch(() => null));
-  if (!s || !sheet || s.dead || !s.clash) return;
+  const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch((e: Error) => e.message));
+  if (typeof sheet === "string") return refused(id, sheet);
+  if (!s || !sheet || s.dead || !s.clash) return false;
   s.base = sheet.version;
   s.saved = { doc: read(sheet.doc), title: sheet.title };
   s.clash = false;
   send(s);
   tell();
+  return false;
 }
-// The sheet was deleted here: its saver and its kept change go with it.
+// What a clash's choice was answered with, where the server gave no sheet. Deleted elsewhere: the saver and the
+// kept change go, and this says so. The session gone: the road of a save that finds it gone, so the login shows,
+// the change is kept, and the clash stands again after the login. Else nothing: the banner stays for another try.
+export function refused(id: number, status: string) {
+  const s = savers.get(id);
+  if (status === "404") forget(id);
+  if (status !== "401" || !s) return status === "404";
+  s.stop = true;
+  tell();
+  signedOut();
+  return false;
+}
+// The sheet was deleted: its saver and its kept change go with it.
 export function forget(id: number) {
   const s = savers.get(id);
   if (s) kill(s);
