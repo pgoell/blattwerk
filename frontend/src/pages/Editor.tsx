@@ -305,6 +305,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
   const [words, setWords] = useState<string[]>([]);
   const wordsKept = useRef("");
+  const nameWriting = useRef("");
   const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
@@ -637,6 +638,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     caret.current = undefined;
     entire.current = false;
   }, [editing, slot]);
+  // A name line's words are kept once its field ends, however it ends: a press on the sheet can end it with no blur.
+  // An emptied word drops its field, and with none left nothing changes.
+  useEffect(() => {
+    const line = nameWriting.current;
+    if (editing || !line) return;
+    nameWriting.current = "";
+    const fields = words.map((w) => w.trim()).filter(Boolean);
+    if (escaped.current || !fields.length || fields.join("\n") === wordsKept.current) return;
+    change((bs) => bs.map((b) => (b.id === line ? ({ ...b, props: { ...b.props, fields } } as Block) : b)));
+  });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
   useEffect(() => {
@@ -1970,19 +1981,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (free[0].type === "name") {
         setWords(free[0].props.fields ?? FIELDS);
         wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
+        nameWriting.current = id;
         escaped.current = false;
       }
       setEditing(id);
     }
     setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
-  }
-  // Keeps the words a name line is written with, once it is left. An emptied word drops its field; with none left nothing changes.
-  function wordsDone() {
-    const fields = words.map((w) => w.trim()).filter(Boolean);
-    if (!fields.length || fields.join("\n") === wordsKept.current) return;
-    wordsKept.current = fields.join("\n");
-    style("name", { fields });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
   function whole(b: ImageBlock) {
@@ -2658,7 +2663,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             }}
                             onBlur={(e) => {
                               if ((e.relatedTarget as Element | null)?.closest(`[data-id="${b.id}"]`)) return;
-                              if (!escaped.current) wordsDone();
                               stays(e) || setEditing("");
                             }}
                           />
