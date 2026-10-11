@@ -209,8 +209,19 @@ it("counts a break set by hand in letters, so composed and decomposed spellings 
   expect(cuts("Bären".normalize("NFC"), { bären: [2] })).toEqual([2]);
   expect(cuts("Bären".normalize("NFD"), { bären: [2] })).toEqual([3]);
   expect(pieces("Bären".normalize("NFD"), { bären: [2] }).map((p) => p.text)).toEqual(["Bä".normalize("NFD"), "ren"]);
-  expect(counted("Bären".normalize("NFD"), [3])).toEqual([2]);
-  expect(counted("Bären".normalize("NFC"), [2])).toEqual([2]);
+  expect(counted("Bären".normalize("NFD"), [4])).toEqual([3]);
+  expect(counted("Bären".normalize("NFC"), [3])).toEqual([3]);
+  // Place 2 of the decomposed word lies between "a" and its dots: inside a letter, so none.
+  expect(counted("Bären".normalize("NFD"), [2])).toEqual([]);
+});
+
+it("stores a break in the characters of the composed word, and a break inside a letter counts for none", () => {
+  // An "n" with a mark that has no composed form: the number counts characters, as a break stored before did.
+  const word = "Man̈ana";
+  expect(cuts(word, { "man̈ana": [4] })).toEqual([4]);
+  expect(cuts(word, { "man̈ana": [3, 4] })).toEqual([4]);
+  expect(cuts(word, { "man̈ana": [3] })).toEqual([]);
+  expect(counted(word, [4])).toEqual([4]);
 });
 
 it("keeps the breaks of İstanbul, whose key is one character longer than the word", () => {

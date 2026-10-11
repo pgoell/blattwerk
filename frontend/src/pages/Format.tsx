@@ -525,7 +525,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
-  // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in letters, and an
+  // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in characters of the composed word, and an
   // entry under the old key goes, so the word has one entry.
   const mend = (at?: number) => {
     const now = split!.cuts(word!, fixes);

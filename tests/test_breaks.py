@@ -40,3 +40,13 @@ def test_a_split_stored_under_the_old_decomposed_key_still_cuts_the_word(editor)
     text = {**TEXT, "text": DECOMPOSED, "syllables": True, "breaks": {OLD_KEY: [3]}}
     page = editor(box("a", "text", text))
     bows(page, "a").to_have_text(["Bä", "ren"])
+
+
+# "n" with a dot above, which has no composed form: a break stored before the fix counts characters.
+MANANA = "Man̈ana"
+
+
+def test_a_break_stored_under_a_mark_with_no_composed_form_cuts_where_it_did(editor):
+    text = {**TEXT, "text": MANANA, "syllables": True, "breaks": {MANANA.lower(): [4]}}
+    page = editor(box("a", "text", text))
+    bows(page, "a").to_have_text(["Man̈", "ana"])

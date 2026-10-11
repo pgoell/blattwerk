@@ -125,30 +125,43 @@ export function split(word: string): number[] {
   }
   return out;
 }
-// Where each unit of a plain word starts, and the end of the word last. A unit is a letter with its marks, or a character.
-const starts = (units: string[]) => {
-  const out = [0];
-  for (const unit of units) out.push(out.at(-1)! + unit.length);
+// The borders between the letters of a plain word, as a map from each border's place in the composed word (NFC) to its
+// place in the word as typed. A letter is a base with the marks after it, so no border falls inside one.
+function borders(plainWord: string): Map<number, number> {
+  const out = new Map([[0, 0]]);
+  let [typed, composed] = [0, 0];
+  for (const letter of plainWord.match(LETTER) ?? []) {
+    typed += letter.length;
+    composed += letter.normalize("NFC").length;
+    out.set(composed, typed);
+  }
   return out;
-};
+}
 // The places a word breaks at: the teacher's where the word has them, the module's own otherwise.
 // A sheet may come from anywhere: only a list the sheet itself holds for the word counts (not what every object
-// has, as "constructor"), and of it the whole numbers inside the word, each once, in order. The teacher's counts are
-// of letters, so composed and decomposed spellings cut alike. A list under the old key counts characters, as it did,
-// and counts only while no list stands under the new key. The places come back as places of the word as it came.
+// has, as "constructor"), and of it the whole numbers inside the word, each once, in order. A list under the new key
+// counts characters of the composed word, so a composed and a decomposed spelling cut alike; a number that is no
+// border between letters counts for none. A list under the old key counts characters of the word as typed, as it
+// did, and counts only while no list stands under the new key. The places come back as places of the word as it came.
 export function cuts(word: string, breaks?: Breaks): number[] {
   const fresh = !!breaks && Object.hasOwn(breaks, keyOf(word));
   const own: unknown = fresh ? breaks![keyOf(word)] : breaks && Object.hasOwn(breaks, oldKeyOf(word)) ? breaks[oldKeyOf(word)] : undefined;
   if (!Array.isArray(own)) return split(word);
-  const from = starts(fresh ? plain(word).match(LETTER) ?? [] : plain(word).split(""));
+  const length = plain(word).length;
+  const typed = fresh ? borders(plain(word)) : new Map(Array.from({ length: length + 1 }, (_, i) => [i, i]));
+  const end = Math.max(...typed.keys());
   const at = places(word);
-  return [...new Set(own.filter((i): i is number => Number.isInteger(i) && i > 0 && i < from.length - 1))].sort((a, b) => a - b).map((i) => at[from[i]]);
+  return [...new Set(own.filter((i): i is number => Number.isInteger(i) && i > 0 && i < end && typed.has(i)))].sort((a, b) => a - b).map((i) => at[typed.get(i)!]);
 }
-// The counts of letters to store for breaks at places of the word as it came, the places `cuts` gives back.
+// The characters of the composed word to store for breaks at places of the word as it came, the places `cuts` gives back.
+// A place that is no border between letters is none.
 export function counted(word: string, cut: number[]): number[] {
   const at = places(word);
-  const from = starts(plain(word).match(LETTER) ?? []).slice(0, -1);
-  return cut.map((p) => from.filter((s) => at[s] < p).length);
+  const composed = new Map([...borders(plain(word))].map(([c, t]) => [t, c]));
+  return cut.flatMap((p) => {
+    const c = composed.get(at.indexOf(p));
+    return c === undefined ? [] : [c];
+  });
 }
 // The words of a text as a reader sees them, each once, in the order they first stand in it.
 export const words = (text: string) => [...new Set((text.match(WORD) ?? []).map(plain))];
