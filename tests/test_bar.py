@@ -190,6 +190,16 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
     expect(more(page)).to_be_focused()
 
 
+def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
+    """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
+    page = sized(editor, text("a"), width=1000, height=700, touch=False, theme=None)
+    expect_fitted(page)
+    more(page).focus()
+    resize(page, 900, 1200)
+    expect_fitted(page)
+    expect(more(page)).to_be_focused()
+
+
 def test_mehr_gets_the_focus_back_when_the_bar_was_fitted_anew_under_its_menu(editor):
     """#287: the bar's width changes under the open menu, as when its type loads late. "Mehr" left
     the bar to be measured, and the menu handed the focus back to a button that was gone."""
