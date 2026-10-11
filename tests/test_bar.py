@@ -192,11 +192,13 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
 
 def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
     """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
-    page = sized(editor, text("a"), width=1000, height=700, touch=False, theme=None)
+    page = sized(editor, text("a"), width=1050, height=700, touch=False, theme=None)
     expect_fitted(page)
+    expect(page.locator("main.editor.leaf")).to_have_count(1)
     more(page).focus()
-    resize(page, 900, 1200)
+    resize(page, 1050, 1300)
     expect_fitted(page)
+    expect(page.locator("main.editor.leaf")).to_have_count(0)
     expect(more(page)).to_be_focused()
 
 

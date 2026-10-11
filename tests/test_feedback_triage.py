@@ -6,6 +6,7 @@ Every run goes through a fake gh and a fake claude on PATH, so no test reaches G
 import ast
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -707,6 +708,17 @@ def test_nothing_new_reaches_github(world):
     flags = [arg for arg in create if arg.startswith("--")]
     assert flags == ["--repo", "--title", "--body", "--label", "--label"]
     assert value(create, "--body") == "Click undo twice.\n\n" + constant("FOOTER")
+
+
+def test_a_folder_gone_meanwhile_is_no_cut_off_send(tmp_path, monkeypatch):
+    """Review: an account deleted between the listing and the look at its folder's age."""
+    monkeypatch.syspath_prepend(str(SCRIPT.parent))
+    spec = importlib.util.spec_from_file_location("feedback_triage_under_test", SCRIPT)
+    assert spec and spec.loader
+    triage = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(triage)
+    monkeypatch.setattr(triage, "send_folders", lambda data: [("1/gone", tmp_path / "gone")])
+    assert triage.find_half(tmp_path, {}, {"tries": {}, "half": []}) == []
 
 
 def _git(repo, *args):

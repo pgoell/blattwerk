@@ -397,10 +397,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Under an open menu the bar waits to be measured until the menu shuts: the menu hands the focus back to the
   // button that had it, and a "Mehr" that left the bar meanwhile is no longer that button.
   const late = useRef(false);
+  // A measure is asked for and not yet taken: until it is, the focus "Mehr" had is not given back and not forgotten.
+  const awaited = useRef(false);
   const refit = () => {
     late.current = !!document.querySelector("dialog.menu[open]");
     if (late.current) return;
     focused.current ||= !!document.activeElement?.matches(".more");
+    awaited.current = true;
     setFits(undefined);
   };
   // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
@@ -412,10 +415,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(refit, [leaf, title]);
   useLayoutEffect(() => {
     if (fits !== undefined) {
+      if (awaited.current) return;
       if (focused.current) bar.current!.querySelector<HTMLElement>(".more")?.focus();
       focused.current = false;
       return;
     }
+    awaited.current = false;
     const row = bar.current!;
     const look = getComputedStyle(row);
     const may = [...row.querySelectorAll(".sep ~ :is(.ib, .zoom):not(.pin)")];

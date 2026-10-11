@@ -270,14 +270,18 @@ def find_sends(data: Path, read: dict) -> list[tuple[str, Path]]:
 def find_half(data: Path, read: dict, pending: dict) -> list[tuple[str, Path]]:
     """The folders cut off before their feedback.json, not named before."""
     now = time.time()
-    return [
-        (key, folder)
-        for key, folder in send_folders(data)
-        if key not in read
-        and key not in pending["half"]
-        and not (folder / "feedback.json").is_file()
-        and now - folder.stat().st_mtime > HALF_AFTER
-    ]
+    found = []
+    for key, folder in send_folders(data):
+        if key in read or key in pending["half"] or (folder / "feedback.json").is_file():
+            continue
+        # An account deleted meanwhile takes its folder along: that is no cut-off send.
+        try:
+            old = now - folder.stat().st_mtime > HALF_AFTER
+        except FileNotFoundError:
+            continue
+        if old:
+            found.append((key, folder))
+    return found
 
 
 def load_json(state: Path, name: str, empty: dict) -> dict:
@@ -452,6 +456,9 @@ def main() -> int:
         save_json(state, "pending.json", pending)
 
     for key, folder in cut_off:
+        # The sends above took their time: the folder may be gone by now.
+        if not folder.is_dir():
+            continue
         names = sorted(p.name for p in folder.iterdir())
         results.append(Result(key, outcome="half-written", files=names))
         if not args.dry_run:
