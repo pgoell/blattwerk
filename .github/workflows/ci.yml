@@ -52,7 +52,7 @@ jobs:
       # which tests never ended. --durations=0 prints every test's time, which
       # scripts/shard-times.py reads.
       - name: Pytest
-        run: mise run test -- -n 8 --dist worksteal -v --durations=0
+        run: mise run test -- -n 8 --dist worksteal -v --durations=0 --durations-min=0
         env:
           SHARD: ${{ matrix.shard }}/6
 
@@ -76,7 +76,7 @@ jobs:
       - uses: ./.github/actions/setup-mise
       - name: Pytest
         # The runner has four cores, and WebKit is slower to start than Chromium.
-        run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0
+        run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0 --durations-min=0
         env:
           SHARD: ${{ matrix.shard }}/12
 

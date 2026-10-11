@@ -117,14 +117,17 @@ class Hang:
         me = os.getpid()
         children = Path(f"/proc/{me}/task/{me}/children")
         pids = [int(pid) for pid in children.read_text().split()] if children.is_file() else []
-        for pid in pids:
-            os.kill(pid, signal.SIGUSR1)
-        time.sleep(2)
-        faulthandler.dump_traceback(file=self.err, all_threads=True)
-        # A worker that hangs never ends by itself, and would keep the pipes of the job open.
-        for pid in pids:
-            os.kill(pid, signal.SIGKILL)
-        os._exit(1)
+        try:
+            for pid in pids:
+                os.kill(pid, signal.SIGUSR1)
+            time.sleep(2)
+            faulthandler.dump_traceback(file=self.err, all_threads=True)
+            # A worker that hangs never ends by itself, and would keep the pipes of the job open.
+            for pid in pids:
+                os.kill(pid, signal.SIGKILL)
+        finally:
+            # Also when a child had gone before its signal came.
+            os._exit(1)
 
 
 def pytest_configure(config):
@@ -132,8 +135,16 @@ def pytest_configure(config):
     global GUARD
     err = os.dup(2)
     faulthandler.register(signal.SIGUSR1, file=err, all_threads=True)
-    if not hasattr(config, "workerinput"):
+    # Only the process that hands the tests to workers. A run with no workers may sit in a
+    # debugger for as long as it likes.
+    if not hasattr(config, "workerinput") and config.getoption("numprocesses", None):
         GUARD = Hang(err)
+
+
+def pytest_sessionstart(session):
+    # From the start: the workers that never come up are a hang too.
+    if GUARD:
+        GUARD.restart()
 
 
 def pytest_unconfigure(config):
