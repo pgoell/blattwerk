@@ -278,9 +278,13 @@ def test_one_press_in_the_silben_and_gap_controls_is_one_undo_step_for_a_text_an
     editor, label, stored
 ):
     client = user()
+    # Every word and cell is a solution word, so that a Neu mischen has words to move.
+    words = [{"text": "Fenster", "gap": True}, {"text": " "}, {"text": "Wasser", "gap": True}]
+    gapped_text = {**WORDY, "rich": [{"runs": words}]}
+    gapped_cells = {**CELLS, "gaps": [[True, True], [True, True]]}
     page = editor(
-        box("a", "text", {**WORDY, **stored}),
-        box("t", "table", {**CELLS, **stored}, z=2),
+        box("a", "text", {**gapped_text, **stored}),
+        box("t", "table", {**gapped_cells, **stored}, z=2),
         client=client,
     )
     pick(page, "a", "t")

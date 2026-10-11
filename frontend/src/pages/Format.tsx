@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
-import { cellEntries, draw, entries, shuffled, type Shown } from "../bank";
+import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
 import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
@@ -509,7 +509,17 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
       <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
         Lösungswörter
       </button>
-      {bank && <button onClick={() => set({ bank: draw(held.map((b) => ({ seed: seedOf(worded(b)!.bank), show: (seed) => shuffled(solutions(b), seed, solutions(b)).join("\n") }))) }, "shuffle")}>Neu mischen</button>}
+      {bank && (
+        <button
+          onClick={() => {
+            const shown = held.map((b) => ({ seed: seedOf(worded(b)!.bank), show: (seed: number) => shuffled(solutions(b), seed, solutions(b)).join("\n") }));
+            const seed = draw(shown);
+            if (moves(shown, seed)) set({ bank: seed }, "shuffle");
+          }}
+        >
+          Neu mischen
+        </button>
+      )}
     </>
   );
 }
@@ -524,8 +534,8 @@ const sources = (p: TextProps) =>
     .flatMap((part) => (part.source ? [part.source] : []));
 
 // Schüttelwörter: the letters of each word in another order, for every selected text and shape. On unless all have a
-// seed, as bold. Off keeps the settings stored, so the next press brings them back. "Neu schütteln" moves every
-// word, not just the block: a word that stays put would look unmixed.
+// seed, as bold. Off keeps the settings stored, so the next press brings them back. "Neu schütteln" draws the best of
+// 40 seeds, so in a long text a word can keep its order. A press that moves no word makes no step.
 function Mix({ sel, look }: Pick<Props, "sel" | "look">) {
   const held = sel.flatMap((b) => {
     const p = boxed(b);
@@ -536,8 +546,8 @@ function Mix({ sel, look }: Pick<Props, "sel" | "look">) {
   const first = held.every((p) => p.mixFirst === true);
   const caps = held.every((p) => p.mixCaps === true);
   const line = held[0].mixLine === "after" || held[0].mixLine === "under" ? held[0].mixLine : undefined;
-  // One entry per word of each block: a new shuffle moves every word that has another order, not the block alone.
-  const words = (): Shown[] => held.flatMap((p) => sources(p).map((source) => ({ seed: seedOf(p.mix), show: (seed: number) => word(source, seed, p.mixFirst === true) })));
+  // One entry per word of each block, as the pupil sees it: in capitals where the caps are on.
+  const words = (): Shown[] => held.flatMap((p) => sources(p).map((source) => ({ seed: seedOf(p.mix), show: (seed: number) => word(source, seed, p.mixFirst === true, p.mixCaps === true) })));
   return (
     <>
       <button className={on ? "on" : ""} aria-pressed={on} onClick={() => look({ mix: on ? undefined : draw() }, "mix")}>
@@ -558,7 +568,15 @@ function Mix({ sel, look }: Pick<Props, "sel" | "look">) {
               </button>
             ))}
           </div>
-          <button onClick={() => look({ mix: draw(words()) }, "mixShuffle")}>Neu schütteln</button>
+          <button
+            onClick={() => {
+              const shown = words();
+              const seed = draw(shown);
+              if (moves(shown, seed)) look({ mix: seed }, "mixShuffle");
+            }}
+          >
+            Neu schütteln
+          </button>
         </>
       )}
     </>

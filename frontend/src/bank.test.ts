@@ -1,7 +1,7 @@
 // The solution words of a Lückentext: their reading order, their seeded order, and a table's gap flags.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { cellEntries, draw, entries, shuffled, type Shown } from "./bank";
+import { cellEntries, draw, entries, moves, shuffled, type Shown } from "./bank";
 import { spliced } from "./sheet";
 
 const run = (text: string, gap?: boolean) => ({ text, ...(gap === undefined ? {} : { gap }) });
@@ -96,6 +96,24 @@ describe("shuffled that avoids a list", () => {
   it("gives the items as shuffled when there are fewer than two", () => {
     expect(shuffled(["x"], 1, ["x"])).toEqual(["x"]);
     expect(shuffled([], 1, [])).toEqual([]);
+  });
+});
+
+describe("moves", () => {
+  it("is true when one held item shows another way under the seed", () => {
+    expect(moves([{ seed: 1, show: (s) => String(s % 2) }], 2)).toBe(true);
+  });
+
+  it("is false when no held item changes under the seed", () => {
+    expect(moves([{ seed: 1, show: () => "a" }, { seed: 3, show: () => "same" }], 4)).toBe(false);
+  });
+
+  it("is false for the seed the items have", () => {
+    expect(moves([{ seed: 5, show: (s) => String(s % 7) }], 5)).toBe(false);
+  });
+
+  it("is true for an item with no seed", () => {
+    expect(moves([{ show: () => "same" }], 9)).toBe(true);
   });
 });
 

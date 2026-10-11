@@ -32,6 +32,7 @@ LONG = (
     "sie im Winter genug zu fressen haben."
 )
 TINT = ["#1a56db", "#e02424"]
+WIDTH = "el => el.getBoundingClientRect().width"
 # Long enough to wrap onto several rows in a box 60 mm wide, with a line after each word.
 LONG_MIXED = "Der Hund bellt laut und die Katze schläft in der Straße vor dem Haus"
 
@@ -79,9 +80,21 @@ def test_capitals_with_mix_caps(editor):
     page = editor(box("a", "text", {**TEXT, "text": "Straße", "mix": 7, "mixCaps": True}))
     [(source, shown)] = shown_pairs(page, "a")
     assert source == "Straße"
-    assert shown == "RTSSESA"
+    assert shown == "ETRSSAS"
     assert shown == shown.upper()
     assert sorted(shown) == sorted("STRASSE")
+
+
+def test_capitals_never_show_a_word_as_typed(editor):
+    """With mixCaps no word shows as its capitals: each has the same letters, in another order."""
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Esel Uhu Otto Anna", "mix": 13, "mixCaps": True})
+    )
+    pairs = shown_pairs(page, "a")
+    assert len(pairs) == 4
+    for source, shown in pairs:
+        assert shown != source.upper()
+        assert sorted(shown) == sorted(source.upper())
 
 
 def test_short_words_punctuation_and_digits_stay(editor):
@@ -120,6 +133,17 @@ def test_a_line_stands_after_each_word(editor):
         assert line["width"] > held["width"] + 1
 
 
+def test_a_word_and_its_line_after_it_stay_on_one_row(editor):
+    """A6: a word at the end of a row takes its line along to the next row, with wide lines too."""
+    words = {**TEXT, "text": "Hund Katze Ei Maus", "mix": 7, "mixLine": "after", "gapWidth": 40}
+    page = editor(box("a", "text", words))
+    for mixed in at(page, "a").locator(".mix").all():
+        word = mixed.locator(".mixed").bounding_box()
+        line = mixed.locator(".gap.line").bounding_box()
+        assert abs(line["y"] - word["y"]) < word["height"] / 2
+        assert line["x"] >= word["x"] + word["width"] - 1
+
+
 def test_a_line_stands_under_each_word(editor):
     """A6: with mixLine "under" each word's line lies below the word, and is at least as wide."""
     page = editor(box("a", "text", {**MIX, "mixLine": "under"}))
@@ -128,6 +152,70 @@ def test_a_line_stands_under_each_word(editor):
         line = mixed.locator(".gap.line").bounding_box()
         assert line["y"] >= word["y"] + word["height"] - 1
         assert line["width"] >= word["width"] - 1
+
+
+@pytest.mark.parametrize("mixLine", ["after", "under"])
+def test_gap_width_sets_the_width_of_the_lines_after_and_under(editor, mixLine):
+    """A gapWidth of 60 mm makes every line 60 mm wide, short word or long, after or under; the
+    drawn line fills its box."""
+    props = {**TEXT, "text": "Hund Katze", "mix": 7, "gapWidth": 60, "mixLine": mixLine}
+    page = editor(box("a", "text", props))
+    lines = at(page, "a").locator(".mix .gap.line")
+    expect(lines).to_have_count(2)
+    # The block is 180 mm wide: the editor shows it at its own pixels a millimetre.
+    per_mm = at(page, "a").evaluate(WIDTH) / 180
+    for line in lines.all():
+        assert abs(line.evaluate(WIDTH) - 60 * per_mm) <= 1
+        assert abs(line.locator("svg").evaluate(WIDTH) - line.evaluate(WIDTH)) <= 1
+
+
+@pytest.mark.parametrize("mixLine", ["after", "under"])
+def test_the_drawn_line_is_as_wide_as_its_box_and_a_quarter_mm_thick(editor, mixLine):
+    """The line drawn in a box is as wide as the box, and a quarter of a millimetre thick."""
+    page = editor(box("a", "text", {**MIX, "mixLine": mixLine}))
+    for line in at(page, "a").locator(".mix .gap.line").all():
+        drawn = line.locator("svg")
+        assert abs(drawn.evaluate(WIDTH) - line.evaluate(WIDTH)) <= 1
+        assert 0.5 <= drawn.evaluate("el => el.getBoundingClientRect().height") <= 2
+
+
+# The middle of the screen's height of the digits "12", which are no word and have no line.
+DIGITS = """(name) => {
+    const rich = document.querySelector(`.block[data-id="${name}"] .rich`);
+    const walk = document.createTreeWalker(rich, NodeFilter.SHOW_TEXT);
+    let node;
+    while (walk.nextNode()) if (walk.currentNode.data.includes("12")) node = walk.currentNode;
+    const range = document.createRange();
+    const at = node.data.indexOf("12");
+    range.setStart(node, at);
+    range.setEnd(node, at + 2);
+    const box = range.getBoundingClientRect();
+    return (box.top + box.bottom) / 2;
+}"""
+
+
+def test_a_word_with_a_line_under_it_stands_on_the_row_of_its_neighbours(editor):
+    """Words with a line under them stand on one row with each other and with the plain digits."""
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hund, 12 Katze", "mix": 7, "mixLine": "under"})
+    )
+    tops = (
+        at(page, "a")
+        .locator(".mixed")
+        .evaluate_all("els => els.map((el) => el.getBoundingClientRect().top)")
+    )
+    assert len(tops) == 2
+    assert abs(tops[0] - tops[1]) <= 2
+    middles = (
+        at(page, "a")
+        .locator(".mixed")
+        .evaluate_all(
+            "els => els.map((el) => { const r = el.getBoundingClientRect();"
+            " return (r.top + r.bottom) / 2; })"
+        )
+    )
+    digits = page.evaluate(DIGITS, "a")
+    assert all(abs(middle - digits) <= 2 for middle in middles)
 
 
 def test_the_editor_hides_the_word_on_the_line_until_the_key_is_shown(editor):

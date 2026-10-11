@@ -8,7 +8,7 @@ beside the word as typed (`data-mix`). They never work out the order themselves.
 import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
-from test_lock import fest
+from test_lock import FRAMES, fest
 from test_painter import held, paint
 from ui import RECT, TABLE, TEXT, at, box, pick, user
 
@@ -97,6 +97,24 @@ def test_neu_schutteln_stores_another_seed_and_every_word_changes(editor):
         before = mixed(page, "a").all_text_contents()
 
 
+def test_neu_schutteln_with_no_other_order_makes_no_step(editor):
+    """A press that moves no word stores nothing and makes no undo step.
+
+    "Hut" and "Tee" keep one order each, so no seed moves them.
+    """
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hut Tee", "mix": 7, "mixFirst": True}), client=client
+    )
+    pick(page, "a")
+    undo = page.get_by_label("Rückgängig", exact=True)
+    expect(undo).to_be_disabled()
+    panel(page, "Neu schütteln").click()
+    page.evaluate(FRAMES)
+    expect(undo).to_be_disabled()
+    assert held(page, client)["a"]["mix"] == 7
+
+
 def test_neu_schutteln_changes_nothing_else(editor):
     client = user()
     page = editor(
@@ -115,6 +133,32 @@ def test_neu_schutteln_changes_nothing_else(editor):
     expect(panel(page, "Erster Buchstabe bleibt")).to_have_attribute("aria-pressed", "true")
     expect(panel(page, "Großbuchstaben")).to_have_attribute("aria-pressed", "true")
     expect(panel(page, "Linie darunter")).to_have_attribute("aria-pressed", "true")
+
+
+def test_neu_schutteln_never_shows_a_word_as_typed_in_capitals(editor):
+    """Every word differs from its typed form in capitals, and from its shown form before the press.
+
+    All five words have two or more orders besides the typed one, and a draw takes a seed that moves
+    every word when one exists, so each press moves all five. The check is on every word.
+    """
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Esel Otto Anna Uhu Ebene", "mix": 13, "mixCaps": True}),
+        client=client,
+    )
+    pick(page, "a")
+    expect(mixed(page, "a")).to_have_count(5)
+    before = mixed(page, "a").all_text_contents()
+    sources = typed(page, "a")
+    for _ in range(15):
+        step(page, lambda: panel(page, "Neu schütteln").click())
+        for i in range(5):
+            expect(mixed(page, "a").nth(i)).not_to_have_text(before[i])
+        now = mixed(page, "a").all_text_contents()
+        for i, source in enumerate(sources):
+            assert now[i] == now[i].upper()
+            assert now[i] != source.upper()
+        before = now
 
 
 def test_the_line_is_none_after_or_under(editor):

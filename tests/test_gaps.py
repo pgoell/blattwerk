@@ -14,6 +14,22 @@ from ui import FIELD, RECT, TABLE, TEXT, at, box, caret, pick, user
 
 WORDS = "eins zwei drei vier fünf sechs sieben acht neun zehn"
 WORDY = {**TEXT, "text": WORDS}
+# Three solution words, so that a Neu mischen moves them: with two, the one order that is not
+# the typed one is the only order there is, and a second press moves nothing.
+THREE = [
+    {
+        "runs": [
+            {"text": "Hund", "gap": True},
+            {"text": " "},
+            {"text": "Katze", "gap": True},
+            {"text": " "},
+            {"text": "Vogel", "gap": True},
+        ]
+    }
+]
+TWO = {**TEXT, "text": "Hund Katze Vogel", "rich": THREE}
+SHAPE_TWO = {**RECT, "text": "Hund Katze Vogel", "rich": THREE}
+GAPPED_TABLE = {**TABLE, "gaps": [[True, True], [True, True]]}
 GAPPED = {**TEXT, "rich": [{"runs": [{"text": "Hallo", "gap": True}]}], "gapWidth": 12, "bank": 7}
 
 
@@ -93,7 +109,7 @@ def test_lucken_gleich_breit_stores_a_width_that_the_field_changes_and_off_remov
 def test_losungswörter_stores_a_seed_that_neu_mischen_changes_and_off_removes(editor):
     """A7: the box stores a seed, a new shuffle stores another, and off removes the seed."""
     client = user()
-    page = editor(box("a", "text", TEXT), client=client)
+    page = editor(box("a", "text", TWO), client=client)
     pick(page, "a")
     panel(page, "Lösungswörter").click()
     seed = held(page, client)["a"]["bank"]
@@ -125,14 +141,18 @@ def test_each_gap_change_is_one_undo_step_and_redo_brings_it_back(editor):
     pick(page, "a")
     width = page.locator(".panel").get_by_label("Breite der Lücken", exact=True)
     states = [held(page, client)["a"]]
+    # Every third word is a gap: three solution words for Neu mischen to move. A gap over the
+    # whole text is one solution word, so it comes last.
+    page.get_by_label("n", exact=True).fill("3")
     actions = [
         lambda: panel(page, "Lücke").click(),
         lambda: panel(page, "Lücke").click(),
+        lambda: panel(page, "Jedes n-te Wort").click(),
         lambda: panel(page, "Lücken gleich breit").click(),
         lambda: (width.fill("12"), width.press("Enter")),
         lambda: panel(page, "Lösungswörter").click(),
         lambda: panel(page, "Neu mischen").click(),
-        lambda: panel(page, "Jedes n-te Wort").click(),
+        lambda: panel(page, "Lücke").click(),
     ]
     for act in actions:
         step(page, act)
@@ -148,7 +168,7 @@ def test_each_gap_change_is_one_undo_step_and_redo_brings_it_back(editor):
 def test_neu_mischen_on_a_text_and_a_table_is_one_undo_step(editor):
     """A1, A2, I1: a press of Neu mischen on a text and a table is one step; two presses, two."""
     client = user()
-    page = editor(box("a", "text", TEXT), box("t", "table", TABLE, z=2), client=client)
+    page = editor(box("a", "text", TWO), box("t", "table", GAPPED_TABLE, z=2), client=client)
     pick(page, "a", "t")
     step(page, lambda: panel(page, "Lösungswörter").click())
     s0 = {name: held(page, client)[name]["bank"] for name in ("a", "t")}
@@ -170,8 +190,8 @@ def test_neu_mischen_on_a_shape_and_a_table_is_one_undo_step(editor):
     """I2: a press of Neu mischen on a shape with words and a table is one step, one undo."""
     client = user()
     page = editor(
-        box("a", "shape", {**RECT, "text": "Hund"}),
-        box("t", "table", TABLE, z=2),
+        box("a", "shape", SHAPE_TWO),
+        box("t", "table", GAPPED_TABLE, z=2),
         client=client,
     )
     pick(page, "a", "t")
@@ -187,17 +207,17 @@ def test_neu_mischen_draws_a_seed_no_selected_block_had(editor):
     """A3: the new seed differs from the old seed of every selected block, not just the first."""
     client = user()
     page = editor(
-        box("a", "text", {**TEXT, "bank": 5}),
-        box("t", "table", {**TABLE, "bank": 7}, z=2),
+        box("a", "text", {**TWO, "bank": 5}),
+        box("t", "table", {**GAPPED_TABLE, "bank": 7}, z=2),
         client=client,
     )
     pick(page, "a", "t")
     # The first draw gives the table's old seed 7, the next one 9; a draw of n - 0.5 gives n.
+    # Then 9 stays.
     page.evaluate(
         """() => {
             const drawn = [7, 9].map((n) => (n - 0.5) / 2147483647);
-            const real = Math.random;
-            Math.random = () => (drawn.length ? drawn.shift() : real());
+            Math.random = () => (drawn.length > 1 ? drawn.shift() : drawn[0]);
         }"""
     )
     step(page, lambda: panel(page, "Neu mischen").click())
@@ -502,6 +522,22 @@ def test_neu_mischen_never_leaves_the_solution_words_as_they_stood(editor):
         before = page.locator(".bank span").all_text_contents()
         step(page, lambda: panel(page, "Neu mischen").click())
         expect(page.locator(".bank span")).not_to_have_text(before)
+
+
+def test_neu_mischen_with_one_solution_word_makes_no_step(editor):
+    """A press of Neu mischen that moves no word stores nothing and makes no undo step."""
+    client = user()
+    hund = {"runs": [{"text": "Hund", "gap": True}]}
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hund", "rich": [hund], "bank": 7}), client=client
+    )
+    pick(page, "a")
+    undo = page.get_by_label("Rückgängig", exact=True)
+    expect(undo).to_be_disabled()
+    panel(page, "Neu mischen").click()
+    page.evaluate(FRAMES)
+    expect(undo).to_be_disabled()
+    assert held(page, client)["a"]["bank"] == 7
 
 
 def test_lucken_gleich_breit_takes_the_same_width_at_any_zoom(editor):

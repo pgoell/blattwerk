@@ -24,11 +24,14 @@ const hash = (text: string) => {
   return h;
 };
 
-// One word with its letters in the seeded order. Marks, apostrophes and hyphens stay where they are.
-export function word(source: string, seed: number, first?: boolean): string {
-  const text = source.normalize("NFC").replace(SOFT, "");
+// One word with its letters in the seeded order. Marks, apostrophes and hyphens stay where they are. With `caps` the word
+// is capitals first, so the order is found among the capitals it prints in and never gives the word in capitals.
+export function word(source: string, seed: number, first?: boolean, caps?: boolean): string {
+  const typed = source.normalize("NFC").replace(SOFT, "");
+  const text = caps ? typed.toLocaleUpperCase("de") : typed;
   const letters = text.match(LETTER) ?? [];
-  if (letters.length < 3) return text;
+  // A word is short by the letters typed: "aß" stays as it is, though its capitals are three.
+  if ((typed.match(LETTER) ?? []).length < 3) return text;
   const keep = first ? 1 : 0;
   const rest = letters.slice(keep);
   const mixed = [...letters.slice(0, keep), ...shuffled(rest, (seed ^ hash(text)) | 0, rest)];
@@ -67,8 +70,7 @@ export function mixed(paras: Para[], mix: Mix): Part[][] {
     return parts.map(({ word: w, runs: pieces }): Part => {
       if (w < 0) return { runs: pieces };
       const { typed } = found[w];
-      const shown = word(typed, mix.seed, mix.first);
-      const all = mix.caps ? shown.toLocaleUpperCase("de") : shown;
+      const all = word(typed, mix.seed, mix.first, mix.caps);
       // Each piece takes as many characters as it had of the typed word; the last takes the rest.
       let used = 0;
       const out = pieces.flatMap((piece, k) => {

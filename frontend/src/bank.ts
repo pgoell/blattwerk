@@ -54,6 +54,9 @@ export function shuffled<T>(items: T[], seed: number, not?: T[]): T[] {
 // What a block shows under a seed, and the seed it has now.
 export type Shown = { seed?: number; show: (seed: number) => string };
 
+// Whether a seed shows any of the held items in another way than its own seed does.
+export const moves = (held: Shown[], seed: number) => held.some((h) => h.seed === undefined || h.show(seed) !== h.show(h.seed));
+
 // A seed for a new draw. It tries up to 40 seeds, and takes the first under which every held item changes (an item with
 // no seed always counts as changed). If none changes all, it takes the seed that changes the most.
 export function draw(held: Shown[] = [], random: () => number = Math.random): number {

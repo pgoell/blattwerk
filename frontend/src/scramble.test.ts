@@ -45,6 +45,10 @@ describe("word", () => {
     );
   });
 
+  it("leaves a word of two typed letters as it is in capitals, though ß makes three of them", () => {
+    for (let seed = 1; seed < 50; seed++) expect(word("aß", seed, false, true)).toBe("ASS");
+  });
+
   it("leaves words of one or two letters as they are", () => {
     expect(word("a", 7)).toBe("a");
     expect(word("Ab", 7)).toBe("Ab");
@@ -62,6 +66,29 @@ describe("word", () => {
   it("takes out a soft hyphen", () => {
     expect(word("Ha­us", 7)).not.toContain("­");
     expect([...word("Ha­us", 7)].sort()).toEqual(["H", "a", "s", "u"]);
+  });
+
+  it("with caps, gives capitals that are never the word in capitals", () => {
+    expect(word("Esel", 13, false, true)).not.toBe("ESEL");
+    expect([...word("Esel", 13, false, true)].sort()).toEqual(["E", "E", "L", "S"]);
+  });
+
+  it("with caps, never gives the word in capitals where another order exists", () => {
+    const mixedCase = fc.array(fc.constantFrom(..."abcxyzäöüßABCXYZÄÖÜ"), { minLength: 3, maxLength: 8 }).map((cs) => cs.join(""));
+    fc.assert(
+      fc.property(mixedCase, fc.integer(), fc.boolean(), (w, seed, first) => {
+        const upper = w.toLocaleUpperCase("de");
+        const rest = [...upper].slice(1);
+        fc.pre(first ? rest.length >= 2 && new Set(rest).size > 1 : new Set(upper).size > 1);
+        const out = word(w, seed, first, true);
+        expect(out).toBe(out.toLocaleUpperCase("de"));
+        expect(out).not.toBe(upper);
+      }),
+    );
+  });
+
+  it("with caps, keeps the seven letters of Straße in capitals", () => {
+    expect([...word("Straße", 7, false, true)].sort()).toEqual(["A", "E", "R", "S", "S", "S", "T"]);
   });
 
   it("gives the exact words for the seeds the tests pin", () => {
@@ -138,9 +165,14 @@ describe("mixed", () => {
   it("gives capitals with caps on, and SS for ß, without losing or doubling a letter", () => {
     const [parts] = mixed([{ runs: [{ text: "Straße" }] }], { seed: 7, caps: true });
     expect(parts[0].source).toBe("Straße");
-    expect(text(parts)).toBe(word("Straße", 7).toLocaleUpperCase("de"));
+    expect(text(parts)).toBe(word("Straße", 7, false, true));
     expect(text(parts)).toMatch(/^[A-Z]+$/);
-    expect([...text(parts)].sort()).toEqual([...word("Straße", 7).toLocaleUpperCase("de")].sort());
+    expect([...text(parts)].sort()).toEqual(["A", "E", "R", "S", "S", "S", "T"]);
+  });
+
+  it("with caps, does not give the word in capitals for Esel", () => {
+    const [parts] = mixed([{ runs: [{ text: "Esel Uhu" }] }], { seed: 13, caps: true });
+    expect(parts[0].runs[0].text).not.toBe("ESEL");
   });
 
   it("gives a number like 12 no source", () => {
