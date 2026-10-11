@@ -4,6 +4,7 @@ import { api, type User } from "./api";
 import Blank from "./components/Blank";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
+import { Faults } from "./fault";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
@@ -95,6 +96,7 @@ export default function App() {
   return (
     <>
       <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />
+      <Faults />
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
