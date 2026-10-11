@@ -96,6 +96,48 @@ it("keeps an apostrophe inside its word", () => {
   expect(pieces("Oma's Haus").map((p) => p.text)).toEqual(["O", "ma's", " ", "Haus"]);
 });
 
+it("makes no syllable without a vowel", () => {
+  for (const word of ["geht's", "gibt's", "hat's", "wie's", "hab'n", "s'ist", "geht’s"]) expect(split(word), word).toEqual([]);
+  expect(pieces("Wie geht's?").map((p) => p.text)).toEqual(["Wie", " ", "geht's", "?"]);
+  // A consonant alone inside a word goes to the syllable after it.
+  expect(dashed("constructor")).toBe("con-struc-tor");
+  const vowels = /[aeiouyäöü]/i;
+  for (const want of [...LIST, "constructor", "Konstruktion", "Angstschweiß", "Herbststurm"]) {
+    const word = want.replaceAll("-", "");
+    for (const p of pieces(word)) expect(vowels.test(p.text), `${word}: ${p.text}`).toBe(true);
+  }
+});
+
+it("tells an egg from the ending of Bäckerei", () => {
+  for (const want of ["Spie-gel-ei", "Rühr-ei", "Os-ter-ei", "Hüh-ner-ei", "Nest-ei", "Spie-gel-ei-er", "Bä-cke-rei", "Bü-che-rei", "Ma-le-rei", "Po-li-zei", "Bas-te-lei"]) expect(dashed(want.replaceAll("-", ""))).toBe(want);
+});
+
+it("takes no harm from breaks that are no breaks", () => {
+  // A word every object has a member for.
+  for (const word of ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"]) {
+    expect(cuts(word, {}), word).toEqual(split(word));
+    expect(pieces(`Der ${word} hier`, {}).map((p) => p.text).join("")).toBe(`Der ${word} hier`);
+  }
+  // What a sheet from elsewhere may hold.
+  const junk = (value: unknown) => cuts("Abend", { abend: value } as never);
+  for (const value of ["12", 3, null, true, { 0: 1, length: 1 }]) expect(junk(value)).toEqual([1]);
+  expect(junk([3, 1])).toEqual([1, 3]);
+  expect(junk([2, 2, 2])).toEqual([2]);
+  expect(junk([1.5, "2", null, Number.NaN, Infinity, 3])).toEqual([3]);
+  expect(pieces("Abend", { abend: [3, 1, 3] }).map((p) => p.text)).toEqual(["A", "be", "nd"]);
+
+  const names = ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"];
+  const text = fc.array(fc.constantFrom("Abend", "Fenster", "geht's", "Mäuse", ...names, " ", ", ", "3")).map((a) => a.join(""));
+  const given = text.chain((s) => fc.tuple(fc.constant(s), fc.dictionary(fc.constantFrom(...words(s).map(keyOf), ...names), fc.oneof(fc.jsonValue(), fc.array(fc.integer({ min: -2, max: 20 }))))));
+  fc.assert(
+    fc.property(given, ([s, breaks]) => {
+      const got = pieces(s, breaks as never);
+      expect(got.map((p) => p.text).join("")).toBe(s);
+      expect(got.every((p) => p.text.length > 0)).toBe(true);
+    }),
+  );
+});
+
 it("takes the teacher's breaks over its own", () => {
   expect(cuts("Abend")).toEqual([1]);
   expect(cuts("Abend", { abend: [2] })).toEqual([2]);

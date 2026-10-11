@@ -5,8 +5,11 @@ import io
 import pytest
 from PIL import Image, ImageChops
 from playwright.sync_api import expect
+from test_fields import colour
 from test_zoom import expect_width, wheel, width
-from ui import FIELD, TABLE, TEXT, at, box, pick, syls, user
+from ui import FIELD, TABLE, TEXT, at, box, pick, sheet, syls, user
+
+from blattwerk import pdf
 
 FONTS = {"andika": 0.415, "grund": 0.4545, "va": 0.46, "sas": 0.4515, "la": 0.4545}
 SAID = {**TEXT, "text": "Die Maus isst 3 Äpfel.", "syllables": True}
@@ -255,3 +258,112 @@ def test_the_sheet_lists_thumbnail_shows_the_bows(editor, server):
     expect(paper.locator(".syl")).to_have_count(5)
     expect(paper.locator(".unsplit")).to_have_count(0)
     assert painted(page, paper)
+
+
+CHUNK = "**/assets/syllables-*.js"
+# Counts each time a block's bows are drawn anew, and keeps the bows it has now.
+WATCH = """() => {
+  window.draws = {};
+  window.first = {};
+  for (const svg of document.querySelectorAll('.sheet .block[data-id] .bows')) {
+    const name = svg.closest('.block').dataset.id;
+    window.draws[name] = 0;
+    window.first[name] = [...svg.children];
+    new MutationObserver(() => window.draws[name]++).observe(svg, { childList: true });
+  }
+}"""
+# What WATCH counted, two frames on: a measure that was put off to the next frame is in.
+DRAWS = """() => new Promise((done) =>
+  requestAnimationFrame(() => requestAnimationFrame(() => done({ ...window.draws }))))"""
+SAME = """(svg) => {
+  const first = window.first[svg.closest('.block').dataset.id];
+  return svg.children.length > 0 && [...svg.children].every((el, i) => el === first[i]);
+}"""
+
+
+def test_bows_are_measured_anew_only_for_the_block_that_changed(editor):
+    page = editor(
+        box("a", "text", SAID),
+        box("b", "text", SAID, z=2),
+        box("c", "text", TEXT, z=3),
+    )
+    assert syls(page, "a") == syls(page, "b")
+    page.evaluate(WATCH)
+    # A pick of another block, and of the block itself.
+    pick(page, "c")
+    pick(page, "a")
+    assert page.evaluate(DRAWS) == {"a": 0, "b": 0}
+    # The field opens and a letter is typed: one measure each for this block, none for the other.
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    opened = page.evaluate(DRAWS)
+    page.keyboard.press("End")
+    page.keyboard.type("x")
+    expect(page.locator(FIELD)).to_contain_text("Äpfel.x")
+    typed = page.evaluate(DRAWS)
+    assert typed["b"] == 0 and at(page, "b").locator(".bows").evaluate(SAME)
+    assert opened["a"] <= 2 and typed["a"] - opened["a"] == 1, (opened, typed)
+    # Another colour for the block: its bows take it.
+    page.keyboard.press("Escape")
+    colour(page, "#ff0000")
+    expect(at(page, "a").locator(".syl").first).to_have_attribute("stroke", "rgb(255, 0, 0)")
+    assert syls(page, "a") == ["Die", "Maus", "isst", "Äp", "fel", "x"]
+    assert page.evaluate(DRAWS)["b"] == 0
+
+
+def opened(browser, server, client, mine, path="blatt", **more):
+    """A page of a window of its own, where the splitter's chunk fails to load, on the sheet
+    `mine`; and the errors the page throws."""
+    context = browser.new_context(viewport={"width": 1400, "height": 1000}, **more)
+    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
+    page = context.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.route(CHUNK, lambda route: route.abort())
+    with page.expect_event("requestfailed", lambda request: "syllables-" in request.url):
+        page.goto(f"{server}/{path}/{mine}")
+    return page, errors
+
+
+def test_a_splitter_that_fails_to_load_leaves_the_text_without_bows_and_a_change_asks_again(
+    browser, server
+):
+    client = user()
+    mine = sheet(client, [box("a", "text", SAID)])["id"]
+    page, errors = opened(browser, server, client, mine)
+    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+    expect(at(page, "a").locator(".bows")).to_have_count(1)
+    expect(page.locator(".unsplit")).to_have_count(0)
+    assert syls(page, "a") == []
+    expect(at(page, "a")).to_have_text(SAID["text"])
+    # A change of the block asks for the splitter again and still ends without bows.
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Oma")
+    expect(at(page, "a")).to_contain_text("Oma")
+    assert syls(page, "a") == []
+    # The server is back. A browser asks for a module that failed no second time while the page
+    # lives, and the WebKit of the tests not after a reload either: the sheet opened anew has
+    # its bows.
+    page.unroute(CHUNK)
+    anew = page.context.new_page()
+    anew.goto(page.url)
+    expect(at(anew, "a").locator(".syl").first).to_be_attached()
+    assert syls(anew, "a")
+    assert errors == []
+    page.context.close()
+
+
+def test_the_page_that_prints_is_ready_without_bows_when_the_splitter_fails_to_load(
+    browser, server
+):
+    client = user()
+    mine = sheet(client, [box("a", "text", SAID)])["id"]
+    token = {"X-Render-Token": pdf.new_token(mine)}
+    page, errors = opened(browser, server, client, mine, "druck", extra_http_headers=token)
+    page.wait_for_selector("body.ready", state="attached")
+    expect(page.locator(".block")).to_have_text(SAID["text"])
+    expect(page.locator(".syl")).to_have_count(0)
+    assert errors == []
+    page.context.close()

@@ -101,8 +101,18 @@ def bowed(on=True):
     cells = [["Esel", "Banane"], ["Schmetterling", "Uhu und Ameise"]]
     table = {"cells": cells, "cols": [1, 1], "size": 14, "align": "center", "line": "#222222"}
     more = {"syllables": on}
+    # A word the teacher split her own way, and a block turned off the level.
+    by_hand = {"breaks": {"radio": [2], "apfelkuchen": [5]}}
     return [
-        at("text", {**TEXT, "text": words, **more}, y=20, h=30),
+        at("text", {**TEXT, "text": words, **by_hand, **more}, y=20, h=30),
+        at(
+            "text",
+            {**TEXT, "text": "Eine Banane", "font": "va", **more},
+            y=260,
+            h=12,
+            w=40,
+            angle=30,
+        ),
         at("text", {**TEXT, "text": words, "font": "sas", "size": 18, **more}, y=55, h=45),
         at("text", {**TEXT, "text": rich, "rich": listed, **more}, y=105, h=30),
         at("shape", {**TEXT, **FILLED, "kind": "rounded", "text": "Regenbogen", **more}, y=140),
@@ -265,6 +275,15 @@ def test_missing_bows_are_over_the_limit(browser, server):
     # The bows on the screen and none in print.
     found = planted(browser, server, bowed(), bowed(on=False))
     assert found["ink"] > INK, found
+
+
+def test_bows_under_the_wrong_syllables_are_over_a_limit(browser, server):
+    # The same word with the same number of bows: on the screen each break lies a letter or two
+    # further on than in print, which splits it as "Mar-me-la-den-glä-ser".
+    word = {**TEXT, "text": "Marmeladengläser", "size": 40, "syllables": True}
+    wrong = {**word, "breaks": {"marmeladengläser": [4, 7, 9, 12, 14]}}
+    found = planted(browser, server, [at("text", wrong)], [at("text", word)])
+    assert found["tile"] > TILE or found["ink"] > INK, found
 
 
 def test_a_missing_hairline_is_over_the_limit(browser, server):

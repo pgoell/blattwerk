@@ -31,9 +31,9 @@ const I_E = /(famil|lin|lil|petersil|ser|fol|kastan|komöd|stud)ie$/;
 // The "en" a word ends in is a syllable of its own after "ie" and "ee": "kni-en", "Me-lo-di-en", "Se-en".
 // Not in "schien".
 const I_EN = /(?<!sch)[ie]en$/;
-// Words no rule gets, with their breaks: two vowels that are one in a word from abroad, and "een" and "ien"
-// that are one syllable.
-const EXCEPT = ["team", "jeans", "toast", "pfui", "ka-kao", "wien", "queen", "hal-lo-ween"];
+// Words no rule gets, with their breaks: two vowels that are one in a word from abroad, "een" and "ien" that
+// are one syllable, and an egg ("Ei") the patterns read as the ending of "Bas-te-lei".
+const EXCEPT = ["team", "jeans", "toast", "pfui", "ka-kao", "wien", "queen", "hal-lo-ween", "spie-gel-ei", "nest-ei"];
 const except = new Map(EXCEPT.map((word) => [word.replaceAll("-", ""), [...word.matchAll(/-/g)].map((m, i) => m.index - i)]));
 
 // A vowel: not the "u" of "qu", and not a "y" before a vowel ("Yo-ga").
@@ -67,7 +67,12 @@ function own(c: string[]): number[] {
     }
     from = to;
   }
-  return [...new Set(out)].sort((a, b) => a - b);
+  // No vowel, no syllable: such a piece joins the next one ("con-struc-tor"), the last one the one before ("geht's").
+  const kept: number[] = [];
+  const spoken = (start: number, end: number) => c.slice(start, end).some((_, i) => vowel(c, start + i));
+  for (const to of [...new Set(out)].sort((a, b) => a - b)) if (spoken(kept.at(-1) ?? 0, to)) kept.push(to);
+  if (kept.length && !spoken(kept[kept.length - 1], c.length)) kept.pop();
+  return kept;
 }
 
 const cache = new Map<string, number[]>();
@@ -89,7 +94,13 @@ export function split(word: string): number[] {
   return out;
 }
 // The places a word breaks at: the teacher's where the word has them, the module's own otherwise.
-export const cuts = (word: string, breaks?: Breaks) => breaks?.[keyOf(word)]?.filter((at) => at > 0 && at < word.length) ?? split(word);
+// A sheet may come from anywhere: only a list the sheet itself holds for the word counts (not what every object
+// has, as "constructor"), and of it the whole numbers inside the word, each once, in order.
+export function cuts(word: string, breaks?: Breaks): number[] {
+  const own: unknown = breaks && Object.hasOwn(breaks, keyOf(word)) ? breaks[keyOf(word)] : undefined;
+  if (!Array.isArray(own)) return split(word);
+  return [...new Set(own.filter((at): at is number => Number.isInteger(at) && at > 0 && at < word.length))].sort((a, b) => a - b);
+}
 // The words of a text, each once, in the order they first stand in it.
 export const words = (text: string) => [...new Set(text.match(WORD) ?? [])];
 // A text as its pieces, in order: joined they give the text again.

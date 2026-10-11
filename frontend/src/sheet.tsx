@@ -242,8 +242,6 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   };
 }
 export const textStyle = (p: TextProps, k: number): CSSProperties => ({
-  // Where the font's baseline lies below the middle of its letters' box: a syllable's bow hangs from it (.syl).
-  ["--base" as string]: `${FONTS[p.font ?? "andika"][2]}em`,
   fontFamily: FONTS[p.font ?? "andika"][1],
   fontSize: p.size * PT * k,
   fontWeight: p.bold ? 700 : 400,
@@ -366,7 +364,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         </svg>
       )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
-      {p.syllables && <Bows breaks={p.breaks} />}
+      {p.syllables && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} />}
     </div>
   );
 }
@@ -464,7 +462,7 @@ const SVG = "http://www.w3.org/2000/svg";
 // WebKit shapes each text node alone, which costs the joins and the kerning of a school script. So each syllable
 // is measured where it stands and its bow drawn over it, in the block's own pixels: the zoom is divided out, and a
 // turned block is measured level.
-function bows(svg: SVGSVGElement, module: Splitter, breaks?: Breaks) {
+function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Breaks) {
   const host = svg.parentElement!;
   const block = host.closest<HTMLElement>(".block");
   const turn = block?.style.transform;
@@ -505,11 +503,11 @@ function bows(svg: SVGSVGElement, module: Splitter, breaks?: Breaks) {
         const look = getComputedStyle(first.parentElement!);
         const em = parseFloat(look.fontSize);
         for (const line of lines) {
-          // The baseline lies --base below the middle of the letters' box, whatever the line spacing. The bow
+          // The baseline lies `base` em below the middle of the letters' box, whatever the line spacing. The bow
           // ends .04em inside the syllable, so two bows never meet, .1em below the baseline, and hangs .16em
           // lower in its middle; under a narrow letter it is flatter.
           const [x, to] = [(line.left - left) / scale + 0.04 * em, (line.right - left) / scale - 0.04 * em];
-          const y = ((line.top + line.bottom) / 2 - top) / scale + (parseFloat(look.getPropertyValue("--base")) + 0.1) * em;
+          const y = ((line.top + line.bottom) / 2 - top) / scale + (base + 0.1) * em;
           const deep = Math.min(0.16 * em, (to - x) / 2);
           const path = document.createElementNS(SVG, "path");
           path.setAttribute("class", "syl");
@@ -527,35 +525,52 @@ function bows(svg: SVGSVGElement, module: Splitter, breaks?: Breaks) {
   svg.replaceChildren(...drawn);
   svg.classList.remove("unsplit");
 }
-// The bows of a block that asks for them, drawn anew when the block is, when its text changes without React
-// as the teacher types, when its size changes and when a font comes in. `unsplit` stands while the bows are not
-// those of the text shown, so the PDF, a test and a picture of the page can wait for them.
-function Bows({ breaks }: { breaks?: Breaks }) {
+// The bows of a block that asks for them. `base` is how far the font's baseline lies below the middle of a line,
+// in em. They are measured anew only when something moved a letter or gave it another colour: `block` is the
+// block as the sheet holds it, and a pick, or a letter typed into another block, leaves it the same. What React
+// does not hold is watched: the text as the teacher types it, the block's size while it is dragged, and a font
+// that comes in. `unsplit` stands while the bows are not those of the text shown, so the PDF, a test and a picture
+// of the page can wait for them.
+function Bows({ block, base, breaks }: { block: Box & { props: object }; base: number; breaks?: Breaks }) {
   const module = useSplitter(true);
   const svg = useRef<SVGSVGElement>(null);
-  const draw = () => module && bows(svg.current!, module, breaks);
-  const now = useRef(draw);
+  const tools = useRef({ draw: () => {}, seen: () => {} });
+  const size = useRef([0, 0]);
+  // With no splitter the block has no bows, and says it is done: a page prints without bows sooner than not at
+  // all. A load that failed is asked for again here, at the next change of the block and not before, so a server
+  // that is down is not asked with every frame. Chromium keeps a failed module for as long as the page lives and
+  // asks no server again, so there the bows come with a reload.
+  const draw = () => {
+    const own = svg.current!;
+    size.current = [own.parentElement!.offsetWidth, own.parentElement!.offsetHeight];
+    if (module) bows(own, module, base, breaks);
+    else
+      splitting().catch(() => {
+        own.replaceChildren();
+        own.classList.remove("unsplit");
+      });
+  };
   useLayoutEffect(() => {
-    now.current = draw;
-    draw();
-  });
-  useEffect(() => {
     const own = svg.current!;
     let frame = 0;
     // One measure a frame, however much changed.
     const later = () => {
       own.classList.add("unsplit");
-      frame ||= requestAnimationFrame(() => {
-        frame = 0;
-        now.current();
-      });
+      frame ||= requestAnimationFrame(() => tools.current.draw());
     };
-    const resized = new ResizeObserver(later);
+    // A size that React set is drawn for already.
+    const resized = new ResizeObserver(() => (own.parentElement!.offsetWidth !== size.current[0] || own.parentElement!.offsetHeight !== size.current[1]) && later());
     resized.observe(own.parentElement!);
     // The bows drawn are a change too, and not one to draw anew for.
     const changed = new MutationObserver((records) => records.some((record) => !own.contains(record.target)) && later());
     changed.observe(own.parentElement!, { characterData: true, childList: true, subtree: true });
     document.fonts.addEventListener("loadingdone", later);
+    // What React just wrote into the text is drawn for at once, so no frame shows old bows and none measures twice.
+    tools.current.seen = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      changed.takeRecords();
+    };
     return () => {
       cancelAnimationFrame(frame);
       resized.disconnect();
@@ -563,6 +578,15 @@ function Bows({ breaks }: { breaks?: Breaks }) {
       document.fonts.removeEventListener("loadingdone", later);
     };
   }, []);
+  useLayoutEffect(() => {
+    tools.current.draw = () => {
+      tools.current.seen();
+      draw();
+    };
+    svg.current!.classList.add("unsplit");
+    tools.current.draw();
+    // The place of a block moves no letter in it.
+  }, [module, block.props, block.w, block.h, block.angle]);
   return <svg ref={svg} className="bows unsplit" aria-hidden />;
 }
 // Resolves once every block's bows are drawn. The PDF waits for it.
@@ -640,7 +664,7 @@ function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: 
           {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
         </div>
       ))}
-      {syllables && <Bows breaks={breaks} />}
+      {syllables && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} />}
     </div>
   );
 }

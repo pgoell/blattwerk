@@ -578,7 +578,8 @@ body:has(.print) { background: #fff; }
 .words .own { text-decoration: underline; }
 .gaps { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: 18px; }
 .gaps button { min-width: 16px; min-height: 28px; padding: 0; border-color: transparent; background: none; color: var(--faint); }
-.gaps button.on { color: var(--accent); font-weight: 700; }/* The tour: a ring round the control a step is about, and a card at the window's edge away from it. Neither takes
+.gaps button.on { color: var(--accent); font-weight: 700; }
+/* The tour: a ring round the control a step is about, and a card at the window's edge away from it. Neither takes
    a press meant for the editor. */
 .tour-ring {
   position: fixed; z-index: 10; border: 2px solid var(--accent); border-radius: 8px; pointer-events: none;

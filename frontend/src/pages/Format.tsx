@@ -455,6 +455,8 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   };
   const one = split && held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
+  // Whether the teacher split the word: "constructor" is a word too, and every object has one.
+  const own = (key?: string) => !!key && Object.hasOwn(fixes, key);
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
   const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
@@ -482,7 +484,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
               const key = split!.keyOf(w);
               const cut = [0, ...split!.cuts(w, fixes), w.length];
               return (
-                <button key={key} className={`${key === open ? "on" : ""}${fixes[key] ? " own" : ""}`} aria-pressed={key === open} title={fixes[key] && "von Hand getrennt"} onClick={() => setOpen(key)}>
+                <button key={key} className={`${key === open ? "on" : ""}${own(key) ? " own" : ""}`} aria-pressed={key === open} title={own(key) ? "von Hand getrennt" : undefined} onClick={() => setOpen(key)}>
                   {cut.slice(1).map((end, i) => w.slice(cut[i], end)).join("·")}
                 </button>
               );
@@ -506,7 +508,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
               })}
             </div>
           )}
-          {word && fixes[open!] && <button onClick={() => mend()}>Zurücksetzen</button>}
+          {word && own(open) && <button onClick={() => mend()}>Zurücksetzen</button>}
         </>
       )}
     </>

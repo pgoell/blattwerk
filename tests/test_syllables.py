@@ -465,3 +465,28 @@ def test_a_locked_block_takes_the_bows_and_a_word_split_by_hand(editor, kind):
     assert saved(page, client) == [
         {**block, "props": {**props, "syllables": True, "breaks": {"maus": [2]}}}
     ]
+
+
+def test_a_word_that_every_object_knows_is_a_word_like_any_other(editor):
+    """ "constructor" names a member of every object: it has no fix until the teacher sets one."""
+    client = user()
+    text = {**TEXT, "text": "Maus constructor", "syllables": True}
+    page = editor(box("a", "text", text), client=client)
+    faults = []
+    page.on("pageerror", lambda fault: faults.append(fault))
+    pick(page, "a")
+    # The page still stands, and the word shows no fix and no way back from one.
+    name = "".join(syls(page, "a")[1:])
+    assert name == "constructor"
+    shown = page.locator(".panel .words button").nth(1)
+    expect(shown).not_to_have_class("own")
+    shown.click()
+    expect(reset(page)).to_have_count(0)
+    gap(page, "con|structor").click()
+    expect(reset(page)).to_be_visible()
+    assert list(held(page, client)["a"]["breaks"]) == ["constructor"]
+    # A sheet that holds the fix opens again.
+    page.reload()
+    expect(at(page, "a")).to_be_visible()
+    assert "".join(syls(page, "a")) == "Mausconstructor"
+    assert not faults
