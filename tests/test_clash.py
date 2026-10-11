@@ -495,6 +495,7 @@ def test_the_start_takes_a_kept_changes_sheet_for_deleted_only_under_its_owners_
         expect(said).to_contain_text("„a“ wurde auf einem anderen Gerät gelöscht.")
         assert record(page, a) == kept
         assert len(asked) == 1
+        said.page.once("dialog", lambda dialog: dialog.accept())
         said.get_by_role("button", name="Verwerfen").click()
         page.wait_for_function(DROPPED, arg=a)
         assert not sent

@@ -671,6 +671,7 @@ def test_a_sheet_deleted_meanwhile_keeps_its_change_and_its_notice_asks_what_bec
     expect(page.locator(".sheets li")).to_have_count(2)
     expect(said).to_have_count(1)
     assert record(page, run.ids["a"]) == kept
+    said.page.once("dialog", lambda dialog: dialog.accept())
     said.get_by_role("button", name="Verwerfen").click()
     expect(said).to_have_count(0)
     assert record(page, run.ids["a"]) is None
@@ -1045,6 +1046,7 @@ def test_a_clash_whose_sheet_was_deleted_elsewhere_ends_in_the_deleted_sheets_ch
     expect(at(page, "a")).to_have_css("left", moved)
     assert kept_x(page, run) == 16
     assert len(run.sent) == 1
+    banner.page.once("dialog", lambda dialog: dialog.accept())
     banner.get_by_role("button", name="Verwerfen").click()
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
     expect(page.locator(".sheets li")).to_have_count(2)
