@@ -10,6 +10,7 @@ The docstrings name the lines of the checklist.
 # ruff: noqa: F811
 
 import json
+from uuid import uuid4
 
 import pytest
 from playwright.sync_api import expect
@@ -17,7 +18,9 @@ from test_load_fails import AGAIN, ONLINE, fail
 from test_loading import ME, READY, SHEET, window  # noqa: F401
 from test_saves import record
 from test_stale import STATUS, TURNS
-from ui import TEXT, box, sheet
+from ui import BROWSER, PASSWORD, TEXT, box, sheet
+
+from blattwerk import auth, db
 
 UNREACHED = "Blattomat erreicht den Server nicht"
 LOGIN = "input[type=password]"
@@ -120,3 +123,77 @@ def test_a_print_page_does_not_show_the_account_failure(window, server):
     fail(page, ME, 500)
     page.goto(f"{server}/druck/{made['id']}")
     expect(page.get_by_role("heading", name=UNREACHED)).to_have_count(0)
+
+
+def test_a_check_that_fails_after_a_sign_in_does_not_show_the_failure_after_a_logout(
+    window, server
+):
+    """Race (issue #370 review): a check still out when the teacher signs in on an invite. Its late
+    failure is no answer about the session the sign-in made, nor about the logout after it."""
+    # Starts with a session cookie, so the logout after the sign-in has one to end: WebKit did not
+    # keep the Secure cookie that the sign-in sets on this http address.
+    page, _ = window()
+    checks = []
+
+    def answer(route):
+        checks.append(route)
+        if len(checks) == 1:
+            route.fulfill(status=500)
+
+    page.route(ME, answer)
+    page.goto(server)
+    expect_unreached(page).click()
+    # The second check goes out and is held. The invite page then shows, with no load of the page.
+    token = auth.new_link(db.open_db())
+    page.evaluate(
+        f"history.pushState({{}}, '', '/einladung/{token}'); "
+        "dispatchEvent(new PopStateEvent('popstate'))"
+    )
+    expect(page.get_by_role("heading", name="Willkommen bei Blattomat")).to_be_visible()
+    page.locator("#email").fill(f"{uuid4().hex}@example.com")
+    page.locator("#password").fill(PASSWORD)
+    page.get_by_role("button", name="Konto anlegen").click()
+    expect(page.get_by_role("link", name="Konto")).to_be_visible(timeout=10000)
+    page.get_by_role("link", name="Konto").click()
+    page.get_by_role("button", name="Abmelden").click()
+    expect(page.locator(LOGIN)).to_be_visible(timeout=10000)
+    checks[1].fulfill(status=500)
+    page.evaluate(TURNS)
+    expect(page.locator(LOGIN)).to_be_visible()
+    expect(page.get_by_role("heading", name=UNREACHED)).to_have_count(0)
+
+
+@pytest.mark.skipif(
+    BROWSER == "webkit",
+    reason="WebKit has one try out or two, as the press and online event race",
+)
+def test_an_older_try_that_fails_late_does_not_show_the_failure_over_a_newer_try_out(
+    window, server
+):
+    """Race (issue #370 review): the press and the online event make two tries at once. The older
+    one (the press) fails while the newer one is still out: no failure page stands meanwhile, and
+    the newer one shows the app when it answers. Only a script that does both in one turn makes
+    the two out at once."""
+    page, _ = window()
+    checks = []
+
+    def answer(route):
+        checks.append(route)
+        if len(checks) == 1:
+            route.fulfill(status=500)
+
+    page.route(ME, answer)
+    page.goto(server)
+    expect_unreached(page)
+    # Both tries go out in one script: the press first, then the online event. Both are held.
+    page.evaluate(f"document.querySelector('[role=alert] button').click(); {ONLINE}")
+    page.evaluate(TURNS)
+    assert len(checks) == 3
+    # The older try fails while the newer one is out: the page keeps the loading state.
+    with page.expect_response(ME):
+        checks[1].fulfill(status=500)
+    page.evaluate(TURNS)
+    expect(page.get_by_role("alert")).to_have_count(0)
+    checks[2].continue_()
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible(timeout=10000)
+    expect(page.get_by_role("alert")).to_have_count(0)
