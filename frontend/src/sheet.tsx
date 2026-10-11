@@ -866,7 +866,6 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   );
 }
 
-// A block's numbering stands to the left of its box, so the box keeps its place and its snap lines. `n` is the
 // A score as it is typed: a whole number from 1 to 999, or else none.
 export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >= 1 ? +text : undefined);
 
