@@ -2,9 +2,10 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
+import Failed from "./components/Failed";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
-import { clear, Faults } from "./fault";
+import { clear, Faults, status } from "./fault";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
@@ -27,14 +28,38 @@ export default function App() {
   // sheet or the list, that finds the session gone brings the login here, on the address as it stands: a change is
   // kept, and saved after the login. `was` is who was signed in until then: the login page says whose change waits.
   const was = useRef<number>(undefined);
+  // The account check: a 401 says the session is gone; any other failure says the server cannot be reached, and the
+  // account stays unknown, so no kept change is touched. `down` shows that page in place of the login, and `trying`
+  // shows the loading page while a try is out.
+  const [down, setDown] = useState(false);
+  const [trying, setTrying] = useState(false);
+  // Each try takes the next number, and only the newest one's answer counts: an older try that answers late is no
+  // answer about the account now. A sign-in takes a number too, so a check still out before it is outdated.
+  const tries = useRef(0);
+  const check = () => {
+    const mine = ++tries.current;
+    const newest = () => mine === tries.current;
+    setTrying(true);
+    api<User>("/me")
+      .then(
+        (to) => {
+          if (!newest()) return;
+          saves.enter(to.id);
+          setDown(false);
+          setUser(to);
+        },
+        (e) => {
+          if (!newest()) return;
+          if (status(e) === "401") {
+            setDown(false);
+            setUser(null);
+          } else setDown(true);
+        },
+      )
+      .finally(() => newest() && setTrying(false));
+  };
   useEffect(() => {
-    api<User>("/me").then(
-      (to) => {
-        saves.enter(to.id);
-        setUser(to);
-      },
-      () => setUser(null),
-    );
+    check();
     saves.onSignedOut(() => setUser(null));
     // A sheet served for another account: somebody signed in in another tab. The window asks who, one request at a
     // time, and goes on as at that one's login. Where the answer names the account the window holds, the sheet was
@@ -60,7 +85,10 @@ export default function App() {
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
     // So does a line of an action that failed.
     if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
+    tries.current++;
     saves.enter(to?.id);
+    // A login from a link's page answers the account check too: a logout after it shows the login.
+    setDown(false);
     setUser(to);
     setEntered((n) => n + 1);
   };
@@ -93,7 +121,9 @@ export default function App() {
     setFirst(user && id ? { id, sheet: saves.get(id) } : undefined);
   }, [user, id]);
 
-  if (user === undefined) return id ? wait : null;
+  if (user === undefined && !down) return id ? wait : null;
+  // Where the account is not known, the pages that need no account still show; the others wait for a try or say so.
+  const reach = trying ? (id ? wait : null) : <main><Failed retry={check}><h1>Blattomat erreicht den Server nicht</h1></Failed></main>;
   return (
     <>
       <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />
@@ -114,7 +144,7 @@ export default function App() {
           </Route>
         ) : (
           // Logged out, every path shows the login; the page asked for opens after it.
-          <Route path="*" element={<Login onDone={enter} />} />
+          <Route path="*" element={down ? reach : <Login onDone={enter} />} />
         )}
       </Routes>
       <footer>

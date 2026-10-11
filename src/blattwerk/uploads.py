@@ -10,22 +10,37 @@ from blattwerk.auth import User, current_user
 from blattwerk.db import Con, Id
 from blattwerk.pictures import path
 
-# What a browser draws and cannot run: no SVG.
-TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BYTES = 15 * 2**20
 
 router = APIRouter(prefix="/api")
 
 
+def kind(data: bytes) -> str | None:
+    """The type the first bytes show, for the four a browser draws and no others: no SVG, no PDF.
+
+    What a file declares is no evidence: the type is the bytes', or the file is no picture.
+    """
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 @router.post("/uploads")
 async def upload(file: UploadFile, user: User, con: Con) -> dict:
-    if file.content_type not in TYPES:
-        raise HTTPException(415)
     data = await file.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
         raise HTTPException(413)
+    type_ = kind(data)
+    if type_ is None:
+        raise HTTPException(415)
     upload_id = con.execute(
-        "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], file.content_type)
+        "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], type_)
     ).lastrowid
     assert upload_id is not None
     out = path(user["id"], upload_id)

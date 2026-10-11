@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -44,7 +44,9 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
 export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
-export type NameBlock = Box & { type: "name"; props: Record<string, never> };
+// The words of a name line, as a new one has them. A line's `fields` replace them.
+export const FIELDS = ["Name", "Datum", "Klasse"];
+export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
 export type PointsBlock = Box & { type: "points"; props: { max: number } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
@@ -545,24 +547,18 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
       };
       let at = 0;
       let word: number | undefined;
-      // A soft hyphen, as a text copied out of Word brings it, parts a word for the splitter and not for the reader:
-      // the turn goes on over it.
-      let soft = false;
       for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
-        const [from, end] = [at, (at += piece.text.length)];
-        if (!piece.syl) {
-          soft = /^­+$/.test(piece.text);
-          continue;
-        }
+        const from = at;
+        at += piece.text.length;
+        if (!piece.syl) continue;
         if (piece.word !== word) {
           word = piece.word;
-          if (!across && !soft) count = 0;
+          if (!across) count = 0;
         }
-        soft = false;
         const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
         // The end lies in the node of the syllable's last letter, not at the start of the next.
-        const [last, stop] = spot(end - 1);
+        const [last, stop] = spot(from + module.shown(piece.text).length - 1);
         // A hand colour keeps its letters: each stretch of the syllable without one gets a range of its own.
         const mark = colour ? highlight(colour) : undefined;
         if (mark) {
@@ -607,7 +603,7 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
           const deep = Math.min(0.16 * em, (to - x) / 2);
           const path = document.createElementNS(SVG, "path");
           path.setAttribute("class", "syl");
-          path.dataset.syl = piece.text;
+          path.dataset.syl = module.plain(piece.text);
           // A curve hangs half as deep as the point it is drawn towards.
           path.setAttribute("d", `M${x.toFixed(2)},${y.toFixed(2)} Q${((x + to) / 2).toFixed(2)},${(y + 2 * deep).toFixed(2)} ${to.toFixed(2)},${y.toFixed(2)}`);
           // A bow takes the colour of its syllable, where the syllable's first letter has no hand colour of its own.
@@ -833,22 +829,24 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
+  // While a name line is written in, `children` holds one field for each word, in the word's place of the line.
   if (block.type === "name")
     return (
       <div className="fields" style={{ fontSize: 12 * PT * k }}>
-        {["Name", "Datum", "Klasse"].map((field) => (
-          <span key={field}>
-            {field}:<i />
+        {(block.props.fields ?? FIELDS).map((field, i) => (
+          <span key={i}>
+            {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
           </span>
         ))}
       </div>
     );
+  // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
+  // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
+  // While the score is written in, `children` is its field in place of the number.
   if (block.type === "points")
-    // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
-    // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
     return (
       <div className="points" style={{ fontSize: 12 * PT * k, lineHeight: `${2 * Math.round((block.h * k) / 2 - 1)}px` }}>
-        / {block.props.max} Punkte
+        / {children ?? block.props.max} Punkte
       </div>
     );
   const [l, t, r, b] = block.props.cut;
@@ -865,6 +863,71 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
         style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
       />
     </div>
+  );
+}
+
+// A score as it is typed: a whole number from 1 to 999, or else none.
+export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >= 1 ? +text : undefined);
+
+// The field of a score, in a box or in the panel. However it ends, except by Escape, it keeps the typed score when that is
+// a whole number from 1 to 999; any other text leaves the old one. `change` gets the score and makes no step when the
+// sheet has it already. `end` runs after Enter, `blur` on leaving the field.
+export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
+  const [draft, setDraft] = useState(String(max));
+  // What is typed, the score shown by the sheet, the score last sent to it, and whether Escape ended the field.
+  const typed = useRef(String(max));
+  const shown = useRef(max);
+  const sent = useRef<number>(undefined);
+  const off = useRef(false);
+  const latest = useRef({ change, end, blur });
+  latest.current = { change, end, blur };
+  shown.current = max;
+  useEffect(() => {
+    typed.current = String(max);
+    sent.current = undefined;
+    setDraft(String(max));
+  }, [max]);
+  // Runs on Enter, on a blur and when the field goes, so a score is kept once for each way the field ends.
+  function keep() {
+    if (off.current) return;
+    const next = score(typed.current);
+    if (next === undefined) {
+      typed.current = String(shown.current);
+      return setDraft(typed.current);
+    }
+    if (next === sent.current) return;
+    sent.current = next;
+    latest.current.change(next);
+  }
+  // The field goes on the press that ends it, which takes no blur with it: so its score is kept as it leaves.
+  useEffect(() => keep, []);
+  return (
+    <input
+      className="score"
+      inputMode="numeric"
+      aria-label="Punkte"
+      value={draft}
+      onChange={(e) => {
+        typed.current = e.target.value;
+        setDraft(e.target.value);
+      }}
+      onFocus={() => (off.current = false)}
+      onBlur={(e) => {
+        keep();
+        latest.current.blur?.(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "F2") {
+          keep();
+          latest.current.end?.();
+        }
+        if (e.key !== "Escape") return;
+        off.current = true;
+        typed.current = String(shown.current);
+        setDraft(typed.current);
+        e.currentTarget.blur();
+      }}
+    />
   );
 }
 

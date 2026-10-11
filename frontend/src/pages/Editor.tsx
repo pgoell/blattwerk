@@ -87,8 +87,8 @@ import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
-import { ask, attach, discard, flush, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -302,6 +302,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const caret = useRef<number>(undefined);
   // Whether the field that opens next has all its text picked.
   const entire = useRef(false);
+  // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
+  const [words, setWords] = useState<string[]>([]);
+  const wordsKept = useRef("");
+  // The name line being written in, and the page it stands on.
+  const nameWriting = useRef<{ id: string; n: number } | undefined>(undefined);
+  const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -622,9 +628,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
-  // A ruling's field, or that of a table's cell; a text's own field takes the focus by itself.
+  // A ruling's field, or that of a table's cell, a score's or a name line's first word; a text's own field takes the
+  // focus by itself.
   useLayoutEffect(() => {
-    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
+    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement | HTMLInputElement>(`[data-id="${editing}"] :is(textarea, input)`) : null;
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
     const end = caret.current ?? area?.value.length ?? 0;
@@ -632,6 +639,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     caret.current = undefined;
     entire.current = false;
   }, [editing, slot]);
+  // A name line's words are kept once its field ends, however it ends: a press on the sheet can end it with no blur.
+  // They go to the page the line stands on. An emptied word drops its field, and with none left nothing changes.
+  useEffect(() => {
+    const line = nameWriting.current;
+    if (editing || !line) return;
+    nameWriting.current = undefined;
+    const fields = words.map((w) => w.trim()).filter(Boolean);
+    if (escaped.current || !fields.length || fields.join("\n") === wordsKept.current) return;
+    if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
+  });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
   useEffect(() => {
@@ -789,7 +807,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
     // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
     // only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range], select");
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -988,6 +1006,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
+  }
+  // Sets the number of a score box on page n, the page it stands on: the page in use may have changed since it was
+  // opened. Nothing is changed, and no step made, when the box is not there.
+  function scoreOn(id: string, max: number, n: number) {
+    if (!live.current.doc.pages[n]?.blocks.some((b) => b.id === id && b.type === "points")) return;
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === id && b.type === "points" ? ({ ...b, props: { ...b.props, max } } as Block) : b)) }), "", n);
   }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
@@ -1859,6 +1883,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
   // the server gives it. With no limit of time: a long sheet takes long to print.
   async function pdf(key: boolean) {
+    // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
+    const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
     await attempt("Das PDF konnte nicht erstellt werden.", async () => {
       await flush(file.id);
       await ask("/me");
@@ -1874,7 +1900,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       link.click();
       // After the browser has taken the file.
       setTimeout(() => URL.revokeObjectURL(link.href), 60000);
-    });
+    }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
   // A template stored or deleted with the session run out brings the login. A second press while one is on its way
@@ -1959,8 +1985,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
-    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table") {
-      entire.current = all;
+    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table" || free[0].type === "points" || free[0].type === "name") {
+      // A score's number is all picked when its field opens, a double click too: a new one replaces it.
+      entire.current = all || free[0].type === "points";
+      if (free[0].type === "name") {
+        setWords(free[0].props.fields ?? FIELDS);
+        wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
+        nameWriting.current = { id, n: page };
+        escaped.current = false;
+      }
       setEditing(id);
     }
     setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
@@ -2621,6 +2654,29 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           onKeyDown={(e) => hop(e, b)}
                           onBlur={(e) => stays(e) || setEditing("")}
                         />
+                      ) : b.type === "points" && editing === b.id ? (
+                        <ScoreInput max={b.props.max} change={(max) => scoreOn(b.id, max, n)} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
+                      ) : b.type === "name" && editing === b.id ? (
+                        // Each word is a field of its own, in its place on the line. Enter and leaving the line keep them.
+                        words.map((word, i) => (
+                          <input
+                            key={i}
+                            aria-label={`Feld ${i + 1}`}
+                            value={word}
+                            onChange={(e) => setWords((ws) => ws.map((w, j) => (j === i ? e.target.value : w)))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                escaped.current = true;
+                                setEditing("");
+                              }
+                              if (e.key === "Enter" || e.key === "F2") e.currentTarget.blur();
+                            }}
+                            onBlur={(e) => {
+                              if ((e.relatedTarget as Element | null)?.closest(`[data-id="${b.id}"]`)) return;
+                              stays(e) || setEditing("");
+                            }}
+                          />
+                        ))
                       ) : undefined}
                     </Draw>
                     <Mark block={b} k={K} n={ns.get(b.id)} />
