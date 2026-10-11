@@ -106,12 +106,14 @@ function keep(s: Saver) {
 }
 
 // A request that finds the session gone brings the login, on the address as it stands. Not where somebody has
-// signed in since it went: that answer is about the session before, and `logins` counts them.
+// signed in since it went: that answer is about the session before, and `logins` counts them. It is "stale" then,
+// a failure like any other: no saver stops for it, and the next try goes with the new session.
 let logins = 0;
 export function signed<T>(asked: Promise<T>) {
   const was = logins;
   return asked.catch((e: Error) => {
-    if (e.message === "401" && was === logins) signedOut();
+    if (e.message === "401" && was !== logins) throw new Error("stale");
+    if (e.message === "401") signedOut();
     throw e;
   });
 }
@@ -179,7 +181,7 @@ async function fail(s: Saver, now: Kept, status: string) {
       return settle(s, ours ? 1 : 0);
     }
     status = sheet;
-  } else if (status !== "401" && status !== "404" && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
+  } else if (!["401", "404", "stale"].includes(status) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone. Who is
   // signed in now: 0 for nobody, nothing where that got no answer either.
   const who = status === "404" ? await ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined)) : undefined;

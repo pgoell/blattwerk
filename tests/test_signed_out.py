@@ -17,7 +17,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 from test_loading import READY, window  # noqa: F401
-from test_saves import LEFT, NOTICE, nudge, record, run, start, unsaved, x_of  # noqa: F401
+from test_saves import LEFT, NOTICE, answer, nudge, record, run, start, unsaved, x_of  # noqa: F401
 from test_stale import FRAMES, GO, STATUS, TURNS, named
 from ui import PASSWORD, TEXT, at, box, drop, png, sheet, user
 
@@ -279,6 +279,39 @@ def test_an_answer_about_the_session_before_does_not_sign_the_new_one_out(run):
     # A's change went with the login.
     expect(page.locator(NOTICE)).to_have_count(0)
     assert x_of(run, "a") == 16
+
+
+def test_a_save_sent_before_the_login_and_turned_down_after_it_is_tried_again(run):
+    """I6: A's save is out with no answer, the session runs out, B's load brings the login and
+    the teacher signs in. Then the save is told that the session is gone: no login shows, and
+    the saver's next try saves the change with the new session."""
+    page, gate = start(run)
+    nudge(run)
+    with page.expect_request(gate.asks("PATCH")):
+        page.clock.run_for(2000)
+    page.evaluate(TURNS)
+    page.context.clear_cookies()
+    run.gates["b"].free = True
+    address = f"{run.server}/blatt/{run.ids['b']}"
+    with page.expect_response(run.gates["b"].answers("GET")) as got:
+        page.evaluate(GO, address)
+    assert got.value.status == 401
+    expect_login(page, address)
+    page.clock.resume()
+    login(page, run.server, run.client)
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    expect(page.locator(NOTICE)).to_have_text(unsaved("a"))
+    gate.keep = False
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok, timeout=10000) as saved:
+        answer(run, "a", 401)
+        expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
+    saved.value.finished()
+    expect(page.locator(NOTICE)).to_have_count(0)
+    expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
+    expect(at(page, "b")).to_contain_text("Blatt B")
+    assert len(run.sent) == 2
+    assert x_of(run, "a") == 16
+    assert record(page, run.ids["a"]) is None
 
 
 def test_a_wrong_password_at_the_login_says_so_and_the_right_one_signs_in(window, server):
