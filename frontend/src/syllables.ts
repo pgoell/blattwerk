@@ -20,7 +20,9 @@ const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu;
 // A letter with the marks typed after it ("a" and its two dots), so a text counts the same composed or not.
 const LETTER = /\P{M}\p{M}*|\p{M}+/gu;
 
-const VOWELS = new Set("aeiouyäöüéèà");
+// A vowel with an accent of a word from abroad counts as its letter does ("Crê-pe", "No-ël"); these four have none.
+const VOWELS = new Set("aeiouyäöüøæœı");
+const voiced = (letter?: string) => !!letter && (VOWELS.has(letter) || VOWELS.has(letter.normalize("NFD")[0]));
 // Two vowels spoken as one: the diphthongs, the doubled vowels, and "ou" and "oi" of French words.
 const ONE = new Set(["ei", "ai", "au", "äu", "eu", "ie", "aa", "ee", "oo", "ey", "ay", "oy", "ou", "oi"]);
 // Consonants written with several letters, which stay together: "A-sche", "E-cke".
@@ -37,7 +39,7 @@ const EXCEPT = ["team", "jeans", "toast", "pfui", "ka-kao", "wien", "queen", "ha
 const except = new Map(EXCEPT.map((word) => [word.replaceAll("-", ""), [...word.matchAll(/-/g)].map((m, i) => m.index - i)]));
 
 // A vowel: not the "u" of "qu", and not a "y" before a vowel ("Yo-ga").
-const vowel = (c: string[], i: number) => VOWELS.has(c[i]) && !(c[i] === "u" && c[i - 1] === "q") && !(c[i] === "y" && VOWELS.has(c[i + 1]));
+const vowel = (c: string[], i: number) => voiced(c[i]) && !(c[i] === "u" && c[i - 1] === "q") && !(c[i] === "y" && voiced(c[i + 1]));
 // Where the syllable starts that holds the vowel at `to`, when consonants from `from` on stand before it: at the
 // last of them, "A-bend", "Ad-ler".
 const onset = (c: string[], from: number, to: number) => to - (UNITS.find((unit) => to - unit.length >= from && c.slice(to - unit.length, to).join("") === unit)?.length ?? 1);

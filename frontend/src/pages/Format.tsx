@@ -456,7 +456,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   const one = split && held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
   // Whether the teacher split the word: "constructor" is a word too, and every object has one.
-  const own = (key?: string) => !!key && Object.hasOwn(fixes, key);
+  const own = (key?: string) => !!key && Object.hasOwn(fixes, key) && Array.isArray(fixes[key]);
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
   const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];

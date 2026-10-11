@@ -99,6 +99,8 @@ it("keeps an apostrophe inside its word", () => {
 it("makes no syllable without a vowel", () => {
   for (const word of ["geht's", "gibt's", "hat's", "wie's", "hab'n", "s'ist", "geht’s"]) expect(split(word), word).toEqual([]);
   expect(pieces("Wie geht's?").map((p) => p.text)).toEqual(["Wie", " ", "geht's", "?"]);
+  // A vowel with an accent is a vowel: a name or a word from abroad keeps its syllables.
+  for (const word of ["Crê-pe", "Hô-tel", "No-ël", "Ci-tro-ën", "Jé-rô-me", "Cór-do-ba", "Sø-ren"]) expect(dashed(word.replaceAll("-", "")), word).toBe(word);
   // A consonant alone inside a word goes to the syllable after it.
   expect(dashed("constructor")).toBe("con-struc-tor");
   const vowels = /[aeiouyäöü]/i;
