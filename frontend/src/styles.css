@@ -458,6 +458,11 @@ body:has(.print) { background: #fff; }
 /* The field lies over the text of its cell, which keeps the room. */
 .table .open { visibility: hidden; }
 .table textarea { position: absolute; inset: 0; visibility: visible; height: 100%; text-align: inherit; }
+/* Silbenfarbe: a browser colours no syllable inside a field, so the cell's own text shows in its colours and the
+   field over it keeps only its caret and a selection the letters show through. */
+.table.tinted .open { visibility: visible; }
+.table.tinted textarea { color: transparent; caret-color: #222; }
+.table.tinted textarea::selection { color: transparent; background: rgb(0 103 244 / .3); }
 /* A column's right line, to take hold of. */
 .sheet > .bar { position: absolute; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
 .bar::after { content: ""; position: absolute; inset: 0 -9px; }

@@ -13,6 +13,12 @@ export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
 export type Ruling = keyof typeof RULINGS;
 export type Valign = "top" | "middle" | "bottom";
+// The two colours the syllables of a text take in turn.
+export type Tints = [string, string];
+// Blue then red, as the schoolbooks print syllables, and the pair for a copy in black and white: the grey is as
+// dark as a copier still prints and as light as the eye still tells from the black.
+export const TINTS: Tints = ["#1a56db", "#e02424"];
+export const GREYS: Tints = ["#000000", "#707070"];
 export type List = "bullet" | "number";
 // A stretch of a text with a look of its own. `bold` and `italic` stand in for the block's, on or off; an underline
 // and a colour lie on top of the block's.
@@ -26,8 +32,10 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `rich` holds the text's paragraphs once a part of it has a look of its own, or it has a list. `text` always holds
 // the same words plain, and is all that a sheet saved before has.
 // `syllables` draws a bow under each syllable of each word (Silbenbögen); `breaks` holds the words the teacher
-// split by hand. Sheets saved before have neither.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+// split by hand. `tints` colours the syllables in turn (Silbenfarbe): the pair of colours, and with `tintsAcross`
+// the turn runs on from word to word through the block's text, where else each word starts with the first.
+// Sheets saved before have none of these.
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -69,7 +77,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
@@ -316,6 +324,7 @@ const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
 // A text or a shape with its text. The editor passes the field the text is typed in.
 function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: number; children?: ReactNode }) {
   const p = boxed(block)!;
+  const tints = pairOf(p.tints);
   const [down, across, edge] = inset(p, block.type === "shape");
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
@@ -364,7 +373,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         </svg>
       )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
-      {p.syllables && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} />}
     </div>
   );
 }
@@ -457,12 +466,39 @@ export function useSplitter(on?: boolean) {
   return on ? module : undefined;
 }
 const SVG = "http://www.w3.org/2000/svg";
+// A sheet may come from anywhere: a pair is two colours of six hex digits, in lower case, and anything else is none.
+export function pairOf(tints: unknown): Tints | undefined {
+  if (!Array.isArray(tints) || tints.length !== 2) return undefined;
+  const [a, b] = tints;
+  const hex = (c: unknown): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+  return hex(a) && hex(b) ? [a.toLowerCase(), b.toLowerCase()] : undefined;
+}
+// Each colour is one highlight in the document's registry, named by the colour. Its rule goes into a style element
+// the module makes at the first one. A browser without the registry paints no colours.
+let tinting: HTMLStyleElement | undefined;
+function highlight(colour: string): Highlight | undefined {
+  if (!("highlights" in CSS)) return undefined;
+  const name = `tint-${colour.slice(1).toLowerCase()}`;
+  let mark = CSS.highlights.get(name);
+  if (!mark) {
+    mark = new Highlight();
+    CSS.highlights.set(name, mark);
+    tinting ??= document.head.appendChild(document.createElement("style"));
+    tinting.append(`::highlight(${name}){color:${colour}}`);
+  }
+  return mark;
+}
+// A range a block coloured, in the highlight it went into: the block takes it back before it draws anew.
+type Mark = [Highlight, globalThis.Range];
+const unmark = (marks: Mark[]) => marks.forEach(([mark, range]) => mark.delete(range));
+type Draw = { base: number; breaks?: Breaks; syllables?: boolean; tints?: Tints; tintsAcross?: boolean };
 // Draws a bow under each syllable of the text beside `svg`: every paragraph of a frame, of a table's cells and of
 // the field a text is typed in. The words stay as they are. A span around a syllable would move its letters:
 // WebKit shapes each text node alone, which costs the joins and the kerning of a school script. So each syllable
 // is measured where it stands and its bow drawn over it, in the block's own pixels: the zoom is divided out, and a
-// turned block is measured level.
-function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Breaks) {
+// turned block is measured level. The same pass colours the syllables in turn (Silbenfarbe) and returns the ranges
+// it coloured, so a bow and its colour always fall on the same syllable.
+function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, tints, tintsAcross: across }: Draw): Mark[] {
   const host = svg.parentElement!;
   const block = host.closest<HTMLElement>(".block");
   const turn = block?.style.transform;
@@ -470,25 +506,66 @@ function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Break
   const { left, top } = svg.getBoundingClientRect();
   const scale = host.getBoundingClientRect().width / host.offsetWidth;
   const drawn: SVGPathElement[] = [];
+  const marks: Mark[] = [];
+  // The turn of the colours: `count` syllables so far, and the cell the last paragraph lay in.
+  let cell: Element | null | undefined;
+  let count = 0;
   // A table's open cell holds its text unseen around the field: the field's paragraphs are the ones to draw.
   for (const p of scale ? host.querySelectorAll("p") : [])
     if (!p.querySelector("p")) {
+      // A paragraph starts the turn anew, unless the turn runs across the text: then only a new cell does.
+      if (!across || p.closest("[data-cell]") !== cell) count = 0;
+      cell = p.closest("[data-cell]");
       const nodes: Text[] = [];
       const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
-      while (walk.nextNode()) nodes.push(walk.currentNode as Text);
+      // The field of a table's open cell holds the cell's text once more: its own letters are not the ones to count.
+      while (walk.nextNode()) if (walk.currentNode.parentElement!.tagName !== "TEXTAREA") nodes.push(walk.currentNode as Text);
       // Where each text node starts in the paragraph's text: a word is split whole, whatever runs it lies in.
       const starts = nodes.map(((at) => (node) => (at += node.length) - node.length)(0));
       const spot = (at: number) => {
         const i = starts.filter((start) => start <= at).length - 1;
         return [nodes[i], at - starts[i]] as const;
       };
+      // A text node is hand coloured when an element between it and the paragraph has a colour of its own.
+      const handed = (node: Text) => {
+        for (let el = node.parentElement; el && el !== p; el = el.parentElement) if (el.style.color) return true;
+        return false;
+      };
       let at = 0;
+      let word: number | undefined;
       for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
         const [from, end] = [at, (at += piece.text.length)];
         if (!piece.syl) continue;
+        if (piece.word !== word) {
+          word = piece.word;
+          if (!across) count = 0;
+        }
+        const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
         // The end lies in the node of the syllable's last letter, not at the start of the next.
         const [last, stop] = spot(end - 1);
+        // A hand colour keeps its letters: each stretch of the syllable without one gets a range of its own.
+        const mark = colour ? highlight(colour) : undefined;
+        if (mark) {
+          const stretch: globalThis.Range[] = [];
+          let open: globalThis.Range | undefined;
+          for (const node of nodes.slice(nodes.indexOf(first), nodes.indexOf(last) + 1)) {
+            if (handed(node)) open = undefined;
+            else {
+              if (!open) {
+                open = document.createRange();
+                open.setStart(node, node === first ? start : 0);
+                stretch.push(open);
+              }
+              open.setEnd(node, node === last ? stop + 1 : node.length);
+            }
+          }
+          for (const part of stretch) {
+            mark.add(part);
+            marks.push([mark, part]);
+          }
+        }
+        if (!syllables) continue;
         const range = document.createRange();
         range.setStart(first, start);
         range.setEnd(last, stop + 1);
@@ -514,7 +591,8 @@ function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Break
           path.dataset.syl = piece.text;
           // A curve hangs half as deep as the point it is drawn towards.
           path.setAttribute("d", `M${x.toFixed(2)},${y.toFixed(2)} Q${((x + to) / 2).toFixed(2)},${(y + 2 * deep).toFixed(2)} ${to.toFixed(2)},${y.toFixed(2)}`);
-          path.setAttribute("stroke", look.color);
+          // A bow takes the colour of its syllable, where the syllable's first letter has no hand colour of its own.
+          path.setAttribute("stroke", colour && !handed(first) ? colour : look.color);
           // As thick as the letters ask, and never thinner than 0.15 mm, which still prints.
           path.setAttribute("stroke-width", `${Math.max(0.05 * em, 0.15 * K)}`);
           drawn.push(path);
@@ -524,18 +602,21 @@ function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Break
   if (turn) block!.style.transform = turn;
   svg.replaceChildren(...drawn);
   svg.classList.remove("unsplit");
+  return marks;
 }
 // The bows of a block that asks for them. `base` is how far the font's baseline lies below the middle of a line,
 // in em. They are measured anew only when something moved a letter or gave it another colour: `block` is the
 // block as the sheet holds it, and a pick, or a letter typed into another block, leaves it the same. What React
 // does not hold is watched: the text as the teacher types it, the block's size while it is dragged, and a font
 // that comes in. `unsplit` stands while the bows are not those of the text shown, so the PDF, a test and a picture
-// of the page can wait for them.
-function Bows({ block, base, breaks }: { block: Box & { props: object }; base: number; breaks?: Breaks }) {
+// of the page can wait for them. It draws the bows when `syllables` is on, and the colours when there is a pair of
+// `tints`; with the colours alone it draws no bow, and its ranges go when the block goes or its colours change.
+function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
   const module = useSplitter(true);
   const svg = useRef<SVGSVGElement>(null);
   const tools = useRef({ draw: () => {}, seen: () => {} });
   const size = useRef([0, 0]);
+  const marks = useRef<Mark[]>([]);
   // With no splitter the block has no bows, and says it is done: a page prints without bows sooner than not at
   // all. A load that failed is asked for again here, at the next change of the block and not before, so a server
   // that is down is not asked with every frame. Chromium keeps a failed module for as long as the page lives and
@@ -543,7 +624,9 @@ function Bows({ block, base, breaks }: { block: Box & { props: object }; base: n
   const draw = () => {
     const own = svg.current!;
     size.current = [own.parentElement!.offsetWidth, own.parentElement!.offsetHeight];
-    if (module) bows(own, module, base, breaks);
+    unmark(marks.current);
+    marks.current = [];
+    if (module) marks.current = bows(own, module, how);
     else
       splitting().catch(() => {
         own.replaceChildren();
@@ -576,6 +659,7 @@ function Bows({ block, base, breaks }: { block: Box & { props: object }; base: n
       resized.disconnect();
       changed.disconnect();
       document.fonts.removeEventListener("loadingdone", later);
+      unmark(marks.current);
     };
   }, []);
   useLayoutEffect(() => {
@@ -650,7 +734,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
-  const { cells, cols, line, head, syllables, breaks } = block.props;
+  const { cells, cols, line, head, syllables, breaks, tintsAcross } = block.props;
+  const tints = pairOf(block.props.tints);
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
@@ -658,13 +743,13 @@ function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: 
     "--edge": `${0.25 * k}px`,
   };
   return (
-    <div className="table" style={style as CSSProperties}>
+    <div className={tints ? "table tinted" : "table"} style={style as CSSProperties}>
       {cells.flat().map((text, i) => (
         <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
           {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
         </div>
       ))}
-      {syllables && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} />}
+      {(syllables || tints) && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} />}
     </div>
   );
 }

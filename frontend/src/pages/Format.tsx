@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, GREYS, MARGIN, RULINGS, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -154,8 +154,8 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // The generator's limits belong to one block.
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const { mark } = sel[0];
-  // The Silbenbögen stand once, with the text settings or else with the table's, and go to all that hold words.
-  // What is mended by hand belongs to one block: another pick starts anew.
+  // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
+  // that hold words. What is mended by hand belongs to one block: another pick starts anew.
   const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
@@ -435,13 +435,19 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
 
-// The switch for the bows under the syllables, for every selected block that holds words: on unless all have them,
-// as bold. With one such block its words stand below, each as it is split, to mend by hand: a click on a word
-// shows its letters, and a click between two of them sets a break there or takes it away.
+// The switches for the bows under the syllables and for their colours, for every selected block that holds words: on
+// unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
+// its words stand below too, each as it is split, to mend by hand: a click on a word shows its letters, and a click
+// between two of them sets a break there or takes it away.
 function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "look" | "style">) {
   const held = sel.filter(worded);
-  const on = held.every((b) => worded(b)!.syllables);
-  const split = useSplitter(on);
+  const bowsOn = held.every((b) => worded(b)!.syllables);
+  // A stored pair that is garbage colours nothing, so the switch is off for it.
+  const tintsOn = held.every((b) => pairOf(worded(b)!.tints));
+  const pair = pairOf(held[0] && worded(held[0])!.tints) ?? TINTS;
+  const greys = pair[0] === GREYS[0] && pair[1] === GREYS[1];
+  const across = held.every((b) => worded(b)!.tintsAcross);
+  const split = useSplitter(bowsOn || tintsOn);
   // The word whose letters show, as `breaks` names it.
   const [open, setOpen] = useState<string>();
   // The word the caret stands in opens with no click.
@@ -473,9 +479,30 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   return (
     <>
       {/* Off is no entry, as on a sheet that never had bows. */}
-      <button className={on ? "on" : ""} aria-pressed={on} onClick={() => set({ syllables: on ? undefined : true }, "syllables")}>
+      <button className={bowsOn ? "on" : ""} aria-pressed={bowsOn} onClick={() => set({ syllables: bowsOn ? undefined : true }, "syllables")}>
         Silbenbögen
       </button>
+      <button className={tintsOn ? "on" : ""} aria-pressed={tintsOn} onClick={() => set(tintsOn ? { tints: undefined, tintsAcross: undefined } : { tints: TINTS }, "tints")}>
+        Silbenfarbe
+      </button>
+      {tintsOn && (
+        <>
+          <label>
+            Erste Silbe
+            <input type="color" value={pair[0]} onChange={(e) => set({ tints: [e.target.value, pair[1]] }, "tint0")} />
+          </label>
+          <label>
+            Zweite Silbe
+            <input type="color" value={pair[1]} onChange={(e) => set({ tints: [pair[0], e.target.value] }, "tint1")} />
+          </label>
+          <button className={greys ? "on" : ""} aria-pressed={greys} onClick={() => set({ tints: greys ? TINTS : GREYS }, "tints")}>
+            Schwarz/Grau
+          </button>
+          <button className={across ? "on" : ""} aria-pressed={across} onClick={() => set({ tintsAcross: across ? undefined : true })}>
+            Über Wortgrenzen
+          </button>
+        </>
+      )}
       {one && all.length > 0 && (
         <>
           <p className="hint">Silbe falsch? Wort anklicken und Trennstellen setzen.</p>

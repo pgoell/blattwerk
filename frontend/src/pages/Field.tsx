@@ -205,8 +205,8 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
   // What the field last took or gave: a text that differs has changed outside it.
   const known = useRef<Pick<TextProps, "text" | "rich">>(props);
   // The field lives across renders and calls what the latest one passed.
-  // The module that splits words, once it has loaded, for a text with Silbenbögen: it names the caret's word.
-  const split = useSplitter(props.syllables);
+  // The module that splits words, once it has loaded, for a text with Silbenbögen or Silbenfarbe: it names the caret's word.
+  const split = useSplitter(props.syllables || !!props.tints);
   const now = useRef({ props, split, ...on });
   now.current = { props, split, ...on };
   const flip = (name: "bold" | "italic" | "underline"): Command => (state, _, field) => {
@@ -286,7 +286,7 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
     view.current!.updateState(stateOf(doc, caret));
     on.pick(picked(view.current!.state, props, split));
   }, [props.text, props.rich]);
-  // The panel learns the caret's word once the splitter has loaded, and no more of it once the bows are off.
+  // The panel learns the caret's word once the splitter has loaded, and no more of it once the bows and colours are off.
   useLayoutEffect(() => on.pick(picked(view.current!.state, props, split)), [split]);
 
   return <div ref={el} className="rich" data-hint={hint && !props.text ? "" : undefined} />;

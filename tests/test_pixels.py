@@ -38,7 +38,9 @@ LONG = (
     "Frühling wächst dort ein neuer Baum. Die Vögel ziehen in den Süden."
 )
 FULLER = ["school script", "lists", "table", "strokes", "dashes", "pictures", "rulings on its side"]
-FULLER += ["syllables"]
+FULLER += ["syllables", "tints"]
+BLUE_RED = ["#1a56db", "#e02424"]
+BLACK_GREY = ["#000000", "#707070"]
 KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group", "name", "points"]
 # A table and a line stay level: the panel Format shuts "Drehung" for them and the selection has
 # no handle to turn them by. A line points where its two ends are.
@@ -120,6 +122,77 @@ def bowed(on=True):
     ]
 
 
+def tinted(pair=BLUE_RED, on=True):
+    """A page with Silbenfarbe on each kind of text: the syllables of a word in turn, in `pair`.
+
+    `on` False is the same page with the switch off.
+    """
+    words = "Oma und Opa essen am Abend Apfelkuchen. Die Eichhörnchen sammeln Haselnüsse im Radio."
+    colours = {"tints": list(pair)} if on else {}
+    grey = {"tints": list(BLACK_GREY)} if on else {}
+    rich = [
+        {
+            "runs": [
+                {"text": "Der "},
+                {"text": "Igel", "bold": True},
+                {"text": " baut ein "},
+                {"text": "Nest", "color": "#2f9e44"},
+                {"text": "."},
+            ]
+        },
+        para("Zwei Marmeladengläser"),
+    ]
+    cells = [["Esel", "Banane"], ["Schmetterling", "Uhu und Ameise"]]
+    table = {"cells": cells, "cols": [1, 1], "size": 14, "align": "center", "line": "#222222"}
+    return [
+        at("text", {**TEXT, "text": words, "size": 18, **colours}, y=15, h=40),
+        at(
+            "text",
+            {
+                **TEXT,
+                "text": words,
+                "breaks": {"radio": [2], "apfelkuchen": [5]},
+                "syllables": True,
+                **colours,
+            },
+            y=60,
+            h=30,
+        ),
+        at(
+            "text",
+            {
+                **TEXT,
+                "text": "Der Igel baut ein Nest.\nZwei Marmeladengläser",
+                "rich": rich,
+                **colours,
+            },
+            y=95,
+            h=30,
+        ),
+        at(
+            "text",
+            {**TEXT, "text": words, "font": "sas", "size": 18, "tintsAcross": True, **colours},
+            y=130,
+            h=40,
+        ),
+        at(
+            "text",
+            {**TEXT, "text": "Eine Banane", "font": "va", **colours},
+            y=185,
+            h=12,
+            w=40,
+            angle=30,
+        ),
+        at(
+            "shape",
+            {**TEXT, **FILLED, "kind": "rounded", "text": "Regenbogen", **grey},
+            y=205,
+            h=20,
+        ),
+        at("table", {**table, **colours}, y=235, h=30),
+    ]
+
+
 def fuller(case, client):
     """A page with more on it than one plain block: where a line breaks, a list, dashes, a cut."""
     if case == "school script":
@@ -187,6 +260,8 @@ def fuller(case, client):
         ]
     if case == "syllables":
         return bowed()
+    if case == "tints":
+        return tinted()
     kinds = ("l1", "l2", "l3", "lines", "k5", "k7")
     rulings = [
         at("ruling", {"kind": kind, "color": "#222222"}, y=15 + 30 * i, h=30, x=15 + 135 * (i % 2))
@@ -284,6 +359,22 @@ def test_bows_under_the_wrong_syllables_are_over_a_limit(browser, server):
     wrong = {**word, "breaks": {"marmeladengläser": [4, 7, 9, 12, 14]}}
     found = planted(browser, server, [at("text", wrong)], [at("text", word)])
     assert found["tile"] > TILE or found["ink"] > INK, found
+
+
+def test_missing_tints_are_over_the_limit(browser, server):
+    # The colours on the screen and none in print.
+    found = planted(browser, server, tinted(), tinted(on=False))
+    assert found["ink"] > INK, found
+
+
+def test_swapped_tints_are_over_a_limit(browser, server):
+    # One large word in the pair, and the pair the other way round: print has red first.
+    word = {**TEXT, "text": "Marmelade", "size": 40}
+    swapped = {**word, "tints": list(reversed(BLUE_RED))}
+    found = planted(
+        browser, server, [at("text", {**word, "tints": BLUE_RED})], [at("text", swapped)]
+    )
+    assert found["ink"] > INK, found
 
 
 def test_a_missing_hairline_is_over_the_limit(browser, server):
