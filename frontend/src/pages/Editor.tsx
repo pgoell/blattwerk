@@ -86,7 +86,7 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attach, download, flush, get, open, overwrite, refused, reset, set, useSaves } from "../saves";
+import { ask, attach, download, flush, get, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -222,17 +222,32 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
 
   // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on,
   // or has chosen this version meanwhile, changes nothing. Either choice may find the sheet deleted elsewhere, which
-  // ends the clash, or the session gone, which brings the login.
+  // ends the clash, or the session gone, which brings the login. Any other failure, and no answer after 20 s, says
+  // so and leaves the choice: the kept change is dropped only once the other version has come. While a choice is
+  // under way the banner says so and takes no second press.
+  const [choice, setChoice] = useState<"busy" | "failed">();
+  const chosen = (failed: boolean) => here.current && setChoice(failed ? "failed" : undefined);
   function load() {
-    api<Sheet>(`/sheets/${id}`).then(
+    setChoice("busy");
+    ask<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
+        chosen(false);
         const other = here.current && reset(sheet, user.id);
         if (other) show(other);
       },
-      (e: Error) => here.current && refused(Number(id), e.message) && show(null),
+      (e: Error) => {
+        chosen(e.message !== "401" && e.message !== "404");
+        if (here.current && refused(Number(id), e.message)) show(null);
+      },
     );
   }
-  const over = () => overwrite(Number(id)).then((gone) => gone && here.current && show(null));
+  function over() {
+    setChoice("busy");
+    overwrite(Number(id)).then((end) => {
+      chosen(typeof end === "string" && end !== "401");
+      if (end === true && here.current) show(null);
+    });
+  }
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
   // browser kept waits through a load that failed, and shows with the try that brings the sheet.
@@ -246,10 +261,10 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} />;
 }
 
-function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload: () => void; over: () => void }) {
+function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed" }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -1274,19 +1289,20 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
   async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
-    const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+    const [{ id }, { width, height }] = await Promise.all([signed(api<{ id: number }>("/uploads", { method: "POST", body })), createImageBitmap(file)]);
     const w = round(Math.min(100, (100 * width) / height));
     return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
   }
-  const refuse = () => alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  // Not where the session ran out: the login shows then, and the picture is added again after it.
+  const refuse = (why?: unknown[]) => why?.some((e) => (e as Error | undefined)?.message === "401") || alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
   async function upload(file?: File) {
     if (!file) return;
     const where = mark();
     try {
       const { w, h, ...rest } = await sent(file);
       calm(() => add(w, h, rest, where()));
-    } catch {
-      refuse();
+    } catch (e) {
+      refuse([e]);
     }
   }
   // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
@@ -1328,7 +1344,7 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
         setAt(n);
         setIds(made.map((b) => b.id));
       });
-    if (made.length < files.length) refuse();
+    if (made.length < files.length) refuse(got.map((r) => r.status === "rejected" && r.reason));
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
@@ -1816,8 +1832,11 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
   // which may hold an older document. A save that fails or never answers holds the PDF up for 20 s at most.
+  // The download goes by an address, and with the session gone the server's bare answer would take the app's
+  // place: the session is asked for first, and where it is gone the login shows instead.
   async function pdf(key: boolean) {
     await flush(file.id);
+    if ((await ask("/me").catch((e: Error) => e.message)) === "401") return;
     download(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`);
   }
 
@@ -2315,9 +2334,10 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
         {saver?.clash && (
           <div className="clash" role="alert">
             Dieses Blatt wurde auf einem anderen Gerät geändert.
-            <button onClick={reload}>Andere Version laden</button>
+            <button disabled={choice === "busy"} onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
-            <button onClick={over}>Mit dieser überschreiben</button>
+            <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
+            {choice && <span>{choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
           </div>
         )}
       </header>

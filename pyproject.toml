@@ -24,6 +24,7 @@ dev = [
     "pypdfium2>=5.14.0",
     "pytest",
     "pytest-repeat>=0.9.4",
+    "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
     "ruff",
     "ty",
@@ -36,6 +37,10 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-n auto"
+# A test that hangs fails alone and by its name, and the run goes on (#340). The slowest test
+# takes 40 s on CI. By signal: the thread method would end the whole worker.
+timeout = 90
+timeout_method = "signal"
 # A test that hangs says where after two minutes, in the log: CI ends a job that hangs with no word.
 faulthandler_timeout = 120
 markers = [

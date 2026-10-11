@@ -3,7 +3,7 @@ import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
 import Failed from "../components/Failed";
-import { ask, forget, useSaves } from "../saves";
+import { ask, forget, signed, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
@@ -32,23 +32,24 @@ export default function SheetList() {
     setTries((n) => n + 1);
   };
 
+  // Each of the four finds a session that ran out and brings the login then.
   async function create() {
-    const sheet = await post<Sheet>("/sheets", { title: "Unbenanntes Blatt", doc: EMPTY });
+    const sheet = await signed(post<Sheet>("/sheets", { title: "Unbenanntes Blatt", doc: EMPTY }));
     navigate(`/blatt/${sheet.id}`);
   }
   async function rename(sheet: Sheet) {
     const title = prompt("Titel des Blatts", sheet.title)?.trim().slice(0, 80);
     if (!title) return;
-    const saved = await post<Sheet>(`/sheets/${sheet.id}`, { title }, { method: "PATCH" });
+    const saved = await signed(post<Sheet>(`/sheets/${sheet.id}`, { title }, { method: "PATCH" }));
     setSheets((all) => all!.map((s) => (s.id === saved.id ? saved : s)));
   }
   async function duplicate(sheet: Sheet) {
-    const copy = await post<Sheet>(`/sheets/${sheet.id}/duplicate`);
+    const copy = await signed(post<Sheet>(`/sheets/${sheet.id}/duplicate`));
     setSheets((all) => [copy, ...all!]);
   }
   async function remove(sheet: Sheet) {
     if (!confirm(`Blatt „${sheet.title}“ löschen?`)) return;
-    await api(`/sheets/${sheet.id}`, { method: "DELETE" });
+    await signed(api(`/sheets/${sheet.id}`, { method: "DELETE" }));
     // A saver that waits for the teacher's choice or for a login would never hear that the sheet is gone.
     forget(sheet.id);
     setSheets((all) => all!.filter((s) => s.id !== sheet.id));

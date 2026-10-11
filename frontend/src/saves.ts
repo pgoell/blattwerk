@@ -105,11 +105,23 @@ function keep(s: Saver) {
   }
 }
 
+// A request that finds the session gone brings the login, on the address as it stands. Not where somebody has
+// signed in since it went: that answer is about the session before, and `logins` counts them. It is "stale" then,
+// a failure like any other: no saver stops for it, and the next try goes with the new session.
+let logins = 0;
+export function signed<T>(asked: Promise<T>) {
+  const was = logins;
+  return asked.catch((e: Error) => {
+    if (e.message === "401" && was !== logins) throw new Error("stale");
+    if (e.message === "401") signedOut();
+    throw e;
+  });
+}
 // An answer that has not come after 20 s counts as none. By a timer of the page: a test's clock moves that one.
 export function ask<T>(path: string, init?: RequestInit) {
   const stop = new AbortController();
   const limit = setTimeout(() => stop.abort(), 20000);
-  return api<T>(path, { ...init, signal: stop.signal }).finally(() => clearTimeout(limit));
+  return signed(api<T>(path, { ...init, signal: stop.signal })).finally(() => clearTimeout(limit));
 }
 // A sheet as its editor asks for it: null where it is not there, "failed" where the server could not say. An
 // address that names no number, a 422, has no sheet either. Never refused, for the editor's script may come to
@@ -169,7 +181,7 @@ async function fail(s: Saver, now: Kept, status: string) {
       return settle(s, ours ? 1 : 0);
     }
     status = sheet;
-  } else if (status !== "401" && status !== "404" && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
+  } else if (!["401", "404", "stale"].includes(status) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone. Who is
   // signed in now: 0 for nobody, nothing where that got no answer either.
   const who = status === "404" ? await ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined)) : undefined;
@@ -282,11 +294,11 @@ export function reset(sheet: Sheet, owner: number) {
 }
 // The server's sheet is what is saved now, so what the editor shows is unsaved, also where it is back at what was
 // saved before, and goes. Where the server cannot be asked the clash stands, for another try. Says whether the
-// sheet is gone.
+// sheet is gone, or what the server said instead of the sheet.
 export async function overwrite(id: number) {
   const s = savers.get(id);
   const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch((e: Error) => e.message));
-  if (typeof sheet === "string") return refused(id, sheet);
+  if (typeof sheet === "string") return refused(id, sheet) || sheet;
   if (!s || !sheet || s.dead || !s.clash) return false;
   s.base = sheet.version;
   s.saved = { doc: read(sheet.doc), title: sheet.title };
@@ -336,6 +348,7 @@ export async function flush(id: number) {
 // longer has takes its record along; any other failure leaves the record for the next start.
 export function enter(owner?: number) {
   me = owner;
+  logins++;
   let ids: number[] = [];
   try {
     ids = Object.keys(localStorage).flatMap((k) => (k.startsWith("unsaved:") ? [Number(k.slice(8))] : []));

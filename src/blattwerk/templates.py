@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from blattwerk import pictures
 from blattwerk.auth import User
-from blattwerk.db import Con
+from blattwerk.db import Con, Id
 
 router = APIRouter(prefix="/api")
 
@@ -127,7 +127,7 @@ def save(body: Template, user: User, con: Con) -> dict:
 
 
 @router.delete("/templates/{template_id}")
-def delete(template_id: int, user: User, con: Con) -> dict:
+def delete(template_id: Id, user: User, con: Con) -> dict:
     mine = (template_id, user["id"])
     row = con.execute("SELECT doc FROM templates WHERE id = ? AND user_id = ?", mine).fetchone()
     # Someone else's template is as missing as one that never was.
