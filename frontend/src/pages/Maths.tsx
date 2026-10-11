@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
+import { attempt } from "../fault";
 import { SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
@@ -20,21 +21,22 @@ export const generate = ({ ops, max, a, b, carry, rest, format, count, seed }: L
 export default function Maths({ block, apply }: { block: MathsBlock; apply: (props: MathsProps) => void }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<MathsProps>();
-  const [failed, setFailed] = useState(false);
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
   const asked = useRef(0);
   const p = pending ?? block.props;
 
-  // A new limit asks for new exercises. Only the answer to the last question counts.
-  async function limit(change: Partial<Limits>) {
+  // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
+  // stays as set, and the line above the page asks again with it.
+  function limit(change: Partial<Limits>) {
     const next = { ...p, ...change };
     const n = ++asked.current;
     setPending(next);
-    const made = await generate(next).catch(() => undefined);
-    if (n !== asked.current) return;
-    if (made) apply({ ...next, ...made });
-    setFailed(!made);
-    setPending(undefined);
+    attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
+      const made = await generate(next);
+      if (n !== asked.current) return;
+      apply({ ...next, ...made });
+      setPending(undefined);
+    });
   }
   // A number has as many places as the Zahlenraum; a new place takes any digit.
   function room(max: number) {
@@ -161,7 +163,6 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           {p.loosen.length > 0 && ` Mehr gibt es mit einer lockereren Grenze: ${p.loosen.map((name) => LOOSEN[name]).join(", ")}.`}
         </p>
       )}
-      {failed && <p className="hint" role="alert">Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?</p>}
       <button className="wide" onClick={() => limit({ seed: newSeed() })}>Neu würfeln</button>
       <h2>Aufgaben nummerieren</h2>
       <Numbering value={p.numbering} onChange={(numbering) => show({ numbering })} />

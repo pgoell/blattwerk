@@ -164,6 +164,25 @@ def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
     assert (now["r"], now["l"]) == (RULING, LINE)
 
 
+def test_the_format_of_the_words_passes_a_line_picked_along_and_the_stroke_reaches_it(editor):
+    """Issue #359: a line holds no words, so it takes no script and no size. Its dashes it takes."""
+    client = user()
+    page = editor(box("a", "text", TEXT), box("l", "shape", LINE, z=2), client=client)
+    pick(page, "a", "l")
+    panel = page.locator(".panel")
+    panel.get_by_label("Schriftart").select_option("grund")
+    panel.get_by_label("Schrift größer").click()
+    # The words' own "Rechts": the one beside it moves the blocks.
+    panel.locator('button[aria-pressed][aria-label="Rechts"]').click()
+    now = held(page, client)
+    assert now["a"] == {**TEXT, "font": "grund", "size": 16, "align": "right"}
+    assert now["l"] == LINE
+    panel.get_by_label("Gestrichelt").click()
+    now = held(page, client)
+    assert now["l"] == {**LINE, "dash": "dashed"}
+    assert now["a"]["dash"] == "dashed"
+
+
 def test_the_switch_goes_on_unless_all_picked_have_the_bows_in_one_undo_step(editor):
     """I1: as bold, for a text, a shape and a table picked together; one step for all of them."""
     client = user()
