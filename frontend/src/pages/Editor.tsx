@@ -1103,8 +1103,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // The gaps of a Lückentext. In a text being written in, the picked words become a gap or stop being one; in a table
   // cell being written in, that cell does. Else every selected block that holds words is a gap as a whole.
+  // A block with no words takes no gap: its props stay as they are.
+  const wordy = (b: Block) => {
+    const text = boxed(b);
+    return b.type === "table" ? b.props.cells.flat().some(Boolean) : !!text && parasOf(text).some((p) => p.runs.some((r) => r.text));
+  };
   function gapping(on: boolean) {
     if (field.current) return hole(field.current, on);
+    if (!sel.some(wordy)) return;
     tight.current = true;
     if (table && editing === table.id) {
       const { cols, cells, gaps } = table.props;
@@ -1115,7 +1121,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id)) return b;
+          if (!ids.includes(b.id) || !wordy(b)) return b;
           if (b.type === "table") return { ...b, props: { ...b.props, gaps: allCells(b.props.cells, on) } } as Block;
           const text = boxed(b);
           return text ? ({ ...b, props: { ...b.props, ...stored(allGaps(parasOf(text), on)) } } as Block) : b;
@@ -1125,11 +1131,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // Every n-th word of each selected block that holds words is a gap, counted through its text, in one undo step.
   function gapEvery(n: number) {
+    if (!sel.some(wordy)) return;
     tight.current = true;
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id)) return b;
+          if (!ids.includes(b.id) || !wordy(b)) return b;
           if (b.type === "table") return { ...b, props: { ...b.props, gaps: everyNthCell(b.props.cells, n) } } as Block;
           const text = boxed(b);
           return text ? ({ ...b, props: { ...b.props, ...stored(everyNth(parasOf(text), n)) } } as Block) : b;

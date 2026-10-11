@@ -7,8 +7,9 @@ never how a gap looks.
 
 import pytest
 from playwright.sync_api import expect
-from test_lock import fest
+from test_lock import FRAMES, fest
 from test_painter import held, paint
+from test_zoom import wheel
 from ui import FIELD, RECT, TABLE, TEXT, at, box, caret, pick, user
 
 WORDS = "eins zwei drei vier fünf sechs sieben acht neun zehn"
@@ -394,6 +395,43 @@ def test_the_brush_carries_no_gap_gap_width_or_bank(editor):
     paint(page, "a", "b")
     now = held(page, client)["b"]
     assert not {"rich", "gapWidth", "bank"} & set(now)
+
+
+def test_a_shape_with_no_words_takes_no_gap_and_no_step(editor):
+    """A13: a shape with no text takes no gap and no every n-th word: its props stay, no step."""
+    client = user()
+    page = editor(box("s", "shape", RECT), client=client)
+    pick(page, "s")
+    before = held(page, client)["s"]
+    step_free = page.get_by_label("Rückgängig", exact=True)
+    expect(step_free).to_be_disabled()
+    page.evaluate(FRAMES)
+    expect(step_free).to_be_disabled()
+    panel(page, "Lücke").click()
+    page.evaluate(FRAMES)
+    expect(step_free).to_be_disabled()
+    panel(page, "Jedes n-te Wort").click()
+    page.evaluate(FRAMES)
+    expect(step_free).to_be_disabled()
+    assert held(page, client)["s"] == before
+
+
+def test_lucken_gleich_breit_takes_the_same_width_at_any_zoom(editor):
+    """A3: the width measured at the default zoom is the width measured zoomed in."""
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "rich": [{"runs": [{"text": "Hallo", "gap": True}]}]}),
+        client=client,
+    )
+    pick(page, "a")
+    expect(page.locator(".block.sel .gap")).to_have_count(1)
+    panel(page, "Lücken gleich breit").click()
+    first = held(page, client)["a"]["gapWidth"]
+    step(page, lambda: page.keyboard.press("Control+z"))
+    wheel(page, -100)
+    wheel(page, -100)
+    panel(page, "Lücken gleich breit").click()
+    assert held(page, client)["a"]["gapWidth"] == first
 
 
 def test_a_copy_and_a_duplicate_keep_the_gaps_and_their_settings(editor):
