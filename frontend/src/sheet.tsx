@@ -1,6 +1,7 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
+import { cellEntries, entries, shuffled } from "./bank";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -218,10 +219,12 @@ export function mathsHeight(p: MathsProps) {
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
 // is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
-export function spliced({ cells, cols, ...rest }: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
+// A row or column that comes or goes takes its gap flags along: a new one has no gap.
+export function spliced({ cells, cols, gaps, ...rest }: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
   const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
-  if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")) };
-  return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length) };
+  const flags = gaps && { gaps: axis === "row" ? put(gaps, cols.map(() => false)) : gaps.map((row) => put(row, false)) };
+  if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")), ...flags };
+  return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags };
 }
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
@@ -328,9 +331,11 @@ function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: bool
 
 const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
 // A text or a shape with its text. The editor passes the field the text is typed in.
-function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: number; children?: ReactNode }) {
+function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
   const p = boxed(block)!;
   const tints = pairOf(p.tints);
+  const width = gapWidth(p.gapWidth);
+  const words = typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
   const [down, across, edge] = inset(p, block.type === "shape");
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
@@ -348,9 +353,10 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   return (
     <div
-      className={tints ? "frame tinted" : "frame"}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even")}
       style={{
         ...textStyle(p, k),
+        ...gapVar(width, k),
         background: d ? undefined : clear(p),
         border: own ? `${edge * k}px ${p.dash} ${p.stroke}` : undefined,
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
@@ -379,9 +385,21 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         </svg>
       )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
-      {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} />}
+      {words.length > 0 && <Bank words={words} seed={p.bank!} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
+}
+
+// The classes of an element, from the names that are set.
+const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
+// Every gap of a block is at least this many mm wide: a finite number above 0, at most 200. Else none.
+const gapWidth = (mm: unknown) => (typeof mm === "number" && Number.isFinite(mm) && mm > 0 ? Math.min(mm, 200) : 0);
+// The width in px of a block's gaps, for the CSS of `.even .gap`.
+const gapVar = (mm: number, k: number) => (mm ? ({ "--gap": `${mm * k}px` } as CSSProperties) : {});
+// The box of the solution words under a text: each word once, in the seeded order of its block.
+function Bank({ words, seed }: { words: string[]; seed: number }) {
+  return <div className="bank">{shuffled(words, seed).map((word, i) => <span key={i}>{word}</span>)}</div>;
 }
 
 // The dashes of a box's border. The middle of the stroke is `w` by `h` mm, half the stroke's width inside the box.
@@ -509,7 +527,7 @@ const unmark = (marks: Mark[]) =>
     rule.remove();
     rules.delete(mark);
   });
-type Draw = { base: number; breaks?: Breaks; syllables?: boolean; tints?: Tints; tintsAcross?: boolean };
+type Draw = { base: number; breaks?: Breaks; syllables?: boolean; tints?: Tints; tintsAcross?: boolean; solved?: boolean };
 // Draws a bow under each syllable of the text beside `svg`: every paragraph of a frame, of a table's cells and of
 // the field a text is typed in. The words stay as they are. A span around a syllable would move its letters:
 // WebKit shapes each text node alone, which costs the joins and the kerning of a school script. So each syllable
@@ -561,6 +579,8 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
         }
         const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
+        // A gap shows neither bow nor colour, so the hidden word stays hidden; the answer key shows both.
+        if (first.parentElement!.closest(".gap") && !host.closest(".solved")) continue;
         // The end lies in the node of the syllable's last letter, not at the start of the next.
         const [last, stop] = spot(from + module.shown(piece.text).length - 1);
         // A hand colour keeps its letters: each stretch of the syllable without one gets a range of its own.
@@ -631,6 +651,7 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
 // of the page can wait for them. It draws the bows when `syllables` is on, and the colours when there is a pair of
 // `tints`; with the colours alone it draws no bow, and its ranges go when the block goes or its colours change.
 function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
+  const { solved } = how;
   const module = useSplitter(true);
   const svg = useRef<SVGSVGElement>(null);
   const tools = useRef({ draw: () => {}, seen: () => {} });
@@ -690,7 +711,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     svg.current!.classList.add("unsplit");
     tools.current.draw();
     // The place of a block moves no letter in it.
-  }, [module, block.props, block.w, block.h, block.angle]);
+  }, [module, block.props, block.w, block.h, block.angle, solved]);
   return <svg ref={svg} className="bows unsplit" aria-hidden />;
 }
 // Resolves once every block's bows are drawn. The PDF waits for it.
@@ -700,19 +721,38 @@ export const bowed = () =>
     requestAnimationFrame(look);
   });
 
+// The runs of a paragraph in groups: consecutive gap runs share one group, every other run has one of its own.
+const runGroups = (runs: Run[]) =>
+  runs.reduce<Run[][]>((all, r) => {
+    const last = all.at(-1);
+    if (r.gap === true && last?.[0].gap === true) last.push(r);
+    else all.push([r]);
+    return all;
+  }, []);
+
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own.
 function Rich({ paras }: { paras: Para[] }) {
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
+  const run = ({ text, bold, italic, underline, color }: Run, key: number) => (
+    <span key={key} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
+      {text}
+    </span>
+  );
   return (
     <div className="rich">
       {paras.map((para, i) => (
         <p key={i} data-list={para.list} data-level={para.level || undefined}>
-          {para.runs.map(({ text, bold, italic, underline, color }, j) => (
-            <span key={j} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
-              {text}
-            </span>
-          ))}
+          {/* Consecutive gap runs make one gap: its outer span draws the line, its inner one holds the words. */}
+          {runGroups(para.runs).map((group, g) =>
+            group[0].gap === true ? (
+              <span key={g} className="gap" data-gap="true">
+                <span>{group.map((r, j) => run(r, j))}</span>
+              </span>
+            ) : (
+              run(group[0], g)
+            ),
+          )}
           {/* A paragraph with no text is still a line high. */}
           {!para.runs.length && <br />}
         </p>
@@ -753,23 +793,29 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // makes each as high as its cells need and stretches them all by the same share of what is left. A text lies in
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
-function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
-  const { cells, cols, line, head, syllables, breaks, tintsAcross } = block.props;
+function Table({ block, k, at, solved, children }: { block: TableBlock; k: number; at?: number; solved: boolean; children?: ReactNode }) {
+  const { cells, cols, line, head, syllables, breaks, tintsAcross, gaps } = block.props;
   const tints = pairOf(block.props.tints);
+  const width = gapWidth(block.props.gapWidth);
+  const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
     gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
     "--edge": `${0.25 * k}px`,
+    ...gapVar(width, k),
   };
+  // A gap cell holds its text as a gap does; the open cell's field goes after it.
+  const wrap = (text: string, i: number) => (gaps?.[Math.floor(i / cols.length)]?.[i % cols.length] === true ? <span className="gap" data-gap="true"><span>{text}</span></span> : text);
   return (
-    <div className={tints ? "table tinted" : "table"} style={style as CSSProperties}>
+    <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} style={style as CSSProperties}>
       {cells.flat().map((text, i) => (
         <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
-          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
+          {i === at ? <p className="open">{wrap(text, i)}&#8203;{children}</p> : <p>{wrap(text, i)}</p>}
         </div>
       ))}
-      {(syllables || tints) && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} />}
+      {(syllables || tints) && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
+      {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
     </div>
   );
 }
@@ -828,8 +874,8 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, children }: { block: Block; k: number; solved?: boolean; at?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
-  if (block.type === "table") return <Table block={block} k={k} at={at}>{children}</Table>;
-  if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k}>{children}</Frame>;
+  if (block.type === "table") return <Table block={block} k={k} at={at} solved={solved}>{children}</Table>;
+  if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
