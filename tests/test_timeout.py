@@ -6,6 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+from ui import sheet, user
+
+from blattwerk.app import app
+
 ROOT = Path(__file__).parent.parent
 # The hang of #340: the portal's loop never ends while it cancels its tasks, and the test joins
 # the portal's thread.
@@ -70,3 +75,17 @@ def test_a_test_that_hangs_fails_alone_by_its_name_and_the_run_goes_on(tmp_path)
         assert f"FAILED test_hangs.py::{name} " in out, out
     assert "2 failed, 3 passed" in out, out
     assert code == 1, out
+
+
+def test_no_request_of_a_test_client_starts_a_loop_of_its_own(monkeypatch):
+    """The hang of #340 sits where a client ends the loop it started for one request: every
+    client of the run asks through one loop (conftest.py), which is never ended."""
+
+    def refuse(**_):
+        raise AssertionError("a request started a loop of its own")
+
+    monkeypatch.setattr("anyio.from_thread.start_blocking_portal", refuse)
+    client = user()
+    assert client.get("/api/me").status_code == 200
+    assert sheet(client, [])["id"]
+    assert TestClient(app, base_url="https://testserver").get("/api/me").status_code == 401

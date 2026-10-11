@@ -1,8 +1,13 @@
 import json
 import os
+import threading
+from concurrent.futures import Future
 
+import anyio
 import pytest
+from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
+from fastapi.testclient import TestClient
 from playwright.sync_api import expect, sync_playwright
 from ui import BROWSER, serving, sheet, user
 
@@ -68,6 +73,21 @@ def pytest_collection_modifyitems(config, items):
     items[:] = items[i - 1 :: n]
 
 
+def one_loop():
+    """One event loop for every TestClient of the run. Left alone, a client starts a loop for each
+    request and ends it after, and on CI such a loop now and then never ends (#340). This one is
+    never ended: its thread is a daemon and goes with the process."""
+    made = Future()
+
+    async def run():
+        async with BlockingPortal() as portal:
+            made.set_result(portal)
+            await portal.sleep_until_stopped()
+
+    threading.Thread(target=anyio.run, args=[run], daemon=True).start()
+    return made.result()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cheap(tmp_path_factory):
     with pytest.MonkeyPatch.context() as patch:
@@ -75,6 +95,7 @@ def cheap(tmp_path_factory):
         patch.setattr(auth, "hasher", PasswordHasher(time_cost=1, memory_cost=8, parallelism=1))
         # Between two tests too, no request may reach the data folder of the checkout.
         patch.setattr(db, "DATA_DIR", tmp_path_factory.mktemp("between"))
+        patch.setattr(TestClient, "portal", one_loop())
         yield
 
 
