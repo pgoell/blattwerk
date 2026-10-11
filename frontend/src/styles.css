@@ -474,7 +474,7 @@ body:has(.print) { background: #fff; }
 .table .open .gap { visibility: visible; }
 .table .open .gap > span { visibility: hidden; }
 /* The box of solution words spans the table's columns and has the lines' colour. */
-.table > .bank { grid-column: 1 / -1; min-height: 0; flex-wrap: wrap; gap: .4em .8em; margin: .3em 0 0; padding: .3em .5em; border-width: 1px; }
+.table > .bank { grid-column: 1 / -1; min-height: 0; overflow: visible; flex-wrap: wrap; gap: .4em .8em; margin: .3em 0 0; padding: .3em .5em; border: 1px solid currentColor; }
 /* A column's right line, to take hold of. */
 .sheet > .bar { position: absolute; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
 .bar::after { content: ""; position: absolute; inset: 0 -9px; }
@@ -527,7 +527,7 @@ body:has(.print) { background: #fff; }
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
 /* A gap is a line to write on, in the text's colour. The editor greys its words, the pupil's sheet hides them (they
    keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
-.gap { border-bottom: .25mm solid currentColor; }
+.gap { background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - .25mm) / 100% .25mm; }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }

@@ -9,16 +9,24 @@ import io
 
 import httpx
 import pytest
+from PIL import Image
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import TABLE, TEXT, at, block, box, sheet, syls, tints, user
+from ui import FIELD, TABLE, TEXT, at, block, box, pick, sheet, syls, tints, tool, user
+
+from blattwerk import pdf
 
 GAP = {
     **TEXT,
     "text": "Der Hund bellt",
     "rich": [{"runs": [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " bellt"}]}],
 }
-PLAIN = {**TEXT, "text": "Der Hund bellt", "rich": [{"runs": [{"text": "Der Hund bellt"}]}]}
+# The same word in a run of its own, as the gap's words lie: shaping across a run's edge differs.
+PLAIN = {
+    **TEXT,
+    "text": "Der Hund bellt",
+    "rich": [{"runs": [{"text": "Der "}, {"text": "Hund"}, {"text": " bellt"}]}],
+}
 # Three gaps in reading order; seed 1 shuffles them to another order.
 WORDS = {
     **TEXT,
@@ -60,7 +68,7 @@ WIDTHS = """([gap, plain]) => {
     return {
         gap: span.getBoundingClientRect().width,
         word: range.getBoundingClientRect().width,
-        border: line.borderBottomStyle + " " + line.borderBottomWidth,
+        line: line.backgroundImage,
     };
 }"""
 
@@ -70,7 +78,7 @@ def test_a_gap_is_a_line_as_wide_as_its_words(editor):
     page = editor(box("a", "text", GAP), box("b", "text", PLAIN, z=2))
     widths = page.evaluate(WIDTHS, ["a", "b"])
     assert abs(widths["gap"] - widths["word"]) <= 1
-    assert widths["border"] != "none 0px"
+    assert widths["line"] != "none"
 
 
 def test_with_gap_width_every_gap_is_as_wide_and_a_longer_word_widens_its_own(editor):
@@ -178,3 +186,90 @@ def test_the_answer_key_pdf_holds_the_hidden_word_and_the_pupils_does_not(server
         texts.append(" ".join(page.extract_text() for page in pages))
     assert "Hund" not in texts[0]
     assert "Hund" in texts[1]
+
+
+# A text of 60 mm, a gap of two words over the line's end, and the same text without the flag.
+LONG = [
+    {"text": "Der "},
+    {"text": "Hund bellt laut", "gap": True},
+    {"text": " und die Katze schläft"},
+]
+LONG_PLAIN = [{"text": "Der Hund bellt laut und die Katze schläft"}]
+# The top of each word of a block, relative to its first word.
+TOPS = """(name) => {
+    const rich = document.querySelector(`.block[data-id="${name}"] .rich`);
+    const walk = document.createTreeWalker(rich, NodeFilter.SHOW_TEXT);
+    const tops = [];
+    while (walk.nextNode()) {
+        const node = walk.currentNode;
+        for (const m of node.data.matchAll(/\\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, m.index);
+            range.setEnd(node, m.index + m[0].length);
+            tops.push(range.getBoundingClientRect().top);
+        }
+    }
+    return tops.map((top) => Math.round(top - tops[0]));
+}"""
+
+
+def test_a_gap_breaks_the_lines_where_its_words_do_without_the_flag(editor):
+    """A6: a gap over the line's end breaks the text into the same lines, at the same words."""
+    page = editor(
+        box("a", "text", {**TEXT, "rich": [{"runs": LONG}]}, w=60),
+        box("b", "text", {**TEXT, "rich": [{"runs": LONG_PLAIN}]}, z=2, w=60),
+    )
+    tops = page.evaluate(TOPS, "a")
+    assert len(set(tops)) > 1
+    assert tops == page.evaluate(TOPS, "b")
+
+
+def test_a_gap_word_is_in_the_field_and_grey_when_a_text_is_typed_in(editor):
+    """A5 field: the open field shows the gap's word in grey, and red when the key is on."""
+    page = editor(box("a", "text", GAP))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    expect(page.locator(f"{FIELD} .gap > span").first).to_have_css("color", "rgb(153, 153, 153)")
+    page.keyboard.press("Escape")
+    tool(page, "Lösungen zeigen").click()
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(f"{FIELD} .gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
+
+
+def test_a_gap_is_red_in_the_key_and_hidden_on_the_pupils_print(editor, browser, server):
+    """A9: the key shows the words in red on the screen, and the print only with ?loesungen."""
+    client = user()
+    page = editor(box("a", "text", GAP), client=client)
+    tool(page, "Lösungen zeigen").click()
+    expect(at(page, "a").locator(".gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
+    mine = page.url.rstrip("/").split("/")[-1]
+    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    for query, state in (("", "hidden"), ("?loesungen", "visible")):
+        paper.goto(f"{server}/druck/{mine}{query}")
+        paper.wait_for_selector("body.ready", state="attached")
+        expect(paper.locator(".gap > span").first).to_have_css("visibility", state)
+    expect(paper.locator(".gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
+    paper.context.close()
+
+
+def test_a_gap_on_the_last_line_of_a_paragraph_has_its_line_on_the_print(editor, browser, server):
+    """Fix: the line of a gap is drawn inside its line box, also on a paragraph's last line."""
+    client = user()
+    two = {
+        **TEXT,
+        "rich": [
+            {"runs": [{"text": "Der "}, {"text": "Hund", "gap": True}]},
+            {"runs": [{"text": "Die "}, {"text": "Katze", "gap": True}]},
+        ],
+    }
+    page = editor(box("a", "text", two), client=client)
+    mine = page.url.rstrip("/").split("/")[-1]
+    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    paper.goto(f"{server}/druck/{mine}")
+    paper.wait_for_selector("body.ready", state="attached")
+    for gap in paper.locator(".gap").all():
+        shot = Image.open(io.BytesIO(gap.screenshot())).convert("L")
+        assert sum(shot.histogram()[:128]) > 0
+    paper.context.close()
