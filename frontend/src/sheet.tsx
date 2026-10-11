@@ -222,7 +222,9 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A row or column that comes or goes takes its gap flags along: a new one has no gap.
 export function spliced({ cells, cols, gaps, ...rest }: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
   const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
-  const flags = gaps && { gaps: axis === "row" ? put(gaps, cols.map(() => false)) : gaps.map((row) => put(row, false)) };
+  // A sheet may come from anywhere: the flags take the shape of the cells first.
+  const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
+  const flags = held && { gaps: axis === "row" ? put(held, cols.map(() => false)) : held.map((row) => put(row, false)) };
   if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")), ...flags };
   return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags };
 }

@@ -67,4 +67,7 @@ describe("spliced", () => {
   it("leaves gaps absent when the table has none", () => {
     expect("gaps" in spliced({ ...props, gaps: undefined }, "row", 0, true)).toBe(false);
   });
+  it("gives garbage in the flags the shape of the cells", () => {
+    expect(spliced({ ...props, gaps: ["x", [0, true]] as unknown as boolean[][] }, "col", 2, true).gaps).toEqual([[false, false, false], [false, true, false]]);
+  });
 });
