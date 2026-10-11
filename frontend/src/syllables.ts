@@ -92,8 +92,11 @@ const cache = new Map<string, number[]>();
 
 // The word as a reader sees it: without its hidden characters.
 export const plain = (word: string) => word.replace(HIDDEN_ALL, "");
-// The name a word's own split is stored under: the same for the word with a hidden character and the plain one.
-export const keyOf = (word: string) => plain(word).toLowerCase();
+// The name a word's own split is stored under: the same for the word with a hidden character and the plain one, and
+// for its composed and decomposed spelling.
+export const keyOf = (word: string) => plain(word).normalize("NFC").toLowerCase();
+// The name a split stored before composed and decomposed spellings shared one key is under: still read, for a sheet made then.
+export const oldKeyOf = (word: string) => plain(word).toLowerCase();
 // A syllable as a reader sees it: without the hidden characters after its last letter, under which a bow and a colour lie.
 export const shown = (syllable: string) => syllable.replace(HIDDEN_END, "");
 // Where each character of the plain word stands in the word as it came, and at the end the word's length.
@@ -122,16 +125,30 @@ export function split(word: string): number[] {
   }
   return out;
 }
+// Where each unit of a plain word starts, and the end of the word last. A unit is a letter with its marks, or a character.
+const starts = (units: string[]) => {
+  const out = [0];
+  for (const unit of units) out.push(out.at(-1)! + unit.length);
+  return out;
+};
 // The places a word breaks at: the teacher's where the word has them, the module's own otherwise.
 // A sheet may come from anywhere: only a list the sheet itself holds for the word counts (not what every object
-// has, as "constructor"), and of it the whole numbers inside the word, each once, in order. The teacher's places
-// count the plain word, and come back as places of the word as it came.
+// has, as "constructor"), and of it the whole numbers inside the word, each once, in order. The teacher's counts are
+// of letters, so composed and decomposed spellings cut alike. A list under the old key counts characters, as it did,
+// and counts only while no list stands under the new key. The places come back as places of the word as it came.
 export function cuts(word: string, breaks?: Breaks): number[] {
-  const own: unknown = breaks && Object.hasOwn(breaks, keyOf(word)) ? breaks[keyOf(word)] : undefined;
+  const fresh = !!breaks && Object.hasOwn(breaks, keyOf(word));
+  const own: unknown = fresh ? breaks![keyOf(word)] : breaks && Object.hasOwn(breaks, oldKeyOf(word)) ? breaks[oldKeyOf(word)] : undefined;
   if (!Array.isArray(own)) return split(word);
-  const length = plain(word).length;
+  const from = starts(fresh ? plain(word).match(LETTER) ?? [] : plain(word).split(""));
   const at = places(word);
-  return [...new Set(own.filter((i): i is number => Number.isInteger(i) && i > 0 && i < length))].sort((a, b) => a - b).map((i) => at[i]);
+  return [...new Set(own.filter((i): i is number => Number.isInteger(i) && i > 0 && i < from.length - 1))].sort((a, b) => a - b).map((i) => at[from[i]]);
+}
+// The counts of letters to store for breaks at places of the word as it came, the places `cuts` gives back.
+export function counted(word: string, cut: number[]): number[] {
+  const at = places(word);
+  const from = starts(plain(word).match(LETTER) ?? []).slice(0, -1);
+  return cut.map((p) => from.filter((s) => at[s] < p).length);
 }
 // The words of a text as a reader sees them, each once, in the order they first stand in it.
 export const words = (text: string) => [...new Set((text.match(WORD) ?? []).map(plain))];

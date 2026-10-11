@@ -461,19 +461,21 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   };
   const one = split && held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
-  // Whether the teacher split the word: "constructor" is a word too, and every object has one.
-  const own = (key?: string) => !!key && Object.hasOwn(fixes, key) && Array.isArray(fixes[key]);
+  // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
+  const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
   const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
-  // module splits it needs no entry, and a block with no entry no `breaks`.
+  // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in letters, and an
+  // entry under the old key goes, so the word has one entry.
   const mend = (at?: number) => {
     const now = split!.cuts(word!, fixes);
     const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
-    const rest = Object.fromEntries(Object.entries(fixes).filter(([key]) => key !== open));
-    const breaks = next && String(next) !== String(split!.split(word!)) ? { ...rest, [open!]: next } : rest;
+    const counts = next && split!.counted(word!, next);
+    const rest = Object.fromEntries(Object.entries(fixes).filter(([key]) => key !== open && key !== split!.oldKeyOf(word!)));
+    const breaks = counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? { ...rest, [open!]: counts } : rest;
     set({ breaks: Object.keys(breaks).length ? breaks : undefined });
   };
   return (
@@ -511,7 +513,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
               const key = split!.keyOf(w);
               const cut = [0, ...split!.cuts(w, fixes), w.length];
               return (
-                <button key={key} className={`${key === open ? "on" : ""}${own(key) ? " own" : ""}`} aria-pressed={key === open} title={own(key) ? "von Hand getrennt" : undefined} onClick={() => setOpen(key)}>
+                <button key={key} className={`${key === open ? "on" : ""}${own(w) ? " own" : ""}`} aria-pressed={key === open} title={own(w) ? "von Hand getrennt" : undefined} onClick={() => setOpen(key)}>
                   {cut.slice(1).map((end, i) => w.slice(cut[i], end)).join("·")}
                 </button>
               );
@@ -535,7 +537,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
               })}
             </div>
           )}
-          {word && own(open) && <button onClick={() => mend()}>Zurücksetzen</button>}
+          {word && own(word) && <button onClick={() => mend()}>Zurücksetzen</button>}
         </>
       )}
     </>
