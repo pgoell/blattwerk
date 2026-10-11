@@ -213,11 +213,14 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     return () => void (here.current = false);
   }, []);
 
-  // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on
-  // changes nothing: the choice is asked for again.
+  // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on,
+  // or has chosen this version meanwhile, changes nothing.
   function load() {
     api<Sheet>(`/sheets/${id}`).then(
-      (sheet) => here.current && show(reset(sheet, user.id)),
+      (sheet) => {
+        const other = here.current && reset(sheet, user.id);
+        if (other) show(other);
+      },
       (e: Error) => here.current && e.message === "404" && show(null),
     );
   }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
-import { useSaves } from "../saves";
+import { forget, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
@@ -37,6 +37,8 @@ export default function SheetList() {
   async function remove(sheet: Sheet) {
     if (!confirm(`Blatt „${sheet.title}“ löschen?`)) return;
     await api(`/sheets/${sheet.id}`, { method: "DELETE" });
+    // A saver that waits for the teacher's choice or for a login would never hear that the sheet is gone.
+    forget(sheet.id);
     setSheets((all) => all!.filter((s) => s.id !== sheet.id));
   }
 

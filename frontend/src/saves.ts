@@ -33,8 +33,10 @@ type Saver = {
   kept: boolean;
   // Unsaved for over a second.
   late: boolean;
+  // The clocks: to the next save, to `late`, and to the store, which has each change within a second.
   timer?: number;
   slow?: number;
+  note?: number;
   idle: (() => void)[];
 };
 // What the browser keeps of an unsaved change, for the next visit. `title` only where it changed here, `sent` only
@@ -52,8 +54,15 @@ const heard = new Set<() => void>();
 let shot = { list: [] as Save[], landed: 0 };
 const key = (id: number) => `unsaved:${id}`;
 const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
-// A save that got no answer counts too: the server may hold it though the teacher has undone it since.
-const unsaved = (s: Saver) => !s.gone && (!!s.out || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title);
+// A save that got no answer counts too: the server may hold it though the teacher has undone it since. So does a
+// clash: the server holds another device's document, whatever the editor is back at.
+const unsaved = (s: Saver) => !s.gone && (!!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title);
+// The saver's end: nothing of it is sent, heard or written any more.
+function kill(s: Saver) {
+  s.dead = true;
+  for (const clock of [s.timer, s.slow, s.note]) clearTimeout(clock);
+  savers.delete(s.id);
+}
 
 // Tells who reads the savers, where what they read has changed: the editor draws anew only then.
 function tell(landed = 0) {
@@ -198,7 +207,7 @@ function settle(s: Saver, landed = 0) {
 export function open(sheet: Sheet, owner: number): Sheet {
   let s = savers.get(sheet.id);
   if (!s || s.owner !== owner || !(unsaved(s) || s.base > sheet.version)) {
-    if (s) s.dead = true;
+    if (s) kill(s);
     // `read` brings an old document up to date; that is no change.
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
@@ -209,6 +218,10 @@ export function open(sheet: Sheet, owner: number): Sheet {
       const title = record.title ?? sheet.title;
       if (!same(record.doc, sheet.doc) || title !== sheet.title) s.want = { doc: read(record.doc), title };
       s.clash = unsaved(s) && sheet.version !== record.base && !ours;
+      // A save that went from the tab before may still arrive, or has and the answer here is older: the saver
+      // knows those documents as this browser's own when a save of its own is turned down. Once the server is
+      // past the version they were based on, it takes none of them any more.
+      if (sheet.version === record.base && unsaved(s)) s.lost = (record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
       s.kept = true;
       keep(s);
     }
@@ -244,28 +257,41 @@ export function set(id: number, want: Kept) {
   // A save that failed has a clock of its own. An undo back to what is saved leaves nothing to keep.
   if (!s.tries) plan(s, 2000);
   if (!unsaved(s)) keep(s);
+  // The store has the change within a second, also while nothing can be sent: a save is out, one failed, or a clash
+  // stands. One write for the many changes of a drag.
+  s.note ??= setTimeout(() => {
+    s.note = undefined;
+    keep(s);
+  }, 1000);
   tell();
 }
 
 // The teacher's two answers to a clash. The other version: the saver starts over from the server's sheet, and the
 // kept change is dropped. This one: it is saved over what the server holds now.
+// The other version's answer counts only while the clash stands: one that comes after the teacher chose this one
+// instead would put the old sheet in place of what was just saved.
 export function reset(sheet: Sheet, owner: number) {
-  const s = savers.get(sheet.id);
-  if (s) {
-    s.dead = true;
-    clearTimeout(s.timer);
-    clearTimeout(s.slow);
-    savers.delete(s.id);
-    if (s.kept) localStorage.removeItem(key(s.id));
-  }
+  if (!savers.get(sheet.id)?.clash) return;
+  forget(sheet.id);
   return open(sheet, owner);
 }
+// The server's sheet is what is saved now, so what the editor shows is unsaved, also where it is back at what was
+// saved before, and goes. Where the server cannot be asked the clash stands, for another try.
 export async function overwrite(id: number) {
   const s = savers.get(id);
-  if (!s) return;
-  s.base = (await ask<Sheet>(`/sheets/${id}`)).version;
+  const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch(() => null));
+  if (!s || !sheet || s.dead || !s.clash) return;
+  s.base = sheet.version;
+  s.saved = { doc: read(sheet.doc), title: sheet.title };
   s.clash = false;
   send(s);
+  tell();
+}
+// The sheet was deleted here: its saver and its kept change go with it.
+export function forget(id: number) {
+  const s = savers.get(id);
+  if (s) kill(s);
+  if (s?.kept || kept(id)?.owner === me) localStorage.removeItem(key(id));
   tell();
 }
 
@@ -309,10 +335,7 @@ export function enter(owner?: number) {
       send(s);
     } else {
       keep(s);
-      s.dead = true;
-      clearTimeout(s.timer);
-      clearTimeout(s.slow);
-      savers.delete(s.id);
+      kill(s);
     }
   }
   tell();

@@ -803,3 +803,168 @@ def test_another_accounts_kept_change_is_neither_sent_nor_removed_at_the_start(r
     assert not [url for url in asked if url.endswith(f"/api/sheets/{run.ids['a']}")]
     assert record(page, run.ids["a"]) == kept
     assert x_of(run, "a") == 15
+
+
+def elsewhere(run, x):
+    """Another device moves A's block there and saves."""
+    was = run.held("a")
+    was["doc"]["pages"][0]["blocks"][0]["x"] = x
+    other = {"doc": was["doc"], "version": was["version"]}
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    return run.held("a")
+
+
+def clash(run):
+    """A is changed here and elsewhere, and this editor's save is turned down: the banner stands.
+    Gives the sheet as the other device left it."""
+    theirs = elsewhere(run, 99)
+    change(run)
+    answer(run, "a")
+    expect(run.page.locator(".clash")).to_be_visible()
+    return theirs
+
+
+def kept_x(page, run):
+    return record(page, run.ids["a"])["doc"]["pages"][0]["blocks"][0]["x"]
+
+
+@pytest.mark.parametrize("state", ["held", "failed", "clash"])
+def test_a_change_is_in_the_browsers_store_within_a_second_whatever_the_saver_does(run, state):
+    """Review 1: also while a save is out, after one failed, and while a clash stands. A saver
+    stopped by a session that ran out has no editor: the login stands in its place."""
+    page, _ = start(run)
+    if state == "clash":
+        clash(run)
+    else:
+        change(run)
+    if state == "failed":
+        answer(run, "a", 500)
+    assert kept_x(page, run) == 16
+    nudge(run)
+    page.clock.run_for(999)
+    page.evaluate(TURNS)
+    assert kept_x(page, run) == 16
+    page.clock.run_for(1)
+    page.evaluate(TURNS)
+    assert kept_x(page, run) == 17
+
+
+def test_a_save_given_up_that_arrives_after_a_reload_is_known_as_this_browsers_own(run):
+    """Review 2: save X gets no answer for 20 s, change Y goes out, the tab is loaded anew, and X
+    reaches the server before the new tab's Y: no banner, and the server ends with Y."""
+    page, gate = start(run)
+    first = change(run).post_data_json
+    give_up(run, "a")
+    nudge(run)
+    with page.expect_request(gate.asks("PATCH")):
+        page.clock.run_for(2000)
+    page.evaluate(TURNS)
+    assert record(page, run.ids["a"])["sent"]
+    page.clock.resume()
+    # No save of the tab that goes reaches the server.
+    with down():
+        page.reload()
+        expect_ready(page, 1)
+        expect(page.locator(STATUS)).to_have_text("Speichert …")
+    assert x_of(run, "a") == 15
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=first).status_code == 200
+    assert let_go(page, gate).status == 409
+    expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    expect(page.locator(".clash")).to_have_count(0)
+    assert x_of(run, "a") == 17
+    assert run.held("a")["version"] == 3
+
+
+def test_overwriting_sends_what_the_editor_shows_though_it_is_back_at_what_was_saved(run):
+    """Review 3: a change, undone while its save is out; the save is turned down. While the
+    clash stands the sheet is not saved, and `Mit dieser überschreiben` sends it."""
+    page, gate = start(run)
+    change(run)
+    page.get_by_role("button", name="Rückgängig").click()
+    page.evaluate(TURNS)
+    elsewhere(run, 99)
+    answer(run, "a")
+    banner = page.locator(".clash")
+    expect(banner).to_be_visible()
+    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
+    assert kept_x(page, run) == 15
+    gate.keep = False
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
+        banner.get_by_role("button", name="Mit dieser überschreiben").click()
+    saved.value.finished()
+    expect(banner).to_have_count(0)
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert x_of(run, "a") == 15
+    assert run.held("a")["version"] == 3
+    assert record(page, run.ids["a"]) is None
+
+
+def test_a_sheet_deleted_on_the_list_takes_its_clash_notice_and_its_kept_change_along(run):
+    """Review 4"""
+    page, _ = start(run)
+    nudge(run)
+    shut(page, 1)
+    elsewhere(run, 40)
+    page, _, _ = again(run, None)
+    expect(page.locator(NOTICE)).to_contain_text("wurde auf einem anderen Gerät geändert")
+    page.on("dialog", lambda dialog: dialog.accept())
+    page.get_by_role("button", name="a löschen").click()
+    expect(page.locator(".sheets li")).to_have_count(2)
+    expect(page.locator(NOTICE)).to_have_count(0)
+    assert record(page, run.ids["a"]) is None
+
+
+def test_overwriting_that_cannot_ask_the_server_leaves_the_banner_for_another_try(run):
+    """Review 5"""
+    page, gate = start(run)
+    clash(run)
+    errors = []
+    page.on("pageerror", lambda error: errors.append(error))
+    banner = page.locator(".clash")
+    gate.free = False
+    with page.expect_response(gate.answers("GET")):
+        banner.get_by_role("button", name="Mit dieser überschreiben").click()
+        page.evaluate(TURNS)
+        gate.loads.pop().fulfill(status=500)
+    page.evaluate(TURNS)
+    expect(banner).to_be_visible()
+    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
+    assert not errors
+    assert len(run.sent) == 1
+    # The network is back.
+    gate.free, gate.keep = True, False
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
+        banner.get_by_role("button", name="Mit dieser überschreiben").click()
+    saved.value.finished()
+    expect(banner).to_have_count(0)
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert x_of(run, "a") == 16
+
+
+def test_the_other_version_that_answers_after_the_teacher_overwrote_it_changes_nothing(run):
+    """Review 6: `Andere Version laden`, its answer held, then `Mit dieser überschreiben`."""
+    page, gate = start(run)
+    theirs = clash(run)
+    moved = at(page, "a").evaluate(LEFT)
+    banner = page.locator(".clash")
+    gate.free = False
+    with page.expect_request(gate.asks("GET")):
+        banner.get_by_role("button", name="Andere Version laden").click()
+    page.evaluate(TURNS)
+    late = gate.loads.pop()
+    gate.free, gate.keep = True, False
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
+        banner.get_by_role("button", name="Mit dieser überschreiben").click()
+    saved.value.finished()
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    # The answer to the first press, as the server stood then.
+    late.fulfill(json=theirs)
+    page.evaluate(TURNS)
+    expect(at(page, "a")).to_have_css("left", moved)
+    assert x_of(run, "a") == 16
+    with page.expect_response(gate.answers("PATCH")) as next_save:
+        nudge(run)
+        page.clock.run_for(2000)
+    assert next_save.value.status == 200
+    expect(banner).to_have_count(0)
+    assert x_of(run, "a") == 17
