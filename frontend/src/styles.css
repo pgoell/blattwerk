@@ -535,7 +535,7 @@ body:has(.print) { background: #fff; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
-.even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(.5lh + .5em - .25mm), currentColor 0, currentColor calc(.5lh + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }
+.even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - .25mm), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }
 /* The box of solution words under a text: a thin frame in the text's colour, the words in a row. */
 .bank { display: flex; flex-wrap: wrap; gap: .4em .8em; margin-top: .6em; padding: .3em .5em; border: 1px solid currentColor; }
 .rich p { counter-reset: a b c; }
