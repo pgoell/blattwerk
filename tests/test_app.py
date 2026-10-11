@@ -584,6 +584,31 @@ def test_real_id_beside_a_name_that_is_no_id_still_counts(data_dir, name):
     assert client.post("/api/uploads", files=picture).json()["id"] == 10
 
 
+def test_every_answer_about_a_sheet_names_the_user_it_was_served_for():
+    """Issue #353, A4: `user_id` in a sheet, and `X-User` beside the 404 of a sheet that is
+    another teacher's or not there."""
+    a, b = user("a@example.com"), user("b@example.com")
+    made = a.post("/api/sheets", json={"title": "Meins", "doc": {}}).json()
+    path = f"/api/sheets/{made['id']}"
+    save = {"doc": {"pages": []}, "version": made["version"]}
+    answers = [
+        made,
+        a.get(path).json(),
+        a.get("/api/sheets").json()[0],
+        a.patch(path, json=save).json(),
+        a.patch(path, json={"title": "Neu"}).json(),
+        a.post(f"{path}/duplicate").json(),
+    ]
+    assert [sheet["user_id"] for sheet in answers] == [my_id(a)] * 6
+    asks = [("GET", path), ("PATCH", path), ("DELETE", path), ("POST", f"{path}/duplicate")]
+    for client, at in ((b, path), (a, "/api/sheets/99")):
+        for method, to in asks:
+            res = client.request(method, to.replace(path, at), json=save)
+            assert res.status_code == 404, (method, to)
+            assert res.headers["X-User"] == str(my_id(client))
+        assert client.get(f"{at}/pdf").headers["X-User"] == str(my_id(client))
+
+
 def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
     a = user("a@example.com")
     a_id = my_id(a)

@@ -237,10 +237,10 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     ask<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
         ended();
-        const other = here.current && reset(sheet, user.id);
+        const other = here.current && reset(sheet);
         if (other) show(other);
       },
-      (e: Error) => refused(Number(id), e.message).then(ended),
+      (e: Error) => ended(refused(Number(id), e)),
     );
   }
   function over() {
@@ -252,7 +252,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   // browser kept waits through a load that failed, and shows with the try that brings the sheet.
   useEffect(() => {
     let on = true;
-    (tries ? get(id!) : first).then((sheet) => on && show(sheet && sheet !== "failed" ? open(sheet, user.id) : sheet));
+    (tries ? get(id!) : first).then((sheet) => on && show(sheet && sheet !== "failed" ? open(sheet) : sheet));
     return () => void (on = false);
   }, [first, tries]);
 

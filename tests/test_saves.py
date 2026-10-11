@@ -103,6 +103,13 @@ def give_up(run, name, arrives=False, out=0):
     page.evaluate(TURNS)
 
 
+def asks_me(page):
+    """The requests of the page that ask who is signed in, from here on."""
+    asked = []
+    page.on("request", lambda r: r.url.endswith("/api/me") and asked.append(r))
+    return asked
+
+
 def x_of(run, name):
     return run.held(name)["doc"]["pages"][0]["blocks"][0]["x"]
 
@@ -638,16 +645,17 @@ def test_the_browser_does_not_ask_when_all_is_saved(run):
 
 
 def test_a_sheet_deleted_meanwhile_drops_its_kept_change_and_its_notice(run):
-    """I5"""
+    """I5, and #353 A5: the 404 names its owner, and nobody is asked who is signed in."""
     page, gate = leave(run, "held", "sheet")
     page.clock.run_for(1000)
     expect(page.locator(NOTICE)).to_have_text(unsaved("a"))
     assert record(page, run.ids["a"])
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
-    with page.expect_response("**/api/me"):
-        answer(run, "a")
+    asked = asks_me(page)
+    answer(run, "a")
     expect(page.locator(NOTICE)).to_have_count(0)
     assert record(page, run.ids["a"]) is None
+    assert asked == []
     # Nothing more is tried, and the app goes on.
     page.clock.run_for(60000)
     page.evaluate(TURNS)
