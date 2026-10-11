@@ -256,14 +256,15 @@ def test_the_admin_pages_loads_and_links_that_fail_say_so_and_a_try_does_them(ad
     page.get_by_role("link", name="Admin").click()
     lines = page.get_by_role("alert")
     expect(lines).to_have_count(2)
-    expect(lines.nth(0)).to_contain_text(f"Die Konten konnten nicht geladen werden. {WHY[how]}")
-    expect(lines.nth(1)).to_contain_text(
-        f"Die nicht gelöschten Ordner konnten nicht geladen werden. {WHY[how]}"
-    )
+    # In the order their answers failed to come.
+    users = lines.filter(has_text=f"Die Konten konnten nicht geladen werden. {WHY[how]}")
+    folders = f"Die nicht gelöschten Ordner konnten nicht geladen werden. {WHY[how]}"
+    expect(users).to_have_count(1)
+    expect(lines.filter(has_text=folders)).to_have_count(1)
     expect(rows).to_have_count(0)
     mend()
     with page.expect_response("**/api/admin/users"):
-        lines.nth(0).get_by_role("button", name=AGAIN).click()
+        users.get_by_role("button", name=AGAIN).click()
     expect(rows).to_have_text(["admin@example.com (Admin)Passwort-Link"])
     with page.expect_response("**/api/admin/leftovers") as got:
         lines.get_by_role("button", name=AGAIN).click()
