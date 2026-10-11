@@ -3,7 +3,7 @@ import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
 import Failed from "../components/Failed";
-import { ask, forget, signed, useSaves } from "../saves";
+import { ask, forget, served, signed, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
@@ -22,7 +22,7 @@ export default function SheetList() {
   useEffect(() => {
     let on = true;
     ask<Sheet[]>("/sheets").then(
-      (all) => on && setSheets(all),
+      (all) => (served(all[0]?.user_id), on && setSheets(all)),
       () => on && setFailed(true),
     );
     return () => void (on = false);

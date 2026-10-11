@@ -78,7 +78,7 @@ export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?
 // on its side.
 export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean };
 // The server counts a sheet's saved documents in `version`.
-export type Sheet = { id: number; title: string; updated: string; version: number; doc: Doc };
+export type Sheet = { id: number; user_id: number; title: string; updated: string; version: number; doc: Doc };
 
 // A page's width and height in mm: A4, upright or on its side.
 export const sizeOf = (doc: Doc, n: number) => ((doc.pages[n].landscape ?? doc.landscape) ? [297, 210] : [210, 297]);

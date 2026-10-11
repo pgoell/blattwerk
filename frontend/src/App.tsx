@@ -35,6 +35,9 @@ export default function App() {
       () => setUser(null),
     );
     saves.onSignedOut(() => setUser(null));
+    // A sheet served for another account: somebody signed in in another tab. The window asks who, and goes on as
+    // at that one's login. Where that gets no answer it stays as it is, and the next such sheet asks again.
+    saves.onOther(() => void saves.signed(api<User>("/me")).then(enter, () => {}));
   }, []);
   if (user) was.current = user.id;
 

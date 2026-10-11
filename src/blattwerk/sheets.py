@@ -34,13 +34,19 @@ class Change(BaseModel):
         return self
 
 
-COLUMNS = "id, title, doc, version, updated"
+# Each answer names the user it was served for: `user_id` in a sheet, `X-User` beside a 404. A
+# window may hold another account than the session's, after a login in another tab.
+COLUMNS = "id, user_id, title, doc, version, updated"
 
 
-def public(row: sqlite3.Row | None) -> dict:
+def missing(user: sqlite3.Row) -> HTTPException:
+    return HTTPException(404, headers={"X-User": str(user["id"])})
+
+
+def public(row: sqlite3.Row | None, user: sqlite3.Row) -> dict:
     # Someone else's sheet is as missing as one that never was.
     if not row:
-        raise HTTPException(404)
+        raise missing(user)
     return {**row, "doc": json.loads(row["doc"])}
 
 
@@ -50,7 +56,7 @@ def sheets(user: User, con: Con) -> list[dict]:
         f"SELECT {COLUMNS} FROM sheets WHERE user_id = ? ORDER BY updated DESC, id DESC",
         (user["id"],),
     )
-    return [public(row) for row in rows]
+    return [public(row, user) for row in rows]
 
 
 @router.post("/sheets")
@@ -60,7 +66,8 @@ def create(body: Sheet, user: User, con: Con) -> dict:
         con.execute(
             f"INSERT INTO sheets (user_id, title, doc) VALUES (?, ?, ?) RETURNING {COLUMNS}",
             (user["id"], body.title, json.dumps(body.doc)),
-        ).fetchone()
+        ).fetchone(),
+        user,
     )
 
 
@@ -68,7 +75,8 @@ def find(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row) -> dict:
     return public(
         con.execute(
             f"SELECT {COLUMNS} FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"])
-        ).fetchone()
+        ).fetchone(),
+        user,
     )
 
 
@@ -108,7 +116,7 @@ def save(sheet_id: Id, body: Change, user: User, con: Con) -> dict:
         raise HTTPException(409)
     if body.doc is not None:
         pictures.sweep(con, user["id"])
-    return public(row)
+    return public(row, user)
 
 
 @router.post("/sheets/{sheet_id}/duplicate")
@@ -120,7 +128,8 @@ def duplicate(sheet_id: Id, user: User, con: Con) -> dict:
             " SELECT user_id, substr(title, 1, 72) || ' (Kopie)', doc FROM sheets"
             f" WHERE id = ? AND user_id = ? RETURNING {COLUMNS}",
             (sheet_id, user["id"]),
-        ).fetchone()
+        ).fetchone(),
+        user,
     )
 
 
@@ -129,6 +138,6 @@ def delete(sheet_id: Id, user: User, con: Con) -> dict:
     touch_stored(con, sheet_id, user)
     cur = con.execute("DELETE FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"]))
     if not cur.rowcount:
-        raise HTTPException(404)
+        raise missing(user)
     pictures.sweep(con, user["id"])
     return {}
