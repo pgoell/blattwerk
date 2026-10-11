@@ -39,7 +39,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `gapWidth` makes every gap of the text at least so many mm wide, and `bank` adds a box with the hidden words under
 // the text (Lösungswörter): it is the seed their order is shuffled by.
 // Sheets saved before have none of these.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -397,6 +397,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
 // Every gap of a block is at least this many mm wide: a finite number above 0, at most 200. Else none.
 const gapWidth = (mm: unknown) => (typeof mm === "number" && Number.isFinite(mm) && mm > 0 ? Math.min(mm, 200) : 0);
+// The step of a text's line numbers: a whole number from 1 to 100. A sheet may come from anywhere: else none.
+export const stepOf = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : 0);
 // The width in px of a block's gaps, for the CSS of `.even .gap`.
 const gapVar = (mm: number, k: number) => (mm ? ({ "--gap": `${mm * k}px` } as CSSProperties) : {});
 // The box of the solution words under a text: each word once, in the seeded order of its block.

@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -154,6 +154,9 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
   const kind = text && (part ?? parasOf(text)[0]).list;
   const rulings = of("ruling");
   const tables = of("table");
+  const texts = of("text");
+  // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
+  const numbered = texts.length > 0 && texts.every((b) => stepOf(b.props.lines) > 0);
   const [points] = of("points");
   const [sign] = of("symbol");
   // The generator's limits belong to one block.
@@ -291,6 +294,24 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
+          {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
+          {texts.length > 0 && (
+            <>
+              <button className={numbered ? "on" : ""} aria-pressed={numbered} onClick={() => style("text", { lines: numbered ? undefined : 5 }, "lines")}>
+                Zeilennummern
+              </button>
+              {numbered && (
+                <div className="seg">
+                  <button className={stepOf(texts[0].props.lines) === 1 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 1} onClick={() => style("text", { lines: 1 }, "lines")}>
+                    Jede Zeile
+                  </button>
+                  <button className={stepOf(texts[0].props.lines) === 5 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 5} onClick={() => style("text", { lines: 5 }, "lines")}>
+                    Jede 5. Zeile
+                  </button>
+                </div>
+              )}
+            </>
+          )}
           {bows}
           {gaps}
         </>
