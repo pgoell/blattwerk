@@ -2730,7 +2730,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
-                    {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} k={K} />}
+                    {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>
                 ))}

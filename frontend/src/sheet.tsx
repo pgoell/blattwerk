@@ -790,7 +790,7 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
 const inBows = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest(".bows");
 // The line numbers of a text that asks for them, drawn beside its box as the bows are. `unsplit` stands while they
 // are not those of the text shown, so the PDF waits for them.
-export function Numbers({ block }: { block: TextBlock; k: number }) {
+export function Numbers({ block }: { block: TextBlock }) {
   const svg = useRef<SVGSVGElement>(null);
   const tools = useRef({ draw: () => {}, seen: () => {} });
   const size = useRef([0, 0]);
@@ -1121,7 +1121,7 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
         {all.pages[page].blocks.map((b) => (
           <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />
-            {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} k={K} />}
+            {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
             <Mark block={b} k={K} n={ns.get(b.id)} />
           </div>
         ))}

@@ -167,3 +167,26 @@ def test_a_stored_value_that_is_no_step_shows_the_switch_off(editor, stored):
     page = editor(box("a", "text", {**TEXT, "lines": stored}))
     pick(page, "a")
     expect(button(page, "Zeilennummern")).to_have_attribute("aria-pressed", "false")
+
+
+# Asked #63, A6 and A11: the switch and the numbers drawn, together
+
+
+def test_the_switch_and_the_step_draw_the_numbers_and_undo_takes_them_away(editor):
+    words = "Der kleine Igel sucht im Herbst unter den Bäumen nach Futter. " * 6
+    page = editor(box("a", "text", {**TEXT, "text": words}, w=80, h=120))
+    pick(page, "a")
+    numbers = page.locator('.block[data-id="a"] .ln')
+    expect(numbers).to_have_count(0)
+    button(page, "Zeilennummern").click()
+    expect(numbers.first).to_have_text("5")
+    fifths = numbers.count()
+    button(page, "Jede Zeile").click()
+    expect(numbers.first).to_have_text("1")
+    assert numbers.count() >= 5 * fifths
+    page.keyboard.press("Control+z")
+    expect(numbers.first).to_have_text("5")
+    page.keyboard.press("Control+z")
+    expect(page.locator('.block[data-id="a"] .numbers')).to_have_count(0)
+    page.keyboard.press("Control+y")
+    expect(numbers).to_have_count(fifths)

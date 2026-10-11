@@ -165,6 +165,25 @@ def test_the_numbers_follow_the_font_size_the_width_and_the_spacing(editor):
     assert len(texts(page, "a")) > len(bigger)
 
 
+def test_the_numbers_follow_the_line_spacing(editor):
+    """A9: lines set further apart take their numbers down with them."""
+    page = editor(box("a", "text", {**TEXT, "text": LONG, "lines": 1}, w=80, h=200))
+    pick(page, "a")
+    count = len(texts(page, "a"))
+
+    def second():
+        return at(page, "a").locator(".ln").nth(1).bounding_box()["y"]
+
+    before = second()
+    slider = page.locator(".panel").get_by_label("Zeilenabstand", exact=True)
+    slider.focus()
+    for _ in range(5):
+        page.keyboard.press("ArrowRight")
+    expect(slider).to_have_value("1.8")
+    assert [index for _, index, _ in beside(page, "a")] == list(range(count))
+    assert second() > before + 5
+
+
 def test_numbers_follow_the_text_as_it_is_typed(editor):
     """I2: typed in the field, the numbers grow with the lines; an empty paragraph is none."""
     page = editor(box("a", "text", {**TEXT, "text": "Hallo", "lines": 1}))

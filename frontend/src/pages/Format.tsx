@@ -294,6 +294,8 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
+          {bows}
+          {gaps}
           {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
           {texts.length > 0 && (
             <>
@@ -312,8 +314,6 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
               )}
             </>
           )}
-          {bows}
-          {gaps}
         </>
       )}
       {rulings.length > 0 && (
