@@ -111,6 +111,18 @@ def test_quer_judges_a_turned_block_by_its_outline(editor):
     assert now["fits"] == before["fits"]
 
 
+def test_a_block_on_its_side_half_a_hundredth_off_the_edge_stays(editor):
+    """I2: width and height differ by an odd count of hundredths, so the outline's left edge lies
+    half a hundredth off the page's, where a quarter turn stores it. It is meant to lie at 0."""
+    client = user()
+    a = {**text("a", 50), "x": 84.99, "w": 20.01, "h": 190, "angle": 90}
+    page = editor(a, text("z", 265), client=client)
+    before = named(doc(page, client))
+    fmt(page, "Quer")
+    expect(undo(page)).to_be_enabled()
+    assert named(doc(page, client))["a"] == before["a"]
+
+
 def test_a_group_larger_than_the_page_lands_at_its_left_and_top_edge(editor):
     """I3: too high for the sheet on its side, then too wide for the upright one."""
     client = user()

@@ -12,10 +12,11 @@ The docstrings name the lines of the checklist.
 # The fixtures `window` and `run` are imported, and each test names one as its argument.
 # ruff: noqa: F811
 
+import contextlib
 import json
 
 import pytest
-from playwright.sync_api import expect
+from playwright.sync_api import Error, expect
 from test_loading import BLANK, READY, SHEET, expect_loading, hold, window  # noqa: F401
 from test_saves import (  # noqa: F401
     NOTICE,
@@ -110,14 +111,16 @@ def test_a_sheet_whose_load_fails_says_so_and_a_press_loads_it(window, server, h
     assert not errors
 
 
-@pytest.mark.parametrize("whose", ["nobody", "another-teacher"])
+@pytest.mark.parametrize("whose", ["nobody", "another-teacher", "no-number"])
 def test_a_sheet_that_is_not_there_or_is_another_teachers_is_not_found(window, server, whose):
-    """A2"""
+    """A2. An address that names no number has no sheet either: the server says 422 to it."""
     page, _ = window()
     there = 987654 if whose == "nobody" else sheet(user(), [box("a", "text", TEXT)])["id"]
+    if whose == "no-number":
+        there = "abc"
     with page.expect_response(f"{server}/api/sheets/{there}") as got:
         page.goto(f"{server}/blatt/{there}")
-    assert got.value.status == 404
+    assert got.value.status == (422 if whose == "no-number" else 404)
     expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
     expect(page.get_by_role("alert")).to_have_count(0)
     expect(page.get_by_role("button", name=AGAIN)).to_have_count(0)
@@ -167,6 +170,14 @@ def test_a_load_with_no_answer_counts_as_failed_after_20_s(window, server):
     assert len(held) == 2
     page.clock.resume()
     expect_sheet(page)
+    # I7: the answer of a try given up comes late, and says the sheet is not there. Nobody hears it.
+    for old in held:
+        # Where the browser has let the request go, there is no way left for its answer.
+        with contextlib.suppress(Error):
+            old.fulfill(status=404)
+    page.evaluate(TURNS)
+    expect_sheet(page)
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_have_count(0)
 
 
 def test_a_kept_change_outlives_a_failed_load_and_shows_once_the_sheet_loads(window, server):

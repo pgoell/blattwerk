@@ -111,9 +111,10 @@ export function ask<T>(path: string, init?: RequestInit) {
   const limit = setTimeout(() => stop.abort(), 20000);
   return api<T>(path, { ...init, signal: stop.signal }).finally(() => clearTimeout(limit));
 }
-// A sheet as its editor asks for it: null where it is not there, "failed" where the server could not say. Never
-// refused, for the editor's script may come to listen after the answer.
-export const get = (id: string) => ask<Sheet>(`/sheets/${id}`).catch((e: Error) => (e.message === "404" ? null : ("failed" as const)));
+// A sheet as its editor asks for it: null where it is not there, "failed" where the server could not say. An
+// address that names no number, a 422, has no sheet either. Never refused, for the editor's script may come to
+// listen after the answer.
+export const get = (id: string) => ask<Sheet>(`/sheets/${id}`).catch((e: Error) => (e.message === "404" || e.message === "422" ? null : ("failed" as const)));
 
 function plan(s: Saver, ms: number) {
   clearTimeout(s.timer);

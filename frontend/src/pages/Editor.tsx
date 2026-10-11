@@ -89,7 +89,7 @@ import type { EditorView } from "prosemirror-view";
 import { attach, download, flush, get, open, overwrite, refused, reset, set, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
-import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
+import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
 type Template = { id: number; name: string; doc: Doc };
@@ -1116,11 +1116,11 @@ function Canvas({ file, user, reload, over }: { file: Sheet; user: User; reload:
         if (w === sizeOf(doc, i)[0]) return p;
         // As PowerPoint: a group comes back as one, by its outermost, so its blocks keep their places in it, and a
         // turned block counts by its outline. Left and top win where it is larger than the page. What lies on the
-        // page stays as it is: a block on its side has an outline a hair off its hundredths.
+        // page stays as it is: `hull` knows the half hundredth by which a block on its side may lie off.
         const unit = (b: Block) => b.group?.[0] ?? b.id;
         const back = (at: number, size: number, max: number) => Math.round((Math.max(0, Math.min(at, max - size)) - at) * 100) / 100;
         const blocks = p.blocks.map((b) => {
-          const all = bounds(p.blocks.filter((o) => unit(o) === unit(b)).map(outline));
+          const all = hull(p.blocks.filter((o) => unit(o) === unit(b)));
           const [dx, dy] = [back(all.x, all.w, w), back(all.y, all.h, h)];
           return dx || dy ? { ...b, x: Math.round((b.x + dx) * 100) / 100, y: Math.round((b.y + dy) * 100) / 100 } : b;
         });

@@ -66,7 +66,7 @@ const NEXT: Record<Corner, Corner> = { nw: "ne", ne: "se", se: "sw", sw: "nw" };
 // to the right and up: so four quarter turns lead back to the hundredth.
 const lean = (b: Box) => ((b.angle ?? 0) % 180 === 90 && Math.round((b.w + b.h) * 100) % 2 ? Math.sign(b.w - b.h) * 0.005 : 0);
 // The box around the blocks as they are meant to lie, turned or not: the frame a group shows.
-const hull = (bs: Box[]) => bounds(bs.map((b) => outline({ ...b, x: b.x - lean(b), y: b.y + lean(b) })));
+export const hull = (bs: Box[]) => bounds(bs.map((b) => outline({ ...b, x: b.x - lean(b), y: b.y + lean(b) })));
 // A quarter turn clockwise of the blocks as one. The box around them goes on its side about its middle, to the
 // hundredth: half a hundredth too many goes away one time and comes back the next. In it each block's centre goes
 // round and keeps its distances to the edges, so all stays on the hundredths. A line has no angle: its box goes on
