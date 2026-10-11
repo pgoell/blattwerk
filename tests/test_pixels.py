@@ -38,7 +38,7 @@ LONG = (
     "Frühling wächst dort ein neuer Baum. Die Vögel ziehen in den Süden."
 )
 FULLER = ["school script", "lists", "table", "strokes", "dashes", "pictures", "rulings on its side"]
-FULLER += ["syllables", "tints"]
+FULLER += ["syllables", "tints", "line numbers"]
 BLUE_RED = ["#1a56db", "#e02424"]
 BLACK_GREY = ["#000000", "#707070"]
 KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group", "name", "points"]
@@ -262,6 +262,19 @@ def fuller(case, client):
         return bowed()
     if case == "tints":
         return tinted()
+    if case == "line numbers":
+        # Every fifth line of a long text; a mark and bows; a turned text; every line numbered.
+        return [
+            at("text", {**TEXT, "text": LONG, "lines": 5}, y=20, h=120, w=100, x=30),
+            at(
+                "text",
+                {**TEXT, "text": "Eins zwei drei vier", "lines": 1, "syllables": True},
+                y=150,
+                h=20,
+                mark="1.",
+            ),
+            at("text", {**TEXT, "text": LONG, "lines": 1}, y=190, h=60, w=80, angle=20),
+        ]
     kinds = ("l1", "l2", "l3", "lines", "k5", "k7")
     rulings = [
         at("ruling", {"kind": kind, "color": "#222222"}, y=15 + 30 * i, h=30, x=15 + 135 * (i % 2))
@@ -413,6 +426,29 @@ def test_missing_bows_are_over_the_limit(browser, server):
     # The bows on the screen and none in print.
     found = planted(browser, server, bowed(), bowed(on=False))
     assert found["ink"] > INK, found
+
+
+def test_missing_line_numbers_are_over_the_limit(browser, server):
+    # The numbers on the screen and none in print.
+    numbered = [at("text", {**TEXT, "text": LONG, "lines": 1}, y=20, h=120, w=100, x=30)]
+    plain = [at("text", {**TEXT, "text": LONG}, y=20, h=120, w=100, x=30)]
+    found = planted(browser, server, numbered, plain)
+    assert found["ink"] > INK, found
+
+
+def test_the_answer_key_prints_line_numbers(browser, server):
+    # A gap on the page too: the answer key shows its word on the screen and in print alike.
+    client = user()
+    gapped = {"runs": [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " bellt laut"}]}
+    gap = at(
+        "text",
+        {**TEXT, "text": "Der Hund bellt laut", "rich": [gapped], "gapWidth": 12, "lines": 1},
+        x=150,
+        y=20,
+        w=40,
+        h=60,
+    )
+    assert not faults(browser, server, client, [*fuller("line numbers", client), gap], solved=True)
 
 
 def test_bows_under_the_wrong_syllables_are_over_a_limit(browser, server):

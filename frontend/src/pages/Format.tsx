@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -154,6 +154,9 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
   const kind = text && (part ?? parasOf(text)[0]).list;
   const rulings = of("ruling");
   const tables = of("table");
+  const texts = of("text");
+  // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
+  const numbered = texts.length > 0 && texts.every((b) => stepOf(b.props.lines) > 0);
   const [points] = of("points");
   const [sign] = of("symbol");
   // The generator's limits belong to one block.
@@ -293,6 +296,24 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
           </label>
           {bows}
           {gaps}
+          {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
+          {texts.length > 0 && (
+            <>
+              <button className={numbered ? "on" : ""} aria-pressed={numbered} onClick={() => style("text", { lines: numbered ? undefined : 5 }, "lines")}>
+                Zeilennummern
+              </button>
+              {numbered && (
+                <div className="seg">
+                  <button className={stepOf(texts[0].props.lines) === 1 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 1} onClick={() => style("text", { lines: 1 }, "lines")}>
+                    Jede Zeile
+                  </button>
+                  <button className={stepOf(texts[0].props.lines) === 5 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 5} onClick={() => style("text", { lines: 5 }, "lines")}>
+                    Jede 5. Zeile
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
       {rulings.length > 0 && (
@@ -447,6 +468,12 @@ const draw = (not: (number | undefined)[] = []): number => {
   const seed = 1 + Math.floor(Math.random() * 2147483647);
   return not.includes(seed) ? draw(not) : seed;
 };
+// A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
+// so there is always one, the names of the props where none is given.
+const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
+  if (held.some(boxed)) look(props, key);
+  if (held.some((b) => b.type === "table")) style("table", props, key);
+};
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
 // have, the box of solution words, and every n-th word. Each switch is on unless all have it, as bold. With a table
@@ -460,11 +487,7 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
   const lit = part ? !!part.gap : cells ? !!cells.gaps?.[Math.floor(cell! / cells.cols.length)]?.[cell! % cells.cols.length] : held.every((b) => (b.type === "table" ? allCellGap(b.props.cells, b.props.gaps) : allGap(parasOf(boxed(b)!))));
   const same = held.every((b) => worded(b)!.gapWidth !== undefined);
   const bank = held.every((b) => worded(b)!.bank !== undefined);
-  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
-  const set = (props: object, key?: string) => {
-    if (held.some(boxed)) look(props, key);
-    if (held.some((b) => b.type === "table")) style("table", props, key);
-  };
+  const set = both(held, look, style);
   // The widest gap drawn in the selected blocks, in whole mm, or 30 when none is drawn.
   const widest = () => {
     const drawn = [...document.querySelectorAll<HTMLElement>(".block.sel .gap")];
@@ -510,11 +533,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   useEffect(() => {
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
-  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
-  const set = (props: object, key?: string) => {
-    if (held.some(boxed)) look(props, key);
-    if (held.some((b) => b.type === "table")) style("table", props, key);
-  };
+  const set = both(held, look, style);
   const one = split && held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.

@@ -2,6 +2,8 @@
 
 import pytest
 from playwright.sync_api import expect
+from test_painter import held
+from test_syllables import gap
 from test_undo_same import field, steps
 from ui import LINE, RECT, RULING, TABLE, TEXT, box, drag, expect_picked, maths, pick, saved, user
 
@@ -241,3 +243,63 @@ def test_a_pick_in_a_list_is_one_step_for_all_the_selected_blocks(
         if value != values[0]:
             undo.click()
     expect(undo).to_be_disabled()
+
+
+# Asked #394
+
+WORDY = {**TEXT, "text": "Fenster Wasser"}
+CELLS = {**TABLE, "cells": [["Fenster", "Wasser"], ["3", "7"]]}
+PAIR = ["#1a56db", "#e02424"]
+# Each control of Silbenbögen, Silbenfarbe and the gaps that reaches a text and a table, with the
+# props both blocks hold before the press: the control shows, and no earlier press is undoable.
+STORED = [
+    pytest.param("Silbenbögen", {}, id="silbenbogen"),
+    pytest.param("Silbenfarbe", {}, id="silbenfarbe"),
+    pytest.param("Schwarz/Grau", {"tints": PAIR}, id="schwarz-grau"),
+    pytest.param("Über Wortgrenzen", {"tints": PAIR}, id="ueber-wortgrenzen"),
+    pytest.param("Lücken gleich breit", {}, id="gleich-breit"),
+    pytest.param("Lösungswörter", {}, id="loesungswoerter"),
+    pytest.param("Neu mischen", {"bank": 5}, id="neu-mischen"),
+]
+
+
+def panel(page, label):
+    return page.locator(".panel").get_by_role("button", name=label, exact=True)
+
+
+def step(page, action):
+    """Does an action that the editor saves, and waits for the save."""
+    with page.expect_response(lambda res: res.request.method == "PATCH"):
+        action()
+
+
+@pytest.mark.parametrize("label, stored", STORED)
+def test_one_press_in_the_silben_and_gap_controls_is_one_undo_step_for_a_text_and_a_table(
+    editor, label, stored
+):
+    client = user()
+    page = editor(
+        box("a", "text", {**WORDY, **stored}),
+        box("t", "table", {**CELLS, **stored}, z=2),
+        client=client,
+    )
+    pick(page, "a", "t")
+    before = held(page, client)
+    step(page, lambda: panel(page, label).click())
+    after = held(page, client)
+    assert all(after[name] != before[name] for name in ("a", "t"))
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert all(held(page, client)[name] == before[name] for name in ("a", "t"))
+
+
+def test_two_changed_breaks_are_two_undo_steps(editor):
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": "Igel", "syllables": True}), client=client)
+    pick(page, "a")
+    page.locator(".panel .words button").first.click()
+    step(page, lambda: gap(page, "Ig|el").click())
+    once = held(page, client)["a"]
+    step(page, lambda: gap(page, "Ige|l").click())
+    assert held(page, client)["a"] != once
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert held(page, client)["a"] == once

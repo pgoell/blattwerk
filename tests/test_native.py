@@ -45,7 +45,11 @@ OUTLINE = ["Keine", "1 2 3", "a b c", "Symbol", "Eckig", "Abgerundet", "Rund", "
 FILL = ["Stern", "Sprechblase", "Füllung", "Rand"]
 DASH = ["Randstärke", "Durchgezogen", "Gestrichelt", "Gepunktet"]
 ORDER = {
-    "text": (TEXT, [*START, *FONT, *PLACE, *TURN, *OUTLINE, *FILL, *DASH]),
+    # A text alone has the switch of the line numbers, after the solution words.
+    "text": (
+        TEXT,
+        [*START, *FONT, *PLACE, *TURN[:-2], "Zeilennummern", *TURN[-2:], *OUTLINE, *FILL, *DASH],
+    ),
     # A shape can be mirrored, and its border, which it has, can be taken away.
     "shape": (RECT, [*START, *FONT, *PLACE, *TURN, *FLIP, *OUTLINE, *FILL, "Kein Rand", *DASH]),
 }

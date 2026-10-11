@@ -88,7 +88,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -2730,6 +2730,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
+                    {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>
                 ))}

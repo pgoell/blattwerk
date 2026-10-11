@@ -46,7 +46,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -57,6 +57,8 @@ STATE = Path(os.environ.get("TEACHER_PAGE_DIR", "/tmp/teacher-run"))
 BASE = os.environ.get("TEACHER_PAGE_URL", "http://127.0.0.1:8220")
 VIEW = {"width": 1280, "height": 1024}
 XY = re.compile(r"(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)")
+# Seconds a box may wait for the verb that meets it. Then the holder says no, and the page is free.
+PATIENCE = 3.0
 # Of the matches of a name, which stay: one that holds another match, or is the label of one,
 # gives way to it. So a label and its field are one place, the field's.
 KEPT = """(found) => found.map((el) =>
@@ -267,7 +269,7 @@ def expire(page: Page) -> str:
 
 def answered(page: Page, yes: bool) -> list[tuple[str, str]]:
     """Answers each box that opens on the page, yes or no. Returns what each asked: its kind and
-    its words. The holder leaves the boxes to this, so only one client answers them.
+    its words. A verb answers the boxes it meets; the holder answers those no verb met in time.
     """
     asked: list[tuple[str, str]] = []
 
@@ -280,6 +282,25 @@ def answered(page: Page, yes: bool) -> list[tuple[str, str]]:
 
     page.on("dialog", answer)
     return asked
+
+
+def remember(waiting: list) -> Callable[..., None]:
+    """The holder's handler: keeps each box that opens, with the time it was seen."""
+
+    def keep(dialog) -> None:
+        waiting.append((dialog, time.monotonic()))
+
+    return keep
+
+
+def overdue(waiting: list, now: float) -> None:
+    """Dismisses each box that has waited PATIENCE seconds, and drops it from the list. A box a
+    verb answered first is answered already: the second answer raises, and that is no error.
+    """
+    for item in [item for item in waiting if now - item[1] >= PATIENCE]:
+        waiting.remove(item)
+        with suppress(Error):
+            item[0].dismiss()
 
 
 def tidy() -> str:
@@ -327,8 +348,10 @@ def hold() -> None:
             accept_downloads=True,
             args=["--remote-debugging-port=0"],
         )
-        # A box waits for the verb that meets it: the holder answers none.
-        context.on("dialog", lambda dialog: None)
+        # A box waits for the verb that meets it. The holder keeps each one and says no to any
+        # that no verb answers within PATIENCE seconds.
+        waiting: list = []
+        context.on("dialog", remember(waiting))
         context.pages[0].goto(BASE)
         # Chromium picked a free port and wrote it down.
         port = (profile / "DevToolsActivePort").read_text().split()[0]
@@ -337,7 +360,11 @@ def hold() -> None:
         state = {"pid": os.getpid(), "group": os.getpgid(0), "endpoint": f"http://127.0.0.1:{port}"}
         (STATE / "page.tmp").write_text(json.dumps(state))
         (STATE / "page.tmp").replace(STATE / "page.json")
-        signal.sigwait({signal.SIGTERM})
+        # Playwright gets the browser's news only while one of its calls runs. So each second the
+        # holder makes a call that does not touch the page, then says no to what is overdue.
+        while signal.sigtimedwait({signal.SIGTERM}, 1.0) is None:
+            context.cookies()
+            overdue(waiting, time.monotonic())
         context.close()
 
 
