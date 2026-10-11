@@ -30,10 +30,8 @@ LEFT = "el => getComputedStyle(el).left"
 ASKS = ["beforeunload"]
 
 
-def unsaved(name):
-    return (
-        f"Die letzte Änderung an „{name}“ ist noch nicht gespeichert. Blattomat versucht es weiter."
-    )
+def unsaved(name, then="Blattomat versucht es weiter."):
+    return f"Die letzte Änderung an „{name}“ ist noch nicht gespeichert. {then}"
 
 
 @pytest.fixture
@@ -387,17 +385,22 @@ def shut(page, saves=0, gates=False):
 
 
 def again(run, name="a", keep=False, client=None):
-    """The next visit: a new tab of the same browser on the sheet. Gives the tab, the sheet's
-    gate there, which holds no load, and the saves the tab sends."""
+    """The next visit: a new tab of the same browser on the sheet, or with no name on the list.
+    Gives the tab, the sheet's gate there, which holds no load, and the saves the tab sends."""
     context = run.page.context
     if client:
         context.clear_cookies()
         cookie = {"name": "session", "value": client.cookies["session"], "url": run.server}
         context.add_cookies([cookie])
     page = context.new_page()
-    gate, sent = Gate(page, run.ids[name]), []
-    gate.free, gate.keep = True, keep
+    sent = []
     page.on("request", lambda r: r.method == "PATCH" and sent.append(r))
+    if not name:
+        page.goto(run.server)
+        expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible(timeout=10000)
+        return page, None, sent
+    gate = Gate(page, run.ids[name])
+    gate.free, gate.keep = True, keep
     page.goto(f"{run.server}/blatt/{run.ids[name]}")
     return page, gate, sent
 
@@ -693,8 +696,10 @@ def test_the_list_shows_a_sheet_as_it_was_left_once_its_late_save_lands(run):
     expect(names.filter(has_text=re.compile("^a$"))).to_have_count(0)
 
 
-def test_a_change_made_when_the_session_ran_out_is_kept_and_saved_after_the_login(run):
-    """I8"""
+@pytest.mark.parametrize("reload", [False, True], ids=["at-once", "after-a-reload"])
+def test_a_change_made_when_the_session_ran_out_is_kept_and_saved_after_the_login(run, reload):
+    """I8: the save that finds the session gone brings the login, which says what waits; after
+    the login the change is saved, with no reload, and after one too."""
     page, gate = start(run)
     gate.keep = False
     email = run.client.get("/api/me").json()["email"]
@@ -704,15 +709,18 @@ def test_a_change_made_when_the_session_ran_out_is_kept_and_saved_after_the_logi
         moved = at(page, "a").evaluate(LEFT)
         page.clock.run_for(2000)
     assert turned_down.value.status == 401
-    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    said = unsaved("a", "Melde dich neu an, dann wird sie gespeichert.")
+    expect(page.locator(NOTICE)).to_have_text(said)
     # Nothing is tried while nobody is signed in.
     page.clock.run_for(60000)
     page.evaluate(TURNS)
     assert len(run.sent) == 1
     assert record(page, run.ids["a"])["doc"]["pages"][0]["blocks"][0]["x"] == 16
     page.clock.resume()
-    page.reload()
-    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    if reload:
+        page.reload()
+        expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
     # The session cookie is Secure and this server speaks http, so it goes by hand.
     cookie = {"name": "session", "value": run.client.cookies["session"], "url": run.server}
     page.context.add_cookies([cookie])
@@ -722,5 +730,76 @@ def test_a_change_made_when_the_session_ran_out_is_kept_and_saved_after_the_logi
     expect(page.locator(READY)).to_be_visible(timeout=10000)
     expect(at(page, "a")).to_have_css("left", moved)
     expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    expect(page.locator(NOTICE)).to_have_count(0)
     assert x_of(run, "a") == 16
     assert record(page, run.ids["a"]) is None
+
+
+def test_a_kept_change_is_saved_from_the_list_with_its_sheet_not_opened(run):
+    """A7: the teacher who comes back to the list is not left with a change that sits."""
+    page, _ = start(run)
+    page.get_by_label("Titel", exact=True).fill("Neu")
+    change(run)
+    answer(run, "a", 500)
+    shut(page, 1)
+    assert x_of(run, "a") == 15
+    page, _, sent = again(run, None)
+    names = page.locator(".sheets li strong")
+    expect(names.filter(has_text="Neu")).to_have_count(1, timeout=5000)
+    expect(page.locator(NOTICE)).to_have_count(0)
+    assert len(sent) == 1
+    assert sent[0].url.endswith(f"/api/sheets/{run.ids['a']}")
+    assert x_of(run, "a") == 16
+    assert run.held("a")["title"] == "Neu"
+    assert record(page, run.ids["a"]) is None
+
+
+def test_a_kept_change_of_a_sheet_changed_elsewhere_says_so_on_the_list(run):
+    """I1: nothing is sent; the notice leads to the sheet, which asks which version stays."""
+    page, _ = start(run)
+    nudge(run)
+    shut(page, 1)
+    was = run.held("a")
+    was["doc"]["pages"][0]["blocks"][0]["x"] = 40
+    other = {"doc": was["doc"], "version": was["version"]}
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    page, _, sent = again(run, None)
+    said = page.locator(NOTICE)
+    expect(said).to_have_text(
+        "„a“ wurde auf einem anderen Gerät geändert. Öffne das Blatt, um zu wählen."
+    )
+    page.evaluate(TURNS)
+    assert not sent
+    assert x_of(run, "a") == 40
+    said.get_by_role("link", name="Öffne das Blatt").click()
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    banner = page.locator(".clash")
+    for name in ("Andere Version laden", "Mit dieser überschreiben"):
+        expect(banner.get_by_role("button", name=name)).to_be_visible()
+    expect(said).to_have_count(0)
+    page.evaluate(TURNS)
+    assert not sent
+    assert x_of(run, "a") == 40
+    assert record(page, run.ids["a"])["doc"]["pages"][0]["blocks"][0]["x"] == 16
+
+
+def test_another_accounts_kept_change_is_neither_sent_nor_removed_at_the_start(run):
+    """I2"""
+    page, _ = start(run)
+    nudge(run)
+    shut(page, 1)
+    page, _, sent = again(run, None, client=user())
+    asked = []
+    page.on("request", lambda r: asked.append(r.url))
+    kept = record(page, run.ids["a"])
+    assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 16
+    # Once more, with all that the tab asks for in view.
+    with page.expect_response(f"{run.server}/api/sheets") as listed:
+        page.reload()
+    listed.value.finished()
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
+    page.evaluate(TURNS)
+    assert not sent
+    assert not [url for url in asked if url.endswith(f"/api/sheets/{run.ids['a']}")]
+    assert record(page, run.ids["a"]) == kept
+    assert x_of(run, "a") == 15

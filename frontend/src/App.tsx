@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
@@ -22,9 +22,21 @@ export default function App() {
   // undefined while /me is loading, null when logged out.
   const [user, setUser] = useState<User | null>();
 
+  // The savers hear who is there, and take up what the browser kept for that account. A save that finds the session
+  // gone brings the login here, on the address as it stands: the change is kept, and saved after the login. `was` is
+  // who was signed in until then: the login page says whose change waits.
+  const was = useRef<number>(undefined);
   useEffect(() => {
-    api<User>("/me").then(setUser, () => setUser(null));
+    api<User>("/me").then(
+      (to) => {
+        saves.enter(to.id);
+        setUser(to);
+      },
+      () => setUser(null),
+    );
+    saves.onSignedOut(() => setUser(null));
   }, []);
+  if (user) was.current = user.id;
 
   // A login or a logout empties the block clipboard: what one account copied is not the next one's. An unsaved
   // change stays in the browser's store for its owner, and the savers hear who is there now.
@@ -66,7 +78,7 @@ export default function App() {
   if (user === undefined) return id ? wait : null;
   return (
     <>
-      {user && <Notices user={user} id={id} />}
+      <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
@@ -96,15 +108,18 @@ export default function App() {
 }
 
 // A line for each sheet that is not on screen and whose last change is not saved yet: after a second, or as soon as
-// the save failed. It goes when the save lands. Nothing stands here while there is nothing to say.
-function Notices({ user, id }: { user: User; id?: string }) {
-  const open = saves.useSaves().list.filter((s) => s.owner === user.id && String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late));
+// the save failed. It goes when the save lands. Nothing stands here while there is nothing to say. At the login
+// that a save brought, the sheet on the address has no editor, so its line stands too; a logout leaves no saver.
+function Notices({ owner, id }: { owner?: number; id?: string }) {
+  const open = saves.useSaves().list.filter((s) => s.owner === owner && String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late));
   return open.map((s) => (
     <p key={s.id} className="notice" role="status">
       {s.clash ? (
         <>
           „{s.title}“ wurde auf einem anderen Gerät geändert. <Link to={`/blatt/${s.id}`}>Öffne das Blatt</Link>, um zu wählen.
         </>
+      ) : s.stopped ? (
+        `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert.`
       ) : (
         `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Blattomat versucht es weiter.`
       )}

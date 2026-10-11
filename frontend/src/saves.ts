@@ -40,9 +40,13 @@ type Saver = {
 // What the browser keeps of an unsaved change, for the next visit. `title` only where it changed here, `sent` only
 // where a document other than `doc` is on the wire or went without an answer: the server may hold any of them.
 type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[] };
-export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; clash: boolean; late: boolean };
+export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; late: boolean };
 
 const savers = new Map<number, Saver>();
+// Who is signed in, as the app said last, and what the app does when a save finds the session gone.
+let me: number | undefined;
+let signedOut = () => {};
+export const onSignedOut = (then: () => void) => void (signedOut = then);
 const heard = new Set<() => void>();
 // `landed` counts the saves the server took: the list asks anew at each.
 let shot = { list: [] as Save[], landed: 0 };
@@ -53,7 +57,7 @@ const unsaved = (s: Saver) => !s.gone && (!!s.out || s.lost.length > 0 || s.want
 
 // Tells who reads the savers, where what they read has changed: the editor draws anew only then.
 function tell(landed = 0) {
-  const list = [...savers.values()].map((s) => ({ id: s.id, owner: s.owner, title: s.want.title, saved: s.saved, unsaved: unsaved(s), failed: s.tries > 0 || s.stop || s.gone, clash: s.clash, late: s.late }));
+  const list = [...savers.values()].map((s) => ({ id: s.id, owner: s.owner, title: s.want.title, saved: s.saved, unsaved: unsaved(s), failed: s.tries > 0 || s.stop || s.gone, stopped: s.stop, clash: s.clash, late: s.late }));
   const was = shot.list;
   if (!landed && list.length === was.length && list.every((s, i) => (Object.keys(s) as (keyof Save)[]).every((k) => s[k] === was[i][k]))) return;
   shot = { list, landed: shot.landed + landed };
@@ -68,6 +72,14 @@ export const useSaves = () => useSyncExternalStore(listen, () => shot);
 // Writes the unsaved change into the browser's store, or takes it out once all is saved. The key is the sheet's:
 // a record another account left there stays until this one has a change of its own to keep, which then takes its
 // place. That account's sheet is not this one's, so the two meet only where the server gave an id anew.
+function kept(id: number): Record | null {
+  try {
+    return JSON.parse(localStorage.getItem(key(id)) ?? "null");
+  } catch {
+    // Unreadable: as if there were none.
+    return null;
+  }
+}
 function keep(s: Saver) {
   try {
     if (unsaved(s)) {
@@ -147,14 +159,17 @@ async function fail(s: Saver, now: Kept, status: string) {
   } else if (status !== "401" && status !== "404" && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone. Who is
   // signed in now: 0 for nobody, nothing where that got no answer either.
-  const me = status === "404" ? await ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined)) : undefined;
-  if (me === s.owner) {
+  const who = status === "404" ? await ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined)) : undefined;
+  if (who === s.owner) {
     s.gone = true;
     s.lost = [];
     if (!s.open) savers.delete(s.id);
-  } else if (status === "401" || me !== undefined) s.stop = true;
+  } else if (status === "401" || who !== undefined) s.stop = true;
   else s.tries++;
-  if (!s.dead) settle(s);
+  if (s.dead) return;
+  settle(s);
+  // The session is gone: the app shows the login, and the login brings the saver back to work.
+  if (s.stop) signedOut();
 }
 
 // After each answer: what is still unsaved goes next. At once when the editor is gone, two seconds after the last
@@ -188,12 +203,7 @@ export function open(sheet: Sheet, owner: number): Sheet {
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
-    let record: Record | null = null;
-    try {
-      record = JSON.parse(localStorage.getItem(key(s.id)) ?? "null");
-    } catch {
-      // Unreadable: as if there were none.
-    }
+    const record = kept(s.id);
     if (record?.owner === owner) {
       const ours = sheet.version > record.base && (record.sent?.some((doc) => same(doc, sheet.doc)) || same(record.doc, sheet.doc));
       const title = record.title ?? sheet.title;
@@ -272,9 +282,27 @@ export async function flush(id: number) {
   await idle();
 }
 
-// A login or a logout. Another account's savers leave this window, their changes kept in the browser's store for
-// their owner; this account's go on where the session had run out.
+// The account is known: at the app's start, a login or a logout. Another account's savers leave this window, their
+// changes kept in the browser's store for their owner; this account's go on where the session had run out. And each
+// change the store keeps for this account, of a sheet with no saver here, is taken up without waiting for its sheet
+// to be opened: the sheet is asked for and its saver sends at once, or shows the clash as a notice. The editor may
+// ask for the same sheet meanwhile: whoever comes second finds the saver and goes on with it. A sheet its owner no
+// longer has takes its record along; any other failure leaves the record for the next start.
 export function enter(owner?: number) {
+  me = owner;
+  let ids: number[] = [];
+  try {
+    ids = Object.keys(localStorage).flatMap((k) => (k.startsWith("unsaved:") ? [Number(k.slice(8))] : []));
+  } catch {
+    // The store is shut: nothing was kept.
+  }
+  const mine = (id: number) => me === owner && !savers.has(id) && kept(id)?.owner === owner;
+  for (const id of ids.filter(mine)) {
+    ask<Sheet>(`/sheets/${id}`).then(
+      (sheet) => mine(id) && open(sheet, owner!),
+      (e: Error) => e.message === "404" && mine(id) && localStorage.removeItem(key(id)),
+    );
+  }
   for (const s of savers.values()) {
     if (s.owner === owner) {
       s.stop = false;
