@@ -1,5 +1,6 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import type { CSSProperties, ReactNode, SVGAttributes } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
+import type { Breaks } from "./syllables";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -24,7 +25,9 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // from 0 (unseen) to 1 or absent (solid); the border and the text are always solid.
 // `rich` holds the text's paragraphs once a part of it has a look of its own, or it has a list. `text` always holds
 // the same words plain, and is all that a sheet saved before has.
-export type TextProps = { text: string; rich?: Para[]; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+// `syllables` draws a bow under each syllable of each word (Silbenbögen); `breaks` holds the words the teacher
+// split by hand. Sheets saved before have neither.
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -66,7 +69,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks } };
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
@@ -338,8 +341,9 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
         borderRadius: radius,
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
-        // as the box, so a text too long for a circle ends at the circle.
-        clipPath: `inset(-1px round ${radius})`,
+        // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
+        // box that is just as high as its text.
+        clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
         ...((d || ring) && { position: "relative", isolation: "isolate" }),
@@ -360,6 +364,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         </svg>
       )}
       {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
+      {p.syllables && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} />}
     </div>
   );
 }
@@ -425,6 +430,172 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
 
+// The module that splits words into syllables holds the hyphenation patterns, so it loads only once a block asks
+// for syllables. Until it is there such a block shows its words without bows.
+type Splitter = typeof import("./syllables");
+let splitter: Splitter | undefined;
+let loading: Promise<Splitter> | undefined;
+const waiting = new Set<() => void>();
+export const splitting = () =>
+  (loading ??= import("./syllables").then(
+    (module) => {
+      splitter = module;
+      waiting.forEach((tell) => tell());
+      return module;
+    },
+    // A load that failed is tried again by the next block that asks.
+    (failed) => {
+      loading = undefined;
+      throw failed;
+    },
+  ));
+const listen = (tell: () => void) => (waiting.add(tell), () => void waiting.delete(tell));
+// The splitter once it is loaded, for a block with `on`; it loads at the first block that asks.
+export function useSplitter(on?: boolean) {
+  const module = useSyncExternalStore(listen, () => splitter);
+  useEffect(() => void (on && splitting().catch(() => {})), [on]);
+  return on ? module : undefined;
+}
+const SVG = "http://www.w3.org/2000/svg";
+// Draws a bow under each syllable of the text beside `svg`: every paragraph of a frame, of a table's cells and of
+// the field a text is typed in. The words stay as they are. A span around a syllable would move its letters:
+// WebKit shapes each text node alone, which costs the joins and the kerning of a school script. So each syllable
+// is measured where it stands and its bow drawn over it, in the block's own pixels: the zoom is divided out, and a
+// turned block is measured level.
+function bows(svg: SVGSVGElement, module: Splitter, base: number, breaks?: Breaks) {
+  const host = svg.parentElement!;
+  const block = host.closest<HTMLElement>(".block");
+  const turn = block?.style.transform;
+  if (turn) block!.style.transform = "none";
+  const { left, top } = svg.getBoundingClientRect();
+  const scale = host.getBoundingClientRect().width / host.offsetWidth;
+  const drawn: SVGPathElement[] = [];
+  // A table's open cell holds its text unseen around the field: the field's paragraphs are the ones to draw.
+  for (const p of scale ? host.querySelectorAll("p") : [])
+    if (!p.querySelector("p")) {
+      const nodes: Text[] = [];
+      const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      while (walk.nextNode()) nodes.push(walk.currentNode as Text);
+      // Where each text node starts in the paragraph's text: a word is split whole, whatever runs it lies in.
+      const starts = nodes.map(((at) => (node) => (at += node.length) - node.length)(0));
+      const spot = (at: number) => {
+        const i = starts.filter((start) => start <= at).length - 1;
+        return [nodes[i], at - starts[i]] as const;
+      };
+      let at = 0;
+      for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
+        const [from, end] = [at, (at += piece.text.length)];
+        if (!piece.syl) continue;
+        const [first, start] = spot(from);
+        // The end lies in the node of the syllable's last letter, not at the start of the next.
+        const [last, stop] = spot(end - 1);
+        const range = document.createRange();
+        range.setStart(first, start);
+        range.setEnd(last, stop + 1);
+        // A rect for each line the syllable stands in: one, unless a word too long for its line broke in it. A
+        // syllable that two runs share has a rect for each run, side by side, and still one bow.
+        const lines: { left: number; right: number; top: number; bottom: number }[] = [];
+        for (const { left, right, top, bottom } of range.getClientRects()) {
+          const line = lines.find((line) => (top + bottom) / 2 > line.top && (top + bottom) / 2 < line.bottom);
+          if (line) [line.left, line.right] = [Math.min(line.left, left), Math.max(line.right, right)];
+          else if (right > left) lines.push({ left, right, top, bottom });
+        }
+        const look = getComputedStyle(first.parentElement!);
+        const em = parseFloat(look.fontSize);
+        for (const line of lines) {
+          // The baseline lies `base` em below the middle of the letters' box, whatever the line spacing. The bow
+          // ends .04em inside the syllable, so two bows never meet, .1em below the baseline, and hangs .16em
+          // lower in its middle; under a narrow letter it is flatter.
+          const [x, to] = [(line.left - left) / scale + 0.04 * em, (line.right - left) / scale - 0.04 * em];
+          const y = ((line.top + line.bottom) / 2 - top) / scale + (base + 0.1) * em;
+          const deep = Math.min(0.16 * em, (to - x) / 2);
+          const path = document.createElementNS(SVG, "path");
+          path.setAttribute("class", "syl");
+          path.dataset.syl = piece.text;
+          // A curve hangs half as deep as the point it is drawn towards.
+          path.setAttribute("d", `M${x.toFixed(2)},${y.toFixed(2)} Q${((x + to) / 2).toFixed(2)},${(y + 2 * deep).toFixed(2)} ${to.toFixed(2)},${y.toFixed(2)}`);
+          path.setAttribute("stroke", look.color);
+          // As thick as the letters ask, and never thinner than 0.15 mm, which still prints.
+          path.setAttribute("stroke-width", `${Math.max(0.05 * em, 0.15 * K)}`);
+          drawn.push(path);
+        }
+      }
+    }
+  if (turn) block!.style.transform = turn;
+  svg.replaceChildren(...drawn);
+  svg.classList.remove("unsplit");
+}
+// The bows of a block that asks for them. `base` is how far the font's baseline lies below the middle of a line,
+// in em. They are measured anew only when something moved a letter or gave it another colour: `block` is the
+// block as the sheet holds it, and a pick, or a letter typed into another block, leaves it the same. What React
+// does not hold is watched: the text as the teacher types it, the block's size while it is dragged, and a font
+// that comes in. `unsplit` stands while the bows are not those of the text shown, so the PDF, a test and a picture
+// of the page can wait for them.
+function Bows({ block, base, breaks }: { block: Box & { props: object }; base: number; breaks?: Breaks }) {
+  const module = useSplitter(true);
+  const svg = useRef<SVGSVGElement>(null);
+  const tools = useRef({ draw: () => {}, seen: () => {} });
+  const size = useRef([0, 0]);
+  // With no splitter the block has no bows, and says it is done: a page prints without bows sooner than not at
+  // all. A load that failed is asked for again here, at the next change of the block and not before, so a server
+  // that is down is not asked with every frame. Chromium keeps a failed module for as long as the page lives and
+  // asks no server again, so there the bows come with a reload.
+  const draw = () => {
+    const own = svg.current!;
+    size.current = [own.parentElement!.offsetWidth, own.parentElement!.offsetHeight];
+    if (module) bows(own, module, base, breaks);
+    else
+      splitting().catch(() => {
+        own.replaceChildren();
+        own.classList.remove("unsplit");
+      });
+  };
+  useLayoutEffect(() => {
+    const own = svg.current!;
+    let frame = 0;
+    // One measure a frame, however much changed.
+    const later = () => {
+      own.classList.add("unsplit");
+      frame ||= requestAnimationFrame(() => tools.current.draw());
+    };
+    // A size that React set is drawn for already.
+    const resized = new ResizeObserver(() => (own.parentElement!.offsetWidth !== size.current[0] || own.parentElement!.offsetHeight !== size.current[1]) && later());
+    resized.observe(own.parentElement!);
+    // The bows drawn are a change too, and not one to draw anew for.
+    const changed = new MutationObserver((records) => records.some((record) => !own.contains(record.target)) && later());
+    changed.observe(own.parentElement!, { characterData: true, childList: true, subtree: true });
+    document.fonts.addEventListener("loadingdone", later);
+    // What React just wrote into the text is drawn for at once, so no frame shows old bows and none measures twice.
+    tools.current.seen = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      changed.takeRecords();
+    };
+    return () => {
+      cancelAnimationFrame(frame);
+      resized.disconnect();
+      changed.disconnect();
+      document.fonts.removeEventListener("loadingdone", later);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    tools.current.draw = () => {
+      tools.current.seen();
+      draw();
+    };
+    svg.current!.classList.add("unsplit");
+    tools.current.draw();
+    // The place of a block moves no letter in it.
+  }, [module, block.props, block.w, block.h, block.angle]);
+  return <svg ref={svg} className="bows unsplit" aria-hidden />;
+}
+// Resolves once every block's bows are drawn. The PDF waits for it.
+export const bowed = () =>
+  new Promise<void>((done) => {
+    const look = () => (document.querySelector(".unsplit") ? requestAnimationFrame(look) : done());
+    requestAnimationFrame(look);
+  });
+
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own.
 function Rich({ paras }: { paras: Para[] }) {
@@ -479,7 +650,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: number; children?: ReactNode }) {
-  const { cells, cols, line, head } = block.props;
+  const { cells, cols, line, head, syllables, breaks } = block.props;
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
@@ -493,6 +664,7 @@ function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: 
           {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
         </div>
       ))}
+      {syllables && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} />}
     </div>
   );
 }

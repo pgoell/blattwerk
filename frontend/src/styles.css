@@ -571,6 +571,14 @@ body:has(.print) { background: #fff; }
 .symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; max-height: 196px; margin-bottom: 8px; overflow: auto; }
 .symbols button { min-height: 36px; padding: 0; border-color: transparent; background: none; }
 .symbols img { width: 26px; height: 26px; }
+/* Silbenbögen: a block's words as they are split, in a box that scrolls, and the open word's letters with a
+   button in each gap. A word split by hand is underlined. */
+.words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; margin-bottom: 8px; overflow: auto; }
+.words button { min-height: 28px; padding: 0 8px; }
+.words .own { text-decoration: underline; }
+.gaps { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: 18px; }
+.gaps button { min-width: 16px; min-height: 28px; padding: 0; border-color: transparent; background: none; color: var(--faint); }
+.gaps button.on { color: var(--accent); font-weight: 700; }
 /* The tour: a ring round the control a step is about, and a card at the window's edge away from it. Neither takes
    a press meant for the editor. */
 .tour-ring {
@@ -644,3 +652,8 @@ body:has(.print) { background: #fff; }
   .panel { justify-self: end; }
   .dock { z-index: 5; }
 }
+
+/* Silbenbögen: the bows under the syllables of a block's words, drawn over the block by sheet.tsx, which measures
+   each syllable where it stands. The drawing takes no room and no click, and is not cut at the block's foot, where
+   the bow of a last line hangs below it. */
+.bows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }

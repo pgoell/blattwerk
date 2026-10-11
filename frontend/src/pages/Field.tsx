@@ -6,13 +6,14 @@ import { keymap } from "prosemirror-keymap";
 import { Schema, type Attrs, type MarkSpec, type Node, type ResolvedPos } from "prosemirror-model";
 import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { parasOf, stored, type List, type Para, type Run, type TextProps } from "../sheet";
+import { parasOf, stored, useSplitter, type List, type Para, type Run, type TextProps } from "../sheet";
 
 // The look a run can have of its own.
 export type Marks = Omit<Run, "text">;
 // What the format panel shows of the field: the list the caret stands in, and the look of the picked words, or
-// with only a caret that of what is typed next.
-export type Picked = { list?: List; marks: Marks };
+// with only a caret that of what is typed next. In a text with Silbenbögen also the word the caret stands in.
+export type Picked = { list?: List; marks: Marks; word?: string };
+type Splitter = typeof import("../syllables");
 
 // A colour is drawn first and so lies around the others: an underline takes the colour of its words.
 const NAMES = ["color", "bold", "italic", "underline"] as const;
@@ -105,9 +106,21 @@ function looks(state: EditorState, base: TextProps) {
     });
   return out;
 }
-const picked = (state: EditorState, base: TextProps): Picked => ({
+// The word the caret stands in or at the edge of, as the splitter knows words.
+function spoken({ selection: { empty, $from } }: EditorState, split: Splitter) {
+  if (!empty) return;
+  const found: { text: string; from: number }[] = [];
+  let at = 0;
+  for (const piece of split.pieces($from.parent.textContent)) {
+    if (piece.syl) (found[piece.word!] ??= { text: "", from: at }).text += piece.text;
+    at += piece.text.length;
+  }
+  return found.find((w) => w.from <= $from.parentOffset && $from.parentOffset <= w.from + w.text.length)?.text;
+}
+const picked = (state: EditorState, base: TextProps, split?: Splitter): Picked => ({
   list: state.selection.$from.parent.attrs.list ?? undefined,
   marks: looks(state, base),
+  ...(split && { word: spoken(state, split) }),
 });
 // Gives the picked words a look. A caret inside a word stands for that word, as in PowerPoint; anywhere else the
 // look is for what is typed next. Bold, italic and underline then need the caret in the field: without it nothing
@@ -192,8 +205,10 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
   // What the field last took or gave: a text that differs has changed outside it.
   const known = useRef<Pick<TextProps, "text" | "rich">>(props);
   // The field lives across renders and calls what the latest one passed.
-  const now = useRef({ props, ...on });
-  now.current = { props, ...on };
+  // The module that splits words, once it has loaded, for a text with Silbenbögen: it names the caret's word.
+  const split = useSplitter(props.syllables);
+  const now = useRef({ props, split, ...on });
+  now.current = { props, split, ...on };
   const flip = (name: "bold" | "italic" | "underline"): Command => (state, _, field) => {
     tint(field!, { [name]: !looks(state, now.current.props)[name] }, now.current.props);
     return true;
@@ -234,7 +249,7 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
           // Typing merges into one undo step; a look or a list is a step of its own.
           now.current.change(known.current, tr.getMeta("key") ?? "text");
         }
-        now.current.pick(picked(state, now.current.props));
+        now.current.pick(picked(state, now.current.props, now.current.split));
       },
       // ProseMirror never hears of the focus. It would put its own selection back 20 ms later, and for 200 ms
       // whenever the caret goes to the very start, as if the browser had moved it: an arrow pressed just then would
@@ -248,7 +263,7 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
     });
     view.current = field;
     field.focus();
-    on.pick(picked(field.state, props));
+    on.pick(picked(field.state, props, split));
     return () => {
       field.destroy();
       view.current = null;
@@ -269,8 +284,10 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
         : Selection.near(doc.resolve(end.a + Math.max(0, start - Math.min(end.a, end.b))), -1);
     known.current = props;
     view.current!.updateState(stateOf(doc, caret));
-    on.pick(picked(view.current!.state, props));
+    on.pick(picked(view.current!.state, props, split));
   }, [props.text, props.rich]);
+  // The panel learns the caret's word once the splitter has loaded, and no more of it once the bows are off.
+  useLayoutEffect(() => on.pick(picked(view.current!.state, props, split)), [split]);
 
   return <div ref={el} className="rich" data-hint={hint && !props.text ? "" : undefined} />;
 }

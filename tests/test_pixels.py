@@ -38,6 +38,7 @@ LONG = (
     "Frühling wächst dort ein neuer Baum. Die Vögel ziehen in den Süden."
 )
 FULLER = ["school script", "lists", "table", "strokes", "dashes", "pictures", "rulings on its side"]
+FULLER += ["syllables"]
 KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group", "name", "points"]
 # A table and a line stay level: the panel Format shuts "Drehung" for them and the selection has
 # no handle to turn them by. A line points where its two ends are.
@@ -85,6 +86,38 @@ def at(kind, props, y=60, h=60, **more):
 
 def para(text, **more):
     return {"runs": [{"text": text}], **more}
+
+
+def bowed(on=True):
+    """A page of texts with a bow under each syllable: one-letter syllables and long compounds."""
+    words = "Oma und Opa essen am Abend Apfelkuchen. Die Eichhörnchen sammeln Haselnüsse im Radio."
+    listed = [
+        {"runs": [{"text": "Der "}, {"text": "Igel", "bold": True}, {"text": " baut ein Nest."}]},
+        para("Eine rote Erdbeere", list="bullet"),
+        para("Zwei Marmeladengläser", list="bullet"),
+    ]
+    listed[1]["runs"][0]["color"] = "#e03131"
+    rich = "Der Igel baut ein Nest.\nEine rote Erdbeere\nZwei Marmeladengläser"
+    cells = [["Esel", "Banane"], ["Schmetterling", "Uhu und Ameise"]]
+    table = {"cells": cells, "cols": [1, 1], "size": 14, "align": "center", "line": "#222222"}
+    more = {"syllables": on}
+    # A word the teacher split her own way, and a block turned off the level.
+    by_hand = {"breaks": {"radio": [2], "apfelkuchen": [5]}}
+    return [
+        at("text", {**TEXT, "text": words, **by_hand, **more}, y=20, h=30),
+        at(
+            "text",
+            {**TEXT, "text": "Eine Banane", "font": "va", **more},
+            y=260,
+            h=12,
+            w=40,
+            angle=30,
+        ),
+        at("text", {**TEXT, "text": words, "font": "sas", "size": 18, **more}, y=55, h=45),
+        at("text", {**TEXT, "text": rich, "rich": listed, **more}, y=105, h=30),
+        at("shape", {**TEXT, **FILLED, "kind": "rounded", "text": "Regenbogen", **more}, y=140),
+        at("table", {**table, **more}, y=205, h=30),
+    ]
 
 
 def fuller(case, client):
@@ -152,6 +185,8 @@ def fuller(case, client):
             at("image", cut, y=80, h=40, w=90, flipX=True),
             at("image", whole, y=150, h=80, flipY=True, angle=30),
         ]
+    if case == "syllables":
+        return bowed()
     kinds = ("l1", "l2", "l3", "lines", "k5", "k7")
     rulings = [
         at("ruling", {"kind": kind, "color": "#222222"}, y=15 + 30 * i, h=30, x=15 + 135 * (i % 2))
@@ -234,6 +269,21 @@ def test_a_wrong_colour_is_over_the_limit(browser, server, case):
     found = planted(browser, server, *([block] for block in COLOURS[case]))
     assert found["ink"] > INK, found
     assert found["page"] < LIMIT and found["tile"] < TILE, found
+
+
+def test_missing_bows_are_over_the_limit(browser, server):
+    # The bows on the screen and none in print.
+    found = planted(browser, server, bowed(), bowed(on=False))
+    assert found["ink"] > INK, found
+
+
+def test_bows_under_the_wrong_syllables_are_over_a_limit(browser, server):
+    # The same word with the same number of bows: on the screen each break lies a letter or two
+    # further on than in print, which splits it as "Mar-me-la-den-glä-ser".
+    word = {**TEXT, "text": "Marmeladengläser", "size": 40, "syllables": True}
+    wrong = {**word, "breaks": {"marmeladengläser": [4, 7, 9, 12, 14]}}
+    found = planted(browser, server, [at("text", wrong)], [at("text", word)])
+    assert found["tile"] > TILE or found["ink"] > INK, found
 
 
 def test_a_missing_hairline_is_over_the_limit(browser, server):

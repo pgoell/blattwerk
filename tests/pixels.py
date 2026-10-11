@@ -11,6 +11,7 @@ import httpx
 import pypdfium2
 from PIL import Image, ImageChops
 from PIL.ImageFilter import BoxBlur, MaxFilter, MinFilter
+from playwright.sync_api import expect
 from ui import BROWSER, sheet
 
 # The side of the square around a pixel in which the other picture may have it: one pixel to
@@ -89,6 +90,8 @@ def screen_and_print(browser, server, client, sheet_id, page=0):
     tab.add_style_tag(content=HIDE)
     # As the page that is printed does: a picture and a font come in after the blocks are laid out.
     tab.evaluate(LOADED)
+    # A text's bows are drawn once its words are split and measured.
+    expect(tab.locator(".sheet .unsplit")).to_have_count(0)
     screen = tab.locator(f'.sheet[data-page="{page}"]').screenshot()
     # Before the PDF is asked for: leaving the editor saves.
     context.close()

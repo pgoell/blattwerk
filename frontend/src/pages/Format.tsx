@@ -1,8 +1,8 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, MARGIN, RULINGS, boxed, counts, dir, isLine, mathsHeight, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -154,6 +154,9 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // The generator's limits belong to one block.
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const { mark } = sel[0];
+  // The Silbenbögen stand once, with the text settings or else with the table's, and go to all that hold words.
+  // What is mended by hand belongs to one block: another pick starts anew.
+  const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
@@ -282,6 +285,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
+          {bows}
         </>
       )}
       {rulings.length > 0 && (
@@ -384,6 +388,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
             Kopfzeile
           </button>
+          {!text && bows}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
         </>
       )}
@@ -423,6 +428,89 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
       <h2>Nummerierung</h2>
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
+    </>
+  );
+}
+
+// What a block that holds words says of its syllables: a text, a shape with text and a table.
+const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
+
+// The switch for the bows under the syllables, for every selected block that holds words: on unless all have them,
+// as bold. With one such block its words stand below, each as it is split, to mend by hand: a click on a word
+// shows its letters, and a click between two of them sets a break there or takes it away.
+function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "look" | "style">) {
+  const held = sel.filter(worded);
+  const on = held.every((b) => worded(b)!.syllables);
+  const split = useSplitter(on);
+  // The word whose letters show, as `breaks` names it.
+  const [open, setOpen] = useState<string>();
+  // The word the caret stands in opens with no click.
+  useEffect(() => {
+    if (split && part?.word) setOpen(split.keyOf(part.word));
+  }, [split, part?.word]);
+  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
+  const set = (props: object, key?: string) => {
+    if (held.some(boxed)) look(props, key);
+    if (held.some((b) => b.type === "table")) style("table", props, key);
+  };
+  const one = split && held.length === 1 ? worded(held[0])! : undefined;
+  const fixes = one?.breaks ?? {};
+  // Whether the teacher split the word: "constructor" is a word too, and every object has one.
+  const own = (key?: string) => !!key && Object.hasOwn(fixes, key) && Array.isArray(fixes[key]);
+  // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
+  const keys = new Set<string>();
+  const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
+  const word = all.find((w) => split!.keyOf(w) === open);
+  // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
+  // module splits it needs no entry, and a block with no entry no `breaks`.
+  const mend = (at?: number) => {
+    const now = split!.cuts(word!, fixes);
+    const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
+    const rest = Object.fromEntries(Object.entries(fixes).filter(([key]) => key !== open));
+    const breaks = next && String(next) !== String(split!.split(word!)) ? { ...rest, [open!]: next } : rest;
+    set({ breaks: Object.keys(breaks).length ? breaks : undefined });
+  };
+  return (
+    <>
+      {/* Off is no entry, as on a sheet that never had bows. */}
+      <button className={on ? "on" : ""} aria-pressed={on} onClick={() => set({ syllables: on ? undefined : true }, "syllables")}>
+        Silbenbögen
+      </button>
+      {one && all.length > 0 && (
+        <>
+          <p className="hint">Silbe falsch? Wort anklicken und Trennstellen setzen.</p>
+          <div className="words">
+            {all.map((w) => {
+              const key = split!.keyOf(w);
+              const cut = [0, ...split!.cuts(w, fixes), w.length];
+              return (
+                <button key={key} className={`${key === open ? "on" : ""}${own(key) ? " own" : ""}`} aria-pressed={key === open} title={own(key) ? "von Hand getrennt" : undefined} onClick={() => setOpen(key)}>
+                  {cut.slice(1).map((end, i) => w.slice(cut[i], end)).join("·")}
+                </button>
+              );
+            })}
+          </div>
+          {word && (
+            <div className="gaps">
+              {word.split("").map((letter, i) => {
+                const cut = split!.cuts(word, fixes).includes(i);
+                return (
+                  <Fragment key={i}>
+                    {/* No break before a mark that belongs to the letter before it. */}
+                    {i > 0 && !/\p{M}/u.test(letter) && (
+                      <button className={cut ? "on" : ""} aria-label={`${word.slice(0, i)}|${word.slice(i)}`} aria-pressed={cut} onClick={() => mend(i)}>
+                        {cut ? "|" : "·"}
+                      </button>
+                    )}
+                    {letter}
+                  </Fragment>
+                );
+              })}
+            </div>
+          )}
+          {word && own(open) && <button onClick={() => mend()}>Zurücksetzen</button>}
+        </>
+      )}
     </>
   );
 }

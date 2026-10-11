@@ -17,6 +17,7 @@
     "@fontsource-variable/playwrite-de-la": "^5.3.0",
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
+    "hyphen": "^1.14.1",
     "lucide-react": "^1.52.0",
     "modern-screenshot": "^4.7.0",
     "prosemirror-commands": "^1.7.2",
