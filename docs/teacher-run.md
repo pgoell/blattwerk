@@ -293,11 +293,13 @@ Do this always, also after a failure or a `BLOCKED`. The stage holds real teache
    mise -C /home/pascal/Code/blattwerk run stage:down
    ```
 
-4. Delete what is left of your exports, with the verb `tidy`. Keep `/tmp/teacher-run`: the issues name its screenshots:
+4. Delete what is left of your exports with the verb `tidy`:
 
    ```sh
    mise -C /home/pascal/Code/blattwerk run teacher:page -- tidy
    ```
+
+   Keep `/tmp/teacher-run`, because the issues name its screenshots.
 
 5. Run `tidy` once more as the very last command before the report. A PDF that came down late is deleted then, and the report names it (line 8).
 

@@ -397,7 +397,7 @@ def joined():
 def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     """Runs a verb of the window. Each box it meets is answered, and the output names it."""
     if name not in VERBS:
-        known = ", ".join(["start", "stop", *VERBS, "tidy", "box"])
+        known = ", ".join(["start", "stop", *VERBS, "box", "tidy"])
         raise Refused(f'no verb "{name}": there are {known}')
     try:
         inspect.signature(VERBS[name]).bind(None, *args)
@@ -406,7 +406,13 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         raise Refused(f"{name} takes: {takes}") from None
     with joined() as page:
         asked = answered(page, yes)
-        said = VERBS[name](page, *args)
+        try:
+            said = VERBS[name](page, *args)
+        except Error as error:
+            # A box answered no stops the navigation it came with: the page stays where it is.
+            if not asked or yes or "ERR_ABORTED" not in error.message:
+                raise
+            said = f"the page stayed on {page.url}"
     lines = []
     for kind, text in asked:
         word = "yes" if yes else "no"

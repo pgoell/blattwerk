@@ -435,6 +435,7 @@ def test_t7_tidy_runs_after_the_stage_is_down_and_once_more_at_the_end():
     clean = section("## Clean up")
     assert clean.index(f"{MISE} stage:down") < clean.index(f"{MISE} teacher:page -- tidy")
     assert "very last command before the report" in clean
+    assert "Keep `/tmp/teacher-run`, because the issues name its screenshots." in clean
     report = section("## Report")
     assert re.search(r"^8\. What the last `tidy` deleted, if anything\.$", report, re.M)
 

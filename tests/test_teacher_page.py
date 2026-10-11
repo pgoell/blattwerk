@@ -634,3 +634,39 @@ def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, serv
         assert client.get(f"/api/sheets/{made['id']}").status_code == 404
     finally:
         run(folder, server, "stop")
+
+
+@pytest.mark.native
+def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, server):
+    # A typed text is an unsaved change until the save goes out, two seconds on: `open` comes first.
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    made = sheet(client, [box("a", "text", ONE)], title="Probe")
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        ok("click", "Probe")
+        ok("where", "Gespeichert")
+        ok("click", "Eins")
+        ok("key", "Enter")
+        ok("type", " Neu")
+        ok("key", "Escape")
+        said = ok("open", "/")
+        assert 'A box asked: "" (beforeunload). Answered no.' in said
+        assert "To say yes: box yes open /" in said
+        assert ok("where", "Neu").startswith("Neu at ")
+        ok("box", "yes", "open", "/")
+        assert ok("where", "Neues Blatt").startswith("Neues Blatt at ")
+    finally:
+        run(folder, server, "stop")
+    assert client.get(f"/api/sheets/{made['id']}").status_code == 200
