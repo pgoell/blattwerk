@@ -105,11 +105,21 @@ function keep(s: Saver) {
   }
 }
 
+// A request that finds the session gone brings the login, on the address as it stands. Not where somebody has
+// signed in since it went: that answer is about the session before, and `logins` counts them.
+let logins = 0;
+export function signed<T>(asked: Promise<T>) {
+  const was = logins;
+  return asked.catch((e: Error) => {
+    if (e.message === "401" && was === logins) signedOut();
+    throw e;
+  });
+}
 // An answer that has not come after 20 s counts as none. By a timer of the page: a test's clock moves that one.
 export function ask<T>(path: string, init?: RequestInit) {
   const stop = new AbortController();
   const limit = setTimeout(() => stop.abort(), 20000);
-  return api<T>(path, { ...init, signal: stop.signal }).finally(() => clearTimeout(limit));
+  return signed(api<T>(path, { ...init, signal: stop.signal })).finally(() => clearTimeout(limit));
 }
 // A sheet as its editor asks for it: null where it is not there, "failed" where the server could not say. An
 // address that names no number, a 422, has no sheet either. Never refused, for the editor's script may come to
@@ -336,6 +346,7 @@ export async function flush(id: number) {
 // longer has takes its record along; any other failure leaves the record for the next start.
 export function enter(owner?: number) {
   me = owner;
+  logins++;
   let ids: number[] = [];
   try {
     ids = Object.keys(localStorage).flatMap((k) => (k.startsWith("unsaved:") ? [Number(k.slice(8))] : []));

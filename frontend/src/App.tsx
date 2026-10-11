@@ -22,9 +22,9 @@ export default function App() {
   // undefined while /me is loading, null when logged out.
   const [user, setUser] = useState<User | null>();
 
-  // The savers hear who is there, and take up what the browser kept for that account. A save that finds the session
-  // gone brings the login here, on the address as it stands: the change is kept, and saved after the login. `was` is
-  // who was signed in until then: the login page says whose change waits.
+  // The savers hear who is there, and take up what the browser kept for that account. A save, or any request of a
+  // sheet or the list, that finds the session gone brings the login here, on the address as it stands: a change is
+  // kept, and saved after the login. `was` is who was signed in until then: the login page says whose change waits.
   const was = useRef<number>(undefined);
   useEffect(() => {
     api<User>("/me").then(

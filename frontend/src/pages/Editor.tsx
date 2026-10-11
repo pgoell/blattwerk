@@ -86,7 +86,7 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { ask, attach, download, flush, get, open, overwrite, refused, reset, set, useSaves } from "../saves";
+import { ask, attach, download, flush, get, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -1289,19 +1289,20 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
   async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
-    const [{ id }, { width, height }] = await Promise.all([api<{ id: number }>("/uploads", { method: "POST", body }), createImageBitmap(file)]);
+    const [{ id }, { width, height }] = await Promise.all([signed(api<{ id: number }>("/uploads", { method: "POST", body })), createImageBitmap(file)]);
     const w = round(Math.min(100, (100 * width) / height));
     return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
   }
-  const refuse = () => alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  // Not where the session ran out: the login shows then, and the picture is added again after it.
+  const refuse = (why?: unknown[]) => why?.some((e) => (e as Error | undefined)?.message === "401") || alert("Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
   async function upload(file?: File) {
     if (!file) return;
     const where = mark();
     try {
       const { w, h, ...rest } = await sent(file);
       calm(() => add(w, h, rest, where()));
-    } catch {
-      refuse();
+    } catch (e) {
+      refuse([e]);
     }
   }
   // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
@@ -1343,7 +1344,7 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
         setAt(n);
         setIds(made.map((b) => b.id));
       });
-    if (made.length < files.length) refuse();
+    if (made.length < files.length) refuse(got.map((r) => r.status === "rejected" && r.reason));
   }
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
@@ -1831,8 +1832,11 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
   // which may hold an older document. A save that fails or never answers holds the PDF up for 20 s at most.
+  // The download goes by an address, and with the session gone the server's bare answer would take the app's
+  // place: the session is asked for first, and where it is gone the login shows instead.
   async function pdf(key: boolean) {
     await flush(file.id);
+    if ((await ask("/me").catch((e: Error) => e.message)) === "401") return;
     download(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`);
   }
 
