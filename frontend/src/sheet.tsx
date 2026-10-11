@@ -439,16 +439,23 @@ let splitter: Splitter | undefined;
 let loading: Promise<Splitter> | undefined;
 const waiting = new Set<() => void>();
 export const splitting = () =>
-  (loading ??= import("./syllables").then((module) => {
-    splitter = module;
-    waiting.forEach((tell) => tell());
-    return module;
-  }));
+  (loading ??= import("./syllables").then(
+    (module) => {
+      splitter = module;
+      waiting.forEach((tell) => tell());
+      return module;
+    },
+    // A load that failed is tried again by the next block that asks.
+    (failed) => {
+      loading = undefined;
+      throw failed;
+    },
+  ));
 const listen = (tell: () => void) => (waiting.add(tell), () => void waiting.delete(tell));
 // The splitter once it is loaded, for a block with `on`; it loads at the first block that asks.
 export function useSplitter(on?: boolean) {
   const module = useSyncExternalStore(listen, () => splitter);
-  useEffect(() => void (on && splitting()), [on]);
+  useEffect(() => void (on && splitting().catch(() => {})), [on]);
   return on ? module : undefined;
 }
 const SVG = "http://www.w3.org/2000/svg";
