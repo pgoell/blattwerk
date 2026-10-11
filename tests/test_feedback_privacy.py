@@ -13,7 +13,14 @@ _SPEC.loader.exec_module(feedback_privacy)
 
 check = feedback_privacy.check
 
-EMAILS = ["anna.schmidt@gmail.com", "kollegium@astrid-lindgren-gs.de", "info@web.de"]
+EMAILS = [
+    "anna.schmidt@gmail.com",
+    "kollegium@astrid-lindgren-gs.de",
+    "info@web.de",
+    "kraus@t-online.de",
+    "m.müller@schule-x.de",
+    "łukasz.k@schule-x.de",
+]
 NAMES = ["2026-10-08T06-50-36-363466", "feedback.json", "screenshot-1.jpg", "/blatt/41"]
 SOURCE = "die plus und minus tasten ändern den zoom immer um zwei prozent"
 
@@ -50,6 +57,18 @@ HITS = [
     ("user id", "Benutzer:4 hat Fehler"),
     ("user id", "Konto 9"),
     ("user id", "teacher 3 asked"),
+    ("user id", "userid7 is broken"),
+    ("user id", "teacherid 7 is broken"),
+    ("user id", "Benutzer-Nr. 7 sagt"),
+    ("user id", "user no. 7 sagt"),
+    ("user id", "Nutzernummer 12 sagt"),
+    ("user name", "Frau Ｋｒａｕｓ sagt"),  # noqa: RUF001 (full-width letters are the test)
+    ("user name", "Frau Kr​aus sagt"),
+    ("user name", "Frau K̈raus sagt"),
+    ("user name", "Müller reported the bug"),
+    ("user name", "MÜLLER reported the bug"),
+    ("user name", "muller reported the bug"),
+    ("user name", "Łukasz sagt"),
     ("file name", "see 2026-10-08T06-50-36-363466"),
     ("file name", "folder 2026-01-02T03-04-05 is odd"),
     ("file name", "feedback.json attached"),
@@ -92,6 +111,8 @@ CLEAN = [
     "Schmidts are not the topic here.",
     "Bei uns sind die plus und die Tasten kaputt.",
     "Would a dark mode help teachers in the evening?",
+    "the user interface has three tabs",
+    "The teacher zooms in 2 times",
 ]
 
 

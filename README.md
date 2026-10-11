@@ -91,6 +91,8 @@ scripts/feedback-cron.sh --dry-run   # prints what it would file; files nothing,
 crontab -l                           # the line: 15 5 * * * .../scripts/feedback-cron.sh >> .../cron.log 2>&1
 ```
 
+On a new machine, make the folder before the cron line goes in: `mkdir -m 700 -p ~/.local/share/blattwerk-feedback`. Cron cannot open the log in a folder that is not there, and then the job never starts.
+
 To stop the job, remove that line from the crontab.
 
 ## Deploy

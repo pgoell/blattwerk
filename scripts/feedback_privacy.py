@@ -1,6 +1,7 @@
 """What must never stand in a public issue. Standard library only."""
 
 import re
+import unicodedata
 
 # Generic local parts and labels: "info" or "schule" say nothing about a person.
 STOP = set(
@@ -16,8 +17,8 @@ PROVIDERS = set(
 
 # (?<=_) lets "user_id=3" hit, since \b does not sit between "_" and "i".
 ID = re.compile(
-    r"(?:\b|(?<=_))(users?|nutzer\w*|benutzer\w*|konto|account|teacher|lehrer\w*|uid|id)"
-    r"\s*[#:=/_-]?\s*\d+\b",
+    r"(?:\b|(?<=_))(user\w*|nutzer\w*|benutzer\w*|konto\w*|account\w*|teacher\w*|lehrer\w*|uid|id)"
+    r"[\s#:=/_.-]*(?:(?:nr|no|nummer|number|id)\b[\s#:=/_.-]*)?\d+\b",
     re.IGNORECASE,
 )
 FILE_GENERIC = re.compile(
@@ -42,6 +43,18 @@ SCHOOL = [
 ]
 
 
+def _clean(s: str) -> str:
+    # Full-width forms become plain letters; zero-width marks (Cf) go.
+    s = unicodedata.normalize("NFKC", s)
+    return "".join(c for c in s if unicodedata.category(c) != "Cf")
+
+
+def _fold(s: str) -> str:
+    # Accents and case do not count: "Müller", "MULLER" and "muller" are one name.
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
+
+
 def _whole_word(piece: str, text: str) -> bool:
     # Not glued to other letters: "kraus" hits "kraus98", not "krause".
     pattern = rf"(?<![^\W\d_]){re.escape(piece)}(?![^\W\d_])"
@@ -49,21 +62,21 @@ def _whole_word(piece: str, text: str) -> bool:
 
 
 def _pieces(s: str, min_len: int) -> list[str]:
-    parts = re.split(r"[^a-zA-ZäöüÄÖÜß]+", s)
-    return [p for p in parts if len(p) >= min_len and p.lower() not in STOP]
+    parts = re.split(r"[\W\d_]+", s)
+    return [p for p in parts if len(p) >= min_len and p not in STOP]
 
 
-def _name_hit(email: str, text: str) -> bool:
-    local, _, domain = email.lower().partition("@")
-    if len(local) >= 3 and local not in STOP and local in text.lower():
+def _name_hit(email: str, folded: str) -> bool:
+    local, _, domain = _fold(email).partition("@")
+    if len(local) >= 3 and local not in STOP and local in folded:
         return True
-    if any(_whole_word(p, text) for p in _pieces(local, 3)):
+    if any(_whole_word(p, folded) for p in _pieces(local, 3)):
         return True
     if domain in PROVIDERS:
         return False
-    if domain in text.lower():
+    if domain in folded:
         return True
-    return any(_whole_word(p, text) for p in _pieces(domain.rsplit(".", 1)[0], 4))
+    return any(_whole_word(p, folded) for p in _pieces(domain.rsplit(".", 1)[0], 4))
 
 
 def _copied(source: str, text: str) -> bool:
@@ -82,11 +95,14 @@ def check(text: str, emails: list[str], names: list[str], source: str) -> list[s
     source: the teacher's own text, for the copied-words check.
     A reason names the kind only, never the hit, so it can go into a log.
     """
+    text = _clean(text)
+    source = _clean(source)
+    folded = _fold(text)
     low = text.lower()
     found = []
-    if any(e.lower() in low for e in emails):
+    if any(_fold(e) in folded for e in emails):
         found.append("user email")
-    if any(_name_hit(e, text) for e in emails):
+    if any(_name_hit(e, folded) for e in emails):
         found.append("user name")
     if ID.search(text):
         found.append("user id")

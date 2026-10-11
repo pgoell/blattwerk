@@ -413,6 +413,25 @@ def test_unreadable_users_table_files_nothing(world, damage):
     assert "cannot read the users table" in result.stderr
     assert world.writes() == []
     assert not (world.state / "read.json").exists()
+    assert "Run failed" in world.summary()
+
+
+def test_failed_issue_list_says_so_on_summary(world):
+    world.send(1, STAMP, text="bugword")
+    world.answer({"*": verdict()})
+    result = world.run(GH_RC_LIST="1")
+    assert result.returncode == 1
+    assert world.claude_calls() == []
+    assert f"1/{STAMP}" not in world.read()
+    assert "Run failed" in world.summary()
+
+
+def test_dry_run_failure_writes_nothing(world):
+    world.send(1, STAMP, text="bugword")
+    (world.data / "blattwerk.db").unlink()
+    result = world.run("--dry-run")
+    assert result.returncode == 1
+    assert not world.state.exists()
 
 
 BAD_VERDICTS = [

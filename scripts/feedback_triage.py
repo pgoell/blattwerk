@@ -291,14 +291,28 @@ def summary_text(day: str, results: list[Result]) -> str:
     return "\n".join(lines)
 
 
-def write_summary(state: Path, results: list[Result]) -> None:
+def append_summary(state: Path, text: str) -> None:
     folder = state / "summaries"
     folder.mkdir(parents=True, exist_ok=True)
     folder.chmod(0o700)
-    day = date.today().isoformat()
-    fd = os.open(folder / f"{day}.md", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    fd = os.open(
+        folder / f"{date.today().isoformat()}.md", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600
+    )
     with os.fdopen(fd, "a", encoding="utf-8") as f:
-        f.write(summary_text(day, results) + "\n")
+        f.write(text)
+
+
+def write_summary(state: Path, results: list[Result]) -> None:
+    append_summary(state, summary_text(date.today().isoformat(), results) + "\n")
+
+
+def fail_run(state: Path, dry_run: bool, reason: str) -> int:
+    """A run that read no send: the reason goes to stderr and, unless a dry run, to the summary."""
+    print(reason, file=sys.stderr)
+    if not dry_run:
+        head = f"# Feedback {date.today().isoformat()}"
+        append_summary(state, f"{head}\n\nRun failed, no send was read: {reason}\n\n")
+    return 1
 
 
 def label(r: Result) -> str:
@@ -338,8 +352,7 @@ def main() -> int:
     try:
         emails = [email for _, email in load_users(data) if email]
     except Exception as error:
-        print(f"cannot read the users table: {error}", file=sys.stderr)
-        return 1
+        return fail_run(state, args.dry_run, f"cannot read the users table: {error}")
 
     read = load_read(state)
     sends = find_sends(data, read)
@@ -351,8 +364,7 @@ def main() -> int:
                "--json", "number,title")
         )  # fmt: skip
     except Exception as error:
-        print(f"cannot list the open issues: {error}", file=sys.stderr)
-        return 1
+        return fail_run(state, args.dry_run, f"cannot list the open issues: {error}")
     issues = {item["number"]: item["title"] for item in listed}
 
     results, stopped = [], False
