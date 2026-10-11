@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { api, type User } from "./api";
+import { api, countLogin, onSignedOut, showLogin as signedOut, signed, type User } from "./api";
 import { read, type Doc, type Sheet } from "./sheet";
 
 // Each sheet has one saver, and it outlives the editor: a save that is out, fails or never answers when the teacher
@@ -49,8 +49,8 @@ export type Save = { id: number; owner: number; title: string; saved: Kept; unsa
 const savers = new Map<number, Saver>();
 // Who is signed in, as the app said last, and what the app does when a save finds the session gone.
 let me: number | undefined;
-let signedOut = () => {};
-export const onSignedOut = (then: () => void) => void (signedOut = then);
+// The guard itself lies in api.ts, which a script with no window can load too.
+export { onSignedOut, signed };
 const heard = new Set<() => void>();
 // `landed` counts the saves the server took: the list asks anew at each.
 let shot = { list: [] as Save[], landed: 0 };
@@ -107,18 +107,6 @@ function keep(s: Saver) {
   }
 }
 
-// A request that finds the session gone brings the login, on the address as it stands. Not where somebody has
-// signed in since it went: that answer is about the session before, and `logins` counts them. It is "stale" then,
-// a failure like any other: no saver stops for it, and the next try goes with the new session.
-let logins = 0;
-export function signed<T>(asked: Promise<T>) {
-  const was = logins;
-  return asked.catch((e: Error) => {
-    if (e.message === "401" && was !== logins) throw new Error("stale");
-    if (e.message === "401") signedOut();
-    throw e;
-  });
-}
 // An answer that has not come after 20 s counts as none. By a timer of the page: a test's clock moves that one.
 export function ask<T>(path: string, init?: RequestInit) {
   const stop = new AbortController();
@@ -364,7 +352,7 @@ export async function flush(id: number) {
 // start.
 export function enter(owner?: number) {
   me = owner;
-  logins++;
+  countLogin();
   let ids: number[] = [];
   try {
     ids = Object.keys(localStorage).flatMap((k) => (k.startsWith("unsaved:") ? [Number(k.slice(8))] : []));

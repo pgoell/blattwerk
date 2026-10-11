@@ -1,8 +1,7 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
 import { useRef, useState } from "react";
-import { post } from "../api";
+import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
-import { signed } from "../saves";
 import { SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
