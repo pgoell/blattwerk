@@ -99,8 +99,9 @@ def give_up(run, name, arrives=False, out=0):
     page.clock.run_for(19999 - out)
     page.evaluate(TURNS)
     assert not route.request.failure
-    with page.expect_event("requestfailed", gate.asks("PATCH")):
-        page.clock.run_for(1)
+    # The page gives the save up by itself. WebKit tells the test nothing of that where the save
+    # was one that may outlive the window: what follows shows it.
+    page.clock.run_for(1)
     page.evaluate(TURNS)
 
 
@@ -148,6 +149,7 @@ def test_the_next_sheet_and_the_list_open_at_once_whatever_the_save_of_the_sheet
     page, _ = leave(run, how, to)
     if how == "never":
         give_up(run, "a")
+        expect(page.locator(NOTICE)).to_have_text(unsaved("a"))
     if to == "sheet":
         run.check()
         # B is saved as ever.
@@ -376,21 +378,23 @@ def shut(page, saves=0, gates=False):
     # or goes on is the browser's to say. With `gates` they stay, for a save they hold already.
     if not gates:
         page.unroute_all()
+    # The clock is the browser's, and runs again for the next visit: WebKit has none to set on a
+    # tab that is on no address yet.
+    page.clock.resume()
     with down(saves), page.expect_event("close"):
         page.close(run_before_unload=True)
     return asked
 
 
 def again(run, name="a", keep=False, client=None):
-    """The next visit: a new tab of the same browser on the sheet, with a clock that runs. Gives
-    the tab, the sheet's gate there, which holds no load, and the saves the tab sends."""
+    """The next visit: a new tab of the same browser on the sheet. Gives the tab, the sheet's
+    gate there, which holds no load, and the saves the tab sends."""
     context = run.page.context
     if client:
         context.clear_cookies()
         cookie = {"name": "session", "value": client.cookies["session"], "url": run.server}
         context.add_cookies([cookie])
     page = context.new_page()
-    page.clock.resume()
     gate, sent = Gate(page, run.ids[name]), []
     gate.free, gate.keep = True, keep
     page.on("request", lambda r: r.method == "PATCH" and sent.append(r))

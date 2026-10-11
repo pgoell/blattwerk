@@ -145,12 +145,14 @@ async function fail(s: Saver, now: Kept, status: string) {
     }
     status = sheet;
   } else if (status !== "401" && status !== "404" && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
-  // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone.
-  if (status === "404" && (await ask<User>("/me").then((me) => me.id, () => 0)) === s.owner) {
+  // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone. Who is
+  // signed in now: 0 for nobody, nothing where that got no answer either.
+  const me = status === "404" ? await ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined)) : undefined;
+  if (me === s.owner) {
     s.gone = true;
     s.lost = [];
     if (!s.open) savers.delete(s.id);
-  } else if (status === "401" || status === "404") s.stop = true;
+  } else if (status === "401" || me !== undefined) s.stop = true;
   else s.tries++;
   if (!s.dead) settle(s);
 }
