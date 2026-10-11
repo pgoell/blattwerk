@@ -1,12 +1,12 @@
 import { Link } from "react-router";
 
-// The symbols' and the fonts' licenses ask for these credits; the same stand in NOTICE.
+// The licenses of the symbols, the fonts and the syllable patterns ask for these credits; the same stand in NOTICE.
 export default function About() {
   return (
     <main>
       <p><Link to="/">← Blattomat</Link></p>
       <h1>Über Blattomat</h1>
-      <p className="lead">Arbeitsblätter für die Grundschule. Blattomat nutzt freie Symbole und Schriften:</p>
+      <p className="lead">Arbeitsblätter für die Grundschule. Blattomat nutzt freie Symbole, Schriften und Trennmuster:</p>
       <div className="card">
         <label>Symbole</label>
         <p>
@@ -37,6 +37,19 @@ export default function About() {
           (<a href="https://github.com/Instrument/instrument-sans">Instrument</a>). <a href="/fonts/instrument/OFL.txt">Lizenztext</a>
         </p>
         <p className="hint">Alle Schriften stehen unter der SIL Open Font License 1.1.</p>
+      </div>
+      <div className="card">
+        <label>Silben</label>
+        <p>
+          Blattomat trennt die Wörter im Browser, kein Wort geht an einen Server. Die Trennung nutzt{" "}
+          <a href="https://github.com/ytiurin/hyphen">hyphen</a>: Copyright 2026 Yevhen Tiurin, ISC-Lizenz.
+        </p>
+        <p>
+          Die deutschen Trennmuster (reformierte Rechtschreibung) stammen von der Deutschsprachigen Trennmustermannschaft:
+          Copyright 2013 bis 2024 Stephan Hennig, Werner Lemberg, Günter Milde, Sander van Geloven, Georg Pfeiffer,
+          Gisbert W. Selke, Tobias Wendorf und Keno Wehr (<a href="https://github.com/hyphenation/tex-hyphen">tex-hyphen</a>),
+          MIT-Lizenz. <a href="/syllables/LICENSE.txt">Lizenztexte</a>
+        </p>
       </div>
     </main>
   );
