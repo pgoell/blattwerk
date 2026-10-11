@@ -62,6 +62,43 @@ def test_only_pictures_of_a_sane_size():
     assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
 
 
+TEXT = b"Kein Bild, nur Text.\n"
+# One picture of each kind the browser draws: the first bytes say which.
+PICTURES = {
+    "image/jpeg": b"\xff\xd8\xff\xe0 not really a picture",
+    "image/png": PNG,
+    "image/webp": b"RIFF\x24\x00\x00\x00WEBPVP8 not really a picture",
+    "image/gif": b"GIF89a not really a picture",
+}
+
+
+@pytest.mark.parametrize("declared", [*PICTURES, "text/plain"])
+def test_bytes_that_are_no_picture_are_refused_whatever_the_type(data_dir, declared):
+    """18: text sent as a picture of any declared type is refused, and nothing is kept."""
+    client = user("a@example.com")
+    assert send(client, TEXT, declared).status_code == 415
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+    assert not list(data_dir.glob("users/*/uploads/*"))
+
+
+def test_an_empty_file_is_refused(data_dir):
+    """18"""
+    client = user("a@example.com")
+    assert send(client, b"", "image/png").status_code == 415
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("kind", list(PICTURES))
+def test_a_picture_is_stored_as_its_bytes_show_whatever_type_is_declared(kind):
+    """19: the stored and served type is the one the bytes show."""
+    client = user("a@example.com")
+    for declared in [*PICTURES, "text/plain"]:
+        upload_id = send(client, PICTURES[kind], declared).json()["id"]
+        res = client.get(f"/api/uploads/{upload_id}")
+        assert res.content == PICTURES[kind]
+        assert res.headers["content-type"] == kind
+
+
 def test_delete_account_removes_uploads(data_dir):
     client = user("a@example.com")
     other = user("b@example.com")

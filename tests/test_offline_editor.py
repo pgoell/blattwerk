@@ -15,6 +15,8 @@ from test_clipboard import no_picture
 from test_drop import PDF, PNG, landed, spot
 from ui import TEXT, at, box, centre, copy_picture, drop, maths, pick, saved, sheet, user
 
+from blattwerk import db
+
 HOW = ["offline", "500"]
 WHY = {
     "offline": "Prüfe deine Verbindung und versuche es noch einmal.",
@@ -254,14 +256,14 @@ def test_a_picture_that_cannot_be_sent_names_the_cause_and_lands_with_the_next_t
 
 @pytest.mark.parametrize(
     ("add", "file", "answer"),
-    [(by_button, FAKE, 200), (by_drop, FAKE, 200), (by_button, PDF, 415)],
+    [(by_button, FAKE, 415), (by_drop, FAKE, 415), (by_button, PDF, 415)],
     ids=["button", "drop", "button, refused by the server"],
 )
 def test_a_file_that_is_no_picture_is_named_as_such_with_nothing_to_try_again(
     editor, add, file, answer
 ):
-    """A18, A19: a text file with a picture's name, which the server takes by its name and the
-    browser cannot read, and a file the server does not take."""
+    """A18, A19: a text file with a picture's name, which the server refuses by its bytes, and a
+    file the server does not take."""
     page = editor(box("a", "text", TEXT))
     asked = dialogs(page)
     with page.expect_response(re.compile("/api/uploads$")) as got:
@@ -272,6 +274,19 @@ def test_a_file_that_is_no_picture_is_named_as_such_with_nothing_to_try_again(
     expect(line.get_by_role("button")).to_have_text(["Schließen"])
     expect(page.locator(".block[data-id]")).to_have_count(1)
     assert asked == []
+
+
+def test_a_text_file_named_as_a_picture_leaves_no_upload_on_the_server(editor):
+    """19: the bytes say no picture, whatever the name and type say: the server keeps no row."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    with page.expect_response(re.compile("/api/uploads$")) as got:
+        by_button(page, FAKE)
+    assert got.value.status == 415
+    expect(page.locator(LINE)).to_contain_text(NO_FILE)
+    user_id = client.get("/api/me").json()["id"]
+    rows = db.open_db().execute("SELECT count(*) FROM uploads WHERE user_id = ?", (user_id,))
+    assert rows.fetchone()[0] == 0
 
 
 def test_of_two_dropped_pictures_only_the_one_that_did_not_arrive_goes_again(editor):
