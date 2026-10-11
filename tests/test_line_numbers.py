@@ -20,22 +20,24 @@ LONG = (
     "Frühling wächst dort ein neuer Baum. Die Vögel ziehen in den Süden."
 )
 GREY = "rgb(112, 112, 112)"
-# The visual lines of a block's text, top to bottom: each row of rects that the text's letters
-# lie in, clustered by the middle of each rect as the bows are.
+# The visual lines of a block's text, top to bottom, measured another way than the app does: each
+# letter alone, and a line is where the letters' tops agree. A space is no letter: WebKit gives
+# the space a line ends with a rect of its own.
 LINES = """(block) => {
     const rows = [];
     const frame = block.querySelector(":scope > .frame");
     const walk = document.createTreeWalker(frame, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
     while (walk.nextNode()) {
         const node = walk.currentNode;
-        if (node.parentElement.tagName === "TEXTAREA" || !node.data) continue;
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        for (const rect of range.getClientRects()) {
-            if (rect.right <= rect.left) continue;
-            const middle = (rect.top + rect.bottom) / 2;
-            const inside = ([top, bottom]) => middle > top && middle < bottom;
-            if (!rows.some(inside)) rows.push([rect.top, rect.bottom]);
+        if (node.parentElement.closest("textarea, .bank")) continue;
+        for (let i = 0; i < node.data.length; i++) {
+            if (!node.data[i].trim()) continue;
+            range.setStart(node, i);
+            range.setEnd(node, i + 1);
+            const rect = range.getClientRects()[0];
+            if (rect && !rows.some(([top]) => Math.abs(top - rect.top) < 2))
+                rows.push([rect.top, rect.bottom]);
         }
     }
     return rows.sort((a, b) => a[0] - b[0]);
@@ -71,6 +73,14 @@ def beside(page, name):
         )
         for text, middle, right in boxes
     ]
+
+
+def rect(found):
+    """The box of a number on the screen. WebKit has none for Playwright's own `bounding_box`."""
+    return found.evaluate(
+        "el => { const r = el.getBoundingClientRect();"
+        " return {x: r.left, y: r.top, width: r.width, height: r.height}; }"
+    )
 
 
 def texts(page, name):
@@ -116,6 +126,34 @@ def test_an_empty_line_does_not_count(editor):
     assert beside(page, "a")[1][1] == 1
 
 
+def test_a_line_of_spaces_alone_does_not_count(editor):
+    """A8b: three spaces between two paragraphs are an empty line too."""
+    page = editor(box("a", "text", {**TEXT, "text": "eins\n   \nzwei", "lines": 1}))
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
+    assert at(page, "a").locator(".ln").all_text_contents() == ["1", "2"]
+    # "zwei" stands on the third line of the text: its number lies two lines below the first.
+    # In the block's own pixels: WebKit gives no box of its own for a text of an SVG.
+    line = at(page, "a").locator(".frame p").first.evaluate("el => el.offsetHeight / 3")
+    first, second = (float(at(page, "a").locator(".ln").nth(i).get_attribute("y")) for i in (0, 1))
+    assert abs(second - first - 2 * line) < 2
+
+
+@pytest.mark.parametrize("font", ["andika", "grund", "va", "sas", "la"])
+def test_every_script_has_a_number_for_each_line_at_the_tightest_spacing(editor, font):
+    """A8a: counted by a second measure, the paragraph's height over the height of a line."""
+    look = {**TEXT, "text": LONG, "lines": 1, "font": font, "spacing": 1}
+    page = editor(box("a", "text", look, w=80, h=200))
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
+    # In the block's own pixels: the zoom scales the paragraph's box on the screen.
+    rows = (
+        at(page, "a")
+        .locator(".frame p")
+        .evaluate("el => el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight)")
+    )
+    assert round(rows) > 3
+    expect(at(page, "a").locator(".ln")).to_have_count(round(rows))
+
+
 def test_small_grey_print_font_on_the_baseline(editor):
     """A10: Andika whatever the font, grey, 0.7 of the text's size, on the text's baseline."""
     page = editor(
@@ -135,7 +173,7 @@ def test_small_grey_print_font_on_the_baseline(editor):
     assert abs(style["size"] - 0.7 * text_size) < 0.1
     # The number and the letters, each cut from the picture: the lowest dark row of each.
     block = at(page, "a").bounding_box()
-    mark = number.bounding_box()
+    mark = rect(number)
     number_ink = lowest_dark_row(
         page.screenshot(
             clip={
@@ -172,7 +210,7 @@ def test_the_numbers_follow_the_line_spacing(editor):
     count = len(texts(page, "a"))
 
     def second():
-        return at(page, "a").locator(".ln").nth(1).bounding_box()["y"]
+        return rect(at(page, "a").locator(".ln").nth(1))["y"]
 
     before = second()
     slider = page.locator(".panel").get_by_label("Zeilenabstand", exact=True)
@@ -270,7 +308,7 @@ def test_the_numbers_take_no_click_and_are_no_text(editor):
     """I6: a click on a number selects nothing; the numbers are no words of the text."""
     page = editor(box("a", "text", {**TEXT, "text": "Hallo", "lines": 1}))
     expect(at(page, "a").locator(".ln")).to_have_count(1)
-    number = at(page, "a").locator(".ln").bounding_box()
+    number = rect(at(page, "a").locator(".ln"))
     page.mouse.click(number["x"] + number["width"] / 2, number["y"] + number["height"] / 2)
     expect(at(page, "a")).not_to_have_class(re.compile("sel"))
     assert not any(ch.isdigit() for ch in at(page, "a").locator(".frame").inner_text())

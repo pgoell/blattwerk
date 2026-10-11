@@ -743,6 +743,8 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
   const box = host.getBoundingClientRect();
   const scale = box.width / host.offsetWidth;
   const em = parseFloat(getComputedStyle(host).fontSize);
+  // Half the height of a line, on the screen.
+  const near = (parseFloat(getComputedStyle(host).lineHeight) * scale) / 2;
   const base = FONTS[block.props.font ?? "andika"][2];
   const shown: SVGTextElement[] = [];
   let count = 0;
@@ -751,18 +753,18 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
       const nodes: Text[] = [];
       const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
       while (walk.nextNode()) if (walk.currentNode.parentElement!.tagName !== "TEXTAREA") nodes.push(walk.currentNode as Text);
-      if (nodes.map((node) => node.data).join("") === "") continue;
-      // A line is a row of rects that the text's nodes lie in, as the bows cluster their syllables.
+      // A line is a row of rects that the text's words lie in. Spaces are no words: a line of spaces alone is as
+      // empty as one with nothing, in a paragraph or between two line breaks. Two words stand in one line when
+      // their tops are less than half a line apart: the box of a school script's letters is two lines high and
+      // more, in WebKit above all, so it reaches over its neighbours.
       const rows: { top: number; bottom: number }[] = [];
-      for (const node of nodes) {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        for (const rect of range.getClientRects()) {
-          if (rect.right <= rect.left) continue;
-          const middle = (rect.top + rect.bottom) / 2;
-          if (!rows.some((row) => middle > row.top && middle < row.bottom)) rows.push({ top: rect.top, bottom: rect.bottom });
+      const range = document.createRange();
+      for (const node of nodes)
+        for (const word of node.data.matchAll(/\S+/g)) {
+          range.setStart(node, word.index);
+          range.setEnd(node, word.index + word[0].length);
+          for (const rect of range.getClientRects()) if (rect.right > rect.left && !rows.some((row) => Math.abs(rect.top - row.top) < near)) rows.push({ top: rect.top, bottom: rect.bottom });
         }
-      }
       rows.sort((a, b) => a.top - b.top);
       for (const row of rows) {
         count++;
@@ -793,26 +795,28 @@ const inBows = (node: Node) => (node instanceof Element ? node : node.parentElem
 export function Numbers({ block }: { block: TextBlock }) {
   const svg = useRef<SVGSVGElement>(null);
   const tools = useRef({ draw: () => {}, seen: () => {} });
-  const size = useRef([0, 0]);
   useLayoutEffect(() => {
     const own = svg.current!;
-    const host = () => own.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
+    const host = own.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
     let frame = 0;
     // One measure a frame, however much changed.
     const later = () => {
       own.classList.add("unsplit");
       frame ||= requestAnimationFrame(() => tools.current.draw());
     };
-    const resized = new ResizeObserver(() => (host().offsetWidth !== size.current[0] || host().offsetHeight !== size.current[1]) && later());
-    resized.observe(host());
+    // The frame and what lies in it: a font that comes in breaks the lines anew and makes the text higher or
+    // lower, in a frame that stays as it is. WebKit sends no event for such a font.
+    const resized = new ResizeObserver(later);
     const changed = new MutationObserver((records) => records.some((record) => !inBows(record.target)) && later());
-    changed.observe(host(), { characterData: true, childList: true, subtree: true });
+    changed.observe(host, { characterData: true, childList: true, subtree: true });
     document.fonts.addEventListener("loadingdone", later);
-    // What React just wrote into the text is drawn for at once, so no frame shows old numbers and none measures twice.
+    // What React just wrote into the text is drawn for at once, so no frame shows old numbers and none measures
+    // twice. The text may lie in a new element since: that one is watched from now on.
     tools.current.seen = () => {
       cancelAnimationFrame(frame);
       frame = 0;
       changed.takeRecords();
+      for (const el of [host, ...host.children]) resized.observe(el);
     };
     return () => {
       cancelAnimationFrame(frame);
@@ -824,8 +828,6 @@ export function Numbers({ block }: { block: TextBlock }) {
   useLayoutEffect(() => {
     tools.current.draw = () => {
       tools.current.seen();
-      const host = svg.current!.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
-      size.current = [host.offsetWidth, host.offsetHeight];
       numbering(svg.current!, block);
     };
     svg.current!.classList.add("unsplit");

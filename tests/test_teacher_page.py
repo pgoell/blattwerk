@@ -706,25 +706,33 @@ def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, s
 
 
 @pytest.mark.native
-def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(folder, server):
+def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(
+    folder, server, playwright
+):
     # The verb's client is gone with its box open: only the holder can answer that box now.
     limit = tool.PATIENCE + 10
+
+    def join():
+        """A client of the holder's window, as a verb is one, on the suite's own Playwright."""
+        client = playwright.chromium.connect_over_cdp(tool.running()["endpoint"])
+        page = client.contexts[0].pages[0]
+        # A client that answers nothing: Playwright would otherwise dismiss the box by itself.
+        page.on("dialog", lambda dialog: None)
+        return client, page
+
     try:
         started = run(folder, server, "start")
         assert started.returncode == 0, (started.stdout, started.stderr)
-        # A client that answers nothing: Playwright would otherwise dismiss the box by itself.
-        with tool.joined() as page:
-            page.on("dialog", lambda dialog: None)
-            with page.expect_event("dialog"):
-                page.evaluate("setTimeout(() => (window.said = confirm('Weg?')), 0)")
-        # Its page waits on the open box; the holder's no is what frees it.
-        with tool.joined() as page:
-            page.on("dialog", lambda dialog: None)
-            page.wait_for_function("window.said === false", timeout=limit * 1000)
+        client, page = join()
+        with page.expect_event("dialog"):
+            page.evaluate("setTimeout(() => (window.said = confirm('Weg?')), 0)")
+        client.close()
+        # The page waits on the open box; the holder's no is what frees it for the next verb.
         done = run(folder, server, "where", "Anmelden", limit=limit)
         assert done.returncode == 0, (done.stdout, done.stderr)
         assert done.stdout.startswith("Anmelden at ") and "A box asked" not in done.stdout
-        with tool.joined() as page:
-            assert page.evaluate("window.said") is False
+        client, page = join()
+        assert page.evaluate("window.said") is False
+        client.close()
     finally:
         run(folder, server, "stop")

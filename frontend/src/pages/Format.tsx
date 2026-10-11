@@ -534,7 +534,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
   const set = both(held, look, style);
-  const one = split &&held.length === 1 ? worded(held[0])! : undefined;
+  const one = split && held.length === 1 ? worded(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
