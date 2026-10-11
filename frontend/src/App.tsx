@@ -33,23 +33,30 @@ export default function App() {
   // shows the loading page while a try is out.
   const [down, setDown] = useState(false);
   const [trying, setTrying] = useState(false);
+  // Each try takes the next number, and only the newest one's answer counts: an older try that answers late is no
+  // answer about the account now. A sign-in takes a number too, so a check still out before it is outdated.
+  const tries = useRef(0);
   const check = () => {
+    const mine = ++tries.current;
+    const newest = () => mine === tries.current;
     setTrying(true);
     api<User>("/me")
       .then(
         (to) => {
+          if (!newest()) return;
           saves.enter(to.id);
           setDown(false);
           setUser(to);
         },
         (e) => {
+          if (!newest()) return;
           if (status(e) === "401") {
             setDown(false);
             setUser(null);
           } else setDown(true);
         },
       )
-      .finally(() => setTrying(false));
+      .finally(() => newest() && setTrying(false));
   };
   useEffect(() => {
     check();
@@ -78,6 +85,7 @@ export default function App() {
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
     // So does a line of an action that failed.
     if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
+    tries.current++;
     saves.enter(to?.id);
     // A login from a link's page answers the account check too: a logout after it shows the login.
     setDown(false);
