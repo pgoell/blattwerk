@@ -12,7 +12,7 @@ import { parasOf, stored, useSplitter, type List, type Para, type Run, type Text
 export type Marks = Omit<Run, "text">;
 // What the format panel shows of the field: the list the caret stands in, and the look of the picked words, or
 // with only a caret that of what is typed next. In a text with Silbenbögen also the word the caret stands in.
-export type Picked = { list?: List; marks: Marks; word?: string };
+export type Picked = { list?: List; marks: Marks; word?: string; gap?: boolean };
 type Splitter = typeof import("../syllables");
 
 // A colour is drawn first and so lies around the others: an underline takes the colour of its words.
@@ -52,6 +52,8 @@ const schema = new Schema({
     text: {},
   },
   marks: {
+    // Outermost, so a gap is the span around the words of its run. A letter typed at its edge is no part of it.
+    gap: { attrs: { v: { default: true } }, inclusive: false, toDOM: () => ["span", { class: "gap", "data-gap": "true" }, ["span", 0]], parseDOM: [{ tag: "span[data-gap]" }] },
     color: mark("color", (v) => `color: ${v}`),
     bold: mark("bold", (v) => `font-weight: ${v ? 700 : 400}`, "b, strong"),
     italic: mark("italic", (v) => `font-style: ${v ? "italic" : "normal"}`, "i, em"),
@@ -67,7 +69,7 @@ const docOf = (p: TextProps) =>
       schema.node(
         "paragraph",
         { list: para.list ?? null, level: para.level ?? 0 },
-        para.runs.filter((r) => r.text).map((r) => schema.text(r.text, NAMES.filter((name) => fits(name, r[name])).map((name) => schema.mark(name, { v: r[name] })))),
+        para.runs.filter((r) => r.text).map((r) => schema.text(r.text, [...(r.gap ? [schema.mark("gap")] : []), ...NAMES.filter((name) => fits(name, r[name])).map((name) => schema.mark(name, { v: r[name] }))])),
       ),
     ),
   );
@@ -117,11 +119,34 @@ function spoken({ selection: { empty, $from } }: EditorState, split: Splitter) {
   }
   return found.find((w) => w.from <= $from.parentOffset && $from.parentOffset <= w.from + w.text.length)?.text;
 }
+// Whether the picked words lie all in a gap, or with only a caret whether the caret does.
+function gapped({ selection: { from, to, empty, $from }, doc, storedMarks }: EditorState) {
+  const type = schema.marks.gap;
+  if (empty) return !!type.isInSet(storedMarks ?? $from.marks());
+  let all = true;
+  doc.nodesBetween(from, to, (n) => {
+    if (n.isText && !type.isInSet(n.marks)) all = false;
+  });
+  return all;
+}
 const picked = (state: EditorState, base: TextProps, split?: Splitter): Picked => ({
   list: state.selection.$from.parent.attrs.list ?? undefined,
   marks: looks(state, base),
+  gap: gapped(state),
   ...(split && { word: spoken(state, split) }),
 });
+// Makes the picked words a gap, or takes the gap off them, in one undo step. A caret inside a word stands for that
+// word, as bold does. With nothing picked nothing changes.
+export function hole(view: EditorView, on: boolean) {
+  const { selection } = view.state;
+  const [from, to] = (selection.empty && word(selection.$from)) || [selection.from, selection.to];
+  if (from === to) return true;
+  const tr = view.state.tr.setMeta("key", "");
+  if (on) tr.addMark(from, to, schema.marks.gap.create());
+  else tr.removeMark(from, to, schema.marks.gap);
+  view.dispatch(tr);
+  return true;
+}
 // Gives the picked words a look. A caret inside a word stands for that word, as in PowerPoint; anywhere else the
 // look is for what is typed next. Bold, italic and underline then need the caret in the field: without it nothing
 // is done, and false says so. A colour does not, since its input takes the focus while it is picked. Bold and

@@ -2,7 +2,8 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, GREYS, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { allCellGap, allGap } from "../gaps";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -17,6 +18,10 @@ type Props = {
   paint: (props: Marks, key?: string) => void;
   // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
   itemize: (kind: List) => void;
+  // Makes the picked words, the cell being edited or else every selected text a gap, or takes the gap off.
+  gap: (on: boolean) => void;
+  // Makes every n-th word of every selected text a gap.
+  every: (n: number) => void;
   // What is picked in the text being edited.
   part?: Picked;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
@@ -133,7 +138,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, look, paint, itemize, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
+export default function Format({ sel, style, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -157,6 +162,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
   const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
+  const gaps = <Gaps key={sel.find(worded)?.id} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
@@ -286,6 +292,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
           {bows}
+          {gaps}
         </>
       )}
       {rulings.length > 0 && (
@@ -389,6 +396,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
             Kopfzeile
           </button>
           {!text && bows}
+          {!text && gaps}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
         </>
       )}
@@ -434,6 +442,55 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
+// A random seed for the solution words, from 1 to 2147483647, and not `not`.
+const draw = (not?: number): number => {
+  const seed = 1 + Math.floor(Math.random() * 2147483647);
+  return seed === not ? draw(not) : seed;
+};
+
+// The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
+// have, the box of solution words, and every n-th word. Each switch is on unless all have it, as bold. With a table
+// cell open the switch is that cell's, and with a text open that of the picked words.
+function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | "part" | "cell" | "look" | "style" | "gap" | "every">) {
+  const held = sel.filter(worded);
+  // The n of "Jedes n-te Wort", as typed.
+  const [n, setN] = useState("5");
+  if (!held.length) return null;
+  const cells = cell !== undefined && sel.length === 1 && sel[0].type === "table" ? sel[0].props : undefined;
+  const lit = part ? !!part.gap : cells ? !!cells.gaps?.[Math.floor(cell! / cells.cols.length)]?.[cell! % cells.cols.length] : held.every((b) => (b.type === "table" ? allCellGap(b.props.cells, b.props.gaps) : allGap(parasOf(boxed(b)!))));
+  const same = held.every((b) => worded(b)!.gapWidth !== undefined);
+  const bank = held.every((b) => worded(b)!.bank !== undefined);
+  // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step.
+  const set = (props: object, key?: string) => {
+    if (held.some(boxed)) look(props, key);
+    if (held.some((b) => b.type === "table")) style("table", props, key);
+  };
+  // The widest gap drawn in the selected blocks, in whole mm, or 30 when none is drawn.
+  const widest = () => {
+    const drawn = [...document.querySelectorAll<HTMLElement>(".block.sel .gap")];
+    return drawn.length ? Math.max(5, Math.ceil(Math.max(...drawn.map((el) => el.offsetWidth / K)))) : 30;
+  };
+  const seed = worded(held[0])!.bank;
+  return (
+    <>
+      <button className={lit ? "on" : ""} aria-pressed={lit} onClick={() => gap(!lit)}>
+        Lücke
+      </button>
+      <button className={same ? "on" : ""} aria-pressed={same} onClick={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")}>
+        Gleiche Breite
+      </button>
+      {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidth")} />}
+      <div className="seg">
+        <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
+        <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
+      </div>
+      <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
+        Lösungswörter
+      </button>
+      {bank && <button onClick={() => set({ bank: draw(seed) })}>Neu mischen</button>}
+    </>
+  );
+}
 
 // The switches for the bows under the syllables and for their colours, for every selected block that holds words: on
 // unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
