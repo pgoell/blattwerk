@@ -15,6 +15,8 @@ type Props = {
   sel: Block[];
   // Sets props on every selected block of one type.
   style: (type: Block["type"], props: object, key?: string) => void;
+  // Adds `by` to the score of each picked score box, each from its own number.
+  bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
@@ -141,7 +143,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
+export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -419,9 +421,7 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
         <>
           <h2>Punkte</h2>
           <div className="seg">
-            <button aria-label="Ein Punkt weniger" onClick={() => style("points", { max: Math.max(1, points.props.max - 1) })}>−</button>
-            <ScoreInput max={points.props.max} change={(max) => style("points", { max })} />
-            <button aria-label="Ein Punkt mehr" onClick={() => style("points", { max: points.props.max + 1 })}>＋</button>
+            <ScoreInput max={points.props.max} change={(max) => style("points", { max })} steps={bump} />
           </div>
         </>
       )}

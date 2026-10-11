@@ -1025,6 +1025,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!live.current.doc.pages[n]?.blocks.some((b) => b.id === id && b.type === "points")) return;
     turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === id && b.type === "points" ? ({ ...b, props: { ...b.props, max } } as Block) : b)) }), "", n);
   }
+  // Adds `by` to the score of each picked score box, from its own number: the panel's field shows only the first one's.
+  function bump(by: number) {
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "points" ? ({ ...b, props: { ...b.props, max: Math.min(999, Math.max(1, b.props.max + by)) } } as Block) : b)));
+  }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
     if (n === undefined) update((doc) => ({ ...doc, guides: fn(doc.guides) }), key);
@@ -2938,6 +2942,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 // A block of a group with a locked one is as fixed there as the locked one.
                 sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}
+                bump={bump}
                 look={look}
                 paint={paint}
                 itemize={itemize}

@@ -1115,26 +1115,27 @@ export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >=
 
 // The field of a score, in a box or in the panel. However it ends, except by Escape, it keeps the typed score when that is
 // a whole number from 1 to 999; any other text leaves the old one. `change` gets the score and makes no step when the
-// sheet has it already. `end` runs after Enter, `blur` on leaving the field.
-export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
+// sheet has it already. `end` runs after Enter, `blur` on leaving the field. `steps` adds the buttons that count by one,
+// each from the sheet's own number, after the typed score is kept.
+export function ScoreInput({ max, change, end, blur, steps }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void; steps?: (by: number) => void }) {
   const [draft, setDraft] = useState(String(max));
-  // What is typed, the score shown by the sheet, the score last sent to it, whether Escape ended the field, and whether
-  // the teacher typed in it. A field nobody typed in sends nothing: in the panel its max is the first picked box's, and
-  // sending that would set every picked box to it.
+  const [round, setRound] = useState(0);
+  // What is typed, the score shown by the sheet, whether Escape ended the field, and whether the teacher typed in it.
+  // A field nobody typed in sends nothing: in the panel its max is the first picked box's, and sending that would set
+  // every picked box to it.
   const typed = useRef(String(max));
   const shown = useRef(max);
-  const sent = useRef<number>(undefined);
   const off = useRef(false);
   const dirty = useRef(false);
-  const latest = useRef({ change, end, blur });
-  latest.current = { change, end, blur };
+  const latest = useRef({ change, end, blur, steps });
+  latest.current = { change, end, blur, steps };
   shown.current = max;
+  // A press of a button counts too, though the first box's number may stay as it was: the field then shows the sheet's.
   useEffect(() => {
     typed.current = String(max);
-    sent.current = undefined;
     dirty.current = false;
     setDraft(String(max));
-  }, [max]);
+  }, [max, round]);
   // Runs on Enter, on a blur and when the field goes, so a score is kept once for each way the field ends.
   function keep() {
     if (off.current || !dirty.current) return;
@@ -1143,14 +1144,19 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
       typed.current = String(shown.current);
       return setDraft(typed.current);
     }
-    if (next === sent.current) return;
-    sent.current = next;
     dirty.current = false;
     latest.current.change(next);
   }
   // The field goes on the press that ends it, which takes no blur with it: so its score is kept as it leaves.
   useEffect(() => keep, []);
+  function press(by: number) {
+    keep();
+    setRound((n) => n + 1);
+    latest.current.steps?.(by);
+  }
   return (
+    <>
+      {steps && <button aria-label="Ein Punkt weniger" onClick={() => press(-1)}>−</button>}
     <input
       className="score"
       inputMode="numeric"
@@ -1180,6 +1186,8 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
         e.currentTarget.blur();
       }}
     />
+      {steps && <button aria-label="Ein Punkt mehr" onClick={() => press(1)}>＋</button>}
+    </>
   );
 }
 

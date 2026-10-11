@@ -73,3 +73,81 @@ def test_a_number_typed_in_the_panel_is_kept_when_the_selection_is_let_go(editor
     expect(at(page, "a").locator(".points")).to_have_text("/ 7 Punkte")
     expect(at(page, "b").locator(".points")).to_have_text("/ 7 Punkte")
     assert maxes(page, client) == {"a": 7, "b": 7, "c": 10}
+
+
+def test_a_number_typed_again_after_an_undo_is_stored(editor):
+    client = user()
+    page = three(editor, client)
+    pick(page, "a", "b")
+    page.locator(PANEL_SCORE).fill("")
+    page.locator(PANEL_SCORE).press_sequentially("60")
+    page.locator(PANEL_SCORE).press("Enter")
+    expect(at(page, "b").locator(".points")).to_have_text("/ 60 Punkte")
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    expect(at(page, "b").locator(".points")).to_have_text("/ 15 Punkte")
+    page.locator(PANEL_SCORE).fill("")
+    page.locator(PANEL_SCORE).press_sequentially("60")
+    page.locator(PANEL_SCORE).press("Enter")
+    assert maxes(page, client) == {"a": 60, "b": 60, "c": 10}
+
+
+def test_plus_gives_each_picked_box_one_more_of_its_own_number(editor):
+    client = user()
+    page = three(editor, client)
+    pick(page, "a", "b")
+    page.get_by_label("Ein Punkt mehr", exact=True).click()
+    assert maxes(page, client) == {"a": 61, "b": 16, "c": 10}
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    assert maxes(page, client) == {"a": 60, "b": 15, "c": 10}
+
+
+def test_minus_gives_each_picked_box_one_less_and_stops_at_one(editor):
+    client = user()
+    page = editor(
+        box("a", "points", {"max": 2}),
+        box("b", "points", {"max": 1}, z=2),
+        client=client,
+    )
+    pick(page, "a", "b")
+    page.get_by_label("Ein Punkt weniger", exact=True).click()
+    assert maxes(page, client) == {"a": 1, "b": 1}
+
+
+def test_plus_stops_at_999(editor):
+    client = user()
+    page = editor(box("a", "points", {"max": 999}), client=client)
+    pick(page, "a")
+    page.get_by_label("Ein Punkt mehr", exact=True).click()
+    assert maxes(page, client) == {"a": 999}
+    undo_is_off(page)
+
+
+def test_a_number_typed_and_not_sent_is_stored_before_plus_counts(editor):
+    client = user()
+    page = three(editor, client)
+    pick(page, "a", "b")
+    page.locator(PANEL_SCORE).fill("")
+    page.locator(PANEL_SCORE).press_sequentially("7")
+    page.get_by_label("Ein Punkt mehr", exact=True).click()
+    assert maxes(page, client) == {"a": 8, "b": 8, "c": 10}
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    assert maxes(page, client) == {"a": 7, "b": 7, "c": 10}
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    assert maxes(page, client) == {"a": 60, "b": 15, "c": 10}
+
+
+def test_the_field_shows_the_sheet_after_plus_when_the_first_box_ends_where_it_began(editor):
+    client = user()
+    page = editor(
+        box("a", "points", {"max": 8}),
+        box("b", "points", {"max": 15}, z=2),
+        client=client,
+    )
+    pick(page, "a", "b")
+    page.locator(PANEL_SCORE).fill("")
+    page.locator(PANEL_SCORE).press_sequentially("7")
+    page.get_by_label("Ein Punkt mehr", exact=True).click()
+    assert maxes(page, client) == {"a": 8, "b": 8}
+    expect(page.locator(PANEL_SCORE)).to_have_value("8")
+    page.keyboard.press("Escape")
+    assert maxes(page, client) == {"a": 8, "b": 8}
