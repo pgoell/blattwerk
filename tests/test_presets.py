@@ -248,6 +248,20 @@ def test_a_typed_score_takes_one_undo_step_when_a_press_ends_it(editor):
     assert max_of(saved(page, client), "a") == 10
 
 
+@pytest.mark.parametrize("where", ["box", "panel"])
+def test_a_score_field_left_as_it_is_makes_no_undo_step(editor, where):
+    page = editor(box("a", "points", {"max": 10}), box("b", "text", TEXT, z=2))
+    if where == "box":
+        at(page, "a").dblclick()
+        expect(at(page, "a").locator("input.score")).to_be_focused()
+    else:
+        pick(page, "a")
+        page.locator(".panel input.score").click()
+    at(page, "b").click()
+    expect(page.locator("input.score")).to_have_count(0)
+    expect(page.get_by_label("Rückgängig", exact=True).first).to_be_disabled()
+
+
 def test_a_name_line_word_is_kept_when_a_press_on_another_page_ends_it(editor):
     client = user()
     page = editor(box("a", "name", {}), client=client, pages=[{"blocks": [box("c", "text", TEXT)]}])
