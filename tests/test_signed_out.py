@@ -338,7 +338,7 @@ def test_a_wrong_password_at_the_login_says_so_and_the_right_one_signs_in(window
 SHEET = "the sheet"
 TYPED = "Die Lineatur fehlt mir."
 PHOTO = {"name": "blatt.png", "mimeType": "image/png", "buffer": png()}
-NO_MATHS = "Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?"
+NO_MATHS = "Die Aufgaben konnten nicht erzeugt werden. Blattomat hat gerade eine Störung."
 NO_FEEDBACK = "Das hat nicht geklappt. Dein Feedback ist noch da, versuch es gleich nochmal."
 HEADS = {
     "/": "Meine Blätter",
@@ -539,12 +539,11 @@ def test_a_call_that_fails_for_another_reason_says_so_as_before_and_brings_no_lo
     with page.expect_response(answers) as got:
         CALLS[call][2](page)
     assert got.value.status == 500
-    if call == "maths block":
+    if call in ("maths block", "maths limit"):
+        # Since #363 a line above the page says so, and no box of the browser.
+        expect(page.locator(".notice.fault")).to_contain_text(NO_MATHS)
         expect(page.locator(".block[data-id]")).to_have_count(1)
-        page.evaluate(FRAMES)
-        assert alerts == [NO_MATHS]
-    elif call == "maths limit":
-        expect(page.locator(".panel").get_by_role("alert")).to_have_text(NO_MATHS)
+        assert alerts == []
     else:
         form = page.locator("dialog.feedback")
         expect(form.get_by_role("status")).to_have_text(NO_FEEDBACK)

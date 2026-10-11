@@ -461,14 +461,13 @@ def test_a_choice_answered_404_with_no_word_on_who_is_signed_in_says_so_and_stan
 
 
 @pytest.mark.parametrize("whose", ["another-accounts", "the-owners"])
-def test_the_start_drops_a_kept_change_whose_sheet_is_gone_only_under_its_owners_session(
-    run, whose
-):
+def test_the_start_takes_a_kept_changes_sheet_for_deleted_only_under_its_owners_session(run, whose):
     """A12: the start asks for the sheet of a kept change, and the answer is a 404. Under the
-    owner's own session the sheet was deleted, and the record goes. Where another teacher signed
-    in in another tab while the sheet was asked for, the record stays, and the owner's next
-    start saves the change. #353 A5: the 404 names whom it was served for, and the tab asks who
-    is signed in once, as it starts."""
+    owner's own session the sheet was deleted: the record stays (#360), and a line asks what
+    becomes of the change. Where another teacher signed in in another tab while the sheet was
+    asked for, the record stays with no such line, and the owner's next start saves the change.
+    #353 A5: the 404 names whom it was served for, and the tab asks who is signed in once, as it
+    starts."""
     page, _ = start(run)
     nudge(run)
     shut(page, 1)
@@ -492,10 +491,17 @@ def test_the_start_drops_a_kept_change_whose_sheet_is_gone_only_under_its_owners
     page.evaluate(FRAMES)
     assert not sent
     if whose == "the-owners":
-        page.wait_for_function(DROPPED, arg=a)
+        said = page.locator(NOTICE)
+        expect(said).to_contain_text("„a“ wurde auf einem anderen Gerät gelöscht.")
+        assert record(page, a) == kept
         assert len(asked) == 1
+        said.page.once("dialog", lambda dialog: dialog.accept())
+        said.get_by_role("button", name="Verwerfen").click()
+        page.wait_for_function(DROPPED, arg=a)
+        assert not sent
         return
     assert len(asked) == 1
+    expect(page.locator(NOTICE)).to_have_count(0)
     assert record(page, a) == kept
     assert x_of(run, "a") == 15
     page.close()

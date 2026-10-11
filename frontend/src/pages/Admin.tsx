@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, post, type User } from "../api";
+import { attempt } from "../fault";
 import { signed } from "../saves";
 
 // The folder of a deleted account that would not go. `since` is UTC, "YYYY-MM-DD HH:MM:SS".
@@ -15,15 +16,16 @@ export default function Admin() {
   const [link, setLink] = useState({ label: "", url: "" });
 
   useEffect(() => {
-    // Asked with the session run out, each brings the login. The page has no word for a failure.
-    signed(api<User[]>("/admin/users")).then(setUsers, () => {});
-    signed(api<Leftover[]>("/admin/leftovers")).then(setLeftovers, () => {});
+    // Asked with the session run out, each brings the login. One that fails says so above the page.
+    attempt("Die Konten konnten nicht geladen werden.", () => signed(api<User[]>("/admin/users")).then(setUsers));
+    attempt("Die nicht gelöschten Ordner konnten nicht geladen werden.", () => signed(api<Leftover[]>("/admin/leftovers")).then(setLeftovers));
   }, []);
 
-  async function make(path: string, page: string, label: string) {
-    const made = await signed(post<{ token: string }>(path)).catch(() => undefined);
-    if (made) setLink({ label, url: `${location.origin}/${page}/${made.token}` });
-  }
+  const make = (what: string, path: string, page: string, label: string) =>
+    attempt(what, async () => {
+      const made = await signed(post<{ token: string }>(path));
+      setLink({ label, url: `${location.origin}/${page}/${made.token}` });
+    });
 
   return (
     <main>
@@ -42,7 +44,7 @@ export default function Admin() {
         </div>
       )}
       <div className="card">
-        <button type="button" className="primary" onClick={() => make("/admin/invites", "einladung", "Einladung")}>Einladung erstellen</button>
+        <button type="button" className="primary" onClick={() => make("Die Einladung konnte nicht erstellt werden.", "/admin/invites", "einladung", "Einladung")}>Einladung erstellen</button>
       </div>
       {link.url && (
         <div className="card">
@@ -57,7 +59,7 @@ export default function Admin() {
           {users.map((user) => (
             <li key={user.id}>
               <span>{user.email}{user.admin && " (Admin)"}</span>
-              <button type="button" className="plain" onClick={() => make(`/admin/users/${user.id}/reset`, "passwort", `Neues Passwort für ${user.email}`)}>
+              <button type="button" className="plain" onClick={() => make("Der Passwort-Link konnte nicht erstellt werden.", `/admin/users/${user.id}/reset`, "passwort", `Neues Passwort für ${user.email}`)}>
                 Passwort-Link
               </button>
             </li>

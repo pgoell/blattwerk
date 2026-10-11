@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { post, type User } from "../api";
 import AuthShell from "../components/AuthShell";
+import { status as reason, why } from "../fault";
 
 // An invite link makes an account; a reset link sets a new password.
 export default function SetPassword({ invite, onDone }: { invite?: boolean; onDone: (user: User) => void }) {
@@ -16,10 +17,14 @@ export default function SetPassword({ invite, onDone }: { invite?: boolean; onDo
       onDone(await post<User>(invite ? "/signup" : "/reset", body));
       navigate("/");
     } catch (err) {
+      // With no connection or a fault of the server the link is not the one to blame.
+      const s = reason(err);
       setStatus(
-        (err as Error).message === "409"
+        s === "409"
           ? "Für diese E-Mail gibt es schon ein Konto."
-          : "Der Link gilt nicht mehr. Bitte frag nach einem neuen.",
+          : s === "offline" || s.startsWith("5")
+            ? `${invite ? "Das Konto konnte nicht angelegt werden." : "Das Passwort konnte nicht gespeichert werden."} ${why(s)}`
+            : "Der Link gilt nicht mehr. Bitte frag nach einem neuen.",
       );
     }
   }

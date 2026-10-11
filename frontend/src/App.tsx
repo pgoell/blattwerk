@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
+import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
+import { clear, Faults } from "./fault";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
@@ -57,7 +58,8 @@ export default function App() {
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
-    if (to?.id !== was.current) (forgetDraft(), forgetPhotos());
+    // So does a line of an action that failed.
+    if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
     saves.enter(to?.id);
     setUser(to);
     setEntered((n) => n + 1);
@@ -95,6 +97,7 @@ export default function App() {
   return (
     <>
       <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />
+      <Faults />
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
@@ -126,11 +129,26 @@ export default function App() {
 // A line for each sheet that is not on screen and whose last change is not saved yet: after a second, or as soon as
 // the save failed. It goes when the save lands. Nothing stands here while there is nothing to say. At the login
 // that a save brought, the sheet on the address has no editor, so its line stands too; a logout leaves no saver.
+// A sheet deleted on another device has a line with the teacher's two choices, wherever its editor is not there:
+// on its own address too, which shows no sheet after a reload. What was kept becomes a new sheet, which opens, or
+// it is dropped, and the dead sheet's address gives way to the list.
 function Notices({ owner, id }: { owner?: number; id?: string }) {
-  const open = saves.useSaves().list.filter((s) => s.owner === owner && String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late));
+  const navigate = useNavigate();
+  const open = saves.useSaves().list.filter((s) => s.owner === owner && (s.gone ? !s.open : String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late)));
   return open.map((s) => (
-    <p key={s.id} className="notice" role="status">
-      {s.stopped ? (
+    <p key={s.id} className="notice" role={s.gone ? "alert" : "status"}>
+      {s.gone ? (
+        <>
+          „{s.title}“ wurde auf einem anderen Gerät gelöscht. Deine letzte Änderung ist noch da.
+          <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.keepAsNew(s.id).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`))}>
+            Als neues Blatt behalten
+          </button>
+          <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && location.pathname === `/blatt/${s.id}` && navigate("/"))}>
+            Verwerfen
+          </button>
+          {s.choice && <span>{s.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+        </>
+      ) : s.stopped ? (
         // First of all: without a login a clash has no sheet to open either.
         `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert.`
       ) : s.clash ? (

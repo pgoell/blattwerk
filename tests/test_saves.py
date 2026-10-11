@@ -19,7 +19,7 @@ import pytest
 from fastapi import HTTPException
 from playwright.sync_api import Error, expect
 from test_loading import READY, expect_loading, expect_ready, window  # noqa: F401
-from test_stale import GO, KEPT, STATUS, TURNS, Gate, Run, blocks, named
+from test_stale import KEPT, STATUS, TURNS, Gate, Run, blocks, named
 from ui import PASSWORD, TEXT, at, box, user
 
 from blattwerk import sheets
@@ -644,17 +644,22 @@ def test_the_browser_does_not_ask_when_all_is_saved(run):
     assert x_of(run, "a") == 16
 
 
-def test_a_sheet_deleted_meanwhile_drops_its_kept_change_and_its_notice(run):
-    """I5, and #353 A5: the 404 names its owner, and nobody is asked who is signed in."""
+def test_a_sheet_deleted_meanwhile_keeps_its_change_and_its_notice_asks_what_becomes_of_it(run):
+    """I5, and #353 A5: the 404 names its owner, and nobody is asked who is signed in. #360: the
+    change is not dropped; the notice says that the sheet was deleted, and the teacher chooses."""
     page, gate = leave(run, "held", "sheet")
     page.clock.run_for(1000)
     expect(page.locator(NOTICE)).to_have_text(unsaved("a"))
-    assert record(page, run.ids["a"])
+    kept = record(page, run.ids["a"])
+    assert kept
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
     asked = asks_me(page)
     answer(run, "a")
-    expect(page.locator(NOTICE)).to_have_count(0)
-    assert record(page, run.ids["a"]) is None
+    said = page.locator(NOTICE)
+    expect(said).to_contain_text(
+        "„a“ wurde auf einem anderen Gerät gelöscht. Deine letzte Änderung ist noch da."
+    )
+    assert record(page, run.ids["a"]) == kept
     assert asked == []
     # Nothing more is tried, and the app goes on.
     page.clock.run_for(60000)
@@ -663,6 +668,13 @@ def test_a_sheet_deleted_meanwhile_drops_its_kept_change_and_its_notice(run):
     assert [run.whose(request) for request in run.sent] == ["a"]
     run.check()
     to_list(run)
+    expect(page.locator(".sheets li")).to_have_count(2)
+    expect(said).to_have_count(1)
+    assert record(page, run.ids["a"]) == kept
+    said.page.once("dialog", lambda dialog: dialog.accept())
+    said.get_by_role("button", name="Verwerfen").click()
+    expect(said).to_have_count(0)
+    assert record(page, run.ids["a"]) is None
     expect(page.locator(".sheets li")).to_have_count(2)
 
 
@@ -1015,14 +1027,27 @@ CHOICES = ["Andere Version laden", "Mit dieser überschreiben"]
 
 
 @pytest.mark.parametrize("choice", CHOICES)
-def test_a_clash_whose_sheet_was_deleted_elsewhere_ends_at_either_choice(run, choice):
-    """Second review 2"""
+def test_a_clash_whose_sheet_was_deleted_elsewhere_ends_in_the_deleted_sheets_choice(run, choice):
+    """Second review 2, and #360 A9: either choice finds the sheet gone. The clash is over, the
+    change stays in the editor and in the store, and the banner asks what becomes of it."""
     page, _ = start(run)
     clash(run)
+    moved = at(page, "a").evaluate(LEFT)
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
-    page.locator(".clash").get_by_role("button", name=choice).click()
-    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
-    page.evaluate(GO, "/")
+    banner = page.locator(".clash")
+    banner.get_by_role("button", name=choice).click()
+    expect(banner).to_contain_text("Dieses Blatt wurde auf einem anderen Gerät gelöscht.")
+    expect(banner).to_have_count(1)
+    for name in CHOICES:
+        expect(banner.get_by_role("button", name=name)).to_have_count(0)
+    expect(banner.get_by_role("button", name="Als neues Blatt behalten")).to_be_enabled()
+    expect(banner).not_to_contain_text("Lädt …")
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_have_count(0)
+    expect(at(page, "a")).to_have_css("left", moved)
+    assert kept_x(page, run) == 16
+    assert len(run.sent) == 1
+    banner.page.once("dialog", lambda dialog: dialog.accept())
+    banner.get_by_role("button", name="Verwerfen").click()
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
     expect(page.locator(".sheets li")).to_have_count(2)
     expect(page.locator(NOTICE)).to_have_count(0)
