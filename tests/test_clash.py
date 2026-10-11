@@ -30,6 +30,7 @@ from test_saves import (  # noqa: F401
     NOTICE,
     again,
     answer,
+    asks_me,
     change,
     clash,
     elsewhere,
@@ -39,11 +40,12 @@ from test_saves import (  # noqa: F401
     run,
     shut,
     start,
+    to_list,
     unsaved,
     x_of,
 )
 from test_signed_out import expect_login, login
-from test_stale import FRAMES, STATUS, TURNS, Gate, named
+from test_stale import FRAMES, GO, STATUS, TURNS, Gate, named
 from ui import at, pick, user
 
 from blattwerk import sheets
@@ -393,22 +395,26 @@ def test_a_choice_answered_404_under_another_accounts_session_keeps_the_change_f
 ):
     """A10, I5: another teacher signed in in another tab, so the owner's sheet is not there for
     the session. The login shows, the record stays, and after the owner's login the clash stands
-    with both choices, which then do what they say."""
+    with both choices, which then do what they say. #353 A5: the 404 names that teacher, and
+    nobody is asked who is signed in."""
     page, gate = start(run)
     theirs = clash(run)
     moved = at(page, "a").evaluate(LEFT)
     a = run.ids["a"]
     kept = record(page, a)
     page.evaluate(WATCH)
-    swap(page, run.server, user())
+    other, asked = user(), asks_me(page)
+    swap(page, run.server, other)
     with page.expect_response(gate.answers("GET")) as got:
         page.locator(".clash").get_by_role("button", name=choice).click()
     assert got.value.status == 404
+    assert got.value.headers["x-user"] == str(other.get("/api/me").json()["id"])
     expect_login(page, f"{run.server}/blatt/{a}")
     expect(page.locator(NOTICE)).to_have_text(WAITS)
     assert not page.evaluate("window.missing")
     assert record(page, a) == kept
     safe(run, page, run.sent, theirs, n=1)
+    assert asked == []
     # The owner signs in again.
     page.clock.resume()
     login(page, run.server, run.client)
@@ -428,23 +434,24 @@ def test_a_choice_answered_404_under_another_accounts_session_keeps_the_change_f
 def test_a_choice_answered_404_with_no_word_on_who_is_signed_in_says_so_and_stands_again(
     run, choice
 ):
-    """A10: whose session the 404 came from is not known, so nothing is dropped and nobody is
-    signed out. The banner says that it did not work, and the next press goes through."""
+    """A10, #353 I3: the 404 names nobody, so whose session it came from is not known. Nothing
+    is dropped, nobody is signed out and nobody is asked. The banner says that it did not work,
+    and the next press goes through."""
     page, gate = start(run)
     theirs = clash(run)
     moved = at(page, "a").evaluate(LEFT)
     kept = record(page, run.ids["a"])
     page.evaluate(WATCH)
-    page.route("**/api/me", lambda route: route.fulfill(status=500))
+    asked = asks_me(page)
     load = press(run, choice)
-    with page.expect_response("**/api/me"):
+    with page.expect_response(gate.answers("GET")):
         load.fulfill(status=404)
     page.evaluate(TURNS)
     expect_word(page)
     assert not page.evaluate("window.missing")
     assert record(page, run.ids["a"]) == kept
     stands(run, page, run.sent, theirs, moved, n=1)
-    page.unroute("**/api/me")
+    assert asked == []
     gate.free, gate.keep = True, False
     banner = page.locator(".clash")
     banner.get_by_role("button", name=choice).click()
@@ -460,7 +467,8 @@ def test_the_start_drops_a_kept_change_whose_sheet_is_gone_only_under_its_owners
     """A12: the start asks for the sheet of a kept change, and the answer is a 404. Under the
     owner's own session the sheet was deleted, and the record goes. Where another teacher signed
     in in another tab while the sheet was asked for, the record stays, and the owner's next
-    start saves the change."""
+    start saves the change. #353 A5: the 404 names whom it was served for, and the tab asks who
+    is signed in once, as it starts."""
     page, _ = start(run)
     nudge(run)
     shut(page, 1)
@@ -468,7 +476,7 @@ def test_the_start_drops_a_kept_change_whose_sheet_is_gone_only_under_its_owners
     if whose == "the-owners":
         assert run.client.delete(f"/api/sheets/{a}").status_code == 200
     page = run.page.context.new_page()
-    sent = []
+    sent, asked = [], asks_me(page)
     page.on("request", lambda r: r.method == "PATCH" and sent.append(r))
     gate = Gate(page, a)
     with page.expect_request(gate.asks("GET")):
@@ -478,15 +486,16 @@ def test_the_start_drops_a_kept_change_whose_sheet_is_gone_only_under_its_owners
     assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 16
     if whose == "another-accounts":
         swap(page, run.server, user())
-    with page.expect_response(gate.answers("GET")) as got, page.expect_response("**/api/me") as me:
+    with page.expect_response(gate.answers("GET")) as got:
         gate.loads.pop().continue_()
     assert got.value.status == 404
-    me.value.finished()
     page.evaluate(FRAMES)
     assert not sent
     if whose == "the-owners":
         page.wait_for_function(DROPPED, arg=a)
+        assert len(asked) == 1
         return
+    assert len(asked) == 1
     assert record(page, a) == kept
     assert x_of(run, "a") == 15
     page.close()
@@ -545,3 +554,248 @@ def test_another_accounts_record_survives_a_start_a_sheet_opened_and_a_delete_on
     expect(page.locator(".sheets li")).to_have_count(0)
     untouched()
     assert asked == ["GET", "DELETE"]
+
+
+def x_at(client, sheet_id):
+    return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"][0]["x"]
+
+
+@pytest.mark.parametrize("me", ["answers", "fails"])
+def test_a_change_kept_by_a_window_that_holds_another_account_carries_the_sheets_owner(run, me):
+    """Issue #353, A1, A2, A3, A5: the window holds A, and B signs in in another tab. On the
+    list, with no reload, B's sheet is opened and changed while no save lands, and the tab shuts.
+    The record names B, as the sheet's answer does, also where the window cannot ask who is
+    signed in. A's next start leaves it alone, and B's sends it."""
+    page, _ = start(run)
+    b = user()
+    d = run.ids["d"] = named(b, "d")
+    gate = run.gates["d"] = Gate(page, d)
+    gate.free = gate.keep = True
+    if me == "fails":
+        page.route("**/api/me", lambda route: route.fulfill(status=500))
+    swap(page, run.server, b)
+    to_list(run)
+    expect(page.locator(".sheets li strong")).to_have_text(["d"])
+    page.locator(".sheets a").click()
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    run.here = {"name": "d", "state": "in"}
+    change(run)
+    answer(run, "d", 500)
+    kept = record(page, d)
+    assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 16
+    assert kept["owner"] == b.get("/api/me").json()["id"]
+    shut(page, 1)
+    # A's next start.
+    page, _, sent = again(run, None, client=run.client)
+    assert record(page, d) == kept
+    asked = []
+    page.on("request", lambda r: r.url.endswith(f"/api/sheets/{d}") and asked.append(r.method))
+    with page.expect_response(f"{run.server}/api/sheets") as listed:
+        page.reload()
+    listed.value.finished()
+    expect(page.locator(".sheets li")).to_have_count(3)
+    page.evaluate(FRAMES)
+    assert not sent
+    assert asked == []
+    assert record(page, d) == kept
+    assert x_at(b, d) == 15
+    page.close()
+    # B's next visit.
+    page, _, sent = again(run, None, client=b)
+    page.wait_for_function(DROPPED, arg=d)
+    assert x_at(b, d) == 16
+    assert len(sent) == 1
+
+
+def test_a_window_that_hears_an_answer_served_for_another_account_goes_on_as_that_one(run):
+    """Issue #353, I1: B signed in in another tab, and the list this window asks for is B's.
+    The window asks who is signed in, once, and goes on as at B's login: no login shows, the
+    clipboard is emptied, and A's saver leaves with its change kept, which A's next start saves."""
+    page, gate = start(run)
+    a, b = run.ids["a"], user()
+    named(b, "d")
+    page.evaluate("localStorage.setItem('clip', '{}')")
+    nudge(run)
+    asked = asks_me(page)
+    swap(page, run.server, b)
+    with page.expect_request(gate.asks("PATCH")), page.expect_response("**/api/me") as me:
+        to_list(run)
+    me.value.finished()
+    page.evaluate(TURNS)
+    expect(page.locator(".sheets li strong")).to_have_text(["d"])
+    expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
+    expect(page.locator(NOTICE)).to_have_count(0)
+    assert page.evaluate("localStorage.getItem('clip')") is None
+    kept = record(page, a)
+    assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 16
+    assert kept["owner"] == run.client.get("/api/me").json()["id"]
+    # The save that went as A's sheet was left is answered under B's session: nobody hears it.
+    with page.expect_response(gate.answers("PATCH")) as got:
+        gate.saves.pop().continue_()
+    assert got.value.status == 404
+    page.clock.run_for(60000)
+    page.evaluate(TURNS)
+    expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
+    assert record(page, a) == kept
+    assert x_of(run, "a") == 15
+    assert len(run.sent) == 1
+    assert len(asked) == 1
+    page.evaluate(GO, "/konto")
+    expect(page.get_by_text(f"Angemeldet als {b.get('/api/me').json()['email']}")).to_be_visible()
+    # Nothing of B's is unsaved, so the browser has nothing to ask.
+    assert shut(page) == []
+    page, _, sent = again(run, None, client=run.client)
+    page.wait_for_function(DROPPED, arg=a)
+    assert x_of(run, "a") == 16
+    assert len(sent) == 1
+
+
+def loads_of(page, gate):
+    """The loads of the gate's sheet that the page asks for, from here on."""
+    loads = []
+    page.on("request", lambda r: gate.asks("GET")(r) and loads.append(r))
+    return loads
+
+
+def test_two_answers_served_for_another_account_ask_who_is_signed_in_once(run):
+    """Issue #353, I1: the list is B's, and B's sheet is opened and changed before the window
+    has heard who is signed in. One request asks, and its answer starts the editor over once,
+    for the account is another now: the change shows on, and is saved."""
+    page, _ = start(run)
+    b = user()
+    d = named(b, "d")
+    gate = Gate(page, d)
+    gate.free = True
+    held = []
+    page.route("**/api/me", lambda route: held.append(route))
+    loads = loads_of(page, gate)
+    swap(page, run.server, b)
+    to_list(run)
+    page.locator(".sheets a").click()
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    pick(page, "d")
+    page.keyboard.press("ArrowRight")
+    page.evaluate(TURNS)
+    moved = at(page, "d").evaluate(LEFT)
+    assert len(held) == 1
+    with page.expect_response(gate.answers("GET")) as anew:
+        held[0].continue_()
+    anew.value.finished()
+    page.evaluate(TURNS)
+    expect(at(page, "d")).to_have_css("left", moved)
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert x_at(b, d) == 16
+    assert len(held) == 1
+    assert len(loads) == 2
+
+
+def test_a_late_answer_served_for_the_account_before_leaves_the_editor_as_it_is(run):
+    """Issue #353, I1: A's list has no answer yet when B signs in in another tab, and B's sheet
+    makes the window B's. Then the list's answer comes, served for A. The window asks who is
+    signed in and hears nothing new: the editor does not start over, an undo step stays, and
+    the change is saved as ever."""
+    page, _ = start(run)
+    b = user()
+    d = named(b, "d")
+    gate = Gate(page, d)
+    listed, lists = f"{run.server}/api/sheets", []
+    page.route(listed, lambda route: lists.append(route))
+    with page.expect_request(listed):
+        page.get_by_label("Meine Blätter").click()
+    page.evaluate(TURNS)
+    late = lists.pop()
+    for_a = late.fetch()
+    swap(page, run.server, b)
+    with page.expect_request(gate.asks("GET")):
+        page.evaluate(GO, f"/blatt/{d}")
+    page.evaluate(TURNS)
+    # The sheet's answer names B: the window asks who, and as B's it asks for the sheet anew.
+    with page.expect_request(gate.asks("GET")), page.expect_response("**/api/me") as me:
+        gate.loads.pop().continue_()
+    me.value.finished()
+    page.evaluate(TURNS)
+    with page.expect_response(gate.answers("GET")) as anew:
+        gate.loads.pop().continue_()
+    anew.value.finished()
+    page.evaluate(TURNS)
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    pick(page, "d")
+    page.keyboard.press("ArrowRight")
+    page.evaluate(TURNS)
+    moved = at(page, "d").evaluate(LEFT)
+    undo = page.get_by_role("button", name="Rückgängig")
+    expect(undo).to_be_enabled()
+    gate.free = True
+    loads = loads_of(page, gate)
+    with page.expect_response("**/api/me") as me:
+        late.fulfill(response=for_a)
+    me.value.finished()
+    page.evaluate(TURNS)
+    expect(undo).to_be_enabled()
+    expect(at(page, "d")).to_have_css("left", moved)
+    assert loads == []
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
+        page.clock.run_for(2000)
+    saved.value.finished()
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert x_at(b, d) == 16
+    assert record(page, d) is None
+    assert len(run.sent) == 1
+
+
+def test_a_save_answered_404_under_another_accounts_session_keeps_the_change_for_its_owner(run):
+    """Issue #353, I2, A5: the window stays on A's sheet while B signs in in another tab, and
+    A's change is sent. The 404 names B: nothing is dropped, nothing is saved, and nobody is
+    asked who is signed in. The login shows, and A's login saves the change."""
+    page, gate = start(run)
+    a, b = run.ids["a"], user()
+    asked = asks_me(page)
+    change(run)
+    moved = at(page, "a").evaluate(LEFT)
+    kept = record(page, a)
+    swap(page, run.server, b)
+    with page.expect_response(gate.answers("PATCH")) as got:
+        gate.saves.pop().continue_()
+    assert got.value.status == 404
+    assert got.value.headers["x-user"] == str(b.get("/api/me").json()["id"])
+    page.evaluate(TURNS)
+    expect_login(page, f"{run.server}/blatt/{a}")
+    expect(page.locator(NOTICE)).to_have_text(WAITS)
+    page.clock.run_for(60000)
+    page.evaluate(TURNS)
+    assert record(page, a) == kept
+    assert x_of(run, "a") == 15
+    assert b.get("/api/sheets").json() == []
+    assert len(run.sent) == 1
+    assert asked == []
+    page.clock.resume()
+    gate.keep = False
+    login(page, run.server, run.client)
+    expect(page.locator(READY)).to_be_visible(timeout=10000)
+    expect(at(page, "a")).to_have_css("left", moved)
+    expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    assert x_of(run, "a") == 16
+    assert record(page, a) is None
+
+
+def test_a_save_answered_404_that_names_nobody_drops_nothing_and_is_tried_again(run):
+    """Issue #353, I3: whose session the 404 came from is not known. The change stays in the
+    editor and in the store, no login shows, and the next try saves it."""
+    page, gate = start(run)
+    a = run.ids["a"]
+    asked = asks_me(page)
+    change(run)
+    kept = record(page, a)
+    answer(run, "a", 404)
+    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
+    expect(page.get_by_role("button", name="Anmelden")).to_have_count(0)
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_have_count(0)
+    assert record(page, a) == kept
+    assert asked == []
+    gate.keep = False
+    with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
+        page.clock.run_for(2000)
+    saved.value.finished()
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert x_of(run, "a") == 16
+    assert record(page, a) is None

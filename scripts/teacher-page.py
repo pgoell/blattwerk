@@ -10,10 +10,12 @@
     wheel TARGET DY        turns the wheel over TARGET by DY px; less than 0 is up
     key KEYS [N]           presses a key or a chord N times: Escape, ArrowRight, Control+z
     type TEXT              types the text where the focus is
-    where NAME             prints where the name is on the page; changes nothing
+    where NAME             prints where the name is on the page, or what holds it; changes nothing
+    value NAME             prints what the field of that name holds: a colour, a slider's number
     resize W H             sets the window's size
     screenshot [NAME]      writes the window to NAME.png, `screen` if none
-    pdf [TARGET]           clicks the bar's `PDF`, or `Lösungen`, and saves what comes down
+    pdf [TARGET]           clicks the bar's `PDF`, or `Lösungen`, and saves what comes down; the
+                           focus stays where it was
 
 A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a name: the words
 on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
@@ -42,7 +44,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from playwright.sync_api import Error, Page, sync_playwright
+from playwright.sync_api import Error, Locator, Page, sync_playwright
 from playwright.sync_api import TimeoutError as Late
 
 STATE = Path(os.environ.get("TEACHER_PAGE_DIR", "/tmp/teacher-run"))
@@ -73,16 +75,28 @@ def running() -> dict | None:
     return state if any(w.endswith(script) for w in words) and b"hold" in words else None
 
 
-def places(page: Page, name: str) -> list[tuple[int, int]]:
-    """The middle of each visible thing of that name, by what a user reads or hears only."""
+def named(page: Page, name: str | re.Pattern) -> Locator:
+    """Each visible thing of that name, by what a user reads or hears only."""
     found = page.get_by_label(name, exact=True)
     for by in (page.get_by_text, page.get_by_title, page.get_by_placeholder, page.get_by_alt_text):
         found = found.or_(by(name, exact=True))
-    found = found.filter(visible=True)
+    return found.filter(visible=True)
+
+
+def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int]]:
+    """The middle of each visible thing of that name. With `part`, and where no whole name
+    matches, of each thing whose name holds it, with capitals as written.
+    """
+    whole = named(page, name)
+    found = whole.or_(named(page, re.compile(re.escape(name)))) if part else whole
     try:
         found.first.wait_for(timeout=3000)
     except Late:
-        raise Refused(f'nothing on the page is called "{name}"') from None
+        # A narrow bar folds its commands away.
+        more = ': it may lie under "Mehr"' if named(page, "Mehr").count() else ""
+        raise Refused(f'nothing on the page is called "{name}"{more}') from None
+    if whole.count():
+        found = whole
     handles = [one.element_handle() for one in found.all()]
     kept = page.evaluate(KEPT, handles)
     boxes = [el.bounding_box() for el, keep in zip(handles, kept, strict=True) if keep]
@@ -193,11 +207,21 @@ def type_(page: Page, text: str) -> str:
 
 
 def where(page: Page, name: str) -> str:
-    found = places(page, name)
+    found = places(page, name, part=True)
     return "\n".join(
         f"{name} at {x},{y}" + ("" if inside(page, x, y) else " (outside the window)")
         for x, y in found
     )
+
+
+def value(page: Page, name: str) -> str:
+    """What a field holds: a colour as `#rrggbb`, a slider's or a number field's number."""
+    found = page.get_by_label(name, exact=True).filter(visible=True)
+    try:
+        return f"{name} is {found.input_value(timeout=3000)}"
+    # No field of that name, several, or a button that holds nothing.
+    except Error:
+        raise Refused(f'no field on the page is called "{name}"') from None
 
 
 def resize(page: Page, wide: str, high: str) -> str:
@@ -216,6 +240,7 @@ def screenshot(page: Page, name: str = "screen") -> str:
 
 def pdf(page: Page, target: str = "PDF") -> str:
     x, y = point(page, target)
+    had = page.evaluate_handle("document.activeElement")
     try:
         with page.expect_download(timeout=60000) as coming:
             page.mouse.click(x, y)
@@ -223,6 +248,8 @@ def pdf(page: Page, target: str = "PDF") -> str:
         raise Refused(f"no file came down after the click at {x:g},{y:g}") from None
     path = STATE / Path(coming.value.suggested_filename).name
     coming.value.save_as(path)
+    # The click gave the focus to the bar's button: a slider that had it takes the next key again.
+    had.evaluate("el => el.focus()")
     return str(path)
 
 
@@ -237,6 +264,7 @@ VERBS: dict[str, Callable[..., str]] = {
     "key": key,
     "type": type_,
     "where": where,
+    "value": value,
     "resize": resize,
     "screenshot": screenshot,
     "pdf": pdf,

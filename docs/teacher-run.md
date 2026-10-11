@@ -23,12 +23,13 @@ Allowed:
   - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
   - `key KEYS [N]`: a key as Playwright spells it (`Escape`, `ArrowRight`, `Control+z`, `Delete`), `N` times.
   - `type TEXT`: into whatever has the focus.
-  - `where NAME`: prints each visible match with its `x,y` and changes nothing.
+  - `where NAME`: prints each visible match with its `x,y` and changes nothing. A whole name or text goes first. Where none is called so, it prints each name or text that holds `NAME`, with capitals as written: `where "28"` finds the exercise `28 + 5 =`.
+  - `value NAME`: prints what the field of that name holds and changes nothing: a colour as `#rrggbb`, a slider's number.
   - `resize W H`
   - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more.
-  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path.
+  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key.
 
-  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's name or a text on the screen. No match is an error. So are several: the tool then lists each with its `x,y`, and you use the pixels. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
+  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
 - The shell commands this brief spells out, `date`, and `ls`, `rm` and `pdftoppm` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`.
 - `gh pr list`, `gh issue list`, `gh issue create` and `gh issue edit` as written below. Of a pull request you read the title and the body only.
 
@@ -53,10 +54,22 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 
 ## Start the stage
 
-1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports:
+1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports. Run each line as a command of its own: a line that chains them with `;` or `&&` is refused.
 
    ```sh
-   mise -C /home/pascal/Code/blattwerk run teacher:page -- stop; rm -rf /tmp/teacher-run && mkdir /tmp/teacher-run && rm -f ~/Downloads/TR*.pdf
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- stop
+   ```
+
+   ```sh
+   rm -rf /tmp/teacher-run
+   ```
+
+   ```sh
+   mkdir /tmp/teacher-run
+   ```
+
+   ```sh
+   rm -f ~/Downloads/TR*.pdf
    ```
 
 2. Start a fresh stage, also if one seems to run already:
@@ -104,19 +117,23 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 - Only the tool's window can do these:
   - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
   - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
-  - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only;
+  - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only. A changed border is hard to tell in a picture: read the colour before and after, with `value "Rand"` (or `value "Füllung"`, `value "Farbe"`);
   - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
 
 ## Export and compare
 
 Do this for every sheet.
 
-1. Wait for `Gespeichert`. `take_screenshot` of the editor with the whole page in view (for a sheet of two pages, one per page). Save it as `/tmp/teacher-run/<n>-screen.png`.
+1. Wait for `Gespeichert`. Click `Ganze Seite` in the bar first: the editor opens at 88 % and cuts the page off at the bottom. Then `take_screenshot` of the editor with the whole page in view. Save it as `/tmp/teacher-run/<n>-screen.png`. A sheet of two pages gets one screenshot per page, from the tool's window: see sheet 4.
 2. Click `PDF`. The page stays where it is and the browser saves `~/Downloads/<Titel>.pdf`. Wait until `ls ~/Downloads` shows it. If no file comes within 30 seconds, that is a fault.
 3. Turn the PDF into pictures, one per page, and delete the PDF:
 
    ```sh
-   pdftoppm -png -r 60 ~/Downloads/"TR1 Rechnen.pdf" /tmp/teacher-run/1-pdf && rm ~/Downloads/"TR1 Rechnen.pdf"
+   pdftoppm -png -r 60 ~/Downloads/"TR1 Rechnen.pdf" /tmp/teacher-run/1-pdf
+   ```
+
+   ```sh
+   rm ~/Downloads/"TR1 Rechnen.pdf"
    ```
 
    This writes `/tmp/teacher-run/1-pdf-1.png`, and `1-pdf-2.png` for a second page. Change the title and the number for the other sheets.
@@ -128,7 +145,7 @@ Do this for every sheet.
    - nothing cut off at a block's edge or the page's edge, and nothing missing or added.
 5. Write down each difference with the sheet, the block and what differs.
 
-In the tool's window steps 1 to 3 are, for sheet 3: `where "Gespeichert"` until it prints a match, `screenshot 3-screen`, `pdf`, and then, with the path that `pdf` printed:
+In the tool's window steps 1 to 3 are, for sheet 3: `where "Gespeichert"` until it prints a match, `click "Ganze Seite"`, `screenshot 3-screen`, `pdf`, and then, with the path that `pdf` printed:
 
 ```sh
 pdftoppm -png -r 60 "/tmp/teacher-run/TR3 Bild und Tabelle.pdf" /tmp/teacher-run/3-pdf
@@ -166,8 +183,8 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
    ```
 
 2. In the MCP page: set `Titel` to `TR3 Bild und Tabelle` first, since the tool's window finds the sheet by it. Click `Überschrift`, type `Mein Haustier`.
-3. `upload_file` on the button `Bild` with `/tmp/teacher-run/bild.png`. The picture lands on the sheet.
-4. Click `Tabelle`. It has 3 rows and 3 columns. In the right panel click `Eine Zeile mehr` once, so it says `4 Zeilen`, and turn `Kopfzeile` on. Place the table below the picture.
+3. `upload_file` on the button `Bild` with `/tmp/teacher-run/bild.png`. The picture lands on the sheet, picked and on top of the heading. Move it below: `fill` the field `Y` with `40`, then `press_key` Enter.
+4. Click `Tabelle`. It has 3 rows and 3 columns. In the right panel click `Eine Zeile mehr` once, so it says `4 Zeilen`, and turn `Kopfzeile` on. Place the table below the picture: `fill` the field `Y` with `115`, then `press_key` Enter.
 5. Change windows: the cells are not in the snapshot and want a double click. In the MCP page `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. In the tool's window: `open /`, `click "TR3 Bild und Tabelle"`, and `click "Beenden"` if the tour opens.
 6. Read the first cell's place off the screenshot. `double-click X,Y` on it, then `type "Tier"`, `key Tab`, `type "Farbe"`, `key Tab`, `type "Beine"`, `key Tab`, `type "Hund"`, `key Tab`, `type "braun"`, `key Tab`, `type "4"`, `key Escape`. Tab goes to the next cell, and from a row's last cell to the next row's first. Leave the other rows empty.
 7. Check on screen: the picture whole, red left and blue right, the frame on all four sides; the table below it with 4 rows and 3 columns, `Tier`, `Farbe`, `Beine` in the first row and `Hund`, `braun`, `4` in the second.
@@ -179,7 +196,8 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 2. Click `Neue Seite`. A second, empty page comes and is the one in use.
 3. On page 2: click `Überschrift`, type `Seite zwei`. Click `Punkte`.
 4. Click the tab `Ansicht`. Under `Format, Raster und Hilfslinien für` pick `Nur diese Seite`, then under `Format` pick `Quer`. Page 2 now lies on its side and page 1 stands upright.
-5. Export and compare. The PDF must have two pages: the first upright with `Seite eins`, the second on its side with `Seite zwei` and the points box.
+5. Change windows as in sheet 3: the MCP page cannot scroll back to page 1, it has no wheel and `PageUp` does nothing there. Set `Titel` in the MCP page first, `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. In the tool's window: `open /`, `click "TR4 Zwei Seiten"`, `where "Gespeichert"` until it prints a match, `click "Ganze Seite"`.
+6. Export and compare. Here in the tool's window. Page 1 is in view: `screenshot 4-screen-1`. Read a place on the sheet off that picture and turn the wheel there until page 2 is in view, `wheel X,Y 1000` and once more if it takes that, then `screenshot 4-screen-2`. Then `pdf`. The PDF must have two pages: the first upright with `Seite eins`, the second on its side with `Seite zwei` and the points box. Then `open /`: sheet 5 starts in the MCP page.
 
 ### 5. Copy of a template, title `TR5 Kopie`
 
@@ -213,7 +231,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
    - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
    - while a text, a cell or a menu is open;
-   - at once after a reload of the page;
+   - at once after a reload of the page. `key F5` does not reload the tool's window: there a reload is `open /blatt/N`, with the sheet's number from its address in the MCP page (`list_pages` shows it), or `open /` and a click on the sheet's title;
    - if the pull request names the iPad: `resize 1180 820` too, or `emulate` an iPad in the MCP page.
 6. After each try, check that the sheet still shows what it should. At the end set the window back to 1280 by 1024.
 7. If time is left after all five, do not stop early: go on to the five pull requests before them.

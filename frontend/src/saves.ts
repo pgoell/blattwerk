@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { api, countLogin, onSignedOut, showLogin as signedOut, signed, type User } from "./api";
+import { api, catchUp, countLogin, onOther, onSignedOut, showLogin as signedOut, signed, type Refusal } from "./api";
 import { read, type Doc, type Sheet } from "./sheet";
 
 // Each sheet has one saver, and it outlives the editor: a save that is out, fails or never answers when the teacher
@@ -47,10 +47,14 @@ type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Do
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; late: boolean };
 
 const savers = new Map<number, Saver>();
-// Who is signed in, as the app said last, and what the app does when a save finds the session gone.
+// Who is signed in, as the app said last, and what the app does when a save finds the session gone. A login in
+// another tab changes the session and not `me`, so whose a sheet or a 404 is, the answer itself says: each names the
+// user it was served for.
 let me: number | undefined;
 // The guard itself lies in api.ts, which a script with no window can load too.
-export { onSignedOut, signed };
+export { onOther, onSignedOut, signed };
+// A sheet served for another account than this window holds: the app asks who is signed in, and goes on as that one.
+export const served = (by?: number) => void (by !== undefined && by !== me && catchUp());
 const heard = new Set<() => void>();
 // `landed` counts the saves the server took: the list asks anew at each.
 let shot = { list: [] as Save[], landed: 0 };
@@ -117,10 +121,6 @@ export function ask<T>(path: string, init?: RequestInit) {
 // address that names no number, a 422, has no sheet either. Never refused, for the editor's script may come to
 // listen after the answer.
 export const get = (id: string) => ask<Sheet>(`/sheets/${id}`).catch((e: Error) => (e.message === "404" || e.message === "422" ? null : ("failed" as const)));
-// Who is signed in now, by the server: 0 for nobody, nothing where that got no answer. Asked at every 404 of a
-// sheet with a kept change, for `me` is what this window heard last: a login in another tab changes the session
-// and not `me`, and the sheet is then as missing as a deleted one.
-const who = () => ask<User>("/me").then((user) => user.id, (e: Error) => (e.message === "401" ? 0 : undefined));
 
 function plan(s: Saver, ms: number) {
   clearTimeout(s.timer);
@@ -153,18 +153,18 @@ function send(s: Saver, closing = false) {
       s.tries = 0;
       settle(s, 1);
     },
-    (e: Error) => fail(s, now, e.message),
+    (e: Refusal) => fail(s, now, e),
   );
 }
 
-async function fail(s: Saver, now: Kept, status: string) {
+async function fail(s: Saver, now: Kept, e: Refusal) {
   if (s.dead) return;
-  if (status === "409") {
+  if (e.message === "409") {
     // The server holds a newer version. It may be this browser's own save, whose answer never came: then it holds
     // a document sent from here, and saving goes on from its version.
-    const sheet = await ask<Sheet>(`/sheets/${s.id}`).catch((e: Error) => e.message);
+    const sheet = await ask<Sheet>(`/sheets/${s.id}`).catch((e: Refusal) => e);
     if (s.dead) return;
-    if (typeof sheet !== "string") {
+    if (!(sheet instanceof Error)) {
       const ours = [now, ...s.lost].find((k) => same(k.doc, sheet.doc));
       if (ours) {
         s.base = sheet.version;
@@ -174,17 +174,16 @@ async function fail(s: Saver, now: Kept, status: string) {
       s.lost = [];
       return settle(s, ours ? 1 : 0);
     }
-    status = sheet;
-  } else if (!["401", "404", "stale"].includes(status) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
-  // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone.
-  const by = status === "404" ? await who() : undefined;
-  if (by === s.owner) {
+    e = sheet;
+  } else if (!["401", "404", "stale"].includes(e.message) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
+  // Another account's sheet is as missing as a deleted one: only a 404 served for the owner means the sheet is gone.
+  // One that names nobody is a failure like any other.
+  if (e.by === s.owner) {
     s.gone = true;
     s.lost = [];
     if (!s.open) savers.delete(s.id);
-  } else if (status === "401" || by !== undefined) s.stop = true;
+  } else if (e.message === "401" || e.by !== undefined) s.stop = true;
   else s.tries++;
-  if (s.dead) return;
   settle(s);
   // The session is gone: the app shows the login, and the login brings the saver back to work.
   if (s.stop) signedOut();
@@ -212,8 +211,10 @@ function settle(s: Saver, landed = 0) {
 // answer, goes on as it is: the sheet opened again before its save landed shows the change, and the next save is
 // based on what that one brings. Else the saver starts from the answer, and a change the browser kept for this
 // account comes back: as an unsaved one where the server still holds what it was based on or a save from here, and
-// as a clash where the sheet was changed elsewhere meanwhile.
-export function open(sheet: Sheet, owner: number): Sheet {
+// as a clash where the sheet was changed elsewhere meanwhile. The account is the one the answer names.
+export function open(sheet: Sheet): Sheet {
+  const owner = sheet.user_id;
+  served(owner);
   let s = savers.get(sheet.id);
   if (!s || s.owner !== owner || !(unsaved(s) || s.base > sheet.version)) {
     if (s) kill(s);
@@ -284,18 +285,18 @@ export function set(id: number, want: Kept) {
 // kept change is dropped. This one: it is saved over what the server holds now.
 // The other version's answer counts only while the clash stands: one that comes after the teacher chose this one
 // instead would put the old sheet in place of what was just saved.
-export function reset(sheet: Sheet, owner: number) {
+export function reset(sheet: Sheet) {
   if (!savers.get(sheet.id)?.clash) return;
   forget(sheet.id);
-  return open(sheet, owner);
+  return open(sheet);
 }
 // The server's sheet is what is saved now, so what the editor shows is unsaved, also where it is back at what was
 // saved before, and goes. Where the server cannot be asked the clash stands, for another try. Says what
 // `refused` says where the server gave no sheet.
 export async function overwrite(id: number) {
   const s = savers.get(id);
-  const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch((e: Error) => e.message));
-  if (typeof sheet === "string") return refused(id, sheet);
+  const sheet = s && (await ask<Sheet>(`/sheets/${id}`).catch((e: Refusal) => e));
+  if (sheet instanceof Error) return refused(id, sheet);
   if (!s || !sheet || s.dead || !s.clash) return;
   s.base = sheet.version;
   s.saved = { doc: read(sheet.doc), title: sheet.title };
@@ -304,19 +305,18 @@ export async function overwrite(id: number) {
   tell();
 }
 // What a clash's choice was answered with, where the server gave no sheet. A 404 says that the sheet is gone only
-// where the saver's owner is the one signed in: then the saver and the kept change go, and this says "gone". Under
-// another account's session, with nobody signed in, or with the session gone: the road of a save that finds it so.
-// The login shows, the change is kept for its owner, and the clash stands again after the owner's login. Anything
-// else is "failed", also a 404 where the server could not say who is signed in: the banner stays for another try.
-export async function refused(id: number, status: string) {
+// where it was served for the saver's owner: then the saver and the kept change go, and this says "gone". Under
+// another account's session, or with the session gone: the road of a save that finds it so. The login shows, the
+// change is kept for its owner, and the clash stands again after the owner's login. Anything else is "failed", also
+// a 404 that names nobody: the banner stays for another try.
+export function refused(id: number, e: Refusal) {
   const s = savers.get(id);
-  const by = status === "404" ? await who() : undefined;
   if (!s || s.dead) return;
-  if (by === s.owner) {
+  if (e.by === s.owner) {
     forget(id);
     return "gone" as const;
   }
-  if (status !== "401" && by === undefined) return "failed" as const;
+  if (e.message !== "401" && e.by === undefined) return "failed" as const;
   s.stop = true;
   tell();
   signedOut();
@@ -347,9 +347,9 @@ export async function flush(id: number) {
 // change the store keeps for this account, of a sheet with no saver here, is taken up without waiting for its sheet
 // to be opened: the sheet is asked for and its saver sends at once, or shows the clash as a notice. The editor may
 // ask for the same sheet meanwhile: whoever comes second finds the saver and goes on with it. A sheet its owner no
-// longer has takes its record along: its owner by the server, for another account may have signed in in another
-// tab since `owner` was heard, and that one's 404 says nothing. Any other failure leaves the record for the next
-// start.
+// longer has takes its record along: where the 404 was served for the owner, for another account may have signed
+// in in another tab since `owner` was heard, and that one's 404 says nothing. Any other failure leaves the record
+// for the next start.
 export function enter(owner?: number) {
   me = owner;
   countLogin();
@@ -362,8 +362,8 @@ export function enter(owner?: number) {
   const mine = (id: number) => me === owner && !savers.has(id) && kept(id)?.owner === owner;
   for (const id of ids.filter(mine)) {
     ask<Sheet>(`/sheets/${id}`).then(
-      (sheet) => mine(id) && open(sheet, owner!),
-      (e: Error) => e.message === "404" && who().then((by) => by === owner && mine(id) && localStorage.removeItem(key(id))),
+      (sheet) => mine(id) && open(sheet),
+      (e: Refusal) => e.message === "404" && e.by === owner && mine(id) && localStorage.removeItem(key(id)),
     );
   }
   for (const s of savers.values()) {
