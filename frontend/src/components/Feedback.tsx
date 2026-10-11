@@ -1,14 +1,21 @@
 // Feedback from any page: a button that opens a form for text, voice notes and pictures.
 import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type Ref } from "react";
 import { api } from "../api";
+import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
 import VoiceNotes from "./VoiceNotes";
+
+// What is typed outlives the form: a send that finds the session gone brings the login, which takes the form away,
+// and the text stands in the form opened after it. The app empties it when the account is another.
+let draft = "";
+export const forgetDraft = () => void (draft = "");
 
 // With `opener` the form has no button of its own: the editor's bar has folded it into a menu, whose item opens the
 // form through it. The form and what is written in it stay while the button comes and goes.
 export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { opener?: Ref<() => void> }) {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
+  const [text, write] = useState(draft);
+  const setText = (to: string) => write((draft = to));
   const [clips, setClips] = useState<Blob[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -49,7 +56,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       for (const photo of photos) data.append("photo", await shrink(photo), "photo");
       const screen = await shot.current;
       if (screen) data.append("screenshot", screen, "screenshot");
-      await api("/feedback", { method: "POST", body: data });
+      // With no limit of time: voice notes and pictures may take long.
+      await signed(api("/feedback", { method: "POST", body: data }));
       setText("");
       setClips([]);
       setPhotos([]);

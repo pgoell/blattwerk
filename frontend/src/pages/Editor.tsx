@@ -871,7 +871,7 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
   }, []);
 
   useEffect(() => {
-    api<Template[]>("/templates").then(setTemplates, () => {});
+    signed(api<Template[]>("/templates")).then(setTemplates, () => {});
   }, []);
 
   // The sheet's saver (saves.ts) saves a change two seconds after the last one, tries a failed save again, and goes
@@ -1352,8 +1352,9 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
     try {
       const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
       calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
-    } catch {
-      alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
+    } catch (e) {
+      // Not where the session ran out, nor for an answer about the session before: the login shows or has shown.
+      if (!["401", "stale"].includes((e as Error).message)) alert("Die Aufgaben ließen sich nicht erzeugen. Ist das Gerät online?");
     }
   }
   function put(from: Block[]) {
@@ -1839,8 +1840,11 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
     download(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`);
   }
 
+  // A template stored or deleted with the session run out brings the login. The panel has no word for a failure:
+  // the button does nothing then, as before.
   async function store() {
-    const saved = await post<Template>("/templates", { name: name.trim(), doc: hist.doc });
+    const saved = await signed(post<Template>("/templates", { name: name.trim(), doc: hist.doc })).catch(() => undefined);
+    if (!saved) return;
     setTemplates((ts) => [...ts, saved]);
     setName("");
   }
@@ -1851,8 +1855,8 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
   }
   async function forget(t: Template) {
     if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
-    await api(`/templates/${t.id}`, { method: "DELETE" });
-    setTemplates((ts) => ts.filter((o) => o.id !== t.id));
+    const gone = await signed(api(`/templates/${t.id}`, { method: "DELETE" })).then(() => true, () => false);
+    if (gone) setTemplates((ts) => ts.filter((o) => o.id !== t.id));
   }
 
   // `press` is the mouse press that selects, so the same press can drag.

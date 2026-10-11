@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import PhotoPicker, { shrink } from "../components/PhotoPicker";
+import { signed } from "../saves";
 
 export default function Photos() {
   const [photos, setPhotos] = useState<File[]>([]);
@@ -17,7 +18,8 @@ export default function Photos() {
     setStatus("Wird gesendet …");
     try {
       for (const photo of photos) data.append("photo", await shrink(photo), "photo");
-      await api("/feedback", { method: "POST", body: data });
+      // With no limit of time: photos may take long. Sent with the session run out, they bring the login.
+      await signed(api("/feedback", { method: "POST", body: data }));
       form.reset();
       setPhotos([]);
       setStatus("Danke! Ist angekommen. Du kannst gleich das nächste schicken.");

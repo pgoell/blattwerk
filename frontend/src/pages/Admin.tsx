@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, post, type User } from "../api";
+import { signed } from "../saves";
 
 // The folder of a deleted account that would not go. `since` is UTC, "YYYY-MM-DD HH:MM:SS".
 type Leftover = { folder: string; since: string; error: string };
@@ -14,13 +15,14 @@ export default function Admin() {
   const [link, setLink] = useState({ label: "", url: "" });
 
   useEffect(() => {
-    api<User[]>("/admin/users").then(setUsers);
-    api<Leftover[]>("/admin/leftovers").then(setLeftovers);
+    // Asked with the session run out, each brings the login. The page has no word for a failure.
+    signed(api<User[]>("/admin/users")).then(setUsers, () => {});
+    signed(api<Leftover[]>("/admin/leftovers")).then(setLeftovers, () => {});
   }, []);
 
   async function make(path: string, page: string, label: string) {
-    const { token } = await post<{ token: string }>(path);
-    setLink({ label, url: `${location.origin}/${page}/${token}` });
+    const made = await signed(post<{ token: string }>(path)).catch(() => undefined);
+    if (made) setLink({ label, url: `${location.origin}/${page}/${made.token}` });
   }
 
   return (

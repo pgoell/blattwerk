@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, post, type User } from "../api";
+import { signed } from "../saves";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
 const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
@@ -19,7 +20,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       <h1>Konto</h1>
       <div className="card">
         <p>Angemeldet als {user.email}</p>
-        <button type="button" onClick={() => post("/logout").then(onGone)}>Abmelden</button>
+        <button type="button" onClick={() => signed(post("/logout")).then(onGone, () => {})}>Abmelden</button>
       </div>
       <div className="card">
         <label>Darstellung</label>
@@ -36,7 +37,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         <label>Konto löschen</label>
         <p className="hint">Löscht dein Konto und alles, was du geschickt hast. Das lässt sich nicht rückgängig machen.</p>
         {sure ? (
-          <button type="button" className="danger" onClick={() => api("/me", { method: "DELETE" }).then(onGone)}>
+          <button type="button" className="danger" onClick={() => signed(api("/me", { method: "DELETE" })).then(onGone, () => {})}>
             Ja, endgültig löschen
           </button>
         ) : (

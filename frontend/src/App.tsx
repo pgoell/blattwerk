@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
-import Feedback from "./components/Feedback";
+import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
 import About from "./pages/About";
 import Account from "./pages/Account";
@@ -43,6 +43,8 @@ export default function App() {
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
+    // Feedback typed when the session ran out waits for the teacher who typed it, and for nobody else.
+    if (to?.id !== was.current) forgetDraft();
     saves.enter(to?.id);
     setUser(to);
     setEntered((n) => n + 1);
