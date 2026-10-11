@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
@@ -54,7 +54,11 @@ export type TextBlock = Box & { type: "text"; props: TextProps };
 export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner; ticks?: boolean; label?: "show" | "key" } };
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
+// With `list` the block takes its words from the sheet's Lernwörter, one to a row, and `text` and `trace` rest: "copy"
+// prints each word at its row's start to copy beside, "trace" prints it once in grey to write over, "row" in grey
+// again and again to the row's end.
+export type ListMode = "copy" | "trace" | "row";
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean; list?: ListMode } };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -101,7 +105,9 @@ export type Guides = Record<Axis, number[]>;
 export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?: boolean };
 // The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
 // on its side.
-export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean };
+// `words` holds the sheet's Lernwörter as the teacher typed them, a line of the list to an entry. Sheets saved
+// before have none.
+export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean; words?: string[] };
 // The server counts a sheet's saved documents in `version`.
 export type Sheet = { id: number; user_id: number; title: string; updated: string; version: number; doc: Doc };
 
@@ -158,12 +164,21 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
+  words,
 });
+// The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
+// around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
+export const wordsOf = (doc: { words?: unknown }): string[] =>
+  Array.isArray(doc.words) ? doc.words.flatMap((line) => (typeof line === "string" ? line.split(/[,;\n]/) : [])).map((w) => w.trim()).filter(Boolean) : [];
+// The mode a Lineatur takes the Lernwörter in, or none: a stored mode nobody knows is none.
+export const listOf = (b: RulingBlock): ListMode | undefined => (b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" ? b.props.list : undefined);
+// The Lernwörter of the sheet a block is drawn on. `Paper` sets them; the editor sets its own.
+export const Words = createContext<string[]>([]);
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
