@@ -16,7 +16,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from blattwerk import db
-from blattwerk.db import Con
+from blattwerk.db import Con, Id
 
 SESSION_DAYS = 90
 LINK_DAYS = 7
@@ -270,7 +270,7 @@ def invite(admin: Admin, con: Con) -> dict:
 
 
 @router.post("/admin/users/{user_id}/reset")
-def reset_link(user_id: int, admin: Admin, con: Con) -> dict:
+def reset_link(user_id: Id, admin: Admin, con: Con) -> dict:
     if not con.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone():
         raise HTTPException(404)
     return {"token": new_link(con, user_id)}

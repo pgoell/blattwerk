@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 
 from blattwerk import pdf
 from blattwerk.auth import User, current_user
-from blattwerk.db import Con
+from blattwerk.db import Con, Id
 from blattwerk.pictures import path
 
 # What a browser draws and cannot run: no SVG.
@@ -36,7 +36,7 @@ async def upload(file: UploadFile, user: User, con: Con) -> dict:
 
 @router.get("/uploads/{upload_id}")
 def serve(
-    upload_id: int,
+    upload_id: Id,
     con: Con,
     session: Annotated[str | None, Cookie()] = None,
     token: pdf.Token = None,
