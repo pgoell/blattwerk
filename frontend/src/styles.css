@@ -536,6 +536,20 @@ body:has(.print) { background: #fff; }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
+/* A scrambled word (Schüttelwörter) with a line: the line stands after the word, or under it in a column, as wide as
+   the word at least, with room for a child to write. The key shows the word as typed in place of the mixed one. */
+/* A word and its line stay on one row. */
+.mix { white-space: nowrap; }
+.mix .gap.line { display: inline-block; position: relative; box-sizing: border-box; padding: 0 .6em; background: none; }
+.mix .gap.line > svg { position: absolute; left: 0; top: calc(50% + .5em - .25mm); width: 100%; height: .25mm; overflow: visible; stroke: currentColor; stroke-width: .25mm; }
+/* The word on the line is the answer: the editor shows it with "Lösungen zeigen" alone, as the print does. */
+.mix .gap.line > span { visibility: hidden; }
+.solved .mix .gap.line > span { visibility: visible; }
+.mix.under { display: inline-flex; flex-direction: column; align-items: center; vertical-align: baseline; }
+.mix.under .gap.line { min-width: 100%; box-sizing: border-box; }
+/* With gapWidth the line under a word is as wide as the gap too, and the word stands in the middle of it. */
+.even .mix.under .gap.line { min-width: max(100%, var(--gap)); }
+.mixkey, .mixkey * { color: #c0392b !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
 .even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - .25mm), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }

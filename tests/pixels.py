@@ -106,7 +106,10 @@ def screen_and_print(browser, server, client, sheet_id, page=0, hide_gaps=False,
         tab.add_style_tag(content=".gap > span { visibility: hidden !important }")
     if solved:
         tool(tab, "Lösungen zeigen").click()
-        expect(tab.locator(".sheet .gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
+        # A mixed word without a line shows its word as typed in the key's colour, and no gap.
+        expect(tab.locator(".sheet .gap > span, .sheet .mixkey").first).to_have_css(
+            "color", "rgb(192, 57, 43)"
+        )
     # As the page that is printed does: a picture and a font come in after the blocks are laid out.
     tab.evaluate(LOADED)
     # A text's bows are drawn once its words are split and measured.
