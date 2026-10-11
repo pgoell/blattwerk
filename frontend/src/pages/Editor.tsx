@@ -222,31 +222,30 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
 
   // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on,
   // or has chosen this version meanwhile, changes nothing. Either choice may find the sheet deleted elsewhere, which
-  // ends the clash, or the session gone, which brings the login. Any other failure, and no answer after 20 s, says
-  // so and leaves the choice: the kept change is dropped only once the other version has come. While a choice is
-  // under way the banner says so and takes no second press.
+  // ends the clash, or the session gone or another account's, which brings the login and keeps the change for its
+  // owner. Any other failure, and no answer after 20 s, says so and leaves the choice: the kept change is dropped
+  // only once the other version has come. While a choice is under way the banner says so and takes no second press,
+  // and it stops saying so with whatever the choice ends in.
   const [choice, setChoice] = useState<"busy" | "failed">();
-  const chosen = (failed: boolean) => here.current && setChoice(failed ? "failed" : undefined);
+  const ended = (end?: "gone" | "failed") => {
+    if (!here.current) return;
+    setChoice(end === "failed" ? "failed" : undefined);
+    if (end === "gone") show(null);
+  };
   function load() {
     setChoice("busy");
     ask<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
-        chosen(false);
+        ended();
         const other = here.current && reset(sheet, user.id);
         if (other) show(other);
       },
-      (e: Error) => {
-        chosen(e.message !== "401" && e.message !== "404");
-        if (here.current && refused(Number(id), e.message)) show(null);
-      },
+      (e: Error) => refused(Number(id), e.message).then(ended),
     );
   }
   function over() {
     setChoice("busy");
-    overwrite(Number(id)).then((end) => {
-      chosen(typeof end === "string" && end !== "401");
-      if (end === true && here.current) show(null);
-    });
+    overwrite(Number(id)).then(ended);
   }
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
