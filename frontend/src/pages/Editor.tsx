@@ -85,7 +85,8 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, last, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { attach, flush, open, overwrite, reset, set, useSaves } from "../saves";
+import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -203,31 +204,49 @@ const Thumb = memo(Paper);
 // asked for it meanwhile, or null where it is not there.
 export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: Promise<Sheet | null> }) {
   const { id } = useParams();
-  // undefined while the sheet is loading, null when it is not there.
-  const [file, setFile] = useState<Sheet | null>();
+  // undefined while the sheet is loading, null when it is not there. `n` counts the loads.
+  const [file, setFile] = useState<{ sheet: Sheet | null; n: number }>();
+  const show = (sheet: Sheet | null) => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1 }));
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => void (here.current = false);
+  }, []);
 
+  // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on
+  // changes nothing: the choice is asked for again.
   function load() {
-    api<Sheet>(`/sheets/${id}`).then(setFile, () => setFile(null));
+    api<Sheet>(`/sheets/${id}`).then(
+      (sheet) => here.current && show(reset(sheet, user.id)),
+      (e: Error) => here.current && e.message === "404" && show(null),
+    );
   }
-  useEffect(() => void first.then(setFile), [first]);
+  // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
+  // teacher has gone on is not for the saver either.
+  useEffect(() => {
+    let on = true;
+    first.then((sheet) => on && show(sheet && open(sheet, user.id)));
+    return () => void (on = false);
+  }, [first]);
 
   if (file === undefined) return wait;
-  if (!file) return <main><h1>Blatt nicht gefunden</h1></main>;
-  // A version loaded anew starts the editor over.
-  return <Canvas key={`${file.id}.${file.version}`} file={file} user={user} reload={load} />;
+  if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
+  // A sheet loaded anew starts the editor over.
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} />;
 }
 
 function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () => void }) {
-  const [hist, draw] = useState<Hist>(() => ({ past: [], doc: read(file.doc), future: [] }));
+  // The saver has brought an old document up to date.
+  const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
   const [title, setTitle] = useState(file.title);
-  // What the server holds, and how often a save has failed since.
-  const [stored, setStored] = useState({ doc: hist.doc, title });
-  const [tries, setTries] = useState(0);
-  // Set when the server holds a newer document than the one this editor began with.
-  const [clash, setClash] = useState(false);
+  // The sheet's saver: what the server holds, whether a save failed, and whether the server holds a newer document
+  // than the one this editor is based on.
+  const saver = useSaves().list.find((s) => s.id === file.id);
+  const named = useRef(title);
+  named.current = title;
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
@@ -440,12 +459,6 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
-  const save = useRef((_leaving: boolean) => {});
-  // The version the document here is based on.
-  const version = useRef(file.version);
-  const busy = useRef(false);
-  // What the last save carried, answered or not.
-  const carried = useRef(stored);
 
   const { pages, guides, grid } = hist.doc;
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
@@ -461,7 +474,8 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   const cellOf = (p: Page) => p.grid ?? grid;
   const cell = cellOf(pages[page]);
   const mine = pages[page].guides ?? NONE;
-  const dirty = hist.doc !== stored.doc || title !== stored.title;
+  // Read here and not from the saver alone, which hears of a change only after it is drawn.
+  const dirty = !saver || saver.unsaved || hist.doc !== saver.saved.doc || title !== saver.saved.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   const sel = blocks.filter((b) => ids.includes(b.id));
@@ -832,49 +846,10 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
     api<Template[]>("/templates").then(setTemplates, () => {});
   }, []);
 
-  // A change is saved two seconds after the last one, one save at a time, and a save that failed is tried again.
-  // The server turns down a document based on an older version than it holds: then saving stops until the teacher
-  // has chosen. The title goes along only when it changed here, so a rename from the list stays.
-  // A change behind a save under way waits for the next save. On leaving there is none, so it goes as soon as that
-  // save is done, based on the version that one brought: on to another page of the app, that is, for in a window
-  // that closes no script runs by then.
-  save.current = (leaving) => {
-    const behind = busy.current && leaving && (live.current.doc !== carried.current.doc || title !== carried.current.title);
-    if (clash || (busy.current ? !behind : !dirty)) return;
-    const now = (carried.current = { doc: live.current.doc, title });
-    const named = title === stored.title ? {} : { title: title.trim() || "Unbenanntes Blatt" };
-    const send = () => {
-      busy.current = true;
-      const body = { doc: now.doc, version: version.current, ...named };
-      // `keepalive` lets a save on leaving outlive the window. The browser sends no such request over 64 KiB, so a
-      // larger sheet goes without it: left for another page of the app, it arrives all the same.
-      const keepalive = leaving && new Blob([JSON.stringify(body)]).size < 60 * 1024;
-      return post<Sheet>(`/sheets/${file.id}`, body, { method: "PATCH", keepalive });
-    };
-    last.save = (behind ? last.save.then(send) : send())
-      .then(
-        (saved) => {
-          version.current = saved.version;
-          setStored(now);
-          setTries(0);
-        },
-        (e: Error) => (e.message === "409" ? setClash(true) : setTries((n) => n + 1)),
-      )
-      .finally(() => (busy.current = false));
-  };
-  useEffect(() => {
-    const timer = setTimeout(() => save.current(false), 2000);
-    return () => clearTimeout(timer);
-  }, [hist.doc, title, tries, stored, clash]);
-  // Leaving the editor or the app saves at once.
-  useEffect(() => {
-    const leave = () => save.current(true);
-    window.addEventListener("pagehide", leave);
-    return () => {
-      window.removeEventListener("pagehide", leave);
-      leave();
-    };
-  }, []);
+  // The sheet's saver (saves.ts) saves a change two seconds after the last one, tries a failed save again, and goes
+  // on when this editor has gone. It hears of each change here, and of the last one as the editor goes.
+  useEffect(() => set(file.id, { doc: hist.doc, title }), [hist.doc, title]);
+  useEffect(() => attach(file.id, () => ({ doc: live.current.doc, title: named.current })), []);
 
   // A finger on a block of a flat group starts the group's drag, as a mouse press does in `pick`. Moveable cancels
   // the touch it drags from, and React's own touch listeners are passive, so this one is set by hand.
@@ -1816,11 +1791,9 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   }
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
-  // which may hold an older document.
+  // which may hold an older document. A save that fails or never answers holds the PDF up for 20 s at most.
   async function pdf(key: boolean) {
-    await last.save;
-    save.current(false);
-    await last.save;
+    await flush(file.id);
     location.href = `/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`;
   }
 
@@ -2247,7 +2220,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             onKeyDown={(e) => e.key === "Enter" && back(e.currentTarget)}
           />
           <span className="hint" role="status">
-            {!dirty ? "Gespeichert" : tries || clash ? "Nicht gespeichert" : "Speichert …"}
+            {!dirty ? "Gespeichert" : !saver || saver.failed || saver.clash ? "Nicht gespeichert" : "Speichert …"}
           </span>
           <Tool icon={Undo2} label="Rückgängig" data-tour="undo" disabled={!hist.past.length} onClick={undo} />
           <Tool icon={Redo2} label="Wiederholen" disabled={!hist.future.length} onClick={redo} />
@@ -2315,19 +2288,12 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
             </button>
           </span>
         </div>
-        {clash && (
+        {saver?.clash && (
           <div className="clash" role="alert">
             Dieses Blatt wurde auf einem anderen Gerät geändert.
             <button onClick={reload}>Andere Version laden</button>
-            <button
-              // Based on the version the server has now, this document takes its place; a change that lands in between clashes again.
-              onClick={async () => {
-                version.current = (await api<Sheet>(`/sheets/${file.id}`)).version;
-                setClash(false);
-              }}
-            >
-              Mit dieser überschreiben
-            </button>
+            {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
+            <button onClick={() => overwrite(file.id)}>Mit dieser überschreiben</button>
           </div>
         )}
       </header>

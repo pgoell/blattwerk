@@ -125,8 +125,6 @@ export const lookOf = (mark: string) => mark.replace(/[1a]/, "#");
 // Whether a mark counts; a symbol's code does not.
 export const counts = (mark?: string): mark is string => !!mark && LOOKS.includes(lookOf(mark));
 export const EMPTY: Doc = { pages: [{ blocks: [] }], guides: { x: [], y: [] }, grid: 0 };
-// The editor's last save. The list waits for it, so it shows the sheet as it was left.
-export const last = { save: Promise.resolve() as Promise<unknown> };
 
 // A maths block saved with no digit ranges takes any digit in each place of its Zahlenraum.
 function whole(b: Block): Block {

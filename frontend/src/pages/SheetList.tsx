@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post } from "../api";
-import { EMPTY, Paper, last, read, sizeOf, type Sheet } from "../sheet";
+import { useSaves } from "../saves";
+import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
 const day = (stamp: string) => new Date(`${stamp.replace(" ", "T")}Z`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
@@ -11,9 +12,13 @@ export default function SheetList() {
   const [sheets, setSheets] = useState<Sheet[]>();
   const navigate = useNavigate();
 
+  // Asked for at once, and again whenever a save lands: a sheet just left shows as it was left once its save is in.
+  const { landed } = useSaves();
   useEffect(() => {
-    last.save.then(() => api<Sheet[]>("/sheets")).then(setSheets);
-  }, []);
+    let on = true;
+    api<Sheet[]>("/sheets").then((all) => on && setSheets(all));
+    return () => void (on = false);
+  }, [landed]);
 
   async function create() {
     const sheet = await post<Sheet>("/sheets", { title: "Unbenanntes Blatt", doc: EMPTY });
