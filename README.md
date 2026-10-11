@@ -70,6 +70,29 @@ Chromium prints the built frontend, so `mise run test` builds it first, and a PD
 
 `/feedback` takes written or spoken feedback, `/feedback/fotos` takes photos of sheets, one sheet or Klassenarbeit per send. Each send lands in its own folder under `users/<id>/feedback/` in `BLATTWERK_DATA_DIR` (`feedback.json`, `audio-N.*`, `photo-N.*`). Deleting the account deletes the folder.
 
+### The daily feedback job
+
+Cron on the VPS runs `scripts/feedback-cron.sh` each morning. It reads every send it has not read before and turns it into an issue here, labelled `feedback` plus `bug` or `wish`, or into a comment on the open issue on the same point.
+
+This repo is public and a send is private, so the work is split:
+
+- The model reads one send (text and pictures, inline) and returns a verdict as JSON: bug, wish, question or nothing, a title, a body in its own words, an open issue it matches. It runs with no tool, no MCP server and no user settings: it cannot read a file, run a command or reach GitHub.
+- Plain code (`scripts/feedback_triage.py`) does the rest. Before any write to GitHub, `scripts/feedback_privacy.py` checks title and body against every e-mail address in the users table and the names in them, user ids, the send's file names, links, class and school names and words copied from the send. On a hit it files nothing and leaves the send for Pascal.
+- No file of a send is ever uploaded. A voice note is not heard: the summary lists it under "To hear".
+
+The job opens the data folder read only. Its own files live in `~/.local/share/blattwerk-feedback/` (mode 700): `read.json` (the sends already read), `summaries/<date>.md` (one a day, none on a day without a new send) and `cron.log`. A send that fails is tried again on the next run.
+
+The check cannot know a name it has never seen: a child's name on a photo, or a colleague who has no account. There the model's instructions are the only guard. Read the summary now and then.
+
+Cron runs the two Python files as `origin/master` has them, not as the checkout stands, so a half-built branch never runs against the live data.
+
+```sh
+scripts/feedback-cron.sh --dry-run   # prints what it would file; files nothing, writes nothing
+crontab -l                           # the line: 15 5 * * * .../scripts/feedback-cron.sh >> .../cron.log 2>&1
+```
+
+To stop the job, remove that line from the crontab.
+
 ## Deploy
 
 A push to `master` deploys to `blattwerk.pgoell.com` once CI is green. `.github/workflows/deploy.yml` runs on the VPS's own runner (`server-infra/runners`): it builds the image from that commit, tries it on a copy of the data, and only then replaces the running container.
