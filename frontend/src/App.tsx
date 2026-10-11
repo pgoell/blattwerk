@@ -35,9 +35,19 @@ export default function App() {
       () => setUser(null),
     );
     saves.onSignedOut(() => setUser(null));
-    // A sheet served for another account: somebody signed in in another tab. The window asks who, and goes on as
-    // at that one's login. Where that gets no answer it stays as it is, and the next such sheet asks again.
-    saves.onOther(() => void saves.signed(api<User>("/me")).then(enter, () => {}));
+    // A sheet served for another account: somebody signed in in another tab. The window asks who, one request at a
+    // time, and goes on as at that one's login. Where the answer names the account the window holds, the sheet was
+    // a late one of the account before, and nothing happens; nor where there is no answer: the next such sheet
+    // asks again.
+    let asking = false;
+    saves.onOther(() => {
+      if (asking) return;
+      asking = true;
+      saves
+        .signed(api<User>("/me"))
+        .then((to) => to.id !== was.current && enter(to), () => {})
+        .finally(() => (asking = false));
+    });
   }, []);
   if (user) was.current = user.id;
 
