@@ -76,7 +76,7 @@ import {
 } from "lucide-react";
 import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api, post, type User } from "../api";
 import { DRAWERS, opening } from "../components/Blank";
 import Failed from "../components/Failed";
@@ -86,7 +86,7 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { ask, attach, download, flush, get, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, download, flush, forget, get, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -223,15 +223,18 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
 
   // The other version of a clash: the saver starts over from it. An answer that comes when the teacher has gone on,
   // or has chosen this version meanwhile, changes nothing. Either choice may find the sheet deleted elsewhere, which
-  // ends the clash, or the session gone or another account's, which brings the login and keeps the change for its
-  // owner. Any other failure, and no answer after 20 s, says so and leaves the choice: the kept change is dropped
-  // only once the other version has come. While a choice is under way the banner says so and takes no second press,
-  // and it stops saying so with whatever the choice ends in.
+  // ends the clash in the choice of a deleted sheet, or the session gone or another account's, which brings the
+  // login and keeps the change for its owner. Any other failure, and no answer after 20 s, says so and leaves the
+  // choice: the kept change is dropped only once the other version has come. While a choice is under way the banner
+  // says so and takes no second press, and it stops saying so with whatever the choice ends in.
   const [choice, setChoice] = useState<"busy" | "failed">();
-  const ended = (end?: "gone" | "failed") => {
-    if (!here.current) return;
-    setChoice(end === "failed" ? "failed" : undefined);
-    if (end === "gone") show(null);
+  const ended = (end: "failed" | void) => void (here.current && setChoice(end || undefined));
+  // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
+  const navigate = useNavigate();
+  const keep = () => void keepAsNew(Number(id)).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`));
+  const drop = () => {
+    forget(Number(id));
+    navigate("/");
   };
   function load() {
     setChoice("busy");
@@ -261,10 +264,10 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} />;
 }
 
-function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed" }) {
+function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -2344,6 +2347,15 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
             <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
             {choice && <span>{choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+          </div>
+        )}
+        {/* The editor works on under it: what shows at the press is what is kept. */}
+        {saver?.gone && (
+          <div className="clash" role="alert">
+            Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da.
+            <button disabled={saver.choice === "busy"} onClick={asNew}>Als neues Blatt behalten</button>
+            <button disabled={saver.choice === "busy"} onClick={discard}>Verwerfen</button>
+            {saver.choice && <span>{saver.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
           </div>
         )}
       </header>
