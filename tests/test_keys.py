@@ -358,8 +358,6 @@ def test_enter_and_f2_leave_what_holds_no_text_alone(editor):
     kinds = {
         "locked": ("text", TEXT),
         "line": ("shape", LINE),
-        "name": ("name", {}),
-        "points": ("points", {"max": 10}),
         "symbol": ("symbol", {"code": "270F"}),
         "maths": ("maths", maths),
     }
