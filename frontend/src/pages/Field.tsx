@@ -4,8 +4,8 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import { baseKeymap, chainCommands, splitBlockAs } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { Schema, type Attrs, type MarkSpec, type Node, type ResolvedPos } from "prosemirror-model";
-import { EditorState, Plugin, Selection, TextSelection, type Command } from "prosemirror-state";
-import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
+import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import { parasOf, stored, useSplitter, type List, type Para, type Run, type TextProps } from "../sheet";
 
 // The look a run can have of its own.
@@ -205,7 +205,7 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
   // What the field last took or gave: a text that differs has changed outside it.
   const known = useRef<Pick<TextProps, "text" | "rich">>(props);
   // The field lives across renders and calls what the latest one passed.
-  // The module that splits words, once it has loaded, for a text with Silbenbögen.
+  // The module that splits words, once it has loaded, for a text with Silbenbögen: it names the caret's word.
   const split = useSplitter(props.syllables);
   const now = useRef({ props, split, ...on });
   now.current = { props, split, ...on };
@@ -234,25 +234,6 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
           F2: () => (now.current.end(), true),
         }),
         keymap(baseKeymap),
-        // The bows under the syllables, in the spans the sheet draws them with (.syl). A paragraph's words are
-        // split as a whole; a syllable that holds two looks is drawn as two spans.
-        new Plugin({
-          props: {
-            decorations(state) {
-              const { split, props } = now.current;
-              if (!split) return null;
-              const bows: Decoration[] = [];
-              state.doc.forEach((para, pos) => {
-                let at = pos + 1;
-                for (const piece of split.pieces(para.textContent, props.breaks)) {
-                  if (piece.syl) bows.push(Decoration.inline(at, at + piece.text.length, { class: "syl" }));
-                  at += piece.text.length;
-                }
-              });
-              return DecorationSet.create(state.doc, bows);
-            },
-          },
-        }),
       ],
     });
 
@@ -305,11 +286,8 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
     view.current!.updateState(stateOf(doc, caret));
     on.pick(picked(view.current!.state, props, split));
   }, [props.text, props.rich]);
-  // The bows follow the switch, a word mended by hand, and the splitter once it has loaded. The caret stays.
-  useLayoutEffect(() => {
-    view.current!.updateState(view.current!.state);
-    on.pick(picked(view.current!.state, props, split));
-  }, [split, props.syllables, props.breaks]);
+  // The panel learns the caret's word once the splitter has loaded, and no more of it once the bows are off.
+  useLayoutEffect(() => on.pick(picked(view.current!.state, props, split)), [split]);
 
   return <div ref={el} className="rich" data-hint={hint && !props.text ? "" : undefined} />;
 }

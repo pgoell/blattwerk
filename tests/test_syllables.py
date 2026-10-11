@@ -4,8 +4,10 @@ The docstrings name the lines of the frozen checklist of PR #356. The words whos
 tests name are ones the patterns split as a child speaks them: Fens-ter, Was-ser, Ta-sche.
 """
 
+from contextlib import suppress
+
 import pytest
-from playwright.sync_api import expect
+from playwright.sync_api import TimeoutError, expect
 from test_lock import fest, undo
 from test_painter import held, paint
 from ui import (
@@ -21,6 +23,7 @@ from ui import (
     expect_picked,
     pick,
     saved,
+    syls,
     user,
 )
 
@@ -52,10 +55,30 @@ def expect_switch(page, on):
     expect(switch(page)).to_have_class("on" if on else "")
 
 
-def bows(page, *names):
-    """The syllables with a bow in the blocks, or with no name in the open field."""
-    blocks = ", ".join(f'.block[data-id="{name}"] .syl' for name in names)
-    return page.locator(blocks or f"{FIELD} .syl")
+class bows:
+    """The syllables with a bow in the blocks, one block after the other: waits as `expect` does.
+
+    The bows are drawn a frame after the text changes, in the open field and the open cell too.
+    """
+
+    SHOWN = """([names, want]) => {
+        const of = (name) => [...document.querySelectorAll(`.block[data-id="${name}"] .syl`)];
+        const shown = names.flatMap(of).map((el) => el.dataset.syl ?? el.textContent);
+        return JSON.stringify(shown) === JSON.stringify(want);
+    }"""
+
+    def __init__(self, page, *names):
+        self.page, self.names = page, names
+
+    def to_have_text(self, want):
+        # A wait that runs out leaves the telling to the comparison below.
+        with suppress(TimeoutError):
+            self.page.wait_for_function(self.SHOWN, arg=[self.names, want], timeout=5000)
+        assert [syl for name in self.names for syl in syls(self.page, name)] == want
+
+    def to_have_count(self, count):
+        assert not count
+        self.to_have_text([])
 
 
 def word(page, name):
@@ -84,14 +107,14 @@ def test_one_click_draws_a_bow_under_each_syllable_and_one_more_takes_them_away(
     expect_switch(page, False)
     # It follows the last of the text settings.
     assert switch(page).evaluate("(el) => el.previousElementSibling.textContent") == "Zeilenabstand"
-    expect(bows(page, "a")).to_have_count(0)
+    bows(page, "a").to_have_count(0)
     switch(page).click()
     expect_switch(page, True)
-    expect(bows(page, "a")).to_have_text(BOWS)
+    bows(page, "a").to_have_text(BOWS)
     assert held(page, client)["a"]["syllables"] is True
     switch(page).click()
     expect_switch(page, False)
-    expect(bows(page, "a")).to_have_count(0)
+    bows(page, "a").to_have_count(0)
     # Off is the sheet as it was before.
     assert held(page, client)["a"] == WORDS
 
@@ -108,7 +131,7 @@ def test_every_kind_that_holds_words_takes_the_bows(editor, kind):
     switch(page).click()
     expect_switch(page, True)
     # The digits of a table get none.
-    expect(bows(page, *wordy)).to_have_text(["Fens", "ter", "Was", "ser"])
+    bows(page, *wordy).to_have_text(["Fens", "ter", "Was", "ser"])
     now = held(page, client)
     assert [now[name].get("syllables") for name in wordy] == [True] * len(wordy)
     # A group's line holds no words and stays as it is.
@@ -136,7 +159,7 @@ def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
     page = editor(*blocks, client=client)
     pick(page, "a", "r", "l")
     switch(page).click()
-    expect(bows(page, "a")).to_have_text(BOWS)
+    bows(page, "a").to_have_text(BOWS)
     now = held(page, client)
     assert (now["r"], now["l"]) == (RULING, LINE)
 
@@ -161,13 +184,11 @@ def test_the_switch_goes_on_unless_all_picked_have_the_bows_in_one_undo_step(edi
     expect(switch(page)).to_have_count(1)
     switch(page).click()
     expect_switch(page, True)
-    expect(bows(page, "a", "b", "t")).to_have_text(
-        [*BOWS, "Was", "ser", "Fens", "ter", "Was", "ser"]
-    )
+    bows(page, "a", "b", "t").to_have_text([*BOWS, "Was", "ser", "Fens", "ter", "Was", "ser"])
     assert have() == ["a", "b", "t"]
     undo(page).click()
     expect(undo(page)).to_be_disabled()
-    expect(bows(page, "b", "t")).to_have_count(0)
+    bows(page, "b", "t").to_have_count(0)
     assert have() == ["a"]
     redo(page).click()
     expect(redo(page)).to_be_disabled()
@@ -176,10 +197,10 @@ def test_the_switch_goes_on_unless_all_picked_have_the_bows_in_one_undo_step(edi
     # All have them now: the next click takes them from all, in one step again.
     switch(page).click()
     expect_switch(page, False)
-    expect(bows(page, "a", "b", "t")).to_have_count(0)
+    bows(page, "a", "b", "t").to_have_count(0)
     assert have() == []
     undo(page).click()
-    expect(bows(page, "t")).to_have_text(["Fens", "ter", "Was", "ser"])
+    bows(page, "t").to_have_text(["Fens", "ter", "Was", "ser"])
     assert have() == ["a", "b", "t"]
 
 
@@ -193,11 +214,11 @@ def test_tab_reaches_the_switch_and_space_and_enter_press_it(editor):
     expect_switch(page, False)
     page.keyboard.press("Space")
     expect_switch(page, True)
-    expect(bows(page, "a")).to_have_text(BOWS)
+    bows(page, "a").to_have_text(BOWS)
     expect(switch(page)).to_be_focused()
     page.keyboard.press("Enter")
     expect_switch(page, False)
-    expect(bows(page, "a")).to_have_count(0)
+    bows(page, "a").to_have_count(0)
 
 
 def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(editor):
@@ -221,7 +242,7 @@ def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(edi
     expect(reset(page)).to_have_count(0)
     gap(page, "Ma|us").click()
     # The fix holds for the word wherever it stands in the block, in capitals or not.
-    expect(bows(page, "a")).to_have_text(["Fens", "ter", "Ma", "us", "ma", "us"])
+    bows(page, "a").to_have_text(["Fens", "ter", "Ma", "us", "ma", "us"])
     expect(gap(page, "Ma|us")).to_have_attribute("aria-pressed", "true")
     # The word says that it is split by hand.
     expect(word(page, "Ma·us")).to_have_attribute("title", "von Hand getrennt")
@@ -231,7 +252,7 @@ def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(edi
     assert held(page, client)["a"]["breaks"] == {"maus": [2]}
     # The same click takes the break away: the word is split as the module does, and no fix stays.
     gap(page, "Ma|us").click()
-    expect(bows(page, "a")).to_have_text(["Fens", "ter", "Maus", "maus"])
+    bows(page, "a").to_have_text(["Fens", "ter", "Maus", "maus"])
     expect(word(page, "Maus")).to_have_class("on")
     expect(reset(page)).to_have_count(0)
     assert "breaks" not in held(page, client)["a"]
@@ -239,10 +260,10 @@ def test_a_click_between_two_letters_sets_a_break_and_one_more_takes_it_away(edi
     word(page, "Fens·ter").click()
     expect(gap(page, "Fens|ter")).to_have_attribute("aria-pressed", "true")
     gap(page, "Fens|ter").click()
-    expect(bows(page, "a")).to_have_text(["Fenster", "Maus", "maus"])
+    bows(page, "a").to_have_text(["Fenster", "Maus", "maus"])
     assert held(page, client)["a"]["breaks"] == {"fenster": []}
     reset(page).click()
-    expect(bows(page, "a")).to_have_text(["Fens", "ter", "Maus", "maus"])
+    bows(page, "a").to_have_text(["Fens", "ter", "Maus", "maus"])
     expect(reset(page)).to_have_count(0)
     assert "breaks" not in held(page, client)["a"]
 
@@ -267,34 +288,59 @@ def test_a_word_split_by_hand_outlasts_typing_a_save_and_a_reload(editor):
     """A5: the fix survives edits of the text around it, a save and a reload."""
     client = user()
     page = editor(box("a", "text", MENDED), client=client)
-    expect(bows(page, "a")).to_have_text(["Ma", "us"])
+    bows(page, "a").to_have_text(["Ma", "us"])
     # Typed before the word, inside another word, and after it.
     caret(page, "Maus", 0)
     page.keyboard.type("Das ")
-    expect(bows(page)).to_have_text(["Das", "Ma", "us"])
     page.keyboard.press("ArrowLeft")
     page.keyboard.press("ArrowLeft")
     page.keyboard.type("s")
-    expect(bows(page)).to_have_text(["Dass", "Ma", "us"])
     page.keyboard.press("End")
     page.keyboard.type(" lacht")
-    expect(bows(page)).to_have_text(["Dass", "Ma", "us", "lacht"])
     page.keyboard.press("Escape")
-    expect(bows(page, "a")).to_have_text(["Dass", "Ma", "us", "lacht"])
+    bows(page, "a").to_have_text(["Dass", "Ma", "us", "lacht"])
     assert held(page, client)["a"] == {**MENDED, "text": "Dass Maus lacht"}
     page.reload()
-    expect(bows(page, "a")).to_have_text(["Dass", "Ma", "us", "lacht"])
+    bows(page, "a").to_have_text(["Dass", "Ma", "us", "lacht"])
     # The word deleted and typed again is split as the teacher split it.
     pick(page, "a")
     page.keyboard.press("Enter")
     page.keyboard.press("Control+a")
     page.keyboard.type("Haus")
-    expect(bows(page)).to_have_text(["Haus"])
-    page.keyboard.press("Control+a")
-    page.keyboard.type("Maus")
-    expect(bows(page)).to_have_text(["Ma", "us"])
     page.keyboard.press("Escape")
+    bows(page, "a").to_have_text(["Haus"])
+    assert held(page, client)["a"] == {**MENDED, "text": "Haus"}
+    page.keyboard.press("Enter")
+    page.keyboard.type("Maus")
+    page.keyboard.press("Escape")
+    bows(page, "a").to_have_text(["Ma", "us"])
     assert held(page, client)["a"] == MENDED
+
+
+def test_a_tables_cell_shows_its_bows_again_when_its_field_closes(editor):
+    """A10: a cell written in has its bows once the writing ends, the new word's too."""
+    page = editor(box("a", "table", {**CELLS, "syllables": True}))
+    bows(page, "a").to_have_text(["Fens", "ter", "Was", "ser"])
+    at(page, "a").locator("[data-cell='0']").dblclick()
+    expect(at(page, "a").locator("textarea")).to_be_focused()
+    page.keyboard.press("End")
+    page.keyboard.type(" Tasche")
+    page.keyboard.press("Escape")
+    expect(at(page, "a").locator("textarea")).to_have_count(0)
+    bows(page, "a").to_have_text(["Fens", "ter", "Ta", "sche", "Was", "ser"])
+
+
+def test_a_tables_open_cell_shows_its_bows_and_they_follow_each_letter_typed(editor):
+    """I2: the bows show in the cell being written in, as in a text's open field."""
+    page = editor(box("a", "table", {**CELLS, "syllables": True}))
+    at(page, "a").locator("[data-cell='0']").dblclick()
+    expect(at(page, "a").locator("textarea")).to_be_focused()
+    bows(page, "a").to_have_text(["Fens", "ter", "Was", "ser"])
+    page.keyboard.press("End")
+    page.keyboard.type(" Ta")
+    bows(page, "a").to_have_text(["Fens", "ter", "Ta", "Was", "ser"])
+    page.keyboard.type("sche")
+    bows(page, "a").to_have_text(["Fens", "ter", "Ta", "sche", "Was", "ser"])
 
 
 def test_the_switch_and_each_break_undo_and_redo_one_step_each(editor):
@@ -306,15 +352,15 @@ def test_the_switch_and_each_break_undo_and_redo_one_step_each(editor):
     gap(page, "Ma|us").click()
     gap(page, "M|aus").click()
     steps = [[], ["Maus"], ["Ma", "us"], ["M", "a", "us"]]
-    expect(bows(page, "a")).to_have_text(steps[3])
+    bows(page, "a").to_have_text(steps[3])
     for step in (2, 1, 0):
         page.keyboard.press("Control+z")
-        expect(bows(page, "a")).to_have_text(steps[step])
+        bows(page, "a").to_have_text(steps[step])
     expect_switch(page, False)
     expect(undo(page)).to_be_disabled()
     for step in (1, 2, 3):
         page.keyboard.press("Control+y")
-        expect(bows(page, "a")).to_have_text(steps[step])
+        bows(page, "a").to_have_text(steps[step])
         expect_switch(page, True)
     expect(redo(page)).to_be_disabled()
     expect(gap(page, "M|aus")).to_have_attribute("aria-pressed", "true")
@@ -327,10 +373,10 @@ def test_the_bows_follow_each_letter_typed_and_the_switch_leaves_the_caret(edito
     props = {**TEXT, "text": "Fenster"} if kind == "text" else {**RECT, "text": "Fenster"}
     page = editor(box("a", kind, props), client=client)
     caret(page, "Fenster", 4)
-    expect(bows(page)).to_have_count(0)
+    bows(page, "a").to_have_count(0)
     switch(page).click()
     expect_switch(page, True)
-    expect(bows(page)).to_have_text(["Fens", "ter"])
+    bows(page, "a").to_have_text(["Fens", "ter"])
     # The field is still written in, at the place the caret had.
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")
@@ -343,11 +389,11 @@ def test_the_bows_follow_each_letter_typed_and_the_switch_leaves_the_caret(edito
         ("ser", ["Fens", "ter", "Was", "ser"]),
     ):
         page.keyboard.type(typed)
-        expect(bows(page)).to_have_text(shown)
+        bows(page, "a").to_have_text(shown)
     # The word the caret stands at is open with no click; a break set there shows in the field.
     expect(word(page, "Was·ser")).to_have_attribute("aria-pressed", "true")
     gap(page, "Wa|sser").click()
-    expect(bows(page)).to_have_text(["Fens", "ter", "Wa", "s", "ser"])
+    bows(page, "a").to_have_text(["Fens", "ter", "Wa", "s", "ser"])
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("n")
     expect(page.locator(FIELD)).to_have_text("Fenster Wassern")
@@ -358,7 +404,7 @@ def test_the_bows_follow_each_letter_typed_and_the_switch_leaves_the_caret(edito
     expect(gap(page, "Fens|ter")).to_have_attribute("aria-pressed", "true")
     switch(page).click()
     expect_switch(page, False)
-    expect(bows(page)).to_have_count(0)
+    bows(page, "a").to_have_count(0)
     expect(page.locator(FIELD)).to_be_focused()
     assert held(page, client)["a"]["breaks"] == {"wasser": [2, 3]}
 
@@ -374,15 +420,15 @@ def test_the_brush_carries_the_bows_and_leaves_the_words_split_by_hand(editor):
     ]
     page = editor(*blocks, client=client)
     paint(page, "a", "b")
-    expect(bows(page, "b")).to_have_text(["Maus"])
+    bows(page, "b").to_have_text(["Maus"])
     paint(page, "a", "t")
-    expect(bows(page, "t")).to_have_text(["Fens", "ter", "Was", "ser"])
+    bows(page, "t").to_have_text(["Fens", "ter", "Was", "ser"])
     now = held(page, client)
     assert (now["b"]["syllables"], now["t"]["syllables"]) == (True, True)
     assert "breaks" not in now["b"] and "breaks" not in now["t"]
     # A block without bows takes them away, as one not bold takes the bold; the fix stays.
     paint(page, "c", "a")
-    expect(bows(page, "a")).to_have_count(0)
+    bows(page, "a").to_have_count(0)
     now = held(page, client)["a"]
     assert "syllables" not in now and now["breaks"] == {"maus": [2]}
 
@@ -397,7 +443,8 @@ def test_a_copy_and_a_duplicate_keep_the_bows_and_the_words_split_by_hand(editor
     expect(page.locator(".block[data-id]")).to_have_count(2)
     page.keyboard.press("Control+d")
     expect(page.locator(".block[data-id]")).to_have_count(3)
-    expect(page.locator(".block[data-id] .syl")).to_have_text(["Ma", "us"] * 3)
+    made = page.eval_on_selector_all(".block[data-id]", "els => els.map((el) => el.dataset.id)")
+    bows(page, *made).to_have_text(["Ma", "us"] * 3)
     assert list(held(page, client).values()) == [MENDED] * 3
 
 
@@ -411,10 +458,10 @@ def test_a_locked_block_takes_the_bows_and_a_word_split_by_hand(editor, kind):
     at(page, "a").click()
     expect_picked(page, "a")
     switch(page).click()
-    expect(bows(page, "a")).to_have_text(["Maus"])
+    bows(page, "a").to_have_text(["Maus"])
     word(page, "Maus").click()
     gap(page, "Ma|us").click()
-    expect(bows(page, "a")).to_have_text(["Ma", "us"])
+    bows(page, "a").to_have_text(["Ma", "us"])
     assert saved(page, client) == [
         {**block, "props": {**props, "syllables": True, "breaks": {"maus": [2]}}}
     ]

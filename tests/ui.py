@@ -138,6 +138,15 @@ def at(page, name):
     return page.locator(f'.block[data-id="{name}"]')
 
 
+def syls(page, name):
+    """The syllables with a bow in the block, in order."""
+    return (
+        at(page, name)
+        .locator(".syl")
+        .evaluate_all("els => els.map(e => e.dataset.syl ?? e.textContent)")
+    )
+
+
 def pick(page, *names):
     """Selects the blocks by a click, with Shift for all after the first."""
     for i, name in enumerate(names):
