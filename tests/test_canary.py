@@ -612,19 +612,86 @@ def test_a_commit_whose_canary_runs_latest_is_refused_before_the_build(tmp_path)
     assert "Revert on master" in done.stdout
 
 
-@pytest.mark.parametrize(("running", "code_"), [("sha256:new", 0), ("sha256:old", 1)])
-def test_a_container_that_kept_the_old_image_fails_the_deploy(tmp_path, running, code_):
+LAYERS = '["sha256:base","sha256:app"]'
+CONFIG = '{"Cmd":["serve"],"Env":["KEY=hushhush"]}'
+
+# Answers by what it is asked: the container's image id, then the layers and the config of that
+# id and of the `canary` name. An empty answer stands for a container or an image that is not
+# there: docker says so on stderr and fails.
+SAME_IMAGE = """#!/usr/bin/env bash
+case "$*" in
+  # An image with no name at all: the container's id came back empty.
+  *" ") answer= ;;
+  "inspect -f {{.Image}} blattwerk") answer=$ID_RUNNING ;;
+  "image inspect -f {{json .RootFS.Layers}} $ID_RUNNING") answer=$LAYERS_RUNNING ;;
+  "image inspect -f {{json .Config}} $ID_RUNNING") answer=$CONFIG_RUNNING ;;
+  "image inspect -f {{json .RootFS.Layers}} blattwerk-blattwerk:canary") answer=$LAYERS_CANARY ;;
+  "image inspect -f {{json .Config}} blattwerk-blattwerk:canary") answer=$CONFIG_CANARY ;;
+  *) answer= ;;
+esac
+if [ -z "$answer" ]; then
+  echo "Error response from daemon: no such object: $*" >&2
+  exit 1
+fi
+echo "$answer"
+"""
+
+
+def same_image(tmp_path, **answers):
+    """Runs the deploy's check as the runner does (`bash -e`) against a docker that answers so."""
     (check,) = re.findall(
         r"^        run: \|\n((?:          .*\n)+)",
         steps()["Check that the container runs the tested image"],
         re.M,
     )
     stub = tmp_path / "docker"
-    stub.write_text(f'#!/bin/sh\n[ "$1" = image ] && echo sha256:new || echo {running}\n')
+    stub.write_text(SAME_IMAGE)
     stub.chmod(0o755)
-    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
-    done = subprocess.run(["bash", "-c", check], env=env, capture_output=True, text=True)
-    assert done.returncode == code_, done.stdout
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "ID_RUNNING": "sha256:old",
+        "LAYERS_RUNNING": LAYERS,
+        "CONFIG_RUNNING": CONFIG,
+        "LAYERS_CANARY": LAYERS,
+        "CONFIG_CANARY": CONFIG,
+        **{key.upper(): value for key, value in answers.items()},
+    }
+    done = subprocess.run(["bash", "-e", "-c", check], env=env, capture_output=True, text=True)
+    # The config holds env values, and the job log is public.
+    assert "hushhush" not in done.stdout + done.stderr
+    return done
+
+
+@pytest.mark.parametrize("running", ["sha256:canary", "sha256:old"], ids=["same id", "other id"])
+def test_a_container_with_the_layers_and_config_the_canary_tried_passes(tmp_path, running):
+    """A build out of the cache has a new id for the same image, and compose keeps the container."""
+    done = same_image(tmp_path, id_running=running)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "::error::" not in done.stdout
+    assert running in done.stdout
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [
+        pytest.param({"layers_running": '["sha256:base","sha256:older"]'}, id="other layers"),
+        # A new `ENV` or `CMD` in the Dockerfile adds no layer.
+        pytest.param({"config_running": '{"Cmd":["other"]}'}, id="other config"),
+        pytest.param({"id_running": ""}, id="no container"),
+        pytest.param({"layers_running": "", "config_running": ""}, id="no image of that id"),
+        pytest.param({"layers_canary": "", "config_canary": ""}, id="no canary image"),
+        # Two inspects that fail give two empty answers, which are not the same image.
+        pytest.param(
+            {"id_running": "", "layers_canary": "", "config_canary": ""}, id="nothing there"
+        ),
+        pytest.param({"config_running": "", "config_canary": ""}, id="no config to read"),
+    ],
+)
+def test_a_container_that_kept_the_old_image_fails_the_deploy(tmp_path, answers):
+    done = same_image(tmp_path, **answers)
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "::error::the blattwerk container does not run the image the canary tried" in done.stdout
 
 
 def test_the_build_has_an_end():

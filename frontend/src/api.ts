@@ -7,6 +7,24 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// What the app does when a request finds the session gone, and how many times somebody has signed in or out.
+let signedOut = () => {};
+let logins = 0;
+export const onSignedOut = (then: () => void) => void (signedOut = then);
+export const showLogin = () => signedOut();
+export const countLogin = () => void logins++;
+// A request that finds the session gone brings the login, on the address as it stands. Not where somebody has
+// signed in since it went: that answer is about the session before, and `logins` counts them. It is "stale" then,
+// a failure like any other: no saver stops for it, and the next try goes with the new session.
+export function signed<T>(asked: Promise<T>) {
+  const was = logins;
+  return asked.catch((e: Error) => {
+    if (e.message === "401" && was !== logins) throw new Error("stale");
+    if (e.message === "401") signedOut();
+    throw e;
+  });
+}
+
 export function post<T>(path: string, body: object = {}, init?: RequestInit): Promise<T> {
   return api<T>(path, {
     method: "POST",

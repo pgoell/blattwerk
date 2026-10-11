@@ -2,13 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
-import Feedback from "./components/Feedback";
+import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
 import About from "./pages/About";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
-import Photos from "./pages/Photos";
+import Photos, { forgetPhotos } from "./pages/Photos";
 import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
@@ -43,6 +43,8 @@ export default function App() {
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
+    // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
+    if (to?.id !== was.current) (forgetDraft(), forgetPhotos());
     saves.enter(to?.id);
     setUser(to);
     setEntered((n) => n + 1);

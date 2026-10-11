@@ -1,6 +1,6 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
 import { useRef, useState } from "react";
-import { post } from "../api";
+import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
@@ -13,8 +13,9 @@ const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"]
 const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", max: "Zahlenraum" };
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
+// Asked with the session run out, it brings the login.
 export const generate = ({ ops, max, a, b, carry, rest, format, count, seed }: Limits) =>
-  post<Made>("/maths", { ops, max, a, b, carry, rest, format, count, seed });
+  signed(post<Made>("/maths", { ops, max, a, b, carry, rest, format, count, seed }));
 
 export default function Maths({ block, apply }: { block: MathsBlock; apply: (props: MathsProps) => void }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
