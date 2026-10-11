@@ -9,6 +9,7 @@ from pathlib import Path
 
 import anyio
 import pytest
+import pytest_timeout
 from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
@@ -154,6 +155,23 @@ def pytest_runtest_logfinish(nodeid, location):
 def pytest_runtest_logreport(report):
     if GUARD:
         GUARD.restart()
+        # On CI the trace comes at once: a job that is cancelled never prints its summary.
+        if report.failed and os.environ.get("CI"):
+            GUARD.say(f"FAILED {report.nodeid} ({report.when})\n{report.longreprtext}")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_exception_interact(node):
+    """A failed test keeps its limit for its teardown.
+
+    pytest-timeout ends its limit when a test fails, for a debugger that may open; pytest's own
+    stack dump does the same. So a teardown that hung after a failure had no end, and the shard
+    sat silent until the job's limit (#391). No debugger opens here: the limit starts anew.
+    """
+    if isinstance(node, pytest.Item):
+        settings = pytest_timeout._get_item_settings(node)
+        if settings.timeout:
+            node.config.pluginmanager.hook.pytest_timeout_set_timer(item=node, settings=settings)
 
 
 def one_loop():
