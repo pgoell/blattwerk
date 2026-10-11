@@ -12,7 +12,7 @@ import httpx
 import pytest
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import TEXT, at, box, doc, pick, saved, user
+from ui import TEXT, at, box, doc, pick, saved, unpick, user
 
 from blattwerk.templates import BUILT_IN
 
@@ -214,6 +214,63 @@ def test_an_emptied_word_drops_its_field_and_a_blur_outside_keeps_the_words(edit
     expect(page.locator(WORD)).to_have_count(0)
     fields = next(b for b in saved(page, client) if b["id"] == "a")["props"]["fields"]
     assert fields == ["Name", "Klasse"]
+
+
+@pytest.mark.parametrize("press", ["block", "paper", "page"])
+def test_a_typed_score_is_kept_when_a_press_ends_its_field(editor, press):
+    client = user()
+    other = [{"blocks": [box("c", "text", TEXT)]}] if press == "page" else []
+    page = editor(
+        box("a", "points", {"max": 10}), box("b", "text", TEXT, z=2), client=client, pages=other
+    )
+    at(page, "a").dblclick()
+    page.keyboard.type("7")
+    if press == "paper":
+        unpick(page)
+    elif press == "page":
+        at(page, "c").click()
+    else:
+        at(page, "b").click()
+    expect(page.locator(SCORE)).to_have_count(0)
+    expect(at(page, "a").locator(".points")).to_have_text("/ 7 Punkte")
+    assert max_of(saved(page, client), "a") == 7
+
+
+def test_a_typed_score_takes_one_undo_step_when_a_press_ends_it(editor):
+    client = user()
+    page = editor(box("a", "points", {"max": 10}), box("b", "text", TEXT, z=2), client=client)
+    at(page, "a").dblclick()
+    page.keyboard.type("7")
+    at(page, "b").click()
+    expect(at(page, "a").locator(".points")).to_have_text("/ 7 Punkte")
+    page.keyboard.press("Control+z")
+    expect(at(page, "a").locator(".points")).to_have_text("/ 10 Punkte")
+    assert max_of(saved(page, client), "a") == 10
+
+
+def test_a_name_line_word_is_kept_when_a_press_on_another_page_ends_it(editor):
+    client = user()
+    page = editor(box("a", "name", {}), client=client, pages=[{"blocks": [box("c", "text", TEXT)]}])
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(WORD).first).to_be_focused()
+    page.keyboard.type("Vorname")
+    at(page, "c").click()
+    expect(page.locator(WORD)).to_have_count(0)
+    fields = next(b for b in saved(page, client) if b["id"] == "a")["props"]["fields"]
+    assert fields == ["Vorname", "Datum", "Klasse"]
+
+
+def test_the_panel_score_reaches_a_box_whose_max_is_the_typed_one(editor):
+    client = user()
+    page = editor(
+        box("a", "points", {"max": 10}), box("b", "points", {"max": 5}, z=2), client=client
+    )
+    pick(page, "a", "b")
+    page.locator(PANEL_SCORE).fill("10")
+    page.locator(PANEL_SCORE).press("Enter")
+    blocks = saved(page, client)
+    assert (max_of(blocks, "a"), max_of(blocks, "b")) == (10, 10)
 
 
 @pytest.mark.parametrize("sheet_name", SHEETS)

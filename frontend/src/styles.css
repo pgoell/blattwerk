@@ -351,7 +351,8 @@ body:has(.print) { background: #fff; }
 /* What keeps clear of the dock: 88px under a dock of one row, for a mouse or a finger, and more under one that has wrapped. */
 .editor { --room: max(88px, var(--dock, 0px) + 30px); }
 .desk {
-  overflow: auto; scrollbar-gutter: stable; padding: 32px 32px var(--room); touch-action: pan-x pan-y;
+  /* The vertical track always stands: where scrollbar-gutter is unknown, the desk's width would follow its scrollbar. */
+  overflow: auto scroll; scrollbar-gutter: stable; padding: 32px 32px var(--room); touch-action: pan-x pan-y;
   background: var(--desk) radial-gradient(var(--dot) 1px, transparent 1.5px) 0 0 / 20px 20px;
 }
 /* What can go on the page: a bar that floats over the desk's lower edge. */

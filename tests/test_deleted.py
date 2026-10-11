@@ -45,6 +45,10 @@ SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehs
 LINE = "„a“ wurde auf einem anderen Gerät gelöscht. Deine letzte Änderung ist noch da."
 BUSY = "Lädt …"
 WORD = "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."
+PDF_GONE = (
+    "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. "
+    "Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF."
+)
 # A record as the app wrote it before it kept the sheet's name.
 OLD = """for (const k of Object.keys(localStorage)) {
     if (!k.startsWith('unsaved:')) continue;
@@ -480,3 +484,14 @@ def test_dropping_with_no_connection_says_so_and_the_choice_stands(run):
     page.context.set_offline(False)
     press(banner, DROP)
     expect_list(page)
+
+
+@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "key"])
+def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run, button):
+    """14"""
+    page, _, _ = deleted(run)
+    page.get_by_role("button", name=button, exact=True).click()
+    line = page.locator(".notice.fault")
+    expect(line).to_contain_text(PDF_GONE)
+    expect(line.get_by_role("button", name="Erneut versuchen")).to_have_count(0)
+    expect_choice(page.locator(".clash"), SAYS)

@@ -15,10 +15,21 @@ export type Piece = { text: string; syl: boolean; word?: number };
 
 const MARK = "­";
 const hyphenate = createHyphenator(patterns, { hyphenChar: MARK, minWordLength: 1 }) as (word: string) => string;
-// A word: letters, and an apostrophe between two of them. Digits and punctuation are no word.
-const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu;
+// Hidden: a soft hyphen, a zero width joiner, and an emoji (a flag's letters too) with the variation selector or skin tone after it. A word
+// holds them between two of its letters, and a reader sees none of them as a letter.
+const HIDE = String.raw`(?:[­‍]|[\p{Extended_Pictographic}\p{Regional_Indicator}][️\p{Emoji_Modifier}]*)`;
+// A run of letters, and the marks typed after them. It starts with a letter, so a variation selector after an emoji
+// starts no word.
+const RUN = String.raw`\p{L}[\p{L}\p{M}]*`;
+// A word: runs of letters, with hidden characters or an apostrophe between two of them. Digits and punctuation are no word.
+const WORD = new RegExp(`${RUN}(?:(?:${HIDE}+|['’])${RUN})*`, "gu");
 // A letter with the marks typed after it ("a" and its two dots), so a text counts the same composed or not.
 const LETTER = /\P{M}\p{M}*|\p{M}+/gu;
+// A piece of a word: a hidden character, or a letter.
+const TOKEN = new RegExp(`${HIDE}|${LETTER.source}`, "gu");
+const HIDDEN = new RegExp(`^${HIDE}$`, "u");
+const HIDDEN_ALL = new RegExp(HIDE, "gu");
+const HIDDEN_END = new RegExp(`${HIDE}+$`, "u");
 
 // A vowel with an accent of a word from abroad counts as its letter does ("Crê-pe", "No-ël"); these four have none.
 const VOWELS = new Set("aeiouyäöüøæœı");
@@ -79,32 +90,51 @@ function own(c: string[]): number[] {
 
 const cache = new Map<string, number[]>();
 
-// The name a word's own split is stored under.
-export const keyOf = (word: string) => word.toLowerCase();
+// The word as a reader sees it: without its hidden characters.
+export const plain = (word: string) => word.replace(HIDDEN_ALL, "");
+// The name a word's own split is stored under: the same for the word with a hidden character and the plain one.
+export const keyOf = (word: string) => plain(word).toLowerCase();
+// A syllable as a reader sees it: without the hidden characters after its last letter, under which a bow and a colour lie.
+export const shown = (syllable: string) => syllable.replace(HIDDEN_END, "");
+// Where each character of the plain word stands in the word as it came, and at the end the word's length.
+function places(word: string): number[] {
+  const out: number[] = [];
+  let at = 0;
+  for (const token of word.match(TOKEN) ?? []) {
+    if (!HIDDEN.test(token)) for (let i = 0; i < token.length; i++) out.push(at + i);
+    at += token.length;
+  }
+  return [...out, at];
+}
 // The places a word breaks at, as counts of characters from its start: [1] for "Abend", [] for "Maus".
 // The same for a word in upper and in lower case. Every render asks for every word, so an answer is kept.
+// The places are those of the word as it came: a break lands after the hidden characters that follow a letter.
 export function split(word: string): number[] {
   let out = cache.get(word);
   if (!out) {
-    const letters = word.match(LETTER) ?? [];
-    // The place of each letter in the word as it came.
-    const place = [0];
-    for (const letter of letters) place.push(place[place.length - 1] + letter.length);
-    out = own(letters.map((letter) => [...letter.normalize("NFC").toLowerCase()][0])).map((at) => place[at]);
+    const at = places(word);
+    const letters = plain(word).match(LETTER) ?? [];
+    // Where each letter of the plain word starts.
+    const start = [0];
+    for (const letter of letters) start.push(start[start.length - 1] + letter.length);
+    out = own(letters.map((letter) => [...letter.normalize("NFC").toLowerCase()][0])).map((i) => at[start[i]]);
     cache.set(word, out);
   }
   return out;
 }
 // The places a word breaks at: the teacher's where the word has them, the module's own otherwise.
 // A sheet may come from anywhere: only a list the sheet itself holds for the word counts (not what every object
-// has, as "constructor"), and of it the whole numbers inside the word, each once, in order.
+// has, as "constructor"), and of it the whole numbers inside the word, each once, in order. The teacher's places
+// count the plain word, and come back as places of the word as it came.
 export function cuts(word: string, breaks?: Breaks): number[] {
   const own: unknown = breaks && Object.hasOwn(breaks, keyOf(word)) ? breaks[keyOf(word)] : undefined;
   if (!Array.isArray(own)) return split(word);
-  return [...new Set(own.filter((at): at is number => Number.isInteger(at) && at > 0 && at < word.length))].sort((a, b) => a - b);
+  const length = plain(word).length;
+  const at = places(word);
+  return [...new Set(own.filter((i): i is number => Number.isInteger(i) && i > 0 && i < length))].sort((a, b) => a - b).map((i) => at[i]);
 }
-// The words of a text, each once, in the order they first stand in it.
-export const words = (text: string) => [...new Set(text.match(WORD) ?? [])];
+// The words of a text as a reader sees them, each once, in the order they first stand in it.
+export const words = (text: string) => [...new Set((text.match(WORD) ?? []).map(plain))];
 // A text as its pieces, in order: joined they give the text again.
 export function pieces(text: string, breaks?: Breaks): Piece[] {
   const out: Piece[] = [];
