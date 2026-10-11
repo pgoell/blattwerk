@@ -145,6 +145,66 @@ def test_each_gap_change_is_one_undo_step_and_redo_brings_it_back(editor):
         assert held(page, client)["a"] == want
 
 
+def test_neu_mischen_on_a_text_and_a_table_is_one_undo_step(editor):
+    """A1, A2, I1: a press of Neu mischen on a text and a table is one step; two presses, two."""
+    client = user()
+    page = editor(box("a", "text", TEXT), box("t", "table", TABLE, z=2), client=client)
+    pick(page, "a", "t")
+    step(page, lambda: panel(page, "Lösungswörter").click())
+    s0 = {name: held(page, client)[name]["bank"] for name in ("a", "t")}
+    step(page, lambda: panel(page, "Neu mischen").click())
+    s1 = {name: held(page, client)[name]["bank"] for name in ("a", "t")}
+    assert s1["a"] != s0["a"] and s1["t"] != s0["t"]
+    step(page, lambda: panel(page, "Neu mischen").click())
+    s2 = {name: held(page, client)[name]["bank"] for name in ("a", "t")}
+    assert s2["a"] != s1["a"] and s2["t"] != s1["t"]
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert {name: held(page, client)[name]["bank"] for name in ("a", "t")} == s1
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert {name: held(page, client)[name]["bank"] for name in ("a", "t")} == s0
+    step(page, lambda: page.keyboard.press("Control+y"))
+    assert {name: held(page, client)[name]["bank"] for name in ("a", "t")} == s1
+
+
+def test_neu_mischen_on_a_shape_and_a_table_is_one_undo_step(editor):
+    """I2: a press of Neu mischen on a shape with words and a table is one step, one undo."""
+    client = user()
+    page = editor(
+        box("a", "shape", {**RECT, "text": "Hund"}),
+        box("t", "table", TABLE, z=2),
+        client=client,
+    )
+    pick(page, "a", "t")
+    step(page, lambda: panel(page, "Lösungswörter").click())
+    s0 = {name: held(page, client)[name]["bank"] for name in ("a", "t")}
+    step(page, lambda: panel(page, "Neu mischen").click())
+    assert {name: held(page, client)[name]["bank"] for name in ("a", "t")} != s0
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert {name: held(page, client)[name]["bank"] for name in ("a", "t")} == s0
+
+
+def test_neu_mischen_draws_a_seed_no_selected_block_had(editor):
+    """A3: the new seed differs from the old seed of every selected block, not just the first."""
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "bank": 5}),
+        box("t", "table", {**TABLE, "bank": 7}, z=2),
+        client=client,
+    )
+    pick(page, "a", "t")
+    # The first draw gives the table's old seed 7, the next one 9; a draw of n - 0.5 gives n.
+    page.evaluate(
+        """() => {
+            const drawn = [7, 9].map((n) => (n - 0.5) / 2147483647);
+            const real = Math.random;
+            Math.random = () => (drawn.length ? drawn.shift() : real());
+        }"""
+    )
+    step(page, lambda: panel(page, "Neu mischen").click())
+    now = held(page, client)
+    assert now["a"]["bank"] == 9 and now["t"]["bank"] == 9
+
+
 @pytest.mark.parametrize("kind", ["text", "table"])
 def test_lucke_gaps_each_held_block_as_a_whole_when_no_field_is_open(editor, kind):
     """A13 and I2: with no text open, Lücke gaps each block whole: its text, or its cells."""
