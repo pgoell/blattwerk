@@ -545,24 +545,18 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
       };
       let at = 0;
       let word: number | undefined;
-      // A soft hyphen, as a text copied out of Word brings it, parts a word for the splitter and not for the reader:
-      // the turn goes on over it.
-      let soft = false;
       for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
-        const [from, end] = [at, (at += piece.text.length)];
-        if (!piece.syl) {
-          soft = /^­+$/.test(piece.text);
-          continue;
-        }
+        const from = at;
+        at += piece.text.length;
+        if (!piece.syl) continue;
         if (piece.word !== word) {
           word = piece.word;
-          if (!across && !soft) count = 0;
+          if (!across) count = 0;
         }
-        soft = false;
         const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
         // The end lies in the node of the syllable's last letter, not at the start of the next.
-        const [last, stop] = spot(end - 1);
+        const [last, stop] = spot(from + module.shown(piece.text).length - 1);
         // A hand colour keeps its letters: each stretch of the syllable without one gets a range of its own.
         const mark = colour ? highlight(colour) : undefined;
         if (mark) {
@@ -607,7 +601,7 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
           const deep = Math.min(0.16 * em, (to - x) / 2);
           const path = document.createElementNS(SVG, "path");
           path.setAttribute("class", "syl");
-          path.dataset.syl = piece.text;
+          path.dataset.syl = module.plain(piece.text);
           // A curve hangs half as deep as the point it is drawn towards.
           path.setAttribute("d", `M${x.toFixed(2)},${y.toFixed(2)} Q${((x + to) / 2).toFixed(2)},${(y + 2 * deep).toFixed(2)} ${to.toFixed(2)},${y.toFixed(2)}`);
           // A bow takes the colour of its syllable, where the syllable's first letter has no hand colour of its own.
