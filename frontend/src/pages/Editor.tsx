@@ -101,13 +101,14 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // The look the brush carries from a text or a shape to the next. A line gives and takes its stroke alone, a table
 // what its cells have and the colour of its lines, `rule`, a Lineatur its script, the colour of its lines, `rule`
 // too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. Every block
-// gives and takes the numbering before it, `mark`.
-const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+// gives and takes the numbering before it, `mark`. The Silbenbögen go along, `syllables`, but not the words split
+// by hand, `breaks`: they belong to the words.
+const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
   const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace"] : ["rule", "trace"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
-  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "rule"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "rule"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
@@ -1002,10 +1003,12 @@ function Canvas({ file, user, reload, over, choice }: { file: Sheet; user: User;
     tight.current = true;
     // A line style or a width turns on the border of each box that has none, as in PowerPoint.
     const edge = "dash" in props || "strokeWidth" in props;
+    // A line holds no words: the Silbenbögen and the words split by hand pass it by.
+    const words = "syllables" in props || "breaks" in props;
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text")) return b;
+          if (!ids.includes(b.id) || (b.type !== "shape" && b.type !== "text") || (words && isLine(b))) return b;
           const on = edge && (b.props.stroke ?? "none") === "none" && { stroke: "#222222" };
           return { ...b, props: { ...b.props, ...fresh(b, props), ...on } } as Block;
         }),
