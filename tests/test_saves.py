@@ -13,11 +13,11 @@ The docstrings name the lines of the checklist.
 import json
 import re
 import threading
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 
 import pytest
 from fastapi import HTTPException
-from playwright.sync_api import expect
+from playwright.sync_api import Error, expect
 from test_loading import READY, expect_loading, expect_ready, window  # noqa: F401
 from test_stale import GO, KEPT, STATUS, TURNS, Gate, Run, blocks, named
 from ui import PASSWORD, TEXT, at, box, user
@@ -942,7 +942,8 @@ def test_overwriting_that_cannot_ask_the_server_leaves_the_banner_for_another_tr
 
 
 def test_the_other_version_that_answers_after_the_teacher_overwrote_it_changes_nothing(run):
-    """Review 6: `Andere Version laden`, its answer held, then `Mit dieser überschreiben`."""
+    """Review 6: `Andere Version laden`, its answer held, then `Mit dieser überschreiben`. While
+    the load is under way neither choice takes a press (#338), so it is given up first."""
     page, gate = start(run)
     theirs = clash(run)
     moved = at(page, "a").evaluate(LEFT)
@@ -952,13 +953,16 @@ def test_the_other_version_that_answers_after_the_teacher_overwrote_it_changes_n
         banner.get_by_role("button", name="Andere Version laden").click()
     page.evaluate(TURNS)
     late = gate.loads.pop()
+    page.clock.run_for(20000)
     gate.free, gate.keep = True, False
     with page.expect_response(lambda r: gate.answers("PATCH")(r) and r.ok) as saved:
         banner.get_by_role("button", name="Mit dieser überschreiben").click()
     saved.value.finished()
     expect(page.locator(STATUS)).to_have_text("Gespeichert")
-    # The answer to the first press, as the server stood then.
-    late.fulfill(json=theirs)
+    # The answer to the first press, as the server stood then. Where the browser has let the
+    # request go, there is no way left for it.
+    with suppress(Error):
+        late.fulfill(json=theirs)
     page.evaluate(TURNS)
     expect(at(page, "a")).to_have_css("left", moved)
     assert x_of(run, "a") == 16

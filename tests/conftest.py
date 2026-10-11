@@ -14,6 +14,13 @@ NATIVE = os.environ.get("BLATTWERK_NATIVE") == "1"
 IPAD = {"width": 834, "height": 1194}
 TURNED = {"width": 1194, "height": 834}
 expect.set_options(timeout=2000)
+# The tests that take over 30 s on CI. A test has a minute (pyproject.toml); these have two.
+SLOW = {
+    "test_a_corpus_file_prints_as_it_shows",
+    "test_full_run_fails_when_the_reloaded_editor_lacks_the_word",
+    "test_a_block_on_its_way_finds_its_page_after_the_pages_change",
+    "test_every_exercise_keeps_every_limit",
+}
 # Whether the widest page fills the desk's width, as it does at a zoom of 100 % once the editor
 # has measured the desk.
 MEASURED = """() => {
@@ -32,6 +39,10 @@ def pytest_collection_modifyitems(config, items):
     By place in the collection, so the slow files spread over all shards. Each xdist worker
     collects the same list and reads the same variable, so all agree.
     """
+
+    for test in items:
+        if getattr(test, "originalname", None) in SLOW:
+            test.add_marker(pytest.mark.timeout(120))
 
     # A test marked native runs in the headed lane, and that lane runs nothing else.
     def other(test):

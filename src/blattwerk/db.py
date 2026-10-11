@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
+from pydantic import AfterValidator, Field
 
 DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 log = logging.getLogger(__name__)
@@ -180,3 +181,18 @@ def connect() -> Iterator[sqlite3.Connection]:
 
 
 Con = Annotated[sqlite3.Connection, Depends(connect)]
+
+# SQLite's whole numbers have 64 bits, and a query that brings a larger one fails. One in a body
+# is refused with it.
+Whole = Annotated[int, Field(ge=-(2**63), lt=2**63)]
+
+
+def held(number: int) -> int:
+    # No row has an id that SQLite cannot hold: it is as missing as one that never was.
+    if not -(2**63) <= number < 2**63:
+        raise HTTPException(404)
+    return number
+
+
+# An id in an address.
+Id = Annotated[int, AfterValidator(held)]

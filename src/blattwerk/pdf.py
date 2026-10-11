@@ -16,7 +16,7 @@ from pypdf import PdfWriter
 
 from blattwerk import pictures
 from blattwerk.auth import User
-from blattwerk.db import Con
+from blattwerk.db import Con, Id
 from blattwerk.sheets import find
 
 # Seconds a token lasts: Chromium loads the page right after the token is made.
@@ -64,7 +64,7 @@ def shows(con: sqlite3.Connection, token: str | None, upload_id: int) -> int:
 
 
 @router.get("/render/{sheet_id}")
-def render(sheet_id: int, con: Con, token: Token = None) -> dict:
+def render(sheet_id: Id, con: Con, token: Token = None) -> dict:
     row = opened(con, token)
     if row["id"] != sheet_id:
         raise HTTPException(404)
@@ -72,7 +72,7 @@ def render(sheet_id: int, con: Con, token: Token = None) -> dict:
 
 
 @router.get("/sheets/{sheet_id}/pdf")
-def pdf(sheet_id: int, request: Request, user: User, con: Con, solved: bool = False) -> Response:
+def pdf(sheet_id: Id, request: Request, user: User, con: Con, solved: bool = False) -> Response:
     sheet = find(con, sheet_id, user)
     # Chromium calls this same server, on the port the request came in by.
     url = f"http://127.0.0.1:{request.scope['server'][1]}/druck/{sheet_id}"

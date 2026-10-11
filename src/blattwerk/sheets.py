@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from blattwerk import pictures
 from blattwerk.auth import User
-from blattwerk.db import Con
+from blattwerk.db import Con, Id, Whole
 
 router = APIRouter(prefix="/api")
 
@@ -25,7 +25,7 @@ class Change(BaseModel):
     title: Title | None = None
     doc: dict | None = None
     # The version the document was based on. A rename brings neither.
-    version: int | None = None
+    version: Whole | None = None
 
     @model_validator(mode="after")
     def doc_has_version(self) -> Change:
@@ -82,12 +82,12 @@ def touch_stored(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row) -> N
 
 
 @router.get("/sheets/{sheet_id}")
-def sheet(sheet_id: int, user: User, con: Con) -> dict:
+def sheet(sheet_id: Id, user: User, con: Con) -> dict:
     return find(con, sheet_id, user)
 
 
 @router.patch("/sheets/{sheet_id}")
-def save(sheet_id: int, body: Change, user: User, con: Con) -> dict:
+def save(sheet_id: Id, body: Change, user: User, con: Con) -> dict:
     # Only a new document moves the version on, so a rename from the list neither needs one
     # nor gets in the way of an open editor's next save.
     doc = body.doc and json.dumps(body.doc)
@@ -112,7 +112,7 @@ def save(sheet_id: int, body: Change, user: User, con: Con) -> dict:
 
 
 @router.post("/sheets/{sheet_id}/duplicate")
-def duplicate(sheet_id: int, user: User, con: Con) -> dict:
+def duplicate(sheet_id: Id, user: User, con: Con) -> dict:
     # The copy's title stays within the 80 characters a save allows.
     return public(
         con.execute(
@@ -125,7 +125,7 @@ def duplicate(sheet_id: int, user: User, con: Con) -> dict:
 
 
 @router.delete("/sheets/{sheet_id}")
-def delete(sheet_id: int, user: User, con: Con) -> dict:
+def delete(sheet_id: Id, user: User, con: Con) -> dict:
     touch_stored(con, sheet_id, user)
     cur = con.execute("DELETE FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"]))
     if not cur.rowcount:
