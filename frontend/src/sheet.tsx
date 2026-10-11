@@ -579,10 +579,12 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
         }
         const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
-        // A gap shows neither bow nor colour, so the hidden word stays hidden; the answer key shows both.
-        if (first.parentElement!.closest(".gap") && !host.closest(".solved")) continue;
         // The end lies in the node of the syllable's last letter, not at the start of the next.
         const [last, stop] = spot(from + module.shown(piece.text).length - 1);
+        // A gap shows neither bow nor colour, so the hidden letters stay hidden, a syllable that
+        // starts or ends in a gap too; the answer key shows both.
+        const hidden = first.parentElement!.closest(".gap") || last.parentElement!.closest(".gap");
+        if (hidden && !host.closest(".solved")) continue;
         // A hand colour keeps its letters: each stretch of the syllable without one gets a range of its own.
         const mark = colour ? highlight(colour) : undefined;
         if (mark) {

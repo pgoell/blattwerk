@@ -344,3 +344,94 @@ def test_a_table_bank_holds_the_gap_cells_words_below_the_rows(editor):
         ".map((s) => getComputedStyle(el)['border' + s + 'Width'])"
     )
     assert bank.evaluate(sides) == at(page, "t").locator('[data-cell="0"]').evaluate(sides)
+
+
+def test_a_gap_cell_of_a_tinted_table_shows_its_words_under_the_open_field(editor):
+    """A gap cell in a tinted table: its words stay visible under the transparent field."""
+    props = {
+        **TABLE,
+        "line": "#222222",
+        "gaps": [[True, False], [False, False]],
+        "tints": ["#1a56db", "#e02424"],
+    }
+    page = editor(box("t", "table", props, h=60))
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    expect(page.locator(".table textarea")).to_be_focused()
+    expect(page.locator(".table .open .gap > span").first).to_have_css("visibility", "visible")
+
+
+# A paragraph of 40 mm with a gap of eight short words, which wraps inside its box.
+EIGHT = {
+    **TEXT,
+    "gapWidth": 10,
+    "rich": [
+        {
+            "runs": [
+                {"text": "Ein "},
+                {"text": "Haus Baum Wolke Sonne Wind Regen Schnee Nebel", "gap": True},
+                {"text": " Ende."},
+            ]
+        }
+    ],
+}
+
+
+def test_a_wrapping_gap_has_a_line_under_each_row_on_the_print(editor, browser, server):
+    """A gap of many words wraps in its box and has a line under each of its rows, which lie
+    within the paragraph."""
+    client = user()
+    page = editor(box("a", "text", EIGHT, w=40, h=60), client=client)
+    mine = page.url.rstrip("/").split("/")[-1]
+    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    paper.goto(f"{server}/druck/{mine}")
+    paper.wait_for_selector("body.ready", state="attached")
+    gap = paper.locator(".gap").first
+    style = gap.evaluate(
+        """el => {
+            const box = el.getBoundingClientRect();
+            const line = parseFloat(getComputedStyle(el).lineHeight);
+            return { line, wide: box.width, high: box.height };
+        }"""
+    )
+    rows = round(style["high"] / style["line"])
+    assert rows >= 2
+    shot = Image.open(io.BytesIO(gap.screenshot())).convert("L")
+    for row in range(rows):
+        band = shot.crop((0, row * style["line"], shot.width, (row + 1) * style["line"]))
+        assert sum(band.histogram()[:128]) > 0, row
+    paragraph = paper.locator(".rich p").first.bounding_box()
+    assert style["wide"] <= paragraph["width"] + 1
+    paper.context.close()
+
+
+# The words of a gap that starts inside a word: "Fen" and the gap "ster" of "Fenster".
+STRADDLE = {
+    **TEXT,
+    "syllables": True,
+    "tints": ["#1a56db", "#e02424"],
+    "text": "Fenster",
+    "rich": [{"runs": [{"text": "Fen"}, {"text": "ster", "gap": True}]}],
+}
+
+
+def test_a_syllable_that_straddles_a_gap_has_no_bow_and_no_colour(editor):
+    """A syllable that starts outside a gap and ends in it gets neither bow nor colour."""
+    plain = {**STRADDLE, "rich": [{"runs": [{"text": "Fenster"}]}]}
+    page = editor(box("a", "text", STRADDLE), box("b", "text", plain, z=2))
+    whole = syls(page, "b")
+    assert "".join(whole) == "Fenster"
+    # The gap starts after three letters: a syllable that ends after them lies in the gap's reach.
+    kept, end = [], 0
+    for syllable in whole:
+        end += len(syllable)
+        if end <= 3:
+            kept.append(syllable)
+    assert syls(page, "a") == kept
+    word, colours, at_ = "Fenster", [], 0
+    for text, colour in tints(page, "b"):
+        at_ = word.index(text, at_)
+        if at_ + len(text) <= 3:
+            colours.append((text, colour))
+        at_ += len(text)
+    assert tints(page, "a") == colours
