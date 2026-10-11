@@ -162,7 +162,7 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
   const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
-  const gaps = <Gaps key={sel.find(worded)?.id} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
+  const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
