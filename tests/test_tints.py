@@ -10,6 +10,7 @@ import re
 from contextlib import suppress
 
 import pytest
+import ui
 from PIL import Image
 from playwright.sync_api import TimeoutError, expect
 from test_lock import fest, undo
@@ -74,6 +75,7 @@ SPANS = """(block) => {
         return [box.left, box.right];
     });
 }"""
+NAMES = "[...CSS.highlights.keys()].filter((name) => name.startsWith('tint-')).sort()"
 COUNT = """() => {
     let n = 0;
     for (const [name, marked] of CSS.highlights)
@@ -275,6 +277,15 @@ def test_two_colour_fields_change_the_pair(editor):
     set_colour(page, "Zweite Silbe", SECOND)
     tinted(page, "a").to_have_text([("Fens", FIRST), ("ter", SECOND), ("Maus", FIRST)])
     assert held(page, client)["a"]["tints"] == [FIRST, SECOND]
+    # A colour the pair had, or a field passed on its way, leaves no highlight and no rule behind.
+    assert page.evaluate(NAMES) == sorted(f"tint-{colour[1:]}" for colour in (FIRST, SECOND))
+    assert page.evaluate("document.head.textContent.split('::highlight(tint-').length - 1") == 2
+
+
+def test_a_soft_hyphen_in_a_word_does_not_start_the_colours_anew(editor):
+    """A2: a word copied out of Word with a soft hyphen in it is one word to the reader."""
+    page = editor(box("a", "text", {**TEXT, "text": "Fens­ter Maus", "tints": PAIR}))
+    assert tints(page, "a") == [("Fens", BLUE), ("ter", RED), ("Maus", BLUE)]
 
 
 def test_black_and_grey_stay_readable_on_a_black_and_white_print(editor):
@@ -540,10 +551,12 @@ def test_tab_reaches_the_colour_switch_and_its_settings_and_space_and_enter_pres
     page.keyboard.press("Space")
     expect_tint_switch(page, True)
     tinted(page, "a").to_have_text([("Fens", BLUE), ("ter", RED), ("Maus", BLUE)])
-    page.keyboard.press("Tab")
-    expect(page.locator(".panel").get_by_label("Erste Silbe", exact=True)).to_be_focused()
-    page.keyboard.press("Tab")
-    expect(page.locator(".panel").get_by_label("Zweite Silbe", exact=True)).to_be_focused()
+    # WebKit's Tab passes a colour field, the block's own "Farbe" too.
+    if ui.BROWSER != "webkit":
+        page.keyboard.press("Tab")
+        expect(page.locator(".panel").get_by_label("Erste Silbe", exact=True)).to_be_focused()
+        page.keyboard.press("Tab")
+        expect(page.locator(".panel").get_by_label("Zweite Silbe", exact=True)).to_be_focused()
     page.keyboard.press("Tab")
     expect(greys(page)).to_be_focused()
     page.keyboard.press("Space")
@@ -578,6 +591,13 @@ def test_a_tables_open_cell_shows_its_colours_and_they_follow_each_letter_typed(
     tinted(page, "a").to_have_text(
         [("Fens", BLUE), ("ter", RED), ("Ta", BLUE), ("sche", RED), ("Was", BLUE), ("ser", RED)]
     )
+    # The field still takes the mouse: a click in its middle is a click in the field.
+    area = at(page, "a").locator("textarea")
+    area.click()
+    expect(area).to_be_focused()
+    page.keyboard.press("Home")
+    page.keyboard.type("O ")
+    expect(area).to_have_value("O Fenster Tasche")
 
 
 @pytest.mark.parametrize("kind", ["text", "shape"])

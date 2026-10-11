@@ -663,4 +663,9 @@ body:has(.print) { background: #fff; }
 /* Silbenbögen: the bows under the syllables of a block's words, drawn over the block by sheet.tsx, which measures
    each syllable where it stands. The drawing takes no room and no click, and is not cut at the block's foot, where
    the bow of a last line hangs below it. */
+/* Silbenfarbe: sheet.tsx colours the syllables as highlights of the text. Safari paints no highlight on text that
+   cannot be selected, as all of a sheet is, so a coloured text can be, and takes no pointer instead: a press on it
+   goes to its block, and selects nothing. The field a text is typed in keeps its pointer. */
+.tinted p { user-select: text; -webkit-user-select: text; pointer-events: none; }
+.tinted .ProseMirror p { pointer-events: auto; }
 .bows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }

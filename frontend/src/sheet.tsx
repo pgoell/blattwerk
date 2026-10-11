@@ -342,7 +342,7 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   return (
     <div
-      className="frame"
+      className={tints ? "frame tinted" : "frame"}
       style={{
         ...textStyle(p, k),
         background: d ? undefined : clear(p),
@@ -476,6 +476,7 @@ export function pairOf(tints: unknown): Tints | undefined {
 // Each colour is one highlight in the document's registry, named by the colour. Its rule goes into a style element
 // the module makes at the first one. A browser without the registry paints no colours.
 let tinting: HTMLStyleElement | undefined;
+const rules = new Map<Highlight, [string, Text]>();
 function highlight(colour: string): Highlight | undefined {
   if (!("highlights" in CSS)) return undefined;
   const name = `tint-${colour.slice(1).toLowerCase()}`;
@@ -484,13 +485,24 @@ function highlight(colour: string): Highlight | undefined {
     mark = new Highlight();
     CSS.highlights.set(name, mark);
     tinting ??= document.head.appendChild(document.createElement("style"));
-    tinting.append(`::highlight(${name}){color:${colour}}`);
+    const rule = document.createTextNode(`::highlight(${name}){color:${colour}}`);
+    tinting.append(rule);
+    rules.set(mark, [name, rule]);
   }
   return mark;
 }
-// A range a block coloured, in the highlight it went into: the block takes it back before it draws anew.
+// A range a block coloured, in the highlight it went into: the block takes it back before it draws anew. A colour
+// that no letter has any more goes with its rule: a drag through the colour field passes hundreds of them.
 type Mark = [Highlight, globalThis.Range];
-const unmark = (marks: Mark[]) => marks.forEach(([mark, range]) => mark.delete(range));
+const unmark = (marks: Mark[]) =>
+  marks.forEach(([mark, range]) => {
+    mark.delete(range);
+    const [name, rule] = rules.get(mark) ?? [];
+    if (mark.size || !rule) return;
+    CSS.highlights.delete(name!);
+    rule.remove();
+    rules.delete(mark);
+  });
 type Draw = { base: number; breaks?: Breaks; syllables?: boolean; tints?: Tints; tintsAcross?: boolean };
 // Draws a bow under each syllable of the text beside `svg`: every paragraph of a frame, of a table's cells and of
 // the field a text is typed in. The words stay as they are. A span around a syllable would move its letters:
@@ -533,13 +545,20 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
       };
       let at = 0;
       let word: number | undefined;
+      // A soft hyphen, as a text copied out of Word brings it, parts a word for the splitter and not for the reader:
+      // the turn goes on over it.
+      let soft = false;
       for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
         const [from, end] = [at, (at += piece.text.length)];
-        if (!piece.syl) continue;
+        if (!piece.syl) {
+          soft = /^­+$/.test(piece.text);
+          continue;
+        }
         if (piece.word !== word) {
           word = piece.word;
-          if (!across) count = 0;
+          if (!across && !soft) count = 0;
         }
+        soft = false;
         const colour = tints?.[count++ % 2];
         const [first, start] = spot(from);
         // The end lies in the node of the syllable's last letter, not at the start of the next.
