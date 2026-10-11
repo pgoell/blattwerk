@@ -3,6 +3,7 @@ import {
   useDeferredValue,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -88,7 +89,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -509,6 +510,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { pages, guides, grid } = hist.doc;
+  // The sheet's Lernwörter, the same list until the sheet's own changes.
+  const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -2318,6 +2321,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     </>
   );
   return (
+    // The Lernwörter reach every Lineatur that draws them, on the pages and on their thumbnails.
+    <Words.Provider value={learnt}>
     <main
       className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
@@ -3178,6 +3183,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         />
       )}
     </main>
+    </Words.Provider>
   );
 }
 

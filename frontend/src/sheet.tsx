@@ -173,7 +173,7 @@ export const read = ({ pages, blocks, guides, grid, landscape, words }: Doc & { 
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
-export const wordsOf = (doc: { words?: unknown }): string[] =>
+export const wordsIn = (doc: { words?: unknown }): string[] =>
   Array.isArray(doc.words) ? doc.words.flatMap((line) => (typeof line === "string" ? line.split(/[,;\n]/) : [])).map((w) => w.trim()).filter(Boolean) : [];
 // The mode a Lineatur takes the Lernwörter in, or none: a stored mode nobody knows is none.
 export const listOf = (b: RulingBlock): ListMode | undefined => (b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" ? b.props.list : undefined);
@@ -1205,6 +1205,7 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
   return (
+    <Words.Provider value={wordsIn(all)}>
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         {all.pages[page].blocks.map((b) => (
@@ -1217,5 +1218,6 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
         {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>Lösungen</b>}
       </div>
     </div>
+    </Words.Provider>
   );
 }
