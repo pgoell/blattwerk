@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { expect, it } from "vitest";
-import { cuts, keyOf, pieces, split, words } from "./syllables";
+import { cuts, keyOf, pieces, plain, shown, split, words } from "./syllables";
 import { WORDS } from "./syllables.words";
 
 // A word with its breaks written in, as the list has them.
@@ -67,8 +67,6 @@ it("gives a text again from its pieces", () => {
       const got = pieces(s);
       expect(got.map((p) => p.text).join("")).toBe(s);
       expect(got.every((p) => p.text.length > 0)).toBe(true);
-      // The syllables are the words, in order.
-      expect(got.filter((p) => p.syl).map((p) => p.text).join("")).toBe((s.match(/[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu) ?? []).join(""));
     }),
   );
 });
@@ -154,4 +152,59 @@ it("takes the teacher's breaks over its own", () => {
 it("gives each word of a text once, in order", () => {
   expect(words("Die Maus, die 3 Mäuse und die Maus")).toEqual(["Die", "Maus", "die", "Mäuse", "und"]);
   expect(words("12, 13!")).toEqual([]);
+});
+
+it("reads a soft hyphen inside a word as part of the word, wherever it lies", () => {
+  // The bows of "Fenster": the hidden character stays with the letters before it.
+  expect(split("Fens­ter")).toEqual([5]);
+  expect(split("Fe­nster")).toEqual([5]);
+  expect(pieces("Fens­ter")).toEqual([
+    { text: "Fens­", syl: true, word: 0 },
+    { text: "ter", syl: true, word: 0 },
+  ]);
+  expect(pieces("Fe­nster").map((p) => p.text)).toEqual(["Fe­ns", "ter"]);
+  expect(keyOf("Fens­ter")).toBe("fenster");
+  expect(shown("Fens­")).toBe("Fens");
+  expect(cuts("Fe­nster", { fenster: [2] })).toEqual([3]);
+});
+
+it("reads an emoji inside a word as part of the word, with its marks", () => {
+  for (const word of ["Fen😀ster", "Fen😀️ster", "Fen👨‍👩ster", "Fen👍🏽ster", "Fen🇩🇪ster"]) {
+    expect(keyOf(word), word).toBe("fenster");
+    expect(pieces(word).filter((p) => p.syl).map((p) => plain(p.text)), word).toEqual(["Fens", "ter"]);
+    expect(words(word), word).toEqual(["Fenster"]);
+  }
+  expect(pieces("Fens😀ter").map((p) => p.text)).toEqual(["Fens😀", "ter"]);
+  expect(shown("Fens😀")).toBe("Fens");
+});
+
+it("keeps an emoji at a word's end out of the word", () => {
+  expect(words("Fenster😀️ Maus")).toEqual(["Fenster", "Maus"]);
+  expect(pieces("Fenster😀️").at(-1)).toEqual({ text: "😀️", syl: false });
+});
+
+it("lists a word with hidden characters once, as the reader sees it", () => {
+  expect(words("Fens­ter und Fen😀ster, Fenster")).toEqual(["Fenster", "und"]);
+});
+
+it("holds a break set by hand for the plain word in the word with hidden characters", () => {
+  expect(pieces("Fens­ter", { fenster: [2] }).map((p) => p.text)).toEqual(["Fe", "ns­ter"]);
+  expect(pieces("Fen😀ster", { fenster: [4] }).map((p) => p.text)).toEqual(["Fen😀s", "ter"]);
+  // A break set on the plain word holds for the word with the hyphen, and the same syllables come out.
+  expect(cuts("Fens­ter", { fenster: [4] })).toEqual([5]);
+  expect(pieces("Fens­ter", { fenster: [4] }).map((p) => plain(p.text))).toEqual(pieces("Fenster", { fenster: [4] }).map((p) => p.text));
+});
+
+it("gives a text with hidden characters in its words again from its pieces", () => {
+  const hidden = fc.constantFrom("­", "‍", "️", "😀", "👍🏽", "👨‍👩", "a", "e", "n", "s", "t", "r", "'", " ", "3", "-", "ä");
+  fc.assert(
+    fc.property(fc.array(hidden).map((a) => a.join("")), (s) => {
+      const got = pieces(s);
+      expect(got.map((p) => p.text).join("")).toBe(s);
+      expect(got.every((p) => p.text.length > 0)).toBe(true);
+      // The syllables of each word, without the hidden characters, make the word.
+      const named = [...new Set(got.filter((p) => p.syl).map((p) => p.word))].map((n) => got.filter((p) => p.syl && p.word === n).map((p) => plain(p.text)).join(""));
+      expect([...new Set(named)]).toEqual(words(s));
+    }),
+  );
 });

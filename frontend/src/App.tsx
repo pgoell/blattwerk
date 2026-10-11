@@ -79,6 +79,8 @@ export default function App() {
     // So does a line of an action that failed.
     if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
     saves.enter(to?.id);
+    // A login from a link's page answers the account check too: a logout after it shows the login.
+    setDown(false);
     setUser(to);
     setEntered((n) => n + 1);
   };
@@ -113,7 +115,7 @@ export default function App() {
 
   if (user === undefined && !down) return id ? wait : null;
   // Where the account is not known, the pages that need no account still show; the others wait for a try or say so.
-  const reach = trying ? (id ? wait : null) :<main><Failed retry={check}><h1>Blattomat erreicht den Server nicht</h1></Failed></main>;
+  const reach = trying ? (id ? wait : null) : <main><Failed retry={check}><h1>Blattomat erreicht den Server nicht</h1></Failed></main>;
   return (
     <>
       <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />

@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
-import { FONTS, GREYS, MARGIN, RULINGS, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
+import { FONTS, GREYS, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { SYMBOLS } from "../symbols";
@@ -398,7 +398,7 @@ export default function Format({ sel, style, look, paint, itemize, part, place, 
           <h2>Punkte</h2>
           <div className="seg">
             <button aria-label="Ein Punkt weniger" onClick={() => style("points", { max: Math.max(1, points.props.max - 1) })}>−</button>
-            <output>{points.props.max}</output>
+            <ScoreInput max={points.props.max} change={(max) => style("points", { max })} />
             <button aria-label="Ein Punkt mehr" onClick={() => style("points", { max: points.props.max + 1 })}>＋</button>
           </div>
         </>
