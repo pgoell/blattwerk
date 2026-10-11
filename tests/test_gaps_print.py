@@ -273,3 +273,73 @@ def test_a_gap_on_the_last_line_of_a_paragraph_has_its_line_on_the_print(editor,
         shot = Image.open(io.BytesIO(gap.screenshot())).convert("L")
         assert sum(shot.histogram()[:128]) > 0
     paper.context.close()
+
+
+# The number of bows and of colour ranges the print page draws.
+PRINTED_MARKS = """() => ({
+    bows: document.querySelectorAll(".syl").length,
+    colours: [...CSS.highlights]
+        .filter(([name]) => name.startsWith("tint-"))
+        .reduce((n, [, marked]) => n + marked.size, 0),
+})"""
+
+
+def test_the_answer_key_shows_a_gap_words_bows_and_colours(editor, browser, server):
+    """A14: in the key a gap word has its bow and colour; off, it has neither, and the words after
+    it keep their colours on the screen and in print."""
+    paired = {**TEXT, "syllables": True, "tints": ["#1a56db", "#e02424"]}
+    gapped = {
+        **paired,
+        "text": "Der Katze laut",
+        "rich": [{"runs": [{"text": "Der "}, {"text": "Katze", "gap": True}, {"text": " laut"}]}],
+    }
+    plain = {**paired, "text": "Der Katze laut", "rich": [{"runs": [{"text": "Der Katze laut"}]}]}
+    only = {**paired, "text": "Katze", "rich": [{"runs": [{"text": "Katze"}]}]}
+    client = user()
+    blocks = [box("a", "text", gapped), box("b", "text", plain, z=2), box("c", "text", only, z=3)]
+    page = editor(*blocks, client=client)
+    katze = syls(page, "c")
+    assert syls(page, "a") == [s for s in syls(page, "b") if s not in katze]
+    assert tints(page, "a") == [t for t in tints(page, "b") if t[0] not in katze]
+    tool(page, "Lösungen zeigen").click()
+    expect(at(page, "a").locator(".gap > span").first).to_have_css("color", "rgb(192, 57, 43)")
+    assert syls(page, "a") == syls(page, "b")
+    assert tints(page, "a") == tints(page, "b")
+    mine = page.url.rstrip("/").split("/")[-1]
+    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    marks = {}
+    for query in ("", "?loesungen"):
+        paper.goto(f"{server}/druck/{mine}{query}")
+        paper.wait_for_selector("body.ready", state="attached")
+        marks[query] = paper.evaluate(PRINTED_MARKS)
+    assert marks[""]["bows"] < marks["?loesungen"]["bows"]
+    assert marks[""]["colours"] < marks["?loesungen"]["colours"]
+    paper.context.close()
+
+
+def test_a_gap_text_in_a_group_draws_as_a_gap(editor):
+    """A13: a gap text that belongs to a group draws its gap."""
+    page = editor(box("a", "text", GAP, group=["g"]), box("b", "text", PLAIN, z=2, group=["g"]))
+    expect(at(page, "a").locator(".gap")).to_have_count(1)
+
+
+def test_a_table_bank_holds_the_gap_cells_words_below_the_rows(editor):
+    """A table's box of solution words: the hidden cells' words, across the full width directly
+    below the last row, inside the block, with the border widths of a cell."""
+    props = {**TABLE, "line": "#222222", "gaps": [[True, False], [False, True]], "bank": 1}
+    page = editor(box("t", "table", props, h=60))
+    bank = at(page, "t").locator(".table > .bank")
+    expect(bank).to_be_visible()
+    assert sorted(bank.locator("span").all_inner_texts()) == ["7", "H"]
+    last = at(page, "t").locator('[data-cell="3"]').bounding_box()
+    table = at(page, "t").locator(".table").bounding_box()
+    frame = bank.bounding_box()
+    block = at(page, "t").bounding_box()
+    assert abs(frame["y"] - (last["y"] + last["height"])) <= 1
+    assert abs(frame["width"] - table["width"]) <= 1
+    assert frame["y"] + frame["height"] <= block["y"] + block["height"] + 1
+    sides = (
+        "el => ['Top', 'Right', 'Bottom', 'Left']"
+        ".map((s) => getComputedStyle(el)['border' + s + 'Width'])"
+    )
+    assert bank.evaluate(sides) == at(page, "t").locator('[data-cell="0"]').evaluate(sides)
