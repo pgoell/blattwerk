@@ -59,6 +59,8 @@ def slider(page):
 
 def slide(page, share):
     """Drags the slider from its left end to this share of its width. Gives what it then shows."""
+    # The panel scrolls: under a text's settings the slider may lie below its edge.
+    slider(page).scroll_into_view_if_needed()
     place = slider(page).bounding_box()
     y = place["y"] + place["height"] / 2
     drag(page, (place["x"] + 2, y), (place["x"] + place["width"] * share, y))
