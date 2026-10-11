@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from ui import BROWSER
+from ui import BROWSER, png
 
 from blattwerk import auth, db, sheets, templates, uploads
 from blattwerk.app import app
@@ -248,7 +248,7 @@ def test_deleted_template_id_is_not_reused():
 def test_deleted_upload_id_is_not_reused():
     """No call deletes one upload: its row goes with the account, here by hand."""
     client = user("a@example.com")
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert [client.post("/api/uploads", files=picture).json()["id"] for _ in "ab"] == [1, 2]
     con = db.open_db()
     con.execute("DELETE FROM uploads WHERE id = 2")
@@ -332,7 +332,7 @@ def moved(data_dir, users):
     con.execute("DELETE FROM users WHERE id = 2")
     assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 3
     assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 3
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 3
 
 
@@ -363,7 +363,7 @@ def test_counter_starts_above_the_highest_leftover_folder(data_dir):
     assert dict(sequence(db.open_db())) == {"users": 5, "templates": 2, "sheets": 2, "uploads": 9}
     client = user("c@example.com")
     assert my_id(client) == 6
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 10
 
 
@@ -374,7 +374,7 @@ def test_new_database_starts_above_the_highest_leftover_folder(data_dir):
     (data_dir / "users" / "5" / "uploads" / "4").write_bytes(b"old")
     client = user("a@example.com")
     assert my_id(client) == 6
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 10
     assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
     assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
@@ -395,14 +395,14 @@ def test_new_database_beside_folders_that_are_no_numbers_starts_at_one(data_dir)
     (data_dir / "users" / "²" / "uploads" / "²").write_bytes(b"old")
     client = user("a@example.com")
     assert my_id(client) == 1
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 1
 
 
 def test_counter_never_goes_down(data_dir):
     for email in ("a@example.com", "b@example.com", "c@example.com"):
         client = user(email)
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert [client.post("/api/uploads", files=picture).json()["id"] for _ in "ab"] == [1, 2]
     assert client.delete("/api/me").status_code == 200
     # Lower than the counters, and found by a start that looks again.
@@ -430,7 +430,7 @@ def test_empty_old_tables_move_too(data_dir):
     assert my_id(client) == 1
     assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
     assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 1
 
 
@@ -567,7 +567,7 @@ def test_new_database_skips_a_name_too_high_for_an_id(data_dir, name):
     con = db.open_db()
     con.execute("DELETE FROM sqlite_sequence")
     assert dict(sequence(db.open_db())) == {"users": 1, "templates": 0, "sheets": 0, "uploads": 0}
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 1
     assert my_id(user("b@example.com")) == 2
 
@@ -580,7 +580,7 @@ def test_real_id_beside_a_name_that_is_no_id_still_counts(data_dir, name):
     assert dict(sequence(db.open_db())) == {"users": 7, "templates": 0, "sheets": 0, "uploads": 9}
     client = user("a@example.com")
     assert my_id(client) == 8
-    picture = {"file": ("bild", b"png", "image/png")}
+    picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 10
 
 
@@ -614,7 +614,7 @@ def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
     a_id = my_id(a)
     a.post("/api/sheets", json={"title": "Meins", "doc": {}})
     a.post("/api/templates", json={"name": "Meins", "doc": {}})
-    upload = a.post("/api/uploads", files={"file": ("bild", b"png", "image/png")}).json()["id"]
+    upload = a.post("/api/uploads", files={"file": ("bild", png(), "image/png")}).json()["id"]
     a.post("/api/feedback", data={"text": "x"})
     con = db.open_db()
     reset = auth.new_link(con, a_id)
@@ -651,7 +651,7 @@ def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
 
 def test_leftover_folder_never_reaches_a_later_account(data_dir, monkeypatch):
     a = user("a@example.com")
-    a.post("/api/uploads", files={"file": ("bild", b"png", "image/png")})
+    a.post("/api/uploads", files={"file": ("bild", png(), "image/png")})
     a.post("/api/feedback", data={"text": "x"})
     # The delete of the folder fails, as on a full or read-only disk.
     monkeypatch.setattr(auth.shutil, "rmtree", lambda *args, **kwargs: None)
@@ -662,7 +662,7 @@ def test_leftover_folder_never_reaches_a_later_account(data_dir, monkeypatch):
 
     b = user("b@example.com")
     assert my_id(b) == 2
-    upload = b.post("/api/uploads", files={"file": ("bild", b"png", "image/png")}).json()["id"]
+    upload = b.post("/api/uploads", files={"file": ("bild", png(), "image/png")}).json()["id"]
     stamp = b.post("/api/feedback", data={"text": "y"}).json()["saved"]
     assert (data_dir / "users" / "2" / "uploads" / str(upload)).is_file()
     assert (data_dir / "users" / "2" / "feedback" / stamp).is_dir()
