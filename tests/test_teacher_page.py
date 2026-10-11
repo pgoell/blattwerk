@@ -430,11 +430,11 @@ def test_click_refuses_a_name_that_is_there_twice_and_lists_the_places(editor):
     expect_picked(page, "b")
 
 
-def run(folder, server, *words):
-    """The command line, as `mise run teacher:page --` calls it."""
+def run(folder, server, *words, limit=120):
+    """The command line, as `mise run teacher:page --` calls it. A call past `limit` s fails."""
     env = {**os.environ, "TEACHER_PAGE_DIR": str(folder), "TEACHER_PAGE_URL": server}
     return subprocess.run(
-        [sys.executable, SCRIPT, *words], env=env, capture_output=True, text=True, timeout=120
+        [sys.executable, SCRIPT, *words], env=env, capture_output=True, text=True, timeout=limit
     )
 
 
@@ -598,6 +598,39 @@ def test_a_box_is_answered_no_and_named_and_box_yes_answers_yes(browser):
     page.close()
 
 
+def test_a_box_nobody_answered_in_time_is_answered_no(browser):
+    # The holder's way: it remembers each box with its time, and `overdue` says no to the old ones.
+    page = browser.new_page()
+    waiting: list = []
+    page.on("dialog", tool.remember(waiting))
+    with page.expect_event("dialog"):
+        page.evaluate("setTimeout(() => (window.said = confirm('Weg?')), 0)")
+    assert len(waiting) == 1
+    # A young box stays open: it is still on the list, and no answer has gone out.
+    tool.overdue(waiting, now=waiting[0][1] + 1)
+    assert len(waiting) == 1
+    tool.overdue(waiting, now=waiting[0][1] + tool.PATIENCE + 1)
+    assert waiting == []
+    page.wait_for_function("window.said === false")
+    assert page.evaluate("1 + 1") == 2
+    page.close()
+
+
+def test_a_box_a_verb_answered_first_is_no_error_for_the_holder(browser):
+    page = browser.new_page()
+    waiting: list = []
+    page.on("dialog", tool.remember(waiting))
+    asked = tool.answered(page, yes=True)
+    with page.expect_event("dialog"):
+        page.evaluate("setTimeout(() => (window.said = confirm('Ja?')), 0)")
+    page.wait_for_function("window.said === true")
+    # The second answer raises inside `overdue`, and the holder shrugs it off.
+    tool.overdue(waiting, now=waiting[0][1] + tool.PATIENCE + 1)
+    assert waiting == []
+    assert asked == [("confirm", "Ja?")]
+    page.close()
+
+
 @pytest.mark.parametrize("words", [["box"], ["box", "yes"], ["box", "maybe", "click", "PDF"]])
 def test_box_refuses_what_is_no_answer_in_plain_words(folder, server, words):
     done = run(folder, server, *words)
@@ -670,3 +703,28 @@ def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, s
     finally:
         run(folder, server, "stop")
     assert client.get(f"/api/sheets/{made['id']}").status_code == 200
+
+
+@pytest.mark.native
+def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(folder, server):
+    # The verb's client is gone with its box open: only the holder can answer that box now.
+    limit = tool.PATIENCE + 10
+    try:
+        started = run(folder, server, "start")
+        assert started.returncode == 0, (started.stdout, started.stderr)
+        # A client that answers nothing: Playwright would otherwise dismiss the box by itself.
+        with tool.joined() as page:
+            page.on("dialog", lambda dialog: None)
+            with page.expect_event("dialog"):
+                page.evaluate("setTimeout(() => (window.said = confirm('Weg?')), 0)")
+        # Its page waits on the open box; the holder's no is what frees it.
+        with tool.joined() as page:
+            page.on("dialog", lambda dialog: None)
+            page.wait_for_function("window.said === false", timeout=limit * 1000)
+        done = run(folder, server, "where", "Anmelden", limit=limit)
+        assert done.returncode == 0, (done.stdout, done.stderr)
+        assert done.stdout.startswith("Anmelden at ") and "A box asked" not in done.stdout
+        with tool.joined() as page:
+            assert page.evaluate("window.said") is False
+    finally:
+        run(folder, server, "stop")
