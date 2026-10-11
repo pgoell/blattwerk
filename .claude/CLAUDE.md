@@ -48,3 +48,11 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 - A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start, stop or remove docker containers and images, or write under `~/.local/share/blattwerk/` or the deploy's copy `~/.local/share/blattwerk-canary/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.
 - Way back if the hook itself breaks and refuses every Bash and Edit call: no session can mend it, so in a terminal outside Claude Code delete the `hooks` block from `.claude/settings.json` (or bring back a good one: `git checkout origin/master -- .claude/hooks/fence.py`), then start a new session.
 - This project was generated from `gh:pgoell/project-template`. Update with `uvx copier update`.
+
+## Subagents in a worktree
+
+Claude Code refuses a Bash call it cannot prove stays inside the worktree. In a worktree-isolated subagent:
+
+- Write files with the Write tool, never `cat > file <<EOF`.
+- Run git as its own Bash call: no `&&` chain, no loop, no `cd` to the shared checkout.
+- Give `mise`, `uv`, `sed` and `git` literal arguments, not shell variables or `for` loops.
