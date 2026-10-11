@@ -289,6 +289,21 @@ def load_json(state: Path, name: str, empty: dict) -> dict:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else empty
 
 
+def load_pending(state: Path) -> dict:
+    """The tries and the cut-off folders already named. A file that cannot be read counts as
+    empty, so a broken one never stops the job: the counts start anew."""
+    try:
+        kept = load_json(state, "pending.json", {})
+    except ValueError:
+        kept = {}
+    tries = kept.get("tries") if isinstance(kept, dict) else None
+    half = kept.get("half") if isinstance(kept, dict) else None
+    return {
+        "tries": tries if isinstance(tries, dict) else {},
+        "half": half if isinstance(half, list) else [],
+    }
+
+
 def save_json(state: Path, name: str, data: dict) -> None:
     # Written whole and renamed: a crash leaves the old file or the new one, never half of one.
     tmp = state / f"{name}.tmp"
@@ -414,7 +429,7 @@ def main() -> int:
         return fail_run(state, args.dry_run, f"cannot read the users table: {error}")
 
     read = load_json(state, "read.json", {})
-    pending = load_json(state, "pending.json", {"tries": {}, "half": []})
+    pending = load_pending(state)
     sends = find_sends(data, read)
     cut_off = find_half(data, read, pending)
     if not sends and not cut_off:
@@ -457,9 +472,10 @@ def main() -> int:
 
     for key, folder in cut_off:
         # The sends above took their time: the folder may be gone by now.
-        if not folder.is_dir():
+        try:
+            names = sorted(p.name for p in folder.iterdir())
+        except FileNotFoundError:
             continue
-        names = sorted(p.name for p in folder.iterdir())
         results.append(Result(key, outcome="half-written", files=names))
         if not args.dry_run:
             pending["half"].append(key)

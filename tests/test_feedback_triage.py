@@ -721,6 +721,18 @@ def test_a_folder_gone_meanwhile_is_no_cut_off_send(tmp_path, monkeypatch):
     assert triage.find_half(tmp_path, {}, {"tries": {}, "half": []}) == []
 
 
+@pytest.mark.parametrize("broken", ["{", "[]", '{"tries": 3}'])
+def test_a_broken_pending_file_does_not_stop_the_job(world, broken):
+    """Second review: the job must not fail every morning on a file it wrote for itself."""
+    world.send(1, STAMP, text="bugword")
+    world.answer({"*": verdict()})
+    world.state.mkdir(mode=0o700)
+    (world.state / "pending.json").write_text(broken)
+    assert world.run().returncode == 0
+    assert world.read()[f"1/{STAMP}"]["outcome"] == "filed"
+    assert json.loads((world.state / "pending.json").read_text()) == {"tries": {}, "half": []}
+
+
 def _git(repo, *args):
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
