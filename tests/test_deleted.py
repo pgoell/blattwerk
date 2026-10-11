@@ -59,11 +59,13 @@ def makes(request):
     return request.method == "POST" and request.url.endswith("/api/sheets")
 
 
-def yes(page, asked=None):
-    """`Verwerfen` asks once more, and the teacher says yes. `asked` takes each question."""
-    page.on(
-        "dialog", lambda d: (asked.append(d.message) if asked is not None else None, d.accept())
-    )
+def press(told, name):
+    """Presses a choice of the banner or the line. `Verwerfen` asks once more, and the teacher
+    says yes: to that one question, for the browser's own, at a reload or as the tab shuts, is
+    not this one's to answer."""
+    if name == DROP:
+        told.page.once("dialog", lambda dialog: dialog.accept())
+    told.get_by_role("button", name=name).click()
 
 
 def delete(run):
@@ -75,7 +77,6 @@ def deleted(run):
     """A is open and changed, another device deletes it, and the save finds it so. Gives the
     page, A's gate and where the block shows."""
     page, gate = start(run)
-    yes(page)
     change(run)
     moved = at(page, "a").evaluate(LEFT)
     delete(run)
@@ -87,7 +88,6 @@ def left(run):
     """The teacher changed A and went on to the list at once, another device deleted A, and the
     save finds it so with no editor there."""
     page, _ = leave(run, "held", "list")
-    yes(page)
     delete(run)
     with page.expect_response(f"{run.server}/api/sheets") as listed:
         answer(run, "a")
@@ -211,7 +211,7 @@ def test_keeping_as_a_new_sheet_takes_the_title_and_the_page_and_opens_it(run):
 def test_dropping_takes_the_change_and_its_record_and_shows_the_list(run):
     """A5"""
     page, _, _ = deleted(run)
-    page.locator(".clash").get_by_role("button", name=DROP).click()
+    press(page.locator(".clash"), DROP)
     expect_list(page)
     assert record(page, run.ids["a"]) is None
     assert shut(page) == []
@@ -232,7 +232,7 @@ def test_a_save_that_finds_the_delete_with_the_editor_gone_asks_above_the_list(r
     line = page.locator(NOTICE)
     expect_choice(line, LINE)
     assert kept_x(page, run) == 16
-    line.get_by_role("button", name=choice).click()
+    press(line, choice)
     if choice == KEEP:
         expect_new(run, page)
     else:
@@ -252,12 +252,11 @@ def test_the_start_with_a_kept_change_of_a_deleted_sheet_asks_above_the_list(run
     if kept != "named":
         run.page.context.add_init_script(OLD)
     page, _, sent = again(run, None)
-    yes(page)
     line = page.locator(NOTICE)
     expect_choice(line, LINE if kept == "named" else LINE.replace("a", "Unbenanntes Blatt", 1))
     expect(page.locator(".sheets li")).to_have_count(2)
     assert kept_x(page, run) == 16
-    line.get_by_role("button", name=choice).click()
+    press(line, choice)
     if choice == KEEP:
         expect_new(run, page, title="a" if kept == "named" else "Unbenanntes Blatt")
     else:
@@ -275,7 +274,7 @@ def test_a_reload_on_the_dead_sheets_address_shows_the_choice_there(run, choice)
     expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible(timeout=10000)
     line = page.locator(NOTICE)
     expect_choice(line, LINE)
-    line.get_by_role("button", name=choice).click()
+    press(line, choice)
     if choice == KEEP:
         expect_new(run, page)
     else:
@@ -341,6 +340,7 @@ def test_the_banners_buttons_are_reached_by_tab_and_pressed_by_enter(run):
     tab_to(page, banner.get_by_role("button", name=KEEP))
     page.keyboard.press("Tab")
     expect(banner.get_by_role("button", name=DROP)).to_be_focused()
+    page.once("dialog", lambda dialog: dialog.accept())
     page.keyboard.press("Enter")
     expect_list(page)
 
@@ -437,7 +437,7 @@ def test_dropping_needs_the_owners_own_session(run, session):
         page.context.clear_cookies()
     else:
         swap(page, run.server, user())
-    page.locator(".clash").get_by_role("button", name=DROP).click()
+    press(page.locator(".clash"), DROP)
     expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
     page.evaluate(TURNS)
     assert record(page, a) == kept
@@ -446,7 +446,7 @@ def test_dropping_needs_the_owners_own_session(run, session):
     line = page.locator(NOTICE)
     expect_choice(line, LINE)
     assert record(page, a) == kept
-    line.get_by_role("button", name=DROP).click()
+    press(line, DROP)
     expect_list(page)
     assert record(page, a) is None
 
@@ -474,9 +474,9 @@ def test_dropping_with_no_connection_says_so_and_the_choice_stands(run):
     kept = record(page, run.ids["a"])
     page.context.set_offline(True)
     banner = page.locator(".clash")
-    banner.get_by_role("button", name=DROP).click()
+    press(banner, DROP)
     expect(banner).to_contain_text(WORD)
     assert record(page, run.ids["a"]) == kept
     page.context.set_offline(False)
-    banner.get_by_role("button", name=DROP).click()
+    press(banner, DROP)
     expect_list(page)
