@@ -32,6 +32,11 @@ TURN = [
     "Zeilenabstand",
     "Silbenbögen",
     "Silbenfarbe",
+    "Lücke",
+    "Lücken gleich breit",
+    "n",
+    "Jedes n-te Wort",
+    "Lösungswörter",
     "Rechtsdrehung 90°",
     "Linksdrehung 90°",
 ]

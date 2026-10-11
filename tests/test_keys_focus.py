@@ -380,6 +380,8 @@ def test_a_disabled_panel_button_leaves_the_caret_too(editor):
     page.keyboard.press("End")
     # A text with no fill has nothing to take away.
     off = page.locator(".panel button:disabled", has_text="Keine Füllung")
+    # The panel scrolls: under a text's settings the button may lie below its edge.
+    off.scroll_into_view_if_needed()
     page.mouse.click(*centre(off))
     expect(page.locator(FIELD)).to_be_focused()
     page.keyboard.type("x")

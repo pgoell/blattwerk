@@ -553,3 +553,120 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
     done = run(folder, server, "hover", "Neues Blatt")
     assert done.returncode == 1 and done.stdout == ""
     assert done.stderr == "no page is running: start it first, with the verb `start`\n"
+
+
+# The downloads, the session and the boxes
+
+
+def test_tidy_deletes_the_tr_pdfs_in_downloads_and_nothing_else(
+    folder, server, tmp_path, monkeypatch
+):
+    downloads = tmp_path / "downloads"
+    (downloads / "sub").mkdir(parents=True)
+    monkeypatch.setenv("TEACHER_PAGE_DOWNLOADS", str(downloads))
+    for name in ("TR1 Rechnen.pdf", "TR2.pdf", "TR1.png", "Other.pdf", "sub/TR4.pdf"):
+        (downloads / name).write_bytes(b"%PDF")
+    (downloads / "TR3.pdf").mkdir()
+
+    done = run(folder, server, "tidy")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert sorted(done.stdout.splitlines()) == ["deleted TR1 Rechnen.pdf", "deleted TR2.pdf"]
+    kept = sorted(str(path.relative_to(downloads)) for path in downloads.rglob("*"))
+    assert kept == ["Other.pdf", "TR1.png", "TR3.pdf", "sub", "sub/TR4.pdf"]
+    assert run(folder, server, "tidy").stdout == "nothing to delete\n"
+
+
+def test_expire_drops_the_session_and_the_page_stays(editor):
+    page = editor(box("a", "text", ONE))
+    said = tool.expire(page)
+    assert said.startswith("the session has run out: ")
+    expect(at(page, "a")).to_be_visible()
+    tool.go(page, "/")
+    expect(page.get_by_role("button", name="Anmelden", exact=True)).to_be_visible()
+
+
+def test_a_box_is_answered_no_and_named_and_box_yes_answers_yes(browser):
+    page = browser.new_page()
+    asked = tool.answered(page, yes=False)
+    assert page.evaluate("confirm('Weg?')") is False
+    assert asked == [("confirm", "Weg?")]
+    page.close()
+    page = browser.new_page()
+    asked = tool.answered(page, yes=True)
+    assert page.evaluate("confirm('Ja?')") is True
+    assert asked == [("confirm", "Ja?")]
+    page.close()
+
+
+@pytest.mark.parametrize("words", [["box"], ["box", "yes"], ["box", "maybe", "click", "PDF"]])
+def test_box_refuses_what_is_no_answer_in_plain_words(folder, server, words):
+    done = run(folder, server, *words)
+    assert done.returncode == 1 and done.stdout == ""
+    assert done.stderr.startswith('box takes yes or no, then a verb: box yes click "Löschen"')
+    assert "Traceback" not in done.stderr
+
+
+@pytest.mark.native
+def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, server):
+    # The app's delete asks `Blatt „Probe“ löschen?`: the plain click says no, `box yes` says yes.
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    made = sheet(client, [box("a", "text", ONE)], title="Probe")
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        ok("where", "Neues Blatt")
+        said = ok("click", "Probe löschen")
+        assert 'A box asked: "Blatt „Probe“ löschen?" (confirm). Answered no.' in said
+        assert client.get(f"/api/sheets/{made['id']}").status_code == 200
+        said = ok("box", "yes", "click", "Probe löschen")
+        assert "Answered yes." in said
+        assert client.get(f"/api/sheets/{made['id']}").status_code == 404
+    finally:
+        run(folder, server, "stop")
+
+
+@pytest.mark.native
+def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, server):
+    # A typed text is an unsaved change until the save goes out, two seconds on: `open` comes first.
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    made = sheet(client, [box("a", "text", ONE)], title="Probe")
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        ok("click", "Probe")
+        ok("where", "Gespeichert")
+        ok("click", "Eins")
+        ok("key", "Enter")
+        ok("type", " Neu")
+        ok("key", "Escape")
+        said = ok("open", "/")
+        assert 'A box asked: "" (beforeunload). Answered no.' in said
+        assert "To say yes: box yes open /" in said
+        assert ok("where", "Neu").startswith("Neu at ")
+        ok("box", "yes", "open", "/")
+        assert ok("where", "Neues Blatt").startswith("Neues Blatt at ")
+    finally:
+        run(folder, server, "stop")
+    assert client.get(f"/api/sheets/{made['id']}").status_code == 200

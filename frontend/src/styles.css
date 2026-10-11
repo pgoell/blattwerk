@@ -470,6 +470,13 @@ body:has(.print) { background: #fff; }
 .table.tinted .open { visibility: visible; }
 .table.tinted textarea { color: transparent; caret-color: #222; }
 .table.tinted textarea::selection { color: transparent; background: rgb(0 103 244 / .3); }
+/* A gap cell's line shows under the field, and its words stay under the typed text. */
+.table .open .gap { visibility: visible; }
+.table .open .gap > span { visibility: hidden; }
+/* In a tinted table the field is transparent, so the gap's words under it stay visible to be typed over. */
+.table.tinted .open .gap > span { visibility: visible; }
+/* The box of solution words spans the table's columns and has the lines' colour. */
+.table > .bank { grid-column: 1 / -1; min-height: 0; overflow: visible; flex-wrap: wrap; gap: .4em .8em; margin: 0; padding: .3em .5em; border: 0 solid; border-color: inherit; border-width: 0 1px 1px 0; }
 /* A column's right line, to take hold of. */
 .sheet > .bar { position: absolute; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
 .bar::after { content: ""; position: absolute; inset: 0 -9px; }
@@ -520,6 +527,17 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
+/* A gap is a line to write on, in the text's colour. The editor greys its words, the pupil's sheet hides them (they
+   keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
+.gap { background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - .25mm) / 100% .25mm; }
+.gap > span, .gap > span * { color: #999 !important; }
+.paper .gap > span { visibility: hidden; }
+.solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
+/* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
+/* A gap of many words wraps inside its box, and its line lies under each row. */
+.even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - .25mm), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }
+/* The box of solution words under a text: a thin frame in the text's colour, the words in a row. */
+.bank { display: flex; flex-wrap: wrap; gap: .4em .8em; margin-top: .6em; padding: .3em .5em; border: 1px solid currentColor; }
 .rich p { counter-reset: a b c; }
 .rich p[data-level="1"] { counter-reset: b c; }
 .rich p[data-level="2"] { counter-reset: c; }
