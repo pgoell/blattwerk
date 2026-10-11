@@ -458,6 +458,11 @@ body:has(.print) { background: #fff; }
 /* The field lies over the text of its cell, which keeps the room. */
 .table .open { visibility: hidden; }
 .table textarea { position: absolute; inset: 0; visibility: visible; height: 100%; text-align: inherit; }
+/* Silbenfarbe: a browser colours no syllable inside a field, so the cell's own text shows in its colours and the
+   field over it keeps only its caret and a selection the letters show through. */
+.table.tinted .open { visibility: visible; }
+.table.tinted textarea { color: transparent; caret-color: #222; }
+.table.tinted textarea::selection { color: transparent; background: rgb(0 103 244 / .3); }
 /* A column's right line, to take hold of. */
 .sheet > .bar { position: absolute; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
 .bar::after { content: ""; position: absolute; inset: 0 -9px; }
@@ -658,4 +663,9 @@ body:has(.print) { background: #fff; }
 /* Silbenbögen: the bows under the syllables of a block's words, drawn over the block by sheet.tsx, which measures
    each syllable where it stands. The drawing takes no room and no click, and is not cut at the block's foot, where
    the bow of a last line hangs below it. */
+/* Silbenfarbe: sheet.tsx colours the syllables as highlights of the text. Safari paints no highlight on text that
+   cannot be selected, as all of a sheet is, so a coloured text can be, and takes no pointer instead: a press on it
+   goes to its block, and selects nothing. The field a text is typed in keeps its pointer. */
+.tinted p { user-select: text; -webkit-user-select: text; pointer-events: none; }
+.tinted .ProseMirror p { pointer-events: auto; }
 .bows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }

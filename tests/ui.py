@@ -144,6 +144,28 @@ def syls(page, name):
     return at(page, name).locator(".syl").evaluate_all("els => els.map((el) => el.dataset.syl)")
 
 
+TINTS = """(block) => {
+    const found = [];
+    for (const [name, marked] of CSS.highlights)
+        if (name.startsWith("tint-"))
+            for (const range of marked)
+                if (block.contains(range.startContainer) && !range.collapsed)
+                    found.push([range, "#" + name.slice(5)]);
+    found.sort(([a], [b]) => a.compareBoundaryPoints(Range.START_TO_START, b));
+    return found.map(([range, colour]) => [range.toString(), colour]);
+}"""
+
+
+def tints(page, name):
+    """The stretches of the block's text that Silbenfarbe colours, in order, each with its colour.
+
+    The colours are no markup: the browser paints them over ranges of the text (CSS highlights
+    named "tint-" and the colour's six digits), once the block's words are split.
+    """
+    expect(at(page, name).locator(".unsplit")).to_have_count(0)
+    return [tuple(found) for found in at(page, name).evaluate(TINTS)]
+
+
 def pick(page, *names):
     """Selects the blocks by a click, with Shift for all after the first."""
     for i, name in enumerate(names):
