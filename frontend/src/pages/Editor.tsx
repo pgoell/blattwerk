@@ -88,7 +88,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
@@ -302,6 +302,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const caret = useRef<number>(undefined);
   // Whether the field that opens next has all its text picked.
   const entire = useRef(false);
+  // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
+  const [words, setWords] = useState<string[]>([]);
+  const wordsKept = useRef("");
+  const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -622,9 +626,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
-  // A ruling's field, or that of a table's cell; a text's own field takes the focus by itself.
+  // A ruling's field, or that of a table's cell, a score's or a name line's first word; a text's own field takes the
+  // focus by itself.
   useLayoutEffect(() => {
-    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement>(`[data-id="${editing}"] textarea`) : null;
+    const area = editing ? sheet.current!.querySelector<HTMLTextAreaElement | HTMLInputElement>(`[data-id="${editing}"] :is(textarea, input)`) : null;
     area?.focus();
     // A copy, or a text put back by undo, would start with the caret before the text.
     const end = caret.current ?? area?.value.length ?? 0;
@@ -789,7 +794,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
     // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
     // only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input[type=range], select");
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -1961,12 +1966,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
-    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table") {
-      entire.current = all;
+    if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table" || free[0].type === "points" || free[0].type === "name") {
+      // A score's number is all picked when its field opens, a double click too: a new one replaces it.
+      entire.current = all || free[0].type === "points";
+      if (free[0].type === "name") {
+        setWords(free[0].props.fields ?? FIELDS);
+        wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
+        escaped.current = false;
+      }
       setEditing(id);
     }
     setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
+  }
+  // Keeps the words a name line is written with, once it is left. An emptied word drops its field; with none left nothing changes.
+  function wordsDone() {
+    const fields = words.map((w) => w.trim()).filter(Boolean);
+    if (!fields.length || fields.join("\n") === wordsKept.current) return;
+    wordsKept.current = fields.join("\n");
+    style("name", { fields });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
   function whole(b: ImageBlock) {
@@ -2623,6 +2641,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           onKeyDown={(e) => hop(e, b)}
                           onBlur={(e) => stays(e) || setEditing("")}
                         />
+                      ) : b.type === "points" && editing === b.id ? (
+                        <ScoreInput max={b.props.max} change={(max) => style("points", { max })} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
+                      ) : b.type === "name" && editing === b.id ? (
+                        // Each word is a field of its own, in its place on the line. Enter and leaving the line keep them.
+                        words.map((word, i) => (
+                          <input
+                            key={i}
+                            aria-label={`Feld ${i + 1}`}
+                            value={word}
+                            onChange={(e) => setWords((ws) => ws.map((w, j) => (j === i ? e.target.value : w)))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                escaped.current = true;
+                                setEditing("");
+                              }
+                              if (e.key === "Enter" || e.key === "F2") e.currentTarget.blur();
+                            }}
+                            onBlur={(e) => {
+                              if ((e.relatedTarget as Element | null)?.closest(`[data-id="${b.id}"]`)) return;
+                              if (!escaped.current) wordsDone();
+                              stays(e) || setEditing("");
+                            }}
+                          />
+                        ))
                       ) : undefined}
                     </Draw>
                     <Mark block={b} k={K} n={ns.get(b.id)} />

@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -44,7 +44,9 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
 export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
-export type NameBlock = Box & { type: "name"; props: Record<string, never> };
+// The words of a name line, as a new one has them. A line's `fields` replace them.
+export const FIELDS = ["Name", "Datum", "Klasse"];
+export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
 export type PointsBlock = Box & { type: "points"; props: { max: number } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
@@ -827,22 +829,24 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
+  // While a name line is written in, `children` holds one field for each word, in the word's place of the line.
   if (block.type === "name")
     return (
       <div className="fields" style={{ fontSize: 12 * PT * k }}>
-        {["Name", "Datum", "Klasse"].map((field) => (
-          <span key={field}>
-            {field}:<i />
+        {(block.props.fields ?? FIELDS).map((field, i) => (
+          <span key={i}>
+            {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
           </span>
         ))}
       </div>
     );
+  // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
+  // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
+  // While the score is written in, `children` is its field in place of the number.
   if (block.type === "points")
-    // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
-    // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
     return (
       <div className="points" style={{ fontSize: 12 * PT * k, lineHeight: `${2 * Math.round((block.h * k) / 2 - 1)}px` }}>
-        / {block.props.max} Punkte
+        / {children ?? block.props.max} Punkte
       </div>
     );
   const [l, t, r, b] = block.props.cut;
@@ -859,6 +863,55 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
         style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
       />
     </div>
+  );
+}
+
+// A block's numbering stands to the left of its box, so the box keeps its place and its snap lines. `n` is the
+// A score as it is typed: a whole number from 1 to 999, or else none.
+export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >= 1 ? +text : undefined);
+
+// The field of a score, in a box or in the panel. Enter, or the field losing the focus, keeps a score that is a whole
+// number from 1 to 999 and leaves any other text the old one. Escape leaves the old one too. `end` runs after Enter.
+export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
+  const [draft, setDraft] = useState(String(max));
+  // The score the sheet holds, and whether Escape has ended the field: then a blur keeps nothing.
+  const kept = useRef(max);
+  const off = useRef(false);
+  useEffect(() => {
+    kept.current = max;
+    setDraft(String(max));
+  }, [max]);
+  function done() {
+    if (off.current) return;
+    const next = score(draft);
+    if (next === undefined) return setDraft(String(kept.current));
+    if (next === kept.current) return;
+    kept.current = next;
+    change(next);
+  }
+  return (
+    <input
+      className="score"
+      inputMode="numeric"
+      aria-label="Punkte"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => (off.current = false)}
+      onBlur={(e) => {
+        done();
+        blur?.(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "F2") {
+          done();
+          end?.();
+        }
+        if (e.key !== "Escape") return;
+        off.current = true;
+        setDraft(String(kept.current));
+        e.currentTarget.blur();
+      }}
+    />
   );
 }
 
