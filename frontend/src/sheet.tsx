@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -242,6 +242,8 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   };
 }
 export const textStyle = (p: TextProps, k: number): CSSProperties => ({
+  // Where the font's baseline lies below the middle of its letters' box: a syllable's bow hangs from it (.syl).
+  ["--base" as string]: `${FONTS[p.font ?? "andika"][2]}em`,
   fontFamily: FONTS[p.font ?? "andika"][1],
   fontSize: p.size * PT * k,
   fontWeight: p.bold ? 700 : 400,
@@ -341,8 +343,9 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
         borderRadius: radius,
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
-        // as the box, so a text too long for a circle ends at the circle.
-        clipPath: `inset(-1px round ${radius})`,
+        // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
+        // box that is just as high as its text.
+        clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         justifyContent: UP[p.valign ?? "top"],
         ...((d || ring) && { position: "relative", isolation: "isolate" }),
@@ -362,7 +365,8 @@ function Frame({ block, k, children }: { block: TextBlock | ShapeBlock; k: numbe
           <Ring w={block.w - edge} h={block.h - edge} edge={edge} p={p} />
         </svg>
       )}
-      {children ?? (p.rich ? <Rich paras={p.rich} syllables={p.syllables} breaks={p.breaks} /> : <p><Words text={p.text} syllables={p.syllables} breaks={p.breaks} /></p>)}
+      {children ?? (p.rich ? <Rich paras={p.rich} /> : <p>{p.text}</p>)}
+      {p.syllables && <Bows breaks={p.breaks} />}
     </div>
   );
 }
@@ -447,16 +451,123 @@ export function useSplitter(on?: boolean) {
   useEffect(() => void (on && splitting()), [on]);
   return on ? module : undefined;
 }
-// A text's words, each syllable in a span of its own that the stylesheet draws a bow under (.syl).
-export function Words({ text, syllables, breaks }: { text: string; syllables?: boolean; breaks?: Breaks }) {
-  const module = useSplitter(syllables);
-  if (!module) return <>{text}</>;
-  return <>{module.pieces(text, breaks).map((piece, i) => (piece.syl ? <span key={i} className="syl">{piece.text}</span> : piece.text))}</>;
+const SVG = "http://www.w3.org/2000/svg";
+// Draws a bow under each syllable of the text beside `svg`: every paragraph of a frame, of a table's cells and of
+// the field a text is typed in. The words stay as they are. A span around a syllable would move its letters:
+// WebKit shapes each text node alone, which costs the joins and the kerning of a school script. So each syllable
+// is measured where it stands and its bow drawn over it, in the block's own pixels: the zoom is divided out, and a
+// turned block is measured level.
+function bows(svg: SVGSVGElement, module: Splitter, breaks?: Breaks) {
+  const host = svg.parentElement!;
+  const block = host.closest<HTMLElement>(".block");
+  const turn = block?.style.transform;
+  if (turn) block!.style.transform = "none";
+  const { left, top } = svg.getBoundingClientRect();
+  const scale = host.getBoundingClientRect().width / host.offsetWidth;
+  const drawn: SVGPathElement[] = [];
+  // A table's open cell holds its text unseen around the field: the field's paragraphs are the ones to draw.
+  for (const p of scale ? host.querySelectorAll("p") : [])
+    if (!p.querySelector("p")) {
+      const nodes: Text[] = [];
+      const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      while (walk.nextNode()) nodes.push(walk.currentNode as Text);
+      // Where each text node starts in the paragraph's text: a word is split whole, whatever runs it lies in.
+      const starts = nodes.map(((at) => (node) => (at += node.length) - node.length)(0));
+      const spot = (at: number) => {
+        const i = starts.filter((start) => start <= at).length - 1;
+        return [nodes[i], at - starts[i]] as const;
+      };
+      let at = 0;
+      for (const piece of module.pieces(nodes.map((node) => node.data).join(""), breaks)) {
+        const [from, end] = [at, (at += piece.text.length)];
+        if (!piece.syl) continue;
+        const [first, start] = spot(from);
+        // The end lies in the node of the syllable's last letter, not at the start of the next.
+        const [last, stop] = spot(end - 1);
+        const range = document.createRange();
+        range.setStart(first, start);
+        range.setEnd(last, stop + 1);
+        // A rect for each line the syllable stands in: one, unless a word too long for its line broke in it. A
+        // syllable that two runs share has a rect for each run, side by side, and still one bow.
+        const lines: { left: number; right: number; top: number; bottom: number }[] = [];
+        for (const { left, right, top, bottom } of range.getClientRects()) {
+          const line = lines.find((line) => (top + bottom) / 2 > line.top && (top + bottom) / 2 < line.bottom);
+          if (line) [line.left, line.right] = [Math.min(line.left, left), Math.max(line.right, right)];
+          else if (right > left) lines.push({ left, right, top, bottom });
+        }
+        const look = getComputedStyle(first.parentElement!);
+        const em = parseFloat(look.fontSize);
+        for (const line of lines) {
+          // The baseline lies --base below the middle of the letters' box, whatever the line spacing. The bow
+          // ends .04em inside the syllable, so two bows never meet, .1em below the baseline, and hangs .16em
+          // lower in its middle; under a narrow letter it is flatter.
+          const [x, to] = [(line.left - left) / scale + 0.04 * em, (line.right - left) / scale - 0.04 * em];
+          const y = ((line.top + line.bottom) / 2 - top) / scale + (parseFloat(look.getPropertyValue("--base")) + 0.1) * em;
+          const deep = Math.min(0.16 * em, (to - x) / 2);
+          const path = document.createElementNS(SVG, "path");
+          path.setAttribute("class", "syl");
+          path.dataset.syl = piece.text;
+          // A curve hangs half as deep as the point it is drawn towards.
+          path.setAttribute("d", `M${x.toFixed(2)},${y.toFixed(2)} Q${((x + to) / 2).toFixed(2)},${(y + 2 * deep).toFixed(2)} ${to.toFixed(2)},${y.toFixed(2)}`);
+          path.setAttribute("stroke", look.color);
+          // As thick as the letters ask, and never thinner than 0.15 mm, which still prints.
+          path.setAttribute("stroke-width", `${Math.max(0.05 * em, 0.15 * K)}`);
+          drawn.push(path);
+        }
+      }
+    }
+  if (turn) block!.style.transform = turn;
+  svg.replaceChildren(...drawn);
+  svg.classList.remove("unsplit");
 }
+// The bows of a block that asks for them, drawn anew when the block is, when its text changes without React
+// as the teacher types, when its size changes and when a font comes in. `unsplit` stands while the bows are not
+// those of the text shown, so the PDF, a test and a picture of the page can wait for them.
+function Bows({ breaks }: { breaks?: Breaks }) {
+  const module = useSplitter(true);
+  const svg = useRef<SVGSVGElement>(null);
+  const draw = () => module && bows(svg.current!, module, breaks);
+  const now = useRef(draw);
+  useLayoutEffect(() => {
+    now.current = draw;
+    draw();
+  });
+  useEffect(() => {
+    const own = svg.current!;
+    let frame = 0;
+    // One measure a frame, however much changed.
+    const later = () => {
+      own.classList.add("unsplit");
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        now.current();
+      });
+    };
+    const resized = new ResizeObserver(later);
+    resized.observe(own.parentElement!);
+    // The bows drawn are a change too, and not one to draw anew for.
+    const changed = new MutationObserver((records) => records.some((record) => !own.contains(record.target)) && later());
+    changed.observe(own.parentElement!, { characterData: true, childList: true, subtree: true });
+    document.fonts.addEventListener("loadingdone", later);
+    return () => {
+      cancelAnimationFrame(frame);
+      resized.disconnect();
+      changed.disconnect();
+      document.fonts.removeEventListener("loadingdone", later);
+    };
+  }, []);
+  return <svg ref={svg} className="bows unsplit" aria-hidden />;
+}
+// Resolves once every block's bows are drawn. The PDF waits for it.
+export const bowed = () =>
+  new Promise<void>((done) => {
+    const look = () => (document.querySelector(".unsplit") ? requestAnimationFrame(look) : done());
+    requestAnimationFrame(look);
+  });
 
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own.
-function Rich({ paras, syllables, breaks }: { paras: Para[]; syllables?: boolean; breaks?: Breaks }) {
+function Rich({ paras }: { paras: Para[] }) {
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   return (
     <div className="rich">
@@ -464,7 +575,7 @@ function Rich({ paras, syllables, breaks }: { paras: Para[]; syllables?: boolean
         <p key={i} data-list={para.list} data-level={para.level || undefined}>
           {para.runs.map(({ text, bold, italic, underline, color }, j) => (
             <span key={j} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
-              <Words text={text} syllables={syllables} breaks={breaks} />
+              {text}
             </span>
           ))}
           {/* A paragraph with no text is still a line high. */}
@@ -519,9 +630,10 @@ function Table({ block, k, at, children }: { block: TableBlock; k: number; at?: 
     <div className="table" style={style as CSSProperties}>
       {cells.flat().map((text, i) => (
         <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
-          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p><Words text={text} syllables={syllables} breaks={breaks} /></p>}
+          {i === at ? <p className="open">{text}&#8203;{children}</p> : <p>{text}</p>}
         </div>
       ))}
+      {syllables && <Bows breaks={breaks} />}
     </div>
   );
 }
