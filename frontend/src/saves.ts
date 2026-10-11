@@ -14,9 +14,10 @@ type Saver = {
   // What the server is known to hold, and the newest the editor has.
   saved: Kept;
   want: Kept;
-  // What is on the wire, and what went last with no answer: the server may hold that or not.
+  // What is on the wire, and what went with no answer since the server last confirmed a version: it may hold one of
+  // those. The first and the newest are kept: the first that arrived is the one it took.
   out?: Kept;
-  lost?: Kept;
+  lost: Kept[];
   tries: number;
   // The server holds another device's document: saving stops until the teacher has chosen.
   clash: boolean;
@@ -37,8 +38,8 @@ type Saver = {
   idle: (() => void)[];
 };
 // What the browser keeps of an unsaved change, for the next visit. `title` only where it changed here, `sent` only
-// where a document other than `doc` is on the wire or went without an answer.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc };
+// where a document other than `doc` is on the wire or went without an answer: the server may hold any of them.
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[] };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; clash: boolean; late: boolean };
 
 const savers = new Map<number, Saver>();
@@ -48,7 +49,7 @@ let shot = { list: [] as Save[], landed: 0 };
 const key = (id: number) => `unsaved:${id}`;
 const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 // A save that got no answer counts too: the server may hold it though the teacher has undone it since.
-const unsaved = (s: Saver) => !s.gone && (!!s.out || !!s.lost || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title);
+const unsaved = (s: Saver) => !s.gone && (!!s.out || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title);
 
 // Tells who reads the savers, where what they read has changed: the editor draws anew only then.
 function tell(landed = 0) {
@@ -70,8 +71,8 @@ export const useSaves = () => useSyncExternalStore(listen, () => shot);
 function keep(s: Saver) {
   try {
     if (unsaved(s)) {
-      const sent = (s.out ?? s.lost)?.doc;
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent === s.want.doc ? undefined : sent };
+      const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -117,7 +118,7 @@ function send(s: Saver, closing = false) {
       if (s.dead) return;
       s.base = sheet.version;
       s.saved = now;
-      s.lost = undefined;
+      s.lost = [];
       s.tries = 0;
       settle(s, 1);
     },
@@ -133,21 +134,21 @@ async function fail(s: Saver, now: Kept, status: string) {
     const sheet = await ask<Sheet>(`/sheets/${s.id}`).catch((e: Error) => e.message);
     if (s.dead) return;
     if (typeof sheet !== "string") {
-      const ours = [now, s.lost].find((k) => k && same(k.doc, sheet.doc));
+      const ours = [now, ...s.lost].find((k) => same(k.doc, sheet.doc));
       if (ours) {
         s.base = sheet.version;
         s.saved = ours;
         s.tries = 0;
       } else s.clash = true;
-      s.lost = undefined;
+      s.lost = [];
       return settle(s, ours ? 1 : 0);
     }
     status = sheet;
-  } else if (status !== "401" && status !== "404") s.lost = now;
+  } else if (status !== "401" && status !== "404" && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only the owner's 404 means the sheet is gone.
   if (status === "404" && (await ask<User>("/me").then((me) => me.id, () => 0)) === s.owner) {
     s.gone = true;
-    s.lost = undefined;
+    s.lost = [];
     if (!s.open) savers.delete(s.id);
   } else if (status === "401" || status === "404") s.stop = true;
   else s.tries++;
@@ -183,7 +184,7 @@ export function open(sheet: Sheet, owner: number): Sheet {
     if (s) s.dead = true;
     // `read` brings an old document up to date; that is no change.
     const saved = { doc: read(sheet.doc), title: sheet.title };
-    s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
+    s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
     let record: Record | null = null;
     try {
@@ -192,7 +193,7 @@ export function open(sheet: Sheet, owner: number): Sheet {
       // Unreadable: as if there were none.
     }
     if (record?.owner === owner) {
-      const ours = sheet.version > record.base && ((record.sent && same(record.sent, sheet.doc)) || same(record.doc, sheet.doc));
+      const ours = sheet.version > record.base && (record.sent?.some((doc) => same(doc, sheet.doc)) || same(record.doc, sheet.doc));
       const title = record.title ?? sheet.title;
       if (!same(record.doc, sheet.doc) || title !== sheet.title) s.want = { doc: read(record.doc), title };
       s.clash = unsaved(s) && sheet.version !== record.base && !ours;
@@ -256,14 +257,17 @@ export async function overwrite(id: number) {
   tell();
 }
 
-// Sends what is unsaved and waits until no save of the sheet is out: it landed, failed, or was given up after 20 s.
+// Waits for the save under way, which may hold an older document, then sends what is unsaved and waits for that:
+// until it landed, failed, or was given up after 20 s. A save that fails is not waited for again.
 export async function flush(id: number) {
   const s = savers.get(id);
-  for (let n = 0; s && n < 2; n++) {
-    send(s);
-    if (!s.out) return;
-    await new Promise<void>((done) => s.idle.push(done));
-  }
+  if (!s) return;
+  const idle = () => s.out && new Promise<void>((done) => s.idle.push(done));
+  const failed = s.tries;
+  await idle();
+  if (s.tries > failed) return;
+  send(s);
+  await idle();
 }
 
 // A login or a logout. Another account's savers leave this window, their changes kept in the browser's store for
@@ -294,9 +298,15 @@ addEventListener("pagehide", () =>
 );
 document.addEventListener("visibilitychange", () => document.hidden && savers.forEach(keep));
 addEventListener("online", () => savers.forEach((s) => s.tries && send(s)));
-// The browser asks before the window shuts while a change is unsaved.
+// The browser asks before the window shuts while a change is unsaved. Not for a download: that goes by an address
+// too, and leaves the page where it is.
+let stays = 0;
+export function download(to: string) {
+  stays = Date.now() + 1000;
+  location.href = to;
+}
 addEventListener("beforeunload", (e) => {
-  if (![...savers.values()].some(unsaved)) return;
+  if (Date.now() < stays || ![...savers.values()].some(unsaved)) return;
   e.preventDefault();
   e.returnValue = true;
 });

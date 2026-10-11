@@ -85,7 +85,7 @@ import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attach, flush, open, overwrite, reset, set, useSaves } from "../saves";
+import { attach, download, flush, open, overwrite, reset, set, useSaves } from "../saves";
 import { Draw, K, MARGIN, Mark, PT, Paper, RULINGS, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import Field, { list, tint, type Marks, type Picked } from "./Field";
 import Format, { bounds, drawn, has, mirrored, norm, outline, swung } from "./Format";
@@ -1794,7 +1794,7 @@ function Canvas({ file, user, reload }: { file: Sheet; user: User; reload: () =>
   // which may hold an older document. A save that fails or never answers holds the PDF up for 20 s at most.
   async function pdf(key: boolean) {
     await flush(file.id);
-    location.href = `/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`;
+    download(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`);
   }
 
   async function store() {

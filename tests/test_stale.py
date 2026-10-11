@@ -56,15 +56,17 @@ def blocks(doc):
 
 
 class Gate:
-    """Holds back a sheet's loads, and its saves while `keep` is set, each until the test lets
-    it go."""
+    """Holds back a sheet's loads, unless `free` is set, and its saves while `keep` is set, each
+    until the test lets it go."""
 
     def __init__(self, page, sheet_id):
-        self.id, self.loads, self.saves, self.keep = sheet_id, [], [], False
+        self.id, self.loads, self.saves, self.keep, self.free = sheet_id, [], [], False, False
         page.route(f"**/api/sheets/{sheet_id}", self.came)
 
     def came(self, route):
-        if route.request.method == "GET":
+        if route.request.method == "GET" and self.free:
+            route.continue_()
+        elif route.request.method == "GET":
             self.loads.append(route)
         elif self.keep:
             self.saves.append(route)
