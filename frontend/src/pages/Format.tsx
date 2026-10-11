@@ -442,10 +442,10 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
-// A random seed for the solution words, from 1 to 2147483647, and not `not`.
-const draw = (not?: number): number => {
+// A random seed for the solution words, from 1 to 2147483647, and none of the seeds in `not`.
+const draw = (not: (number | undefined)[] = []): number => {
   const seed = 1 + Math.floor(Math.random() * 2147483647);
-  return seed === not ? draw(not) : seed;
+  return not.includes(seed) ? draw(not) : seed;
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
@@ -470,7 +470,6 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
     const drawn = [...document.querySelectorAll<HTMLElement>(".block.sel .gap")];
     return drawn.length ? Math.max(5, Math.ceil(Math.max(...drawn.map((el) => el.offsetWidth / K)))) : 30;
   };
-  const seed = worded(held[0])!.bank;
   return (
     <>
       <button className={lit ? "on" : ""} aria-pressed={lit} onClick={() => gap(!lit)}>
@@ -487,7 +486,7 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
       <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
         Lösungswörter
       </button>
-      {bank && <button onClick={() => set({ bank: draw(seed) })}>Neu mischen</button>}
+      {bank && <button onClick={() => set({ bank: draw(held.map((b) => worded(b)!.bank)) }, "shuffle")}>Neu mischen</button>}
     </>
   );
 }

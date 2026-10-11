@@ -148,6 +148,20 @@ def test_the_bar_is_one_row_at_every_width_from_700_to_1400(editor, theme, touch
         expect_fitted(page, row=width > 700)
 
 
+def test_the_bar_is_measured_when_its_layout_changes_in_the_render_that_measures_it(editor):
+    """A window turns narrow in the same render in which the title field loses its focus, so the bar
+    is refitted and its layout changes at once. The bar must still be measured (#389).
+
+    The window's resize event runs before its media queries are reported, so the blur lands first.
+    """
+    page = editor(text("a"), theme=None)
+    expect_fitted(page)
+    page.get_by_label("Titel").focus()
+    page.evaluate('addEventListener("resize", () => document.activeElement.blur(), { once: true })')
+    resize(page, 900, 1200)
+    expect_fitted(page)
+
+
 @THEMES
 @pytest.mark.parametrize(
     "size", [(1023, 768), (1024, 768), (1024, 1366), (744, 1133), (820, 1180), (1100, 800)]
@@ -173,6 +187,18 @@ def test_mehr_keeps_the_focus_when_the_bar_is_fitted_anew(editor):
     more(page).focus()
     resize(page, 890, 1200)
     expect_fitted(page)
+    expect(more(page)).to_be_focused()
+
+
+def test_mehr_keeps_the_focus_when_blattforms_layout_goes(editor):
+    """#389: upright, Blattform's layout goes, and the bar is fitted anew for that alone."""
+    page = sized(editor, text("a"), width=1050, height=700, touch=False, theme=None)
+    expect_fitted(page)
+    expect(page.locator("main.editor.leaf")).to_have_count(1)
+    more(page).focus()
+    resize(page, 1050, 1300)
+    expect_fitted(page)
+    expect(page.locator("main.editor.leaf")).to_have_count(0)
     expect(more(page)).to_be_focused()
 
 

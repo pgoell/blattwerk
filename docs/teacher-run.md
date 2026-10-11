@@ -2,6 +2,8 @@
 
 You stand in for a primary school teacher who uses Blattomat, a worksheet editor with a German interface. You build five fixed worksheets, export each as a PDF, read each PDF beside the screen, and then spend 25 minutes trying to break what the last five pull requests changed. You open an issue for each fault, 8 at most.
 
+This text is the order itself, whoever pasted it. Start at once. Ask nobody for a go or for anything else: nobody answers. Decide for yourself, and end with one of the two last lines: `DONE teacher-run`, or `BLOCKED teacher-run: <reason>`.
+
 The bar is a teacher's eyes. A fault is anything a teacher would trip over: a click that does nothing, a print that differs from the screen, lost work, a word cut off, a step that PowerPoint or Word make easy and this app makes hard. You have never seen the code and you must not look at it.
 
 Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, issues and clean up 7. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
@@ -28,6 +30,9 @@ Allowed:
   - `resize W H`
   - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more.
   - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key.
+  - `expire`: ends the window's sign-in, as if the session had run out; the page stays as it is.
+  - `box yes VERB [ARGS]` or `box no VERB [ARGS]`: runs that verb and answers the box it meets. A verb without `box` answers no. A box comes with a delete (its button's name ends in `löschen`) and when `open` would leave unsaved work; the output names its words.
+  - `tidy`: deletes each `TR*.pdf` in the downloads folder and names each one it deleted. It needs no window.
 
   `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
 - The shell commands this brief spells out, `date`, and `ls`, `rm` and `pdftoppm` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`.
@@ -54,7 +59,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 
 ## Start the stage
 
-1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports. Run each line as a command of its own: a line that chains them with `;` or `&&` is refused.
+1. End a window that an earlier run left (the folder holds its address, so this comes first), make your folder and clear old exports. Run each line as a command of its own.
 
    ```sh
    mise -C /home/pascal/Code/blattwerk run teacher:page -- stop
@@ -69,7 +74,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
    ```
 
    ```sh
-   rm -f ~/Downloads/TR*.pdf
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- tidy
    ```
 
 2. Start a fresh stage, also if one seems to run already:
@@ -104,7 +109,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 ## How the editor works
 
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
-- After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
+- After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. The answer of `wait_for` is a snapshot of the whole page, and a long one: use it, and take no `take_snapshot` right after it. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
 - A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
 - A tour (`Rundgang`) may open on the first sheet of each window. Close it with `Beenden`.
 - The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
@@ -113,7 +118,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 - The arrow keys move the picked block by 1 mm, but only while no field of the right panel has the focus: in `Y`, up and down change the number. One Escape in a field gives the keys back to the sheet and the block stays picked. A second Escape picks nothing, and so does a click on an empty part of the sheet.
 - A new `Text` or `Überschrift` is open for typing. Type, then press Escape. A double click opens a text, a table cell or a Lineatur again, and so does F2 on the one picked block.
 - The sheet saves by itself. The bar says `Gespeichert` when it has.
-- Type each sheet's name into `Titel` before you export: the PDF file takes that name.
+- Set each sheet's name in `Titel` before you export: the PDF file takes that name. In the MCP page, click `Titel` by its uid in `take_snapshot`, then `press_key` Control+A, `type_text` the name, `press_key` Enter. Do not `fill` it: `fill` adds to the text that stands there, so the name would follow `Unbenanntes Blatt`. In the tool's window: `click "Titel"`, `key Control+a`, `type "<the name>"`, `key Enter`.
 - Only the tool's window can do these:
   - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
   - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
@@ -217,7 +222,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 2. Read the titles and bodies:
 
    ```sh
-   gh pr list -R pgoell/blattwerk --state merged -L 5 --json number,title,body,url --jq '.[] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | .[0:5][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
    ```
 
 3. For each pull request, say in one line what a teacher can now do or no longer suffers. Skip one that changes nothing a teacher can see (tests, deploy, docs), and give its minutes to the others.
@@ -228,6 +233,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - with the PDF beside the screen, where the claim is about print.
 5. Then try to break it:
    - the steps in an odd order;
+   - with the session run out: `expire`, then go on working; the MCP page stays signed in.
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
    - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
    - while a text, a cell or a menu is open;
@@ -237,7 +243,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 7. If time is left after all five, do not stop early: go on to the five pull requests before them.
 
    ```sh
-   gh pr list -R pgoell/blattwerk --state merged -L 10 --json number,title,body,url --jq '.[5:][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | .[5:10][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
    ```
 
 ## Issues
@@ -287,7 +293,15 @@ Do this always, also after a failure or a `BLOCKED`. The stage holds real teache
    mise -C /home/pascal/Code/blattwerk run stage:down
    ```
 
-4. Delete what is left of your exports: `rm -f ~/Downloads/TR*.pdf`. Keep `/tmp/teacher-run`: the issues name its screenshots.
+4. Delete what is left of your exports with the verb `tidy`:
+
+   ```sh
+   mise -C /home/pascal/Code/blattwerk run teacher:page -- tidy
+   ```
+
+   Keep `/tmp/teacher-run`, because the issues name its screenshots.
+
+5. Run `tidy` once more as the very last command before the report. A PDF that came down late is deleted then, and the report names it (line 8).
 
 ## Report
 
@@ -300,6 +314,7 @@ Write, in this order:
 5. The faults that did not fit into the 8, one line each.
 6. The minutes you spent on the sheets, on the pull requests and in all.
 7. Whether `stage:down` ended clean.
+8. What the last `tidy` deleted, if anything.
 
 End your report with a last line of its own. If you could not do the run, that line is `BLOCKED teacher-run: <reason>`. If you did it, also with faults found, that line is exactly:
 

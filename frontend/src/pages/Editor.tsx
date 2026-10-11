@@ -397,18 +397,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Under an open menu the bar waits to be measured until the menu shuts: the menu hands the focus back to the
   // button that had it, and a "Mehr" that left the bar meanwhile is no longer that button.
   const late = useRef(false);
+  // A measure is asked for and not yet taken: until it is, the focus "Mehr" had is not given back and not forgotten.
+  const awaited = useRef(false);
   const refit = () => {
     late.current = !!document.querySelector("dialog.menu[open]");
     if (late.current) return;
     focused.current ||= !!document.activeElement?.matches(".more");
+    awaited.current = true;
     setFits(undefined);
   };
+  // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
+  // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
+  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not. So it is when
+  // the title changes, and when its field gains or loses the focus: the bar's width stays, and tells of none.
+  // This runs before the measure below: a render that is measured and whose layout changes at once would else have
+  // its count wiped after it was taken, and the bar would stay unmeasured.
+  useLayoutEffect(refit, [leaf, title]);
   useLayoutEffect(() => {
     if (fits !== undefined) {
+      if (awaited.current) return;
       if (focused.current) bar.current!.querySelector<HTMLElement>(".more")?.focus();
       focused.current = false;
       return;
     }
+    awaited.current = false;
     const row = bar.current!;
     const look = getComputedStyle(row);
     const may = [...row.querySelectorAll(".sep ~ :is(.ib, .zoom):not(.pin)")];
@@ -434,11 +446,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }
     setFits(n);
   });
-  // The bar is measured anew when its width changes, as the window's does or the iPad turns, when its type has
-  // loaded, and when Blattform's layout, which has the zoom elsewhere, comes or goes. A turn has shut an open "Mehr"
-  // by then, as the window's new size shuts any menu; a type that loads under an open menu has not. So it is when
-  // the title changes, and when its field gains or loses the focus: the bar's width stays, and tells of none.
-  useLayoutEffect(refit, [leaf, title]);
   useLayoutEffect(() => {
     // Before the browser paints the bar at its new width.
     const again = () => flushSync(refit);
