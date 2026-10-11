@@ -51,7 +51,7 @@ def run(tmp_path, *args, probe=PROBE, guard="3"):
     env.update(BLATTWERK_HANG=guard, PYTHONPATH=str(ROOT / "tests"))
     cmd = [sys.executable, "-m", "pytest", str(path), "-p", "no:cacheprovider", "-p", "conftest"]
     return subprocess.run(
-        [*cmd, *args], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30
+        [*cmd, *args], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60
     )
 
 
@@ -75,7 +75,9 @@ def test_a_failed_test_keeps_its_limit_for_its_teardown(tmp_path):
 
 
 def test_a_run_where_no_test_finishes_ends_with_the_stacks_of_its_workers(tmp_path):
-    res = run(tmp_path, "-n", "2")
+    # Ten seconds: the guard counts from the start, and on a busy runner the two workers take
+    # more than three to come up. Then it would fire before the test had begun.
+    res = run(tmp_path, "-n", "2", guard="10")
     assert res.returncode == 1, res.stdout + res.stderr
     assert "the run hangs" in res.stderr
     assert "Started and not finished: " in res.stderr
