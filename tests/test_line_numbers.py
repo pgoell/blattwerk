@@ -160,6 +160,9 @@ def test_small_grey_print_font_on_the_baseline(editor):
         box("a", "text", {**TEXT, "text": "HEHE", "size": 28, "font": "grund", "lines": 1})
     )
     number = at(page, "a").locator(".ln")
+    # The number is drawn anew when the script comes in: the one to read is the one that stays.
+    page.evaluate("document.fonts.ready")
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
     expect(number).to_have_count(1)
     style = number.evaluate(
         "el => { const s = getComputedStyle(el); return { family: s.fontFamily, fill: s.fill,"

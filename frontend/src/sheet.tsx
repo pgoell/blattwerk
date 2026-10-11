@@ -794,7 +794,7 @@ const inBows = (node: Node) => (node instanceof Element ? node : node.parentElem
 // are not those of the text shown, so the PDF waits for them.
 export function Numbers({ block }: { block: TextBlock }) {
   const svg = useRef<SVGSVGElement>(null);
-  const tools = useRef({ draw: () => {}, seen: () => {} });
+  const tools = useRef({ draw: () => {}, seen: () => {}, drawn: () => {} });
   useLayoutEffect(() => {
     const own = svg.current!;
     const host = own.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
@@ -806,7 +806,10 @@ export function Numbers({ block }: { block: TextBlock }) {
     };
     // The frame and what lies in it: a font that comes in breaks the lines anew and makes the text higher or
     // lower, in a frame that stays as it is. WebKit sends no event for such a font.
-    const resized = new ResizeObserver(later);
+    // A size the numbers are drawn for already is no news: an element says its size once when it is first watched.
+    const sizes = new Map<Element, string>();
+    const span = (el: Element) => `${(el as HTMLElement).offsetWidth} ${(el as HTMLElement).offsetHeight}`;
+    const resized = new ResizeObserver((entries) => entries.some(({ target }) => sizes.get(target) !== span(target)) && later());
     const changed = new MutationObserver((records) => records.some((record) => !inBows(record.target)) && later());
     changed.observe(host, { characterData: true, childList: true, subtree: true });
     document.fonts.addEventListener("loadingdone", later);
@@ -816,9 +819,22 @@ export function Numbers({ block }: { block: TextBlock }) {
       cancelAnimationFrame(frame);
       frame = 0;
       changed.takeRecords();
-      for (const el of [host, ...host.children]) resized.observe(el);
+      sizes.clear();
+      for (const el of [host, ...host.children]) {
+        sizes.set(el, span(el));
+        resized.observe(el);
+      }
+    };
+    // A font still on its way breaks the lines anew when it comes in: until then the numbers are not yet those
+    // of the text, and say so.
+    let gone = false;
+    tools.current.drawn = () => {
+      if (document.fonts.status !== "loading") return;
+      own.classList.add("unsplit");
+      document.fonts.ready.then(() => gone || later());
     };
     return () => {
+      gone = true;
       cancelAnimationFrame(frame);
       resized.disconnect();
       changed.disconnect();
@@ -829,6 +845,7 @@ export function Numbers({ block }: { block: TextBlock }) {
     tools.current.draw = () => {
       tools.current.seen();
       numbering(svg.current!, block);
+      tools.current.drawn();
     };
     svg.current!.classList.add("unsplit");
     tools.current.draw();
