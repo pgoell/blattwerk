@@ -474,7 +474,7 @@ body:has(.print) { background: #fff; }
 .table .open .gap { visibility: visible; }
 .table .open .gap > span { visibility: hidden; }
 /* The box of solution words spans the table's columns and has the lines' colour. */
-.table > .bank { grid-column: 1 / -1; min-height: 0; overflow: visible; flex-wrap: wrap; gap: .4em .8em; margin: .3em 0 0; padding: .3em .5em; border: 1px solid currentColor; }
+.table > .bank { grid-column: 1 / -1; min-height: 0; overflow: visible; flex-wrap: wrap; gap: .4em .8em; margin: 0; padding: .3em .5em; border: 0 solid; border-color: inherit; border-width: 0 1px 1px 0; }
 /* A column's right line, to take hold of. */
 .sheet > .bar { position: absolute; z-index: 1; width: 9px; margin-left: -5px; cursor: col-resize; touch-action: none; }
 .bar::after { content: ""; position: absolute; inset: 0 -9px; }
