@@ -6,7 +6,7 @@ Each sheet has one text block that names it, "Blatt A" in the block "a", so a sa
 whose content it carries. The tests hold back each sheet's loads, and its saves where they say
 so, and let them go one by one. The editor has no link from one sheet to another: the tests change
 the address as the router does, with no new document, and go back with the browser's Back. Each
-sheet has an editor of its own, and a sheet is asked for when the save of the one left is done.
+sheet has an editor of its own, and a sheet is asked for at once: no load waits for a save (#331).
 
 The docstrings name the lines of the issue's checklist.
 """
@@ -34,6 +34,14 @@ KEPT = """() => {
     };
 }"""
 FRAMES = "new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
+# The same where the test's clock stands, and no frame comes: some turns of the page's loop, in
+# which React draws.
+TURNS = """new Promise((done) => {
+    const { port1, port2 } = new MessageChannel();
+    let n = 0;
+    port1.onmessage = () => (++n < 8 ? port2.postMessage(0) : done());
+    port2.postMessage(0);
+})"""
 STATUS = "header [role=status]"
 
 
@@ -48,15 +56,17 @@ def blocks(doc):
 
 
 class Gate:
-    """Holds back a sheet's loads, and its saves while `keep` is set, each until the test lets
-    it go."""
+    """Holds back a sheet's loads, unless `free` is set, and its saves while `keep` is set, each
+    until the test lets it go."""
 
     def __init__(self, page, sheet_id):
-        self.id, self.loads, self.saves, self.keep = sheet_id, [], [], False
+        self.id, self.loads, self.saves, self.keep, self.free = sheet_id, [], [], False, False
         page.route(f"**/api/sheets/{sheet_id}", self.came)
 
     def came(self, route):
-        if route.request.method == "GET":
+        if route.request.method == "GET" and self.free:
+            route.continue_()
+        elif route.request.method == "GET":
             self.loads.append(route)
         elif self.keep:
             self.saves.append(route)
@@ -79,17 +89,24 @@ class Run:
     is not there.
     """
 
-    def __init__(self, page, client, server):
-        self.page, self.client = page, client
+    def __init__(self, page, client, server, clock=False):
+        """With `clock` the page's clock stands once C shows, and moves when the test moves it."""
+        self.page, self.client, self.server = page, client, server
         self.ids, self.gates, self.asked, self.sent = {}, {}, {}, []
+        self.frames = FRAMES
         page.on("request", lambda r: r.method == "PATCH" and self.sent.append(r))
         self.make("a", "b", "c")
+        if clock:
+            page.clock.install()
         with page.expect_request(self.gates["c"].asks("GET")):
             page.goto(f"{server}/blatt/{self.ids['c']}")
         self.here = {"name": "c", "state": "out"}
         self.asked["c"].append(self.here)
         page.evaluate(FRAMES)
         self.land("c")
+        if clock:
+            page.clock.pause_at(page.evaluate("Date.now()") + 1000)
+            self.frames = TURNS
 
     def make(self, *names):
         for name in names:
@@ -105,8 +122,7 @@ class Run:
     def go(self, name, back=False, change=False, asks=True):
         """Goes on to the sheet, or back to it. With `change` it first changes the sheet it
         leaves, where one shows, and waits for that sheet's save to be answered. Without `asks`
-        it does not wait for the sheet's load: that leaves only when the save of the sheet left
-        is done."""
+        it does not wait for the sheet's load."""
         was = self.here
         with ExitStack() as waits:
             if asks:
@@ -123,7 +139,7 @@ class Run:
         self.here = {"name": name, "state": "out"}
         self.asked[name].append(self.here)
         # The load is held by now, and the page drawn for the new address.
-        self.page.evaluate(FRAMES)
+        self.page.evaluate(self.frames)
         self.check()
 
     def land(self, name, n=0, fails=False):
@@ -138,7 +154,7 @@ class Run:
         # answer the test made up has no end to wait for.
         if not fails:
             got.value.finished()
-        self.page.evaluate(FRAMES)
+        self.page.evaluate(self.frames)
         visit["state"] = "gone" if fails else "in"
         self.check()
 
@@ -146,17 +162,23 @@ class Run:
         """Another device saves the sheet that shows, the editor's own save is turned down, and
         the teacher asks for the other version: a load that is held as any other."""
         name = self.here["name"]
+        gate = self.gates[name]
         address = f"/api/sheets/{self.ids[name]}"
         was = self.client.get(address).json()
         other = {"doc": was["doc"], "version": was["version"]}
         assert self.client.patch(address, json=other).status_code == 200
-        self.nudge()
-        with self.page.expect_request(self.gates[name].asks("GET")):
+        # Before it says so, the editor asks what the server holds: it may be its own save. That
+        # is no visit's load.
+        with self.page.expect_request(gate.asks("GET"), timeout=10000):
+            self.nudge()
+        self.page.evaluate(self.frames)
+        gate.loads.pop().continue_()
+        with self.page.expect_request(gate.asks("GET")):
             self.page.get_by_role("button", name="Andere Version laden").click(timeout=10000)
         # Saving has stopped here, so leaving saves nothing.
         self.here["state"] = "clash"
         self.asked[name].append(self.here)
-        self.page.evaluate(FRAMES)
+        self.page.evaluate(self.frames)
         self.check()
 
     def check(self):
@@ -299,15 +321,15 @@ def test_a_change_behind_a_save_under_way_is_saved_after_it_on_leaving(run):
     # The save is held by now.
     page.evaluate(FRAMES)
     page.keyboard.press("ArrowRight")
-    run.go("b", asks=False)
-    # The second save follows the first, and B is asked for when both are done.
+    # B is asked for at once.
+    run.go("b")
+    # The second save follows the first.
     with page.expect_request(gate.asks("PATCH")) as second:
         gate.saves.pop().continue_()
     assert second.value.post_data_json["doc"]["pages"][0]["blocks"][0]["x"] == 17
+    assert second.value.post_data_json["version"] == 2
     page.evaluate(FRAMES)
-    assert not run.gates["b"].loads
-    asked, saved = run.gates["b"].asks("GET"), gate.answers("PATCH")
-    with page.expect_request(asked), page.expect_response(saved) as answer:
+    with page.expect_response(gate.answers("PATCH")) as answer:
         gate.saves.pop().continue_()
     assert answer.value.status == 200
     page.evaluate(FRAMES)
@@ -339,8 +361,10 @@ def test_back_shows_the_sheet_with_the_change_saved_on_leaving(run):
 
 
 @pytest.mark.parametrize("over", ["sheet", "list"])
-def test_a_sheet_is_asked_for_only_when_the_save_of_the_one_left_is_done(run, server, over):
-    """I6"""
+def test_a_sheet_is_asked_for_at_once_and_shows_its_change_while_its_save_is_out(run, server, over):
+    """I6, and #331, #329: no load waits for the save of the sheet left. Back on that sheet before
+    its save is answered, the answer holds the old document: the change shows all the same, and
+    the next save is based on what the first one brings."""
     page, gate = run.page, run.gates["a"]
     run.go("a")
     run.land("a")
@@ -352,19 +376,20 @@ def test_a_sheet_is_asked_for_only_when_the_save_of_the_one_left_is_done(run, se
         expect(at(page, "a")).not_to_have_css("left", left)
         moved = at(page, "a").evaluate("el => getComputedStyle(el).left")
         if over == "sheet":
-            run.go("b", asks=False)
+            run.go("b")
         else:
-            page.get_by_label("Meine Blätter").click()
+            with page.expect_request(f"{server}/api/sheets"):
+                page.get_by_label("Meine Blätter").click()
             expect(page).to_have_url(f"{server}/")
-    run.go("a", back=True, asks=False)
-    assert not gate.loads
-    assert not run.gates["b"].loads
-    gate.keep = False
-    with page.expect_request(gate.asks("GET")):
-        gate.saves.pop().continue_()
-    page.evaluate(FRAMES)
+    run.go("a", back=True)
+    assert len(gate.saves) == 1
     run.land("a")
     expect(at(page, "a")).to_have_css("left", moved)
+    gate.keep = False
+    with page.expect_response(gate.answers("PATCH")) as first:
+        gate.saves.pop().continue_()
+    assert first.value.status == 200
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
     with page.expect_response(gate.answers("PATCH")) as saved:
         run.nudge()
     assert saved.value.status == 200
@@ -417,11 +442,9 @@ def test_a_save_under_way_on_leaving_leaves_the_next_sheet_alone(run):
         run.nudge()
     # The save is held by now.
     page.evaluate(FRAMES)
-    run.go("b", asks=False)
-    assert not run.gates["b"].loads
-    # B is asked for when A's save is answered.
-    asked, saved = run.gates["b"].asks("GET"), gate.answers("PATCH")
-    with page.expect_request(asked), page.expect_response(saved):
+    # B is asked for at once, though A's save is out.
+    run.go("b")
+    with page.expect_response(gate.answers("PATCH")):
         gate.saves.pop().continue_()
     page.evaluate(FRAMES)
     run.land("b")

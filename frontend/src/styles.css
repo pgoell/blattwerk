@@ -303,6 +303,9 @@ body:has(.print) { background: #fff; }
 }
 /* The sheet was saved from somewhere else: the teacher picks which version stays. */
 .clash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
+/* Another sheet's change is not saved yet: a line above the page, which makes room for it. */
+.notice { margin: 0; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
+.notice a { color: inherit; }
 /* An icon's name shows while the pointer rests on it: under the bar, over the dock. */
 @media (hover: hover) and (pointer: fine) {
   :is(.top, .dock, .insert .shapes) .ib:hover::after {

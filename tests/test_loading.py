@@ -24,8 +24,8 @@ BLANK = "main.editor:not([data-ready]) .desk > .sheet.blank"
 READY = 'main.editor[data-ready="1"]'
 # HELD: a test that moves a paused clock up to the word holds the script back, or lets React's
 # own timer run out first (THROTTLE). With the sheet alone held, React draws the loading page anew
-# when the script has come, at some real moment after its timer, and a page drawn after the clock
-# was moved waits on a clock that stands.
+# when the script has come, at some real moment after its timer. Since #332 the app keeps the
+# clock, so a page drawn anew sets no timer of its own and no longer waits on a clock that stands.
 # React shows what a held script brought no sooner than this many ms after the page that stood
 # for it.
 THROTTLE = 300
@@ -372,11 +372,6 @@ def test_the_frame_and_the_page_lie_where_the_editor_puts_them(window, server, t
     assert (before["header"][3] > 100) == (touch is not None and touch["width"] <= 700)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="#332: now and then the word never comes after the paused clock is moved; "
-    "in WebKit before #326, in Chromium too since",
-)
 def test_a_screen_reader_hears_that_it_loads(window, server):
     page, client = window()
     # The script, not the sheet: see HELD.

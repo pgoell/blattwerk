@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
@@ -12,7 +12,8 @@ import Photos from "./pages/Photos";
 import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
-import { last, type Sheet } from "./sheet";
+import * as saves from "./saves";
+import { type Sheet } from "./sheet";
 
 // The editor brings the canvas libraries; the login page loads without them.
 const Editor = lazy(() => import("./pages/Editor"));
@@ -21,14 +22,28 @@ export default function App() {
   // undefined while /me is loading, null when logged out.
   const [user, setUser] = useState<User | null>();
 
+  // The savers hear who is there, and take up what the browser kept for that account. A save that finds the session
+  // gone brings the login here, on the address as it stands: the change is kept, and saved after the login. `was` is
+  // who was signed in until then: the login page says whose change waits.
+  const was = useRef<number>(undefined);
   useEffect(() => {
-    api<User>("/me").then(setUser, () => setUser(null));
+    api<User>("/me").then(
+      (to) => {
+        saves.enter(to.id);
+        setUser(to);
+      },
+      () => setUser(null),
+    );
+    saves.onSignedOut(() => setUser(null));
   }, []);
+  if (user) was.current = user.id;
 
-  // A login or a logout empties the block clipboard: what one account copied is not the next one's.
+  // A login or a logout empties the block clipboard: what one account copied is not the next one's. An unsaved
+  // change stays in the browser's store for its owner, and the savers hear who is there now.
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
+    saves.enter(to?.id);
     setUser(to);
     setEntered((n) => n + 1);
   };
@@ -37,21 +52,33 @@ export default function App() {
   // sheet load. A login on a sheet's address starts the clock anew: the time at the login page is no loading.
   const { id } = useMatch("/blatt/:id")?.params ?? {};
   const since = useMemo(() => performance.now(), [id, entered]);
-  const wait = <Blank since={since} />;
+  // The clock is kept here and not in the loading page: the account, the editor's script and the sheet each draw
+  // that page anew, and one drawn before the half second whose effect ran after it set a timer for a time gone by.
+  // `late` holds the `since` it is true for, so a new sheet or a login starts with no word.
+  const [late, setLate] = useState<number>();
+  useEffect(() => {
+    if (!id) return;
+    const left = 500 - (performance.now() - since);
+    if (left <= 0) return setLate(since);
+    const timer = setTimeout(() => setLate(since), left);
+    return () => clearTimeout(timer);
+  }, [since]);
+  const wait = <Blank late={late === since} />;
   // The sheet is asked for as soon as the account is known, side by side with the editor's script and not after
   // it. Each visit asks anew. A sheet that is not there is null: nobody may hear of it before the script has come.
   // Each sheet has an editor of its own: on to another sheet, the one left saves and goes, the loading page stands
   // at once, and a late answer for the sheet left finds nobody to show it.
-  // The sheet left saves as it goes, and the next one is asked for when that save is done: back on the sheet left,
-  // the answer holds what was saved. An effect, not the render: the editor left has started its save by then.
+  // The sheet left saves as it goes, and no load waits for that save: back on the sheet left, its saver shows what
+  // the answer does not hold yet.
   const [first, setFirst] = useState<{ id: string; sheet: Promise<Sheet | null> }>();
   useEffect(() => {
-    setFirst(user && id ? { id, sheet: last.save.then(() => api<Sheet>(`/sheets/${id}`)).catch(() => null) } : undefined);
+    setFirst(user && id ? { id, sheet: api<Sheet>(`/sheets/${id}`).catch(() => null) } : undefined);
   }, [user, id]);
 
   if (user === undefined) return id ? wait : null;
   return (
     <>
+      <Notices owner={user?.id ?? was.current} id={user ? id : undefined} />
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
@@ -78,6 +105,27 @@ export default function App() {
       </footer>
     </>
   );
+}
+
+// A line for each sheet that is not on screen and whose last change is not saved yet: after a second, or as soon as
+// the save failed. It goes when the save lands. Nothing stands here while there is nothing to say. At the login
+// that a save brought, the sheet on the address has no editor, so its line stands too; a logout leaves no saver.
+function Notices({ owner, id }: { owner?: number; id?: string }) {
+  const open = saves.useSaves().list.filter((s) => s.owner === owner && String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late));
+  return open.map((s) => (
+    <p key={s.id} className="notice" role="status">
+      {s.stopped ? (
+        // First of all: without a login a clash has no sheet to open either.
+        `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert.`
+      ) : s.clash ? (
+        <>
+          „{s.title}“ wurde auf einem anderen Gerät geändert. <Link to={`/blatt/${s.id}`}>Öffne das Blatt</Link>, um zu wählen.
+        </>
+      ) : (
+        `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Blattomat versucht es weiter.`
+      )}
+    </p>
+  ));
 }
 
 function Layout({ user }: { user: User }) {

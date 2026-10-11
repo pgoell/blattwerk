@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import Logo from "./Logo";
 
 // An iPad held upright: the panels are drawers over the desk. The same words as in styles.css.
@@ -12,16 +11,10 @@ export const opening = () => {
   return { leafy: blatt && innerWidth >= 1024, side: innerWidth > 700 && !blatt };
 };
 
-// The editor while a sheet loads: its frame, empty, with a white page where the first page comes to lie. `since`
-// is when the loading began: after half a second the page says so. The account, the editor's script and the sheet
-// each draw this anew, so the clock is not its own.
-export default function Blank({ since }: { since: number }) {
-  const left = () => 500 - (performance.now() - since);
-  const [late, setLate] = useState(() => left() <= 0);
-  useEffect(() => {
-    const timer = setTimeout(() => setLate(true), left());
-    return () => clearTimeout(timer);
-  }, []);
+// The editor while a sheet loads: its frame, empty, with a white page where the first page comes to lie. `late`
+// is whether the loading has taken half a second: then the page says so. The account, the editor's script and the
+// sheet each draw this anew, so the clock is not its own (App.tsx).
+export default function Blank({ late }: { late: boolean }) {
   const { leafy, side } = opening();
   const drawers = DRAWERS.matches;
   const leaf = leafy && !drawers;
