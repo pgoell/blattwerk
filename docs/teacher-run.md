@@ -8,6 +8,8 @@ The bar is a teacher's eyes. A fault is anything a teacher would trip over: a cl
 
 Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, issues and clean up 7. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
 
+When the orchestrator's prompt names an "above all" (a pull request or a feature to hunt on first), the split changes. The five sheets get 10 minutes, not 15: build sheets 1, 3 and 4 only. The 5 minutes saved go to issues and clean up, which get 12. The named pull requests come before the others and get at least 15 of the 25 minutes.
+
 ## Rules
 
 Allowed:
@@ -25,7 +27,7 @@ Allowed:
   - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
   - `key KEYS [N]`: a key as Playwright spells it (`Escape`, `ArrowRight`, `Control+z`, `Delete`), `N` times.
   - `type TEXT`: into whatever has the focus.
-  - `where NAME`: prints each visible match with its `x,y` and changes nothing. A whole name or text goes first. Where none is called so, it prints each name or text that holds `NAME`, with capitals as written: `where "28"` finds the exercise `28 + 5 =`.
+  - `where NAME`: prints each visible match with its `x,y` and changes nothing. A whole name or text goes first. Where none is called so, it prints each name or text that holds `NAME`, with capitals as written: `where "28"` prints `28 + 5 = at x,y`, and `where "%"` prints the zoom's number, such as `88 % at x,y`.
   - `value NAME`: prints what the field of that name holds and changes nothing: a colour as `#rrggbb`, a slider's number.
   - `resize W H`
   - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more.
@@ -34,8 +36,9 @@ Allowed:
   - `box yes VERB [ARGS]` or `box no VERB [ARGS]`: runs that verb and answers the box it meets. A verb without `box` answers no. A box comes with a delete (its button's name ends in `löschen`) and when `open` would leave unsaved work; the output names its words.
   - `tidy`: deletes each `TR*.pdf` in the downloads folder and names each one it deleted. It needs no window.
 
-  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
+  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. If one of the matches is the only button of that name, the tool takes that button: with a text picked, `click "Text"` takes the left panel's button, not the right panel's heading, which is also called `Text`. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
 - The shell commands this brief spells out, `date`, and `ls`, `rm` and `pdftoppm` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`.
+- The Grep tool, on a snapshot file in `/tmp/teacher-run` and on nothing else. `wait_for` answers with the whole page in the chat: do not search that answer. To find a control's name, `take_snapshot` with its `filePath` `/tmp/teacher-run/<name>.txt` writes the snapshot to that file, and Grep searches the file.
 - `gh pr list`, `gh issue list`, `gh issue create` and `gh issue edit` as written below. Of a pull request you read the title and the body only.
 
 Forbidden:
@@ -51,7 +54,7 @@ Forbidden:
 
 The tool is no way around this list: `open` takes paths of the stage only, and every ban holds in both windows.
 
-Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. Both are signed in as the same teacher.
+Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. Both are signed in as the same teacher. A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box that asks to confirm: answer it with `handle_dialog`.
 
 A sheet is open in one of the two windows at a time. Before you change windows, wait for `Gespeichert`, go back to `Meine Blätter` in the one, then open the sheet in the other. Two windows on one sheet each hold a copy of their own: the later save meets the banner "Dieses Blatt wurde auf einem anderen Gerät geändert", and one copy's work is lost.
 
@@ -122,8 +125,10 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 - Only the tool's window can do these:
   - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
   - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
+  - a control of the right panel below the window's lower edge, such as the slider `Randstärke` or the buttons `Jedes n-te Wort` and `Lösungswörter`: `wheel` the panel first, over a name or a point of the panel that lies in view, as `wheel "Füllung und Rand" 400`, or `wheel X,Y 400` with X,Y read off the screenshot;
   - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only. A changed border is hard to tell in a picture: read the colour before and after, with `value "Rand"` (or `value "Füllung"`, `value "Farbe"`);
   - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
+- A gap of two words: `key Enter` opens the text, `key Home` puts the caret at its start, `key Control+Shift+ArrowRight 2` picks two words, then `click "Lücke"` makes them a gap. Pick the words first: without a pick, `Lücke` gaps the word under the caret or the whole block.
 
 ## Export and compare
 
@@ -201,7 +206,11 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 2. Click `Neue Seite`. A second, empty page comes and is the one in use.
 3. On page 2: click `Überschrift`, type `Seite zwei`. Click `Punkte`.
 4. Click the tab `Ansicht`. Under `Format, Raster und Hilfslinien für` pick `Nur diese Seite`, then under `Format` pick `Quer`. Page 2 now lies on its side and page 1 stands upright.
-5. Change windows as in sheet 3: the MCP page cannot scroll back to page 1, it has no wheel and `PageUp` does nothing there. Set `Titel` in the MCP page first, `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. In the tool's window: `open /`, `click "TR4 Zwei Seiten"`, `where "Gespeichert"` until it prints a match, `click "Ganze Seite"`.
+5. Set the title in the window that built the sheet, before you change windows:
+   - built in the MCP page: `take_snapshot`, click `Titel` by its uid, `press_key` Control+A, `type_text` `TR4 Zwei Seiten`, `press_key` Enter, then `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. Remember that the MCP page cannot scroll back to page 1: it has no wheel and `PageUp` does nothing there.
+   - built in the tool's window: `click "Titel"`, `key Control+a`, `type "TR4 Zwei Seiten"`, `key Enter`, then `where "Gespeichert"` until it prints a match.
+
+   Then in the tool's window: `open /`, `click "TR4 Zwei Seiten"`, `where "Gespeichert"` until it prints a match, `click "Ganze Seite"`.
 6. Export and compare. Here in the tool's window. Page 1 is in view: `screenshot 4-screen-1`. Read a place on the sheet off that picture and turn the wheel there until page 2 is in view, `wheel X,Y 1000` and once more if it takes that, then `screenshot 4-screen-2`. Then `pdf`. The PDF must have two pages: the first upright with `Seite eins`, the second on its side with `Seite zwei` and the points box. Then `open /`: sheet 5 starts in the MCP page.
 
 ### 5. Copy of a template, title `TR5 Kopie`
@@ -219,10 +228,10 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 ## 25 minutes on the last five pull requests
 
 1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before.
-2. Read the titles and bodies:
+2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor`, which a teacher does not see, before they take five:
 
    ```sh
-   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | .[0:5][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | map(select(.title | test("^(ci|chore|docs|test|build|refactor)[(:!]") | not)) | .[0:5][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
    ```
 
 3. For each pull request, say in one line what a teacher can now do or no longer suffers. Skip one that changes nothing a teacher can see (tests, deploy, docs), and give its minutes to the others.
@@ -243,7 +252,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 7. If time is left after all five, do not stop early: go on to the five pull requests before them.
 
    ```sh
-   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | .[5:10][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | map(select(.title | test("^(ci|chore|docs|test|build|refactor)[(:!]") | not)) | .[5:10][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
    ```
 
 ## Issues
@@ -301,7 +310,7 @@ Do this always, also after a failure or a `BLOCKED`. The stage holds real teache
 
    Keep `/tmp/teacher-run`, because the issues name its screenshots.
 
-5. Run `tidy` once more as the very last command before the report. A PDF that came down late is deleted then, and the report names it (line 8).
+5. Run `tidy` once more as the very last command before the `herdr` line. A PDF that came down late is deleted then, and the report names it (line 8). Then run the `herdr` line that the orchestrator's prompt gives you, and write the report.
 
 ## Report
 
