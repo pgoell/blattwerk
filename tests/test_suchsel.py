@@ -11,10 +11,14 @@ from playwright.sync_api import expect
 from test_fields import enter
 from test_gaps import panel, step
 from test_words import ready, redo, undo
-from ui import TEXT, at, box, centre, doc, expect_picked, pick, tool, user
+from ui import TEXT, at, box, doc, expect_picked, pick, tool, user
 
 # A Suchsel on the sheet: the thumbnails of the panel Seiten draw every block too, without its id.
 ON_SHEET = ".block[data-id] .suchsel"
+MIDDLE = """el => {
+    const b = el.getBoundingClientRect();
+    return [b.x + b.width / 2, b.y + b.height / 2];
+}"""
 WORDS = ["Hund", "Katze", "Maus", "Vogel", "Pferd", "Schule"]
 SUCHSEL = {
     "words": WORDS,
@@ -124,7 +128,8 @@ def squares_fit(page, name, cols, rows):
     side = edge["width"] / cols
     assert side == pytest.approx(edge["height"] / rows, abs=0.5)
     for col, row in ((0, 0), (cols // 2, rows // 2), (cols - 1, rows - 1)):
-        x, y = centre(at(page, name).locator(f'text[data-at="{col},{row}"]'))
+        # Measured in the page: WebKit gives Playwright another box for a letter of an SVG.
+        x, y = at(page, name).locator(f'text[data-at="{col},{row}"]').evaluate(MIDDLE)
         # The box around a letter is as wide as its glyph is set, which lies a hair off its ink.
         assert x - (edge["x"] + (col + 0.5) * side) == pytest.approx(0, abs=0.05 * side)
         assert abs(y - (edge["y"] + (row + 0.5) * side)) <= 0.2 * side

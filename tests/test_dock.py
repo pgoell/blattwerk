@@ -64,7 +64,8 @@ def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(ed
     page = narrow(editor, width, theme=theme)
     tools = page.locator(TOOLS).all()
     assert len(tools) > 10
-    last = {360: "Namenszeile", 701: "Sprechblase"}.get(width)
+    # At 701 the first row ends with "Stern", a name short enough to stand centred there.
+    last = {360: "Namenszeile"}.get(width)
     shifted = []
     for button in tools:
         button.hover()
