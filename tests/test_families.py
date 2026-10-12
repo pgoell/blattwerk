@@ -310,6 +310,10 @@ def test_i6_geteilt_in_a_family_leaves_no_rest_and_moves_the_quotient(editor):
     pick(page, "m")
     mit_rest = page.locator(".panel").get_by_role("button", name="Mit Rest", exact=True)
     expect(mit_rest).to_be_disabled()
+    # Greyed, the buttons show what holds: Ohne Rest is lit, though the block keeps Mit Rest.
+    expect(mit_rest).not_to_have_class("on")
+    ohne = page.locator(".panel").get_by_role("button", name="Ohne Rest", exact=True)
+    expect(ohne).to_have_class("on")
     assert all(int(e.get("rest", 0)) == 0 for e in saved(page, client))
     pick_family(page, "Nachbaraufgaben")
     # The new tasks are on the sheet before the document is read: the save follows them.

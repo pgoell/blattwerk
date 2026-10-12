@@ -87,6 +87,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   // Families hold for Zeile and Lücke with two numbers. Tauschaufgaben need a plus or a times, the only signs they draw.
   const swap = p.ops.includes("+") || p.ops.includes("*");
   const fam = numbered && !three && !!p.family && p.family !== "none" && !(p.family === "swap" && !swap);
+  const whole = fam && p.family === "reverse";
 
   return (
     <>
@@ -173,8 +174,9 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
         <>
           <h2>Division</h2>
           <div className="seg">
-            <button className={p.rest ? "" : "on"} disabled={fam && p.family === "reverse"} onClick={() => limit({ rest: false })}>Ohne Rest</button>
-            <button className={p.rest ? "on" : ""} disabled={fam && p.family === "reverse"} onClick={() => limit({ rest: true })}>Mit Rest</button>
+            {/* An Umkehraufgabe leaves no Rest: the buttons are greyed and show that, and keep their value. */}
+            <button className={p.rest && !whole ? "" : "on"} disabled={whole} onClick={() => limit({ rest: false })}>Ohne Rest</button>
+            <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
           </div>
         </>
       )}

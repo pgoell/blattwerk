@@ -2,7 +2,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from test_maths import keeps, places
 
-from blattwerk.maths import Settings, generate
+from blattwerk.maths import Settings, generate, scaled
 
 MAX = st.sampled_from([10, 20, 100, 1000, 1_000_000]) | st.integers(1, 1_000_000)
 CARRY = st.sampled_from(["none", "required", "either"])
@@ -20,6 +20,8 @@ families = st.builds(
     format=st.sampled_from(["row", "gap"]),
     family=FAMILY,
     moves=MOVES,
+    decimals=st.sampled_from([0, 0, 1, 2]),
+    money=st.booleans(),
     count=st.integers(1, 12),
     seed=st.integers(0, 10**9),
 )
@@ -103,7 +105,8 @@ def test_every_task_of_a_family_keeps_every_limit_and_its_result_is_right(s):
         return
     kind = s.family
     for e in exercises:
-        t = s.model_copy(update={"ops": [*s.ops, e["op"]]})
+        # With places after the comma the tasks come in whole numbers of the smallest place.
+        t = scaled(s).model_copy(update={"ops": [*s.ops, e["op"]]})
         assert keeps(t, e)
         if kind == "reverse":
             assert e["rest"] == 0
