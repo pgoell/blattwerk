@@ -210,3 +210,33 @@ def test_a_text_cut_loose_still_breaks_a_long_word(editor, browser, server):
     assert all(solved.locator("body").evaluate(RECTS))
     assert solved.locator(".mix .gap.line > span").last.text_content() == LONG
     solved.context.close()
+
+
+def test_a_bubbles_solution_words_stand_under_its_text(browser, server):
+    """Review of #433: a bubble with a gap and Lösungswörter prints the box of the words under its
+    text, not over it, and both in its body."""
+    client = user()
+    runs = [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " bellt laut im Garten"}]
+    gapped = {**RECT, **TEXT, "kind": "bubble", "rich": [{"runs": runs}], "bank": 7}
+    stored = sheet(client, [box("a", "shape", gapped, h=80, w=60)])
+    paper = printed(browser, server, stored["id"])
+    frame = paper.locator(".frame").bounding_box()
+    rich = paper.locator(".frame .rich").bounding_box()
+    bank = paper.locator(".frame .bank").bounding_box()
+    assert bank["y"] >= rich["y"] + rich["height"]
+    assert bank["y"] + bank["height"] <= frame["y"] + 0.75 * frame["height"] + 0.5
+    paper.context.close()
+
+
+def test_a_bubble_stored_too_low_for_its_text_keeps_its_first_line(browser, server):
+    """Review of #433: a bubble too low for its own text, set to the middle as a shape is, starts
+    its text at the top of its body, as any other shape does: the first lines are not cut off."""
+    client = user()
+    rich = [{"runs": [{"text": word}]} for word in [*WORDS, "Baum", "Haus", "Auto"]]
+    low = {**RECT, **TEXT, "kind": "bubble", "valign": "middle", "rich": rich}
+    stored = sheet(client, [box("a", "shape", low, h=30, w=60)])
+    paper = printed(browser, server, stored["id"])
+    frame = paper.locator(".frame").bounding_box()
+    first = paper.locator(".frame p").first.bounding_box()
+    assert first["y"] >= frame["y"]
+    paper.context.close()

@@ -435,6 +435,21 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const room = ring || solid ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
+  const text = (
+    <>
+      {children ??
+        (linked && !paras.length ? (
+          <div className="rich nolist" />
+        ) : scramble ? (
+          <Rich paras={paras} mix={mixed(paras, { seed: p.mix!, first: p.mixFirst === true, caps: p.mixCaps === true })} line={line} solved={solved} cols={cols} />
+        ) : linked || p.rich ? (
+          <Rich paras={paras} holes={holes} cols={cols} />
+        ) : (
+          <p>{p.text}</p>
+        ))}
+      {words.length > 0 && <Bank words={words} seed={p.bank!} />}
+    </>
+  );
   return (
     <div
       className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed")}
@@ -453,7 +468,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         ...(tailed
-          ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."', alignItems: UP[p.valign ?? "top"] }
+          ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
           : { justifyContent: UP[p.valign ?? "top"] }),
         ...((d || ring) && { position: "relative", isolation: "isolate" }),
       }}
@@ -473,17 +488,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
           <Ring w={block.w - edge} h={block.h - edge} edge={edge} p={p} />
         </svg>
       )}
-      {children ??
-        (linked && !paras.length ? (
-          <div className="rich nolist" />
-        ) : scramble ? (
-          <Rich paras={paras} mix={mixed(paras, { seed: p.mix!, first: p.mixFirst === true, caps: p.mixCaps === true })} line={line} solved={solved} cols={cols} />
-        ) : linked || p.rich ? (
-          <Rich paras={paras} holes={holes} cols={cols} />
-        ) : (
-          <p>{p.text}</p>
-        ))}
-      {words.length > 0 && <Bank words={words} seed={p.bank!} />}
+      {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
+      {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
       {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
