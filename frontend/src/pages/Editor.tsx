@@ -2845,7 +2845,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       <i
                         key={i}
                         className="end"
-                        style={{ left: (group.x + (i % 2) * group.w) * k, top: (group.y + (i >> 1) * group.h) * k }}
+                        // On the frame's corners, which stand outside the group's.
+                        style={{ left: (group.x + (i % 2) * group.w) * k + (i % 2 ? FRAME.right : -FRAME.left), top: (group.y + (i >> 1) * group.h) * k + (i >> 1 ? FRAME.bottom : -FRAME.top) }}
                         onPointerDown={(e) => {
                           grip(e);
                           start.current = free;

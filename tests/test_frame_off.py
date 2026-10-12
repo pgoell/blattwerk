@@ -101,6 +101,27 @@ def test_the_frame_lies_outside_every_kind_of_block(editor, kind):
         assert not meet(line, shape)
 
 
+def test_a_group_with_a_lines_own_handles_stand_on_the_frames_corners(editor):
+    """A2: Moveable cannot size a group that holds a line, so the editor draws its handles."""
+    page = editor(
+        box("a", "text", TEXT, x=60, y=60, w=60, h=20, group=["g"]),
+        box("b", "shape", LINE, z=2, x=60, y=100, w=60, h=0, group=["g"]),
+    )
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    shape = outline(page, ["a", "b"])
+    ends = boxes(page, ".sheet .end")
+    assert len(ends) == 4
+    for end in ends:
+        assert not meet(end, shape)
+    # Each on a corner of the frame, 8 px outside the group's.
+    middles = sorted(((e[0] + e[2]) / 2, (e[1] + e[3]) / 2) for e in ends)
+    left, top, right, bottom = shape
+    corners = [(x, y) for x in (left - GAP, right + GAP) for y in (top - GAP, bottom + GAP)]
+    for got, want in zip(middles, sorted(corners), strict=True):
+        assert got == pytest.approx(want, abs=1)
+
+
 def test_a_line_keeps_the_handles_on_its_ends(editor):
     """A2"""
     page = editor(box("a", "shape", LINE, **PLACE))

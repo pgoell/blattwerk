@@ -83,6 +83,15 @@ def running() -> dict | None:
     return state if any(w.endswith(script) for w in words) and b"hold" in words else None
 
 
+# What an element is called, each with its spaces made one: its label, title, placeholder and alt
+# text, the words of the <label> that names it, and last its own words.
+CALLED = """el => [
+    ...["aria-label", "title", "placeholder", "alt"].map((a) => el.getAttribute(a) ?? ""),
+    ...[...(el.labels ?? [])].map((l) => l.textContent ?? ""),
+    el.textContent ?? "",
+].map((s) => s.split(/\\s+/).filter(Boolean).join(" "))"""
+
+
 def named(page: Page, name: str | re.Pattern) -> Locator:
     """Each visible thing of that name, by what a user reads or hears only."""
     found = page.get_by_label(name, exact=True)
@@ -114,7 +123,9 @@ def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int, st
         box = el.bounding_box()
         if not box:
             continue
-        shown = name if matched_whole else " ".join((el.text_content() or "").split()) or name
+        # A control is called by its label, its title or its placeholder, a text by its words: the
+        # first of them that holds the name is what the user reads there.
+        shown = name if matched_whole else next((s for s in el.evaluate(CALLED) if name in s), name)
         out.append((round(box["x"] + box["width"] / 2), round(box["y"] + box["height"] / 2), shown))
     return out
 

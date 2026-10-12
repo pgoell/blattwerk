@@ -306,6 +306,14 @@ def test_406_8_where_prints_the_zoom_as_it_reads_for_a_percent_sign(editor):
     assert any(line.startswith(f"{text} at ") for line in lines), lines
 
 
+def test_406_8_where_prints_a_controls_name_for_a_part_of_it(editor):
+    # A control has a name and may hold other words: a list its choices, a button a sign.
+    page = editor(box("a", "text", ONE))
+    at(page, "a").click()
+    assert tool.where(page, "Schrifta").startswith("Schriftart at ")
+    assert tool.where(page, "Ganze Sei").startswith("Ganze Seite at ")
+
+
 def test_where_says_that_a_name_may_lie_under_mehr_in_a_narrow_window(editor):
     # Issue #321: at 820 wide the zoom's buttons have no room in the bar.
     page = editor(box("a", "text", ONE), theme="")
