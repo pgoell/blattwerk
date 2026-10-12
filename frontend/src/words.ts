@@ -1,6 +1,6 @@
 // The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
 // Lernwörter page. Pure functions, so the editor and the tests share them.
-import { MARGIN, RULINGS, dir, listOf, rowsOf, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
+import { MARGIN, RULINGS, dir, listOf, rowsOf, shownParas, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -51,12 +51,14 @@ export function loose(b: RulingBlock, words: string[]): RulingBlock {
 
 // A text or a shape cut loose from the list keeps the words as its own text, and loses its list settings. With no
 // word to keep it has its own text again: a block copied in a window that knows no list brings none. Mixed words
-// keep the line they had on the list.
+// keep the line they had on the list. Lückenwörter stay, as gaps of the block's own text at the letters they hid.
 export function looseText<P extends Partial<TextProps>>(p: P, words: string[]): P {
   const props: Partial<TextProps> = { ...p };
   if (words.length) {
-    props.text = words.join("\n");
-    delete props.rich;
+    const kept = stored(shownParas({ ...p, list: true } as TextProps, words));
+    props.text = kept.text;
+    if (kept.rich) props.rich = kept.rich;
+    else delete props.rich;
   }
   if (p.list === true && p.mix !== undefined && p.mixLine === undefined) props.mixLine = "after";
   delete props.list;

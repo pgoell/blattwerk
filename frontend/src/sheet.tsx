@@ -814,8 +814,9 @@ export const bowed = () =>
 // The numbers are 0.7 em of their text: small, so they stay out of the way of the text.
 const NUMBER_EM = 0.7;
 // The line numbers of a text, beside `svg`, which is the block's own. The lines are counted as they break, over all
-// the paragraphs of the text: an empty paragraph is no line. A number stands on every `step`th line that lies in
-// the box; a line cut off below the box has none. Measured like the bows, in the block's own pixels.
+// the paragraphs of the text: an empty paragraph is no line. In columns the numbers count the rows of the grid.
+// A number stands on every `step`th line that lies in the box; a line cut off below the box has none. Measured like
+// the bows, in the block's own pixels.
 function numbering(svg: SVGSVGElement, block: TextBlock) {
   const host = svg.parentElement!.querySelector<HTMLElement>(":scope > .frame")!;
   const step = stepOf(block.props.lines);
@@ -830,6 +831,31 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
   const base = FONTS[block.props.font ?? "andika"][2];
   const shown: SVGTextElement[] = [];
   let count = 0;
+  // The rows not yet numbered. In columns the words of all paragraphs make one grid, so their rows are numbered
+  // together, top to bottom; otherwise each paragraph is numbered as it comes.
+  let rows: { top: number; bottom: number }[] = [];
+  const columns = block.props.list === true && listColsOf(block.props) > 1;
+  const number = () => {
+    rows.sort((a, b) => a.top - b.top);
+    for (const row of rows) {
+      count++;
+      const middle = (row.top + row.bottom) / 2;
+      if (count % step || middle <= box.top || middle >= box.bottom) continue;
+      const text = document.createElementNS(SVG, "text");
+      text.setAttribute("class", "ln");
+      text.dataset.line = String(count);
+      text.setAttribute("text-anchor", "end");
+      // Two mm left of the box, which is laid out at K pixels a mm.
+      text.setAttribute("x", `${-2 * K}`);
+      text.setAttribute("y", `${((middle - top) / scale + base * em).toFixed(2)}`);
+      text.setAttribute("font-size", `${(NUMBER_EM * em).toFixed(2)}`);
+      text.setAttribute("font-family", "Andika");
+      text.setAttribute("fill", GREYS[1]);
+      text.textContent = String(count);
+      shown.push(text);
+    }
+    rows = [];
+  };
   for (const p of scale ? host.querySelectorAll("p") : [])
     if (!p.querySelector("p")) {
       const nodes: Text[] = [];
@@ -843,7 +869,6 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
       // empty as one with nothing, in a paragraph or between two line breaks. Two words stand in one line when
       // their tops are less than half a line apart: the box of a school script's letters is two lines high and
       // more, in WebKit above all, so it reaches over its neighbours.
-      const rows: { top: number; bottom: number }[] = [];
       const range = document.createRange();
       for (const node of nodes)
         for (const word of node.data.matchAll(/\S+/g)) {
@@ -851,25 +876,9 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
           range.setEnd(node, word.index + word[0].length);
           for (const rect of range.getClientRects()) if (rect.right > rect.left && !rows.some((row) => Math.abs(rect.top - row.top) < near)) rows.push({ top: rect.top, bottom: rect.bottom });
         }
-      rows.sort((a, b) => a.top - b.top);
-      for (const row of rows) {
-        count++;
-        const middle = (row.top + row.bottom) / 2;
-        if (count % step || middle <= box.top || middle >= box.bottom) continue;
-        const text = document.createElementNS(SVG, "text");
-        text.setAttribute("class", "ln");
-        text.dataset.line = String(count);
-        text.setAttribute("text-anchor", "end");
-        // Two mm left of the box, which is laid out at K pixels a mm.
-        text.setAttribute("x", `${-2 * K}`);
-        text.setAttribute("y", `${((middle - top) / scale + base * em).toFixed(2)}`);
-        text.setAttribute("font-size", `${(NUMBER_EM * em).toFixed(2)}`);
-        text.setAttribute("font-family", "Andika");
-        text.setAttribute("fill", GREYS[1]);
-        text.textContent = String(count);
-        shown.push(text);
-      }
+      if (!columns) number();
     }
+  if (columns) number();
   svg.parentElement!.style.transform = turn;
   svg.replaceChildren(...shown);
   svg.classList.remove("unsplit");
