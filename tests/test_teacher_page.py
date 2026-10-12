@@ -7,6 +7,7 @@ verbs alone, stop.
 
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 import time
@@ -129,6 +130,19 @@ def test_hover_on_an_icon_by_its_name_shows_that_name(editor):
     said = tool.hover(page, "Format und Ansicht")
     assert said.startswith(f"mouse at {middle(button)}: ")
     assert button.evaluate(TIP)["content"] == '"Format und Ansicht"'
+
+
+def test_406_1_click_takes_the_button_when_a_heading_shares_its_name(editor):
+    # With a text picked, the left panel's button and the right panel's heading are both "Text".
+    page = editor(box("a", "text", ONE))
+    tool.click(page, "Eins")
+    expect_picked(page, "a")
+    button = page.get_by_label("Text", exact=True)
+    said = tool.click(page, "Text")
+    assert said.startswith(f"clicked at {middle(button)}: ")
+    # The button adds a text, and the new one is picked.
+    expect(page.locator(".block")).to_have_count(2)
+    expect(at(page, "a")).not_to_have_class("block sel")
 
 
 def test_drag_moves_a_block_and_undo_takes_it_back(editor):
@@ -270,7 +284,7 @@ def test_where_finds_a_part_of_a_text_where_no_whole_one_matches(editor):
     # Issue #321: `where "28"` found nothing, though the number stood in an exercise.
     sum_, more = {**TEXT, "text": "28 + 5"}, {**TEXT, "text": "Eins und"}
     page = editor(box("a", "text", sum_), box("b", "text", ONE, z=2), box("c", "text", more, z=3))
-    assert tool.where(page, "28") == f"28 at {middle(at(page, 'a').get_by_text('28 + 5'))}"
+    assert tool.where(page, "28") == f"28 + 5 at {middle(at(page, 'a').get_by_text('28 + 5'))}"
     # A whole name goes first: the text that only holds it is not listed beside it.
     assert tool.where(page, "Eins") == f"Eins at {middle(at(page, 'b').get_by_text('Eins'))}"
     # With capitals as written: a wait for `Gespeichert` does not end on "Nicht gespeichert".
@@ -280,6 +294,24 @@ def test_where_finds_a_part_of_a_text_where_no_whole_one_matches(editor):
     with pytest.raises(tool.Refused, match='nothing on the page is called "28"'):
         tool.click(page, "28")
     expect_picked(page)
+
+
+def test_406_8_where_prints_the_zoom_as_it_reads_for_a_percent_sign(editor):
+    # Issue #406: `where "%"` printed "% at", not the zoom's number.
+    page = editor(box("a", "text", ONE))
+    zoom = page.locator("button.zoom")
+    text = " ".join(zoom.text_content().split())
+    assert re.fullmatch(r"\d+ %", text), text
+    lines = tool.where(page, "%").splitlines()
+    assert any(line.startswith(f"{text} at ") for line in lines), lines
+
+
+def test_406_8_where_prints_a_controls_name_for_a_part_of_it(editor):
+    # A control has a name and may hold other words: a list its choices, a button a sign.
+    page = editor(box("a", "text", ONE))
+    at(page, "a").click()
+    assert tool.where(page, "Schrifta").startswith("Schriftart at ")
+    assert tool.where(page, "Ganze Sei").startswith("Ganze Seite at ")
 
 
 def test_where_says_that_a_name_may_lie_under_mehr_in_a_narrow_window(editor):
@@ -342,6 +374,15 @@ def test_screenshot_is_the_window_and_a_point_read_from_it_is_the_mouses(editor,
     expect_picked(page, "red")
     # With no name the picture is screen.png.
     assert tool.screenshot(page) == str(folder / "screen.png")
+    with pytest.raises(tool.Refused, match="no name for a file"):
+        tool.screenshot(page, "../out")
+
+
+def test_406_6_screenshot_takes_a_comma_in_its_name(editor, folder):
+    page = editor(box("a", "text", ONE))
+    path = tool.screenshot(page, "4-screen,1")
+    assert path == str(folder / "4-screen,1.png")
+    assert size(path) == (1400, 1000)
     with pytest.raises(tool.Refused, match="no name for a file"):
         tool.screenshot(page, "../out")
 
