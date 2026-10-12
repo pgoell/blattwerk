@@ -1033,6 +1033,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The Lineatur's text: a mode links each picked Lineatur to the sheet's list, none cuts each loose with its words.
   // One step for all of them.
   function takeList(mode?: ListMode) {
+    // A Lineatur being written in ends its writing: linked, it has no field left to write in.
+    if (mode) setEditing("");
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "ruling" ? (mode ? linked(b, mode, learnt, W, H) : cutLoose(b, learnt)) : b)));
   }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.

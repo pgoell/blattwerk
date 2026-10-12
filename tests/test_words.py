@@ -2,6 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
+from test_keys_focus import choose
 from ui import RULING, TEXT, at, box, copy_text, doc, pick, sheet, thumb, unpick, user
 
 LINKED = {**RULING, "list": "copy"}
@@ -470,3 +471,24 @@ def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor
     assert doc(page, client)["words"] == ["Hund"]
     redo(page)
     expect(at(page, "a").locator(".listed .row")).to_have_count(3)
+
+
+def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor):
+    """A pick in the list with the mouse leaves the keys with the sheet, as the panel's other
+    lists do, and a Lineatur being written in is no longer: linked, it has no field."""
+    client = user()
+    page = editor(box("a", "ruling", {**RULING, "text": "eigen"}, h=40), client=client)
+    store_words(page, client, ["Hund"])
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(at(page, "a").locator("textarea.written:not([readonly])")).to_be_focused()
+    control = choose(page, "Text der Lineatur")
+    expect(control).not_to_be_focused()
+    expect(at(page, "a").locator("textarea")).to_have_count(0)
+    expect(at(page, "a").locator(".listed .row span")).to_have_text("Hund")
+    page.keyboard.press("ArrowRight")
+    expect(page.get_by_label("X", exact=True)).to_have_value("16")
+    # Cut loose again, the block is not being written in.
+    page.locator(".panel").get_by_label("Text der Lineatur").select_option("own")
+    expect(at(page, "a").locator("textarea.written")).to_have_attribute("readonly", "")
+    assert rulings(doc(page, client))[0]["props"]["text"] == "Hund"

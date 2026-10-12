@@ -28,7 +28,7 @@ CONTROLS = {
     "text": ["Schriftart", "Farbe", "Füllung", "Rand"],
     "shape": ["Schriftart", "Farbe", "Füllung", "Rand"],
     "line": ["Füllung", "Rand"],
-    "ruling": ["Art der Lineatur", "Farbe", "Text der Lineatur", "Schriftart auf den Zeilen"],
+    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen"],
     "table": ["Schriftart der Tabelle", "Farbe", "Linien"],
 }
 KINDS = {
@@ -182,7 +182,9 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
     found = page.locator(".panel select, .panel input[type=color]").evaluate_all(
         f"els => els.map({LABEL})"
     )
-    assert found == CONTROLS[name]
+    # But for the Lineatur's choice of text: it takes the block's own text away, so what holds for
+    # a control beside a text being written does not hold for it. test_words.py tests it.
+    assert [label for label in found if label != "Text der Lineatur"] == CONTROLS[name]
 
     control = choose(page, label)
     expect(control).not_to_be_focused()
@@ -193,8 +195,8 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
     page.keyboard.press("Tab")
     expect_picked(page, "z")
 
-    # A line holds no text to open, and neither does a Lineatur that now takes the Lernwörter.
-    if name != "line" and label != "Text der Lineatur":
+    # A line holds no text to open.
+    if name != "line":
         pick(page, name)
         choose(page, label)
         page.keyboard.press("Enter")
