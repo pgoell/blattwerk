@@ -376,7 +376,15 @@ def test_tab_walks_the_new_settings_of_vergleichen(editor):
     page = editor(box("a", "maths", maths(client, format="compare")), client=client)
     press(page, at(page, "a"))
     expect_picked(page, "a")
-    page.locator(".panel").get_by_role("button", name="Vergleichen", exact=True).focus()
+    # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
+    # there to the formats.
+    for _ in range(3):
+        page.keyboard.press("F6")
+    for _ in range(60):
+        if page.locator(":focus").inner_text() == "Vergleichen":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_text("Vergleichen")
     # Each button of a seg is a stop of its own, as the buttons of Wörterliste and Nur Anzahl are.
     order = ["Seiten", "Beliebig", "Knapp", "Keine mit =", "Einige mit =", "Eine Aufgabe weniger"]
     for label in order:
