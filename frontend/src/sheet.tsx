@@ -1259,7 +1259,8 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
     const el = root.current;
     if (!el) return;
     el.style.removeProperty("--fit");
-    const over = el.scrollWidth > el.clientWidth + 1;
+    // A block with no width to speak of has no scale: it would come out below nothing.
+    const over = el.clientWidth > 2 && el.scrollWidth > el.clientWidth + 1;
     // Two pixels of room: the paper's outer line lies half outside its svg, and the block cuts what leaves it.
     const scale = over ? (el.clientWidth - 2) / el.scrollWidth : 1;
     if (over) el.style.setProperty("--fit", String(scale));

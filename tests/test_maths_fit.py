@@ -152,6 +152,17 @@ def test_i3_a_numbered_block_stays_inside(editor):
     inside(page, "m")
 
 
+def test_i3_numbering_set_in_the_panel_keeps_the_tasks_inside(editor):
+    """I3: the numbering brings the bold cut, which loads late: the block fits again then."""
+    client = user()
+    page = editor(a_block(client, columns=3, size=14), client=client)
+    pick(page, "m")
+    page.locator(".panel").get_by_role("button", name="1 2 3", exact=True).first.click()
+    expect(at(page, "m").locator(".maths b")).to_have_count(12)
+    page.evaluate("document.fonts.ready.then(() => 0)")
+    inside(page, "m")
+
+
 def test_i4_a_turned_block_does_not_scroll(editor):
     """I4: a turned maths block keeps all its tasks in the block's width: no scroll."""
     client = user()
