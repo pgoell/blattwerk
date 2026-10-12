@@ -1,6 +1,6 @@
 // The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
 // Lernwörter page. Pure functions, so the editor and the tests share them.
-import { MARGIN, RULINGS, dir, listOf, rowsOf, tall, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock } from "./sheet";
+import { MARGIN, RULINGS, dir, listOf, rowsOf, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -37,26 +37,42 @@ export function linked(b: RulingBlock, mode: ListMode, words: string[], W: numbe
 }
 
 // A block cut loose from the list keeps the words as its own text. Trace and row stay grey over the text, as
-// they did on the list; copy has no grey text, so its trace goes.
+// they did on the list; copy and fold have no grey text, so their trace goes. A fold's columns go with the list.
 export function loose(b: RulingBlock, words: string[]): RulingBlock {
   const mode = listOf(b);
   if (!mode) return b;
   const props: RulingBlock["props"] = { ...b.props, text: words.join("\n") };
   delete props.list;
   delete props.trace;
-  if (mode !== "copy") props.trace = true;
+  delete props.folds;
+  if (mode !== "copy" && mode !== "fold") props.trace = true;
   return { ...b, props };
+}
+
+// A text or a shape cut loose from the list keeps the words as its own text, and loses its list settings.
+export function looseText<P extends Partial<TextProps>>(p: P, words: string[]): P {
+  const props: Partial<TextProps> = { ...p, text: words.join("\n") };
+  delete props.rich;
+  delete props.list;
+  delete props.listCols;
+  delete props.holes;
+  delete props.holeSeed;
+  return props as P;
 }
 
 // A paste must not bring other words than the sheet it lands on. The copied list comes along when the sheet has
 // none; a block keeps a list only when the two lists are the same, and otherwise is cut loose with its words.
 export function landed(blocks: Block[], from: unknown, doc: Doc): { blocks: Block[]; words?: string[] } {
-  if (!blocks.some((b) => b.type === "ruling" && listOf(b))) return { blocks };
+  if (!blocks.some(tied)) return { blocks };
   const theirs = wordsIn({ words: from });
   const ours = wordsIn(doc);
   if (ours.length === 0 && theirs.length > 0) return { blocks, words: from as string[] };
   if (ours.length === theirs.length && ours.every((w, i) => w === theirs[i])) return { blocks };
-  return { blocks: blocks.map((b) => (b.type === "ruling" ? loose(b, theirs) : b)) };
+  const cut = (b: Block): Block => {
+    if (b.type === "ruling") return loose(b, theirs);
+    return b.type === "text" || b.type === "shape" ? ({ ...b, props: looseText(b.props, theirs) } as Block) : b;
+  };
+  return { blocks: blocks.map((b) => (tied(b) ? cut(b) : b)) };
 }
 
 // The blocks of a ready Lernwörter sheet: a heading, a name line, and three rulings that take the list in copy,

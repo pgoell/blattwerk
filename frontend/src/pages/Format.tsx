@@ -5,11 +5,12 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, listOf, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
+import { holed } from "../holes";
 
 type Props = {
   sel: Block[];
@@ -19,6 +20,10 @@ type Props = {
   bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
+  // Makes the picked texts and shapes take the sheet's Lernwörter as their text, or cut them loose with their words.
+  link: (on: boolean) => void;
+  // Sets props on the picked texts and shapes that take the Lernwörter, as `look` does for all of them.
+  feed: (props: object, key?: string) => void;
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
   paint: (props: Marks, key?: string) => void;
   // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
@@ -148,7 +153,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -299,7 +304,8 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
           </label>
           {bows}
           {gaps}
-          <Mix sel={sel} look={look} />
+          <Fed sel={sel} words={words} toList={toList} look={look} link={link} feed={feed} />
+          <Mix sel={sel} look={look} words={words} />
           {/* Only texts take line numbers. Off is no key, as on a text that never had them; on starts with every fifth line. */}
           {texts.length > 0 && (
             <>
@@ -350,7 +356,17 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
             <option value="copy">Lernwörter abschreiben</option>
             <option value="trace">Lernwörter nachspuren</option>
             <option value="row">Lernwörter, ganze Zeile nachspuren</option>
+            <option value="fold">Lernwörter als Knickblatt</option>
           </select>
+          {mode === "fold" && (
+            <div className="seg">
+              {[2, 3].map((n) => (
+                <button key={n} className={foldsOf(rulings[0]) === n ? "on" : ""} aria-label={`${n} Spalten zum Schreiben`} aria-pressed={foldsOf(rulings[0]) === n} onClick={() => style("ruling", { folds: n }, "folds")}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
           {n > 0 && (
             <p className="hint" role="status">
               {n === 1 ? "1 Wort passt nicht in die Zeilen." : `${n} Wörter passen nicht in die Zeilen.`}
@@ -508,23 +524,31 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
     const drawn = [...document.querySelectorAll<HTMLElement>(".block.sel .gap")];
     return drawn.length ? Math.max(5, Math.ceil(Math.max(...drawn.map((el) => el.offsetWidth / K)))) : 30;
   };
+  // A linked text or shape has no gaps of its own, so only its width shows.
+  const linked = held.every((b) => boxed(b)?.list === true);
   return (
     <>
-      <button className={lit ? "on" : ""} aria-pressed={lit} onClick={() => gap(!lit)}>
-        Lücke
-      </button>
+      {!linked && (
+        <button className={lit ? "on" : ""} aria-pressed={lit} onClick={() => gap(!lit)}>
+          Lücke
+        </button>
+      )}
       <button className={same ? "on" : ""} aria-pressed={same} onClick={() => set({ gapWidth: same ? undefined : widest() }, "gapWidth")}>
         Lücken gleich breit
       </button>
       {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
-      <div className="seg">
-        <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
-        <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
-      </div>
-      <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
-        Lösungswörter
-      </button>
-      {bank && (
+      {!linked && (
+        <div className="seg">
+          <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
+          <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
+        </div>
+      )}
+      {!linked && (
+        <button className={bank ? "on" : ""} aria-pressed={bank} onClick={() => set({ bank: bank ? undefined : draw() }, "bank")}>
+          Lösungswörter
+        </button>
+      )}
+      {!linked && bank && (
         <button
           onClick={() => {
             const shown = held.map((b) => ({ seed: seedOf(worded(b)!.bank), show: (seed: number) => shuffled(solutions(b), seed, solutions(b)).join("\n") }));
@@ -542,30 +566,91 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
 // The solution words of a block: the cells of a table, or the words of a text or a shape, in reading order.
 const solutions = (b: Block) => (b.type === "table" ? cellEntries(b.props.cells, b.props.gaps) : entries(parasOf(boxed(b)!)));
 
-// The words of a text that Schüttelwörter mixes, as typed and in reading order.
-const sources = (p: TextProps) =>
-  mixed(parasOf(p), { seed: 0 })
-    .flat()
-    .flatMap((part) => (part.source ? [part.source] : []));
-
-// Schüttelwörter: the letters of each word in another order, for every selected text and shape. On unless all have a
-// seed, as bold. Off keeps the settings stored, so the next press brings them back. "Neu schütteln" draws the best of
-// 40 seeds, so in a long text a word can keep its order. A press that moves no word makes no step.
-function Mix({ sel, look }: Pick<Props, "sel" | "look">) {
+// The sheet's Lernwörter for a text or a shape: as its own text or as the list, in 1 to 4 columns, with letters hidden as
+// gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew.
+function Fed({ sel, words, toList, look, link, feed }: Pick<Props, "sel" | "words" | "toList" | "look" | "link" | "feed">) {
   const held = sel.flatMap((b) => {
     const p = boxed(b);
     return p ? [p] : [];
   });
   if (!held.length) return null;
-  const on = held.every((p) => seedOf(p.mix) !== undefined);
-  const first = held.every((p) => p.mixFirst === true);
-  const caps = held.every((p) => p.mixCaps === true);
-  const line = held[0].mixLine === "after" || held[0].mixLine === "under" ? held[0].mixLine : undefined;
-  // One entry per word of each block, as the pupil sees it: in capitals where the caps are on.
-  const words = (): Shown[] => held.flatMap((p) => sources(p).map((source) => ({ seed: seedOf(p.mix), show: (seed: number) => word(source, seed, p.mixFirst === true, p.mixCaps === true) })));
+  const linked = held.every((p) => p.list === true);
+  const holes = held.every((p) => holesOf(p) !== undefined);
+  const mode = holesOf(held[0]);
+  const cols = listColsOf(held[0]);
   return (
     <>
-      <button className={on ? "on" : ""} aria-pressed={on} onClick={() => look({ mix: on ? undefined : draw() }, "mix")}>
+      <select aria-label="Text des Textfelds" value={linked ? "list" : "own"} onChange={(e) => link(e.target.value === "list")}>
+        <option value="own">Eigener Text</option>
+        <option value="list">Text aus Lernwörtern</option>
+      </select>
+      {linked && (
+        <>
+          <div className="seg">
+            {[1, 2, 3, 4].map((n) => (
+              <button key={n} className={cols === n ? "on" : ""} aria-label={n === 1 ? "1 Spalte" : `${n} Spalten`} aria-pressed={cols === n} onClick={() => look({ listCols: n === 1 ? undefined : n }, "listCols")}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <button onClick={toList}>Lernwörter bearbeiten</button>
+          <button className={holes ? "on" : ""} aria-pressed={holes} onClick={() => feed(holes ? { holes: undefined } : { holes: "one", holeSeed: seedOf(held[0].holeSeed) ?? draw(), mix: undefined }, "holes")}>
+            Lückenwörter
+          </button>
+          {holes && mode && (
+            <>
+              <div className="seg">
+                {([["one", "Ein Buchstabe"], ["second", "Jeder zweite"], ["vowels", "Alle Vokale"]] as const).map(([value, label]) => (
+                  <button key={value} className={mode === value ? "on" : ""} aria-pressed={mode === value} onClick={() => feed({ holes: value }, "holesMode")}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  const seed = seedOf(held[0].holeSeed);
+                  const shown = words.map((w) => ({ seed, show: (s: number) => holed(w, mode, s).map((run) => (run.gap ? "_" : run.text)).join("") }));
+                  const next = draw(shown);
+                  if (moves(shown, next)) feed({ holeSeed: next }, "holesPick");
+                }}
+              >
+                Neu wählen
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// The words of a text that Schüttelwörter mixes, as typed and in reading order: a linked text has the sheet's words.
+const sources = (p: TextProps, words: string[]) =>
+  mixed(shownParas(p, words), { seed: 0 })
+    .flat()
+    .flatMap((part) => (part.source ? [part.source] : []));
+
+// Schüttelwörter: the letters of each word in another order, for every selected text and shape. On unless all have a
+// seed, as bold. Off keeps the settings stored, so the next press brings them back. "Neu schütteln" draws the best of
+// 40 seeds, so in a long text a word can keep its order. A press that moves no word makes no step. A linked text with
+// Lückenwörter is no mix: the gaps take its place.
+function Mix({ sel, look, words: sheet }: Pick<Props, "sel" | "look" | "words">) {
+  const held = sel.flatMap((b) => {
+    const p = boxed(b);
+    return p ? [p] : [];
+  });
+  if (!held.length) return null;
+  const on = held.every((p) => seedOf(p.mix) !== undefined && !(p.list === true && holesOf(p)));
+  const first = held.every((p) => p.mixFirst === true);
+  const caps = held.every((p) => p.mixCaps === true);
+  const linked = held.every((p) => p.list === true);
+  const line = lineOf(held[0]);
+  const lines = linked ? ([["after", "Linie dahinter"], ["under", "Linie darunter"]] as const) : ([[undefined, "Keine Linie"], ["after", "Linie dahinter"], ["under", "Linie darunter"]] as const);
+  // One entry per word of each block, as the pupil sees it: in capitals where the caps are on.
+  const words = (): Shown[] => held.flatMap((p) => sources(p, sheet).map((source) => ({ seed: seedOf(p.mix), show: (seed: number) => word(source, seed, p.mixFirst === true, p.mixCaps === true) })));
+  return (
+    <>
+      <button className={on ? "on" : ""} aria-pressed={on} onClick={() => look(on ? { mix: undefined } : { mix: draw(), holes: undefined }, "mix")}>
         Schüttelwörter
       </button>
       {on && (
@@ -577,7 +662,7 @@ function Mix({ sel, look }: Pick<Props, "sel" | "look">) {
             Großbuchstaben
           </button>
           <div className="seg">
-            {([[undefined, "Keine Linie"], ["after", "Linie dahinter"], ["under", "Linie darunter"]] as const).map(([value, label]) => (
+            {lines.map(([value, label]) => (
               <button key={label} className={line === value ? "on" : ""} aria-pressed={line === value} onClick={() => look({ mixLine: value }, "mixLine")}>
                 {label}
               </button>

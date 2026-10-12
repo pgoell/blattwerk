@@ -3,6 +3,7 @@ import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef
 import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
+import { holed } from "./holes";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -46,7 +47,10 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // puts a line after each mixed word ("after") or under it ("under"), which the pupil writes the word on. The answer
 // key shows the word the teacher typed on the line, or in place of the mixed word when there is no line.
 // Sheets saved before have none of these.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+// `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
+// `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
+// mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -56,9 +60,10 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
 // With `list` the block takes its words from the sheet's Lernwörter, one to a row, and `text` and `trace` rest: "copy"
 // prints each word at its row's start to copy beside, "trace" prints it once in grey to write over, "row" in grey
-// again and again to the row's end.
-export type ListMode = "copy" | "trace" | "row";
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean; list?: ListMode } };
+// again and again to the row's end. "fold" is the Knickblatt: each word at its row's start, cut at the first column,
+// with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
+export type ListMode = "copy" | "trace" | "row" | "fold";
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean; list?: ListMode; folds?: number } };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -176,7 +181,19 @@ export const read = ({ pages, blocks, guides, grid, landscape, words }: Doc & { 
 export const wordsIn = (doc: { words?: unknown }): string[] =>
   Array.isArray(doc.words) ? doc.words.flatMap((line) => (typeof line === "string" ? line.split(/[,;\n]/) : [])).map((w) => w.trim()).filter(Boolean) : [];
 // The mode a Lineatur takes the Lernwörter in, or none: a stored mode nobody knows is none.
-export const listOf = (b: RulingBlock): ListMode | undefined => (b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" ? b.props.list : undefined);
+export const listOf = (b: RulingBlock): ListMode | undefined =>
+  b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" || b.props.list === "fold" ? b.props.list : undefined;
+// Whether a block draws the sheet's Lernwörter: a Lineatur with a list mode, or a text or shape with `list: true`.
+export const tied = (b: Block) => (b.type === "ruling" ? listOf(b) !== undefined : boxed(b)?.list === true);
+// A sheet may come from anywhere: 1 to 4 columns, and anything else is 1.
+export const listColsOf = (p: { listCols?: unknown }) => (typeof p.listCols === "number" && Number.isInteger(p.listCols) && p.listCols >= 1 && p.listCols <= 4 ? p.listCols : 1);
+// The Lückenwörter mode, or none: a stored mode nobody knows is none.
+export const holesOf = (p: { holes?: unknown }) => (p.holes === "one" || p.holes === "second" || p.holes === "vowels" ? p.holes : undefined);
+// The empty columns of a Knickblatt: 3 when `folds` says so, else 2.
+export const foldsOf = (b: RulingBlock): 2 | 3 => (b.props.folds === 3 ? 3 : 2);
+// The line after or under a mixed word: the stored one, else "after" for a linked text, and none for any other.
+export const lineOf = (p: { mixLine?: unknown; list?: unknown }): "after" | "under" | undefined =>
+  p.mixLine === "after" || p.mixLine === "under" ? p.mixLine : p.list === true ? "after" : undefined;
 // The Lernwörter of the sheet a block is drawn on. `Paper` sets them; the editor sets its own.
 export const Words = createContext<string[]>([]);
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
@@ -191,6 +208,14 @@ export function boxed(b: Block): TextProps | undefined {
 }
 // A text's paragraphs: with no `rich`, one to a line.
 export const parasOf = (p: TextProps): Para[] => p.rich ?? p.text.split("\n").map((text) => ({ runs: text ? [{ text }] : [] }));
+// The paragraphs a text draws: a linked text has one to a word of the sheet's list, with its hidden letters as gap
+// runs when Lückenwörter is on. Any other text draws its own paragraphs.
+export const shownParas = (p: TextProps, words: string[]): Para[] => {
+  if (p.list !== true) return parasOf(p);
+  const holes = holesOf(p);
+  const seed = typeof p.holeSeed === "number" && Number.isFinite(p.holeSeed) ? p.holeSeed : 0;
+  return words.map((word) => ({ runs: holes ? holed(word, holes, seed) : [{ text: word }] }));
+};
 // What a block keeps of its paragraphs: the plain text always, `rich` only when it says more than the text does.
 export function stored(paras: Para[]) {
   const plain = paras.every((p) => !p.list && p.runs.every((r) => Object.keys(r).length === 1));
@@ -359,10 +384,18 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const p = boxed(block)!;
   const tints = pairOf(p.tints);
   const width = gapWidth(p.gapWidth);
-  const words = typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
+  // A linked text draws the sheet's Lernwörter, one to a paragraph, in columns, and grows to hold them. Its own text
+  // rests, and so do the solution words of that text.
+  const sheet = useContext(Words);
+  const linked = p.list === true;
+  const words = !linked && typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
+  const paras = shownParas(p, sheet);
+  const cols = linked ? listColsOf(p) : undefined;
+  // Lückenwörter: every hidden letter is a gap of its own, and a linked text with them takes no scrambled words.
+  const holes = linked && holesOf(p) !== undefined;
   // A sheet may come from anywhere: a mix that is no number, or a line that is neither word, draws the plain text.
-  const scramble = typeof p.mix === "number" && Number.isFinite(p.mix);
-  const line = p.mixLine === "after" || p.mixLine === "under" ? p.mixLine : undefined;
+  const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
+  const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
@@ -380,10 +413,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   return (
     <div
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed")}
       style={{
         ...textStyle(p, k),
         ...gapVar(width, k),
+        // A linked text grows to hold its words, past the height it is stored with.
+        ...(linked && { height: "auto", minHeight: "100%" }),
         background: d ? undefined : clear(p),
         border: own ? `${edge * k}px ${p.dash} ${p.stroke}` : undefined,
         boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
@@ -412,10 +447,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         </svg>
       )}
       {children ??
-        (scramble ? (
-          <Rich paras={parasOf(p)} mix={mixed(parasOf(p), { seed: p.mix!, first: p.mixFirst === true, caps: p.mixCaps === true })} line={line} solved={solved} />
-        ) : p.rich ? (
-          <Rich paras={p.rich} />
+        (linked && !paras.length ? (
+          <div className="rich nolist" />
+        ) : scramble ? (
+          <Rich paras={paras} mix={mixed(paras, { seed: p.mix!, first: p.mixFirst === true, caps: p.mixCaps === true })} line={line} solved={solved} cols={cols} />
+        ) : linked || p.rich ? (
+          <Rich paras={paras} holes={holes} cols={cols} />
         ) : (
           <p>{p.text}</p>
         ))}
@@ -891,19 +928,21 @@ export function Numbers({ block }: { block: TextBlock }) {
   return <svg ref={svg} className="numbers unsplit" aria-hidden />;
 }
 
-// The runs of a paragraph in groups: consecutive gap runs share one group, every other run has one of its own.
-const runGroups = (runs: Run[]) =>
+// The runs of a paragraph in groups: consecutive gap runs share one group, every other run has one of its own. With
+// `single` every run has a group of its own, so each hidden letter of Lückenwörter is a gap of its own.
+const runGroups = (runs: Run[], single = false) =>
   runs.reduce<Run[][]>((all, r) => {
     const last = all.at(-1);
-    if (r.gap === true && last?.[0].gap === true) last.push(r);
+    if (!single && r.gap === true && last?.[0].gap === true) last.push(r);
     else all.push([r]);
     return all;
   }, []);
 
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own. `mix` holds the parts of each paragraph in place of its
-// runs (see `mixed`): a part with a `source` is one scrambled word, the others are runs as they are.
-function Rich({ paras, mix, line, solved }: { paras: Para[]; mix?: Part[][]; line?: "after" | "under"; solved?: boolean }) {
+// runs (see `mixed`): a part with a `source` is one scrambled word, the others are runs as they are. `holes` marks
+// Lückenwörter, and `cols` sets a linked text's words in that many columns, filled column by column.
+function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: Part[][]; line?: "after" | "under"; solved?: boolean; holes?: boolean; cols?: number }) {
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   const run = ({ text, bold, italic, underline, color }: Run, key: number) => (
     <span key={key} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
@@ -912,7 +951,7 @@ function Rich({ paras, mix, line, solved }: { paras: Para[]; mix?: Part[][]; lin
   );
   // Consecutive gap runs make one gap: its outer span draws the line, its inner one holds the words.
   const gaps = (runs: Run[]) =>
-    runGroups(runs).map((group, g) =>
+    runGroups(runs, holes).map((group, g) =>
       group[0].gap === true ? (
         <span key={g} className="gap" data-gap="true">
           <span>{group.map((r, j) => run(r, j))}</span>
@@ -940,8 +979,10 @@ function Rich({ paras, mix, line, solved }: { paras: Para[]; mix?: Part[][]; lin
       )}
     </span>
   );
+  const grid: CSSProperties | undefined =
+    cols && cols > 1 ? { display: "grid", gridAutoFlow: "column", gridTemplateRows: `repeat(${Math.ceil(paras.length / cols)}, auto)`, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: "1em" } : undefined;
   return (
-    <div className="rich">
+    <div className={classes("rich", holes && "holes")} style={grid}>
       {paras.map((para, i) => (
         <p key={i} data-list={para.list} data-level={para.level || undefined}>
           {mix
@@ -965,8 +1006,14 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   // editor could not open there.
   const words = useContext(Words);
   const mode = listOf(block);
+  // A Knickblatt has its first column for the words and `folds` empty ones after it, all of the same width. On Karo
+  // the first column is a whole number of squares, and the words are cut to it.
+  const fold = mode === "fold";
+  const folds = foldsOf(block);
+  const first = at ? block.w / (folds + 1) : Math.max(1, Math.floor(cols / (folds + 1))) * row;
+  const plain = mode === "copy" || fold;
   const shown = words.slice(0, rows);
-  const cut = (word: string) => [...word].slice(0, cols).join("");
+  const cut = (word: string) => [...word].slice(0, fold ? Math.round(first / row) : cols).join("");
   // On Karo a row of the list is its word, cut to the squares, and in "row" as often as whole words fit.
   const karo = mode === "row"
     ? shown.map((word) => {
@@ -978,12 +1025,12 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
   const listed = mode && at && (
-    <div className="written listed" style={{ ...writtenStyle(block, k), color: mode === "copy" ? undefined : "#aaaaaa" }}>
+    <div className="written listed" style={{ ...writtenStyle(block, k), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
             ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
-            : <span>{word}</span>}
+            : <span style={fold ? { width: first * k, overflow: "hidden" } : undefined}>{word}</span>}
         </div>
       ))}
     </div>
@@ -998,10 +1045,23 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         ))}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
         {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
-          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={mode ? (mode === "copy" ? "currentColor" : "#aaaaaa") : trace ? "#aaaaaa" : "currentColor"}>
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={mode ? (plain ? "currentColor" : "#aaaaaa") : trace ? "#aaaaaa" : "currentColor"}>
             {ch}
           </text>
         ))}
+        {/* The fold line between the words and the first empty column, and the lines between the empty columns:
+            twice as thick as the rows' lines, so they show on Karo, where they lie on a line of the squares. */}
+        {fold && (
+          <>
+            <line className="fold" x1={first} x2={first} y1={0} y2={rows * row} strokeWidth={0.4} strokeDasharray="2 1.5" />
+            {Array.from({ length: folds - 1 }, (_, i) => (i + 2) * first).map((x) => (
+              <line key={x} className="col" x1={x} x2={x} y1={0} y2={rows * row} strokeWidth={0.4} />
+            ))}
+            <text className="knick" x={first} y={-1} textAnchor="middle" fontFamily="Andika" fontSize={8 * PT} stroke="none" fill="#555555">
+              knicken
+            </text>
+          </>
+        )}
       </svg>
       {mode ? listed : children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
     </div>

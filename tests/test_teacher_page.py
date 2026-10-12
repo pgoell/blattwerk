@@ -81,7 +81,8 @@ def shape(editor, client=None):
     expect(slider(page)).to_have_value("0.5")
     with pytest.raises(tool.Refused, match='"Randstärke" lies outside the window'):
         tool.click(page, "Randstärke")
-    tool.wheel(page, "Füllung und Rand", "400")
+    # A heading of the panel that lies in the window: the one over the border has moved below it.
+    tool.wheel(page, "Schrift", "400")
     expect(slider(page)).to_be_in_viewport(ratio=1)
     return page
 

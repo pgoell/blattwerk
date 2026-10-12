@@ -549,6 +549,8 @@ body:has(.print) { background: #fff; }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
+/* Lückenwörter: each hidden letter has a line of its own, with a little room between two lines. */
+.rich.holes .gap { margin: 0 .06em; padding: 0 .2em; }
 /* A scrambled word (Schüttelwörter) with a line: the line stands after the word, or under it in a column, as wide as
    the word at least, with room for a child to write. The key shows the word as typed in place of the mixed one. */
 /* A word and its line stay on one row. */
@@ -584,6 +586,9 @@ body:has(.print) { background: #fff; }
 .rich p[data-list=number][data-level="2"]::before { content: counter(c) "."; }
 /* An empty text says what it is, on the desk alone. */
 .rich[data-hint] p:not([data-list])::before { content: "Text"; float: left; height: 0; color: var(--faint); pointer-events: none; }
+/* A linked text with no word in the list says what it is, on the desk alone. */
+.rich.nolist::before { content: "Lernwörter"; color: var(--faint); }
+.paper .rich.nolist::before { content: none; }
 /* The field a text is typed in. ProseMirror needs its spaces kept, and the sheet around it lets nothing be selected. */
 .ProseMirror { outline: 0; white-space: pre-wrap; overflow-wrap: break-word; cursor: text; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 /* A numbering in a ring. */
