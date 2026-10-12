@@ -155,8 +155,66 @@ def test_the_frame_keeps_its_distance_for_several_blocks(editor):
     left, top, right, bottom = outline(page, ["a", "b"])
     nw = centre(page.locator(".moveable-control.moveable-nw"))
     se = centre(page.locator(".moveable-control.moveable-se"))
+    # The outer frame lies 8 px about both, and no handle lies on either block.
     assert nw == pytest.approx((left - GAP, top - GAP), abs=1)
     assert se == pytest.approx((right + GAP, bottom + GAP), abs=1)
+    for name in ("a", "b"):
+        for handle in boxes(page, HANDLES):
+            assert not meet(handle, block_box(page, name))
+    # Each block keeps its own outline on its four edges, as Moveable draws it.
+    for name in ("a", "b"):
+        assert drawn(page, name) == [True, True, True, True]
+
+
+def block_box(page, name):
+    """The block's screen box, as left, top, right, bottom."""
+    return outline(page, [name])
+
+
+def drawn(page, name):
+    """Per edge, left, right, top, bottom: whether a frame line lies on it, within 1.5 px."""
+    left, top, right, bottom = block_box(page, name)
+    lines = boxes(page, ".moveable-line")
+
+    def vertical(x):
+        return any(
+            r0 - l0 <= 2 and abs(l0 - x) <= 1.5 and t0 <= top + 2 and b0 >= bottom - 2
+            for l0, t0, r0, b0 in lines
+        )
+
+    def horizontal(y):
+        return any(
+            b0 - t0 <= 2 and abs(t0 - y) <= 1.5 and l0 <= left + 2 and r0 >= right - 2
+            for l0, t0, r0, b0 in lines
+        )
+
+    return [vertical(left), vertical(right), horizontal(top), horizontal(bottom)]
+
+
+def test_a_drag_that_starts_in_the_band_moves_the_picked_block(editor):
+    """I1 (band)"""
+    page = editor(box("a", "text", TEXT, **PLACE))
+    pick(page, "a")
+    was = at(page, "a").bounding_box()
+    # 4 px left of a's left edge, a quarter down: in the band, on empty paper.
+    start = (was["x"] - 4, was["y"] + was["height"] / 4)
+    drag(page, start, (start[0], start[1] + 40))
+    assert at(page, "a").bounding_box()["y"] == pytest.approx(was["y"] + 40, abs=1)
+
+
+def test_a_drag_in_the_band_over_another_block_moves_the_picked_one(editor):
+    """I1 (band, under b)"""
+    page = editor(
+        box("a", "text", TEXT, **PLACE),
+        box("b", "text", TEXT, z=2, x=20, y=60, w=39, h=40),
+    )
+    pick(page, "a")
+    was_a, was_b = at(page, "a").bounding_box(), at(page, "b").bounding_box()
+    start = (was_a["x"] - 4, was_a["y"] + was_a["height"] / 4)
+    drag(page, start, (start[0], start[1] + 40))
+    # Moveable's band takes the press: a moves, b stays where it was.
+    assert at(page, "a").bounding_box()["y"] == pytest.approx(was_a["y"] + 40, abs=1)
+    assert at(page, "b").bounding_box() == pytest.approx(was_b, abs=1)
 
 
 def test_the_frame_keeps_its_distance_on_a_turned_block(editor):
