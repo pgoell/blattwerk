@@ -304,7 +304,7 @@ def editor(browser, server, playwright):
         rest = [*([more] if more else []), *pages]
         page.goto(f"{server}/blatt/{sheet(client, blocks, *rest, words=words)['id']}")
         # The editor listens for keys once the sheet has loaded.
-        # The first load of a cold browser takes more than the 2 s of every other wait when the
+        # The first load of a cold browser takes more than the 5 s of every other wait when the
         # machine has more workers than cores.
         expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
         # A thumbnail draws blocks too, with no name.
@@ -312,7 +312,7 @@ def editor(browser, server, playwright):
         expect(page.locator(".block[data-id]")).to_have_count(count)
         # A font that comes in late moves what stands in it, and the editor measures anew then. A
         # place read or a click sent before that is not where the text ends up (#419, #436).
-        page.evaluate("document.fonts.ready")
+        page.evaluate("document.fonts.ready.then(() => 0)")
         # The editor fits the sheet to the desk as it opens, and the desk's observer may set the
         # width anew a frame later. A place read before then is not where the block ends up.
         page.wait_for_function(MEASURED, timeout=10000)
