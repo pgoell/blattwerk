@@ -2283,8 +2283,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The whole page in use, width and height, once: it does not follow the window.
   function fitPage() {
     const el = desk.current!;
-    // 120 is the desk's padding above and below.
-    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.clientHeight - 120) / H) / fit))));
+    // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
+    // bottom, which goes once the page fits, and the desk has no border to take off.
+    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
     const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
     // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
     el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
