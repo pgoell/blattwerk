@@ -11,6 +11,7 @@ page only. So a pick is made with the keys: the arrows, then Enter.
 
 import pytest
 from playwright.sync_api import expect
+from test_suchsel import SUCHSEL
 from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, centre, expect_picked, png
 
 pytestmark = pytest.mark.native
@@ -54,6 +55,24 @@ ORDER = {
     ),
     # A shape can be mirrored, and its border, which it has, can be taken away.
     "shape": (RECT, [*START, *FONT, *PLACE, *TURN, *FLIP, *OUTLINE, *FILL, "Kein Rand", *DASH]),
+    # "Lernwörter übernehmen" is off in this sheet, which has no Lernwörter, so Tab skips it.
+    "suchsel": (
+        SUCHSEL,
+        [
+            *START,
+            "Wörter des Suchsels",
+            "Eine Spalte weniger",
+            "Eine Spalte mehr",
+            "Eine Zeile weniger",
+            "Eine Zeile mehr",
+            "Richtungen",
+            "Nur Großbuchstaben",
+            "Umlaute und ß behalten",
+            "Wörterliste",
+            "Nur Anzahl",
+            "Neu würfeln",
+        ],
+    ),
 }
 
 

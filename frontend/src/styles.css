@@ -461,6 +461,12 @@ body:has(.print) { background: #fff; }
 .maths u, .maths .answer { color: #c0392b; }
 .maths u { border-color: #222; }
 .maths .hint { margin: 0; font-size: 12px; }
+/* A word search fills its block: the grid is as wide as the block, or as high as the word list under it leaves
+   room, and its squares stay square. The list stands right under the grid. */
+.block .suchsel { display: flex; flex-direction: column; gap: .4em; height: 100%; font-family: Andika; }
+.suchsel svg { flex: 0 1 auto; min-height: 0; width: 100%; font-family: Andika; }
+.suchsel .found { flex: none; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .1em 1em; line-height: 1.3; color: #222; }
+.suchsel .ring { fill: #c0392b; fill-opacity: .12; stroke: #c0392b; }
 /* A table: its top and left line are its own, and each cell brings the line to its right and the one below it.
    A text too high for its cell starts at the top and is cut off below. An empty cell keeps a line of text's
    height, so a row with no text does not close up, and a table in a block too low for its rows is as high as they
