@@ -491,13 +491,14 @@ def test_two_numbers_come_out_as_before():
                 ("+", 4, 4, 8, None),
             ],
         ),
+        # The times and divide pin is from after #441.
         (
             dict(ops=["*", "/"], max=100, count=4, seed=11, format="gap", rest=False),
             [
-                ("/", 82, 82, 1, "b"),
-                ("/", 80, 8, 10, "b"),
-                ("*", 19, 0, 0, "b"),
-                ("*", 47, 2, 94, "a"),
+                ("*", 11, 6, 66, "b"),
+                ("/", 100, 10, 10, "b"),
+                ("*", 9, 2, 18, "b"),
+                ("/", 85, 5, 17, "a"),
             ],
         ),
         (

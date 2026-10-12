@@ -1,6 +1,7 @@
 """The maths generator: exercises within exact limits, and their written working."""
 
 import random
+from collections import Counter
 from functools import lru_cache
 from math import isqrt, prod
 from typing import Annotated, Literal
@@ -53,15 +54,26 @@ class Settings(BaseModel):
     pvs: bool = False
     # Mit Klammern: about half of the tasks with brackets round the Strich part.
     brackets: bool = False
+    # Nachkommastellen: the numbers have this many places after the comma, for plus and minus only.
+    decimals: Literal[0, 1, 2] = 0
+    # Geld: two places after the comma, always.
+    money: bool = False
+    # The digits of the places after the comma, Zehntel first, for each of the three numbers.
+    af: list[Range] = []
+    bf: list[Range] = []
+    cf: list[Range] = []
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
-        if any(lo > hi for lo, hi in self.a + self.b + self.c):
+        if any(lo > hi for lo, hi in self.a + self.b + self.c + self.af + self.bf + self.cf):
             raise ValueError("a place's lowest digit lies above its highest")
         n = len(str(self.max))
         self.a = (self.a + [(0, 9)] * n)[:n]
         self.b = (self.b + [(0, 9)] * n)[:n]
         self.c = (self.c + [(0, 9)] * n)[:n]
+        self.af = (self.af + [(0, 9)] * 2)[:2]
+        self.bf = (self.bf + [(0, 9)] * 2)[:2]
+        self.cf = (self.cf + [(0, 9)] * 2)[:2]
         return self
 
 
@@ -128,8 +140,61 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     return b > 0 and (s.rest is None or s.rest == (a % b > 0))
 
 
+def school(op: str, a: int, b: int) -> bool:
+    """Whether a times or divide task is one a school sets: no 0 and no 1 as a factor,
+    a divisor or a quotient."""
+    if op == "*":
+        return a >= 2 and b >= 2
+    if op == "/":
+        return b >= 2 and a // b >= 2
+    return True
+
+
+def smaller(op: str, a: int, b: int) -> int:
+    """The smaller factor of a times task; of a divide task, the smaller of divisor and quotient."""
+    return min(a, b) if op == "*" else min(b, a // b)
+
+
+def weighted(
+    op: str, pairs: list[tuple[int, int]], n: int, rng: random.Random
+) -> list[tuple[int, int]]:
+    """`n` of the pairs, each smaller factor as likely as the next."""
+    keys = Counter(smaller(op, *p) for p in pairs)
+    # A pair ranks by u ** (pairs sharing its key), so each key gets the same total chance.
+    return sorted(pairs, key=lambda p: rng.random() ** keys[smaller(op, *p)], reverse=True)[:n]
+
+
+def school_pair(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
+    """A times or divide task of school size: one number is small and the other is drawn to fit."""
+    if op == "*":
+        a_small = rng.random() < 0.5
+        small_r, other_r = (s.a, s.b) if a_small else (s.b, s.a)
+        small = pick(rng, small_r, 2, max(2, isqrt(top)))
+        if small is None:
+            return None
+        other = pick(rng, other_r, 2, min(top // small, s.max))
+        if other is None:
+            return None
+        return (small, other) if a_small else (other, small)
+    if rng.random() < 0.5:
+        b = pick(rng, s.b, 2, max(2, isqrt(s.max)))
+        if b is None or s.max // b < 2:
+            return None
+        q = rng.randint(2, s.max // b)
+    else:
+        q = rng.randint(2, max(2, isqrt(s.max)))
+        b = pick(rng, s.b, 2, s.max // q)
+        if b is None:
+            return None
+    return q * b + (0 if s.rest is False else rng.randrange(b)), b
+
+
 def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """Two numbers likely to make an exercise: the second is drawn from what the first leaves."""
+    if op in "*/" and rng.random() < 0.9:
+        pair = school_pair(s, op, top, rng)
+        if pair is not None:
+            return pair
     if op == "/":
         b = pick(rng, s.b, 1, s.max)
         if b is None:
@@ -156,7 +221,17 @@ def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list
             for b in bs
             if valid(s, op, a, b, top)
         ]
-        return rng.sample(every, min(count, len(every)))
+        if op in "+-":
+            return rng.sample(every, min(count, len(every)))
+        # About one task in ten may be a plain one with a 0 or a 1; the rest are school tasks.
+        school_pairs = [p for p in every if school(op, *p)]
+        others = [p for p in every if not school(op, *p)]
+        n_others = min(count // 10, len(others))
+        n_school = min(count - n_others, len(school_pairs))
+        n_others = min(count - n_school, len(others))
+        out = weighted(op, school_pairs, n_school, rng) + rng.sample(others, n_others)
+        rng.shuffle(out)
+        return out
     # A dict keeps the order they were found in, so a seed gives the same exercises again.
     found: dict[tuple[int, int], None] = {}
     for _ in range(1000 + 50 * count):
@@ -220,9 +295,12 @@ def aimed(
             ways = [(d, target // d) for d in range(1, isqrt(target) + 1) if target % d == 0]
             ways = list(dict.fromkeys(ways + [(b, a) for a, b in ways]))
             ways = [(a, b) for a, b in ways if fits(s.a, a) and fits(s.b, b)]
-            pair = rng.choice(ways) if ways else None
+            plain = [w for w in ways if min(w) >= 2]
+            pair = rng.choice(plain or ways) if ways else None
     else:
-        b = pick(rng, s.b, 1, s.max // max(target, 1))
+        b = pick(rng, s.b, 2, s.max // max(target, 1))
+        if b is None:
+            b = pick(rng, s.b, 1, s.max // max(target, 1))
         pair = None if b is None else (target * b, b)
     return pair if pair is not None and valid(s, op, *pair, top) else None
 
@@ -333,7 +411,7 @@ def put(cells: list[list], right: int, y: int, text: str, kind: int = GIVEN) -> 
     cells += [[right - i, y, ch, kind] for i, ch in enumerate(reversed(text))]
 
 
-def written(op: str, a: int, b: int) -> dict:
+def written(op: str, a: int, b: int, d: int = 0, money: bool = False) -> dict:
     """The written method on squared paper: the cells with a character, and the ruled lines.
 
     A cell is [column, row, character, kind], a line [from column, to column, above row, kind].
@@ -342,17 +420,27 @@ def written(op: str, a: int, b: int) -> dict:
     lines: list[list] = []
     sa, sb = str(a), str(b)
     if op in "+-":
+
+        def digits(n: int) -> str:
+            """A number with its comma and exactly d places after it."""
+            return f"{n // 10**d},{n % 10**d:0{d}d}" if d else str(n)
+
         result = a + b if op == "+" else a - b
-        right = len(str(max(a, result)))
-        put(cells, right, 0, sa)
-        put(cells, right, 1, sb)
+        right = len(digits(max(a, result)))
+        put(cells, right, 0, digits(a))
+        put(cells, right, 1, digits(b))
         cells.append([0, 1, SIGNS[op], GIVEN])
         for i, carry in enumerate(carries(op, a, b)):
             if carry:
-                cells.append([right - i - 1, 2, "1", CARRY])
-        lines.append([0, right + 1, 3, GIVEN])
-        put(cells, right, 3, str(result), ANSWER)
-        return {"cols": right + 1, "rows": 4, "cells": cells, "lines": lines}
+                # The column of place i + 1: a comma takes one column after the d places.
+                j = i + 1
+                cells.append([right - j - (d > 0 and j >= d), 2, "1", CARRY])
+        put(cells, right, 3, digits(result), ANSWER)
+        if money:
+            cells += [[right + 1, y, "€", GIVEN] for y in (0, 1, 3)]
+        end = right + 2 if money else right + 1
+        lines.append([0, end, 3, GIVEN])
+        return {"cols": end, "rows": 4, "cells": cells, "lines": lines}
     if op == "*":
         right = len(sa) + len(sb)
         put(cells, right, 0, sa + SIGNS[op] + sb)
@@ -440,6 +528,28 @@ def three(s: Settings) -> bool:
     return s.numbers == 3 and s.format in ("row", "gap")
 
 
+def places(s: Settings) -> int:
+    """Places after the comma. Only plus and minus take any; a comparison takes none."""
+    if s.format == "compare" or any(op in "*/" for op in s.ops):
+        return 0
+    return 2 if s.money else s.decimals
+
+
+def scaled(s: Settings) -> Settings:
+    """The settings in whole numbers of the smallest place: 3,50 is 350."""
+    d = places(s)
+    if not d:
+        return s
+    return s.model_copy(
+        update={
+            "max": s.max * 10**d,
+            "a": [*reversed(s.af[:d]), *s.a],
+            "b": [*reversed(s.bf[:d]), *s.b],
+            "c": [*reversed(s.cf[:d]), *s.c],
+        }
+    )
+
+
 def step(s: Settings, op: str, x: int, y: int, top: int) -> int | None:
     """What one step comes to, or None when it breaks a limit: a remainder, a carry, or a result."""
     if op == "/" and (y == 0 or x % y):
@@ -508,15 +618,29 @@ def once(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] 
 
 def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> dict | None:
     """`a op b op2 c`, with `a op b` worked out first."""
+    # Times mostly take a small third factor first, so the first pair has the rest of the top.
+    small = None
+    if op2 == "*" and rng.random() < 0.9:
+        small = pick(rng, s.c, 2, max(2, isqrt(top)))
     if op2 == "/":
         # The divisor is drawn first, so the first pair can be aimed at a multiple of it.
-        c = pick(rng, s.c, 1, s.max)
+        c = pick(rng, s.c, 2, max(2, isqrt(top)))
+        if c is None:
+            c = pick(rng, s.c, 1, s.max)
         if c is None:
             return None
-        pair = aimed(s, op, c * rng.randint(0, top // c), top, rng)
+        hi = top // (2 * c) if op == "/" else top // c
+        q = rng.randint(2, hi) if hi >= 2 else rng.randint(0, top // c)
+        pair = aimed(s, op, c * q, top, rng)
         if pair is None:
             return None
         v = result(op, *pair)
+    elif small is not None:
+        pair = once(s, op, top // small, rng)
+        if pair is None:
+            return None
+        v = result(op, *pair)
+        c = small
     else:
         pair = once(s, op, top, rng)
         if pair is None:
@@ -544,7 +668,10 @@ def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> d
 
 def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> dict | None:
     """`a op (b op2 c)`, with `b op2 c` worked out first."""
-    pair = once(s.model_copy(update={"a": s.b, "b": s.c}), op2, top, rng)
+    # Times mostly take a small first factor, so the inner pair has the rest of the top.
+    small = pick(rng, s.a, 2, max(2, isqrt(top))) if op == "*" and rng.random() < 0.9 else None
+    inner = s.model_copy(update={"a": s.b, "b": s.c})
+    pair = once(inner, op2, top if small is None else top // small, rng)
     if pair is None:
         return None
     b, c = pair
@@ -556,10 +683,15 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
         ranges = calm(s.a, w, "-", first=True) if s.carry == "none" else s.a
         a = None if ranges is None else pick(rng, ranges, w, s.max)
     elif op == "*":
-        a = pick(rng, s.a, 0, s.max if w == 0 else min(top // w, s.max))
+        if small is None:
+            small = pick(rng, s.a, 0, s.max if w == 0 else min(top // w, s.max))
+        a = small
     else:
         # A multiple of w divides by w with no remainder; it must also have the digits of a.
-        a = rng.randint(0, s.max // w) * w if w else None
+        if w and s.max // w >= 2:
+            a = rng.randint(2, s.max // w) * w
+        else:
+            a = rng.randint(0, s.max // w) * w if w else None
         if a is not None and not fits(s.a, a):
             return None
     if a is None:
@@ -676,6 +808,8 @@ def chained(s: Settings) -> dict:
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
+    d = places(s)
+    s = scaled(s)
     if s.format == "compare":
         return compared(s)
     if three(s):
@@ -687,9 +821,17 @@ def generate(s: Settings) -> dict:
         result, rest = divmod(a, b) if op == "/" else ({"+": a + b, "-": a - b, "*": a * b}[op], 0)
         exercise: dict = {"op": op, "a": a, "b": b, "result": result, "rest": rest}
         if s.format == "gap":
-            exercise["hide"] = rng.choice("ab")
+            hide = rng.choice("ab")
+            # With a 0 that makes the result 0, any number fits the gap: hide the other one then.
+            loose_a = op == "*" and b == 0
+            loose_b = (op == "*" and a == 0) or (op == "/" and result == 0)
+            if loose_a and not loose_b:
+                hide = "b"
+            elif loose_b and not loose_a:
+                hide = "a"
+            exercise["hide"] = hide
         if s.format == "written":
-            exercise["grid"] = written(op, a, b)
+            exercise["grid"] = written(op, a, b, d, s.money and d > 0)
         exercises.append(exercise)
     if len(found) == s.count:
         return {"exercises": exercises, "loosen": None}
