@@ -10,13 +10,14 @@ const ROOMS = [10, 20, 100, 1000, 1000000];
 const PLACES = ["E", "Z", "H", "T", "ZT", "HT", "M"];
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
-const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"]] as const;
-const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", max: "Zahlenraum" };
+const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
+const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
+const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =" };
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, carry, rest, format, count, seed }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, carry, rest, format, count, seed }));
+export const generate = ({ ops, max, a, b, carry, rest, format, count, seed, sides, close, equal }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, carry, rest, format, count, seed, sides, close, equal }));
 
 export default function Maths({ block, apply }: { block: MathsBlock; apply: (props: MathsProps) => void }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
@@ -122,7 +123,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           </div>
         </>
       )}
-      {p.ops.includes("/") && (
+      {p.ops.includes("/") && p.format !== "compare" && (
         <>
           <h2>Division</h2>
           <div className="seg">
@@ -139,6 +140,28 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           </button>
         ))}
       </div>
+      {p.format === "compare" && (
+        <>
+          <h2>Seiten</h2>
+          <select aria-label="Seiten" value={p.sides ?? "tn"} onChange={(e) => limit({ sides: e.target.value as Limits["sides"] })}>
+            {SIDES.map(([sides, label]) => (
+              <option key={sides} value={sides}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <h2>Abstand</h2>
+          <div className="seg">
+            <button className={p.close ? "" : "on"} aria-pressed={!p.close} onClick={() => limit({ close: false })}>Beliebig</button>
+            <button className={p.close ? "on" : ""} aria-pressed={!!p.close} onClick={() => limit({ close: true })}>Knapp</button>
+          </div>
+          <h2>Aufgaben mit =</h2>
+          <div className="seg">
+            <button className={p.equal === "none" ? "on" : ""} aria-label="Keine mit =" aria-pressed={p.equal === "none"} onClick={() => limit({ equal: "none" })}>Keine</button>
+            <button className={p.equal === "none" ? "" : "on"} aria-label="Einige mit =" aria-pressed={p.equal !== "none"} onClick={() => limit({ equal: "some" })}>Einige</button>
+          </div>
+        </>
+      )}
       <h2>Anzahl</h2>
       <div className="seg">
         <button aria-label="Eine Aufgabe weniger" onClick={() => limit({ count: Math.max(1, p.count - 1) })}>−</button>

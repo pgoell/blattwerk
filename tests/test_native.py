@@ -12,7 +12,7 @@ page only. So a pick is made with the keys: the arrows, then Enter.
 import pytest
 from playwright.sync_api import expect
 from test_suchsel import SUCHSEL
-from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, centre, expect_picked, png
+from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, centre, expect_picked, maths, png, user
 
 pytestmark = pytest.mark.native
 
@@ -366,5 +366,20 @@ def test_tab_walks_the_panel_in_its_order(editor, kind):
     for i, label in enumerate(order):
         if i:
             page.keyboard.press("Tab")
+        expect(page.locator(":focus")).to_have_accessible_name(label)
+    expect_picked(page, "a")
+
+
+def test_tab_walks_the_new_settings_of_vergleichen(editor):
+    """I4: After Vergleichen, Tab walks Seiten, the Abstand and = buttons, then the count."""
+    client = user()
+    page = editor(box("a", "maths", maths(client, format="compare")), client=client)
+    press(page, at(page, "a"))
+    expect_picked(page, "a")
+    page.locator(".panel").get_by_role("button", name="Vergleichen", exact=True).focus()
+    # Each button of a seg is a stop of its own, as the buttons of Wörterliste and Nur Anzahl are.
+    order = ["Seiten", "Beliebig", "Knapp", "Keine mit =", "Einige mit =", "Eine Aufgabe weniger"]
+    for label in order:
+        page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
     expect_picked(page, "a")

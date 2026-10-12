@@ -461,6 +461,9 @@ body:has(.print) { background: #fff; }
 .maths u, .maths .answer { color: #c0392b; }
 .maths u { border-color: #222; }
 .maths .hint { margin: 0; font-size: 12px; }
+/* A comparison's ring is empty for the pupil, who writes the sign in it; the answer key writes it in red. The ring is
+   a circle of the row's height, so it sits on the numbers' line. Scoped to `i`: a numbering ring is a `span`. */
+.maths i.ring { display: inline-block; box-sizing: border-box; width: 1.3em; height: 1.3em; min-width: 0; padding: 0; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); border-radius: 50%; vertical-align: middle; text-align: center; line-height: 1.2em; font-style: normal; color: #c0392b; }
 /* A word search fills its block: the grid is as wide as the block, or as high as the word list under it leaves
    room, and its squares stay square. The list stands right under the grid. */
 .block .suchsel { display: flex; flex-direction: column; gap: .4em; height: 100%; font-family: Andika; }

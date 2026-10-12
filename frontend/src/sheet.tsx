@@ -79,8 +79,14 @@ export type Range = [number, number];
 // above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
 export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
 // `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves.
-export type Exercise = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b"; grid?: Grid };
+export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b"; grid?: Grid };
+// One side of a comparison: a plain number, or a term with its sign and its two numbers.
+export type Side = { value: number; op?: Op; a?: number; b?: number };
+// A comparison: the two sides and the sign between them, which the pupil writes in the ring.
+export type Compare = { left: Side; right: Side; sign: "<" | ">" | "=" };
+export type Exercise = Calc | Compare;
 // The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
+// `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none.
 export type Limits = {
   ops: Op[];
   max: number;
@@ -88,9 +94,12 @@ export type Limits = {
   b: Range[];
   carry: "none" | "required" | "either";
   rest: boolean;
-  format: "row" | "gap" | "written";
+  format: "row" | "gap" | "written" | "compare";
   count: number;
   seed: number;
+  sides?: "nn" | "tn" | "tt";
+  close?: boolean;
+  equal?: "none" | "some";
 };
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
 export type Made = { exercises: Exercise[]; loosen: string[] | null };
@@ -270,7 +279,8 @@ export function squares(text: string, cols: number) {
 // The height in mm a maths block needs for its exercises.
 export function mathsHeight(p: MathsProps) {
   const lines = Math.ceil(p.exercises.length / p.columns);
-  const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
+  // A comparison is a row of its own, with no squared paper.
+  const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
   return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
 }
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
@@ -1132,10 +1142,13 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
 }
 
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
-function Part({ e, part, solved }: { e: Exercise; part: "a" | "b" | "result" | "rest"; solved: boolean }) {
+function Part({ e, part, solved }: { e: Calc; part: "a" | "b" | "result" | "rest"; solved: boolean }) {
   const gap = part === "rest" || part === (e.hide ?? "result");
   return gap ? <u>{solved && e[part]}</u> : <>{e[part]}</>;
 }
+
+// One side of a comparison as it reads: a number, or a term with its sign.
+const side = (s: Side) => (s.op ? `${s.a} ${SIGNS[s.op]} ${s.b}` : String(s.value));
 
 // A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
 function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean }) {
@@ -1158,15 +1171,20 @@ function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows:
 
 function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boolean }) {
   const p = block.props;
-  const cols = Math.max(0, ...p.exercises.map((e) => e.grid?.cols ?? 0));
-  const rows = Math.max(0, ...p.exercises.map((e) => e.grid?.rows ?? 0));
+  const cols = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.cols ?? 0)));
+  const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
   const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5}ch` };
   return (
     <div className={`maths ${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
       {p.exercises.map((e, i) => (
         <div key={i}>
           {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}
-          {e.grid ? (
+          {"sign" in e ? (
+            // The ring is empty for the pupil to write the sign in; the answer key writes it there.
+            <span>
+              {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
+            </span>
+          ) : e.grid ? (
             <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
           ) : (
             <span>
