@@ -540,3 +540,29 @@ def test_a_paste_beside_a_word_joins_no_word_to_it(editor):
     page.keyboard.press("Control+v")
     expect(field(page)).to_have_value("Hund\nKatze\nIgel\nHund\nKatze")
     assert doc(page, client)["words"] == ["Hund", "Katze", "Igel", "Hund", "Katze"]
+
+
+def test_a_save_from_a_build_that_knows_no_list_keeps_the_stored_list():
+    """A window left open on the build before the Lernwörter sends a document that names no list:
+    the server keeps the one it holds. A build that knows them names it, and an empty one is
+    stored as no list."""
+    client = user()
+    blocks = [box("r", "ruling", LINKED)]
+    made = sheet(client, blocks, words=["Hund", "Katze"])
+    url = f"/api/sheets/{made['id']}"
+    old = {k: v for k, v in made["doc"].items() if k != "words"}
+    back = client.patch(url, json={"doc": old, "version": made["version"]}).json()
+    assert back["doc"]["words"] == ["Hund", "Katze"]
+    assert client.get(url).json()["doc"]["words"] == ["Hund", "Katze"]
+    body = {"doc": {**old, "words": ["Reh"]}, "version": back["version"]}
+    back = client.patch(url, json=body).json()
+    assert back["doc"]["words"] == ["Reh"]
+    body = {"doc": {**old, "words": []}, "version": back["version"]}
+    back = client.patch(url, json=body).json()
+    assert "words" not in back["doc"] and "words" not in client.get(url).json()["doc"]
+    # With no list stored, a document that names none stores none.
+    back = client.patch(url, json={"doc": old, "version": back["version"]}).json()
+    assert "words" not in back["doc"]
+    # Another account's sheet gives no list away, and takes none.
+    other = user()
+    assert other.patch(url, json={"doc": old, "version": 1}).status_code == 404

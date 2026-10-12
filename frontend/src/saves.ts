@@ -139,7 +139,9 @@ function send(s: Saver, closing = false) {
   const now = (s.out = s.want);
   // The title goes along only when it changed here, so a rename from the list stays.
   const named = now.title === s.saved.title ? {} : { title: now.title.trim() || "Unbenanntes Blatt" };
-  const body = JSON.stringify({ doc: now.doc, version: s.base, ...named });
+  // The Lernwörter always go along, an empty list for none: a document that names no list comes from a window on a
+  // build from before them, and the server then keeps the list it holds.
+  const body = JSON.stringify({ doc: { ...now.doc, words: now.doc.words ?? [] }, version: s.base, ...named });
   // `keepalive` lets a save outlive the window. The browser sends no such request over 64 KiB, so a larger sheet
   // goes without it: left for another page of the app, it arrives all the same.
   const keepalive = (closing || !s.open) && new Blob([body]).size < 60 * 1024;
