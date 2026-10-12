@@ -89,8 +89,8 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import { blatt, landed as carried, linked, loose as cutLoose, pasted, short } from "../words";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -110,7 +110,7 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
-const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine"];
+const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
 type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
@@ -620,7 +620,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!tight.current) return;
     tight.current = false;
     const grown = new Map<string, Partial<Box>>();
-    for (const b of sel) {
+    // The linked texts on the page in view grow with the list too, picked or not.
+    const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
+    for (const b of measured) {
       // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
       if (!frame) continue;
@@ -628,9 +630,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const block = frame.parentElement!;
       const was = block.style.transform;
       block.style.transform = "none";
+      // A linked text's frame has a height of its own, which it keeps after the measure.
+      const own = frame.style.height;
       frame.style.height = "auto";
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
-      frame.style.height = "";
+      frame.style.height = own;
       block.style.transform = was;
       if (h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
@@ -1051,8 +1055,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }),
     );
   }
+  // A text or shape takes the sheet's list, or is cut loose with the words as its own text. One step for all of them.
+  function takeText(on: boolean) {
+    // A text being written in ends its writing: linked, it has no field left to write in.
+    if (on) setEditing("");
+    tight.current = true;
+    change((bs) =>
+      bs.map((b) => {
+        const text = boxed(b);
+        if (!ids.includes(b.id) || !text || (!on && text.list !== true)) return b;
+        return { ...b, props: on ? { ...b.props, list: true } : looseText(b.props as Partial<TextProps>, learnt) } as Block;
+      }),
+    );
+  }
+  // Sets the columns, the Lückenwörter and their seed of a linked text or shape. Other blocks stay as they are.
+  function feed(props: object, key?: string) {
+    tight.current = true;
+    change(
+      (bs) => bs.map((b) => (ids.includes(b.id) && boxed(b)?.list === true ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)),
+      key,
+    );
+  }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
+  // A changed list changes every linked text on the page, which the grow effect measures.
   function listWords(value: string) {
+    tight.current = true;
     update((doc) => ({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
   }
   // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
@@ -1167,6 +1194,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A block with no words takes no gap: its props stay as they are.
   const wordy = (b: Block) => {
     const text = boxed(b);
+    // A linked text draws the sheet's list, which takes no gap.
+    if (text?.list === true) return false;
     return b.type === "table" ? b.props.cells.flat().some(Boolean) : !!text && parasOf(text).some((p) => p.runs.some((r) => r.text));
   };
   function gapping(on: boolean) {
@@ -1545,7 +1574,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function copy(held = sel) {
     if (!held.length) return;
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
-    const linkedAny = held.some((b) => b.type === "ruling" && listOf(b));
+    const linkedAny = held.some(tied);
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
     const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
@@ -2099,8 +2128,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
-    // A linked Lineatur has no text of its own: the list is what it shows.
-    if (free[0].type === "ruling" && listOf(free[0])) return;
+    // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
+    if (tied(free[0])) return;
     if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table" || free[0].type === "points" || free[0].type === "name") {
       // A score's number is all picked when its field opens, a double click too: a new one replaces it.
       entire.current = all || free[0].type === "points";
@@ -2739,7 +2768,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           blur={(e) => stays(e) || setEditing("")}
                           end={() => setEditing("")}
                         />
-                      ) : b.type === "text" && !b.props.text && !b.props.rich ? (
+                      ) : b.type === "text" && !b.props.text && !b.props.rich && b.props.list !== true ? (
                         <div className="rich" data-hint="">
                           <p>
                             <br />
@@ -3033,6 +3062,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
                 words={learnt}
                 list={takeList}
+                link={takeText}
+                feed={feed}
                 toList={() => setTab("Lernwörter")}
               />
               {boxes.length > 0 && (
@@ -3177,7 +3208,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   listWords(before + words + after);
                 }}
               />
-              <p className="hint">Ein Wort pro Zeile. Eine Lineatur nimmt die Wörter unter Format, „Text“.</p>
+              <p className="hint">Ein Wort pro Zeile. Eine Lineatur oder ein Text nimmt die Wörter unter Format, „Text“.</p>
               {/* Said here too: the list is where a word too many comes from, and the Lernwörter-Blatt picks no block. */}
               {crowded > 0 && (
                 <p className="hint" role="status">
@@ -3186,6 +3217,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               )}
               <button disabled={!learnt.length} onClick={addBlatt}>
                 Lernwörter-Blatt
+              </button>
+              {/* A Lineatur as wide as the page between the margins, a row for each word, at most as many as a page holds. */}
+              <button
+                disabled={!learnt.length}
+                onClick={() => add(W - 2 * MARGIN, Math.max(1, Math.min(learnt.length, Math.floor((H - 2 * MARGIN) / RULINGS.l3.row))) * RULINGS.l3.row, { type: "ruling", props: { kind: "l3", color: "#222222", list: "fold", folds: 2 } })}
+              >
+                Knickblatt
               </button>
             </>
           )}

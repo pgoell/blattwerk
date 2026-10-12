@@ -37,6 +37,7 @@ TURN = [
     "n",
     "Jedes n-te Wort",
     "Lösungswörter",
+    "Text des Textfelds",
     "Schüttelwörter",
     "Rechtsdrehung 90°",
     "Linksdrehung 90°",

@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock } from "./sheet";
-import { blatt, filled, landed, linked, loose, pasted, short } from "./words";
+import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock, type TextBlock } from "./sheet";
+import { blatt, filled, landed, linked, loose, looseText, pasted, short } from "./words";
 
 const block = (kind: Ruling, h: number, props: Partial<RulingBlock["props"]> = {}, extra: Partial<RulingBlock> = {}): RulingBlock => ({
   id: "r",
@@ -116,6 +116,74 @@ describe("loose", () => {
 
   it("gives an unlinked block back as the same object", () => {
     expect(loose(plain, ["Hund"])).toBe(plain);
+  });
+
+  it("cuts a fold block loose with no trace, and its folds go", () => {
+    const out = loose(block("l4", 20, { list: "fold", folds: 3 }), ["Hund"]);
+    expect(out.props.text).toBe("Hund");
+    expect("trace" in out.props).toBe(false);
+    expect("folds" in out.props).toBe(false);
+    expect("list" in out.props).toBe(false);
+  });
+});
+
+describe("looseText", () => {
+  it("gives a text its words as its own text, and drops its list settings and rich text", () => {
+    const out = looseText({ text: "x", rich: [{ runs: [{ text: "x" }] }], list: true, listCols: 3, holes: "one", holeSeed: 4, size: 14, align: "left" }, ["Hund", "Katze"]);
+    expect(out).toEqual({ text: "Hund\nKatze", size: 14, align: "left" });
+  });
+
+  it("keeps the look of a text the words are cut from", () => {
+    const out = looseText({ text: "", list: true, bold: true, mix: 9, size: 12 }, ["Igel"]);
+    expect(out).toEqual({ text: "Igel", bold: true, mix: 9, size: 12, mixLine: "after" });
+  });
+
+  it("with no words keeps the own text and the rich text, and still drops the list settings", () => {
+    const rich = [{ runs: [{ text: "eigen" }] }];
+    const out = looseText({ text: "eigen", rich, list: true, listCols: 2, holes: "one", holeSeed: 4, size: 14 }, []);
+    expect(out).toEqual({ text: "eigen", rich, size: 14 });
+  });
+
+  it("gives a mixed linked text the line after each word, unless it has a line", () => {
+    expect(looseText({ text: "", list: true, mix: 7 }, ["Igel"])).toEqual({ text: "Igel", mix: 7, mixLine: "after" });
+    expect(looseText({ text: "", list: true, mix: 7, mixLine: "under" }, ["Igel"])).toEqual({ text: "Igel", mix: 7, mixLine: "under" });
+  });
+});
+
+describe("landed for texts and shapes", () => {
+  const text = (props: Partial<TextBlock["props"]>): TextBlock => ({ id: "t", type: "text", x: 20, y: 20, w: 100, h: 40, z: 1, locked: false, props: { text: "", size: 14, align: "left", ...props } });
+  const linkedText = text({ list: true, listCols: 2, holes: "vowels", holeSeed: 3, text: "eigen" });
+
+  it("leaves a linked text alone when the copied list is the sheet's own", () => {
+    const out = landed([linkedText], ["Hund"], doc(["Hund"]));
+    expect(out.blocks).toEqual([linkedText]);
+    expect(out.words).toBeUndefined();
+  });
+
+  it("brings the copied list along to a sheet with none, and keeps a linked text linked", () => {
+    const out = landed([linkedText], ["Hund"], doc());
+    expect(out.blocks).toEqual([linkedText]);
+    expect(out.words).toEqual(["Hund"]);
+  });
+
+  it("cuts a linked text loose with the copied words when the lists differ", () => {
+    const out = landed([linkedText], ["Maus"], doc(["Hund"]));
+    expect(out.blocks[0]).toEqual({ ...linkedText, props: { text: "Maus", size: 14, align: "left" } });
+  });
+
+  it("cuts a linked shape loose too, and leaves an unlinked text and a line as they are", () => {
+    const shape = { ...text({ list: true, text: "x" }), type: "shape", props: { kind: "rect", fill: "none", stroke: "#000000", strokeWidth: 0.5, list: true, text: "x", size: 14, align: "left" } } as Block;
+    const plainText = text({ text: "frei" });
+    const line = { ...text({}), type: "shape", props: { kind: "line", fill: "none", stroke: "#000000", strokeWidth: 0.5, size: 14, align: "left" } } as Block;
+    const out = landed([shape, plainText, line], ["Maus"], doc(["Hund"]));
+    expect(out.blocks[0].props).toEqual({ kind: "rect", fill: "none", stroke: "#000000", strokeWidth: 0.5, text: "Maus", size: 14, align: "left" });
+    expect(out.blocks[1]).toBe(plainText);
+    expect(out.blocks[2]).toBe(line);
+  });
+
+  it("keeps a plain text with rich text when the copied list is cut loose elsewhere", () => {
+    const rich = text({ rich: [{ runs: [{ text: "fett", bold: true }] }], text: "fett" });
+    expect(landed([linkedText, rich], ["Maus"], doc(["Hund"])).blocks[1]).toBe(rich);
   });
 });
 

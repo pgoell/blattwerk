@@ -273,6 +273,9 @@ def test_tab_reaches_the_mix_controls_and_space_and_enter_press_them(editor):
     for _ in range(7):
         page.keyboard.press("Tab")
     expect(panel(page, "Lösungswörter")).to_be_focused()
+    # The choice of the text's source stands between the gaps and the mix.
+    page.keyboard.press("Tab")
+    expect(page.get_by_label("Text des Textfelds")).to_be_focused()
     page.keyboard.press("Tab")
     expect(panel(page, "Schüttelwörter")).to_be_focused()
     page.keyboard.press("Space")
