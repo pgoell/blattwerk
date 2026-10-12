@@ -191,19 +191,19 @@ def drawn(page, name):
     return [vertical(left), vertical(right), horizontal(top), horizontal(bottom)]
 
 
-def test_a_drag_that_starts_in_the_band_moves_the_picked_block(editor):
-    """I1 (band)"""
+def test_a_drag_that_starts_in_the_band_leaves_the_picked_block(editor):
+    """I4: the band is paper to the mouse, so a drag from it moves no block."""
     page = editor(box("a", "text", TEXT, **PLACE))
     pick(page, "a")
     was = at(page, "a").bounding_box()
     # 4 px left of a's left edge, a quarter down: in the band, on empty paper.
     start = (was["x"] - 4, was["y"] + was["height"] / 4)
     drag(page, start, (start[0], start[1] + 40))
-    assert at(page, "a").bounding_box()["y"] == pytest.approx(was["y"] + 40, abs=1)
+    assert at(page, "a").bounding_box() == pytest.approx(was, abs=1)
 
 
-def test_a_drag_in_the_band_over_another_block_moves_the_picked_one(editor):
-    """I1 (band, under b)"""
+def test_a_drag_in_the_band_over_another_block_moves_that_block(editor):
+    """I4: a press on a block under the band picks and drags that block, as beside any block."""
     page = editor(
         box("a", "text", TEXT, **PLACE),
         box("b", "text", TEXT, z=2, x=20, y=60, w=39, h=40),
@@ -212,9 +212,8 @@ def test_a_drag_in_the_band_over_another_block_moves_the_picked_one(editor):
     was_a, was_b = at(page, "a").bounding_box(), at(page, "b").bounding_box()
     start = (was_a["x"] - 4, was_a["y"] + was_a["height"] / 4)
     drag(page, start, (start[0], start[1] + 40))
-    # Moveable's band takes the press: a moves, b stays where it was.
-    assert at(page, "a").bounding_box()["y"] == pytest.approx(was_a["y"] + 40, abs=1)
-    assert at(page, "b").bounding_box() == pytest.approx(was_b, abs=1)
+    assert at(page, "b").bounding_box()["y"] == pytest.approx(was_b["y"] + 40, abs=1)
+    assert at(page, "a").bounding_box() == pytest.approx(was_a, abs=1)
 
 
 def test_the_frame_keeps_its_distance_on_a_turned_block(editor):

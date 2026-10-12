@@ -2680,18 +2680,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
             pick(e.target as Element, e.shiftKey, e.nativeEvent);
           }}
-          // Moveable stops a click on its band before the desk's own click hears it, so the band is looked at on the way down.
-          onMouseDownCapture={(e) => {
-            if ((e.target as Element).classList.contains("moveable-padding")) spot.current = [e.clientX, e.clientY];
-          }}
           // Moveable keeps a click on a selection it cannot drag to itself, so the block under its area is looked up on the way down.
           onClickCapture={(e) => {
-            if ((e.target as Element).classList.contains("moveable-padding")) {
-              const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
-              const under = still && document.elementsFromPoint(e.clientX, e.clientY).find((el) => !moveable.current!.isMoveableElement(el));
-              if (under) pick(under, e.shiftKey);
-              return;
-            }
             if (free.length === sel.length || !moveable.current!.isMoveableElement(e.target as Element)) return;
             const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block"));
             if (under) pick(under, e.shiftKey);

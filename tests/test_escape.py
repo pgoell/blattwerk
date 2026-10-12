@@ -115,8 +115,9 @@ def test_escape_calls_a_drag_off(editor, kind, more, way):
     if (kind, more) not in ENDS:
         nw = page.locator(".moveable-control.moveable-nw").bounding_box()
         boxes = [b.bounding_box() for b in page.locator(".sheet .block.sel").all()]
-        assert abs(nw["x"] + nw["width"] / 2 - min(b["x"] for b in boxes)) < 2
-        assert abs(nw["y"] + nw["height"] / 2 - min(b["y"] for b in boxes)) < 2
+        # The frame stands 8 px outside the blocks.
+        assert abs(nw["x"] + nw["width"] / 2 + 8 - min(b["x"] for b in boxes)) < 2
+        assert abs(nw["y"] + nw["height"] / 2 + 8 - min(b["y"] for b in boxes)) < 2
     page.keyboard.press("Escape")
     expect_picked(page)
 
