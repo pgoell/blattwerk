@@ -1,4 +1,5 @@
 import random
+from fractions import Fraction
 
 import pytest
 from hypothesis import given, settings
@@ -389,6 +390,16 @@ def test_punkt_stands_first_in_half_of_the_tasks_and_brackets_in_half():
     with_brackets = generate(s.model_copy(update={"brackets": True}))["exercises"]
     assert len(with_brackets) == 20
     assert sum("paren" in e for e in with_brackets) == 10
+    # Still 10 with brackets: two shapes start with the Punkt op, one plain and one bracketed.
+    assert sum(e["op"] in "*/" for e in with_brackets) == 10
+    # Plain and bracketed tasks alternate, so even a short block has some brackets.
+    few = s.model_copy(update={"brackets": True})
+    assert (
+        sum("paren" in e for e in generate(few.model_copy(update={"count": 2}))["exercises"]) == 1
+    )
+    assert sum(
+        "paren" in e for e in generate(few.model_copy(update={"count": 3}))["exercises"]
+    ) in (1, 2)
 
 
 @pytest.mark.parametrize("carry", ["none", "required", "either"])
@@ -408,6 +419,39 @@ def test_a_seed_brings_the_same_tasks_of_three_and_another_seed_others():
 
 
 def test_two_numbers_come_out_as_before():
+    # Master's output from before three numbers came, with and without the new fields.
+    pins = [
+        (
+            dict(ops=["+", "-"], max=20, count=4, seed=7),
+            [
+                ("+", 1, 17, 18, None),
+                ("-", 13, 10, 3, None),
+                ("-", 17, 13, 4, None),
+                ("+", 4, 4, 8, None),
+            ],
+        ),
+        (
+            dict(ops=["*", "/"], max=100, count=4, seed=11, format="gap", rest=False),
+            [
+                ("/", 82, 82, 1, "b"),
+                ("/", 80, 8, 10, "b"),
+                ("*", 19, 0, 0, "b"),
+                ("*", 47, 2, 94, "a"),
+            ],
+        ),
+        (
+            dict(ops=["+"], max=1000, count=3, seed=3, carry="required"),
+            [("+", 557, 66, 623, None), ("+", 378, 618, 996, None), ("+", 485, 67, 552, None)],
+        ),
+    ]
+    for base, want in pins:
+        for extra in ({}, dict(numbers=2, pvs=True, brackets=True, c=[(1, 2)])):
+            s = Settings.model_validate({**base, **extra})
+            got = [
+                (e["op"], e["a"], e["b"], e["result"], e.get("hide"))
+                for e in generate(s)["exercises"]
+            ]
+            assert got == want
     extra = dict(numbers=2, pvs=True, brackets=True, c=[(1, 2)])
     for base in (
         dict(ops=list("+-*/"), max=100, count=20, seed=3),
@@ -422,6 +466,31 @@ def test_two_numbers_come_out_as_before():
         assert generate(Settings.model_validate({**base, **threes_too})) == generate(
             Settings.model_validate(base)
         )
+
+
+def fits_at(e, k, x):
+    """Whether the task comes out at its result when the hidden number k is x, worked exactly."""
+    nums = {j: Fraction(e[j]) for j in "abc"}
+    nums[k] = Fraction(x)
+    return apply(*steps_of({**e, **nums})[1]) == e["result"]
+
+
+@pytest.mark.parametrize("ops", [["*"], ["*", "/"], ["+", "-", "*", "/"]])
+def test_a_gap_of_three_numbers_has_one_answer(ops):
+    unclear = total = 0
+    for seed in range(20):
+        s = Settings(
+            ops=ops, max=100, count=12, numbers=3, pvs=True, brackets=True, format="gap", seed=seed
+        )
+        for e in generate(s)["exercises"]:
+            total += 1
+            # Only a number the result tells can be the gap; a task where none is told is no fault.
+            told = {k: sum(fits_at(e, k, x) for x in range(101)) == 1 for k in "abc"}
+            if not any(told.values()):
+                unclear += 1
+                continue
+            assert told[e["hide"]]
+    assert unclear * 10 < total
 
 
 def test_names_the_third_number_as_the_limit_in_the_way():

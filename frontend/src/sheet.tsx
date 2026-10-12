@@ -989,15 +989,17 @@ const runGroups = (runs: Run[], single = false) =>
   }, []);
 
 // A word in a sentence that is wider than its paragraph breaks at the block's edge, as a lone word does: the class
-// `wide` lets it (`.mix.wide` in styles.css). Every word is measured unwrapped, so the class never flips back and forth.
+// `wide` lets it (`.mix.wide` in styles.css). The sizes are read in layout px (offsetWidth, clientWidth), which neither
+// a turn of the block nor the editor's zoom changes. Every word's class is taken off first, so each is measured in the
+// same state and the class does not flip back and forth.
 function markWide(root: HTMLElement) {
   const mixes = [...root.querySelectorAll<HTMLElement>(".mix")];
   mixes.forEach((mix) => mix.classList.remove("wide"));
   const wide = mixes.map((mix) => {
     const p = mix.closest("p")!;
     const style = getComputedStyle(p);
-    const room = p.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    return mix.getBoundingClientRect().width > room;
+    const room = p.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return mix.offsetWidth > room;
   });
   mixes.forEach((mix, i) => mix.classList.toggle("wide", wide[i]));
 }

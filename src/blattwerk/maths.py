@@ -556,10 +556,15 @@ def chains(s: Settings, top: int) -> list[dict]:
     # Without the switch a task has one kind of operation: all Strich or all Punkt.
     shapes: list[tuple] = [(group, group, left_pair, None) for group in (strich, punkt) if group]
     if s.pvs and strich and punkt:
-        # Punkt first and Punkt last; with brackets, the Strich part in brackets too.
-        shapes = [(punkt, strich, left_pair, None), (strich, punkt, right_pair, None)]
-        if s.brackets:
-            shapes += [(strich, punkt, left_pair, "left"), (punkt, strich, right_pair, "right")]
+        # Punkt first and Punkt last; with brackets, the Strich part in brackets too. A plain shape
+        # and one with brackets take turns, so even two tasks have brackets in one of them.
+        plain = [(punkt, strich, left_pair, None), (strich, punkt, right_pair, None)]
+        round_strich = [(strich, punkt, left_pair, "left"), (punkt, strich, right_pair, "right")]
+        shapes = (
+            [x for pair in zip(plain, round_strich, strict=True) for x in pair]
+            if s.brackets
+            else plain
+        )
     # A dict keeps the order they were found in, so a seed gives the same tasks again.
     found: dict[tuple, dict] = {}
     tries = 300 + 20 * s.count
@@ -578,16 +583,45 @@ def chains(s: Settings, top: int) -> list[dict]:
     out = list(found.values())
     if len(shapes) > 1:
         rng.shuffle(out)
-    if s.format == "gap":
-        hide = random.Random(s.seed)
-        for e in out:
-            e["hide"] = hide.choice("abc")
     return out
+
+
+def run(op: str, x: int, y: int) -> int | None:
+    """One step as a pupil works it out: None for a division by nothing or with a remainder."""
+    if op == "/":
+        return x // y if y and x % y == 0 else None
+    return {"+": x + y, "-": x - y, "*": x * y}[op]
+
+
+def comes_to(e: dict, nums: dict[str, int]) -> int | None:
+    """What a three-number task comes to with these numbers, worked out as the task says."""
+    op, op2 = e["op"], e["op2"]
+    right = e["paren"] == "right" if "paren" in e else op2 in "*/" and op in "+-"
+    if right:
+        w = run(op2, nums["b"], nums["c"])
+        return None if w is None else run(op, nums["a"], w)
+    v = run(op, nums["a"], nums["b"])
+    return None if v is None else run(op2, v, nums["c"])
+
+
+def told(s: Settings, e: dict, k: str) -> bool:
+    """Whether the hidden number k is the only one that makes the task come out at its result.
+    Above 1000 only 0 and the neighbours of the true number are tried, to keep it quick."""
+    nums = {"a": e["a"], "b": e["b"], "c": e["c"]}
+    true = nums[k]
+    near = sorted({0, true - 1, true, true + 1})
+    tries = range(s.max + 1) if s.max <= 1000 else [x for x in near if 0 <= x <= s.max]
+    return sum(comes_to(e, {**nums, k: x}) == e["result"] for x in tries) == 1
 
 
 def chained(s: Settings) -> dict:
     """The three-number exercises, and the limits that stand in the way of more."""
     found = chains(s, s.max)
+    if s.format == "gap":
+        # A gap is only fair when the result tells which number is hidden: one draw per task.
+        hide = random.Random(s.seed)
+        for e in found:
+            e["hide"] = hide.choice([k for k in "abc" if told(s, e, k)] or "abc")
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
