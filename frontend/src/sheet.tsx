@@ -398,10 +398,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // rests, and so do the solution words of that text.
   const sheet = useContext(Words);
   const linked = p.list === true;
-  // A linked bubble keeps its lowest quarter for its tail: the words lie in a row three times as high as the empty
-  // one under it, so the body holds them however many they are. Flipped top to bottom the tail is the top quarter,
-  // and the empty row lies over the words (`.frame.listed > .rich` in styles.css names their row).
-  const tailed = linked && p.kind === "bubble";
+  // A bubble keeps its lowest quarter for its tail: its text lies in a row three times as high as the empty one under
+  // it, so the body holds it however much there is. Flipped top to bottom the tail is the top quarter, and the empty
+  // row lies over the text (`.frame.tailed` in styles.css names the row of the text).
+  const tailed = p.kind === "bubble";
   const words = !linked && typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
   const paras = shownParas(p, sheet);
   const cols = linked ? listColsOf(p) : undefined;
@@ -427,7 +427,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   return (
     <div
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed")}
       style={{
         ...textStyle(p, k),
         ...gapVar(width, k),
@@ -1007,10 +1007,16 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
   );
   const grid: CSSProperties | undefined =
     cols && cols > 1 ? { display: "grid", gridAutoFlow: "column", gridTemplateRows: `repeat(${Math.ceil(paras.length / cols)}, auto)`, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, columnGap: "1em" } : undefined;
+  // A paragraph whose one scrambled word stands alone, with nothing but spaces about it: that word breaks at the
+  // block's edge, as a word in a column does (`.lone` in styles.css).
+  const lone = (i: number) => {
+    const parts = mix?.[i] ?? [];
+    return parts.filter((part) => part.source !== undefined).length === 1 && parts.every((part) => part.source !== undefined || part.runs.every((r) => !r.text.trim()));
+  };
   return (
     <div className={classes("rich", holes && "holes")} style={grid}>
       {paras.map((para, i) => (
-        <p key={i} data-list={para.list} data-level={para.level || undefined}>
+        <p key={i} className={lone(i) ? "lone" : undefined} data-list={para.list} data-level={para.level || undefined}>
           {mix
             ? mix[i].map((part, j) => <Fragment key={j}>{part.source !== undefined ? scrambled(part.source, part.runs, j) : gaps(part.runs)}</Fragment>)
             : gaps(para.runs)}
