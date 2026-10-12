@@ -757,25 +757,23 @@ def chains(s: Settings, top: int) -> list[dict]:
         )
     # A dict keeps the order they were found in, so a seed gives the same tasks again.
     found: dict[tuple, dict] = {}
+    k = len(shapes)
+    shares = [s.count // k + (i < s.count % k) for i in range(k)]
     if punkt:
-        # The school tasks come first, then about one in ten the old way, which also fills a
-        # block where school tasks are few.
-        n = s.count - s.count // 10
+        # Each shape keeps its share. Its school tasks come first; about one task in ten is left
+        # to the old way, which also fills a shape where school tasks are few.
         school = s.model_copy(update={"lean": 1.0})
-        for i, shape in enumerate(shapes):
-            draw_shape(school, top, shape, n // len(shapes) + (i < n % len(shapes)), rng, found)
         s = s.model_copy(update={"lean": 0.0})
-        # The rest is shared out too, so the shapes that start with Punkt keep their half.
+        few = s.count // 10
         for i, shape in enumerate(shapes):
-            missing = s.count - len(found)
-            draw_shape(s, top, shape, -(-missing // (len(shapes) - i)), rng, found)
+            before = len(found)
+            draw_shape(school, top, shape, shares[i] - few // k - (i < few % k), rng, found)
+            draw_shape(s, top, shape, shares[i] - (len(found) - before), rng, found)
     else:
-        for i, shape in enumerate(shapes):
-            draw_shape(
-                s, top, shape, s.count // len(shapes) + (i < s.count % len(shapes)), rng, found
-            )
-        for shape in shapes:
-            draw_shape(s, top, shape, s.count - len(found), rng, found)
+        for share, shape in zip(shares, shapes, strict=True):
+            draw_shape(s, top, shape, share, rng, found)
+    for shape in shapes:
+        draw_shape(s, top, shape, s.count - len(found), rng, found)
     out = list(found.values())
     if len(shapes) > 1:
         rng.shuffle(out)
