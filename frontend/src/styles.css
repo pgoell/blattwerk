@@ -536,7 +536,12 @@ body:has(.print) { background: #fff; }
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
 /* A gap is a line to write on, in the text's colour. The editor greys its words, the pupil's sheet hides them (they
    keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
-.gap { background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - .25mm) / 100% .25mm; }
+/* The editor draws the page scaled to the zoom, so below about 106 % a .25mm line is less than a screen pixel and
+   comes out pale or not at all. --px is one screen pixel in the page's units (Editor.tsx). On the screen the line is
+   at least that, in whole units of the page: WebKit lays the band out on those and drew none of a part of one. The
+   print never sets --px, so it keeps .25mm, as does a browser that knows no round(). */
+.gap { --gl: max(.25mm, var(--px, 0px)); background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - var(--gl)) / 100% var(--gl); }
+@supports (width: round(up, 1px, 1px)) { .gap { --gl: max(.25mm, round(up, var(--px, 0px), 1px)); } }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
@@ -545,7 +550,7 @@ body:has(.print) { background: #fff; }
 /* A word and its line stay on one row. */
 .mix { white-space: nowrap; }
 .mix .gap.line { display: inline-block; position: relative; box-sizing: border-box; padding: 0 .6em; background: none; }
-.mix .gap.line > svg { position: absolute; left: 0; top: calc(50% + .5em - .25mm); width: 100%; height: .25mm; overflow: visible; stroke: currentColor; stroke-width: .25mm; }
+.mix .gap.line > svg { position: absolute; left: 0; top: calc(50% + .5em - var(--gl)); width: 100%; height: var(--gl); overflow: visible; stroke: currentColor; stroke-width: var(--gl); }
 /* The word on the line is the answer: the editor shows it with "Lösungen zeigen" alone, as the print does. */
 .mix .gap.line > span { visibility: hidden; }
 .solved .mix .gap.line > span { visibility: visible; }
@@ -556,7 +561,7 @@ body:has(.print) { background: #fff; }
 .mixkey, .mixkey * { color: #c0392b !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
-.even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - .25mm), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }
+.even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - var(--gl)), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }
 /* The box of solution words under a text: a thin frame in the text's colour, the words in a row. */
 .bank { display: flex; flex-wrap: wrap; gap: .4em .8em; margin-top: .6em; padding: .3em .5em; border: 1px solid currentColor; }
 .rich p { counter-reset: a b c; }

@@ -2712,7 +2712,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             >
               {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
                   beside them, in px of the screen. */}
-              <div className="scaled" style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})` }}>
+              <div className="scaled" style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
                 {p.blocks.map((b) => (
 
                   <div
