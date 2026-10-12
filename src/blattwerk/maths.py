@@ -62,6 +62,8 @@ class Settings(BaseModel):
     af: list[Range] = []
     bf: list[Range] = []
     cf: list[Range] = []
+    # How often a times or divide task is drawn the school way; the generator alone sets it.
+    lean: float = 0.9
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
@@ -136,7 +138,8 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
             return False
         return a + b <= top if op == "+" else b <= a
     if op == "*":
-        return a * b <= top
+        # A gap of 0 · 0 has no one answer, so it is no task of a gap.
+        return a * b <= top and not (s.format == "gap" and a == b == 0)
     return b > 0 and (s.rest is None or s.rest == (a % b > 0))
 
 
@@ -169,7 +172,7 @@ def school_pair(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int
     if op == "*":
         a_small = rng.random() < 0.5
         small_r, other_r = (s.a, s.b) if a_small else (s.b, s.a)
-        small = pick(rng, small_r, 2, max(2, isqrt(top)))
+        small = pick(rng, small_r, 2, min(s.max, max(2, isqrt(top))))
         if small is None:
             return None
         other = pick(rng, other_r, 2, min(top // small, s.max))
@@ -177,12 +180,12 @@ def school_pair(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int
             return None
         return (small, other) if a_small else (other, small)
     if rng.random() < 0.5:
-        b = pick(rng, s.b, 2, max(2, isqrt(s.max)))
+        b = pick(rng, s.b, 2, min(s.max, max(2, isqrt(s.max))))
         if b is None or s.max // b < 2:
             return None
         q = rng.randint(2, s.max // b)
     else:
-        q = rng.randint(2, max(2, isqrt(s.max)))
+        q = rng.randint(2, max(2, min(s.max, isqrt(s.max))))
         b = pick(rng, s.b, 2, s.max // q)
         if b is None:
             return None
@@ -191,7 +194,7 @@ def school_pair(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int
 
 def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """Two numbers likely to make an exercise: the second is drawn from what the first leaves."""
-    if op in "*/" and rng.random() < 0.9:
+    if op in "*/" and rng.random() < s.lean:
         pair = school_pair(s, op, top, rng)
         if pair is not None:
             return pair
@@ -295,10 +298,10 @@ def aimed(
             ways = [(d, target // d) for d in range(1, isqrt(target) + 1) if target % d == 0]
             ways = list(dict.fromkeys(ways + [(b, a) for a, b in ways]))
             ways = [(a, b) for a, b in ways if fits(s.a, a) and fits(s.b, b)]
-            plain = [w for w in ways if min(w) >= 2]
+            plain = [w for w in ways if min(w) >= 2] if ways and rng.random() < s.lean else []
             pair = rng.choice(plain or ways) if ways else None
     else:
-        b = pick(rng, s.b, 2, s.max // max(target, 1))
+        b = pick(rng, s.b, 2, s.max // max(target, 1)) if rng.random() < s.lean else None
         if b is None:
             b = pick(rng, s.b, 1, s.max // max(target, 1))
         pair = None if b is None else (target * b, b)
@@ -620,17 +623,18 @@ def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> d
     """`a op b op2 c`, with `a op b` worked out first."""
     # Times mostly take a small third factor first, so the first pair has the rest of the top.
     small = None
-    if op2 == "*" and rng.random() < 0.9:
-        small = pick(rng, s.c, 2, max(2, isqrt(top)))
+    if op2 == "*" and rng.random() < s.lean:
+        small = pick(rng, s.c, 2, min(s.max, max(2, isqrt(top))))
     if op2 == "/":
         # The divisor is drawn first, so the first pair can be aimed at a multiple of it.
-        c = pick(rng, s.c, 2, max(2, isqrt(top)))
+        c = pick(rng, s.c, 2, min(s.max, max(2, isqrt(top)))) if rng.random() < s.lean else None
+        school_way = c is not None
         if c is None:
             c = pick(rng, s.c, 1, s.max)
         if c is None:
             return None
         hi = top // (2 * c) if op == "/" else top // c
-        q = rng.randint(2, hi) if hi >= 2 else rng.randint(0, top // c)
+        q = rng.randint(2, hi) if school_way and hi >= 2 else rng.randint(0, top // c)
         pair = aimed(s, op, c * q, top, rng)
         if pair is None:
             return None
@@ -669,7 +673,9 @@ def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> d
 def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> dict | None:
     """`a op (b op2 c)`, with `b op2 c` worked out first."""
     # Times mostly take a small first factor, so the inner pair has the rest of the top.
-    small = pick(rng, s.a, 2, max(2, isqrt(top))) if op == "*" and rng.random() < 0.9 else None
+    small = None
+    if op == "*" and rng.random() < s.lean:
+        small = pick(rng, s.a, 2, min(s.max, max(2, isqrt(top))))
     inner = s.model_copy(update={"a": s.b, "b": s.c})
     pair = once(inner, op2, top if small is None else top // small, rng)
     if pair is None:
@@ -688,7 +694,7 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
         a = small
     else:
         # A multiple of w divides by w with no remainder; it must also have the digits of a.
-        if w and s.max // w >= 2:
+        if w and s.max // w >= 2 and rng.random() < s.lean:
             a = rng.randint(2, s.max // w) * w
         else:
             a = rng.randint(0, s.max // w) * w if w else None
@@ -751,10 +757,25 @@ def chains(s: Settings, top: int) -> list[dict]:
         )
     # A dict keeps the order they were found in, so a seed gives the same tasks again.
     found: dict[tuple, dict] = {}
-    for i, shape in enumerate(shapes):
-        draw_shape(s, top, shape, s.count // len(shapes) + (i < s.count % len(shapes)), rng, found)
-    for shape in shapes:
-        draw_shape(s, top, shape, s.count - len(found), rng, found)
+    if punkt:
+        # The school tasks come first, then about one in ten the old way, which also fills a
+        # block where school tasks are few.
+        n = s.count - s.count // 10
+        school = s.model_copy(update={"lean": 1.0})
+        for i, shape in enumerate(shapes):
+            draw_shape(school, top, shape, n // len(shapes) + (i < n % len(shapes)), rng, found)
+        s = s.model_copy(update={"lean": 0.0})
+        # The rest is shared out too, so the shapes that start with Punkt keep their half.
+        for i, shape in enumerate(shapes):
+            missing = s.count - len(found)
+            draw_shape(s, top, shape, -(-missing // (len(shapes) - i)), rng, found)
+    else:
+        for i, shape in enumerate(shapes):
+            draw_shape(
+                s, top, shape, s.count // len(shapes) + (i < s.count % len(shapes)), rng, found
+            )
+        for shape in shapes:
+            draw_shape(s, top, shape, s.count - len(found), rng, found)
     out = list(found.values())
     if len(shapes) > 1:
         rng.shuffle(out)

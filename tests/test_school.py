@@ -50,12 +50,13 @@ def test_divide_with_free_digits_sets_school_tasks(top):
 @pytest.mark.parametrize(
     "top, ops, pvs, brackets, share",
     [
-        (100, ["*"], False, False, 0.18),
-        (1000, ["*"], False, False, 0.19),
-        (100, ["*", "/"], False, False, 0.08),
-        (1000, ["*", "/"], False, False, 0.08),
-        (100, list("+-*/"), True, True, 0.21),
-        (1000, list("+-*/"), True, True, 0.17),
+        (20, ["*"], False, False, 0.12),
+        (100, ["*"], False, False, 0.12),
+        (1000, ["*"], False, False, 0.12),
+        (100, ["*", "/"], False, False, 0.10),
+        (1000, ["*", "/"], False, False, 0.09),
+        (100, list("+-*/"), True, True, 0.22),
+        (1000, list("+-*/"), True, True, 0.12),
     ],
 )
 def test_three_numbers_with_times_and_divide_set_school_tasks(top, ops, pvs, brackets, share):
@@ -64,12 +65,25 @@ def test_three_numbers_with_times_and_divide_set_school_tasks(top, ops, pvs, bra
     assert sum(any(e[k] in (0, 1) for k in "abc") for e in tasks) <= share * len(tasks)
 
 
+def test_three_numbers_bis_10_hold_the_school_tasks_there_are():
+    for block in blocks(seeds=20, ops=["*"], max=10, numbers=3):
+        assert any((e["a"], e["b"], e["c"]) == (2, 2, 2) for e in block)
+    for block in blocks(seeds=20, ops=["/"], max=10, numbers=3):
+        assert any((e["a"], e["b"], e["c"]) == (8, 2, 2) for e in block)
+
+
+@pytest.mark.parametrize("top, want", [(1, 2), (2, 8), (3, 12), (4, 12), (5, 12), (7, 12)])
+def test_three_numbers_with_divide_fill_a_tiny_zahlenraum(top, want):
+    # At 1 only 0 : 1 : 1 and 1 : 1 : 1 exist, so 2 is all there is.
+    for seed in range(6):
+        s = Settings(ops=["/"], max=top, numbers=3, count=12, seed=seed)
+        assert len(generate(s)["exercises"]) == want
+
+
 def test_a_gap_of_two_numbers_has_one_answer():
     for block in blocks(ops=["*", "/"], max=100, format="gap"):
         for e in block:
             a, b, result = e["a"], e["b"], e["result"]
-            if (a, b) == (0, 0):
-                continue
             if e["op"] == "*":
                 by_a = [x for x in range(101) if x * b == result]
                 by_b = [x for x in range(101) if a * x == result]
