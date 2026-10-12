@@ -40,6 +40,7 @@ import {
   FilePlus,
   FileX,
   Fullscreen,
+  Layers,
   Heading,
   ImagePlus,
   LayoutTemplate,
@@ -86,6 +87,7 @@ import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import Tour from "../components/Tour";
+import Variants from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
@@ -2056,6 +2058,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
+  // The print variants: the dialog's choice lives here, so it stays while the editor is open.
+  const [variants, setVariants] = useState(false);
+  const [count, setCount] = useState(2);
+  const [letters, setLetters] = useState(true);
+  const varianten = useRef<HTMLButtonElement>(null);
+
   // A template stored or deleted with the session run out brings the login. A second press while one is on its way
   // stores no second template. The name stays until the template is stored.
   const storing = useRef(false);
@@ -2575,6 +2583,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               PDF
             </button>
           </span>
+          {variants && (
+            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={varianten} onClose={() => setVariants(false)} />
+          )}
         </div>
         {saver?.clash && (
           <div className="clash" role="alert">
@@ -3291,6 +3302,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               >
                 <Eraser size={14} aria-hidden />
                 Alle entfernen
+              </button>
+              {/* Here and not beside "PDF": the bar has no room for one more button on an iPad. */}
+              <h2>Drucken</h2>
+              <button ref={varianten} className="wide" onClick={() => setVariants(true)}>
+                <Layers size={14} aria-hidden />
+                Varianten drucken
               </button>
             </>
           )}
