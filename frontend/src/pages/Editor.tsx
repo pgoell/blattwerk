@@ -1092,9 +1092,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     listField.current?.setSelectionRange(caretAt.current, caretAt.current);
     caretAt.current = undefined;
   });
-  // The Lernwörter-Blatt comes behind the page in use, and is the page in use from then on. Its size is the sheet's.
+  // The Lernwörter-Blatt comes behind the page in use, and is the page in use from then on. On an empty page it fills
+  // that page instead. Its size is the sheet's, or the empty page's own.
   function addBlatt() {
     const n = page;
+    if (live.current.doc.pages[n].blocks.length === 0) {
+      const [w, h] = sizeOf(live.current.doc, n);
+      const fill = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
+      turn((p) => ({ ...p, blocks: fill }), "", n);
+      setIds([]);
+      return;
+    }
     const [w, h] = live.current.doc.landscape ? [297, 210] : [210, 297];
     const sheetBlocks = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
     flushSync(() => {
