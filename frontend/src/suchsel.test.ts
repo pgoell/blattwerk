@@ -2,7 +2,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { SuchselProps, Ways } from "./sheet";
-import { type Hidden, laid, letters, sane } from "./suchsel";
+import { type Hidden, laid, letters, sane, tried } from "./suchsel";
 
 const base: SuchselProps = { words: ["Hund", "Katze", "Maus", "Vogel", "Fisch"], cols: 10, rows: 10, ways: "across", caps: true, umlauts: true, show: "words", seed: 1 };
 
@@ -203,9 +203,10 @@ describe("laid", () => {
   it("ends soon on a list that no fill can satisfy", () => {
     // E, any letter, E: whatever stands between two E spells a word, so the sweeps run to their end.
     const words = [..."ENISRATDHULCGMOBWFKZPVJYXQÜÄÖ"].map((l) => `E${l}E`);
-    const t = performance.now();
+    tried.runs = 0;
     laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed: 1 });
-    expect(performance.now() - t).toBeLessThan(3000);
+    // Measured 6,855,600 runs on seed 1; the bound is about twice that. The count depends on the seed, not the machine.
+    expect(tried.runs).toBeLessThan(14_000_000);
   });
 
   it("fills the empty squares by German letter frequency", () => {

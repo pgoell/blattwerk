@@ -113,6 +113,15 @@ def test_the_chromium_step_is_bounded_and_runs_no_apt():
     assert limit + 2 < job
 
 
+def test_a_slow_pull_of_the_image_leaves_the_webkit_tests_their_time():
+    """#439: the job's limit counts the pull of the image, which took up to ten minutes."""
+    webkit = part(CI, "webkit")
+    (step,) = [s for s in re.split(r"\n      - ", webkit) if "test:webkit" in s]
+    (limit,) = map(int, re.findall(r"timeout-minutes: (\d+)", step))
+    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", webkit, re.M))
+    assert limit + 10 <= job
+
+
 IDS = [f"tests/test_x.py::test_{k}[{k} ä b]" for k in range(40)] + [
     f"tests/test_y.py::test_{k}" for k in range(7)
 ]

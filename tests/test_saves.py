@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from playwright.sync_api import Error, expect
 from test_loading import READY, expect_loading, expect_ready, window  # noqa: F401
 from test_stale import KEPT, STATUS, TURNS, Gate, Run, blocks, named
-from ui import PASSWORD, TEXT, at, box, user
+from ui import PASSWORD, TEXT, at, box, reload, user
 
 from blattwerk import sheets
 
@@ -814,9 +814,7 @@ def test_another_accounts_kept_change_is_neither_sent_nor_removed_at_the_start(r
     kept = record(page, run.ids["a"])
     assert kept["doc"]["pages"][0]["blocks"][0]["x"] == 16
     # Once more, with all that the tab asks for in view.
-    with page.expect_response(f"{run.server}/api/sheets") as listed:
-        page.reload()
-    listed.value.finished()
+    reload(page, f"{run.server}/api/sheets")
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
     page.evaluate(TURNS)
     assert not sent

@@ -285,6 +285,23 @@ def saved(page, client):
     return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
 
 
+def reload(page, address):
+    """Loads the page anew and waits until the new document's answer from the address is in whole.
+
+    Not an answer the old document still waited for: the reload cuts that one off, and Playwright's
+    `finished()` has no end for an answer whose request failed, so the test sat there until its
+    limit ended the worker (#390, #414). An answer counts when its request began after the reload.
+    """
+    since = time.time() * 1000
+
+    def anew(response):
+        return response.url == address and response.request.timing["startTime"] >= since
+
+    with page.expect_response(anew) as got:
+        page.reload()
+    got.value.finished()
+
+
 def doc(page, client):
     """The whole sheet as the server holds it, once the editor has saved a change."""
     saved(page, client)
