@@ -1212,17 +1212,20 @@ function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | 
 const side = (s: Side) => (s.op ? `${s.a} ${SIGNS[s.op]} ${s.b}` : String(s.value));
 
 // A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
+// A square is `S` units wide: with a square of one unit a digit is under a unit high, and Chromium sets so small a
+// type a whole square too high, on the screen and in every PDF (issue #446).
 function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean }) {
-  const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i);
+  const S = 10;
+  const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * S);
   return (
-    <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols} ${rows}`}>
-      <g stroke="#9db4c8" strokeWidth={0.03}>
-        {each(cols).map((x) => <line key={x} x1={x} x2={x} y2={rows} />)}
-        {each(rows).map((y) => <line key={-y - 1} x2={cols} y1={y} y2={y} />)}
+    <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols * S} ${rows * S}`}>
+      <g stroke="#9db4c8" strokeWidth={0.03 * S}>
+        {each(cols).map((x) => <line key={x} x1={x} x2={x} y2={rows * S} />)}
+        {each(rows).map((y) => <line key={-y - 1} x2={cols * S} y1={y} y2={y} />)}
       </g>
-      {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={x1} x2={x2} y1={y} y2={y} stroke="currentColor" strokeWidth={0.08} />)}
+      {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={x1 * S} x2={x2 * S} y1={y * S} y2={y * S} stroke="currentColor" strokeWidth={0.08 * S} />)}
       {grid.cells.map(([x, y, ch, kind], i) => (solved || !kind) && (
-        <text key={i} className={kind ? "answer" : ""} x={x + 0.5} y={y + 0.5} fontSize={kind === 2 ? 0.45 : 0.75} textAnchor="middle" dominantBaseline="central" fill="currentColor">
+        <text key={i} className={kind ? "answer" : ""} x={(x + 0.5) * S} y={(y + 0.5) * S} fontSize={(kind === 2 ? 0.45 : 0.75) * S} textAnchor="middle" dominantBaseline="central" fill="currentColor">
           {ch}
         </text>
       ))}
@@ -1240,7 +1243,8 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
   const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0)}ch` };
   const num = { solved, d, money };
   return (
-    <div className={`maths ${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
+    // The format's class has a name of its own: `gap` and `written` are a text's gap and a Lineatur's text.
+    <div className={`maths maths-${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
       {p.exercises.map((e, i) => (
         <div key={i}>
           {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}
