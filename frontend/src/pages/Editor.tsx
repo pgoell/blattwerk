@@ -3157,6 +3157,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   e.preventDefault();
                   const field = e.currentTarget;
                   const [from, to] = [field.selectionStart, field.selectionEnd];
+                  // A paste that holds no word changes nothing.
+                  if (!pasted(e.clipboardData.getData("text/plain")).length) return;
                   const [before, after] = [field.value.slice(0, from), field.value.slice(to)];
                   // The pasted words keep to lines of their own: a word before or behind them is not joined to one.
                   const words = (/[^\n]$/.test(before) ? "\n" : "") + pasted(e.clipboardData.getData("text/plain")).join("\n") + (/^[^\n]/.test(after) ? "\n" : "");

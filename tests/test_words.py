@@ -566,3 +566,26 @@ def test_a_save_from_a_build_that_knows_no_list_keeps_the_stored_list():
     # Another account's sheet gives no list away, and takes none.
     other = user()
     assert other.patch(url, json={"doc": old, "version": 1}).status_code == 404
+
+
+def test_a_change_kept_by_an_older_build_takes_the_sheets_list_and_deletes_none(editor):
+    """Second review: a window on the build before the Lernwörter keeps its unsent change in the
+    browser's store, without the list it did not know. The next build sends that change with the
+    sheet's list, and reads it as no other version."""
+    client = user()
+    page = editor(box("r", "ruling", LINKED, h=40), client=client, words=["Hund", "Katze"])
+    sheet_id = page.url.rsplit("/", 1)[1]
+    got = client.get(f"/api/sheets/{sheet_id}").json()
+    moved = {k: v for k, v in got["doc"].items() if k != "words"}
+    moved["pages"] = [{"blocks": [{**got["doc"]["pages"][0]["blocks"][0], "x": 30}]}]
+    record = {"owner": got["user_id"], "base": got["version"], "doc": moved, "name": got["title"]}
+    page.evaluate(
+        "([id, r]) => localStorage.setItem('unsaved:' + id, JSON.stringify(r))", [sheet_id, record]
+    )
+    page.reload()
+    ready(page)
+    expect(at(page, "r").locator(".listed .row")).to_have_count(2)
+    expect(page.locator(".editor")).not_to_contain_text("auf einem anderen Gerät geändert")
+    back = doc(page, client)
+    assert back["words"] == ["Hund", "Katze"]
+    assert rulings(back)[0]["x"] == 30

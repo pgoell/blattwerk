@@ -47,7 +47,9 @@ type Saver = {
 // where a document other than `doc` is on the wire or went without an answer: the server may hold any of them.
 // `name` is the title the server held last: a sheet deleted elsewhere is named by it at the next start. A record
 // written before there was one has none.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string };
+// `lists` marks a record of a build that knows the Lernwörter: one without it names no list because its build
+// dropped the sheet's, not because the teacher took it away.
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed" };
 
 const savers = new Map<number, Saver>();
@@ -104,7 +106,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -231,6 +233,13 @@ export function open(sheet: Sheet): Sheet {
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
     const record = kept(s.id);
+    // A change kept by a build from before the Lernwörter takes the sheet's list: so it neither deletes the list
+    // when it is sent, nor reads as another version for lacking it.
+    if (record && !record.lists && record.doc && sheet.doc.words) {
+      const listed = (doc: Doc) => ("words" in doc ? doc : { ...doc, words: sheet.doc.words });
+      record.doc = listed(record.doc);
+      record.sent = record.sent?.map(listed);
+    }
     if (record?.owner === owner) {
       const ours = sheet.version > record.base && (record.sent?.some((doc) => same(doc, sheet.doc)) || same(record.doc, sheet.doc));
       const title = record.title ?? sheet.title;
