@@ -28,7 +28,7 @@ CONTROLS = {
     "text": ["Schriftart", "Farbe", "Füllung", "Rand"],
     "shape": ["Schriftart", "Farbe", "Füllung", "Rand"],
     "line": ["Füllung", "Rand"],
-    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen"],
+    "ruling": ["Art der Lineatur", "Farbe", "Text der Lineatur", "Schriftart auf den Zeilen"],
     "table": ["Schriftart der Tabelle", "Farbe", "Linien"],
 }
 KINDS = {
@@ -193,8 +193,8 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
     page.keyboard.press("Tab")
     expect_picked(page, "z")
 
-    # A line holds no text to open.
-    if name != "line":
+    # A line holds no text to open, and neither does a Lineatur that now takes the Lernwörter.
+    if name != "line" and label != "Text der Lineatur":
         pick(page, name)
         choose(page, label)
         page.keyboard.press("Enter")

@@ -5,7 +5,7 @@ from io import BytesIO
 import pytest
 from PIL import Image
 from playwright.sync_api import expect
-from ui import at, box
+from ui import at, box, pick
 
 WORDS = ["Hund", "Katze", "Maus"]
 GREY = "rgb(170, 170, 170)"
@@ -213,12 +213,15 @@ def test_a_word_stands_where_a_typed_text_stands(editor, kind, font):
 
 
 def test_the_default_layout_reaches_the_list_from_the_bar(editor):
-    """Blattform has no tabs in its panel: the bar's modes lead to the list."""
+    """Blattform has no tabs in its panel: a button there leads to the list, with nothing picked
+    and from a linked Lineatur, and Start in the bar leads back."""
     page = editor(linked("a", "l4", "copy", h=40))
-    page.locator(".modes").get_by_role("tab", name="Lernwörter").click()
+    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
     field = page.get_by_label("Lernwörter", exact=True)
     field.press_sequentially("Hund")
     expect(at(page, "a").locator(".listed .row span")).to_have_text("Hund")
-    expect(page.locator(".modes [aria-selected=true]")).to_have_text("Lernwörter")
     page.locator(".modes").get_by_role("tab", name="Start").click()
     expect(field).to_have_count(0)
+    pick(page, "a")
+    page.get_by_role("button", name="Lernwörter bearbeiten").click()
+    expect(field).to_have_value("Hund")

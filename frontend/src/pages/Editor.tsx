@@ -2254,7 +2254,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           { label: "Eine Ebene nach hinten", disabled: none, run: () => raise(false, true) },
           { label: "In den Hintergrund", disabled: none, run: () => raise(false) },
         ];
-  const mode = side ? "Vorlagen" : tab === "Format" ? "Start" : tab;
+  const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
   const brand = (
     <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
       <Logo />
@@ -2412,7 +2412,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         <div className="top" ref={bar} onPointerOver={holdName}>
           {leaf ? (
             <span className="modes" role="tablist">
-              {["Start", "Ansicht", "Lernwörter", "Vorlagen"].map((m) => (
+              {["Start", "Ansicht", "Vorlagen"].map((m) => (
                 <button
                   key={m}
                   role="tab"
@@ -2420,8 +2420,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   aria-selected={mode === m}
                   onClick={() => {
                     setSide(m === "Vorlagen");
-                    setTab(TABS.includes(m) ? m : "Format");
-                    if (TABS.includes(m)) setPane(true);
+                    setTab(m === "Ansicht" ? "Ansicht" : "Format");
+                    if (m === "Ansicht") setPane(true);
                   }}
                 >
                   {m}
@@ -2974,6 +2974,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </div>
           )}
           {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {/* Blattform's panel has no tabs, and its bar no room for one more mode: there this button leads to the
+              list, and "Start" in the bar leads back. */}
+          {tab === "Format" && !sel.length && leaf && <button onClick={() => setTab("Lernwörter")}>Lernwörter</button>}
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">
@@ -3007,6 +3010,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
                 words={learnt}
                 list={takeList}
+                toList={() => setTab("Lernwörter")}
               />
               {boxes.length > 0 && (
                 <>

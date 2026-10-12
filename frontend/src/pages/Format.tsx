@@ -39,6 +39,8 @@ type Props = {
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
   words: string[];
   list: (mode?: ListMode) => void;
+  // Shows the list of the Lernwörter in the panel.
+  toList: () => void;
   cropping: boolean;
   // Turns what is selected by so many degrees: a group picked whole as one, a loose block about its own centre.
   spin: (by: number) => void;
@@ -146,7 +148,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list }: Props) {
+export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -354,6 +356,7 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
               {n === 1 ? "1 Wort passt nicht in die Zeilen." : `${n} Wörter passen nicht in die Zeilen.`}
             </p>
           )}
+          {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
           {RULINGS[rulings[0].props.kind].at && (
             <select aria-label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(e) => style("ruling", { font: e.target.value })}>
