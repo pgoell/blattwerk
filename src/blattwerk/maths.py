@@ -1085,7 +1085,14 @@ def told(s: Settings, e: dict, k: str) -> bool:
     true = nums[k]
     near = sorted({0, true - 1, true, true + 1})
     tries = range(s.max + 1) if s.max <= 1000 else [x for x in near if 0 <= x <= s.max]
-    return sum(comes_to(e, {**nums, k: x}) == e["result"] for x in tries) == 1
+    # A second number that fits settles it: a block whose digits leave only open gaps asks this
+    # of every task it tries, and most of those have a fit at every turn.
+    fit = 0
+    for x in tries:
+        fit += comes_to(e, {**nums, k: x}) == e["result"]
+        if fit > 1:
+            return False
+    return fit == 1
 
 
 def chained(s: Settings) -> dict:

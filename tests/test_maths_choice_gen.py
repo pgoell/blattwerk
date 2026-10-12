@@ -664,6 +664,23 @@ def test_a_set_gap_of_three_numbers_hides_only_what_is_ticked(
         assert e.get("hide", "result") in allowed, e
 
 
+def test_a_set_gap_of_three_numbers_hides_no_other_number_where_zeros_are_many():
+    # Thirty times tasks up to 5 need tasks with a 0, where the first number is not told.
+    s = Settings(ops=["*"], max=5, numbers=3, format="gap", gaps=["a"], count=30, seed=0)
+    exercises = generate(s)["exercises"]
+    assert exercises
+    for e in exercises:
+        assert e.get("hide") == "a", e
+        fits = [x for x in range(6) if x * e["b"] * e["c"] == e["result"]]
+        assert fits == [e["a"]], e
+
+
+def test_digits_that_leave_only_open_gaps_give_no_task_of_three_numbers():
+    s = Settings(ops=["*"], max=1000, numbers=3, format="gap", gaps=["b"], count=20, seed=1)
+    s = s.model_copy(update={"a": [(0, 0)] * 4})
+    assert generate(s) == {"exercises": [], "loosen": ["a"]}
+
+
 def test_a_set_gap_of_a_times_task_never_hides_a_zero_factor_as_b():
     s = Settings(ops=["*"], max=10, format="gap", gaps=["a"], count=12, seed=0)
     exercises = generate(s)["exercises"]
