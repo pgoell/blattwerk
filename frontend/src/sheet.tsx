@@ -398,6 +398,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // rests, and so do the solution words of that text.
   const sheet = useContext(Words);
   const linked = p.list === true;
+  // A linked bubble keeps its lowest quarter for its tail: the words lie in a row three times as high as the empty
+  // one under it, so the body holds them however many they are.
+  const tailed = linked && p.kind === "bubble";
   const words = !linked && typeof p.bank === "number" && Number.isFinite(p.bank) ? entries(parasOf(p)) : [];
   const paras = shownParas(p, sheet);
   const cols = linked ? listColsOf(p) : undefined;
@@ -438,7 +441,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // box that is just as high as its text.
         clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
-        justifyContent: UP[p.valign ?? "top"],
+        ...(tailed
+          ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: "3fr 1fr", alignItems: UP[p.valign ?? "top"] }
+          : { justifyContent: UP[p.valign ?? "top"] }),
         ...((d || ring) && { position: "relative", isolation: "isolate" }),
       }}
     >

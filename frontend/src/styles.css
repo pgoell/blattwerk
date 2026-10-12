@@ -570,6 +570,14 @@ body:has(.print) { background: #fff; }
 .mix.under .gap.line { min-width: 100%; box-sizing: border-box; }
 /* With gapWidth the line under a word is as wide as the gap too, and the word stands in the middle of it. */
 .even .mix.under .gap.line { min-width: max(100%, var(--gap)); }
+/* In a text from the Lernwörter a column can be too narrow for a word and its line side by side: then the line goes
+   to the next row, and a word wider than the column breaks. The line lies under the last row of what it holds. */
+.listed .mix { white-space: normal; }
+.listed .mix .mixed, .listed .mix .mixkey { overflow-wrap: anywhere; }
+.listed .mix .gap.line { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.listed .mix .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
+.listed .mix.under { max-width: 100%; }
+.listed .mix.under > * { max-width: 100%; }
 .mixkey, .mixkey * { color: #c0392b !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
