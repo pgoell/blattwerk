@@ -2,7 +2,7 @@
 cell names, on the screen and in the PDF (issue #446).
 
 The docstrings name the lines of the checklist that each test proves. The checks read pixels, not
-the svg's own numbers: a square holds ink when the inner 70 % of it has two dark pixels.
+the svg's own numbers: a square holds ink when the inner 70 % of it has a dark pixel.
 """
 
 import io
@@ -231,6 +231,20 @@ def test_i3_the_squares_hold_at_a_small_and_a_large_zoom(editor, zoom):
     check_screen(page, props, key=False)
 
 
+def test_i4_a_written_tasks_paper_stands_at_the_top_of_its_row(editor):
+    """I4: the block lays out as before: in a block taller than its papers, each paper stands at
+    the top of its row, the first at the block's top, not in the row's middle."""
+    client = user()
+    props = maths(client, format="written", max=100, ops=["+", "-"], count=6)
+    page = editor(box("m", "maths", props, y=20, h=120), client=client)
+    tops = at(page, "m").evaluate(
+        """el => [el, ...el.querySelectorAll("svg")].map((e) => e.getBoundingClientRect().top)"""
+    )
+    high = at(page, "m").bounding_box()["height"]
+    # Two rows of three papers, each row half the block high.
+    assert [round(top - tops[0]) for top in tops[1:]] == [0] * 3 + [round(high / 2)] * 3
+
+
 def test_i6_the_pdf_draws_the_papers_right_and_lower_edge(editor, server):
     """I6: the paper's outer lines on the right and below are in the PDF, as WebKit's screen has
     them: Chromium cut them away with the half that lies outside the svg."""
@@ -240,15 +254,16 @@ def test_i6_the_pdf_draws_the_papers_right_and_lower_edge(editor, server):
     picture = printed_picture(server, client, sheet_id(page), False)
     found = page.evaluate(RECTS)
     sx, sy, sw, _ = found["sheet"]
-    per_mm = picture.width / sw
+    scale = picture.width / sw
     x, y, w, h = found["svgs"][0]
-    left, top, right, low = (round(v * per_mm) for v in (x - sx, y - sy, x - sx + w, y - sy + h))
-    # Half a millimetre around each edge. The lines are pale, about 175 in grey; white is 255.
-    room = round(0.5 * picture.width / PAGE_MM)
+    left, top, right, low = (round(v * scale) for v in (x - sx, y - sy, x - sx + w, y - sy + h))
+    # 0.2 mm around each edge, so half a line is not enough. The lines are pale, about 175 in
+    # grey; white is 255.
+    room = round(0.2 * picture.width / PAGE_MM)
     side = picture.crop((right - room, top, right + room, low)).resize((1, low - top))
     below = picture.crop((left, low - room, right, low + room)).resize((right - left, 1))
     for name, strip in (("right", side), ("lower", below)):
-        pale = sum(p < 250 for p in strip.tobytes()) / len(strip.tobytes())
+        pale = sum(p < 240 for p in strip.tobytes()) / len(strip.tobytes())
         assert pale > 0.9, f"the paper's {name} edge shows along {pale:.0%} of its length"
 
 

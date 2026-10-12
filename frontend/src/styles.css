@@ -456,7 +456,7 @@ body:has(.print) { background: #fff; }
    without round(). */
 .maths u { display: inline-block; min-width: var(--gap); border-bottom: 1px solid; border-bottom-width: max(1px, round(down, .06em, 1px)); text-align: center; text-decoration: none; }
 /* Paper that outgrows its block is cut at the block's edge. */
-.maths-written { align-items: start; overflow: hidden; }
+.block .maths-written { align-items: start; overflow: hidden; }
 .maths-written > div { align-items: flex-start; }
 /* The paper's outer lines lie half outside the svg: Chromium, which prints, cuts the right and the lower one away. */
 .maths svg { flex: none; overflow: visible; font-family: Andika; }
