@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock, type TextBlock } from "./sheet";
+import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock, type TextBlock, type TextProps } from "./sheet";
 import { blatt, filled, landed, linked, loose, looseText, pasted, short } from "./words";
 
 const block = (kind: Ruling, h: number, props: Partial<RulingBlock["props"]> = {}, extra: Partial<RulingBlock> = {}): RulingBlock => ({
@@ -129,13 +129,27 @@ describe("loose", () => {
 
 describe("looseText", () => {
   it("gives a text its words as its own text, and drops its list settings and rich text", () => {
-    const out = looseText({ text: "x", rich: [{ runs: [{ text: "x" }] }], list: true, listCols: 3, holes: "one", holeSeed: 4, size: 14, align: "left" }, ["Hund", "Katze"]);
+    const out = looseText({ text: "x", rich: [{ runs: [{ text: "x" }] }], list: true, listCols: 3, size: 14, align: "left" }, ["Hund", "Katze"]);
     expect(out).toEqual({ text: "Hund\nKatze", size: 14, align: "left" });
   });
 
   it("keeps the look of a text the words are cut from", () => {
     const out = looseText({ text: "", list: true, bold: true, mix: 9, size: 12 }, ["Igel"]);
     expect(out).toEqual({ text: "Igel", bold: true, mix: 9, size: 12, mixLine: "after" });
+  });
+
+  it("keeps the Lückenwörter as gaps of its own text, at the letters they hid", () => {
+    const out = looseText<Partial<TextProps>>({ text: "", list: true, holes: "one", holeSeed: 7, size: 14 }, ["Hund", "Katze"]);
+    expect(out.text).toBe("Hund\nKatze");
+    expect(out.rich).toHaveLength(2);
+    for (const [i, word] of ["Hund", "Katze"].entries()) {
+      const runs = out.rich![i].runs;
+      expect(runs.filter((r) => r.gap)).toHaveLength(1);
+      expect(runs.map((r) => r.text).join("")).toBe(word);
+    }
+    expect("holes" in out).toBe(false);
+    expect("holeSeed" in out).toBe(false);
+    expect("list" in out).toBe(false);
   });
 
   it("with no words keeps the own text and the rich text, and still drops the list settings", () => {
@@ -168,7 +182,8 @@ describe("landed for texts and shapes", () => {
 
   it("cuts a linked text loose with the copied words when the lists differ", () => {
     const out = landed([linkedText], ["Maus"], doc(["Hund"]));
-    expect(out.blocks[0]).toEqual({ ...linkedText, props: { text: "Maus", size: 14, align: "left" } });
+    const rich = [{ runs: [{ text: "M" }, { text: "a", gap: true }, { text: "u", gap: true }, { text: "s" }] }];
+    expect(out.blocks[0]).toEqual({ ...linkedText, props: { text: "Maus", size: 14, align: "left", rich } });
   });
 
   it("cuts a linked shape loose too, and leaves an unlinked text and a line as they are", () => {
