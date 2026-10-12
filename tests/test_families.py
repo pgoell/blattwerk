@@ -81,15 +81,16 @@ def test_a2_tauschaufgaben_follow_each_task_with_its_swap(editor):
 def test_a3_umkehraufgaben_follow_each_task_with_its_reverse(editor):
     """A3: the Umkehraufgabe takes the result back: (a + b) minus b for a plus."""
     client = user()
-    block = box("m", "maths", maths(client, ops=["+"], max=20, count=4), y=20, h=60)
+    block = box("m", "maths", maths(client, ops=["+", "*"], max=20, count=4), y=20, h=60)
     page = editor(block, client=client)
     pick(page, "m")
     pick_family(page, "Umkehraufgaben")
     expect(at(page, "m").locator(FAMILY_ROW)).to_have_count(4)
     fams = families(page, client)
     assert len(fams) == 4 and all(len(f) == 2 for f in fams), fams
+    assert {f[0][1] for f in fams} == {"+", TIMES}
     for (a, op, b, r), (a2, op2, b2, r2) in fams:
-        assert op == "+" and op2 == MINUS
+        assert op2 == {"+": MINUS, TIMES: ":"}[op]
         assert a2 == r and b2 == b and r2 == a
 
 
@@ -118,9 +119,12 @@ def test_a4_nachbaraufgaben_move_the_first_number_and_a_button_picks_the_second(
 def test_a5_a_family_stands_in_one_column_with_a_gap_to_the_next(editor):
     """A5: a family's tasks share a left edge; the gap between families beats the gap inside."""
     client = user()
-    props = maths(client, ops=["+"], max=20, count=4, family="swap", columns=1)
-    page = editor(box("m", "maths", props, y=20, h=200), client=client)
+    props = maths(client, ops=["+"], max=20, count=4, columns=1)
+    page = editor(box("m", "maths", props, y=20, h=20), client=client)
     pick(page, "m")
+    # Picked in the panel, so the block has the height the editor gives it.
+    pick_family(page, "Nachbaraufgaben")
+    expect(at(page, "m").locator(FAMILY_ROW)).to_have_count(4)
     gaps = at(page, "m").evaluate(
         """block => {
           const fams = [...block.querySelectorAll('.maths .family')];
