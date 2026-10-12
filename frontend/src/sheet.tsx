@@ -81,8 +81,9 @@ export type Range = [number, number];
 export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
 // `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A task of three
 // numbers has `op2` and `c`: it reads `a op b op2 c`, with `paren` as the brackets say, "left" for `(a op b) op2 c`
-// and "right" for `a op (b op2 c)`. A task of two has none of these.
-export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b" | "c"; grid?: Grid; op2?: Op; c?: number; paren?: "left" | "right" };
+// and "right" for `a op (b op2 c)`. A task of two has none of these. `family` numbers the family the task belongs to
+// (0 for the first), and a task with no family has none: its exercises stand on their own.
+export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b" | "c"; grid?: Grid; op2?: Op; c?: number; paren?: "left" | "right"; family?: number };
 // One side of a comparison: a plain number, or a term with its sign and its two numbers.
 export type Side = { value: number; op?: Op; a?: number; b?: number };
 // A comparison: the two sides and the sign between them, which the pupil writes in the ring.
@@ -93,7 +94,8 @@ export type Exercise = Calc | Compare;
 // digits of the third number, and `numbers` is 2 or 3 numbers in a task (blocks saved before have 2). `pvs` is Punkt
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
-// of those places for the first, second and third number, Zehntel first.
+// of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
+// (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default.
 export type Limits = {
   ops: Op[];
   max: number;
@@ -116,6 +118,8 @@ export type Limits = {
   af?: Range[];
   bf?: Range[];
   cf?: Range[];
+  family?: "none" | "swap" | "reverse" | "neighbour";
+  moves?: "a" | "b";
 };
 // The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
 export function decimalsOf(p: Limits): number {
@@ -299,6 +303,13 @@ export function squares(text: string, cols: number) {
 }
 // The height in mm a maths block needs for its exercises.
 export function mathsHeight(p: MathsProps) {
+  // With families, each family is one item of the grid: as tall as its most tasks, with a gap of 0.9 lines to the next.
+  const sizes = new Map<number, number>();
+  for (const e of p.exercises) if (!("sign" in e) && e.family !== undefined) sizes.set(e.family, (sizes.get(e.family) ?? 0) + 1);
+  if (sizes.size) {
+    const lines = Math.ceil(sizes.size / p.columns);
+    return Math.max(10, Math.round(lines * (Math.max(...sizes.values()) * 1.8 + 0.9) * p.size * PT));
+  }
   const lines = Math.ceil(p.exercises.length / p.columns);
   // A comparison is a row of its own, with no squared paper.
   const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
@@ -1279,32 +1290,44 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
     document.fonts.addEventListener("loadingdone", fit);
     return () => document.fonts.removeEventListener("loadingdone", fit);
   }, []);
+  // The numbering runs through every task. With families, the tasks of one family stand together in one grid item.
+  const task = (e: Exercise, i: number) => (
+    <div key={i}>
+      {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}
+      {"sign" in e ? (
+        // The ring is empty for the pupil to write the sign in; the answer key writes it there.
+        <span>
+          {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
+        </span>
+      ) : e.grid ? (
+        <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
+      ) : e.op2 ? (
+        // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
+        <span>
+          {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
+        </span>
+      ) : (
+        <span>
+          <Part e={e} part="a" {...num} /> {SIGNS[e.op]} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
+          {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
+        </span>
+      )}
+    </div>
+  );
+  // Consecutive exercises of one family share a group; a task with no family is a group of its own.
+  const groups: number[][] = [];
+  let prev: number | undefined;
+  p.exercises.forEach((e, i) => {
+    const family = "sign" in e ? undefined : e.family;
+    if (family !== undefined && family === prev) groups[groups.length - 1].push(i);
+    else groups.push([i]);
+    prev = family;
+  });
+  const families = p.exercises.some((e) => !("sign" in e) && e.family !== undefined);
   return (
     // The format's class has a name of its own: `gap` and `written` are a text's gap and a Lineatur's text.
     <div ref={root} className={`maths maths-${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
-      {p.exercises.map((e, i) => (
-        <div key={i}>
-          {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}
-          {"sign" in e ? (
-            // The ring is empty for the pupil to write the sign in; the answer key writes it there.
-            <span>
-              {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
-            </span>
-          ) : e.grid ? (
-            <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
-          ) : e.op2 ? (
-            // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
-            <span>
-              {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
-            </span>
-          ) : (
-            <span>
-              <Part e={e} part="a" {...num} /> {SIGNS[e.op]} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
-              {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
-            </span>
-          )}
-        </div>
-      ))}
+      {groups.map((g) => (families ? <div key={g[0]} className="family">{g.map((i) => task(p.exercises[i], i))}</div> : task(p.exercises[g[0]], g[0])))}
       {!p.exercises.length && <span className="hint">Keine Aufgabe möglich</span>}
     </div>
   );

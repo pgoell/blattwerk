@@ -18,13 +18,14 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
 const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
-const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern" };
+const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien" };
+const FAMILIES = [["none", "Keine"], ["swap", "Tauschaufgaben"], ["reverse", "Umkehraufgaben"], ["neighbour", "Nachbaraufgaben"]] as const;
 const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf }));
+export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves }));
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
@@ -83,6 +84,10 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   const free = three && plus && times;
   const pvs = free && !!p.pvs;
   const brackets = pvs && !!p.brackets;
+  // Families hold for Zeile and Lücke with two numbers. Tauschaufgaben need a plus or a times, the only signs they draw.
+  const swap = p.ops.includes("+") || p.ops.includes("*");
+  const fam = numbered && !three && !!p.family && p.family !== "none" && !(p.family === "swap" && !swap);
+  const whole = fam && p.family === "reverse";
 
   return (
     <>
@@ -169,8 +174,9 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
         <>
           <h2>Division</h2>
           <div className="seg">
-            <button className={p.rest ? "" : "on"} onClick={() => limit({ rest: false })}>Ohne Rest</button>
-            <button className={p.rest ? "on" : ""} onClick={() => limit({ rest: true })}>Mit Rest</button>
+            {/* An Umkehraufgabe leaves no Rest: the buttons are greyed and show that, and keep their value. */}
+            <button className={p.rest && !whole ? "" : "on"} disabled={whole} onClick={() => limit({ rest: false })}>Ohne Rest</button>
+            <button className={p.rest && !whole ? "on" : ""} disabled={whole} onClick={() => limit({ rest: true })}>Mit Rest</button>
           </div>
         </>
       )}
@@ -202,6 +208,25 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
               mit Klammern
             </button>
           </div>
+          <h2>Aufgabenfamilien</h2>
+          <select aria-label="Aufgabenfamilien" value={p.family ?? "none"} disabled={three} onChange={(e) => limit({ family: e.target.value as Limits["family"] })}>
+            {FAMILIES.map(([family, label]) => (
+              <option key={family} value={family}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {p.family === "neighbour" && !three && (
+            <div className="seg">
+              <button aria-label="1. Zahl wandert" className={(p.moves ?? "a") === "a" ? "on" : ""} aria-pressed={(p.moves ?? "a") === "a"} onClick={() => limit({ moves: "a" })}>
+                1. Zahl
+              </button>
+              <button aria-label="2. Zahl wandert" className={p.moves === "b" ? "on" : ""} aria-pressed={p.moves === "b"} onClick={() => limit({ moves: "b" })}>
+                2. Zahl
+              </button>
+            </div>
+          )}
+          {numbered && !three && p.family === "swap" && (p.ops.includes("-") || p.ops.includes("/")) && <p className="hint" role="status">Tauschaufgaben gibt es nur für + und ·.</p>}
         </>
       )}
       {p.format === "compare" && (
@@ -229,9 +254,10 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       <h2>Anzahl</h2>
       <div className="seg">
         <button aria-label="Eine Aufgabe weniger" onClick={() => limit({ count: Math.max(1, p.count - 1) })}>−</button>
-        <output>{p.count} Aufgaben</output>
+        <output>{fam ? `${p.count} Familien` : `${p.count} Aufgaben`}</output>
         <button aria-label="Eine Aufgabe mehr" onClick={() => limit({ count: Math.min(100, p.count + 1) })}>＋</button>
       </div>
+      {fam && <p className="hint">Das sind {p.exercises.length} Aufgaben.</p>}
       <div className="seg">
         <button aria-label="Eine Spalte weniger" onClick={() => show({ columns: Math.max(1, p.columns - 1) })}>−</button>
         <output>{p.columns} Spalten</output>
@@ -251,7 +277,13 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
       )}
       {p.loosen && (
         <p className="hint" role="status">
-          {p.exercises.length ? `Mit diesen Grenzen gibt es nur ${p.exercises.length} verschiedene Aufgaben.` : "Mit diesen Grenzen gibt es keine Aufgabe."}
+          {fam
+            ? p.exercises.length
+              ? `Mit diesen Grenzen gibt es nur ${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size} verschiedene Familien.`
+              : "Mit diesen Grenzen gibt es keine Familie."
+            : p.exercises.length
+              ? `Mit diesen Grenzen gibt es nur ${p.exercises.length} verschiedene Aufgaben.`
+              : "Mit diesen Grenzen gibt es keine Aufgabe."}
           {p.loosen.length > 0 && ` Mehr gibt es mit einer lockereren Grenze: ${p.loosen.map((name) => LOOSEN[name]).join(", ")}.`}
         </p>
       )}

@@ -452,6 +452,9 @@ body:has(.print) { background: #fff; }
 /* Maths exercises fill the block's height row by row. A gap is a line to write on; the answer key fills it. */
 .block .maths { display: grid; grid-auto-rows: 1fr; align-items: center; column-gap: 1em; font-family: Andika; font-variant-numeric: tabular-nums; line-height: 1.3; }
 .maths > div { display: flex; align-items: baseline; gap: .5em; white-space: nowrap; }
+/* A family is one grid item: its tasks stand under each other, each a row of its own. */
+.maths > .family { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: .5em; }
+.maths .family > div { display: flex; align-items: baseline; gap: .5em; white-space: nowrap; }
 /* A gap's line in whole pixels, as Chromium prints it: one, and two from 25 pt on. The plain pixel is for a browser
    without round(). */
 .maths u { display: inline-block; min-width: var(--gap); border-bottom: 1px solid; border-bottom-width: max(1px, round(down, .06em, 1px)); text-align: center; text-decoration: none; }

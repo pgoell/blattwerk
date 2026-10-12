@@ -64,6 +64,10 @@ class Settings(BaseModel):
     cf: list[Range] = []
     # How often a times or divide task is drawn the school way; the generator alone sets it.
     lean: float = 0.9
+    # Aufgabenfamilien: each drawn task comes with its swap, its reverse or its two neighbours.
+    family: Literal["none", "swap", "reverse", "neighbour"] = "none"
+    # Which number moves in a Nachbaraufgabe.
+    moves: Literal["a", "b"] = "a"
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
@@ -141,8 +145,7 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
             return False
         return a + b <= top if op == "+" else b <= a
     if op == "*":
-        # A gap of 0 · 0 has no one answer, so it is no task of a gap.
-        return a * b <= top and not (s.format == "gap" and a == b == 0)
+        return a * b <= top
     return b > 0 and (s.rest is None or s.rest == (a % b > 0))
 
 
@@ -216,19 +219,24 @@ def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, in
     return None if b is None else (a, b)
 
 
+def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
+    """Every pair of numbers that keeps the limits for one operation."""
+    bs = [nth(s.b, i) for i in range(below(s.b, s.max))]
+    return [
+        (a, b)
+        for a in (nth(s.a, i) for i in range(below(s.a, s.max)))
+        for b in bs
+        if valid(s, op, a, b, top)
+    ]
+
+
 def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list[tuple[int, int]]:
     """Up to `count` different exercises of one operation."""
     sizes = below(s.a, s.max), below(s.b, s.max)
     if not all(sizes):
         return []
     if sizes[0] * sizes[1] <= SMALL:
-        bs = [nth(s.b, i) for i in range(sizes[1])]
-        every = [
-            (a, b)
-            for a in (nth(s.a, i) for i in range(sizes[0]))
-            for b in bs
-            if valid(s, op, a, b, top)
-        ]
+        every = valid_pairs(s, op, top)
         if op in "+-":
             return rng.sample(every, min(count, len(every)))
         # About one task in ten may be a plain one with a 0 or a 1; the rest are school tasks.
@@ -263,6 +271,142 @@ def pairs(s: Settings, top: int) -> list[tuple[str, int, int]]:
     if len(ops) > 1:
         rng.shuffle(out)
     return out
+
+
+REVERSE = {"+": "-", "-": "+", "*": "/", "/": "*"}
+
+
+def kin(s: Settings) -> str:
+    """The family that holds for these settings: "none" when the tasks have none."""
+    if s.family == "none" or s.format not in ("row", "gap") or three(s):
+        return "none"
+    if s.family == "swap" and not {"+", "*"} & set(s.ops):
+        return "none"
+    return s.family
+
+
+def relatives(s: Settings, op: str, a: int, b: int) -> list[tuple[str, int, int]]:
+    """The tasks of the family that holds the task (op, a, b), the task itself first."""
+    kind = kin(s)
+    if kind == "swap":
+        return [(op, a, b), (op, b, a)] if a != b else []
+    if kind == "reverse":
+        return [(op, a, b), (REVERSE[op], result(op, a, b), b)]
+    if op == "/" and s.moves == "a":
+        return [(op, a, b), (op, a - b, b), (op, a + b, b)]
+    if op == "/":
+        q, r = divmod(a, b)
+        return [(op, a, b), (op, q * (b - 1) + r, b - 1), (op, q * (b + 1) + r, b + 1)]
+    if s.moves == "a":
+        return [(op, a, b), (op, a - 1, b), (op, a + 1, b)]
+    return [(op, a, b), (op, a, b - 1), (op, a, b + 1)]
+
+
+def family_of(s: Settings, op: str, a: int, b: int, top: int) -> list[tuple[str, int, int]] | None:
+    """The family of a valid task when every task of it keeps the limits, else None."""
+    if not valid(s, op, a, b, top):
+        return None
+    members = relatives(s, op, a, b)
+    if not members or any(x < 0 or y < 0 or not valid(s, m, x, y, top) for m, x, y in members):
+        return None
+    return members
+
+
+def take_family(
+    s: Settings,
+    op: str,
+    a: int,
+    b: int,
+    top: int,
+    found: dict[frozenset, list],
+    tasks: set[tuple[str, int, int]],
+    repeat: bool,
+) -> bool:
+    """Keeps the family of the task when its key is new, and unless `repeat`, none of its tasks
+    is in the block yet."""
+    fam = family_of(s, op, a, b, top)
+    if fam is None or frozenset(fam) in found or (not repeat and not tasks.isdisjoint(fam)):
+        return False
+    found[frozenset(fam)] = fam
+    tasks.update(fam)
+    return True
+
+
+def fill_small(
+    s: Settings,
+    op: str,
+    top: int,
+    want: int,
+    found: dict[frozenset, list],
+    tasks: set[tuple[str, int, int]],
+    rng: random.Random,
+) -> None:
+    """Families of one operation from every pair that keeps the limits. New tasks come first:
+    a repeat is taken only where the share is short."""
+    cand = valid_pairs(s, op, top)
+    if op in "+-":
+        rng.shuffle(cand)
+    else:
+        # The school tasks come first, as in draw().
+        school_pairs = [p for p in cand if school(op, *p)]
+        others = [p for p in cand if not school(op, *p)]
+        rng.shuffle(others)
+        cand = weighted(op, school_pairs, len(school_pairs), rng) + others
+    got = 0
+    for repeat in (False, True):
+        for a, b in cand:
+            if got == want:
+                return
+            got += take_family(s, op, a, b, top, found, tasks, repeat)
+
+
+def fill_big(
+    s: Settings,
+    op: str,
+    top: int,
+    want: int,
+    found: dict[frozenset, list],
+    tasks: set[tuple[str, int, int]],
+    rng: random.Random,
+) -> None:
+    """Families of one operation from proposed pairs, each with only new tasks."""
+    got = 0
+    for _ in range(1000 + 50 * want):
+        if got == want:
+            break
+        pair = propose(s, op, top, rng)
+        if pair is not None:
+            got += take_family(s, op, *pair, top, found, tasks, False)
+
+
+def families(s: Settings, top: int) -> list[list[tuple[str, int, int]]]:
+    """The families of the block, each as its tasks. The count is shared among the operations."""
+    if kin(s) == "reverse":
+        s = s.model_copy(update={"rest": False})
+    rng = random.Random(s.seed)
+    ops = list(dict.fromkeys(s.ops))
+    if kin(s) == "swap":
+        ops = [op for op in ops if op in "+*"]
+    found: dict[frozenset, list] = {}
+    tasks: set[tuple[str, int, int]] = set()
+    sizes = below(s.a, s.max), below(s.b, s.max)
+    if not all(sizes):
+        return []
+    for i, op in enumerate(ops):
+        want = s.count // len(ops) + (i < s.count % len(ops))
+        fill = fill_small if sizes[0] * sizes[1] <= SMALL else fill_big
+        fill(s, op, top, want, found, tasks, rng)
+    out = list(found.values())
+    if len(ops) > 1:
+        rng.shuffle(out)
+    return out
+
+
+def groups(s: Settings, top: int) -> list[list[tuple[str, int, int]]]:
+    """The drawn tasks by family. Without a family each task stands alone."""
+    if kin(s) == "none":
+        return [[task] for task in pairs(s, top)]
+    return families(s, top)
 
 
 def result(op: str, a: int, b: int) -> int:
@@ -514,6 +658,7 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "max": (s, s.max * 10),
         "close": (s.model_copy(update={"close": False}), s.max),
         "equal": (s.model_copy(update={"equal": "none"}), s.max),
+        "family": (s.model_copy(update={"family": "none"}), s.max),
     }
 
 
@@ -866,6 +1011,27 @@ def chained(s: Settings) -> dict:
     return {"exercises": found, "loosen": loosen}
 
 
+def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random) -> dict:
+    """One two-number exercise: its result, its rest, the number a gap hides and its grid."""
+    result, rest = divmod(a, b) if op == "/" else ({"+": a + b, "-": a - b, "*": a * b}[op], 0)
+    exercise: dict = {"op": op, "a": a, "b": b, "result": result, "rest": rest}
+    if s.format == "gap":
+        hide = rng.choice("ab")
+        # With a 0 that makes the result 0, any number fits the gap: hide the other one then.
+        loose_a = op == "*" and b == 0
+        loose_b = (op == "*" and a == 0) or (op == "/" and result == 0)
+        if loose_a and not loose_b:
+            hide = "b"
+        elif loose_b and not loose_a:
+            hide = "a"
+        # A gap of 0 · 0 hides nothing: the result is the gap, and it has one answer.
+        if not (op == "*" and a == b == 0):
+            exercise["hide"] = hide
+    if s.format == "written":
+        exercise["grid"] = written(op, a, b, d, s.money and d > 0)
+    return exercise
+
+
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
@@ -875,30 +1041,20 @@ def generate(s: Settings) -> dict:
         return compared(s)
     if three(s):
         return chained(s)
-    found = pairs(s, s.max)
     rng = random.Random(s.seed)
+    drawn = groups(s, s.max)
     exercises = []
-    for op, a, b in found:
-        result, rest = divmod(a, b) if op == "/" else ({"+": a + b, "-": a - b, "*": a * b}[op], 0)
-        exercise: dict = {"op": op, "a": a, "b": b, "result": result, "rest": rest}
-        if s.format == "gap":
-            hide = rng.choice("ab")
-            # With a 0 that makes the result 0, any number fits the gap: hide the other one then.
-            loose_a = op == "*" and b == 0
-            loose_b = (op == "*" and a == 0) or (op == "/" and result == 0)
-            if loose_a and not loose_b:
-                hide = "b"
-            elif loose_b and not loose_a:
-                hide = "a"
-            exercise["hide"] = hide
-        if s.format == "written":
-            exercise["grid"] = written(op, a, b, d, s.money and d > 0)
-        exercises.append(exercise)
-    if len(found) == s.count:
+    for n, family in enumerate(drawn):
+        for op, a, b in family:
+            exercise = exercise_of(s, op, a, b, d, rng)
+            if kin(s) != "none":
+                exercise["family"] = n
+            exercises.append(exercise)
+    if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = ("carry", "rest", "a", "b", "max")
-    loosen = [name for name in names if len(pairs(*table[name])) > len(found)]
+    names = ("carry", "rest", "a", "b", "max", "family")
+    loosen = [name for name in names if len(groups(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}
 
 

@@ -119,7 +119,10 @@ def test_every_exercise_keeps_every_limit(s):
     assert (out["loosen"] is None) == (len(exercises) == s.count)
     assert generate(s) == out
     for e in exercises:
-        assert e.get("hide") in (("a", "b") if s.format == "gap" else (None,))
+        if s.format == "gap" and e["op"] == "*" and e["a"] == e["b"] == 0:
+            assert "hide" not in e
+        else:
+            assert e.get("hide") in (("a", "b") if s.format == "gap" else (None,))
         assert ("grid" in e) == (s.format == "written")
 
 

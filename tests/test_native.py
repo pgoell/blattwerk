@@ -440,3 +440,33 @@ def test_the_decimal_controls_stand_in_the_tab_order_and_work_from_the_keyboard(
             page.keyboard.press("Enter")
             expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
     expect_picked(page, "a")
+
+
+def test_tab_reaches_the_families_and_the_keyboard_sets_them(editor):
+    """I1: Tab from 3 Zahlen reaches Aufgabenfamilien; the keys pick Nachbar, then Enter sets b."""
+    client = user()
+    page = editor(box("a", "maths", maths(client, ops=["+", "*"], max=20, count=4)), client=client)
+    press(page, at(page, "a"))
+    expect_picked(page, "a")
+    # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
+    # there to the 3 Zahlen switch. Punkt vor Strich is greyed with two numbers, so Tab skips it.
+    for _ in range(3):
+        page.keyboard.press("F6")
+    for _ in range(60):
+        if page.locator(":focus").get_attribute("aria-label") == "3 Zahlen":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("3 Zahlen")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Aufgabenfamilien")
+    # A select takes the arrow keys: three down from Keine is Nachbaraufgaben.
+    for _ in range(3):
+        page.keyboard.press("ArrowDown")
+    expect(page.locator(":focus")).to_have_value("neighbour")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("1. Zahl wandert")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("2. Zahl wandert")
+    page.keyboard.press("Enter")
+    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, "a")
