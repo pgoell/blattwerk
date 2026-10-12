@@ -1,7 +1,8 @@
 """The maths generator: exercises within exact limits, and their written working."""
 
 import random
-from math import prod
+from functools import lru_cache
+from math import isqrt, prod
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
@@ -21,6 +22,8 @@ SIGNS = {"+": "+", "-": "\u2212", "*": "·", "/": ":"}
 GIVEN, ANSWER, CARRY = 0, 1, 2
 # With no more pairs of numbers than this, every pair is tried, so no exercise is missed.
 SMALL = 20_000
+# Knapp: how far apart the sides of a close comparison lie, in units or in tens.
+CLOSE = [-20, -10, -2, -1, 1, 2, 10, 20]
 
 
 class Settings(BaseModel):
@@ -33,7 +36,13 @@ class Settings(BaseModel):
     carry: Literal["none", "required", "either"] = "either"
     # Whether a division leaves a remainder. None takes both; only the generator asks for that.
     rest: bool | None = False
-    format: Literal["row", "gap", "written"] = "row"
+    format: Literal["row", "gap", "written", "compare"] = "row"
+    # What stands on each side of a comparison: number and number, term and number, term and term.
+    sides: Literal["nn", "tn", "tt"] = "tn"
+    # Knapp: the sides of a comparison differ by 1 or 2 units or tens.
+    close: bool = False
+    # Whether some comparisons, about one in five, have equal sides.
+    equal: Literal["none", "some"] = "some"
     count: Annotated[int, Field(ge=1, le=100)]
     seed: int
 
@@ -49,14 +58,21 @@ class Settings(BaseModel):
 
 def below(ranges: list[Range], bound: int) -> int:
     """How many numbers with each digit in its range are at most `bound`."""
+    return counted(tuple(ranges), bound)
+
+
+# A comparison asks the same counts over and over, so they are remembered; the cap bounds memory.
+@lru_cache(maxsize=4096)
+def counted(ranges: tuple[Range, ...], bound: int) -> int:
+    """`below` for a tuple of ranges, remembered."""
     if bound < 0:
         return 0
     if not ranges:
         return 1
-    *rest, (lo, hi) = ranges
+    rest, (lo, hi) = ranges[:-1], ranges[-1]
     top, low = divmod(bound, 10 ** len(rest))
     lower = max(0, min(hi, top - 1) - lo + 1) * prod(most - least + 1 for least, most in rest)
-    return lower + (below(rest, low) if lo <= top <= hi else 0)
+    return lower + (counted(rest, low) if lo <= top <= hi else 0)
 
 
 def nth(ranges: list[Range], k: int) -> int:
@@ -157,6 +173,152 @@ def pairs(s: Settings, top: int) -> list[tuple[str, int, int]]:
     return out
 
 
+def result(op: str, a: int, b: int) -> int:
+    """What a term comes to."""
+    return a // b if op == "/" else {"+": a + b, "-": a - b, "*": a * b}[op]
+
+
+def term_side(op: str, a: int, b: int) -> dict:
+    """A term as one side of a comparison, with its result."""
+    return {"op": op, "a": a, "b": b, "value": result(op, a, b)}
+
+
+def term(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
+    """A term of this operation that keeps every limit, from up to 20 tries."""
+    for _ in range(20):
+        pair = propose(s, op, top, rng)
+        if pair is not None and valid(s, op, *pair, top):
+            return pair
+    return None
+
+
+def aimed(
+    s: Settings, op: str, target: int, top: int, rng: random.Random
+) -> tuple[int, int] | None:
+    """A term of this operation whose result is `target`, or None."""
+    pair: tuple[int, int] | None = None
+    if op == "+":
+        a = pick(rng, s.a, 0, min(target, s.max))
+        pair = None if a is None else (a, target - a)
+    elif op == "-":
+        b = pick(rng, s.b, 0, s.max - target)
+        pair = None if b is None else (target + b, b)
+    elif op == "*":
+        if target == 0:
+            a = pick(rng, s.a, 0, s.max)
+            pair = None if a is None else (a, 0)
+        else:
+            ways = [(d, target // d) for d in range(1, isqrt(target) + 1) if target % d == 0]
+            ways = list(dict.fromkeys(ways + [(b, a) for a, b in ways]))
+            ways = [(a, b) for a, b in ways if fits(s.a, a) and fits(s.b, b)]
+            pair = rng.choice(ways) if ways else None
+    else:
+        b = pick(rng, s.b, 1, s.max // max(target, 1))
+        pair = None if b is None else (target * b, b)
+    return pair if pair is not None and valid(s, op, *pair, top) else None
+
+
+def term_of(s: Settings, ops: list[str], top: int, rng: random.Random) -> dict | None:
+    """A term of a random operation, its limits kept."""
+    op = rng.choice(ops)
+    pair = term(s, op, top, rng)
+    return None if pair is None else term_side(op, *pair)
+
+
+def aimed_term(
+    s: Settings, ops: list[str], target: int, top: int, rng: random.Random
+) -> dict | None:
+    """A term of a random operation that comes to `target`."""
+    op = rng.choice(ops)
+    pair = aimed(s, op, target, top, rng)
+    return None if pair is None else term_side(op, *pair)
+
+
+def free_side(s: Settings, ops: list[str], top: int, rng: random.Random) -> dict | None:
+    """The right side when no result is aimed at: any number, or any term."""
+    if s.sides == "nn":
+        n = pick(rng, s.b, 0, s.max)
+        return None if n is None else {"value": n}
+    if s.sides == "tn":
+        return {"value": rng.randint(0, s.max)}
+    return term_of(s, ops, top, rng)
+
+
+def aimed_side(
+    s: Settings, ops: list[str], target: int, top: int, rng: random.Random
+) -> dict | None:
+    """The right side when it must come to `target`: the number itself, or a term that does."""
+    if s.sides == "nn":
+        return {"value": target} if fits(s.b, target) and target <= s.max else None
+    if s.sides == "tn":
+        return {"value": target} if target <= s.max else None
+    return aimed_term(s, ops, target, top, rng)
+
+
+def comparison(
+    s: Settings, ops: list[str], top: int, equal_one: bool, rng: random.Random
+) -> dict | None:
+    """One comparison whose sides keep every limit, or None when this try fails."""
+    if s.sides == "nn":
+        n = pick(rng, s.a, 0, s.max)
+        left = None if n is None else {"value": n}
+    else:
+        left = term_of(s, ops, top, rng)
+    if left is None:
+        return None
+    if equal_one or s.close:
+        target = left["value"]
+        if not equal_one:
+            target += rng.choice(CLOSE)
+            if not 0 <= target <= (top if s.sides == "tt" else s.max):
+                return None
+        right = aimed_side(s, ops, target, top, rng)
+    else:
+        right = free_side(s, ops, top, rng)
+    if right is None or (right["value"] == left["value"]) != equal_one:
+        return None
+    # A term never stands against itself: `3 + 4 ○ 3 + 4` is no task.
+    if left == right and "op" in left:
+        return None
+    lo, hi = left["value"], right["value"]
+    return {"left": left, "right": right, "sign": "=" if lo == hi else "<" if lo < hi else ">"}
+
+
+def draw_comparisons(
+    s: Settings,
+    ops: list[str],
+    top: int,
+    want: int,
+    tries: int,
+    equal_one: bool,
+    rng: random.Random,
+) -> list[dict]:
+    """Up to `want` different comparisons, all with equal sides or all with unequal ones."""
+    # A dict keeps the order they were found in, so a seed gives the same comparisons again.
+    found: dict[tuple, dict] = {}
+    for _ in range(tries):
+        if len(found) == want:
+            break
+        e = comparison(s, ops, top, equal_one, rng)
+        if e is not None:
+            found.setdefault((tuple(e["left"].items()), tuple(e["right"].items())), e)
+    return list(found.values())
+
+
+def compare(s: Settings, top: int) -> list[dict]:
+    """The comparisons, `equal` of them with equal sides and the rest with unequal ones."""
+    # A term has no remainder here: a division comes out even, whatever `rest` says.
+    s = s.model_copy(update={"rest": False})
+    rng = random.Random(s.seed)
+    ops: list[str] = list(dict.fromkeys(s.ops))
+    # The "=" tasks are made first, so a short supply of them is not filled with others.
+    n_equal = (2 * s.count + 5) // 10 if s.equal == "some" else 0
+    out = draw_comparisons(s, ops, top, n_equal, 500 + 50 * n_equal, True, rng)
+    out += draw_comparisons(s, ops, top, s.count - n_equal, 1000 + 50 * s.count, False, rng)
+    rng.shuffle(out)
+    return out
+
+
 def put(cells: list[list], right: int, y: int, text: str, kind: int = GIVEN) -> None:
     """Writes one character a cell, the last one in column `right`."""
     cells += [[right - i, y, ch, kind] for i, ch in enumerate(reversed(text))]
@@ -230,9 +392,43 @@ def written(op: str, a: int, b: int) -> dict:
     return {"cols": len(head) + len(answer) + 1, "rows": y + 2, "cells": cells, "lines": lines}
 
 
+def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
+    """Each limit taken off in turn: the settings with it looser, and the highest result."""
+    free = [(0, 9)] * len(s.a)
+    return {
+        "carry": (s.model_copy(update={"carry": "either"}), s.max),
+        "rest": (s.model_copy(update={"rest": None}), s.max),
+        "a": (s.model_copy(update={"a": free}), s.max),
+        "b": (s.model_copy(update={"b": free}), s.max),
+        "max": (s, s.max * 10),
+        "close": (s.model_copy(update={"close": False}), s.max),
+        "equal": (s.model_copy(update={"equal": "none"}), s.max),
+    }
+
+
+def compared(s: Settings) -> dict:
+    """The comparisons for these settings, and the limits that stand in the way of more."""
+    found = compare(s, s.max)
+    if len(found) == s.count:
+        return {"exercises": found, "loosen": None}
+    table = loosened(s)
+    names = ("carry", "a", "b", "max", "close", "equal")
+    # A limit already at its loosest changes nothing, so it is not tried again.
+    return {
+        "exercises": found,
+        "loosen": [
+            name
+            for name in names
+            if table[name] != (s, s.max) and len(compare(*table[name])) > len(found)
+        ],
+    }
+
+
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
+    if s.format == "compare":
+        return compared(s)
     found = pairs(s, s.max)
     rng = random.Random(s.seed)
     exercises = []
@@ -246,15 +442,9 @@ def generate(s: Settings) -> dict:
         exercises.append(exercise)
     if len(found) == s.count:
         return {"exercises": exercises, "loosen": None}
-    free = [(0, 9)] * len(s.a)
-    looser = {
-        "carry": (s.model_copy(update={"carry": "either"}), s.max),
-        "rest": (s.model_copy(update={"rest": None}), s.max),
-        "a": (s.model_copy(update={"a": free}), s.max),
-        "b": (s.model_copy(update={"b": free}), s.max),
-        "max": (s, s.max * 10),
-    }
-    loosen = [name for name, (to, top) in looser.items() if len(pairs(to, top)) > len(found)]
+    table = loosened(s)
+    names = ("carry", "rest", "a", "b", "max")
+    loosen = [name for name in names if len(pairs(*table[name])) > len(found)]
     return {"exercises": exercises, "loosen": loosen}
 
 
