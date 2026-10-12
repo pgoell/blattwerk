@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, createContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
@@ -961,8 +961,32 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const { text = "", trace } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
+  // With no Lernwörter a mode is none: the block draws its own text as it always did.
+  const words = useContext(Words);
+  const mode = words.length ? listOf(block) : undefined;
+  const shown = words.slice(0, rows);
+  const cut = (word: string) => [...word].slice(0, cols).join("");
+  // On Karo a row of the list is its word, cut to the squares, and in "row" as often as whole words fit.
+  const karo = mode === "row"
+    ? shown.map((word) => {
+        const c = cut(word);
+        const reps = Math.max(1, Math.floor((cols + 1) / ([...c].length + 1)));
+        return Array.from({ length: reps }, () => c).join(" ");
+      }).join("\n")
+    : shown.map(cut).join("\n");
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
+  const listed = mode && at && (
+    <div className="written listed" style={{ ...writtenStyle(block, k), color: mode === "copy" ? undefined : "#aaaaaa" }}>
+      {shown.map((word, i) => (
+        <div className="row" key={i} style={{ height: row * k }}>
+          {mode === "row"
+            ? Array.from({ length: Math.min(60, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
+            : <span>{word}</span>}
+        </div>
+      ))}
+    </div>
+  );
   return (
     <div>
       <svg className="ruling" viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
@@ -972,13 +996,13 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           <line key={y} x2={at ? block.w : cols * row} y1={y} y2={y} />
         ))}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
-        {!at && cols > 0 && squares(text, cols).map(([x, y, ch], i) => y < rows && (
-          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={trace ? "#aaaaaa" : "currentColor"}>
+        {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={mode ? (mode === "copy" ? "currentColor" : "#aaaaaa") : trace ? "#aaaaaa" : "currentColor"}>
             {ch}
           </text>
         ))}
       </svg>
-      {children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
+      {mode ? listed : children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
     </div>
   );
 }
