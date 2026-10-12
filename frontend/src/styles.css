@@ -541,10 +541,11 @@ body:has(.print) { background: #fff; }
    keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
 /* The editor draws the page scaled to the zoom, so below about 106 % a .25mm line is less than a screen pixel and
    comes out pale or not at all. --px is one screen pixel in the page's units (Editor.tsx). On the screen the line is
-   at least that, in whole units of the page: WebKit lays the band out on those and drew none of a part of one. The
-   print never sets --px, so it keeps .25mm, as does a browser that knows no round(). */
-.gap { --gl: max(.25mm, var(--px, 0px)); background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - var(--gl)) / 100% var(--gl); }
-@supports (width: round(up, 1px, 1px)) { .gap { --gl: max(.25mm, round(up, var(--px, 0px), 1px)); } }
+   at least that (--gl). A plain gap's band (--gs) is that in whole units of the page: WebKit lays it out on those and
+   drew none of a part of one. The bands of `.even` keep --gl: in whole units they came out too dark against the print.
+   The print never sets --px, so it keeps .25mm; a browser that knows no round() draws --gl. */
+.gap { --gl: max(.25mm, var(--px, 0px)); --gs: var(--gl); background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - var(--gs)) / 100% var(--gs); }
+@supports (width: round(up, 1px, 1px)) { .gap { --gs: max(.25mm, round(up, var(--px, 0px), 1px)); } }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
