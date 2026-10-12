@@ -174,6 +174,8 @@ const SLOP = 10;
 const KEEP = 1;
 const CENTRE = 2;
 const LOOSE = 4;
+// The frame and handles stand this far (px) outside a picked block, so they lie clear of its letters.
+const FRAME = { left: 8, top: 8, right: 8, bottom: 8 };
 const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -563,6 +565,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
+  // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
+  const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
   // A picture and a symbol always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol");
   const keep = (mod & KEEP) > 0 || shaped || lock;
@@ -2283,8 +2287,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The whole page in use, width and height, once: it does not follow the window.
   function fitPage() {
     const el = desk.current!;
-    // 120 is the desk's padding above and below.
-    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.clientHeight - 120) / H) / fit))));
+    // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
+    // bottom, which goes once the page fits, and the desk has no border to take off.
+    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
     const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
     // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
     el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
@@ -2675,8 +2680,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
             pick(e.target as Element, e.shiftKey, e.nativeEvent);
           }}
+          // Moveable stops a click on its band before the desk's own click hears it, so the band is looked at on the way down.
+          onMouseDownCapture={(e) => {
+            if ((e.target as Element).classList.contains("moveable-padding")) spot.current = [e.clientX, e.clientY];
+          }}
           // Moveable keeps a click on a selection it cannot drag to itself, so the block under its area is looked up on the way down.
           onClickCapture={(e) => {
+            if ((e.target as Element).classList.contains("moveable-padding")) {
+              const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
+              const under = still && document.elementsFromPoint(e.clientX, e.clientY).find((el) => !moveable.current!.isMoveableElement(el));
+              if (under) pick(under, e.shiftKey);
+              return;
+            }
             if (free.length === sel.length || !moveable.current!.isMoveableElement(e.target as Element)) return;
             const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block"));
             if (under) pick(under, e.shiftKey);
@@ -2860,6 +2875,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     draggable={free.length === sel.length}
                     resizable={free.length === sel.length && !sel.some(isLine)}
                     renderDirections={handles}
+                    // A lone line keeps its own handles at its ends, and has no frame.
+                    padding={sel.length === 1 && isLine(sel[0]) ? undefined : FRAME}
+                    // Each loose block has its own outline from Moveable, which the padding does not reach. Blocks of one
+                    // group keep only the frame about them all, so the outlines do not cut their letters.
+                    hideChildMoveableDefaultLines={oneGroup}
                     origin={false}
                     checkInput
                     // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
