@@ -312,6 +312,8 @@ def test_i6_geteilt_in_a_family_leaves_no_rest_and_moves_the_quotient(editor):
     expect(mit_rest).to_be_disabled()
     assert all(int(e.get("rest", 0)) == 0 for e in saved(page, client))
     pick_family(page, "Nachbaraufgaben")
+    # The new tasks are on the sheet before the document is read: the save follows them.
+    expect(at(page, "m").locator(f"{FAMILY_ROW} > div")).to_have_count(12)
     fams = families(page, client)
     assert len(fams) == 4 and all(len(f) == 3 for f in fams), fams
     a, _, b, _ = fams[0][0]
