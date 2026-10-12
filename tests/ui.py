@@ -107,7 +107,10 @@ def maths(client, **more):
     """A maths block's props as the editor makes them: three sums in a row, 12 mm high at 14 pt."""
     digits = [[0, 9], [0, 9]]
     limits = {**MATHS, "a": digits, "b": digits, "carry": "either", "rest": False, "format": "row"}
-    limits = {**limits, **{key: more[key] for key in more if key in limits}}
+    limits = {
+        **limits,
+        **{key: more[key] for key in more if key in limits or key in ("sides", "close", "equal")},
+    }
     made = client.post("/api/maths", json=limits).json()
     return {**limits, **made, "columns": 3, "size": 14, **more}
 

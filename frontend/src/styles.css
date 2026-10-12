@@ -461,6 +461,9 @@ body:has(.print) { background: #fff; }
 .maths u, .maths .answer { color: #c0392b; }
 .maths u { border-color: #222; }
 .maths .hint { margin: 0; font-size: 12px; }
+/* A comparison's ring is empty for the pupil, who writes the sign in it; the answer key writes it in red. The ring is
+   a circle of the row's height, so it sits on the numbers' line. Scoped to `i`: a numbering ring is a `span`. */
+.maths i.ring { display: inline-block; box-sizing: border-box; width: 1.3em; height: 1.3em; min-width: 0; padding: 0; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); border-radius: 50%; vertical-align: middle; text-align: center; line-height: 1.2em; font-style: normal; color: #c0392b; }
 /* A word search fills its block: the grid is as wide as the block, or as high as the word list under it leaves
    room, and its squares stay square. The list stands right under the grid. */
 .block .suchsel { display: flex; flex-direction: column; gap: .4em; height: 100%; font-family: Andika; }
@@ -543,8 +546,9 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
-/* A linked speech bubble is a grid of the row for its words and an empty one where its tail is (Frame in sheet.tsx). */
-.frame.listed > .rich { grid-area: words; }
+/* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
+   text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */
+.frame.tailed > .body { grid-area: words; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 /* A gap is a line to write on, in the text's colour. The editor greys its words, the pupil's sheet hides them (they
    keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
 /* The editor draws the page scaled to the zoom, so below about 106 % a .25mm line is less than a screen pixel and
@@ -573,13 +577,15 @@ body:has(.print) { background: #fff; }
 /* With gapWidth the line under a word is as wide as the gap too, and the word stands in the middle of it. */
 .even .mix.under .gap.line { min-width: max(100%, var(--gap)); }
 /* In a text from the Lernwörter a column can be too narrow for a word and its line side by side: then the line goes
-   to the next row, and a word wider than the column breaks. The line lies under the last row of what it holds. */
-.listed .mix { white-space: normal; }
-.listed .mix .mixed, .listed .mix .mixkey { overflow-wrap: anywhere; }
-.listed .mix .gap.line { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-.listed .mix .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
-.listed .mix.under { max-width: 100%; }
-.listed .mix.under > * { max-width: 100%; }
+   to the next row, and a word wider than the column breaks. The line lies under the last row of what it holds. A word
+   that stands alone in its paragraph in a text of one's own (`.lone`) breaks the same way; a word in a sentence still
+   keeps its line beside it. */
+:is(.listed, .lone) .mix { white-space: normal; }
+:is(.listed, .lone) .mix .mixed, :is(.listed, .lone) .mix .mixkey { overflow-wrap: anywhere; }
+:is(.listed, .lone) .mix .gap.line { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+:is(.listed, .lone) .mix .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
+:is(.listed, .lone) .mix.under { max-width: 100%; }
+:is(.listed, .lone) .mix.under > * { max-width: 100%; }
 .mixkey, .mixkey * { color: #c0392b !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
