@@ -133,6 +133,9 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     """Whether an exercise keeps every limit. `top` is the highest result."""
     if not (fits(s.a, a) and fits(s.b, b) and a <= s.max and b <= s.max):
         return False
+    # A written task with a 0 as a number teaches nothing, whatever the operation.
+    if s.format == "written" and 0 in (a, b):
+        return False
     if op in "+-":
         if s.carry != "either" and (s.carry == "required") != any(carries(op, a, b)):
             return False
@@ -198,16 +201,18 @@ def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, in
         pair = school_pair(s, op, top, rng)
         if pair is not None:
             return pair
+    # A written task has no 0 as a number, so its draws start at 1.
+    low = 1 if s.format == "written" else 0
     if op == "/":
         b = pick(rng, s.b, 1, s.max)
         if b is None:
             return None
-        return rng.randint(0, s.max // b) * b + (0 if s.rest is False else rng.randrange(b)), b
-    a = pick(rng, s.a, 0, s.max)
+        return rng.randint(low, s.max // b) * b + (0 if s.rest is False else rng.randrange(b)), b
+    a = pick(rng, s.a, low, s.max)
     if a is None:
         return None
     room = {"+": top - a, "-": a, "*": top // a if a else s.max}[op]
-    b = pick(rng, s.b, 0, min(room, s.max))
+    b = pick(rng, s.b, low, min(room, s.max))
     return None if b is None else (a, b)
 
 
@@ -709,8 +714,28 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
     return {"op": op, "a": a, "b": b, "op2": op2, "c": c, "result": result(op, a, w), "rest": 0}
 
 
-def take(s: Settings, top: int, shape: tuple, rng: random.Random, found: dict) -> bool:
-    """Draws one task of a shape, and keeps it when it is sound and not yet there."""
+def dull(s: Settings, e: dict, found: dict) -> bool:
+    """Whether a three-number task is too plain for a block with a Punkt sign: two of its numbers
+    are 0 or 1, its bracket comes to 0 or 1, or its result is 0 once the block has its share."""
+    if sum(e[k] in (0, 1) for k in "abc") > 1:
+        return True
+    if "paren" in e:
+        inner = (
+            result(e["op"], e["a"], e["b"])
+            if e["paren"] == "left"
+            else result(e["op2"], e["b"], e["c"])
+        )
+        if inner in (0, 1):
+            return True
+    # A result of 0 is rare: the block holds at most its tenth part of them.
+    return e["result"] == 0 and sum(t["result"] == 0 for t in found.values()) >= s.count // 10
+
+
+def take(
+    s: Settings, top: int, shape: tuple, rng: random.Random, found: dict, strict: bool = False
+) -> bool:
+    """Draws one task of a shape, and keeps it when it is sound and not yet there. A strict
+    draw also refuses a dull task."""
     ops1, ops2, build, paren = shape
     e = build(s, rng.choice(ops1), rng.choice(ops2), top, rng)
     if e is None:
@@ -718,6 +743,8 @@ def take(s: Settings, top: int, shape: tuple, rng: random.Random, found: dict) -
     if paren:
         e["paren"] = paren
     if not sound(s, e, top):
+        return False
+    if strict and dull(s, e, found):
         return False
     key = (e["a"], e["op"], e["b"], e["op2"], e["c"], e.get("paren"))
     if key in found:
@@ -727,7 +754,13 @@ def take(s: Settings, top: int, shape: tuple, rng: random.Random, found: dict) -
 
 
 def draw_shape(
-    s: Settings, top: int, shape: tuple, want: int, rng: random.Random, found: dict
+    s: Settings,
+    top: int,
+    shape: tuple,
+    want: int,
+    rng: random.Random,
+    found: dict,
+    strict: bool = False,
 ) -> None:
     """Draws up to `want` new tasks of a shape. A shape that brings nothing new 200 times in a
     row has no more to give: tight limits leave few tasks, and the tries would all be spent."""
@@ -735,7 +768,7 @@ def draw_shape(
     for _ in range(300 + 20 * s.count):
         if got == want or idle == 200:
             break
-        new = take(s, top, shape, rng, found)
+        new = take(s, top, shape, rng, found, strict)
         got += new
         idle = 0 if new else idle + 1
 
@@ -769,15 +802,20 @@ def chains(s: Settings, top: int) -> list[dict]:
         school = s.model_copy(update={"lean": 1.0})
         s = s.model_copy(update={"lean": 0.0})
         few = s.count // 10
+        # The draws are strict: a dull task waits for the last fill, where tight limits take it.
         for i, shape in enumerate(shapes):
             before = len(found)
-            draw_shape(school, top, shape, shares[i] - few // k - (i < few % k), rng, found)
-            draw_shape(s, top, shape, shares[i] - (len(found) - before), rng, found)
+            draw_shape(
+                school, top, shape, shares[i] - few // k - (i < few % k), rng, found, strict=True
+            )
+            draw_shape(s, top, shape, shares[i] - (len(found) - before), rng, found, strict=True)
     else:
         for share, shape in zip(shares, shapes, strict=True):
             draw_shape(s, top, shape, share, rng, found)
-    for shape in shapes:
-        draw_shape(s, top, shape, s.count - len(found), rng, found)
+    # With a Punkt sign the fill first refuses dull tasks, and only then takes any.
+    for strict in (True, False) if punkt else (False,):
+        for shape in shapes:
+            draw_shape(s, top, shape, s.count - len(found), rng, found, strict)
     out = list(found.values())
     if len(shapes) > 1:
         rng.shuffle(out)

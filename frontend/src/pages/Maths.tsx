@@ -1,9 +1,9 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
-import { decimalsOf, SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import { decimalsOf, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
@@ -34,6 +34,8 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
   const asked = useRef(0);
   const p = pending ?? block.props;
+  // The scale the block draws at: its tasks may be too wide for its columns.
+  const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
 
   // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
   // stays as set, and the line above the page asks again with it.
@@ -235,6 +237,11 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
         <output>{p.columns} Spalten</output>
         <button aria-label="Eine Spalte mehr" onClick={() => show({ columns: Math.min(6, p.columns + 1) })}>＋</button>
       </div>
+      {scale < 0.97 && (
+        <p className="hint" role="status">
+          {p.columns > 1 ? `Für ${p.columns} Spalten sind die Aufgaben zu breit und stehen kleiner da. Mit weniger Spalten werden sie größer.` : "Die Aufgaben sind zu breit für den Block und stehen kleiner da."}
+        </p>
+      )}
       {p.format !== "written" && (
         <div className="seg">
           <button aria-label="Schrift kleiner" onClick={() => show({ size: Math.max(8, p.size - 2) })}>−</button>
