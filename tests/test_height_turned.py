@@ -5,8 +5,8 @@ import math
 import pytest
 from playwright.sync_api import expect
 from test_grow_turned import corner, stays
-from test_painter import paint
-from ui import RULING, at, box, maths, pick, saved, user
+from test_painter import brush, expect_brush, paint
+from ui import RULING, at, box, expect_picked, maths, pick, saved, user
 
 ANGLES = [90, 30, 200]
 # A block with room around it on a page of 210 by 297 mm.
@@ -144,7 +144,14 @@ def test_the_brush_leaves_a_level_maths_block_in_its_place(editor):
     client = user()
     was = box("b", "maths", maths(client, seed=8), z=2, h=12)
     page = editor(box("a", "maths", maths(client, size=28), h=24), was, client=client)
-    paint(page, "a", "b")
+    # As paint does, but the click lands low on b: a's lower handle covers its middle now.
+    pick(page, "a")
+    brush(page).click()
+    expect_brush(page, True)
+    held = at(page, "b").bounding_box()
+    page.mouse.click(held["x"] + held["width"] / 2, held["y"] + held["height"] - 4)
+    expect_picked(page, "b")
+    expect_brush(page, False)
     b = saved(page, client)[1]
     assert (b["x"], b["y"], b["h"]) == (was["x"], was["y"], 24)
 

@@ -301,7 +301,14 @@ def test_a_maths_block_carries_its_size(editor):
         box("b", "maths", maths(client, seed=8), z=2, h=12),
         client=client,
     )
-    paint(page, "a", "b")
+    # As paint does, but the click lands low on b: the frame's lower handle of a covers its middle.
+    pick(page, "a")
+    brush(page).click()
+    expect_brush(page, True)
+    held = at(page, "b").bounding_box()
+    page.mouse.click(held["x"] + held["width"] / 2, held["y"] + held["height"] - 4)
+    expect_picked(page, "b")
+    expect_brush(page, False)
     b = whole(page, client)["b"]
     # The exercises stay, and the block is as high as they need now.
     assert b["props"] == {**maths(client, seed=8), "size": 28}
