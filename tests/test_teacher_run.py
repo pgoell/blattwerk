@@ -434,7 +434,7 @@ def test_t6_the_brief_lists_expire_and_says_when_to_use_it():
 def test_t7_tidy_runs_after_the_stage_is_down_and_once_more_at_the_end():
     clean = section("## Clean up")
     assert clean.index(f"{MISE} stage:down") < clean.index(f"{MISE} teacher:page -- tidy")
-    assert "very last command before the report" in clean
+    assert "very last command before the `herdr` line" in clean
     assert "Keep `/tmp/teacher-run`, because the issues name its screenshots." in clean
     report = section("## Report")
     assert re.search(r"^8\. What the last `tidy` deleted, if anything\.$", report, re.M)
@@ -453,3 +453,124 @@ def test_t9_the_brief_says_to_start_at_once_and_ask_nobody():
     assert "Start at once." in order
     assert "Ask nobody for a go" in order
     assert "end with one of the two last lines" in order
+
+
+# What issue #406 found in the brief's fourth run, 1 to 11. Point 1 is a test of the tool.
+
+
+def test_406_2_sheet_4_sets_the_title_in_the_window_that_built_the_sheet():
+    sheet4 = section("### 4. ")
+    mcp, built_in_tool = sheet4.split("- built in the tool's window:")
+    assert "- built in the MCP page:" in mcp
+    assert "`type_text` `TR4 Zwei Seiten`" in mcp
+    tool_title = '`click "Titel"`, `key Control+a`, `type "TR4 Zwei Seiten"`, `key Enter`'
+    assert tool_title in built_in_tool
+    assert "`fill`" not in sheet4
+
+
+def test_406_3_a_control_below_the_window_gets_a_wheel_on_the_panel_first():
+    how = section("## How the editor works")
+    lines = how.splitlines()
+    bullet = next(line for line in lines if line.startswith("  - a control of the right panel"))
+    assert "below the window's lower edge" in bullet
+    assert "`wheel`" in bullet and "the panel first" in bullet
+    source = "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
+    for label in ("Randstärke", "Jedes n-te Wort", "Lösungswörter"):
+        assert f"`{label}`" in bullet, label
+        assert on_screen(label, source), label
+
+
+def test_406_4_a_snapshot_is_searched_in_its_file_with_the_grep_tool():
+    allowed = section("## Rules").split("\nForbidden:\n")[0]
+    grep = "- The Grep tool, on a snapshot file in `/tmp/teacher-run` and on nothing else."
+    assert grep in allowed
+    assert "`take_snapshot` with its `filePath` `/tmp/teacher-run/" in allowed
+    assert "do not search that answer" in allowed
+
+
+def test_406_5_the_jq_leaves_out_the_types_a_teacher_cannot_see_before_five_are_taken():
+    prs = section(PRS)
+    commands = re.findall(r"gh pr list [^\n]*--jq '(.+)'$", prs, re.M)
+    assert len(commands) == 2
+    # Sixteen merged pull requests, newest first. The ones that are no teacher's: 1, 3, 5, 7, 9, 10.
+    titles = [
+        "ci(deps): bump a runner",
+        "feat: a word",
+        "docs: the readme",
+        "fix: a line",
+        "chore: bump",
+        "perf: a list",
+        "test: a case",
+        "feat(ui): a panel",
+        "build: a script",
+        "refactor: a helper",
+        "fix!: a page",
+        "feat: a word",
+        "perf: a sum",
+        "fix: a box",
+        "feat: a bank",
+        "fix: a tab",
+    ]
+    merged = [
+        {
+            "number": n + 1,
+            "title": title,
+            "url": f"https://github.com/pgoell/blattwerk/pull/{n + 1}",
+            "body": "a body",
+            "mergedAt": f"2026-10-{30 - n:02d}T10:00:00Z",
+        }
+        for n, title in enumerate(titles)
+    ]
+    listed = []
+    for command in commands:
+        out = subprocess.run(
+            ["jq", "-r", command],
+            input=json.dumps(merged),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        listed.append([int(n) for n in re.findall(r"^#(\d+) ", out, re.M)])
+    assert listed == [[2, 4, 6, 8, 11], [12, 13, 14, 15, 16]]
+
+
+def test_406_7_a_delete_in_the_mcp_page_is_answered_with_handle_dialog():
+    para = next(line for line in BRIEF.splitlines() if line.startswith("Which window for what."))
+    delete = "A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box"
+    assert delete in para
+    assert "answer it with `handle_dialog`" in para
+    assert "`handle_dialog`" in section("## Rules").split("\nForbidden:\n")[0]
+
+
+def test_406_9_tidy_is_the_last_command_and_the_herdr_line_follows_it():
+    clean = section("## Clean up")
+    assert clean.rindex(f"{MISE} teacher:page -- tidy") < clean.index("`herdr` line")
+    assert "very last command before the `herdr` line" in clean
+    assert "the `herdr` line that the orchestrator's prompt gives you" in clean
+
+
+def test_406_10_the_above_all_split_still_adds_up_to_50_minutes():
+    split = next(part for part in BRIEF.split("\n\n") if "above all" in part)
+    assert "five sheets get 10 minutes, not 15" in split
+    assert "build sheets 1, 3 and 4 only" in split
+    assert "pull requests get 30 minutes, not 25" in split
+    assert "at least 20 of the 30 minutes" in split
+    assert "Issues and clean up keep 7" in split
+    sheets = re.search(r"sheets get (\d+) minutes", split)
+    pulls = re.search(r"pull requests get (\d+) minutes", split)
+    issues = re.search(r"clean up keep (\d+)", split)
+    assert sheets and pulls and issues
+    # The start takes 3, as the time box above says.
+    assert "Start and sign in take 3" in BRIEF
+    assert 3 + int(sheets[1]) + int(pulls[1]) + int(issues[1]) == 50
+    # Step 1 of the pull requests says the same stop: 30 minutes with an "above all".
+    step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
+    assert 'Stop after 25 minutes (30 when an "above all" is named' in step
+
+
+def test_406_11_a_gap_of_two_words_has_its_steps():
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if line.startswith("- A gap of two words"))
+    assert "`key Home`" in bullet
+    assert "`key Control+Shift+ArrowRight 2`" in bullet
+    assert '`click "Lücke"`' in bullet
