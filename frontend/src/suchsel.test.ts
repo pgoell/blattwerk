@@ -194,9 +194,18 @@ describe("laid", () => {
     for (const seed of [1, 2]) {
       const t = performance.now();
       const out = laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed });
-      expect(performance.now() - t).toBeLessThan(1000);
+      // About 150 ms on a free machine; the limit leaves room for a loaded one.
+      expect(performance.now() - t).toBeLessThan(3000);
       expect(clean(out.grid, out.hidden, words, true)).toBe(true);
     }
+  });
+
+  it("ends soon on a list that no fill can satisfy", () => {
+    // E, any letter, E: whatever stands between two E spells a word, so the sweeps run to their end.
+    const words = [..."ENISRATDHULCGMOBWFKZPVJYXQÜÄÖ"].map((l) => `E${l}E`);
+    const t = performance.now();
+    laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed: 1 });
+    expect(performance.now() - t).toBeLessThan(3000);
   });
 
   it("fills the empty squares by German letter frequency", () => {

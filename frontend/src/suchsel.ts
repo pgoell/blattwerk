@@ -172,9 +172,12 @@ function lay(p: SuchselProps): Laid {
   const bad = (at?: [number, number]) => {
     const found: { sq: [number, number][]; ls: string[] }[] = [];
     for (const ls of forms) {
+      // A run through `at` starts less than its length away, so only those squares are tried.
+      const far = at ? ls.length - 1 : Math.max(cols, rows);
+      const [c0, r0] = at ?? [0, 0];
       for (const [dc, dr] of EIGHT) {
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
+        for (let r = Math.max(0, r0 - far); r < Math.min(rows, r0 + far + 1); r++) {
+          for (let c = Math.max(0, c0 - far); c < Math.min(cols, c0 + far + 1); c++) {
             const sq = run(cols, rows, c, r, dc, dr, ls.length);
             if (!sq || !sq.every(([x, y], k) => grid[y][x] === ls[k])) continue;
             if (!sq.some(([x, y]) => fill[y][x])) continue;
