@@ -492,3 +492,51 @@ def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor
     page.locator(".panel").get_by_label("Text der Lineatur").select_option("own")
     expect(at(page, "a").locator("textarea.written")).to_have_attribute("readonly", "")
     assert rulings(doc(page, client))[0]["props"]["text"] == "Hund"
+
+
+def test_a_list_too_long_for_the_blatt_is_said_on_the_tab(editor):
+    """Review: the Lernwörter-Blatt picks no block, so the tab itself says what does not fit."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, [f"Wort{n}" for n in range(12)])
+    list_tab(page)
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    said = "In einer Lineatur passen 3 Wörter nicht in die Zeilen."
+    expect(page.locator(".panel [role=status]")).to_have_text(said)
+    assert [b["h"] for b in rulings(doc(page, client), 1)] == [72, 72, 72]
+
+
+def test_a_lineatur_in_a_group_with_a_locked_block_takes_the_list_and_does_not_grow(editor):
+    """Review: such a block is as fixed as the locked one, as "Bis Seitenende" has it."""
+    client = user()
+    page = editor(
+        box("r", "ruling", RULING, group=["g"]),
+        box("t", "text", TEXT, y=150, z=2, locked=True, group=["g"]),
+        client=client,
+    )
+    store_words(page, client, ["Hund", "Katze", "Maus", "Reh", "Igel"])
+    at(page, "r").click()
+    page.get_by_label("Text der Lineatur").select_option("copy")
+    stored = rulings(doc(page, client))[0]
+    assert (stored["props"]["list"], stored["h"]) == ("copy", 20)
+    said = "3 Wörter passen nicht in die Zeilen."
+    expect(page.locator(".panel [role=status]")).to_have_text(said)
+
+
+def test_a_paste_beside_a_word_joins_no_word_to_it(editor):
+    """Review: pasted words keep to lines of their own, behind a word and before one."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    list_tab(page)
+    field(page).click()
+    page.keyboard.type("Igel")
+    copy_text(page, "Hund, Katze")
+    field(page).focus()
+    page.keyboard.press("Control+End")
+    page.keyboard.press("Control+v")
+    expect(field(page)).to_have_value("Igel\nHund\nKatze")
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("Control+v")
+    expect(field(page)).to_have_value("Hund\nKatze\nIgel\nHund\nKatze")
+    assert doc(page, client)["words"] == ["Hund", "Katze", "Igel", "Hund", "Katze"]

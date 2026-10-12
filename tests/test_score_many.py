@@ -151,3 +151,20 @@ def test_the_field_shows_the_sheet_after_plus_when_the_first_box_ends_where_it_b
     expect(page.locator(PANEL_SCORE)).to_have_value("8")
     page.keyboard.press("Escape")
     assert maxes(page, client) == {"a": 8, "b": 8}
+
+
+def test_escape_gives_up_what_was_typed_and_a_later_visit_sends_nothing(editor):
+    """Found by the review of PR #415: Escape left the field marked as typed in, and the next
+    visit that typed nothing sent the first box's number to every picked box."""
+    client = user()
+    page = three(editor, client)
+    pick(page, "a", "b")
+    page.locator(PANEL_SCORE).fill("")
+    page.locator(PANEL_SCORE).press_sequentially("7")
+    page.locator(PANEL_SCORE).press("Escape")
+    expect(page.locator(PANEL_SCORE)).to_have_value("60")
+    page.locator(PANEL_SCORE).focus()
+    page.locator(PANEL_SCORE).blur()
+    expect(at(page, "b").locator(".points")).to_have_text("/ 15 Punkte")
+    assert maxes(page, client) == {"a": 60, "b": 15, "c": 10}
+    undo_is_off(page)

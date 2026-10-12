@@ -982,7 +982,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
-            ? Array.from({ length: Math.min(60, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
+            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
             : <span>{word}</span>}
         </div>
       ))}
@@ -1206,6 +1206,8 @@ export function ScoreInput({ max, change, end, blur, steps }: { max: number; cha
         }
         if (e.key !== "Escape") return;
         off.current = true;
+        // What was typed is given up: a later visit of the field that types nothing sends nothing.
+        dirty.current = false;
         typed.current = String(shown.current);
         setDraft(typed.current);
         e.currentTarget.blur();

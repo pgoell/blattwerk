@@ -513,6 +513,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const { pages, guides, grid } = hist.doc;
   // The sheet's Lernwörter, the same list until the sheet's own changes.
   const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
+  // How many of them the most crowded Lineatur of the sheet cannot show.
+  const crowded = Math.max(0, ...pages.flatMap((p) => p.blocks.map((b) => (b.type === "ruling" ? short(b, learnt) : 0))));
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -1035,7 +1037,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function takeList(mode?: ListMode) {
     // A Lineatur being written in ends its writing: linked, it has no field left to write in.
     if (mode) setEditing("");
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "ruling" ? (mode ? linked(b, mode, learnt, W, H) : cutLoose(b, learnt)) : b)));
+    // A block of a group with a locked one is as fixed as the locked one: it takes the list and does not grow.
+    const fixed = sel.filter((b) => !free.includes(b)).map((b) => b.id);
+    change((bs) =>
+      bs.map((b) => {
+        if (!ids.includes(b.id) || b.type !== "ruling") return b;
+        if (!mode) return cutLoose(b, learnt);
+        return fixed.includes(b.id) ? { ...b, props: { ...b.props, list: mode } } : linked(b, mode, learnt, W, H);
+      }),
+    );
   }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
   function listWords(value: string) {
@@ -3147,12 +3157,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   e.preventDefault();
                   const field = e.currentTarget;
                   const [from, to] = [field.selectionStart, field.selectionEnd];
-                  const words = pasted(e.clipboardData.getData("text/plain")).join("\n");
+                  const [before, after] = [field.value.slice(0, from), field.value.slice(to)];
+                  // The pasted words keep to lines of their own: a word before or behind them is not joined to one.
+                  const words = (/[^\n]$/.test(before) ? "\n" : "") + pasted(e.clipboardData.getData("text/plain")).join("\n") + (/^[^\n]/.test(after) ? "\n" : "");
                   caretAt.current = from + words.length;
-                  listWords(field.value.slice(0, from) + words + field.value.slice(to));
+                  listWords(before + words + after);
                 }}
               />
               <p className="hint">Ein Wort pro Zeile. Eine Lineatur nimmt die Wörter unter Format, „Text“.</p>
+              {/* Said here too: the list is where a word too many comes from, and the Lernwörter-Blatt picks no block. */}
+              {crowded > 0 && (
+                <p className="hint" role="status">
+                  {crowded === 1 ? "In einer Lineatur passt 1 Wort nicht in die Zeilen." : `In einer Lineatur passen ${crowded} Wörter nicht in die Zeilen.`}
+                </p>
+              )}
               <button disabled={!learnt.length} onClick={addBlatt}>
                 Lernwörter-Blatt
               </button>
