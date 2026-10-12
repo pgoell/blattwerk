@@ -71,8 +71,12 @@ function rng(seed: number) {
   };
 }
 
+// How many runs `run` has checked: the work of a layout, for the tests to bound.
+export const tried = { runs: 0 };
+
 // The squares of a run of `n` letters from (col, row) on by (dc, dr), or undefined when the run leaves the grid.
 function run(cols: number, rows: number, col: number, row: number, dc: number, dr: number, n: number): [number, number][] | undefined {
+  tried.runs++;
   const squares: [number, number][] = [];
   for (let k = 0; k < n; k++) {
     const c = col + k * dc;

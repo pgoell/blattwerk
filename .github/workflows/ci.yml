@@ -62,10 +62,12 @@ jobs:
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
     # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    # Slower than Chromium, test for test: twelve shards, split by time. A shard takes about four
-    # and a half minutes with its container, so the limit leaves room: at six a shard whose tests
-    # had all passed was cancelled (#367).
-    timeout-minutes: 10
+    # Slower than Chromium, test for test: twelve shards, split by time. The limit counts from the
+    # start of the job, and the pull of the image is part of it: it takes half a minute, and on
+    # 2026-10-12 it took five to ten minutes four times, so a shard whose tests had all passed was
+    # cancelled at ten (#439). The tests have a limit of their own, the step's below, and a run
+    # that hangs ends itself after three silent minutes (tests/conftest.py).
+    timeout-minutes: 25
     strategy:
       # As the shards above: a failure costs a rerun of its own shard only.
       fail-fast: false
@@ -75,6 +77,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-mise
       - name: Pytest
+        timeout-minutes: 9
         # The runner has four cores, and WebKit is slower to start than Chromium.
         run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0 --durations-min=0
         env:

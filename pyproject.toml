@@ -36,7 +36,9 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-n auto"
+# worksteal: a worker with nothing left takes tests from one that still has some. Without it two
+# workers ran on alone for two minutes at the end of a run of ten (#439). CI asks for the same.
+addopts = "-n auto --dist worksteal"
 # A test that hangs fails alone and by its name within a minute, and the run goes on (#340). The
 # few tests that take over 30 s on CI carry a longer limit of their own. By thread: the worker of
 # the hung test ends, xdist names the test and starts another worker. A signal fails the test and

@@ -46,7 +46,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import expect_login, login
 from test_stale import FRAMES, GO, STATUS, TURNS, Gate, named
-from ui import at, pick, user
+from ui import at, pick, reload, user
 
 from blattwerk import sheets
 
@@ -538,9 +538,7 @@ def test_another_accounts_record_survives_a_start_a_sheet_opened_and_a_delete_on
         assert x_of(run, "a") == 15
 
     # The start, with both records there.
-    with page.expect_response(f"{run.server}/api/sheets") as listed:
-        page.reload()
-    listed.value.finished()
+    reload(page, f"{run.server}/api/sheets")
     expect(page.locator(".sheets li strong")).to_have_text(["d"])
     untouched()
     assert asked == []
@@ -596,9 +594,7 @@ def test_a_change_kept_by_a_window_that_holds_another_account_carries_the_sheets
     assert record(page, d) == kept
     asked = []
     page.on("request", lambda r: r.url.endswith(f"/api/sheets/{d}") and asked.append(r.method))
-    with page.expect_response(f"{run.server}/api/sheets") as listed:
-        page.reload()
-    listed.value.finished()
+    reload(page, f"{run.server}/api/sheets")
     expect(page.locator(".sheets li")).to_have_count(3)
     page.evaluate(FRAMES)
     assert not sent

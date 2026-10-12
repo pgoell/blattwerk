@@ -2,10 +2,12 @@ import faulthandler
 import json
 import os
 import signal
+import sqlite3
 import threading
 import time
 from concurrent.futures import Future
 from pathlib import Path
+from types import SimpleNamespace
 
 import anyio
 import pytest
@@ -23,13 +25,22 @@ WEBKIT = BROWSER == "webkit"
 NATIVE = os.environ.get("BLATTWERK_NATIVE") == "1"
 IPAD = {"width": 834, "height": 1194}
 TURNED = {"width": 1194, "height": 834}
-expect.set_options(timeout=2000)
+# How long an `expect` waits for what it expects. It ends the moment the page has it, so the limit
+# costs a passing test nothing: it only says when a test that waits has failed. Two seconds were
+# right on an idle machine, and a runner with more workers than cores took longer now and then for
+# a script or a font to come in (#419, #439). The headed lane presses a key again when a check
+# fails (tests/test_native.py), so there the limit is a step of the test, and stays.
+expect.set_options(timeout=2000 if NATIVE else 5000)
 # The tests that take over 30 s on CI. A test has a minute (pyproject.toml); these have two.
 SLOW = {
     "test_a_corpus_file_prints_as_it_shows",
     "test_full_run_fails_when_the_reloaded_editor_lacks_the_word",
     "test_a_block_on_its_way_finds_its_page_after_the_pages_change",
     "test_every_exercise_keeps_every_limit",
+    # 13 to 23 s on an idle machine: with limits that allow no term the generator spends every
+    # try (#447), and a runner is three times slower.
+    "test_every_comparison_keeps_every_limit",
+    "test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right",
 }
 # Whether the widest page fills the desk's width, as it does at a zoom of 100 % once the editor
 # has measured the desk.
@@ -195,6 +206,23 @@ def one_loop():
     return made.result()
 
 
+def unsynced():
+    """sqlite3 as the app's database module sees it, with connections that do not wait for the disk.
+
+    SQLite asks the disk to confirm each commit. That guards the data against a power cut, which
+    no test is about, and it took most of a test's start: signing a user up was 38 ms on an idle
+    machine and 520 ms with sixteen workers at one disk, 4 ms without. Only the app's own
+    connections: a test that opens the file itself gets what SQLite gives.
+    """
+
+    def connect(*args, **more):
+        con = sqlite3.connect(*args, **more)
+        con.execute("PRAGMA synchronous = OFF")
+        return con
+
+    return SimpleNamespace(**{**vars(sqlite3), "connect": connect})
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cheap(tmp_path_factory):
     with pytest.MonkeyPatch.context() as patch:
@@ -203,6 +231,7 @@ def cheap(tmp_path_factory):
         # Between two tests too, no request may reach the data folder of the checkout.
         patch.setattr(db, "DATA_DIR", tmp_path_factory.mktemp("between"))
         patch.setattr(TestClient, "portal", one_loop())
+        patch.setattr(db, "sqlite3", unsynced())
         yield
 
 
@@ -275,12 +304,15 @@ def editor(browser, server, playwright):
         rest = [*([more] if more else []), *pages]
         page.goto(f"{server}/blatt/{sheet(client, blocks, *rest, words=words)['id']}")
         # The editor listens for keys once the sheet has loaded.
-        # The first load of a cold browser takes more than the 2 s of every other wait when the
+        # The first load of a cold browser takes more than the 5 s of every other wait when the
         # machine has more workers than cores.
         expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
         # A thumbnail draws blocks too, with no name.
         count = len(blocks) + len(more) + sum(len(p["blocks"]) for p in pages)
         expect(page.locator(".block[data-id]")).to_have_count(count)
+        # A font that comes in late moves what stands in it, and the editor measures anew then. A
+        # place read or a click sent before that is not where the text ends up (#419, #436).
+        page.evaluate("document.fonts.ready.then(() => 0)")
         # The editor fits the sheet to the desk as it opens, and the desk's observer may set the
         # width anew a frame later. A place read before then is not where the block ends up.
         page.wait_for_function(MEASURED, timeout=10000)

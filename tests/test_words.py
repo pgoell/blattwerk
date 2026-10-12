@@ -361,9 +361,13 @@ def test_a_reload_a_duplicate_and_a_template_keep_the_list(editor):
 
     page.get_by_label("Name der Vorlage").fill("Lernwörter-Vorlage")
     page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
+    # The template is there once the server has answered: a page that leaves before then never
+    # sent it, and the other sheet has no such template to pick (#448).
+    template = page.get_by_role("button", name="Lernwörter-Vorlage", exact=True)
+    expect(template).to_be_visible()
     other = sheet(client, [])
     go(page, other)
-    page.get_by_role("button", name="Lernwörter-Vorlage", exact=True).click()
+    template.click()
     stored = doc(page, client)
     assert stored["words"] == ["Hund", "Katze"]
     assert rulings(stored)[0]["props"]["list"] == "copy"
