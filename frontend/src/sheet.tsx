@@ -433,7 +433,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       }}
     >
       {d && (
-        <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} style={{ ...over, ...flipped(block) }}>
+        // A linked text's outline goes with its frame when the words make that higher than the block.
+        <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} preserveAspectRatio={linked ? "none" : undefined} style={{ ...over, ...flipped(block) }}>
           {p.dash && edge > 0 ? (
             <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
           ) : (

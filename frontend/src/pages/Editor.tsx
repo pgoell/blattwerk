@@ -630,9 +630,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const block = frame.parentElement!;
       const was = block.style.transform;
       block.style.transform = "none";
+      // A linked text's frame has a height of its own, which it keeps after the measure.
+      const own = frame.style.height;
       frame.style.height = "auto";
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
-      frame.style.height = "";
+      frame.style.height = own;
       block.style.transform = was;
       if (h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.

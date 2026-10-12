@@ -135,7 +135,18 @@ describe("looseText", () => {
 
   it("keeps the look of a text the words are cut from", () => {
     const out = looseText({ text: "", list: true, bold: true, mix: 9, size: 12 }, ["Igel"]);
-    expect(out).toEqual({ text: "Igel", bold: true, mix: 9, size: 12 });
+    expect(out).toEqual({ text: "Igel", bold: true, mix: 9, size: 12, mixLine: "after" });
+  });
+
+  it("with no words keeps the own text and the rich text, and still drops the list settings", () => {
+    const rich = [{ runs: [{ text: "eigen" }] }];
+    const out = looseText({ text: "eigen", rich, list: true, listCols: 2, holes: "one", holeSeed: 4, size: 14 }, []);
+    expect(out).toEqual({ text: "eigen", rich, size: 14 });
+  });
+
+  it("gives a mixed linked text the line after each word, unless it has a line", () => {
+    expect(looseText({ text: "", list: true, mix: 7 }, ["Igel"])).toEqual({ text: "Igel", mix: 7, mixLine: "after" });
+    expect(looseText({ text: "", list: true, mix: 7, mixLine: "under" }, ["Igel"])).toEqual({ text: "Igel", mix: 7, mixLine: "under" });
   });
 });
 

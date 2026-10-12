@@ -278,6 +278,61 @@ def test_words_past_the_stored_height_draw_whole(editor, browser, server):
     paper.context.close()
 
 
+def test_a_measured_block_still_draws_its_words_whole_after_an_undo(editor):
+    """I3: a linked text the grow effect measured still draws its words whole after an undo."""
+    client = user()
+    page = editor(
+        box("a", "text", LISTED, h=5),
+        box("b", "text", TEXT, y=150),
+        client=client,
+        words=WORDS,
+    )
+    pick(page, "b")
+    page.keyboard.press("Control+b")
+    assert heights(page, client)["a"] > 5
+    undo(page)
+    assert heights(page, client)["a"] == 5
+    scope = at(page, "a")
+    last = scope.locator(".frame.listed .rich p").last
+    expect(last).to_be_visible()
+    frame = scope.locator(".frame.listed").bounding_box()
+    block = scope.bounding_box()
+    rich = scope.locator(".frame.listed .rich").bounding_box()
+    word = last.bounding_box()
+    bottom = word["y"] + word["height"]
+    assert frame["height"] > block["height"] + 1
+    assert bottom <= frame["y"] + frame["height"] + 1
+    assert bottom <= rich["y"] + rich["height"] + 1
+
+
+def test_a_copied_linked_text_with_no_list_keeps_its_own_text(editor):
+    """I4: a linked text copied from a sheet with no list keeps its own text when pasted on a sheet
+    with another list."""
+    client = user()
+    page = editor(box("t", "text", {**TEXT, "list": True}), client=client)
+    other = sheet(client, [box("t", "text", TEXT, z=3)], words=WORDS)
+    pick(page, "t")
+    page.keyboard.press("Control+c")
+    go(page, other)
+    page.keyboard.press("Control+v")
+    expect(page.locator(".sheet .block")).to_have_count(2)
+    # The sheet's own block is "t"; the pasted one is the other.
+    [landed] = [b["props"] for b in doc(page, client)["pages"][0]["blocks"] if b["id"] != "t"]
+    assert landed["text"] == "Hallo"
+    assert "list" not in landed
+
+
+def test_cut_loose_keeps_the_line_of_the_mixed_words(editor):
+    """I2: a mixed linked text cut loose keeps the line after each word."""
+    client = user()
+    page = editor(box("a", "text", {**LISTED, "mix": 7}), client=client, words=WORDS)
+    pick(page, "a")
+    choice = page.get_by_label(CHOICE)
+    step(page, lambda: choice.select_option(label="Eigener Text"))
+    assert held(page, client)["a"]["mixLine"] == "after"
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(len(WORDS))
+
+
 def test_a_copied_linked_text_takes_the_list_to_a_sheet_without_one(editor):
     """I4: a linked text pasted on a sheet with no list takes the list, and one undo takes it."""
     client = user()

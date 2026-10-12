@@ -15,7 +15,7 @@ from pypdf import PdfReader
 from test_gaps import panel, step
 from test_lock import FRAMES
 from test_painter import held
-from ui import TEXT, at, box, pick, user
+from ui import RECT, TEXT, at, box, pick, user
 
 from blattwerk import pdf
 
@@ -195,4 +195,18 @@ def test_the_pdf_shows_what_the_editor_shows(editor, browser, server):
         "els => new Set(els.map((p) => Math.round(p.getBoundingClientRect().left))).size"
     )
     assert lefts == 3
+    paper.context.close()
+
+
+def test_a_linked_shapes_outline_goes_with_its_words(editor, browser, server):
+    """A10/A11: a linked triangle's outline reaches its words, on the editor and the print."""
+    client = user()
+    shape = {**RECT, **TEXT, "kind": "triangle", "fill": "#ffee88", "list": True}
+    page = editor(box("s", "shape", shape, h=8), client=client, words=WORDS)
+    paper = printed(browser, server, sheet_id(page))
+    for scope in (at(page, "s"), paper.locator(".block").first):
+        expect(scope.locator("svg.outline")).to_have_attribute("preserveAspectRatio", "none")
+        drawn = scope.locator("svg.outline polygon").bounding_box()
+        last = scope.locator(".frame.listed .rich p").last.bounding_box()
+        assert drawn["y"] + drawn["height"] >= last["y"] + last["height"] - 1
     paper.context.close()

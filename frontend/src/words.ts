@@ -49,10 +49,16 @@ export function loose(b: RulingBlock, words: string[]): RulingBlock {
   return { ...b, props };
 }
 
-// A text or a shape cut loose from the list keeps the words as its own text, and loses its list settings.
+// A text or a shape cut loose from the list keeps the words as its own text, and loses its list settings. With no
+// word to keep it has its own text again: a block copied in a window that knows no list brings none. Mixed words
+// keep the line they had on the list.
 export function looseText<P extends Partial<TextProps>>(p: P, words: string[]): P {
-  const props: Partial<TextProps> = { ...p, text: words.join("\n") };
-  delete props.rich;
+  const props: Partial<TextProps> = { ...p };
+  if (words.length) {
+    props.text = words.join("\n");
+    delete props.rich;
+  }
+  if (p.list === true && p.mix !== undefined && p.mixLine === undefined) props.mixLine = "after";
   delete props.list;
   delete props.listCols;
   delete props.holes;
