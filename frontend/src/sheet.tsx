@@ -1271,9 +1271,12 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
   useLayoutEffect(() => {
     fit();
   });
-  // The fonts load after the first layout, and a wider letter makes a wider task.
+  // The fonts load after the first layout, and a wider letter makes a wider task. A cut loads when it is first
+  // needed: the bold one with the numbering.
   useLayoutEffect(() => {
     document.fonts.ready.then(fit);
+    document.fonts.addEventListener("loadingdone", fit);
+    return () => document.fonts.removeEventListener("loadingdone", fit);
   }, []);
   return (
     // The format's class has a name of its own: `gap` and `written` are a text's gap and a Lineatur's text.
