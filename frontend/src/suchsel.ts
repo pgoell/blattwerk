@@ -166,11 +166,11 @@ function lay(p: SuchselProps): Laid {
     }
   }
 
-  // The runs that spell a typed word in any of the eight directions and use a fill square, as their squares. With `at`,
-  // only the runs through that square.
+  // The runs that spell a typed word in any of the eight directions and use a fill square, each as its squares and its
+  // word. With `at`, only the runs through that square.
   const forms = typed.map((t) => t.letters);
   const bad = (at?: [number, number]) => {
-    const found: [number, number][][] = [];
+    const found: { sq: [number, number][]; ls: string[] }[] = [];
     for (const ls of forms) {
       for (const [dc, dr] of EIGHT) {
         for (let r = 0; r < rows; r++) {
@@ -179,7 +179,7 @@ function lay(p: SuchselProps): Laid {
             if (!sq || !sq.every(([x, y], k) => grid[y][x] === ls[k])) continue;
             if (!sq.some(([x, y]) => fill[y][x])) continue;
             if (at && !sq.some(([x, y]) => x === at[0] && y === at[1])) continue;
-            found.push(sq);
+            found.push({ sq, ls });
           }
         }
       }
@@ -187,21 +187,25 @@ function lay(p: SuchselProps): Laid {
     return found;
   };
 
-  // A fill square of a run that spells a word takes a new letter, until no run does. After 200 changes, a square takes
-  // the first letter in the weights' order under which no run through it spells a word. It ends after 1000 changes
-  // whatever the words are, so that no list can hang the page.
-  let changes = 0;
-  for (let sq = bad()[0]; sq && changes < 1000; sq = bad()[0]) {
-    const [x, y] = sq.find(([u, v]) => fill[v][u]) as [number, number];
-    const old = grid[y][x];
-    if (changes++ < 200) {
-      let l = draw();
-      while (l === old) l = draw();
-      grid[y][x] = l;
-    } else {
-      for (const [c] of pool) {
-        grid[y][x] = cased(c);
-        if (!bad([x, y]).length) break;
+  // Each sweep takes the runs that spell a word through a fill square, and changes a fill square of each one that still
+  // spells its word. The first 30 sweeps give the square a random letter; the next 30 give it the first letter in the
+  // weights' order under which no run through it spells a word. After 60 sweeps it stops, whatever stands, so that no
+  // list can hang the page.
+  for (let n = 0; n < 60; n++) {
+    const runs = bad();
+    if (!runs.length) break;
+    for (const { sq, ls } of runs) {
+      if (!sq.every(([x, y], k) => grid[y][x] === ls[k])) continue;
+      const [x, y] = sq.find(([u, v]) => fill[v][u]) as [number, number];
+      if (n < 30) {
+        let l = draw();
+        while (l === grid[y][x]) l = draw();
+        grid[y][x] = l;
+      } else {
+        for (const [c] of pool) {
+          grid[y][x] = cased(c);
+          if (!bad([x, y]).length) break;
+        }
       }
     }
   }

@@ -188,6 +188,17 @@ describe("laid", () => {
     );
   });
 
+  it("lays 56 three-letter words on 20 by 20 out fast and without a second spelling", () => {
+    const words: string[] = [];
+    for (const x of "ENISRATD") for (const y of "ENISRATD") if (x !== y) words.push(`${x}${y}E`);
+    for (const seed of [1, 2]) {
+      const t = performance.now();
+      const out = laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed });
+      expect(performance.now() - t).toBeLessThan(1000);
+      expect(clean(out.grid, out.hidden, words, true)).toBe(true);
+    }
+  });
+
   it("fills the empty squares by German letter frequency", () => {
     const out = laid({ ...base, cols: 20, rows: 20, words: ["Hund"], seed: 7 });
     const covered = new Set(out.hidden.flatMap((h) => h.letters.map((_, k) => `${h.col + k * h.dc},${h.row + k * h.dr}`)));

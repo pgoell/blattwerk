@@ -72,7 +72,8 @@ export default function Suchsel({ block, words, apply }: { block: SuchselBlock; 
       {made.missed.length > 0 && (
         <p className="hint" role="status">
           {`Passt nicht ins Gitter: ${made.missed.join(", ")}.`}
-          {made.loosen.length > 0 && ` Mehr Platz gibt es mit: ${made.loosen.map((l) => LOOSEN[l]).join(", ")}.`}
+          {/* With nothing to loosen the grid is as large and as free as it gets. */}
+          {made.loosen.length > 0 ? ` Mehr Platz gibt es mit: ${made.loosen.map((l) => LOOSEN[l]).join(", ")}.` : " Dafür ist auch das größte Gitter zu klein."}
         </p>
       )}
       {made.short.length > 0 && <p className="hint" role="status">{`Zu kurz (unter 3 Buchstaben): ${made.short.join(", ")}.`}</p>}

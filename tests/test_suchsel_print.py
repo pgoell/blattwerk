@@ -5,6 +5,8 @@ The docstrings name the lines of the checklist that each test proves.
 
 import re
 
+import httpx
+import pypdfium2
 import pytest
 from playwright.sync_api import expect
 from test_feed_print import pdf_text, printed, sheet_id
@@ -18,6 +20,35 @@ def key_print(browser, server, mine):
     paper.goto(f"{server}/druck/{mine}?loesungen")
     paper.wait_for_selector("body.ready", state="attached")
     return paper
+
+
+def red_pixels(server, client, mine, solved):
+    """How many pixels of the PDF's first page are the rings' red, #c0392b, as pdfium draws them."""
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(
+        f"{server}/api/sheets/{mine}/pdf", params={"solved": solved}, headers=cookie, timeout=60
+    )
+    assert res.status_code == 200
+    picture = pypdfium2.PdfDocument(res.content)[0].render(scale=2).to_pil().convert("RGB")
+    return sum(1 for r, g, b in picture.getdata() if r > 150 and g < 120 and b < 120 and r - g > 80)
+
+
+def test_the_answer_key_pdf_shows_the_rings_and_the_sheet_does_not(editor, server):
+    """A15: the PDF of the answer key has the rings in red, the pupils' PDF has none."""
+    client = user()
+    page = editor(box("s", "suchsel", SUCHSEL, w=120, h=140), client=client)
+    mine = sheet_id(page)
+    assert red_pixels(server, client, mine, solved=False) == 0
+    assert red_pixels(server, client, mine, solved=True) > 50
+
+
+def test_the_pupils_pdf_prints_each_row_of_the_grid(editor, server):
+    """A15: the PDF's text holds each row of the editor's grid as a run of letters."""
+    client = user()
+    page = editor(box("s", "suchsel", SUCHSEL, w=120, h=140), client=client)
+    text = re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
+    for row in grid(at(page, "s")):
+        assert row in text
 
 
 def test_the_pupils_print_has_the_editors_grid_and_no_rings(editor, browser, server):

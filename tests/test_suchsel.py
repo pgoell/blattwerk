@@ -19,6 +19,7 @@ MIDDLE = """el => {
     const b = el.getBoundingClientRect();
     return [b.x + b.width / 2, b.y + b.height / 2];
 }"""
+BOX = "el => { const b = el.getBoundingClientRect(); return [b.x, b.y, b.right, b.bottom]; }"
 WORDS = ["Hund", "Katze", "Maus", "Vogel", "Pferd", "Schule"]
 SUCHSEL = {
     "words": WORDS,
@@ -283,6 +284,19 @@ def test_a_word_that_does_not_fit_is_named_and_the_rest_are_not(editor):
     expect(hint(page)).not_to_contain_text("Hund")
 
 
+def test_a_word_too_long_for_any_grid_is_named_with_no_false_advice(editor):
+    """A9: a word longer than any grid is named, and no advice says to make the grid bigger."""
+    words = ["Donaudampfschifffahrtsgesellschaft", "Hund"]
+    props = {**SUCHSEL, "cols": 20, "rows": 20, "ways": "back", "words": words}
+    page = editor(sq("s", props))
+    pick(page, "s")
+    expect(hint(page)).to_contain_text(
+        "Passt nicht ins Gitter: Donaudampfschifffahrtsgesellschaft."
+    )
+    expect(hint(page)).to_contain_text("Dafür ist auch das größte Gitter zu klein.")
+    expect(hint(page)).not_to_contain_text("Mehr Platz")
+
+
 def test_the_switch_shows_the_word_list_or_only_the_count(editor):
     """A10: "Nur Anzahl" shows the count instead of the list, and "Wörterliste" the list again."""
     page = editor(sq("s", SUCHSEL))
@@ -323,6 +337,35 @@ def test_the_answer_key_rings_each_hidden_word(editor):
     expect(at(page, "s").locator("rect.ring")).to_have_count(6)
 
 
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_each_ring_lies_around_its_word(editor, seed):
+    """A12: each ring lies over its word, its middle between its first and last square's."""
+    props = {**SUCHSEL, "ways": "back", "cols": 12, "rows": 12, "words": LIST8, "seed": seed}
+    page = editor(sq("s", props))
+    tool(page, "Lösungen zeigen").click()
+    expect(at(page, "s").locator("rect.ring")).to_have_count(len(LIST8))
+    edge = at(page, "s").locator("rect.edge").bounding_box()
+    side = edge["width"] / 12
+
+    def middle(col, row):
+        return (edge["x"] + (col + 0.5) * side, edge["y"] + (row + 0.5) * side)
+
+    ringed = rings(at(page, "s"))
+    shapes = at(page, "s").locator("rect.ring.answer").all()
+    for ring, shape in zip(ringed, shapes, strict=True):
+        last = (ring["n"] - 1) * ring["dc"], (ring["n"] - 1) * ring["dr"]
+        first = middle(ring["col"], ring["row"])
+        end = middle(ring["col"] + last[0], ring["row"] + last[1])
+        # The SVG rounds each rect to its own pixels: a few tenths of a pixel, one of them 1.1 px.
+        middle_of_ends = ((first[0] + end[0]) / 2, (first[1] + end[1]) / 2)
+        assert shape.evaluate(MIDDLE) == pytest.approx(middle_of_ends, abs=0.05 * side)
+        left, top, right, bottom = shape.evaluate(BOX)
+        for x, y in (first, end):
+            assert left - 1 <= x <= right + 1 and top - 1 <= y <= bottom + 1
+    # A ring straight to the right or down tells nothing of the turn: one must be diagonal or back.
+    assert any(r["dc"] * r["dr"] != 0 or min(r["dc"], r["dr"]) < 0 for r in ringed)
+
+
 def test_the_squares_scale_stay_square_and_centred(editor):
     """A13: the squares fill the room the box leaves and stay square and centred, and grow."""
     page = editor(sq("s", SUCHSEL))
@@ -332,6 +375,25 @@ def test_the_squares_scale_stay_square_and_centred(editor):
     enter(page, "Höhe", "240")
     expect(page.locator(".geo").get_by_label("Breite", exact=True)).to_have_value("200")
     assert squares_fit(page, "s", 10, 10) > small
+
+
+def test_a_wide_low_box_keeps_the_grid_and_its_list_inside(editor):
+    """A13: when the height is the limit the squares shrink; grid and list stay in the box."""
+    page = editor(sq("s", SUCHSEL))
+    pick(page, "s")
+    enter(page, "Breite", "180")
+    enter(page, "Höhe", "70")
+    expect(page.locator(".geo").get_by_label("Höhe", exact=True)).to_have_value("70")
+    squares_fit(page, "s", 10, 10)
+    block = at(page, "s").bounding_box()
+    edge = at(page, "s").locator("rect.edge").bounding_box()
+    assert edge["x"] >= block["x"] - 1
+    assert edge["x"] + edge["width"] <= block["x"] + block["width"] + 1
+    assert edge["y"] >= block["y"] - 1
+    assert edge["y"] + edge["height"] <= block["y"] + block["height"] + 1
+    found = at(page, "s").locator(".found").bounding_box()
+    assert found["y"] >= edge["y"] + edge["height"] - 1
+    assert found["y"] + found["height"] <= block["y"] + block["height"] + 1
 
 
 @pytest.mark.parametrize("what", list(SUCHSEL))
