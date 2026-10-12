@@ -3,6 +3,7 @@ import {
   useDeferredValue,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -88,7 +89,8 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, boxed, cleared, dir, far, isLine, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { blatt, landed as carried, linked, loose as cutLoose, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
@@ -156,7 +158,7 @@ const NAMES: Record<Block["type"], string> = {
   table: "Tabelle",
 };
 // The right panel's tabs.
-const TABS = ["Format", "Ansicht"];
+const TABS = ["Format", "Ansicht", "Lernwörter"];
 const whenTurned = (heard: () => void) => {
   DRAWERS.addEventListener("change", heard);
   return () => DRAWERS.removeEventListener("change", heard);
@@ -509,6 +511,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { pages, guides, grid } = hist.doc;
+  // The sheet's Lernwörter, the same list until the sheet's own changes.
+  const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
+  // How many of them the most crowded Lineatur of the sheet cannot show.
+  const crowded = Math.max(0, ...pages.flatMap((p) => p.blocks.map((b) => (b.type === "ruling" ? short(b, learnt) : 0))));
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -816,7 +822,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
     // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
     // only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select");
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -1021,6 +1027,49 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function scoreOn(id: string, max: number, n: number) {
     if (!live.current.doc.pages[n]?.blocks.some((b) => b.id === id && b.type === "points")) return;
     turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === id && b.type === "points" ? ({ ...b, props: { ...b.props, max } } as Block) : b)) }), "", n);
+  }
+  // Adds `by` to the score of each picked score box, from its own number: the panel's field shows only the first one's.
+  function bump(by: number) {
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "points" ? ({ ...b, props: { ...b.props, max: Math.min(999, Math.max(1, b.props.max + by)) } } as Block) : b)));
+  }
+  // The Lineatur's text: a mode links each picked Lineatur to the sheet's list, none cuts each loose with its words.
+  // One step for all of them.
+  function takeList(mode?: ListMode) {
+    // A Lineatur being written in ends its writing: linked, it has no field left to write in.
+    if (mode) setEditing("");
+    // A block of a group with a locked one is as fixed as the locked one: it takes the list and does not grow.
+    const fixed = sel.filter((b) => !free.includes(b)).map((b) => b.id);
+    change((bs) =>
+      bs.map((b) => {
+        if (!ids.includes(b.id) || b.type !== "ruling") return b;
+        if (!mode) return cutLoose(b, learnt);
+        return fixed.includes(b.id) ? { ...b, props: { ...b.props, list: mode } } : linked(b, mode, learnt, W, H);
+      }),
+    );
+  }
+  // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
+  function listWords(value: string) {
+    update((doc) => ({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
+  }
+  // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
+  const listField = useRef<HTMLTextAreaElement>(null);
+  const caretAt = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (caretAt.current === undefined) return;
+    listField.current?.setSelectionRange(caretAt.current, caretAt.current);
+    caretAt.current = undefined;
+  });
+  // The Lernwörter-Blatt comes behind the page in use, and is the page in use from then on. Its size is the sheet's.
+  function addBlatt() {
+    const n = page;
+    const [w, h] = live.current.doc.landscape ? [297, 210] : [210, 297];
+    const sheetBlocks = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
+    flushSync(() => {
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: sheetBlocks }, ...doc.pages.slice(n + 1)] }), "", n + 1);
+      setAt(n + 1);
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
@@ -1456,11 +1505,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
     });
   }
-  function put(from: Block[]) {
+  // `got` is the sheet's Lernwörter when the blocks bring a list the sheet lacks: it comes in the same step.
+  function put(from: Block[], got?: string[]) {
     const copies = land(
       cloned([...from].sort((a, b) => a.z - b.z), blocks).map((b, i) => ({ ...b, z: top + 1 + i })),
     );
-    change((bs) => [...bs, ...copies]);
+    update((doc) => ({ ...doc, ...(got && { words: got }), pages: doc.pages.map((p, i) => (i === page ? { ...p, blocks: [...p.blocks, ...copies] } : p)) }), "", page, page);
     setIds(copies.map((b) => b.id));
   }
   // The copied blocks lie in the browser's store: they last over a reload and reach another sheet and another tab.
@@ -1490,7 +1540,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
   function copy(held = sel) {
     if (!held.length) return;
-    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held }));
+    // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
+    const linkedAny = held.some((b) => b.type === "ruling" && listOf(b));
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
     const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;
@@ -1508,19 +1560,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     remove();
   }
   // The store is open to an older build and to anyone: only this account's whole blocks reach the sheet.
-  function clip(): Block[] {
-    let held: { owner?: number; blocks?: Block[] } | null = null;
+  // With the words the copy carried, if any: they are not checked here, as `landed` reads them.
+  function clipped(): { blocks: Block[]; words?: unknown } {
+    let held: { owner?: number; blocks?: Block[]; words?: unknown } | null = null;
     try {
       held = JSON.parse(localStorage.getItem("clip") ?? "null");
     } catch {
-      return [];
+      return { blocks: [] };
     }
     const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? held.blocks : [];
+    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
+  }
+  function clip(): Block[] {
+    return clipped().blocks;
   }
   function paste() {
-    const held = clip();
-    if (held.length) put(held);
+    const { blocks: held, words } = clipped();
+    if (!held.length) return;
+    const got = carried(held, words, live.current.doc);
+    put(got.blocks, got.words);
   }
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
@@ -2037,6 +2095,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
+    // A linked Lineatur has no text of its own: the list is what it shows.
+    if (free[0].type === "ruling" && listOf(free[0])) return;
     if (boxed(free[0]) || free[0].type === "ruling" || free[0].type === "table" || free[0].type === "points" || free[0].type === "name") {
       // A score's number is all picked when its field opens, a double click too: a new one replaces it.
       entire.current = all || free[0].type === "points";
@@ -2318,6 +2378,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     </>
   );
   return (
+    // The Lernwörter reach every Lineatur that draws them, on the pages and on their thumbnails.
+    <Words.Provider value={learnt}>
     <main
       className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
@@ -2678,7 +2740,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             <br />
                           </p>
                         </div>
-                      ) : b.type === "ruling" ? (
+                      ) : b.type === "ruling" && !listOf(b) ? (
                         <textarea
                           className="written"
                           value={b.props.text ?? ""}
@@ -2924,6 +2986,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </div>
           )}
           {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {/* Blattform's panel has no tabs, and its bar no room for one more mode: there this button leads to the
+              list, and "Start" in the bar leads back. */}
+          {tab === "Format" && !sel.length && leaf && <button onClick={() => setTab("Lernwörter")}>Lernwörter</button>}
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">
@@ -2933,6 +2998,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 // A block of a group with a locked one is as fixed there as the locked one.
                 sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}
+                bump={bump}
                 look={look}
                 paint={paint}
                 itemize={itemize}
@@ -2954,6 +3020,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 setLock={setLock}
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
+                words={learnt}
+                list={takeList}
+                toList={() => setTab("Lernwörter")}
               />
               {boxes.length > 0 && (
                 <>
@@ -3072,6 +3141,43 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
             </>
           )}
+          {tab === "Lernwörter" && (
+            <>
+              <h2>Lernwörter</h2>
+              <textarea
+                aria-label="Lernwörter"
+                className="wordlist"
+                rows={10}
+                placeholder="Ein Wort pro Zeile"
+                ref={listField}
+                value={Array.isArray(hist.doc.words) ? hist.doc.words.filter((w) => typeof w === "string").join("\n") : ""}
+                onChange={(e) => listWords(e.target.value)}
+                // A paste brings its words one to a line, in place of what is picked in the field.
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const field = e.currentTarget;
+                  const [from, to] = [field.selectionStart, field.selectionEnd];
+                  // A paste that holds no word changes nothing.
+                  if (!pasted(e.clipboardData.getData("text/plain")).length) return;
+                  const [before, after] = [field.value.slice(0, from), field.value.slice(to)];
+                  // The pasted words keep to lines of their own: a word before or behind them is not joined to one.
+                  const words = (/[^\n]$/.test(before) ? "\n" : "") + pasted(e.clipboardData.getData("text/plain")).join("\n") + (/^[^\n]/.test(after) ? "\n" : "");
+                  caretAt.current = from + words.length;
+                  listWords(before + words + after);
+                }}
+              />
+              <p className="hint">Ein Wort pro Zeile. Eine Lineatur nimmt die Wörter unter Format, „Text“.</p>
+              {/* Said here too: the list is where a word too many comes from, and the Lernwörter-Blatt picks no block. */}
+              {crowded > 0 && (
+                <p className="hint" role="status">
+                  {crowded === 1 ? "In einer Lineatur passt 1 Wort nicht in die Zeilen." : `In einer Lineatur passen ${crowded} Wörter nicht in die Zeilen.`}
+                </p>
+              )}
+              <button disabled={!learnt.length} onClick={addBlatt}>
+                Lernwörter-Blatt
+              </button>
+            </>
+          )}
           {tab === "Ansicht" && (
             <>
               <h2>Format, Raster und Hilfslinien für</h2>
@@ -3178,6 +3284,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         />
       )}
     </main>
+    </Words.Provider>
   );
 }
 

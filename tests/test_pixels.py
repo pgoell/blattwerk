@@ -284,9 +284,11 @@ def fuller(case, client):
     return {"blocks": [*rulings, at("ruling", written, y=150, h=40, x=150)], "landscape": True}
 
 
-def faults(browser, server, client, *pages, **look):
+def faults(browser, server, client, *pages, words=None, **look):
     """What of the first page is over a limit between the editor and the PDF."""
-    return over(*screen_and_print(browser, server, client, sheet(client, *pages)["id"], **look))
+    return over(
+        *screen_and_print(browser, server, client, sheet(client, *pages, words=words)["id"], **look)
+    )
 
 
 # A text of two paragraphs, a gap on the last line of each, and a gap of two words in the first.
@@ -392,6 +394,49 @@ def test_a_mix_left_out_of_the_print_is_over_the_limit(browser, server):
     shown = sheet(client, mixed_case("after"))["id"]
     plain = {**TEXT, "text": MIXED_TEXT}
     paper = sheet(client, [at("text", plain, y=20, h=90)])["id"]
+    screen, _ = screen_and_print(browser, server, client, shown)
+    _, printed = screen_and_print(browser, server, client, paper)
+    assert over(screen, printed)
+
+
+LISTED = ["Hund", "Katze", "Maus"]
+LINEATUR = [
+    (kind, mode)
+    for kind in ("l1", "l2", "l3", "l4", "lines", "k5", "k7")
+    for mode in ("copy", "trace", "row")
+]
+
+
+@pytest.mark.parametrize("kind, mode", LINEATUR)
+def test_a_linked_lineatur_prints_as_the_screen_shows_it(browser, server, kind, mode):
+    client = user()
+    props = {"kind": kind, "color": "#222222", "list": mode, "font": "sas"}
+    assert not faults(browser, server, client, [at("ruling", props, h=60)], words=LISTED)
+
+
+@pytest.mark.parametrize("mode", ["copy", "row"])
+def test_a_turned_linked_lineatur_prints_as_the_screen_shows_it(browser, server, mode):
+    client = user()
+    props = {"kind": "l3", "color": "#222222", "list": mode}
+    assert not faults(browser, server, client, [at("ruling", props, h=60, angle=30)], words=LISTED)
+
+
+def test_a_linked_lineatur_in_a_group_prints_as_the_screen_shows_it(browser, server):
+    client = user()
+    props = {"kind": "l4", "color": "#222222"}
+    grouped = [
+        at("ruling", {**props, "list": "copy"}, y=60, h=40, group=["g"]),
+        at("ruling", {**props, "list": "row"}, y=110, h=40, group=["g"]),
+    ]
+    assert not faults(browser, server, client, grouped, words=LISTED)
+
+
+def test_a_list_left_out_of_the_print_is_over_the_limit(browser, server):
+    """The words on the screen and the blank print of the same sheet: the letters differ."""
+    client = user()
+    block = [at("ruling", {"kind": "l4", "color": "#222222", "list": "row"}, h=60)]
+    shown = sheet(client, block, words=LISTED)["id"]
+    paper = sheet(client, block)["id"]
     screen, _ = screen_and_print(browser, server, client, shown)
     _, printed = screen_and_print(browser, server, client, paper)
     assert over(screen, printed)

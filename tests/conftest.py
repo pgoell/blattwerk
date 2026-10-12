@@ -241,13 +241,14 @@ def editor(browser, server, playwright):
     """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
     contexts = []
 
-    def start(*blocks, client=None, more=(), pages=(), theme=None, touch=False):
+    def start(*blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None):
         """`more` holds the blocks of a second page. With `touch` the window takes fingers too,
         and with `touch="landscape"` the iPad lies on its side.
 
         `pages` holds the pages after the first, each a whole page: its blocks and, where it has
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
-        "" opens the panel Seiten, none is Blattform, which starts with that panel shut.
+        "" opens the panel Seiten, none is Blattform, which starts with that panel shut. `words`
+        are the sheet's Lernwörter.
         """
         window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if touch:
@@ -272,7 +273,7 @@ def editor(browser, server, playwright):
         )
         page = context.new_page()
         rest = [*([more] if more else []), *pages]
-        page.goto(f"{server}/blatt/{sheet(client, blocks, *rest)['id']}")
+        page.goto(f"{server}/blatt/{sheet(client, blocks, *rest, words=words)['id']}")
         # The editor listens for keys once the sheet has loaded.
         # The first load of a cold browser takes more than the 2 s of every other wait when the
         # machine has more workers than cores.

@@ -5,15 +5,18 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, listOf, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
+import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 
 type Props = {
   sel: Block[];
   // Sets props on every selected block of one type.
   style: (type: Block["type"], props: object, key?: string) => void;
+  // Adds `by` to the score of each picked score box, each from its own number.
+  bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
@@ -33,6 +36,11 @@ type Props = {
   cell?: number;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
+  // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
+  words: string[];
+  list: (mode?: ListMode) => void;
+  // Shows the list of the Lernwörter in the panel.
+  toList: () => void;
   cropping: boolean;
   // Turns what is selected by so many degrees: a group picked whole as one, a loose block about its own centre.
   spin: (by: number) => void;
@@ -140,7 +148,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
+export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -155,6 +163,10 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
   const shown = { ...text, ...part?.marks };
   const kind = text && (part ?? parasOf(text)[0]).list;
   const rulings = of("ruling");
+  // The mode the Lineaturen take the Lernwörter in, when every picked one takes them; else none.
+  const mode = rulings.length > 0 && rulings.every((b) => listOf(b)) ? listOf(rulings[0]) : undefined;
+  // How many words of the list the most crowded Lineatur cannot show.
+  const n = Math.max(0, ...rulings.map((b) => short(b, words)));
   const tables = of("table");
   const texts = of("text");
   // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
@@ -173,17 +185,6 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
     place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row))]), "ruling");
-  };
-  // How far a point can go until it meets a margin, moving `by` each step. No limit where it does not move.
-  const room = (at: number, by: number, max: number) => (Math.abs(by) < 1e-9 ? Infinity : ((by > 0 ? max - MARGIN : MARGIN) - at) / by);
-  // A ruling grows down its own axis, which a turn points anywhere on the page, until a corner of its far edge
-  // would cross the margin it grows towards. Whole rows, and one at least.
-  const fill = (b: RulingBlock) => {
-    const [c, s] = dir(b);
-    // The corner the block starts at; the other end of that edge lies its width along.
-    const [x, y] = [b.x + (b.w - b.w * c + b.h * s) / 2, b.y + (b.h - b.w * s - b.h * c) / 2];
-    const most = Math.min(room(x, -s, W), room(x + b.w * c, -s, W), room(y, c, H), room(y + b.w * s, c, H));
-    return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
   };
   // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
   // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
@@ -340,9 +341,23 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
           </label>
           <div className="row">
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
-            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, fill(b)]))}>Bis Seitenende</button>
+            <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, filled(b, W, H)]))}>Bis Seitenende</button>
           </div>
-          <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
+          {/* The text of a Lineatur: its own, or the sheet's Lernwörter in one of three modes. A mode shows only when
+              every picked Lineatur has it. */}
+          <select aria-label="Text der Lineatur" value={mode ?? "own"} onChange={(e) => list(e.target.value === "own" ? undefined : (e.target.value as ListMode))}>
+            <option value="own">Eigener Text</option>
+            <option value="copy">Lernwörter abschreiben</option>
+            <option value="trace">Lernwörter nachspuren</option>
+            <option value="row">Lernwörter, ganze Zeile nachspuren</option>
+          </select>
+          {n > 0 && (
+            <p className="hint" role="status">
+              {n === 1 ? "1 Wort passt nicht in die Zeilen." : `${n} Wörter passen nicht in die Zeilen.`}
+            </p>
+          )}
+          {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
+          {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
           {RULINGS[rulings[0].props.kind].at && (
             <select aria-label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(e) => style("ruling", { font: e.target.value })}>
               {Object.entries(FONTS).map(([font, [name]]) => (
@@ -352,9 +367,11 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
               ))}
             </select>
           )}
-          <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
-            Nachspurtext
-          </button>
+          {!mode && (
+            <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
+              Nachspurtext
+            </button>
+          )}
         </>
       )}
       {tables.length > 0 && (
@@ -429,9 +446,7 @@ export default function Format({ sel, style, look, paint, itemize, gap, every, p
         <>
           <h2>Punkte</h2>
           <div className="seg">
-            <button aria-label="Ein Punkt weniger" onClick={() => style("points", { max: Math.max(1, points.props.max - 1) })}>−</button>
-            <ScoreInput max={points.props.max} change={(max) => style("points", { max })} />
-            <button aria-label="Ein Punkt mehr" onClick={() => style("points", { max: points.props.max + 1 })}>＋</button>
+            <ScoreInput max={points.props.max} change={(max) => style("points", { max })} steps={bump} />
           </div>
         </>
       )}

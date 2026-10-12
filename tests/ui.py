@@ -112,10 +112,18 @@ def maths(client, **more):
     return {**limits, **made, "columns": 3, "size": 14, **more}
 
 
-def sheet(client, *pages, title="Plus bis 20"):
-    """A sheet of the pages: each the list of its blocks, or a whole page with what is its own."""
+def sheet(client, *pages, title="Plus bis 20", words=None):
+    """A sheet of the pages: each the list of its blocks, or a whole page with what is its own.
+
+    `words` are the sheet's Lernwörter, if it has any.
+    """
     pages = [p if isinstance(p, dict) else {"blocks": list(p)} for p in pages]
-    doc = {"pages": pages, "guides": {"x": [], "y": []}, "grid": 0}
+    doc = {
+        "pages": pages,
+        "guides": {"x": [], "y": []},
+        "grid": 0,
+        **({"words": words} if words is not None else {}),
+    }
     return client.post("/api/sheets", json={"title": title, "doc": doc}).json()
 
 

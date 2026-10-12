@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
@@ -54,7 +54,11 @@ export type TextBlock = Box & { type: "text"; props: TextProps };
 export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner; ticks?: boolean; label?: "show" | "key" } };
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean } };
+// With `list` the block takes its words from the sheet's Lernwörter, one to a row, and `text` and `trace` rest: "copy"
+// prints each word at its row's start to copy beside, "trace" prints it once in grey to write over, "row" in grey
+// again and again to the row's end.
+export type ListMode = "copy" | "trace" | "row";
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean; list?: ListMode } };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -101,7 +105,9 @@ export type Guides = Record<Axis, number[]>;
 export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?: boolean };
 // The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
 // on its side.
-export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean };
+// `words` holds the sheet's Lernwörter as the teacher typed them, a line of the list to an entry. Sheets saved
+// before have none.
+export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean; words?: string[] };
 // The server counts a sheet's saved documents in `version`.
 export type Sheet = { id: number; user_id: number; title: string; updated: string; version: number; doc: Doc };
 
@@ -158,12 +164,21 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
+  words,
 });
+// The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
+// around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
+export const wordsIn = (doc: { words?: unknown }): string[] =>
+  Array.isArray(doc.words) ? doc.words.flatMap((line) => (typeof line === "string" ? line.split(/[,;\n]/) : [])).map((w) => w.trim()).filter(Boolean) : [];
+// The mode a Lineatur takes the Lernwörter in, or none: a stored mode nobody knows is none.
+export const listOf = (b: RulingBlock): ListMode | undefined => (b.props.list === "copy" || b.props.list === "trace" || b.props.list === "row" ? b.props.list : undefined);
+// The Lernwörter of the sheet a block is drawn on. `Paper` sets them; the editor sets its own.
+export const Words = createContext<string[]>([]);
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
@@ -946,8 +961,33 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const { text = "", trace } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
+  // A block set to the list shows the list alone: with no word in it, empty rows, and not its own text, which the
+  // editor could not open there.
+  const words = useContext(Words);
+  const mode = listOf(block);
+  const shown = words.slice(0, rows);
+  const cut = (word: string) => [...word].slice(0, cols).join("");
+  // On Karo a row of the list is its word, cut to the squares, and in "row" as often as whole words fit.
+  const karo = mode === "row"
+    ? shown.map((word) => {
+        const c = cut(word);
+        const reps = Math.max(1, Math.floor((cols + 1) / ([...c].length + 1)));
+        return Array.from({ length: reps }, () => c).join(" ");
+      }).join("\n")
+    : shown.map(cut).join("\n");
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
+  const listed = mode && at && (
+    <div className="written listed" style={{ ...writtenStyle(block, k), color: mode === "copy" ? undefined : "#aaaaaa" }}>
+      {shown.map((word, i) => (
+        <div className="row" key={i} style={{ height: row * k }}>
+          {mode === "row"
+            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
+            : <span>{word}</span>}
+        </div>
+      ))}
+    </div>
+  );
   return (
     <div>
       <svg className="ruling" viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
@@ -957,13 +997,13 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           <line key={y} x2={at ? block.w : cols * row} y1={y} y2={y} />
         ))}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
-        {!at && cols > 0 && squares(text, cols).map(([x, y, ch], i) => y < rows && (
-          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={trace ? "#aaaaaa" : "currentColor"}>
+        {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={mode ? (mode === "copy" ? "currentColor" : "#aaaaaa") : trace ? "#aaaaaa" : "currentColor"}>
             {ch}
           </text>
         ))}
       </svg>
-      {children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
+      {mode ? listed : children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
     </div>
   );
 }
@@ -1100,26 +1140,27 @@ export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >=
 
 // The field of a score, in a box or in the panel. However it ends, except by Escape, it keeps the typed score when that is
 // a whole number from 1 to 999; any other text leaves the old one. `change` gets the score and makes no step when the
-// sheet has it already. `end` runs after Enter, `blur` on leaving the field.
-export function ScoreInput({ max, change, end, blur }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void }) {
+// sheet has it already. `end` runs after Enter, `blur` on leaving the field. `steps` adds the buttons that count by one,
+// each from the sheet's own number, after the typed score is kept.
+export function ScoreInput({ max, change, end, blur, steps }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void; steps?: (by: number) => void }) {
   const [draft, setDraft] = useState(String(max));
-  // What is typed, the score shown by the sheet, the score last sent to it, whether Escape ended the field, and whether
-  // the teacher typed in it. A field nobody typed in sends nothing: in the panel its max is the first picked box's, and
-  // sending that would set every picked box to it.
+  const [round, setRound] = useState(0);
+  // What is typed, the score shown by the sheet, whether Escape ended the field, and whether the teacher typed in it.
+  // A field nobody typed in sends nothing: in the panel its max is the first picked box's, and sending that would set
+  // every picked box to it.
   const typed = useRef(String(max));
   const shown = useRef(max);
-  const sent = useRef<number>(undefined);
   const off = useRef(false);
   const dirty = useRef(false);
-  const latest = useRef({ change, end, blur });
-  latest.current = { change, end, blur };
+  const latest = useRef({ change, end, blur, steps });
+  latest.current = { change, end, blur, steps };
   shown.current = max;
+  // A press of a button counts too, though the first box's number may stay as it was: the field then shows the sheet's.
   useEffect(() => {
     typed.current = String(max);
-    sent.current = undefined;
     dirty.current = false;
     setDraft(String(max));
-  }, [max]);
+  }, [max, round]);
   // Runs on Enter, on a blur and when the field goes, so a score is kept once for each way the field ends.
   function keep() {
     if (off.current || !dirty.current) return;
@@ -1128,14 +1169,19 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
       typed.current = String(shown.current);
       return setDraft(typed.current);
     }
-    if (next === sent.current) return;
-    sent.current = next;
     dirty.current = false;
     latest.current.change(next);
   }
   // The field goes on the press that ends it, which takes no blur with it: so its score is kept as it leaves.
   useEffect(() => keep, []);
+  function press(by: number) {
+    keep();
+    setRound((n) => n + 1);
+    latest.current.steps?.(by);
+  }
   return (
+    <>
+      {steps && <button aria-label="Ein Punkt weniger" onClick={() => press(-1)}>−</button>}
     <input
       className="score"
       inputMode="numeric"
@@ -1160,11 +1206,15 @@ export function ScoreInput({ max, change, end, blur }: { max: number; change: (m
         }
         if (e.key !== "Escape") return;
         off.current = true;
+        // What was typed is given up: a later visit of the field that types nothing sends nothing.
+        dirty.current = false;
         typed.current = String(shown.current);
         setDraft(typed.current);
         e.currentTarget.blur();
       }}
     />
+      {steps && <button aria-label="Ein Punkt mehr" onClick={() => press(1)}>＋</button>}
+    </>
   );
 }
 
@@ -1190,6 +1240,7 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
   return (
+    <Words.Provider value={wordsIn(all)}>
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         {all.pages[page].blocks.map((b) => (
@@ -1202,5 +1253,6 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
         {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>Lösungen</b>}
       </div>
     </div>
+    </Words.Provider>
   );
 }

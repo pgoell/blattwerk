@@ -425,6 +425,9 @@ body:has(.print) { background: #fff; }
 .block .ruling { display: block; width: 100%; height: 100%; overflow: visible; }
 /* The text on a ruling: its place and its line height are set to the rows. */
 .block .written { position: absolute; left: 0; width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
+.block .written.listed { white-space: nowrap; }
+.written.listed .row { display: flex; flex-wrap: wrap; column-gap: .6em; overflow: hidden; }
+.written.listed .row span { flex: none; }
 /* A cut picture is larger than its box and clips itself at the cut (Draw in sheet.tsx). The box clips too, on whole
    pixels: without that the part cut off would give the desk room to scroll to. */
 .block .picture { position: relative; overflow: hidden; }
@@ -602,6 +605,8 @@ body:has(.print) { background: #fff; }
 .panel > .hint { margin-top: 14px; }
 .panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
 .panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
+/* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
+.panel .wordlist { display: block; box-sizing: border-box; width: 100%; margin: 0 0 8px; resize: vertical; background: var(--field); border-color: transparent; font: inherit; }
 /* Buttons that act at once, in equal shares of a row. */
 .acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .acts .ib { width: auto; }

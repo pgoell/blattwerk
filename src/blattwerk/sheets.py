@@ -89,6 +89,21 @@ def touch_stored(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row) -> N
         pictures.touch(user["id"], json.loads(row["doc"]))
 
 
+def keep_words(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row, doc: dict) -> None:
+    """A window on a build from before the Lernwörter drops the list it does not know and sends
+    a document without one. The stored list then stays. A build that knows them always names
+    the list, empty for none, and an empty one is stored as no list."""
+    if doc.get("words") == []:
+        del doc["words"]
+    elif "words" not in doc:
+        row = con.execute(
+            "SELECT doc FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"])
+        ).fetchone()
+        words = row and json.loads(row["doc"]).get("words")
+        if words:
+            doc["words"] = words
+
+
 @router.get("/sheets/{sheet_id}")
 def sheet(sheet_id: Id, user: User, con: Con) -> dict:
     return find(con, sheet_id, user)
@@ -98,6 +113,8 @@ def sheet(sheet_id: Id, user: User, con: Con) -> dict:
 def save(sheet_id: Id, body: Change, user: User, con: Con) -> dict:
     # Only a new document moves the version on, so a rename from the list neither needs one
     # nor gets in the way of an open editor's next save.
+    if body.doc is not None:
+        keep_words(con, sheet_id, user, body.doc)
     doc = body.doc and json.dumps(body.doc)
     if body.doc is not None:
         # Before the document is stored, so no sweep finds a picture it shows old.
