@@ -1,5 +1,6 @@
 import random
 from fractions import Fraction
+from math import prod
 
 import pytest
 from hypothesis import given, settings
@@ -8,7 +9,17 @@ from playwright.sync_api import expect
 from pydantic import ValidationError
 from ui import at, box, expect_picked, maths, pick, saved, user
 
-from blattwerk.maths import ANSWER, CARRY, Settings, below, generate, nth, written
+from blattwerk.maths import (
+    ANSWER,
+    CARRY,
+    Settings,
+    below,
+    calm,
+    carries,
+    generate,
+    nth,
+    written,
+)
 
 place = st.tuples(st.integers(0, 9), st.integers(0, 9)).map(sorted).map(tuple)
 places = st.lists(place, max_size=7)
@@ -140,6 +151,35 @@ def test_numbers_with_such_digits_count_up_in_order(ranges, bound):
     assert n == 0 or nth(ranges, n - 1) <= bound
     assert n < 2 or nth(ranges, n - 2) < nth(ranges, n - 1)
     assert in_places(nth(ranges, max(0, n - 1)), ranges)
+
+
+@given(
+    st.lists(place, min_size=1, max_size=4),
+    st.integers(0, 10**6),
+    st.sampled_from("+-"),
+    st.booleans(),
+)
+@settings(max_examples=300, deadline=None)
+def test_calm_digits_never_carry(ranges, other, op, first):
+    """Digits narrowed by `calm` never carry with `other`; where it gives up, no number would."""
+    narrowed = calm(ranges, other, op, first)
+
+    def carry_free(x):
+        if op == "+":
+            return not any(carries("+", x, other))
+        if first:
+            return not any(carries("-", x, other))
+        return not any(carries("-", other, x))
+
+    if narrowed is None:
+        # Brute force over the numbers of at most three places, for the cases the spec names.
+        if (op == "+" or not first) and len(ranges) <= 3:
+            assert not any(in_places(x, ranges) and carry_free(x) for x in range(10 ** len(ranges)))
+        return
+    total = prod(hi - lo + 1 for lo, hi in narrowed)
+    for k in {0, total // 2, total - 1}:
+        x = nth(narrowed, k)
+        assert in_places(x, narrowed) and carry_free(x)
 
 
 @given(st.sampled_from("+-*/"), st.integers(0, 10**6), st.integers(1, 10**6))
@@ -403,13 +443,34 @@ def test_punkt_stands_first_in_half_of_the_tasks_and_brackets_in_half():
 
 
 @pytest.mark.parametrize("carry", ["none", "required", "either"])
-@pytest.mark.parametrize("top", [10, 20, 100, 1000])
+@pytest.mark.parametrize("top", [10, 20, 100, 1000, 100_000, 1_000_000])
 def test_a_chain_of_plus_and_minus_fills_a_block(top, carry):
     out = generate(settings_for(ops=["+", "-"], max=top, count=12, numbers=3, carry=carry))
     if len(out["exercises"]) < 12:
         assert out["loosen"]
     else:
         assert out["loosen"] is None
+
+
+@pytest.mark.parametrize("top", [100_000, 1_000_000])
+@pytest.mark.parametrize(
+    "ops, pvs, brackets",
+    [
+        (["+"], False, False),
+        (["-"], False, False),
+        (["+", "-"], False, False),
+        (["+", "-", "*", "/"], True, False),
+        (["+", "-", "*", "/"], True, True),
+    ],
+)
+@pytest.mark.parametrize("seed", range(1, 6))
+def test_ohne_uebertrag_fills_a_block_in_a_big_zahlenraum(top, ops, pvs, brackets, seed):
+    s = settings_for(
+        ops=ops, max=top, count=12, numbers=3, carry="none", pvs=pvs, brackets=brackets, seed=seed
+    )
+    out = generate(s)
+    assert len(out["exercises"]) == 12
+    assert out["loosen"] is None
 
 
 def test_a_seed_brings_the_same_tasks_of_three_and_another_seed_others():

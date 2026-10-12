@@ -469,9 +469,40 @@ def sound(s: Settings, e: dict, top: int) -> bool:
     return fit and inside and worked(s, e, top) == e["result"]
 
 
+def calm(ranges: list[Range], other: int, op: str, first: bool = False) -> list[Range] | None:
+    """The digit ranges narrowed so the number makes no carry with `other`, or None when a place
+    has no digit left. For "-", `first` says whether the number is the one taken from."""
+    if op == "-" and first and other >= 10 ** len(ranges):
+        return None
+    out: list[Range] = []
+    for i, (lo, hi) in enumerate(ranges):
+        d = other // 10**i % 10
+        if op == "+":
+            hi = min(hi, 9 - d)
+        elif first:
+            lo = max(lo, d)
+        else:
+            hi = min(hi, d)
+        if lo > hi:
+            return None
+        out.append((lo, hi))
+    return out
+
+
 def once(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """One proposed term, kept when it keeps the limits. The caller tries again when it is not."""
-    pair = propose(s, op, top, rng)
+    if s.carry == "none" and op in "+-":
+        # Without a carry the second number is drawn from digits that cannot carry: far fewer
+        # blind draws would make one, and a chain needs two.
+        pair = None
+        a = pick(rng, s.a, 0, s.max)
+        ranges = None if a is None else calm(s.b, a, op)
+        if a is not None and ranges is not None:
+            room = top - a if op == "+" else a
+            b = pick(rng, ranges, 0, min(room, s.max))
+            pair = None if b is None else (a, b)
+    else:
+        pair = propose(s, op, top, rng)
     return pair if pair is not None and valid(s, op, *pair, top) else None
 
 
@@ -492,7 +523,12 @@ def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> d
             return None
         v = result(op, *pair)
         room = {"+": top - v, "-": v, "*": top // v if v else s.max}[op2]
-        c = pick(rng, s.c, 0, min(room, s.max))
+        ranges = s.c
+        if s.carry == "none" and op2 in "+-":
+            ranges = calm(s.c, v, op2)
+            if ranges is None:
+                return None
+        c = pick(rng, ranges, 0, min(room, s.max))
         if c is None:
             return None
     return {
@@ -514,9 +550,11 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
     b, c = pair
     w = result(op2, b, c)
     if op == "+":
-        a = pick(rng, s.a, 0, min(top - w, s.max))
+        ranges = calm(s.a, w, "+") if s.carry == "none" else s.a
+        a = None if ranges is None else pick(rng, ranges, 0, min(top - w, s.max))
     elif op == "-":
-        a = pick(rng, s.a, w, s.max)
+        ranges = calm(s.a, w, "-", first=True) if s.carry == "none" else s.a
+        a = None if ranges is None else pick(rng, ranges, w, s.max)
     elif op == "*":
         a = pick(rng, s.a, 0, s.max if w == 0 else min(top // w, s.max))
     else:
@@ -546,6 +584,20 @@ def take(s: Settings, top: int, shape: tuple, rng: random.Random, found: dict) -
     return True
 
 
+def draw_shape(
+    s: Settings, top: int, shape: tuple, want: int, rng: random.Random, found: dict
+) -> None:
+    """Draws up to `want` new tasks of a shape. A shape that brings nothing new 200 times in a
+    row has no more to give: tight limits leave few tasks, and the tries would all be spent."""
+    got = idle = 0
+    for _ in range(300 + 20 * s.count):
+        if got == want or idle == 200:
+            break
+        new = take(s, top, shape, rng, found)
+        got += new
+        idle = 0 if new else idle + 1
+
+
 def chains(s: Settings, top: int) -> list[dict]:
     """The three-number exercises: each shape gets its share, and the others fill any gap."""
     s = s.model_copy(update={"rest": False})
@@ -567,19 +619,10 @@ def chains(s: Settings, top: int) -> list[dict]:
         )
     # A dict keeps the order they were found in, so a seed gives the same tasks again.
     found: dict[tuple, dict] = {}
-    tries = 300 + 20 * s.count
     for i, shape in enumerate(shapes):
-        share = s.count // len(shapes) + (i < s.count % len(shapes))
-        got = 0
-        for _ in range(tries):
-            if got == share:
-                break
-            got += take(s, top, shape, rng, found)
+        draw_shape(s, top, shape, s.count // len(shapes) + (i < s.count % len(shapes)), rng, found)
     for shape in shapes:
-        for _ in range(tries):
-            if len(found) == s.count:
-                break
-            take(s, top, shape, rng, found)
+        draw_shape(s, top, shape, s.count - len(found), rng, found)
     out = list(found.values())
     if len(shapes) > 1:
         rng.shuffle(out)
