@@ -1218,7 +1218,7 @@ function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows:
   const S = 10;
   const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * S);
   return (
-    <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols * S} ${rows * S}`}>
+    <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols * S} ${rows * S}`} style={{ width: `calc(${cols * KARO * k}px * var(--fit, 1))`, height: `calc(${rows * KARO * k}px * var(--fit, 1))` }}>
       <g stroke="#9db4c8" strokeWidth={0.03 * S}>
         {each(cols).map((x) => <line key={x} x1={x} x2={x} y2={rows * S} />)}
         {each(rows).map((y) => <line key={-y - 1} x2={cols * S} y1={y} y2={y} />)}
@@ -1233,18 +1233,51 @@ function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows:
   );
 }
 
+// The scale each maths block draws at, by block id: below 1 when its tasks are too wide for it. The panel shows it as a hint.
+// It is measured on the screen and kept nowhere in the document.
+const scales = new Map<string, number>();
+const scaleListeners = new Set<() => void>();
+export function subscribe(listen: () => void) {
+  scaleListeners.add(listen);
+  return () => void scaleListeners.delete(listen);
+}
+export const scaleOf = (id: string) => scales.get(id) ?? 1;
+
 function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boolean }) {
   const p = block.props;
   const cols = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.cols ?? 0)));
   const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
   const d = decimalsOf(p);
   const money = d > 0 && !!p.money;
+  const root = useRef<HTMLDivElement>(null);
   // A gap holds the longest number, with its comma and its places after it.
-  const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0)}ch` };
+  const style = { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))`, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0)}ch` };
   const num = { solved, d, money };
+  // Tasks wider than the block shrink the type, as PowerPoint shrinks a text. Everything inside is in em, so the
+  // width is linear in the scale and one measurement is enough.
+  function fit() {
+    const el = root.current;
+    if (!el) return;
+    el.style.removeProperty("--fit");
+    const over = el.scrollWidth > el.clientWidth + 1;
+    // Two pixels of room: the paper's outer line lies half outside its svg, and the block cuts what leaves it.
+    const scale = over ? (el.clientWidth - 2) / el.scrollWidth : 1;
+    if (over) el.style.setProperty("--fit", String(scale));
+    if (scales.get(block.id) !== scale) {
+      scales.set(block.id, scale);
+      scaleListeners.forEach((listen) => listen());
+    }
+  }
+  useLayoutEffect(() => {
+    fit();
+  });
+  // The fonts load after the first layout, and a wider letter makes a wider task.
+  useLayoutEffect(() => {
+    document.fonts.ready.then(fit);
+  }, []);
   return (
     // The format's class has a name of its own: `gap` and `written` are a text's gap and a Lineatur's text.
-    <div className={`maths maths-${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
+    <div ref={root} className={`maths maths-${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
       {p.exercises.map((e, i) => (
         <div key={i}>
           {p.numbering && <b><Count mark={p.numbering} n={i + 1} /></b>}

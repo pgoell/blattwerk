@@ -137,6 +137,9 @@ def test_no_exercise_is_missed_in_a_small_zahlenraum(s):
             for b in range(s.max + 1):
                 if (op == "/" and (b == 0 or (a % b > 0) != s.rest)) or (op == "-" and a < b):
                     continue
+                # A written task has no 0 as a number (#453).
+                if s.format == "written" and 0 in (a, b):
+                    continue
                 result = {"+": a + b, "-": a - b, "*": a * b}.get(op) if op != "/" else a // b
                 e = {"op": op, "a": a, "b": b, "result": result, "rest": a % b if op == "/" else 0}
                 every += keeps(s, e)
