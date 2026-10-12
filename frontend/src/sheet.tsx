@@ -5,6 +5,7 @@ import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
+import { decimal } from "./decimal";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -91,6 +92,8 @@ export type Exercise = Calc | Compare;
 // `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none. `c` holds the
 // digits of the third number, and `numbers` is 2 or 3 numbers in a task (blocks saved before have 2). `pvs` is Punkt
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
+// `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
+// of those places for the first, second and third number, Zehntel first.
 export type Limits = {
   ops: Op[];
   max: number;
@@ -108,7 +111,17 @@ export type Limits = {
   numbers?: 2 | 3;
   pvs?: boolean;
   brackets?: boolean;
+  decimals?: 0 | 1 | 2;
+  money?: boolean;
+  af?: Range[];
+  bf?: Range[];
+  cf?: Range[];
 };
+// The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
+export function decimalsOf(p: Limits): number {
+  if (p.ops.includes("*") || p.ops.includes("/") || p.format === "compare") return 0;
+  return p.money ? 2 : p.decimals ?? 0;
+}
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
 export type Made = { exercises: Exercise[]; loosen: string[] | null };
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
@@ -1187,9 +1200,12 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
 }
 
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
-function Part({ e, part, solved }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean }) {
+// With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
+function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean }) {
   const gap = part === "rest" || part === (e.hide ?? "result");
-  return gap ? <u>{solved && e[part]}</u> : <>{e[part]}</>;
+  const text = part === "rest" ? e.rest : decimal(e[part] as number, d, money);
+  const euro = money && part !== "rest" ? " €" : "";
+  return <>{gap ? <u>{solved && text}</u> : text}{euro}</>;
 }
 
 // One side of a comparison as it reads: a number, or a term with its sign.
@@ -1218,7 +1234,11 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
   const p = block.props;
   const cols = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.cols ?? 0)));
   const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
-  const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5}ch` };
+  const d = decimalsOf(p);
+  const money = d > 0 && !!p.money;
+  // A gap holds the longest number, with its comma and its places after it.
+  const style = { fontSize: p.size * PT * k, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0)}ch` };
+  const num = { solved, d, money };
   return (
     <div className={`maths ${p.format}${solved ? " solved" : ""}`} style={style as CSSProperties}>
       {p.exercises.map((e, i) => (
@@ -1234,12 +1254,12 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
           ) : e.op2 ? (
             // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
             <span>
-              {e.paren === "left" && "("}<Part e={e} part="a" solved={solved} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" solved={solved} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" solved={solved} />{e.paren === "right" && ")"} = <Part e={e} part="result" solved={solved} />
+              {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
             </span>
           ) : (
             <span>
-              <Part e={e} part="a" solved={solved} /> {SIGNS[e.op]} <Part e={e} part="b" solved={solved} /> = <Part e={e} part="result" solved={solved} />
-              {e.rest > 0 && <> R <Part e={e} part="rest" solved={solved} /></>}
+              <Part e={e} part="a" {...num} /> {SIGNS[e.op]} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
+              {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
             </span>
           )}
         </div>

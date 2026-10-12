@@ -114,6 +114,7 @@ def maths(client, **more):
             for key in more
             if key in limits
             or key in ("sides", "close", "equal", "c", "numbers", "pvs", "brackets")
+            or key in ("decimals", "money", "af", "bf", "cf")
         },
     }
     made = client.post("/api/maths", json=limits).json()

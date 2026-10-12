@@ -265,8 +265,9 @@ def test_turns_down_limits_that_make_no_sense():
 
 
 @given(compares)
-# Each example runs the generator's full try budget several times, so 300 would near the 60 s limit.
-@settings(max_examples=100, deadline=None)
+# Each example runs the generator's full try budget several times: 100 took 13 to 23 s here and
+# ran out of the 50 s of a busy CI shard once.
+@settings(max_examples=60, deadline=None)
 def test_every_comparison_keeps_every_limit(s):
     out = generate(s)
     exercises = out["exercises"]
@@ -491,13 +492,14 @@ def test_two_numbers_come_out_as_before():
                 ("+", 4, 4, 8, None),
             ],
         ),
+        # The times and divide pin is from after #441.
         (
             dict(ops=["*", "/"], max=100, count=4, seed=11, format="gap", rest=False),
             [
-                ("/", 82, 82, 1, "b"),
-                ("/", 80, 8, 10, "b"),
-                ("*", 19, 0, 0, "b"),
-                ("*", 47, 2, 94, "a"),
+                ("*", 11, 6, 66, "b"),
+                ("/", 100, 10, 10, "b"),
+                ("*", 9, 2, 18, "b"),
+                ("/", 85, 5, 17, "a"),
             ],
         ),
         (

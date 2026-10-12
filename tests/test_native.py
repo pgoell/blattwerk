@@ -416,3 +416,27 @@ def test_tab_walks_the_new_settings_of_three_numbers(editor):
         page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
     expect_picked(page, "a")
+
+
+def test_the_decimal_controls_stand_in_the_tab_order_and_work_from_the_keyboard(editor):
+    """I6: After Zahlenraum, Tab walks the Nachkommastellen and Geld; Enter on 1 sets it."""
+    client = user()
+    page = editor(box("a", "maths", maths(client, ops=["+"], max=20)), client=client)
+    press(page, at(page, "a"))
+    expect_picked(page, "a")
+    # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
+    # there to the Zahlenraum.
+    for _ in range(3):
+        page.keyboard.press("F6")
+    for _ in range(60):
+        if page.locator(":focus").get_attribute("aria-label") == "Zahlenraum":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Zahlenraum")
+    for label in ["0 Nachkommastellen", "1 Nachkommastelle", "2 Nachkommastellen", "Geld"]:
+        page.keyboard.press("Tab")
+        expect(page.locator(":focus")).to_have_accessible_name(label)
+        if label == "1 Nachkommastelle":
+            page.keyboard.press("Enter")
+            expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, "a")

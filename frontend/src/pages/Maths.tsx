@@ -3,11 +3,17 @@ import { useRef, useState } from "react";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
-import { SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import { decimalsOf, SIGNS, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
 const PLACES = ["E", "Z", "H", "T", "ZT", "HT", "M"];
+// The places after the comma, Zehntel first, with their labels in the rows and their names for the pupil's ear.
+const FRACTIONS = [["z", "Zehntel"], ["h", "Hundertstel"]] as const;
+// A number's digit ranges: its whole places by its name, or the places after the comma by AFTER.
+type Key = "a" | "b" | "c" | "af" | "bf" | "cf";
+const AFTER = { a: "af", b: "bf", c: "cf" } as const;
+const NACH = ["0 Nachkommastellen", "1 Nachkommastelle", "2 Nachkommastellen"];
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
@@ -17,8 +23,8 @@ const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets }));
+export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf }));
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
@@ -52,14 +58,22 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
     const ops = p.ops.includes(op) ? p.ops.filter((o) => o !== op) : [...p.ops, op];
     if (ops.length) limit({ ops });
   }
+  // The places after the comma are af, bf and cf, two entries always; a missing one is any digit.
+  function ranges(key: Key): Range[] {
+    return key.length > 1 ? [0, 1].map((i) => p[key]?.[i] ?? [0, 9]) : p[key] ?? anyDigits(p.max);
+  }
   // The lowest digit of a place never lies above its highest: the other end moves along.
-  function digit(who: "a" | "b" | "c", place: number, end: 0 | 1, to: number) {
+  function digit(key: Key, place: number, end: 0 | 1, to: number) {
     const range = ([lo, hi]: Range): Range => (end ? [Math.min(lo, to), to] : [to, Math.max(hi, to)]);
-    limit({ [who]: (p[who] ?? anyDigits(p.max)).map((r, i) => (i === place ? range(r) : r)) });
+    limit({ [key]: ranges(key).map((r, i) => (i === place ? range(r) : r)) });
   }
   const show = (change: Partial<MathsProps>) => apply({ ...p, ...change });
   const plus = p.ops.includes("+") || p.ops.includes("-");
   const times = p.ops.includes("*") || p.ops.includes("/");
+  // Times, divide and compare keep whole numbers: the places after the comma stay greyed then, and keep their value.
+  const open = !times && p.format !== "compare";
+  const dec = decimalsOf(p);
+  const money = open && !!p.money;
   // Three numbers come in rows and gaps only. Punkt vor Strich needs three numbers and a sign of each kind; the
   // switches stay on the panel, greyed, when they do not hold. Brackets need Punkt vor Strich.
   const numbered = p.format === "row" || p.format === "gap";
@@ -104,25 +118,39 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           onChange={(e) => e.target.validity.valid && e.target.value && room(Math.floor(+e.target.value))}
         />
       )}
-      {(["a", "b", "c"] as const).slice(0, three ? 3 : 2).map((who) => (
-        <div key={who}>
-          <h2>{NTH[who]}: Ziffern von, bis</h2>
-          <div className="places">
-            {(p[who] ?? anyDigits(p.max))
-              .map((range, i) => [
-                <span key={i}>{PLACES[i]}</span>,
-                ...([0, 1] as const).map((end) => (
-                  <select key={`${i}${end}`} aria-label={`${PLACES[i]} ${end ? "bis" : "von"}`} value={range[end]} onChange={(e) => digit(who, i, end, +e.target.value)}>
-                    {DIGITS.map((d) => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
-                )),
-              ])
-              .reverse()}
+      <h2>Nachkommastellen</h2>
+      <div className="seg">
+        {([0, 1, 2] as const).map((n) => (
+          <button key={n} aria-label={NACH[n]} className={dec === n ? "on" : ""} aria-pressed={dec === n} disabled={!open || money} onClick={() => limit({ decimals: n })}>
+            {n}
+          </button>
+        ))}
+        <button className={money ? "on" : ""} aria-pressed={money} disabled={!open} onClick={() => limit({ money: !p.money })}>
+          Geld
+        </button>
+      </div>
+      {(["a", "b", "c"] as const).slice(0, three ? 3 : 2).map((who) => {
+        // One row of a place: its label, then the lowest and the highest digit.
+        const row = (key: Key, i: number, label: string, name: string) => [
+          <span key={i}>{label}</span>,
+          ...([0, 1] as const).map((end) => (
+            <select key={`${i}${end}`} aria-label={`${name} ${end ? "bis" : "von"}`} value={ranges(key)[i][end]} onChange={(e) => digit(key, i, end, +e.target.value)}>
+              {DIGITS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          )),
+        ];
+        return (
+          <div key={who}>
+            <h2>{NTH[who]}: Ziffern von, bis</h2>
+            <div className="places">
+              {ranges(who).map((_, i) => row(who, i, PLACES[i], PLACES[i])).reverse()}
+              {ranges(AFTER[who]).slice(0, dec).map((_, i) => row(AFTER[who], i, FRACTIONS[i][0], FRACTIONS[i][1]))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {plus && (
         <>
           <h2>Übertrag</h2>
