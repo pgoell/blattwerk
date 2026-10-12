@@ -524,3 +524,172 @@ def test_b_gap_hides_only_b():
     s = Settings(ops=["+"], max=20, format="gap", gaps=["b"], count=12, seed=5)
     exercises = generate(s)["exercises"]
     assert exercises and all(e["hide"] == "b" for e in exercises)
+
+
+def test_decimals_in_a_big_zahlenraum_with_few_digits_still_make_their_tasks():
+    narrow = {"a": [[0, 1]] + [[0, 0]] * 6, "b": [[0, 1]] + [[0, 0]] * 6, "af": [[0, 1], [0, 0]]}
+    narrow["bf"] = narrow["af"]
+    a, b, af = narrow["a"], narrow["b"], narrow["af"]
+    for s in (
+        Settings(
+            ops=["+", "-"], count=6, seed=1, a=a, b=b, af=af, bf=af, max=1_000_000, money=True
+        ),
+        Settings(ops=["+", "-"], count=6, seed=1, a=a, b=b, af=af, bf=af, max=100_000, decimals=2),
+        Settings(
+            ops=["+", "-"], count=6, seed=1, a=a, b=b, af=af, bf=af, max=1_000_000, decimals=1
+        ),
+    ):
+        assert len(generate(s)["exercises"]) == 6, s
+
+
+@settings(max_examples=100, deadline=1000)
+@given(
+    max=st.sampled_from(ROOMS),
+    decimals=st.sampled_from([0, 1, 2]),
+    money=st.booleans(),
+    ops=st.lists(st.sampled_from("+-"), min_size=1, max_size=2, unique=True),
+    narrow_a=st.booleans(),
+    narrow_b=st.booleans(),
+    fmt=st.sampled_from(["row", "gap", "written"]),
+    count=st.integers(1, 6),
+    seed=st.integers(0, 10**9),
+)
+def test_decimals_and_geld_make_tasks_in_every_zahlenraum(
+    max, decimals, money, ops, narrow_a, narrow_b, fmt, count, seed
+):
+    s = Settings(
+        ops=ops,
+        max=max,
+        decimals=decimals,
+        money=money,
+        a=[[0, 1]] * 7 if narrow_a else [],
+        b=[[0, 1]] * 7 if narrow_b else [],
+        af=[[0, 1], [0, 0]] if narrow_a else [],
+        bf=[[0, 1], [0, 0]] if narrow_b else [],
+        format=fmt,
+        count=count,
+        seed=seed,
+    )
+    for e in generate(s)["exercises"]:
+        assert e["result"] == (e["a"] + e["b"] if e["op"] == "+" else e["a"] - e["b"])
+
+
+def loose_here(op, a, b, k):
+    """Whether any number fits the gap k, worked out in the test."""
+    if k == "a":
+        return op == "*" and b == 0
+    if k == "b":
+        return (op == "*" and a == 0) or (op == "/" and a // b == 0)
+    return False
+
+
+def check_only_ticked(ops, max, gaps, rest, zero, one, distinct, count, seed):
+    s = Settings(
+        ops=ops,
+        max=max,
+        format="gap",
+        gaps=gaps,
+        rest=rest,
+        zero=zero,
+        one=one,
+        distinct=distinct,
+        count=count,
+        seed=seed,
+    )
+    ticked = gaps or ["a", "b", "c"]
+    allowed = [k for k in ("a", "b", "result") if k in ticked] or ["a", "b"]
+    for e in generate(s)["exercises"]:
+        hide = e.get("hide", "result")
+        assert hide in allowed, e
+        if hide in ("a", "b"):
+            assert not loose_here(e["op"], e["a"], e["b"], hide), e
+
+
+@settings(max_examples=100, deadline=1000)
+@given(
+    ops=OPS,
+    max=st.sampled_from([10, 20, 1000, 1_000_000]),
+    gaps=st.lists(st.sampled_from(["a", "b", "result"]), min_size=1, unique=True),
+    rest=st.booleans(),
+    zero=st.booleans(),
+    one=st.booleans(),
+    distinct=st.booleans(),
+    count=st.integers(1, 8),
+    seed=st.integers(0, 10**9),
+)
+def test_a_set_gap_hides_only_what_is_ticked(
+    ops, max, gaps, rest, zero, one, distinct, count, seed
+):
+    check_only_ticked(ops, max, gaps, rest, zero, one, distinct, count, seed)
+
+
+@settings(max_examples=100, deadline=1000)
+@given(
+    ops=st.sampled_from([["+"], ["-"], ["*"], ["/"]]),
+    gaps=st.lists(st.sampled_from(["a", "b", "result"]), min_size=1, unique=True),
+    count=st.integers(1, 8),
+    seed=st.integers(0, 10**9),
+)
+def test_a_set_gap_hides_only_what_is_ticked_room_100(ops, gaps, count, seed):
+    check_only_ticked(ops, 100, gaps, False, True, True, False, count, seed)
+
+
+@settings(max_examples=100, deadline=1000)
+@given(
+    ops=OPS,
+    max=st.sampled_from([10, 20, 100]),
+    pvs=st.booleans(),
+    brackets=st.booleans(),
+    gaps=st.lists(st.sampled_from(["a", "b", "c", "result"]), min_size=1, unique=True),
+    count=st.integers(1, 6),
+    seed=st.integers(0, 10**9),
+)
+def test_a_set_gap_of_three_numbers_hides_only_what_is_ticked(
+    ops, max, pvs, brackets, gaps, count, seed
+):
+    s = Settings(
+        ops=ops,
+        max=max,
+        numbers=3,
+        format="gap",
+        gaps=gaps,
+        pvs=pvs,
+        brackets=brackets,
+        count=count,
+        seed=seed,
+    )
+    ticked = gaps or ["a", "b", "c"]
+    allowed = [k for k in ("a", "b", "c", "result") if k in ticked] or ["a", "b", "c"]
+    for e in generate(s)["exercises"]:
+        assert e.get("hide", "result") in allowed, e
+
+
+def test_a_set_gap_of_a_times_task_never_hides_a_zero_factor_as_b():
+    s = Settings(ops=["*"], max=10, format="gap", gaps=["a"], count=12, seed=0)
+    exercises = generate(s)["exercises"]
+    assert exercises
+    for e in exercises:
+        assert e.get("hide") == "a", e
+        assert e["b"] != 0, e
+
+
+@settings(max_examples=100, deadline=1000)
+@given(
+    max=st.sampled_from(ROOMS),
+    ops=OPS,
+    count=st.integers(1, 12),
+    seed=st.integers(0, 10**9),
+)
+def test_no_equal_numbers_in_a_comparison_of_two_numbers(max, ops, count, seed):
+    s = Settings(
+        ops=ops,
+        max=max,
+        format="compare",
+        sides="nn",
+        equal="some",
+        distinct=True,
+        count=count,
+        seed=seed,
+    )
+    for e in generate(s)["exercises"]:
+        assert e["left"]["value"] != e["right"]["value"], e

@@ -146,6 +146,8 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     """Whether an exercise keeps every limit. `top` is the highest result."""
     if not (fits(s.a, a) and fits(s.b, b) and a <= s.max and b <= s.max):
         return False
+    if op == "/" and b == 0:
+        return False
     # A written task with a 0 as a number teaches nothing, whatever the operation.
     if s.format == "written" and 0 in (a, b):
         return False
@@ -154,6 +156,9 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     if not s.one and ((op == "*" and 1 in (a, b)) or (op == "/" and b == 1)):
         return False
     if s.distinct and a == b:
+        return False
+    only = [] if three(s) else bound(s)
+    if only and all(loose(op, a, b, k) for k in only):
         return False
     if op in "+-":
         if s.carry != "either" and (s.carry == "required") != any(carries(op, a, b)):
@@ -234,23 +239,51 @@ def propose(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, in
     return None if b is None else (a, b)
 
 
+def loose(op: str, a: int, b: int, k: str) -> bool:
+    """Whether any number fits a gap at k, so the gap is no task."""
+    if k == "a":
+        return op == "*" and b == 0
+    if k == "b":
+        return (op == "*" and a == 0) or (op == "/" and a // b == 0)
+    return False
+
+
+def bound(s: Settings) -> list[str]:
+    """The numbers a gap must hide one of: the ticked ones, when the teacher set them and left the
+    result out."""
+    if s.format != "gap" or s.gaps is None:
+        return []
+    allowed = gaps_of(s)
+    return [] if "result" in allowed else allowed
+
+
 def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
     """Every pair of numbers that keeps the limits for one operation."""
     # Only these limits tell whether a pair is valid; a row and a gap take the same pairs.
     limits = s.model_dump_json(
         include={"max", "a", "b", "carry", "rest", "zero", "one", "distinct"}
     )
-    return list(kept(limits, s.format == "written", op, top))
+    only = tuple([] if three(s) else bound(s))
+    return list(kept(limits, s.format == "written", only, op, top))
 
 
 # A block is rolled anew and changed many times within the same limits, and a Zahlenraum of 100
 # has ten thousand pairs to try, so the last answers are remembered; the cap bounds memory.
 @lru_cache(maxsize=32)
-def kept(limits: str, on_paper: bool, op: str, top: int) -> tuple[tuple[int, int], ...]:
+def kept(
+    limits: str, on_paper: bool, only: tuple[str, ...], op: str, top: int
+) -> tuple[tuple[int, int], ...]:
     """`valid_pairs` for the limits as JSON, remembered."""
-    form = "written" if on_paper else "row"
-    # The pairs do not hang on the signs, the count or the seed: any will do here.
-    s = Settings(ops=["+"], count=1, seed=0, format=form, **json.loads(limits))
+    fields = json.loads(limits)
+    # The digit ranges come back as lists; they must be tuples to be remembered by `below`.
+    fields["a"] = [tuple(r) for r in fields["a"]]
+    fields["b"] = [tuple(r) for r in fields["b"]]
+    fields["format"] = "written" if on_paper else "row"
+    if only:
+        fields.update(format="gap", gaps=list(only))
+    # The pairs do not hang on the signs, the count or the seed: any will do here. The settings
+    # are not checked again, as a big Zahlenraum may have been widened past its limit.
+    s = Settings.model_construct(ops=["+"], count=1, seed=0, **fields)
     bs = [nth(s.b, i) for i in range(below(s.b, s.max))]
     return tuple(
         (a, b)
@@ -588,6 +621,9 @@ def compare(s: Settings, top: int) -> list[dict]:
     ops: list[str] = list(dict.fromkeys(s.ops))
     # The "=" tasks are made first, so a short supply of them is not filled with others.
     n_equal = (2 * s.count + 5) // 10 if s.equal == "some" else 0
+    # Two plain numbers that must differ have no equal sides.
+    if s.distinct and s.sides == "nn":
+        n_equal = 0
     out = draw_comparisons(s, ops, top, n_equal, 500 + 50 * n_equal, True, rng)
     out += draw_comparisons(s, ops, top, s.count - n_equal, 1000 + 50 * s.count, False, rng)
     rng.shuffle(out)
@@ -948,6 +984,9 @@ def take(
     key = (e["a"], e["op"], e["b"], e["op2"], e["c"], e.get("paren"))
     if key in found:
         return False
+    only = bound(s)
+    if only and not any(told(s, e, k) for k in only):
+        return False
     found[key] = e
     return True
 
@@ -1085,13 +1124,8 @@ def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random
         allowed = gaps_of(s)
         hide = rng.choice(allowed)
         # With a 0 that makes any number fit the gap, that number is not hidden: another one is.
-        loose = {
-            "a": op == "*" and b == 0,
-            "b": (op == "*" and a == 0) or (op == "/" and result == 0),
-            "result": False,
-        }
-        if loose[hide]:
-            hide = next(k for k in [*allowed, "a", "b", "result"] if not loose[k])
+        if loose(op, a, b, hide):
+            hide = next(k for k in [*allowed, "a", "b", "result"] if not loose(op, a, b, k))
         if hide != "result":
             exercise["hide"] = hide
     if s.format == "written":
