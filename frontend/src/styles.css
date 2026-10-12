@@ -543,6 +543,8 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
+/* A linked speech bubble is a grid of the row for its words and an empty one where its tail is (Frame in sheet.tsx). */
+.frame.listed > .rich { grid-area: words; }
 /* A gap is a line to write on, in the text's colour. The editor greys its words, the pupil's sheet hides them (they
    keep their room, and stay out of the PDF's text) and the answer key shows them in its colour. */
 /* The editor draws the page scaled to the zoom, so below about 106 % a .25mm line is less than a screen pixel and

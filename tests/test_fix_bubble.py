@@ -80,6 +80,26 @@ def test_a_bubble_stored_too_low_prints_its_words_in_its_body(browser, server):
     paper.context.close()
 
 
+def test_a_bubble_flipped_top_to_bottom_keeps_its_words_under_its_tail(browser, server):
+    """#424 All words stand in the bubble's body: flipped top to bottom, the tail is the top quarter
+    of the frame and the body the rest."""
+    client = user()
+    stored = sheet(client, [box("a", "shape", BUBBLE, h=20, w=60, flipY=True)], words=WORDS)
+    paper = printed(browser, server, stored["id"])
+    tops = paper.locator(".block").first.evaluate(
+        """(root) => {
+            const frame = root.querySelector('.frame').getBoundingClientRect();
+            const body = frame.top + 0.25 * frame.height;
+            const paras = [...root.querySelectorAll('.frame p')];
+            const rects = paras.map((p) => p.getBoundingClientRect());
+            return rects.map((p) => [p.top - body, frame.bottom - p.bottom]);
+        }"""
+    )
+    assert len(tops) == len(WORDS)
+    assert all(top >= -0.5 and foot >= -0.5 for top, foot in tops), tops
+    paper.context.close()
+
+
 def test_a_linked_rectangle_keeps_its_height(browser, server):
     """Implied 6: a linked rectangle keeps its height: only the bubble leaves room for its tail."""
     client = user()
