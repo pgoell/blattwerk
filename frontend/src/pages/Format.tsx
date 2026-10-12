@@ -8,6 +8,7 @@ import { mixed, word } from "../scramble";
 import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
+import Suchsel from "./Suchsel";
 import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -180,6 +181,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
   const [sign] = of("symbol");
   // The generator's limits belong to one block.
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
+  const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -458,6 +460,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
         </>
       )}
       {maths && <Maths key={maths.id} block={maths} apply={calc} />}
+      {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>

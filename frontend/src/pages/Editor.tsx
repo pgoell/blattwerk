@@ -34,6 +34,7 @@ import {
   Eraser,
   Eye,
   Group,
+  Grid3x3,
   FileCheck,
   FileDown,
   FilePlus,
@@ -151,6 +152,7 @@ const NAMES: Record<Block["type"], string> = {
   image: "Bild",
   symbol: "Symbol",
   ruling: "Lineatur",
+  suchsel: "Suchsel",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -1112,7 +1114,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     change((bs) => bs.map((b) => ({ ...b, ...byId.get(b.id) })), key);
   }
   function style(type: Block["type"], props: object, key?: string) {
-    if (type === "table") tight.current = true;
+    if (type === "table" || key === "words") tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
   }
   // Sets what a shape and a text share: the frame, and the text in it.
@@ -2389,6 +2391,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
       <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
       <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
+      <Tool icon={Grid3x3} label="Suchsel" onClick={() => add(120, 140, { type: "suchsel", props: { words: [], cols: 10, rows: 10, ways: "down", caps: true, umlauts: true, show: "words", seed: newSeed() } })} />
       {/* What makes exercises, a group to a subject. */}
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />

@@ -4,6 +4,7 @@ import type { Breaks } from "./syllables";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
+import { laid, sane } from "./suchsel";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -101,7 +102,16 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
 export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number } };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock;
+// A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
+// letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
+// sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
+// too, the diagonals too, backwards too. `caps` shows every letter as a capital, else every letter small. With
+// `umlauts` ä, ö, ü and ß stay; else they become AE, OE, UE and SS. `show` prints the hidden words under the grid,
+// or only how many there are. The layout comes from `seed` alone (suchsel.ts), so every draw gives the same grid.
+export type Ways = "across" | "down" | "diag" | "back";
+export type SuchselProps = { words: string[]; cols: number; rows: number; ways: Ways; caps: boolean; umlauts: boolean; show: "words" | "count"; seed: number };
+export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -1150,10 +1160,54 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
   );
 }
 
+// A word search: squared paper with a letter to a square, the hidden words ringed once solved, and the words or
+// their count under the grid. It draws in its own units, so it scales to the room its block gives it. A square is
+// `S` units wide: with a square of one unit the letters are under a unit high, and Chromium sets so small a type a
+// whole square too high.
+function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved: boolean }) {
+  const p = sane(block.props);
+  const { grid, hidden } = laid(p);
+  const S = 10;
+  const [wide, high] = [p.cols * S, p.rows * S];
+  const each = (n: number) => Array.from({ length: n - 1 }, (_, i) => (i + 1) * S);
+  return (
+    <div className={`suchsel${solved ? " solved" : ""}`} style={{ fontSize: 12 * PT * k }}>
+      <svg viewBox={`0 0 ${wide} ${high}`} preserveAspectRatio="xMidYMin meet" style={{ aspectRatio: `${p.cols} / ${p.rows}` }}>
+        <g className="mesh" stroke="#9db4c8" strokeWidth={0.3}>
+          {each(p.cols).map((x) => <line key={`x${x}`} x1={x} x2={x} y1={0} y2={high} />)}
+          {each(p.rows).map((y) => <line key={`y${y}`} x1={0} x2={wide} y1={y} y2={y} />)}
+        </g>
+        <rect className="edge" x={0} y={0} width={wide} height={high} fill="none" stroke="#222" strokeWidth={0.6} />
+        {grid.map((row, r) => row.map((letter, c) => (
+          <text key={`${c},${r}`} data-at={`${c},${r}`} x={(c + 0.5) * S} y={(r + 0.5) * S} fontSize={0.62 * S} textAnchor="middle" dominantBaseline="central" fill="#222">{letter}</text>
+        )))}
+        {solved && hidden.map((h) => {
+          const n = h.letters.length;
+          const length = ((n - 1) * Math.hypot(h.dc, h.dr) + 0.8) * S;
+          const cx = (h.col + 0.5 + (h.dc * (n - 1)) / 2) * S;
+          const cy = (h.row + 0.5 + (h.dr * (n - 1)) / 2) * S;
+          const angle = (Math.atan2(h.dr, h.dc) * 180) / Math.PI;
+          return (
+            <rect key={`${h.word}${h.col},${h.row}`} className="ring answer" data-word={h.word} data-col={h.col} data-row={h.row} data-dc={h.dc} data-dr={h.dr} data-n={n}
+              x={cx - length / 2} y={cy - 0.4 * S} width={length} height={0.8 * S} rx={0.4 * S} ry={0.4 * S} strokeWidth={0.6} transform={`rotate(${angle} ${cx} ${cy})`} />
+          );
+        })}
+      </svg>
+      {p.show === "words" && hidden.length > 0 && (
+        <ul className="found">{hidden.map((h) => <li key={`${h.word}${h.col},${h.row}`}>{h.word}</li>)}</ul>
+      )}
+      {p.show === "count" && hidden.length > 0 && (
+        <p className="found">Finde {hidden.length} {hidden.length === 1 ? "Wort" : "Wörter"}.</p>
+      )}
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, children }: { block: Block; k: number; solved?: boolean; at?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
+  if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
