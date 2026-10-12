@@ -71,6 +71,7 @@ export default function Blank({ late }: { late: boolean }) {
           <div className="tabs">
             <button>Format</button>
             <button>Ansicht</button>
+            <button>Lernwörter</button>
           </div>
           <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>
         </aside>

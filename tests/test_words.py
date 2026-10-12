@@ -443,3 +443,30 @@ def test_tab_reaches_the_list_controls_and_keys_press_them(editor):
     expect(page.get_by_role("button", name="Lernwörter-Blatt")).to_be_focused()
     page.keyboard.press("Enter")
     assert len(doc(page, client)["pages"]) == 2
+
+
+def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor):
+    """A6: the blocks draw from the list, on the page in use and on the others."""
+    client = user()
+    page = editor(
+        box("a", "ruling", {**RULING, "list": "copy"}, h=40),
+        box("o", "ruling", {**RULING, "list": "row"}, y=120, h=40, z=2),
+        more=[box("b", "ruling", {**RULING, "list": "trace"}, h=40)],
+        client=client,
+        words=["Hund"],
+    )
+    for block in (at(page, "a"), at(page, "o"), thumb(page, 1).locator(".block")):
+        expect(block.locator(".listed .row")).to_have_count(1)
+    list_tab(page)
+    field(page).press("Control+End")
+    field(page).press_sequentially("\nKatze\nMaus")
+    for block in (at(page, "a"), at(page, "o"), thumb(page, 1).locator(".block")):
+        expect(block.locator(".listed .row")).to_have_count(3)
+        expect(block.locator(".listed .row").nth(2).locator("span").first).to_have_text("Maus")
+    assert doc(page, client)["words"] == ["Hund", "Katze", "Maus"]
+    undo(page)
+    for block in (at(page, "a"), at(page, "o"), thumb(page, 1).locator(".block")):
+        expect(block.locator(".listed .row")).to_have_count(1)
+    assert doc(page, client)["words"] == ["Hund"]
+    redo(page)
+    expect(at(page, "a").locator(".listed .row")).to_have_count(3)

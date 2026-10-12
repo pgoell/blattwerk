@@ -21,6 +21,9 @@ import pixels  # ty: ignore[unresolved-import]
 import ui  # ty: ignore[unresolved-import]
 
 pages = json.loads(Path(sys.argv[1]).read_text())
+# A sheet with Lernwörter comes as {"pages": [...], "words": [...]}.
+words = pages.get("words") if isinstance(pages, dict) else None
+pages = pages["pages"] if isinstance(pages, dict) else pages
 out = Path(sys.argv[2])
 out.mkdir(parents=True, exist_ok=True)
 # Before the first user: the database is made where this points.
@@ -30,7 +33,7 @@ with ui.serving() as base, sync_playwright() as p:
     client = ui.user()
     # The browser whose limits pixels.py holds.
     browser = getattr(p, ui.BROWSER).launch()
-    sheet_id = ui.sheet(client, *pages)["id"]
+    sheet_id = ui.sheet(client, *pages, words=words)["id"]
     screen, printed = pixels.screen_and_print(browser, base, client, sheet_id)
     browser.close()
 

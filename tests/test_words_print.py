@@ -109,8 +109,17 @@ def test_blank_lines_and_commas_make_no_empty_row(editor):
 @pytest.mark.parametrize("words", ["Hund", 7, [1, None, {"a": 1}]])
 def test_garbage_in_words_draws_as_none(editor, words):
     page = editor(linked("a", "l4", "copy", h=40), words=words)
-    expect(page.locator(".written.listed")).to_have_count(0)
+    expect(at(page, "a").locator(".written.listed")).to_have_count(1)
+    expect(page.locator(".written.listed .row")).to_have_count(0)
     expect(at(page, "a")).to_be_visible()
+
+
+def test_a_linked_block_on_a_sheet_with_no_list_shows_empty_rows_and_not_its_own_text(editor):
+    page = editor(
+        box("a", "ruling", {"kind": "l4", "color": "#222", "list": "copy", "text": "eigen"}, h=40)
+    )
+    expect(at(page, "a").locator(".written.listed")).to_have_count(1)
+    expect(at(page, "a")).not_to_contain_text("eigen")
 
 
 def test_garbage_in_list_draws_as_none(editor):
@@ -201,3 +210,15 @@ def test_a_word_stands_where_a_typed_text_stands(editor, kind, font):
     assert None not in typed + drawn, (typed, drawn)
     for (top, mid), (top2, mid2) in zip(typed, drawn, strict=True):
         assert abs(top - top2) <= 1 and abs(mid - mid2) <= 1, (typed, drawn)
+
+
+def test_the_default_layout_reaches_the_list_from_the_bar(editor):
+    """Blattform has no tabs in its panel: the bar's modes lead to the list."""
+    page = editor(linked("a", "l4", "copy", h=40))
+    page.locator(".modes").get_by_role("tab", name="Lernwörter").click()
+    field = page.get_by_label("Lernwörter", exact=True)
+    field.press_sequentially("Hund")
+    expect(at(page, "a").locator(".listed .row span")).to_have_text("Hund")
+    expect(page.locator(".modes [aria-selected=true]")).to_have_text("Lernwörter")
+    page.locator(".modes").get_by_role("tab", name="Start").click()
+    expect(field).to_have_count(0)

@@ -2254,7 +2254,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           { label: "Eine Ebene nach hinten", disabled: none, run: () => raise(false, true) },
           { label: "In den Hintergrund", disabled: none, run: () => raise(false) },
         ];
-  const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
+  const mode = side ? "Vorlagen" : tab === "Format" ? "Start" : tab;
   const brand = (
     <Link to="/" className="brand" aria-label="Meine Blätter" title="Meine Blätter">
       <Logo />
@@ -2412,7 +2412,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         <div className="top" ref={bar} onPointerOver={holdName}>
           {leaf ? (
             <span className="modes" role="tablist">
-              {["Start", "Ansicht", "Vorlagen"].map((m) => (
+              {["Start", "Ansicht", "Lernwörter", "Vorlagen"].map((m) => (
                 <button
                   key={m}
                   role="tab"
@@ -2420,8 +2420,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   aria-selected={mode === m}
                   onClick={() => {
                     setSide(m === "Vorlagen");
-                    setTab(m === "Ansicht" ? "Ansicht" : "Format");
-                    if (m === "Ansicht") setPane(true);
+                    setTab(TABS.includes(m) ? m : "Format");
+                    if (TABS.includes(m)) setPane(true);
                   }}
                 >
                   {m}

@@ -961,9 +961,10 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const { text = "", trace } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
-  // With no Lernwörter a mode is none: the block draws its own text as it always did.
+  // A block set to the list shows the list alone: with no word in it, empty rows, and not its own text, which the
+  // editor could not open there.
   const words = useContext(Words);
-  const mode = words.length ? listOf(block) : undefined;
+  const mode = listOf(block);
   const shown = words.slice(0, rows);
   const cut = (word: string) => [...word].slice(0, cols).join("");
   // On Karo a row of the list is its word, cut to the squares, and in "row" as often as whole words fit.
