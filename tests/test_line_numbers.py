@@ -311,6 +311,9 @@ def test_the_numbers_take_no_click_and_are_no_text(editor):
     """I6: a click on a number selects nothing; the numbers are no words of the text."""
     page = editor(box("a", "text", {**TEXT, "text": "Hallo", "lines": 1}))
     expect(at(page, "a").locator(".ln")).to_have_count(1)
+    # The number has its place once the text is measured. Before that it stood elsewhere, and
+    # the click went to the text or to the bar's link, which left the sheet (#419).
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
     number = rect(at(page, "a").locator(".ln"))
     page.mouse.click(number["x"] + number["width"] / 2, number["y"] + number["height"] / 2)
     expect(at(page, "a")).not_to_have_class(re.compile("sel"))
