@@ -18,14 +18,15 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
 const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
-const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien" };
+const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien", zero: "Aufgaben mit 0", one: "Aufgaben mit 1", distinct: "keine gleichen Zahlen" };
+const GAPS = ["a", "b", "c", "result"] as const;
 const FAMILIES = [["none", "Keine"], ["swap", "Tauschaufgaben"], ["reverse", "Umkehraufgaben"], ["neighbour", "Nachbaraufgaben"]] as const;
 const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves }));
+export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct }));
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
@@ -88,6 +89,16 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   const swap = p.ops.includes("+") || p.ops.includes("*");
   const fam = numbered && !three && !!p.family && p.family !== "none" && !(p.family === "swap" && !swap);
   const whole = fam && p.family === "reverse";
+  // The Lücke boxes: the block's gaps, a block saved before has none, which is every number. A hidden c keeps its tick.
+  const all = p.gaps ?? ["a", "b", "c"];
+  const shown = GAPS.filter((k) => k !== "c" || three);
+  const ticked = shown.filter((k) => all.includes(k));
+  const lit = ticked.length ? ticked : shown.filter((k) => k !== "result");
+  // The last ticked box stays ticked, as the last sign of Rechenart does.
+  function gap(k: (typeof GAPS)[number]) {
+    const next = GAPS.filter((g) => (g === k ? !lit.includes(g) : shown.includes(g) ? lit.includes(g) : all.includes(g)));
+    if (shown.some((g) => next.includes(g))) limit({ gaps: next });
+  }
 
   return (
     <>
@@ -98,6 +109,21 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
             {SIGNS[op]}
           </button>
         ))}
+      </div>
+      <div className="seg switch">
+        <button className={p.zero !== false ? "on" : ""} aria-pressed={p.zero !== false} onClick={() => limit({ zero: p.zero === false })}>
+          Aufgaben mit 0
+        </button>
+      </div>
+      <div className="seg switch">
+        <button className={p.one !== false ? "on" : ""} aria-pressed={p.one !== false} disabled={!times} onClick={() => limit({ one: p.one === false })}>
+          Aufgaben mit 1 beim Malnehmen und Teilen
+        </button>
+      </div>
+      <div className="seg switch">
+        <button className={p.distinct ? "on" : ""} aria-pressed={!!p.distinct} onClick={() => limit({ distinct: !p.distinct })}>
+          keine gleichen Zahlen
+        </button>
       </div>
       <h2>Zahlenraum</h2>
       <select
@@ -188,6 +214,18 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           </button>
         ))}
       </div>
+      {p.format === "gap" && (
+        <>
+          <h2>Lücke</h2>
+          <div className="seg">
+            {shown.map((k) => (
+              <button key={k} aria-label={`Lücke: ${k === "result" ? "Ergebnis" : NTH[k]}`} className={lit.includes(k) ? "on" : ""} aria-pressed={lit.includes(k)} onClick={() => gap(k)}>
+                {k === "result" ? "Ergebnis" : NTH[k]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {numbered && (
         <>
           <h2>Zahlen pro Aufgabe</h2>
