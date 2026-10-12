@@ -8,7 +8,7 @@ The bar is a teacher's eyes. A fault is anything a teacher would trip over: a cl
 
 Time: 50 minutes in all. Start and sign in take 3, the five sheets 15, the pull requests 25, issues and clean up 7. Run `date` at the start and before each part, and keep to the boxes. A sheet that takes more than 4 minutes is a finding: note it and go on.
 
-When the orchestrator's prompt names an "above all" (a pull request or a feature to hunt on first), the split changes. The five sheets get 10 minutes, not 15: build sheets 1, 3 and 4 only. The 5 minutes saved go to issues and clean up, which get 12. The named pull requests come before the others and get at least 15 of the 25 minutes.
+When the orchestrator's prompt names an "above all" (a pull request or a feature to hunt on first), the split changes. The five sheets get 10 minutes, not 15: build sheets 1, 3 and 4 only. The pull requests get 30 minutes, not 25. The named pull requests come before the others and get at least 20 of the 30 minutes. Issues and clean up keep 7.
 
 ## Rules
 
@@ -227,7 +227,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 
 ## 25 minutes on the last five pull requests
 
-1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before.
+1. Note the time with `date`. Stop after 25 minutes (30 when an "above all" is named, as above), wherever you are, and not before.
 2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor`, which a teacher does not see, before they take five:
 
    ```sh

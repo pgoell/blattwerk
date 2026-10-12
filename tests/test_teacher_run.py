@@ -553,13 +553,19 @@ def test_406_10_the_above_all_split_still_adds_up_to_50_minutes():
     split = next(part for part in BRIEF.split("\n\n") if "above all" in part)
     assert "five sheets get 10 minutes, not 15" in split
     assert "build sheets 1, 3 and 4 only" in split
-    assert "at least 15 of the 25 minutes" in split
+    assert "pull requests get 30 minutes, not 25" in split
+    assert "at least 20 of the 30 minutes" in split
+    assert "Issues and clean up keep 7" in split
     sheets = re.search(r"sheets get (\d+) minutes", split)
-    issues = re.search(r"clean up, which get (\d+)", split)
-    assert sheets and issues
-    # The start takes 3 and the pull requests 25, as the time box above says.
-    assert "Start and sign in take 3" in BRIEF and "the pull requests 25" in BRIEF
-    assert 3 + int(sheets[1]) + 25 + int(issues[1]) == 50
+    pulls = re.search(r"pull requests get (\d+) minutes", split)
+    issues = re.search(r"clean up keep (\d+)", split)
+    assert sheets and pulls and issues
+    # The start takes 3, as the time box above says.
+    assert "Start and sign in take 3" in BRIEF
+    assert 3 + int(sheets[1]) + int(pulls[1]) + int(issues[1]) == 50
+    # Step 1 of the pull requests says the same stop: 30 minutes with an "above all".
+    step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
+    assert 'Stop after 25 minutes (30 when an "above all" is named' in step
 
 
 def test_406_11_a_gap_of_two_words_has_its_steps():
