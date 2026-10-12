@@ -95,7 +95,10 @@ export type Exercise = Calc | Compare;
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
-// (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default.
+// (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default. `gaps` says what a
+// gap may hide: the numbers "a", "b" and "c", or the "result". `zero` lets 0 in as a number and as a result, `one`
+// lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. Blocks saved before have none of
+// these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
   ops: Op[];
   max: number;
@@ -120,6 +123,10 @@ export type Limits = {
   cf?: Range[];
   family?: "none" | "swap" | "reverse" | "neighbour";
   moves?: "a" | "b";
+  gaps?: ("a" | "b" | "c" | "result")[];
+  zero?: boolean;
+  one?: boolean;
+  distinct?: boolean;
 };
 // The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
 export function decimalsOf(p: Limits): number {

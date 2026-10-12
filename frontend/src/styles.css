@@ -179,6 +179,8 @@ button.plain { background: none; border-color: transparent; color: var(--muted);
 .seg button { min-height: calc(var(--ctl) - 4px); padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--muted); }
 .seg button.on { background: var(--raise); color: var(--ink); box-shadow: 0 0 0 1px var(--edge); }
 .seg output { flex-grow: 4; align-self: center; text-align: center; font: 12px var(--mono); }
+/* A switch is one long label on a row of its own: the label wraps and the button takes the panel's width. */
+.seg.switch > button { flex: 1 1 100%; white-space: normal; min-height: var(--ctl); padding: 6px 8px; line-height: 1.25; }
 
 ul.clips, ul.rows { list-style: none; padding: 0; margin: 12px 0 0; }
 ul.clips:empty { display: none; }

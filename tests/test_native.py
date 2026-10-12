@@ -470,3 +470,45 @@ def test_tab_reaches_the_families_and_the_keyboard_sets_them(editor):
     page.keyboard.press("Enter")
     expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
     expect_picked(page, "a")
+
+
+def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(editor):
+    """I1: Tab from the Rechenart buttons reaches the three switches, then the Lücke boxes."""
+    client = user()
+    props = maths(client, ops=["+", "*"], max=20, count=4, format="gap")
+    page = editor(box("a", "maths", props), client=client)
+    press(page, at(page, "a"))
+    expect_picked(page, "a")
+    # F6 goes from the sheet to the bar Einfügen, the header and the panel, as in the test above.
+    for _ in range(3):
+        page.keyboard.press("F6")
+    # The switches come straight after the Rechenart buttons: Tab from the last one, ":".
+    for _ in range(60):
+        if page.locator(":focus").inner_text() == ":":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name(":")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Aufgaben mit 0")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name(
+        "Aufgaben mit 1 beim Malnehmen und Teilen"
+    )
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
+    page.keyboard.press("Space")
+    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
+    # The gap boxes come after the Format buttons; Tab walks there.
+    for _ in range(60):
+        if page.locator(":focus").get_attribute("aria-label") == "Lücke: 1. Zahl":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Lücke: 1. Zahl")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Lücke: 2. Zahl")
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Lücke: Ergebnis")
+    page.keyboard.press("Enter")
+    expect(page.locator(":focus")).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, "a")
