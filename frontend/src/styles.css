@@ -602,6 +602,8 @@ body:has(.print) { background: #fff; }
 .panel > .hint { margin-top: 14px; }
 .panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
 .panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
+/* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
+.panel .wordlist { display: block; box-sizing: border-box; width: 100%; margin: 0 0 8px; resize: vertical; background: var(--field); border-color: transparent; font: inherit; }
 /* Buttons that act at once, in equal shares of a row. */
 .acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .acts .ib { width: auto; }

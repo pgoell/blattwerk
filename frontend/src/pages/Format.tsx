@@ -5,10 +5,10 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, isLine, listOf, mathsHeight, pairOf, parasOf, rowsOf, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
-import { filled, room } from "../words";
+import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 
 type Props = {
@@ -36,6 +36,9 @@ type Props = {
   cell?: number;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
+  // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
+  words: string[];
+  list: (mode?: ListMode) => void;
   cropping: boolean;
   // Turns what is selected by so many degrees: a group picked whole as one, a loose block about its own centre.
   spin: (by: number) => void;
@@ -143,7 +146,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H] }: Props) {
+export default function Format({ sel, style, bump, look, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -158,6 +161,10 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
   const shown = { ...text, ...part?.marks };
   const kind = text && (part ?? parasOf(text)[0]).list;
   const rulings = of("ruling");
+  // The mode the Lineaturen take the Lernwörter in, when every picked one takes them; else none.
+  const mode = rulings.length > 0 && rulings.every((b) => listOf(b)) ? listOf(rulings[0]) : undefined;
+  // How many words of the list the most crowded Lineatur cannot show.
+  const n = Math.max(0, ...rulings.map((b) => short(b, words)));
   const tables = of("table");
   const texts = of("text");
   // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
@@ -334,7 +341,20 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, filled(b, W, H)]))}>Bis Seitenende</button>
           </div>
-          <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>
+          {/* The text of a Lineatur: its own, or the sheet's Lernwörter in one of three modes. A mode shows only when
+              every picked Lineatur has it. */}
+          <select aria-label="Text der Lineatur" value={mode ?? "own"} onChange={(e) => list(e.target.value === "own" ? undefined : (e.target.value as ListMode))}>
+            <option value="own">Eigener Text</option>
+            <option value="copy">Lernwörter abschreiben</option>
+            <option value="trace">Lernwörter nachspuren</option>
+            <option value="row">Lernwörter, ganze Zeile nachspuren</option>
+          </select>
+          {n > 0 && (
+            <p className="hint" role="status">
+              {n === 1 ? "1 Wort passt nicht in die Zeilen." : `${n} Wörter passen nicht in die Zeilen.`}
+            </p>
+          )}
+          {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
           {RULINGS[rulings[0].props.kind].at && (
             <select aria-label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(e) => style("ruling", { font: e.target.value })}>
               {Object.entries(FONTS).map(([font, [name]]) => (
@@ -344,9 +364,11 @@ export default function Format({ sel, style, bump, look, paint, itemize, gap, ev
               ))}
             </select>
           )}
-          <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
-            Nachspurtext
-          </button>
+          {!mode && (
+            <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
+              Nachspurtext
+            </button>
+          )}
         </>
       )}
       {tables.length > 0 && (
