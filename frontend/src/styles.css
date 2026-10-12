@@ -455,9 +455,11 @@ body:has(.print) { background: #fff; }
 /* A gap's line in whole pixels, as Chromium prints it: one, and two from 25 pt on. The plain pixel is for a browser
    without round(). */
 .maths u { display: inline-block; min-width: var(--gap); border-bottom: 1px solid; border-bottom-width: max(1px, round(down, .06em, 1px)); text-align: center; text-decoration: none; }
-.maths.written { align-items: start; }
-.maths.written > div { align-items: flex-start; }
-.maths svg { flex: none; font-family: Andika; }
+/* Paper that outgrows its block is cut at the block's edge. */
+.maths-written { align-items: start; overflow: hidden; }
+.maths-written > div { align-items: flex-start; }
+/* The paper's outer lines lie half outside the svg: Chromium, which prints, cuts the right and the lower one away. */
+.maths svg { flex: none; overflow: visible; font-family: Andika; }
 .maths u, .maths .answer { color: #c0392b; }
 .maths u { border-color: #222; }
 .maths .hint { margin: 0; font-size: 12px; }
