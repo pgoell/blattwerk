@@ -109,7 +109,12 @@ def maths(client, **more):
     limits = {**MATHS, "a": digits, "b": digits, "carry": "either", "rest": False, "format": "row"}
     limits = {
         **limits,
-        **{key: more[key] for key in more if key in limits or key in ("sides", "close", "equal")},
+        **{
+            key: more[key]
+            for key in more
+            if key in limits
+            or key in ("sides", "close", "equal", "c", "numbers", "pvs", "brackets")
+        },
     }
     made = client.post("/api/maths", json=limits).json()
     return {**limits, **made, "columns": 3, "size": 14, **more}

@@ -78,20 +78,25 @@ export type Range = [number, number];
 // A written exercise on squared paper. A cell is [column, row, character, kind], a line [from column, to column,
 // above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
 export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
-// `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves.
-export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b"; grid?: Grid };
+// `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A task of three
+// numbers has `op2` and `c`: it reads `a op b op2 c`, with `paren` as the brackets say, "left" for `(a op b) op2 c`
+// and "right" for `a op (b op2 c)`. A task of two has none of these.
+export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b" | "c"; grid?: Grid; op2?: Op; c?: number; paren?: "left" | "right" };
 // One side of a comparison: a plain number, or a term with its sign and its two numbers.
 export type Side = { value: number; op?: Op; a?: number; b?: number };
 // A comparison: the two sides and the sign between them, which the pupil writes in the ring.
 export type Compare = { left: Side; right: Side; sign: "<" | ">" | "=" };
 export type Exercise = Calc | Compare;
 // The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
-// `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none.
+// `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none. `c` holds the
+// digits of the third number, and `numbers` is 2 or 3 numbers in a task (blocks saved before have 2). `pvs` is Punkt
+// vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 export type Limits = {
   ops: Op[];
   max: number;
   a: Range[];
   b: Range[];
+  c?: Range[];
   carry: "none" | "required" | "either";
   rest: boolean;
   format: "row" | "gap" | "written" | "compare";
@@ -100,6 +105,9 @@ export type Limits = {
   sides?: "nn" | "tn" | "tt";
   close?: boolean;
   equal?: "none" | "some";
+  numbers?: 2 | 3;
+  pvs?: boolean;
+  brackets?: boolean;
 };
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
 export type Made = { exercises: Exercise[]; loosen: string[] | null };
@@ -980,11 +988,42 @@ const runGroups = (runs: Run[], single = false) =>
     return all;
   }, []);
 
+// A word in a sentence that is wider than its paragraph breaks at the block's edge, as a lone word does: the class
+// `wide` lets it (`.mix.wide` in styles.css). The sizes are read in layout px (offsetWidth, clientWidth), which neither
+// a turn of the block nor the editor's zoom changes. Every word's class is taken off first, so each is measured in the
+// same state and the class does not flip back and forth.
+function markWide(root: HTMLElement) {
+  const mixes = [...root.querySelectorAll<HTMLElement>(".mix")];
+  mixes.forEach((mix) => mix.classList.remove("wide"));
+  const wide = mixes.map((mix) => {
+    const p = mix.closest("p")!;
+    const style = getComputedStyle(p);
+    const room = p.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return mix.offsetWidth > room;
+  });
+  mixes.forEach((mix, i) => mix.classList.toggle("wide", wide[i]));
+}
+
 // A text's paragraphs, in the markup the editor's field makes of them, so one stylesheet draws both. What a sheet
 // stores is drawn as text alone, never as markup of its own. `mix` holds the parts of each paragraph in place of its
 // runs (see `mixed`): a part with a `source` is one scrambled word, the others are runs as they are. `holes` marks
 // Lückenwörter, and `cols` sets a linked text's words in that many columns, filled column by column.
 function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: Part[][]; line?: "after" | "under"; solved?: boolean; holes?: boolean; cols?: number }) {
+  const root = useRef<HTMLDivElement>(null);
+  // Measured after every render: the class is set again whenever React has written the paragraphs anew.
+  useLayoutEffect(() => {
+    if (root.current) markWide(root.current);
+  });
+  // Again when the block's size changes, and when the fonts are in: a font changes the widths, not the block's size.
+  // Registered in a layout effect, which runs before Print's effect waits for the fonts, so the PDF is printed after it.
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => markWide(el));
+    observer.observe(el);
+    document.fonts.ready.then(() => markWide(el));
+    return () => observer.disconnect();
+  }, []);
   const or = (set: boolean | undefined, on: string, off: string) => (set === undefined ? undefined : set ? on : off);
   const run = ({ text, bold, italic, underline, color }: Run, key: number) => (
     <span key={key} style={{ fontWeight: or(bold, "700", "400"), fontStyle: or(italic, "italic", "normal"), textDecoration: underline ? "underline" : undefined, color }}>
@@ -1030,7 +1069,7 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
     return parts.filter((part) => part.source !== undefined).length === 1 && parts.every((part) => part.source !== undefined || part.runs.every((r) => !r.text.trim()));
   };
   return (
-    <div className={classes("rich", holes && "holes")} style={grid}>
+    <div ref={root} className={classes("rich", holes && "holes")} style={grid}>
       {paras.map((para, i) => (
         <p key={i} className={lone(i) ? "lone" : undefined} data-list={para.list} data-level={para.level || undefined}>
           {mix
@@ -1148,7 +1187,7 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
 }
 
 // A number of an exercise, or the gap in its place. The answer key fills the gap.
-function Part({ e, part, solved }: { e: Calc; part: "a" | "b" | "result" | "rest"; solved: boolean }) {
+function Part({ e, part, solved }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean }) {
   const gap = part === "rest" || part === (e.hide ?? "result");
   return gap ? <u>{solved && e[part]}</u> : <>{e[part]}</>;
 }
@@ -1192,6 +1231,11 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
             </span>
           ) : e.grid ? (
             <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
+          ) : e.op2 ? (
+            // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
+            <span>
+              {e.paren === "left" && "("}<Part e={e} part="a" solved={solved} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" solved={solved} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" solved={solved} />{e.paren === "right" && ")"} = <Part e={e} part="result" solved={solved} />
+            </span>
           ) : (
             <span>
               <Part e={e} part="a" solved={solved} /> {SIGNS[e.op]} <Part e={e} part="b" solved={solved} /> = <Part e={e} part="result" solved={solved} />

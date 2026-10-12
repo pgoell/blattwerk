@@ -10,8 +10,11 @@ import pytest
 from playwright.sync_api import expect
 from test_feed import CHOICE
 from test_feed_print import printed, sheet_id
+from test_fields import enter
 from test_fix_bubble import BODY, WORDS, in_body
 from test_fix_mix import LINES, RECTS, holds, key
+from test_words import undo
+from test_zoom import wheel
 from ui import FIELD, RECT, TEXT, at, box, pick, saved, sheet, user
 
 LONG = "Donaudampfschifffahrtsgesellschaftskapitän"
@@ -31,12 +34,15 @@ UNCLIPPED = """(root) => [...root.querySelectorAll('.frame p')].map(
     (p) => p.scrollWidth <= p.clientWidth + 1,
 )"""
 
-# Each word's line and its word, in the row of the line: whichever way the line stands.
-SAME_ROW = """(root) => [...root.querySelectorAll('.mix')].map((mix) => {
-    const line = mix.querySelector('.gap.line').getBoundingClientRect();
-    const word = mix.querySelector('.mixed').getBoundingClientRect();
-    return Math.abs(line.top - word.top) < word.height / 2;
-})"""
+# The words of a text, but the one given, with their lines on their row: the line's top lies within
+# half the word's height of the word's top. With no word given every word is checked.
+SAME_ROW = """(root, skip) => [...root.querySelectorAll('.mix')]
+    .filter((mix) => mix.dataset.mix !== skip)
+    .map((mix) => {
+        const line = mix.querySelector('.gap.line').getBoundingClientRect();
+        const text = mix.querySelector('.mixed').getBoundingClientRect();
+        return Math.abs(line.top - text.top) < text.height / 2;
+    })"""
 
 
 def breaks(root):
@@ -210,6 +216,144 @@ def test_a_text_cut_loose_still_breaks_a_long_word(editor, browser, server):
     assert all(solved.locator("body").evaluate(RECTS))
     assert solved.locator(".mix .gap.line > span").last.text_content() == LONG
     solved.context.close()
+
+
+# Every word, its line's box and the drawn line lie inside the block: no letter and no line sticks
+# out at either side, above or below.
+INSIDE = """(root) => {
+    const box = root.getBoundingClientRect();
+    return [...root.querySelectorAll('.mix .mixed, .mix .gap.line, .mix .gap.line > svg')].flatMap(
+        (el) => [...el.getClientRects()].map((r) =>
+            r.left >= box.left - 1 && r.right <= box.right + 1
+            // A row of text is higher than its letters, so only the drawn line is held to the foot.
+            && (el.tagName !== 'svg' || (r.top >= box.top && r.bottom <= box.bottom + 1))),
+    );
+}"""
+
+# The word given, when it breaks over more than one row: such a word is taller than one line of its
+# font.
+BROKEN = """(root, word) => [...root.querySelectorAll('.mix')]
+    .filter((mix) => mix.dataset.mix === word)
+    .map((mix) => {
+        const mixed = mix.querySelector('.mixed');
+        const em = parseFloat(getComputedStyle(mixed).fontSize);
+        return mixed.getBoundingClientRect().height > 1.5 * em;
+    })"""
+
+# Every word lies inside its paragraph, in layout px: a turn or a zoom of the page changes it not.
+FITS = """(root) => [...root.querySelectorAll('.mix')].map((mix) => {
+    const p = mix.closest('p');
+    const s = getComputedStyle(p);
+    const room = p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+    return mix.offsetWidth <= room + 1;
+})"""
+
+# The words marked wide, by their word: the same in the editor and in the PDF.
+WIDE_WORDS = "(root) => [...root.querySelectorAll('.mix.wide')].map((m) => m.dataset.mix)"
+
+# The word given breaks over more than one row, counted in the boxes its text lies in. A turn
+# keeps it.
+FRAGMENTS = """(root, word) => [...root.querySelectorAll('.mix')]
+    .filter((mix) => mix.dataset.mix === word)
+    .map((mix) => mix.querySelector('.mixed').getClientRects().length > 1)"""
+
+
+@pytest.mark.parametrize("line", ["after", "under"])
+def test_a_long_word_in_a_sentence_breaks_at_the_blocks_edge(editor, browser, server, line):
+    """#438 A word in a sentence that is wider than its block breaks at the block's edge, with its
+    line after and under it, in the editor and in the PDF: no letter and no line lies outside the
+    block."""
+    client = user()
+    props = {**TEXT, "size": 16, "text": f"Der {LONG} schläft", "mix": 7, "mixLine": line}
+    page = editor(box("a", "text", props, h=70, w=60), client=client)
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(3)
+    assert all(at(page, "a").evaluate(INSIDE))
+    assert at(page, "a").evaluate(BROKEN, LONG) == [True]
+    paper = printed(browser, server, sheet_id(page))
+    assert all(paper.locator(".block").first.evaluate(INSIDE))
+    assert paper.locator(".mix .gap.line").count() == 3
+    paper.context.close()
+
+
+def test_a_long_word_in_a_turned_block_breaks_too(editor, browser, server):
+    """#438 A word in a sentence, wider than its block turned 90 degrees, breaks too, in the editor
+    and in the PDF: every word lies in its paragraph, measured in layout px."""
+    client = user()
+    props = {**TEXT, "size": 16, "text": f"Der {LONG} schläft", "mix": 7, "mixLine": "after"}
+    page = editor(box("a", "text", props, h=70, w=60, angle=90), client=client)
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(3)
+    assert all(at(page, "a").evaluate(FITS))
+    assert at(page, "a").evaluate(FRAGMENTS, LONG) == [True]
+    paper = printed(browser, server, sheet_id(page))
+    assert all(paper.locator(".block").first.evaluate(FITS))
+    assert paper.locator(".block").first.evaluate(FRAGMENTS, LONG) == [True]
+    paper.context.close()
+
+
+def test_a_long_word_in_a_list_breaks_alike_on_screen_and_in_print(editor, browser, server):
+    """#438 A list paragraph of a sentence marks the same words wide in the editor and in the PDF,
+    also when the editor is zoomed in and the block is measured at that zoom."""
+    client = user()
+    rich = [{"runs": [{"text": f"Der {LONG} schläft"}], "list": "bullet", "level": 2}]
+    props = {**TEXT, "size": 16, "text": "", "rich": rich, "mix": 7, "mixLine": "after"}
+    page = editor(box("a", "text", props, h=70, w=60), client=client)
+    wheel(page, -100)
+    wheel(page, -100)
+    pick(page, "a")
+    enter(page, "Breite", "48")
+    editor_words = at(page, "a").evaluate(WIDE_WORDS)
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    assert paper.locator(".block").first.evaluate(WIDE_WORDS) == editor_words
+    assert len(editor_words) == 3
+    paper.context.close()
+
+
+def test_the_key_shows_a_long_word_of_a_sentence_whole(editor, browser, server):
+    """#438 The answer key shows a long word of a sentence whole, on its line, inside the block."""
+    client = user()
+    props = {**TEXT, "size": 16, "text": f"Der {LONG} schläft", "mix": 7, "mixLine": "after"}
+    page = editor(box("a", "text", props, h=70, w=60), client=client)
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(3)
+    paper = key(browser, server, sheet_id(page))
+    assert paper.locator(".mix .gap.line > span").all_text_contents() == ["Der", LONG, "schläft"]
+    assert all(paper.locator(".block").first.evaluate(INSIDE))
+    paper.context.close()
+
+
+def test_a_short_word_beside_a_long_one_keeps_its_line_on_its_row(editor, browser, server):
+    """#438 A word of the same sentence that fits keeps its line on its row, beside the long word,
+    in the editor and in the PDF."""
+    client = user()
+    props = {**TEXT, "size": 16, "text": f"Der {LONG} schläft", "mix": 7, "mixLine": "after"}
+    page = editor(box("a", "text", props, h=70, w=60), client=client)
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(3)
+    rows = at(page, "a").evaluate(SAME_ROW, LONG)
+    assert len(rows) == 2 and all(rows)
+    paper = printed(browser, server, sheet_id(page))
+    rows = paper.locator(".block").first.evaluate(SAME_ROW, LONG)
+    assert len(rows) == 2 and all(rows)
+    paper.context.close()
+
+
+def test_a_long_word_stands_on_one_row_again_once_the_block_is_wide_enough(editor):
+    """#438 Made wide enough again, the long word of a sentence stands on one row with its line, and
+    undo brings the break back."""
+    client = user()
+    props = {**TEXT, "size": 16, "text": f"Der {LONG} schläft", "mix": 7, "mixLine": "after"}
+    page = editor(box("a", "text", props, h=70, w=60), client=client)
+    pick(page, "a")
+    # 260 mm: the long word is about 240 mm wide at this size, so 180 mm would not hold it.
+    enter(page, "Breite", "260")
+    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(3)
+    # The block is measured again once its new width is laid out: wait for that before reading rows.
+    expect(at(page, "a").locator(".mix.wide")).to_have_count(0)
+    rows = at(page, "a").evaluate(SAME_ROW, "")
+    assert len(rows) == 3 and all(rows)
+    undo(page)
+    expect(page.locator(".geo").get_by_label("Breite", exact=True)).to_have_value("60")
+    assert all(at(page, "a").evaluate(INSIDE))
+    assert at(page, "a").evaluate(BROKEN, LONG) == [True]
 
 
 def test_a_bubbles_solution_words_stand_under_its_text(browser, server):

@@ -578,14 +578,15 @@ body:has(.print) { background: #fff; }
 .even .mix.under .gap.line { min-width: max(100%, var(--gap)); }
 /* In a text from the Lernwörter a column can be too narrow for a word and its line side by side: then the line goes
    to the next row, and a word wider than the column breaks. The line lies under the last row of what it holds. A word
-   that stands alone in its paragraph in a text of one's own (`.lone`) breaks the same way; a word in a sentence still
-   keeps its line beside it. */
-:is(.listed, .lone) .mix { white-space: normal; }
-:is(.listed, .lone) .mix .mixed, :is(.listed, .lone) .mix .mixkey { overflow-wrap: anywhere; }
-:is(.listed, .lone) .mix .gap.line { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-:is(.listed, .lone) .mix .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
-:is(.listed, .lone) .mix.under { max-width: 100%; }
-:is(.listed, .lone) .mix.under > * { max-width: 100%; }
+   that stands alone in its paragraph in a text of one's own (`.lone`) breaks the same way, and so does a word in a
+   sentence that is wider than its block (`.wide`, set by a measure in `Rich`); a word that fits keeps its line beside
+   it. */
+:is(.listed, .lone) .mix, .mix.wide { white-space: normal; }
+:is(.listed, .lone) .mix .mixed, :is(.listed, .lone) .mix .mixkey, .mix.wide .mixed, .mix.wide .mixkey { overflow-wrap: anywhere; }
+:is(.listed, .lone) .mix .gap.line, .mix.wide .gap.line { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+:is(.listed, .lone) .mix .gap.line > svg, .mix.wide .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
+:is(.listed, .lone) .mix.under, .mix.wide.under { max-width: 100%; }
+:is(.listed, .lone) .mix.under > *, .mix.wide.under > * { max-width: 100%; }
 .mixkey, .mixkey * { color: #c0392b !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
