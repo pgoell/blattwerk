@@ -12,12 +12,15 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
 const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
-const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =" };
+const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern" };
+const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, carry, rest, format, count, seed, sides, close, equal }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, carry, rest, format, count, seed, sides, close, equal }));
+export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets }));
+// Any digit in each place of a Zahlenraum.
+const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
 export default function Maths({ block, apply }: { block: MathsBlock; apply: (props: MathsProps) => void }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
@@ -42,19 +45,28 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
   // A number has as many places as the Zahlenraum; a new place takes any digit.
   function room(max: number) {
     const fit = (places: Range[]) => Array.from(String(max), (_, i) => places[i] ?? [0, 9]);
-    limit({ max, a: fit(p.a), b: fit(p.b) });
+    // A block that never had a third number gets none here: the same Zahlenraum again changes nothing.
+    limit({ max, a: fit(p.a), b: fit(p.b), ...(p.c && { c: fit(p.c) }) });
   }
   function toggle(op: Op) {
     const ops = p.ops.includes(op) ? p.ops.filter((o) => o !== op) : [...p.ops, op];
     if (ops.length) limit({ ops });
   }
   // The lowest digit of a place never lies above its highest: the other end moves along.
-  function digit(who: "a" | "b", place: number, end: 0 | 1, to: number) {
+  function digit(who: "a" | "b" | "c", place: number, end: 0 | 1, to: number) {
     const range = ([lo, hi]: Range): Range => (end ? [Math.min(lo, to), to] : [to, Math.max(hi, to)]);
-    limit({ [who]: p[who].map((r, i) => (i === place ? range(r) : r)) });
+    limit({ [who]: (p[who] ?? anyDigits(p.max)).map((r, i) => (i === place ? range(r) : r)) });
   }
   const show = (change: Partial<MathsProps>) => apply({ ...p, ...change });
   const plus = p.ops.includes("+") || p.ops.includes("-");
+  const times = p.ops.includes("*") || p.ops.includes("/");
+  // Three numbers come in rows and gaps only. Punkt vor Strich needs three numbers and a sign of each kind; the
+  // switches stay on the panel, greyed, when they do not hold. Brackets need Punkt vor Strich.
+  const numbered = p.format === "row" || p.format === "gap";
+  const three = numbered && p.numbers === 3;
+  const free = three && plus && times;
+  const pvs = free && !!p.pvs;
+  const brackets = pvs && !!p.brackets;
 
   return (
     <>
@@ -92,11 +104,11 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           onChange={(e) => e.target.validity.valid && e.target.value && room(Math.floor(+e.target.value))}
         />
       )}
-      {(["a", "b"] as const).map((who) => (
+      {(["a", "b", "c"] as const).slice(0, three ? 3 : 2).map((who) => (
         <div key={who}>
-          <h2>{who === "a" ? "1. Zahl" : "2. Zahl"}: Ziffern von, bis</h2>
+          <h2>{NTH[who]}: Ziffern von, bis</h2>
           <div className="places">
-            {p[who]
+            {(p[who] ?? anyDigits(p.max))
               .map((range, i) => [
                 <span key={i}>{PLACES[i]}</span>,
                 ...([0, 1] as const).map((end) => (
@@ -123,7 +135,7 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           </div>
         </>
       )}
-      {p.ops.includes("/") && p.format !== "compare" && (
+      {p.ops.includes("/") && p.format !== "compare" && !three && (
         <>
           <h2>Division</h2>
           <div className="seg">
@@ -140,6 +152,28 @@ export default function Maths({ block, apply }: { block: MathsBlock; apply: (pro
           </button>
         ))}
       </div>
+      {numbered && (
+        <>
+          <h2>Zahlen pro Aufgabe</h2>
+          <div className="seg">
+            <button aria-label="2 Zahlen" className={three ? "" : "on"} aria-pressed={!three} onClick={() => limit({ numbers: 2 })}>
+              2
+            </button>
+            {/* A third number starts with any digit in each place, unless the block has digits for it already. */}
+            <button aria-label="3 Zahlen" className={three ? "on" : ""} aria-pressed={three} onClick={() => limit({ numbers: 3, c: p.c ?? anyDigits(p.max) })}>
+              3
+            </button>
+          </div>
+          <div className="seg">
+            <button className={pvs ? "on" : ""} aria-pressed={pvs} disabled={!free} onClick={() => limit({ pvs: !p.pvs })}>
+              Punkt vor Strich
+            </button>
+            <button className={brackets ? "on" : ""} aria-pressed={brackets} disabled={!pvs} onClick={() => limit({ brackets: !p.brackets })}>
+              mit Klammern
+            </button>
+          </div>
+        </>
+      )}
       {p.format === "compare" && (
         <>
           <h2>Seiten</h2>

@@ -33,6 +33,8 @@ class Settings(BaseModel):
     # The digits each number may have, units first. A place left out takes any digit.
     a: list[Range] = []
     b: list[Range] = []
+    # The digits of the third number, for the exercises of three numbers.
+    c: list[Range] = []
     carry: Literal["none", "required", "either"] = "either"
     # Whether a division leaves a remainder. None takes both; only the generator asks for that.
     rest: bool | None = False
@@ -45,14 +47,21 @@ class Settings(BaseModel):
     equal: Literal["none", "some"] = "some"
     count: Annotated[int, Field(ge=1, le=100)]
     seed: int
+    # Zahlen pro Aufgabe: two numbers, or three for the row and the gap format.
+    numbers: Literal[2, 3] = 2
+    # Punkt vor Strich: a * or / task with a + or - task, the * or / worked out first.
+    pvs: bool = False
+    # Mit Klammern: about half of the tasks with brackets round the Strich part.
+    brackets: bool = False
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
-        if any(lo > hi for lo, hi in self.a + self.b):
+        if any(lo > hi for lo, hi in self.a + self.b + self.c):
             raise ValueError("a place's lowest digit lies above its highest")
         n = len(str(self.max))
         self.a = (self.a + [(0, 9)] * n)[:n]
         self.b = (self.b + [(0, 9)] * n)[:n]
+        self.c = (self.c + [(0, 9)] * n)[:n]
         return self
 
 
@@ -400,6 +409,8 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "rest": (s.model_copy(update={"rest": None}), s.max),
         "a": (s.model_copy(update={"a": free}), s.max),
         "b": (s.model_copy(update={"b": free}), s.max),
+        "c": (s.model_copy(update={"c": [(0, 9)] * len(s.c)}), s.max),
+        "brackets": (s.model_copy(update={"brackets": False}), s.max),
         "max": (s, s.max * 10),
         "close": (s.model_copy(update={"close": False}), s.max),
         "equal": (s.model_copy(update={"equal": "none"}), s.max),
@@ -424,11 +435,174 @@ def compared(s: Settings) -> dict:
     }
 
 
+def three(s: Settings) -> bool:
+    """Whether the exercises have three numbers. Only the row and the gap format take them."""
+    return s.numbers == 3 and s.format in ("row", "gap")
+
+
+def step(s: Settings, op: str, x: int, y: int, top: int) -> int | None:
+    """What one step comes to, or None when it breaks a limit: a remainder, a carry, or a result."""
+    if op == "/" and (y == 0 or x % y):
+        return None
+    if op in "+-" and s.carry != "either" and (s.carry == "required") != any(carries(op, x, y)):
+        return None
+    r = result(op, x, y)
+    return r if 0 <= r <= top else None
+
+
+def worked(s: Settings, e: dict, top: int) -> int | None:
+    """The result of a three-number exercise, worked step by step, or None if a step fails."""
+    op, op2, a, b, c = e["op"], e["op2"], e["a"], e["b"], e["c"]
+    # Brackets say what goes first. Else a Punkt step goes first; equal kinds run left to right.
+    right = e["paren"] == "right" if "paren" in e else op2 in "*/" and op in "+-"
+    if right:
+        w = step(s, op2, b, c, top)
+        return None if w is None else step(s, op, a, w, top)
+    v = step(s, op, a, b, top)
+    return None if v is None else step(s, op2, v, c, top)
+
+
+def sound(s: Settings, e: dict, top: int) -> bool:
+    """Whether a three-number exercise keeps every limit, and its result is right."""
+    fit = all(fits(ranges, n) for ranges, n in ((s.a, e["a"]), (s.b, e["b"]), (s.c, e["c"])))
+    inside = max(e["a"], e["b"], e["c"]) <= s.max and e["op"] in s.ops and e["op2"] in s.ops
+    return fit and inside and worked(s, e, top) == e["result"]
+
+
+def once(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
+    """One proposed term, kept when it keeps the limits. The caller tries again when it is not."""
+    pair = propose(s, op, top, rng)
+    return pair if pair is not None and valid(s, op, *pair, top) else None
+
+
+def left_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> dict | None:
+    """`a op b op2 c`, with `a op b` worked out first."""
+    if op2 == "/":
+        # The divisor is drawn first, so the first pair can be aimed at a multiple of it.
+        c = pick(rng, s.c, 1, s.max)
+        if c is None:
+            return None
+        pair = aimed(s, op, c * rng.randint(0, top // c), top, rng)
+        if pair is None:
+            return None
+        v = result(op, *pair)
+    else:
+        pair = once(s, op, top, rng)
+        if pair is None:
+            return None
+        v = result(op, *pair)
+        room = {"+": top - v, "-": v, "*": top // v if v else s.max}[op2]
+        c = pick(rng, s.c, 0, min(room, s.max))
+        if c is None:
+            return None
+    return {
+        "op": op,
+        "a": pair[0],
+        "b": pair[1],
+        "op2": op2,
+        "c": c,
+        "result": result(op2, v, c),
+        "rest": 0,
+    }
+
+
+def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> dict | None:
+    """`a op (b op2 c)`, with `b op2 c` worked out first."""
+    pair = once(s.model_copy(update={"a": s.b, "b": s.c}), op2, top, rng)
+    if pair is None:
+        return None
+    b, c = pair
+    w = result(op2, b, c)
+    if op == "+":
+        a = pick(rng, s.a, 0, min(top - w, s.max))
+    elif op == "-":
+        a = pick(rng, s.a, w, s.max)
+    elif op == "*":
+        a = pick(rng, s.a, 0, s.max if w == 0 else min(top // w, s.max))
+    else:
+        # A multiple of w divides by w with no remainder; it must also have the digits of a.
+        a = rng.randint(0, s.max // w) * w if w else None
+        if a is not None and not fits(s.a, a):
+            return None
+    if a is None:
+        return None
+    return {"op": op, "a": a, "b": b, "op2": op2, "c": c, "result": result(op, a, w), "rest": 0}
+
+
+def take(s: Settings, top: int, shape: tuple, rng: random.Random, found: dict) -> bool:
+    """Draws one task of a shape, and keeps it when it is sound and not yet there."""
+    ops1, ops2, build, paren = shape
+    e = build(s, rng.choice(ops1), rng.choice(ops2), top, rng)
+    if e is None:
+        return False
+    if paren:
+        e["paren"] = paren
+    if not sound(s, e, top):
+        return False
+    key = (e["a"], e["op"], e["b"], e["op2"], e["c"], e.get("paren"))
+    if key in found:
+        return False
+    found[key] = e
+    return True
+
+
+def chains(s: Settings, top: int) -> list[dict]:
+    """The three-number exercises: each shape gets its share, and the others fill any gap."""
+    s = s.model_copy(update={"rest": False})
+    rng = random.Random(s.seed)
+    ops = list(dict.fromkeys(s.ops))
+    strich = [op for op in ops if op in "+-"]
+    punkt = [op for op in ops if op in "*/"]
+    # Without the switch a task has one kind of operation: all Strich or all Punkt.
+    shapes: list[tuple] = [(group, group, left_pair, None) for group in (strich, punkt) if group]
+    if s.pvs and strich and punkt:
+        # Punkt first and Punkt last; with brackets, the Strich part in brackets too.
+        shapes = [(punkt, strich, left_pair, None), (strich, punkt, right_pair, None)]
+        if s.brackets:
+            shapes += [(strich, punkt, left_pair, "left"), (punkt, strich, right_pair, "right")]
+    # A dict keeps the order they were found in, so a seed gives the same tasks again.
+    found: dict[tuple, dict] = {}
+    tries = 300 + 20 * s.count
+    for i, shape in enumerate(shapes):
+        share = s.count // len(shapes) + (i < s.count % len(shapes))
+        got = 0
+        for _ in range(tries):
+            if got == share:
+                break
+            got += take(s, top, shape, rng, found)
+    for shape in shapes:
+        for _ in range(tries):
+            if len(found) == s.count:
+                break
+            take(s, top, shape, rng, found)
+    out = list(found.values())
+    if len(shapes) > 1:
+        rng.shuffle(out)
+    if s.format == "gap":
+        hide = random.Random(s.seed)
+        for e in out:
+            e["hide"] = hide.choice("abc")
+    return out
+
+
+def chained(s: Settings) -> dict:
+    """The three-number exercises, and the limits that stand in the way of more."""
+    found = chains(s, s.max)
+    if len(found) == s.count:
+        return {"exercises": found, "loosen": None}
+    table = loosened(s)
+    names = ("carry", "a", "b", "c", "max", "brackets")
+    loosen = [name for name in names if len(chains(*table[name])) > len(found)]
+    return {"exercises": found, "loosen": loosen}
+
+
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
     if s.format == "compare":
         return compared(s)
+    if three(s):
+        return chained(s)
     found = pairs(s, s.max)
     rng = random.Random(s.seed)
     exercises = []

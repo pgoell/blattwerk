@@ -391,3 +391,28 @@ def test_tab_walks_the_new_settings_of_vergleichen(editor):
         page.keyboard.press("Tab")
         expect(page.locator(":focus")).to_have_accessible_name(label)
     expect_picked(page, "a")
+
+
+def test_tab_walks_the_new_settings_of_three_numbers(editor):
+    """I4: After Vergleichen, Tab walks 2 Zahlen, 3 Zahlen, Punkt vor Strich, mit Klammern."""
+    client = user()
+    # + and * with three numbers leave nothing greyed, so Tab reaches every switch.
+    page = editor(
+        box("a", "maths", maths(client, ops=["+", "*"], numbers=3, pvs=True)), client=client
+    )
+    press(page, at(page, "a"))
+    expect_picked(page, "a")
+    # F6 goes from the sheet to the bar Einfügen, the header and the panel; Tab walks down from
+    # there to the formats.
+    for _ in range(3):
+        page.keyboard.press("F6")
+    for _ in range(60):
+        if page.locator(":focus").inner_text() == "Vergleichen":
+            break
+        page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_text("Vergleichen")
+    order = ["2 Zahlen", "3 Zahlen", "Punkt vor Strich", "mit Klammern", "Eine Aufgabe weniger"]
+    for label in order:
+        page.keyboard.press("Tab")
+        expect(page.locator(":focus")).to_have_accessible_name(label)
+    expect_picked(page, "a")
