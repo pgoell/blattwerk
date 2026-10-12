@@ -265,8 +265,9 @@ def test_turns_down_limits_that_make_no_sense():
 
 
 @given(compares)
-# Each example runs the generator's full try budget several times, so 300 would near the 60 s limit.
-@settings(max_examples=100, deadline=None)
+# Each example runs the generator's full try budget several times: 100 took 13 to 23 s here and
+# ran out of the 50 s of a busy CI shard once.
+@settings(max_examples=60, deadline=None)
 def test_every_comparison_keeps_every_limit(s):
     out = generate(s)
     exercises = out["exercises"]

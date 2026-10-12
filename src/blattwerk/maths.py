@@ -272,7 +272,11 @@ def term_side(op: str, a: int, b: int) -> dict:
 
 def term(s: Settings, op: str, top: int, rng: random.Random) -> tuple[int, int] | None:
     """A term of this operation that keeps every limit, from up to 20 tries."""
-    for _ in range(20):
+    for i in range(20):
+        if i == 2 and op in "*/":
+            # Where the digits leave no school task, the school way is given up: it costs two
+            # draws a try.
+            s = s.model_copy(update={"lean": 0.0})
         pair = propose(s, op, top, rng)
         if pair is not None and valid(s, op, *pair, top):
             return pair
