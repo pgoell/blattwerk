@@ -91,9 +91,10 @@ def named(page: Page, name: str | re.Pattern) -> Locator:
     return found.filter(visible=True)
 
 
-def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int]]:
-    """The middle of each visible thing of that name. With `part`, and where no whole name
-    matches, of each thing whose name holds it, with capitals as written.
+def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int, str]]:
+    """The middle of each visible thing of that name, and the name it shows. With `part`, and
+    where no whole name matches, of each thing whose text holds it, shown as that text with
+    capitals as written.
     """
     whole = named(page, name)
     found = whole.or_(named(page, re.compile(re.escape(name)))) if part else whole
@@ -103,12 +104,19 @@ def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int]]:
         # A narrow bar folds its commands away.
         more = ': it may lie under "Mehr"' if named(page, "Mehr").count() else ""
         raise Refused(f'nothing on the page is called "{name}"{more}') from None
-    if whole.count():
+    matched_whole = whole.count() > 0
+    if matched_whole:
         found = whole
     handles = [one.element_handle() for one in found.all()]
     kept = page.evaluate(KEPT, handles)
-    boxes = [el.bounding_box() for el, keep in zip(handles, kept, strict=True) if keep]
-    return [(round(b["x"] + b["width"] / 2), round(b["y"] + b["height"] / 2)) for b in boxes if b]
+    out = []
+    for el in [el for el, keep in zip(handles, kept, strict=True) if keep]:
+        box = el.bounding_box()
+        if not box:
+            continue
+        shown = name if matched_whole else " ".join((el.text_content() or "").split()) or name
+        out.append((round(box["x"] + box["width"] / 2), round(box["y"] + box["height"] / 2), shown))
+    return out
 
 
 def inside(page: Page, x: float, y: float) -> bool:
@@ -120,12 +128,20 @@ def point(page: Page, target: str) -> tuple[float, float]:
     """The place in the window that the target names."""
     if at := XY.fullmatch(target):
         return float(at[1]), float(at[2])
-    found = places(page, target)
-    seen = [p for p in found if inside(page, *p)]
-    listed = ", ".join(f"{x},{y}" for x, y in seen or found)
+    spots = [(x, y) for x, y, _ in places(page, target)]
+    seen = [p for p in spots if inside(page, *p)]
+    listed = ", ".join(f"{x},{y}" for x, y in seen or spots)
     if not seen:
         raise Refused(f'"{target}" lies outside the window, at {listed}: scroll to it')
     if len(seen) > 1:
+        # A bar's button and a panel's heading may share a name, as "Text" does with a text picked:
+        # the button is the control. Two buttons, or none, stay a refusal.
+        buttons = page.get_by_role("button", name=target, exact=True).filter(visible=True)
+        wide = buttons.bounding_box() if buttons.count() == 1 else None
+        if wide:
+            middle = (round(wide["x"] + wide["width"] / 2), round(wide["y"] + wide["height"] / 2))
+            if middle in seen:
+                return middle
         raise Refused(f'"{target}" is on the page {len(seen)} times, at {listed}: give one as X,Y')
     return seen[0]
 
@@ -217,8 +233,8 @@ def type_(page: Page, text: str) -> str:
 def where(page: Page, name: str) -> str:
     found = places(page, name, part=True)
     return "\n".join(
-        f"{name} at {x},{y}" + ("" if inside(page, x, y) else " (outside the window)")
-        for x, y in found
+        f"{shown} at {x},{y}" + ("" if inside(page, x, y) else " (outside the window)")
+        for x, y, shown in found
     )
 
 
@@ -238,8 +254,8 @@ def resize(page: Page, wide: str, high: str) -> str:
 
 
 def screenshot(page: Page, name: str = "screen") -> str:
-    if not re.fullmatch(r"[\w-]+", name):
-        raise Refused(f'"{name}" is no name for a file: letters, digits, - and _ only')
+    if not re.fullmatch(r"[\w,-]+", name):
+        raise Refused(f'"{name}" is no name for a file: letters, digits, commas, - and _ only')
     path = STATE / f"{name}.png"
     # The window and no more: its px are the px a TARGET is given in.
     page.screenshot(path=path)
