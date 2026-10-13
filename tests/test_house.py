@@ -11,7 +11,7 @@ import httpx
 import pytest
 from playwright.sync_api import expect
 from test_pixels import faults
-from ui import BROWSER, at, box, sheet, user
+from ui import at, box, sheet, user
 
 INK = "#222222"
 # The zones of a row in mm, and the height of a row, per kind with a house.
@@ -362,9 +362,6 @@ def test_print_matches_the_screen_in_every_font_with_a_house(browser, server, lo
             h=20,
         )
         for i, font in enumerate(FONTS)
-        # WebKit's screen draws an outline in Nord and Süd heavier than the print, house or none
-        # (issue #499).
-        if not (BROWSER == "webkit" and look == "outline" and font in ("nord", "sued"))
     ]
     assert not faults(browser, server, client, blocks)
 

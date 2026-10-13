@@ -191,6 +191,8 @@ export const FONTS = {
   sas: ["Schulausgangsschrift", "Playwrite DE SAS Variable", 0.4515],
   la: ["Lateinische Ausgangsschrift", "Playwrite DE LA Variable", 0.4545],
 } as const;
+// A sheet may come from anywhere: a font nobody knows draws as Druckschrift. The block keeps the name it has.
+export const fontOf = (font: unknown): Font => (typeof font === "string" && Object.hasOwn(FONTS, font) ? (font as Font) : "andika");
 // The scale a Lineatur draws a font at: 1 for the fonts without a fourth number.
 export const fontScale = (font: Font) => (FONTS[font] as readonly [string, string, number, number?])[3] ?? 1;
 // How far the ink of a font hangs left of where its letter starts, in em, for the letter j of the joined scripts.
@@ -223,7 +225,11 @@ export type Fade = "row" | "rows";
 // The fonts with a dotted cut, and its family. No other font is dotted: dots on a letter's outline are not what a
 // child traces.
 const DOTTED: Partial<Record<Font, string>> = { urff: "Grundschrift Urff Punkt" };
-export const dottedFamily = (font?: Font): string | undefined => DOTTED[font ?? "andika"];
+// How far the dotted cut's ink reaches left of its place and right of its advance, in em: its start dots reach
+// further than SIDE measures for the regular cut. Measured in Chromium with canvas measureText at 1000 px, over
+// ASCII and ÄÖÜäöüßẞ€§°: 0.032 left and 0.042 right, rounded up to two decimals and taken as one for both sides.
+const DOTTED_SIDE = 0.05;
+export const dottedFamily = (font?: Font): string | undefined => DOTTED[fontOf(font)];
 // The look a block's trace text has. A sheet may come from anywhere: a value nobody knows is no trace text, and
 // "dotted" in a font without a dotted cut is grey.
 export const traceOf = (p: { trace?: unknown; font?: Font }): Trace | undefined =>
@@ -270,6 +276,8 @@ export const RULINGS = {
   k5: { name: "Karo 5 mm", row: 5, at: undefined, zones: undefined, band: 0, base: 0, size: 3.75 },
   k7: { name: "Karo 7 mm", row: 7, at: undefined, zones: undefined, band: 0, base: 0, size: 5.25 },
 };
+// A Lineatur of a kind nobody knows draws as Lineatur 1, the kind a new one has.
+export const kindOf = (kind: unknown): Ruling => (typeof kind === "string" && Object.hasOwn(RULINGS, kind) ? (kind as Ruling) : "l1");
 // The signs as German schools write them.
 export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
 // The side of a square of a written exercise, in mm.
@@ -311,13 +319,13 @@ export const holesOf = (p: { holes?: unknown }) => (p.holes === "one" || p.holes
 // The empty columns of a Knickblatt: 3 when `folds` says so, else 2.
 export const foldsOf = (b: RulingBlock): 2 | 3 => (b.props.folds === 3 ? 3 : 2);
 // A house stands on a row of a kind with zones, when the block says so. A sheet may come from anywhere, so the flag reads strictly.
-export const houseOf = (b: RulingBlock): boolean => !!RULINGS[b.props.kind].zones && b.props.house === true;
+export const houseOf = (b: RulingBlock): boolean => !!RULINGS[kindOf(b.props.kind)].zones && b.props.house === true;
 // The tint of a house: the room alone, or roof, room and cellar. Any other stored value is no tint.
 export const houseTintOf = (b: RulingBlock): "room" | "all" | undefined =>
   houseOf(b) && (b.props.houseTint === "room" || b.props.houseTint === "all") ? b.props.houseTint : undefined;
 // The middle band is tinted when the block says so, else as the kind does by default. A kind with no zones has none.
 export const bandOf = (b: RulingBlock): boolean =>
-  !!RULINGS[b.props.kind].zones && (typeof b.props.band === "boolean" ? b.props.band : RULINGS[b.props.kind].band > 0);
+  !!RULINGS[kindOf(b.props.kind)].zones && (typeof b.props.band === "boolean" ? b.props.band : RULINGS[kindOf(b.props.kind)].band > 0);
 // The band's own colour, when one is picked: a six digit hex colour. Anything else is none.
 export const bandColorOf = (b: RulingBlock): string | undefined =>
   typeof b.props.bandColor === "string" && /^#[0-9a-f]{6}$/i.test(b.props.bandColor) ? b.props.bandColor : undefined;
@@ -334,9 +342,9 @@ export const houseWidth = (kind: Ruling): number => {
 // How far the text starts from a block's left, in mm: past the house, 0.2 of a room of air, and the font's j, whose
 // ink hangs left of its letter. The 0.02 em covers half the stroke of an outline trace (0.035 em). None with no house.
 export const indentOf = (b: RulingBlock): number => {
-  const { kind } = b.props;
+  const kind = kindOf(b.props.kind);
   const z = RULINGS[kind].zones;
-  const font = b.props.font ?? "andika";
+  const font = fontOf(b.props.font);
   return houseOf(b) && z ? houseWidth(kind) + 0.2 * (z[2] - z[1]) + (LEFT[font] + 0.02) * RULINGS[kind].size * fontScale(font) : 0;
 };
 // The line after or under a mixed word: the stored one, else "after" for a linked text, and none for any other.
@@ -392,8 +400,8 @@ export function tall(b: Box, h: number): Partial<Box> {
 }
 const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { transform: `scale(${b.flipX ? -1 : 1}, ${b.flipY ? -1 : 1})` } : undefined);
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
-export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[b.props.kind].row + 0.05);
-export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[b.props.kind].row + 0.05);
+export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.props.kind)].row + 0.05);
+export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.props.kind)].row + 0.05);
 // The square each character of a Karo's text stands in, as [column, row, character]: a row is filled, then the
 // next begins.
 export function squares(text: string, cols: number) {
@@ -444,12 +452,49 @@ export function spliced({ cells, cols, gaps, ...rest }: TableBlock["props"], axi
   if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")), ...flags };
   return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags };
 }
+// WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
+// Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
+let keepsFraction: boolean | undefined;
+// Each font's whole-pixel ascent and descent by family and size, from a canvas.
+const metrics = new Map<string, [number, number]>();
+function keepsFractions() {
+  if (keepsFraction === undefined) {
+    if (typeof document === "undefined") return false;
+    // Monospace: the measure does not wait for a font to load.
+    const p = document.createElement("p");
+    p.style.cssText = "position:absolute;visibility:hidden;margin:0;white-space:pre;font:48.0113px monospace;line-height:75.5906px";
+    const strut = document.createElement("span");
+    strut.style.cssText = "display:inline-block;width:1px;height:0";
+    p.append(strut, "a");
+    document.body.append(p);
+    const at = strut.getBoundingClientRect().top - p.getBoundingClientRect().top;
+    p.remove();
+    keepsFraction = at !== Math.floor(at);
+  }
+  return keepsFraction;
+}
+// The fraction in px of a first row's baseline: half the line height plus half the difference of ascent and
+// descent. None while the font is not loaded, since the canvas would measure another font.
+function baselineFraction(family: string | undefined, size: number, lineHeight: number) {
+  if (!family || !keepsFractions() || !document.fonts.check(`${size}px "${family}"`)) return 0;
+  const key = `${family}|${size}`;
+  if (!metrics.has(key)) {
+    const ctx = document.createElement("canvas").getContext("2d")!;
+    ctx.font = `${size}px "${family}"`;
+    const n = ctx.measureText("n");
+    metrics.set(key, [n.fontBoundingBoxAscent, n.fontBoundingBoxDescent]);
+  }
+  const [ascent, descent] = metrics.get(key)!;
+  const baseline = lineHeight / 2 + (ascent - descent) / 2;
+  // A browser whose canvas does not tell a font's ascent takes nothing off.
+  return Number.isFinite(baseline) ? baseline - Math.floor(baseline) : 0;
+}
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
 // On Karo the field only takes the typing: its letters are unseen and as wide as a square, so the caret stands
 // between the squares, and `Lines` draws the characters.
 export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
-  const { row, at, base, size } = RULINGS[b.props.kind];
+  const { row, at, base, size } = RULINGS[kindOf(b.props.kind)];
   if (!at)
     return {
       fontFamily: "Geist Mono Variable",
@@ -465,20 +510,27 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
       color: "transparent",
       caretColor: "#222222",
     };
-  const font = FONTS[b.props.font ?? "andika"];
-  const s = fontScale(b.props.font ?? "andika");
+  const font = FONTS[fontOf(b.props.font)];
+  const s = fontScale(fontOf(b.props.font));
   const top = base - row / 2 - font[2] * size * s;
   const look = traceOf(b.props);
   const fade = fadeOf(b.props);
   const mask = fade && fadeMask(fade, rowsOf(b), row * k, (px) => `${px}px`);
   // The text starts right of a house. Border-box keeps the padding inside the full width of the box.
   const indent = indentOf(b);
+  const family = look === "dotted" ? dottedFamily(b.props.font) : font[1];
+  const fraction = baselineFraction(family, size * s * k, row * k);
+  // An outline or a dotted cut reaches past the box's left edge: the box takes `ext` px more to the left and its
+  // padding takes them back, so no letter moves. Whole px, as the cut is (see `.frame` in styles.css).
+  const reach = look === "outline" ? Math.max(SIDE[fontOf(b.props.font)] ?? 0, 0.12) + 0.035 : look === "dotted" ? DOTTED_SIDE : 0;
+  const ext = reach ? Math.ceil(reach * size * s * k) + 1 : 0;
   return {
-    ...(indent > 0 && { paddingLeft: indent * k, boxSizing: "border-box" as const }),
-    fontFamily: look === "dotted" ? dottedFamily(b.props.font) : font[1],
+    ...((indent > 0 || ext > 0) && { paddingLeft: indent * k + ext, boxSizing: "border-box" as const }),
+    ...(ext > 0 && { left: -ext, width: `calc(100% + ${ext}px)` }),
+    fontFamily: family,
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
-    top: top * k,
+    top: top * k - fraction,
     height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
     color: look === "grey" ? "#aaaaaa" : undefined,
     ...(look === "outline" && OUTLINE),
@@ -489,7 +541,7 @@ export const textStyle = (p: TextProps, k: number): CSSProperties => {
   // A dotted trace is the font's own dotted cut, regular and upright, so a bold or italic setting does not smear it.
   const dotted = traceOf(p) === "dotted";
   return {
-    fontFamily: dotted ? dottedFamily(p.font) : FONTS[p.font ?? "andika"][1],
+    fontFamily: dotted ? dottedFamily(p.font) : FONTS[fontOf(p.font)][1],
     fontSize: p.size * PT * k,
     fontWeight: p.bold && !dotted ? 700 : 400,
     fontStyle: p.italic && !dotted ? "italic" : "normal",
@@ -600,7 +652,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
   // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
-  const font = p.font ?? "andika";
+  const font = fontOf(p.font);
   const s = typeof p.spacing === "number" && Number.isFinite(p.spacing) ? p.spacing : 1.3;
   // Under a fiftieth of the size it counts as none: Andika's lowest sign reaches 0.015 em out of a line of 1.3, less
   // than a pixel at any size a sheet uses, and its texts stay as sheets saved before drew them.
@@ -613,8 +665,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // A plain text takes the side reach only in a joined script, where a letter reaches 0.1 em or more past its place: a
   // print font's plain text draws as it did before. An outline takes it in every font, and 0.12 em at least: Andika's
   // j reaches further in its outline than the upright cut's measure says. A slanted text leans 0.15 em further.
-  const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0);
-  const side = stroke > 0 || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
+  // A dotted look takes the dotted cut's reach the same way (DOTTED_SIDE).
+  const dotted = traceOf(p) === "dotted";
+  const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0, dotted ? DOTTED_SIDE : 0);
+  const side = stroke > 0 || dotted || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.
@@ -648,7 +702,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   }, [fade]);
   const estimate = Math.round((block.h - 2 * down) / rowMM);
   const mask = fade && Number.isFinite(rowMM) && rowMM > 0 && fadeMask(fade, lines ?? estimate, rowMM * k, (px) => `calc(var(--ink-up, 0px) + ${px}px)`);
-  const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
+  // A kind nobody knows draws as a rectangle, also one that names a part of every object ("toString").
+  const d = Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2) : undefined;
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
   const solid = !d && !p.dash && edge > 0;
@@ -722,7 +777,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       )}
       {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
       {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
-      {(p.syllables || tints) && <Bows block={block} base={FONTS[p.font ?? "andika"][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
 }
@@ -1082,7 +1137,7 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
   const em = parseFloat(getComputedStyle(host).fontSize);
   // Half the height of a line, on the screen.
   const near = (parseFloat(getComputedStyle(host).lineHeight) * scale) / 2;
-  const base = FONTS[block.props.font ?? "andika"][2];
+  const base = FONTS[fontOf(block.props.font)][2];
   const shown: SVGTextElement[] = [];
   let count = 0;
   // The rows not yet numbered. In columns the words of all paragraphs make one grid, so their rows are numbered
@@ -1309,7 +1364,7 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
 
 // Drawn in mm: the SVG's own scale takes it to the block's size. The editor passes the field the text is typed in.
 function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
-  const { row, at, zones, size } = RULINGS[block.props.kind];
+  const { row, at, zones, size } = RULINGS[kindOf(block.props.kind)];
   const { text = "" } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
@@ -1321,7 +1376,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   // list draws its own look, so it has none.
   const karoLook = !at && !mode ? traceOf({ trace: block.props.trace }) : undefined;
   const karoFade = karoLook ? fadeOf(block.props) : undefined;
-  const s = fontScale(block.props.font ?? "andika");
+  const s = fontScale(fontOf(block.props.font));
   // A Knickblatt has its first column for the words and `folds` empty ones after it, all of the same width. On Karo
   // the first column is a whole number of squares, and the words are cut to it.
   const fold = mode === "fold";
@@ -1361,7 +1416,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         ))}
         {/* A house stands on each row's left end, over the lines: its roof, its room and its cellar. */}
         {zones && houseOf(block) && each(rows).map((top) => {
-          const w = houseWidth(block.props.kind);
+          const w = houseWidth(kindOf(block.props.kind));
           const tint = houseTintOf(block);
           return (
             <g key={top} className="house">
@@ -1425,7 +1480,7 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
           {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
         </div>
       ))}
-      {(syllables || tints) && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
+      {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
     </div>
   );
@@ -1441,7 +1496,7 @@ function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | 
 }
 
 // One side of a comparison as it reads: a number, or a term with its sign.
-const side = (s: Side) => (s.op ? `${s.a} ${SIGNS[s.op]} ${s.b}` : String(s.value));
+const side = (s: Side) => (s.op ? `${s.a} ${SIGNS[s.op] ?? s.op} ${s.b}` : String(s.value));
 
 // A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
 // A square is `S` units wide: with a square of one unit a digit is under a unit high, and Chromium sets so small a
@@ -1530,11 +1585,11 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
       ) : e.op2 ? (
         // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
         <span>
-          {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op]} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2]} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
+          {e.paren === "left" && "("}<Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} {e.paren === "right" && "("}<Part e={e} part="b" {...num} />{e.paren === "left" && ")"} {SIGNS[e.op2] ?? e.op2} <Part e={e} part="c" {...num} />{e.paren === "right" && ")"} = <Part e={e} part="result" {...num} />
         </span>
       ) : (
         <span>
-          <Part e={e} part="a" {...num} /> {SIGNS[e.op]} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
+          <Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
           {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
         </span>
       )}
