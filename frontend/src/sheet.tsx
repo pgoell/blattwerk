@@ -52,7 +52,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted" };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -65,7 +65,7 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // again and again to the row's end. "fold" is the Knickblatt: each word at its row's start, cut at the first column,
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean; list?: ListMode; folds?: number } };
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; folds?: number } };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -142,7 +142,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade } };
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -193,6 +193,23 @@ export const FONTS = {
 } as const;
 // The scale a Lineatur draws a font at: 1 for the fonts without a fourth number.
 export const fontScale = (font: Font) => (FONTS[font] as readonly [string, string, number, number?])[3] ?? 1;
+// Trace text (Nachspurtext), for the children to write over, in a text, a shape, a table and a Lineatur. A block
+// stores `trace`: true for grey, "outline" for letters with a line around them and no fill (Umriss), "dotted" for the
+// font's own dotted cut (gepunktet). Sheets saved before have true or nothing. `fade` makes the trace text lighter
+// step by step until it is gone: "row" along each row, "rows" from row to row.
+export type Trace = "grey" | "outline" | "dotted";
+export type Fade = "row" | "rows";
+// The fonts with a dotted cut, and its family. No other font is dotted: dots on a letter's outline are not what a
+// child traces.
+const DOTTED: Partial<Record<Font, string>> = { urff: "Grundschrift Urff Punkt" };
+export const dottedFamily = (font?: Font): string | undefined => DOTTED[font ?? "andika"];
+// The look a block's trace text has. A sheet may come from anywhere: a value nobody knows is no trace text, and
+// "dotted" in a font without a dotted cut is grey.
+export const traceOf = (p: { trace?: unknown; font?: Font }): Trace | undefined =>
+  p.trace === true ? "grey" : p.trace === "outline" ? "outline" : p.trace === "dotted" ? (dottedFamily(p.font) ? "dotted" : "grey") : undefined;
+// The way a block's trace text fades, or none: a text that is no trace text does not fade.
+export const fadeOf = (p: { trace?: unknown; fade?: unknown; font?: Font }): Fade | undefined =>
+  traceOf(p) && (p.fade === "row" || p.fade === "rows") ? p.fade : undefined;
 // The font menu's groups, in order.
 export const FONT_GROUPS = [
   ["Druckschriften", ["andika", "nord", "sued"]],
