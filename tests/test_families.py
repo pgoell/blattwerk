@@ -173,12 +173,13 @@ def test_a9_the_same_families_come_back_after_a_reload(editor):
 
 
 def test_a10_too_few_families_name_the_limit_in_the_way(editor):
-    """A10: 30 Tauschaufgaben to 10 make only 22 families; the hint names the Zahlenraum."""
+    """A10: 30 Tauschaufgaben to 10 make only 6 families, 3 of school tasks and a tenth of the
+    block with a 0 or a 1 (#471); the hint names the Zahlenraum."""
     client = user()
     props = maths(client, ops=["*"], max=10, count=30, family="swap")
     page = editor(box("m", "maths", props, y=20, h=60), client=client)
     pick(page, "m")
-    hint = page.locator(".panel .hint").filter(has_text="nur 22 verschiedene Familien")
+    hint = page.locator(".panel .hint").filter(has_text="nur 6 verschiedene Familien")
     expect(hint).to_be_visible()
     expect(hint).to_contain_text("Zahlenraum")
 
