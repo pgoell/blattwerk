@@ -153,10 +153,11 @@ def test_a6_a_press_on_the_band_of_an_l3_adds_the_bands(editor):
 
 def test_a7_the_band_colour_shows_the_line_colour_at_12_percent_and_takes_a_colour(editor):
     """A7"""
-    page = editor(box("a", "ruling", {**RULING, "kind": "l1", "color": "#555555"}))
+    page = editor(box("a", "ruling", {**RULING, "kind": "l1", "color": "#1a56db"}))
     block = at(page, "a")
     pick(page, "a")
-    expect(band_colour(page)).to_have_value("#ebebeb")
+    # 12 % of the line colour over white, per channel: 1a, 56, db give e4, eb, fb.
+    expect(band_colour(page)).to_have_value("#e4ebfb")
     band_colour(page).fill("#ffe066")
     expect_drawn(block, "rect.band", "#ffe066")
     expect_drawn(block, "rect.band", "1", "fill-opacity")
@@ -373,6 +374,68 @@ def test_i5_the_brush_carries_the_band_colour(editor):
     )
     paint(page, "a", "b")
     expect_drawn(at(page, "b"), "rect.band", "#ffe066")
+
+
+@pytest.mark.parametrize(
+    "source, target, bands",
+    [
+        ({**RULING, "kind": "l3"}, L1, False),
+        (L1, {**RULING, "kind": "l3"}, True),
+    ],
+    ids=["l3-shows-no-band", "l1-shows-a-band"],
+)
+def test_i5_the_brush_carries_the_band_a_lineatur_shows(editor, source, target, bands):
+    """I5"""
+    page = editor(box("a", "ruling", source), box("b", "ruling", target, z=2))
+    paint(page, "a", "b")
+    block = at(page, "b")
+    if bands:
+        expect(block.locator("rect.band").first).to_be_attached()
+        assert block.locator("rect.band").count() == at(page, "a").locator("rect.band").count()
+    else:
+        expect(block.locator("rect.band")).to_have_count(0)
+
+
+def test_i5_the_brush_from_a_lineatur_4_leaves_house_and_band(editor):
+    """I5"""
+    page = editor(
+        box("a", "ruling", {**RULING, "kind": "l4"}),
+        box(
+            "b",
+            "ruling",
+            {
+                **L1,
+                "color": "#555555",
+                "house": True,
+                "houseTint": "all",
+                "band": False,
+                "bandColor": "#ffe066",
+            },
+            z=2,
+        ),
+    )
+    paint(page, "a", "b")
+    block = at(page, "b")
+    expect(block.locator("svg.ruling")).to_have_attribute("stroke", "#222222")
+    expect_drawn(block, "rect.room", "#fcefb4")
+    expect_drawn(block, "polygon.roof", "#f6c4bd")
+    expect_drawn(block, "rect.cellar", "#d9cdbd")
+    expect(block.locator("rect.band")).to_have_count(0)
+
+
+def test_i5_the_brush_lays_no_house_on_a_lineatur_4(editor):
+    """I5"""
+    client = user()
+    page = editor(
+        box("a", "ruling", {**L1, "house": True, "houseTint": "all"}),
+        box("b", "ruling", {**RULING, "kind": "l4"}, z=2),
+        client=client,
+    )
+    paint(page, "a", "b")
+    expect(at(page, "b").locator("g.house")).to_have_count(0)
+    target = {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}["b"]["props"]
+    assert target["kind"] == "l4"
+    assert not {"house", "houseTint", "band", "bandColor"} & target.keys()
 
 
 def test_i6_house_band_and_colour_survive_a_reload_and_a_copy(editor):

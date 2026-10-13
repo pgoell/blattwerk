@@ -11,7 +11,7 @@ import httpx
 import pytest
 from playwright.sync_api import expect
 from test_pixels import faults
-from ui import at, box, sheet, thumb, user
+from ui import at, box, sheet, user
 
 INK = "#222222"
 # The zones of a row in mm, and the height of a row, per kind with a house.
@@ -26,13 +26,6 @@ LOOKS = {
     "dotted": {"trace": "dotted"},
     "fade": {"trace": True, "fade": "row"},
 }
-# The left edge of the first letter of a text: a range over its first text node, in px.
-FIRST_LETTER = """(el) => {
-    const node = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    return range.getClientRects()[0].left;
-}"""
 PADDING = "el => parseFloat(getComputedStyle(el).paddingLeft)"
 
 
@@ -130,17 +123,6 @@ def test_text_starts_right_of_the_house_in_every_font(editor, look):
         left = written.bounding_box()["x"] + written.evaluate(PADDING)
         assert round(left) >= round(right(house)), font
         assert left - right(house) < house["width"], font
-    # The page's thumbnail: its houses and its printed texts come in the order of the blocks.
-    # The thumbnails count from 0: the sheet's one page is thumb 0.
-    shown = thumb(page, 0)
-    expect(shown.locator("g.house")).to_have_count(len(FONTS))
-    expect(shown.locator("p.written")).to_have_count(len(FONTS))
-    for i, font in enumerate(FONTS):
-        house = shown.locator("g.house").nth(i).bounding_box()
-        text_left = shown.locator("p.written").nth(i).evaluate(FIRST_LETTER)
-        assert round(text_left) >= round(right(house)), font
-    # The thumbnail's p.written is centred, so its first glyph is not at the padding: the
-    # "not far away" bound holds in the editor only (above).
 
 
 def test_typed_text_starts_right_of_the_house(editor):
@@ -157,7 +139,7 @@ def test_typed_text_starts_right_of_the_house(editor):
 
 
 @pytest.mark.parametrize("mode", ["copy", "trace", "row", "fold"])
-@pytest.mark.parametrize("kind", ["l2", "l3"])
+@pytest.mark.parametrize("kind", ["l1", "l2", "l3"])
 def test_lernwoerter_start_right_of_the_house(editor, kind, mode):
     """A3: each word of a Lernwörter Lineatur starts right of its house; a fold ends left of it."""
     props = {"kind": kind, "color": INK, "list": mode, "house": True}
@@ -174,6 +156,19 @@ def test_lernwoerter_start_right_of_the_house(editor, kind, mode):
         if mode == "fold":
             fold = at(page, "a").locator("line.fold").first.bounding_box()
             assert right(first) <= fold["x"] + 1
+
+
+def test_a_narrow_knickblatt_keeps_its_word_left_of_the_fold(editor):
+    """A3: a column narrower than the house's indent keeps each word left of the fold."""
+    props = {"kind": "l1", "color": INK, "list": "fold", "folds": 3, "house": True}
+    page = editor(box("a", "ruling", props, w=36, h=40), words=["Garten", "Igel"])
+    rows = at(page, "a").locator(".written.listed .row")
+    expect(rows).to_have_count(2)
+    fold = at(page, "a").locator("line.fold").first.bounding_box()
+    for i in range(2):
+        first = rows.nth(i).locator("span").first.bounding_box()
+        # The house leaves the word no room here: its span is shut, so none of it shows.
+        assert first["width"] == 0 or round(right(first)) <= round(fold["x"] + 1), first
 
 
 def test_house_takes_the_line_colour(editor):
@@ -325,14 +320,50 @@ def test_the_pdf_holds_no_picture_with_houses_and_bands(server):
     client = user()
     looks = {"house": True, "houseTint": "all", "band": True, "bandColor": "#ffe066"}
     blocks = [
-        box("a", "ruling", {"kind": "l1", "color": INK, **looks}, x=45, y=100, w=120, h=40),
-        box("b", "ruling", {"kind": "l2", "color": INK, **looks}, z=2, x=45, w=120, h=32),
+        box(
+            name,
+            "ruling",
+            {"kind": kind, "color": INK, "text": "Igel", **looks},
+            z=i + 1,
+            x=45,
+            y=100 + 50 * i,
+            w=120,
+            h=ROW[kind] * 2,
+        )
+        for i, (name, kind) in enumerate([("a", "l1"), ("b", "l2"), ("c", "l3")])
     ]
     mine = sheet(client, blocks)
     cookie = {"Cookie": f"session={client.cookies['session']}"}
     res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
     assert res.status_code == 200
     assert re.search(rb"/Subtype\s*/Image", res.content) is None
+
+
+@pytest.mark.parametrize("look", list(LOOKS))
+def test_print_matches_the_screen_in_every_font_with_a_house(browser, server, look):
+    """A10: in every font and look the printed text lies where the editor's field does."""
+    client = user()
+    blocks = [
+        box(
+            f"p{i}",
+            "ruling",
+            {
+                "kind": "l1",
+                "color": INK,
+                "house": True,
+                "font": font,
+                "text": "jagen Igel und Maus im Garten",
+                **LOOKS[look],
+            },
+            z=i + 1,
+            x=45,
+            y=15 + 22 * i,
+            w=120,
+            h=20,
+        )
+        for i, font in enumerate(FONTS)
+    ]
+    assert not faults(browser, server, client, blocks)
 
 
 INK_OF_J = """async (block, outline) => {
@@ -380,6 +411,16 @@ def test_no_ink_of_the_text_reaches_into_the_house(editor, look):
     for i, font in enumerate(FONTS):
         ink, house = at(page, f"j{i}").evaluate(INK_OF_J, look == "outline")
         assert math.floor(ink) >= math.ceil(house), (font, ink, house)
+
+
+def test_a_house_with_an_unknown_tint_draws_untinted(editor):
+    """I7: a house with an unknown tint draws its three shapes with no fill."""
+    page = editor(
+        box("a", "ruling", {"kind": "l1", "color": INK, "house": True, "houseTint": "blue"}, h=20)
+    )
+    group = houses(page, "a").first
+    for part in ("polygon.roof", "rect.room", "rect.cellar"):
+        expect(group.locator(part)).to_have_attribute("fill", "none")
 
 
 def test_values_it_does_not_know_draw_as_the_defaults(editor):

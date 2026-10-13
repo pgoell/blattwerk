@@ -1346,7 +1346,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
             ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
-            : <span style={fold ? { width: (first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{word}</span>}
+            : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{word}</span>}
         </div>
       ))}
     </div>
