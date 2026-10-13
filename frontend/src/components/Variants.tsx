@@ -16,7 +16,7 @@ type Variant = { doc: Doc; short: Short[] };
 
 function message({ letter, page, type }: Short) {
   const kind = type === "maths" ? "Rechnen" : "Suchsel";
-  return `Variante ${letter}: Der ${kind}-Block auf Seite ${page} lässt sich mit diesen Vorgaben nicht füllen. Lockere die Vorgaben oder drucke weniger Varianten.`;
+  return `Variante ${letter}: Der ${kind}-Block auf Seite ${page} lässt sich nicht neu füllen. Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten.`;
 }
 
 // Tab goes round the dialog and does not leave it for the page.
@@ -102,7 +102,14 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   async function print(key: boolean) {
     setFailed("");
     try {
-      const now = await load();
+      // A load that failed before is tried again here, and what it brings is shown from now on.
+      // A lost session goes on to the login, as below.
+      const now = await load().catch((e) => {
+        if (e.message === "401" || e.message === "stale") throw e;
+        return null;
+      });
+      if (!now) return setFailed("Die Varianten konnten nicht geladen werden.");
+      setGot(now);
       if (shorts(count, doc, now)[0]) return;
       await ask("/me");
       const query = `varianten=${count}&buchstaben=${letters}${key ? "&solved=true" : ""}`;

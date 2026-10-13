@@ -301,6 +301,126 @@ def test_variant_a_in_a_set_is_the_stored_tasks_word_for_word():
     assert "1 + 1" not in pages[1]
 
 
+def rows_cols(exercises: list[dict]) -> tuple[int, int]:
+    """The most rows and columns of the written grids of some exercises."""
+    grids = [e["grid"] for e in exercises if "grid" in e]
+    return max((g["rows"] for g in grids), default=0), max((g["cols"] for g in grids), default=0)
+
+
+def written_props(client, **more):
+    return maths(client, ops=["*"], max=10000, format="written", count=6, rest=True, **more)
+
+
+def test_a_written_variant_never_needs_more_room_than_the_stored_block():
+    """A7/B1: a written variant fits the stored block's grid, or is short; a later try can win."""
+    client = user()
+    cases = [
+        maths(client, ops=["/"], max=10000, format="written", count=6, rest=True, seed=s)
+        for s in range(20, 40)
+    ] + [written_props(client, seed=s) for s in range(10)]
+    total = short = later = 0
+    for props in cases:
+        doc = {"pages": [{"blocks": [{"id": "m", "type": "maths", "props": props}]}]}
+        stored_rows, stored_cols = rows_cols(props["exercises"])
+        for letter in "BCD":
+            out, gone = variants.vary(doc, letter)
+            total += 1
+            made = out["pages"][0]["blocks"][0]["props"]
+            if gone:
+                short += 1
+                assert gone == [{"page": 1, "id": "m", "type": "maths"}]
+                assert made == props
+                continue
+            rows, cols = rows_cols(made["exercises"])
+            assert rows <= stored_rows and cols <= stored_cols, (props["seed"], letter)
+            later += made["seed"] != variants.derived(props["seed"], letter)
+    assert later >= 1
+    # With a hundred tries each of these blocks finds its variants.
+    assert short == 0, (short, total)
+
+
+def test_a_variant_that_took_a_later_try_is_the_same_on_every_run():
+    """A7/B2: a variant that took a later try gives the same document on every run."""
+    client = user()
+    for s in range(20, 40):
+        props = maths(client, ops=["/"], max=10000, format="written", count=6, rest=True, seed=s)
+        doc = {"pages": [{"blocks": [{"id": "m", "type": "maths", "props": props}]}]}
+        for letter in "BCD":
+            first = variants.vary(doc, letter)[0]
+            if first["pages"][0]["blocks"][0]["props"]["seed"] != variants.derived(s, letter):
+                assert first == variants.vary(doc, letter)[0]
+                return
+    raise AssertionError("no variant took a later try")
+
+
+def test_a_written_block_repeated_keeps_its_room_in_the_pdf():
+    """A7/B3: the written block of seed 24, whose plain variants B and C need more rows than its
+    60 mm hold, prints in four variants: each took a try that fits."""
+    client = user()
+    mine = sheet(client, [block("maths", 20, 60, written_props(client, seed=24))])
+    with serving() as server:
+        res = httpx.get(
+            f"{server}/api/sheets/{mine['id']}/pdf?varianten=4", headers=cookie(client), timeout=120
+        )
+    assert res.status_code == 200
+    assert len(texts(res.content)) == 4
+    stored = mine["doc"]["pages"][0]["blocks"][0]["props"]["exercises"]
+    for letter in "BCD":
+        made = variants.vary(mine["doc"], letter)[0]["pages"][0]["blocks"][0]["props"]["exercises"]
+        assert made != stored
+        assert all(a <= b for a, b in zip(rows_cols(made), rows_cols(stored), strict=True))
+
+
+LUECKEN = ["Schiffahrt", "Katzenhaus", "Vogelnest", "Pferdestall", "Schulhof", "Blumenbeet"]
+
+
+def word_lines(page: str) -> list[str]:
+    """The lines of a page that hold words: not blank, not the variant's letter or the key mark."""
+    lines = [line.strip() for line in page.splitlines()]
+    return [
+        line.replace(" ", "")
+        for line in lines
+        if line and line not in ("A", "B", "C", "D") and not line.startswith("Lösungen")
+    ]
+
+
+def test_the_key_of_lueckenwoerter_belongs_to_its_variant():
+    """A6: each gapped word keeps its letters in order from its key word, and sheets B differ."""
+    client = user()
+    listed = {
+        "text": "",
+        "size": 14,
+        "align": "left",
+        "list": True,
+        "holes": "one",
+        "holeSeed": 7,
+    }
+    mine = sheet(client, [block("text", 20, 120, listed)], words=LUECKEN)
+    with serving() as server:
+        sheet_pdf = httpx.get(
+            f"{server}/api/sheets/{mine['id']}/pdf?varianten=3", headers=cookie(client), timeout=120
+        )
+        key_pdf = httpx.get(
+            f"{server}/api/sheets/{mine['id']}/pdf?solved=true&varianten=3",
+            headers=cookie(client),
+            timeout=120,
+        )
+    sheets, keys = texts(sheet_pdf.content), texts(key_pdf.content)
+    assert len(sheets) == len(keys) == 3
+    gapped = []
+    for i in range(3):
+        sheet_words = word_lines(sheets[i])
+        key_words = word_lines(keys[i])
+        assert len(sheet_words) == len(key_words) == len(LUECKEN)
+        for s, k in zip(sheet_words, key_words, strict=True):
+            assert k in LUECKEN and len(s) < len(k)
+            # The kept letters, in order, are a part of the full word.
+            rest = iter(k)
+            assert all(ch in rest for ch in s), (i, s, k)
+        gapped.append(sheet_words)
+    assert gapped[0] != gapped[1]
+
+
 def grid(page: str) -> list[str]:
     """The rows of a Suchsel grid on a page: lines of ten capitals, spaces between them or not."""
     rows = [line.replace(" ", "") for line in page.splitlines()]

@@ -155,8 +155,8 @@ def test_a_suchsel_a_variant_cannot_fill_is_named_and_nothing_prints(editor):
     page.route("**/api/sheets/*/variante/B", more_words)
     open_dialog(page)
     expect(page.get_by_role("alert")).to_have_text(
-        "Variante B: Der Suchsel-Block auf Seite 1 lässt sich mit diesen Vorgaben nicht füllen. "
-        "Lockere die Vorgaben oder drucke weniger Varianten."
+        "Variante B: Der Suchsel-Block auf Seite 1 lässt sich nicht neu füllen. "
+        "Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten."
     )
     page.on("request", lambda r: real.append(r.url) if "/pdf" in r.url else None)
     press(page, "PDF")
@@ -178,8 +178,8 @@ def test_a_rechnen_block_a_variant_cannot_fill_is_named_and_nothing_prints(edito
     page.route("**/api/sheets/*/variante/B", short)
     open_dialog(page)
     expect(page.get_by_role("alert")).to_have_text(
-        "Variante B: Der Rechnen-Block auf Seite 1 lässt sich mit diesen Vorgaben nicht füllen. "
-        "Lockere die Vorgaben oder drucke weniger Varianten."
+        "Variante B: Der Rechnen-Block auf Seite 1 lässt sich nicht neu füllen. "
+        "Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten."
     )
     page.on("request", lambda r: real.append(r.url) if "/pdf" in r.url else None)
     press(page, "Lösungen")
@@ -347,3 +347,51 @@ def test_a_failed_pdf_leaves_the_dialog_open_and_says_so(editor):
     page.unroute("**/api/sheets/*/pdf*")
     data = download_pdf(page)
     assert len(PdfReader(io.BytesIO(data)).pages) == 3
+
+
+LOADING = "Die Varianten konnten nicht geladen werden."
+
+
+def test_a_second_try_after_a_failed_load_shows_the_variants_and_names_a_short_block(editor):
+    """I6/B2: after a failed load, a second try shows the variants and names the short block."""
+    client = user()
+    page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
+    page.route("**/api/sheets/*/variante/*", lambda r: r.abort())
+    open_dialog(page)
+    expect(page.get_by_role("alert")).to_have_text(LOADING)
+    page.unroute("**/api/sheets/*/variante/*")
+
+    def short(route):
+        answer = route.fetch().json()
+        answer["short"] = [{"page": 1, "id": "m", "type": "maths"}]
+        route.fulfill(json=answer)
+
+    page.route("**/api/sheets/*/variante/B", short)
+    real = []
+    page.on("request", lambda r: real.append(r.url) if "/pdf" in r.url else None)
+    press(page, "PDF")
+    expect(page.get_by_role("alert")).to_have_text(
+        "Variante B: Der Rechnen-Block auf Seite 1 lässt sich nicht neu füllen. "
+        "Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten."
+    )
+    assert real == []
+    page.get_by_role("radio", name="B", exact=True).check()
+    expect(page.locator('.preview[data-variant="B"] .paper')).to_be_visible()
+    expect(page.locator('.preview[data-variant="B"]')).not_to_contain_text("Lädt")
+
+
+def test_a_second_try_after_a_failed_load_prints_and_shows_the_variants(editor):
+    """I6/B2: a second try after a failed load prints both variants; a failed one says so again."""
+    client = user()
+    page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
+    page.route("**/api/sheets/*/variante/*", lambda r: r.abort())
+    open_dialog(page)
+    expect(page.get_by_role("alert")).to_have_text(LOADING)
+    press(page, "PDF")
+    expect(page.get_by_role("alert")).to_have_text(LOADING)
+    page.unroute("**/api/sheets/*/variante/*")
+    data = download_pdf(page)
+    assert len(PdfReader(io.BytesIO(data)).pages) == 2
+    page.get_by_role("radio", name="B", exact=True).check()
+    expect(page.locator('.preview[data-variant="B"] .paper')).to_be_visible()
+    expect(page.locator('.preview[data-variant="B"]')).not_to_contain_text("Lädt")
