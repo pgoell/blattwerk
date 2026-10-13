@@ -5,7 +5,7 @@ It draws a plain line, survives a save untouched, and does not break the editor'
 
 import httpx
 from playwright.sync_api import expect
-from ui import TEXT, at, box, doc, pick, picked, reload, saved, sheet, user
+from ui import TEXT, at, box, doc, pick, picked, reload, sheet, user
 
 from blattwerk import pdf
 
@@ -18,6 +18,14 @@ def unknown(name="u", z=1):
 
 def known():
     return box("t", "text", TEXT, z=2)
+
+
+def watch(page):
+    """Collects the page's errors from now on: uncaught ones and those the console logs."""
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: m.type == "error" and errors.append(m.text))
+    return errors
 
 
 def stored(client, page):
@@ -43,13 +51,12 @@ def test_print_draws_the_plain_line_and_is_ready(browser, server):
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     context.add_init_script("localStorage.setItem('tour', '1')")
     page = context.new_page()
-    errors = []
-    page.on("pageerror", lambda error: errors.append(str(error)))
+    errors = watch(page)
     page.set_extra_http_headers({"X-Render-Token": pdf.new_token(mine)})
     page.goto(f"{server}/druck/{mine}")
     page.wait_for_selector("body.ready", state="attached")
     expect(page.locator(".unknown")).to_have_text(LINE)
-    assert errors == []
+    assert not errors, errors
     context.close()
 
 
@@ -63,13 +70,14 @@ def test_the_pdf_comes(server):
     assert response.content.startswith(b"%PDF")
 
 
-def test_a_save_leaves_the_unknown_block_as_it_was(editor, server):
+def test_a_save_leaves_the_unknown_block_as_it_was(editor):
     client = user()
     page = editor(unknown(), known(), client=client)
     pick(page, "t")
     page.keyboard.press("ArrowDown")
     expect(page.locator(".block.sel")).to_have_count(1)
-    saved(page, client)
+    assert stored(client, page)["u"] == unknown()
+    expect(at(page, "u").locator(".unknown")).to_have_text(LINE)
     reload(page, page.url)
     expect(at(page, "u").locator(".unknown")).to_have_text(LINE)
     assert stored(client, page)["u"] == unknown()
@@ -78,6 +86,7 @@ def test_a_save_leaves_the_unknown_block_as_it_was(editor, server):
 def test_the_unknown_block_can_be_picked_moved_deleted_and_brought_back(editor):
     client = user()
     page = editor(unknown(), known(), client=client)
+    errors = watch(page)
     pick(page, "u")
     page.keyboard.press("ArrowDown")
     expect(at(page, "u")).to_have_class("block sel")
@@ -87,11 +96,13 @@ def test_the_unknown_block_can_be_picked_moved_deleted_and_brought_back(editor):
     expect(at(page, "u")).to_have_count(1)
     page.keyboard.press("Control+z")
     assert stored(client, page)["u"] == unknown()
+    assert not errors, errors
 
 
 def test_copy_and_paste_keep_type_and_props(editor):
     client = user()
     page = editor(unknown(), known(), client=client)
+    errors = watch(page)
     pick(page, "u")
     page.keyboard.press("Control+c")
     page.keyboard.press("Control+v")
@@ -99,37 +110,48 @@ def test_copy_and_paste_keep_type_and_props(editor):
     copies = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zukunft"]
     assert len(copies) == 2
     assert all(b["props"] == unknown()["props"] for b in copies)
+    assert not errors, errors
+
+
+def test_ctrl_d_duplicates_it_as_it_is(editor):
+    client = user()
+    page = editor(unknown(), known(), client=client)
+    errors = watch(page)
+    pick(page, "u")
+    page.keyboard.press("Control+d")
+    expect(page.locator(".block[data-id]")).to_have_count(3)
+    copies = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zukunft"]
+    assert len(copies) == 2
+    assert all(b["props"] == unknown()["props"] for b in copies)
+    assert not errors, errors
 
 
 def test_enter_f2_and_double_click_break_nothing(editor):
     client = user()
     page = editor(unknown(), known(), client=client)
-    errors = []
-    page.on("pageerror", lambda error: errors.append(str(error)))
+    errors = watch(page)
     pick(page, "u")
     page.keyboard.press("Enter")
     page.keyboard.press("F2")
     at(page, "u").dblclick()
     expect(at(page, "u").locator(".unknown")).to_have_text(LINE)
     expect(page.locator(".block.sel")).to_have_count(1)
-    assert errors == []
+    assert not errors, errors
 
 
 def test_picked_with_a_known_block_the_panel_does_not_break(editor):
     page = editor(unknown(), known())
-    errors = []
-    page.on("pageerror", lambda error: errors.append(str(error)))
+    errors = watch(page)
     pick(page, "t", "u")
     expect(page.locator(".block.sel")).to_have_count(2)
-    assert errors == []
-    assert picked(page) == ["t", "u"] or picked(page) == ["u", "t"]
+    assert picked(page) in (["t", "u"], ["u", "t"])
+    assert not errors, errors
 
 
 def test_picked_alone_the_panel_shows_its_place(editor):
     page = editor(unknown(), known())
-    errors = []
-    page.on("pageerror", lambda error: errors.append(str(error)))
+    errors = watch(page)
     pick(page, "u")
     expect(page.get_by_label("X", exact=True)).to_be_visible()
     expect(page.get_by_label("Y", exact=True)).to_be_visible()
-    assert errors == []
+    assert not errors, errors
