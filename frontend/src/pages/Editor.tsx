@@ -92,7 +92,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -1164,6 +1164,29 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table" || key === "words") tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
+  }
+  // The text typed into a ruling is set, and in the same change the block grows by whole rows when the text needs more
+  // rows than it has. A Karo needs the rows of its squares. A Lineatur's field scrolls past its last row, so its
+  // scroll height is taller than its box: the lines are that height in rows. Growth stops at the foot of the page, and
+  // a block never shrinks by itself. Text and height share the typing's key, so one undo step takes both back.
+  function typeRuling(b: Extract<Block, { type: "ruling" }>, text: string, area: HTMLTextAreaElement) {
+    const { row, at } = RULINGS[kindOf(b.props.kind)];
+    const have = rowsOf(b);
+    const need = at
+      ? area.scrollHeight > area.clientHeight + 1 ? Math.round(area.scrollHeight / (row * K)) : 0
+      : Math.max(0, ...squares(text, colsOf(b)).map(([, y]) => y + 1));
+    const rows = Math.max(have, need);
+    const h = round(rows * row);
+    const grows = rows > have && b.y + h <= H;
+    change(
+      (bs) =>
+        bs.map((x) =>
+          ids.includes(x.id) && x.type === "ruling"
+            ? ({ ...x, ...(grows && x.id === b.id ? tall(x, h) : {}), props: { ...x.props, ...fresh(x, { text }) } } as Block)
+            : x,
+        ),
+      "text",
+    );
   }
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
@@ -3088,7 +3111,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           // Tab from a field of the panel does not stop at a Lineatur that is not written in.
                           tabIndex={editing === b.id ? undefined : -1}
                           style={writtenStyle(b, K)}
-                          onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                          onChange={(e) => typeRuling(b, e.target.value, e.currentTarget)}
                           // Tab types nothing and stays here: the browser's would end the writing. Escape and F2 end
                           // it themselves: after a press in the panel the blur would not.
                           onKeyDown={(e) => {
