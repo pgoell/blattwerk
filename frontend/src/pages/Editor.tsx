@@ -96,6 +96,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput,
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { anchorOf, beside, merged, next, rectOf, spanAt, spansOf, unmerged } from "../cells";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -309,6 +310,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [editing, setEditing] = useState("");
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
+  // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
+  const [reach, setReach] = useState<number | undefined>(undefined);
+  const cellDrag = useRef(false);
+  // The heights of the rows of the picked table as its grid laid them out, in px, when it has merged cells.
+  const [laid, setLaid] = useState("");
   // Where the caret stood in a cell that a new row or column moves to another place.
   const caret = useRef<number>(undefined);
   // Whether the field that opens next has all its text picked.
@@ -328,7 +334,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // What is written in stays open when it loses the focus to the panel: by the keys, or by a press, which on the
   // word beside a colour names nothing that takes the focus. So does it under the bar's menu "Mehr", which hands
   // the focus back when it shuts.
-  const stays = (e: { relatedTarget: EventTarget | null }) => inPanel.current || !!(e.relatedTarget as Element | null)?.closest(menu?.more ? ".panel, .menu" : ".panel");
+  const stays = (e: { relatedTarget: EventTarget | null }) => cellDrag.current || inPanel.current || !!(e.relatedTarget as Element | null)?.closest(menu?.more || menu?.cells ? ".panel, .menu" : ".panel");
   // The text, the Lineatur or the cell being written in.
   const written = () => field.current ?? sheet.current?.querySelector<HTMLElement>("textarea:not([readonly])");
   // Gives the keys back from a control of the panel, as PowerPoint does: to what is written in, whose caret is
@@ -374,7 +380,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -684,6 +690,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // So does the field of a cell that undo took away with its row.
   useEffect(() => {
     if (editing && (!sel.some((b) => b.id === editing) || (table && slot >= table.props.cells.flat().length))) setEditing("");
+    // A covered cell is no cell of its own: the field goes to the merged cell that covers it.
+    else if (table && editing === table.id && anchorOf(table.props, slot) !== slot) setSlot(anchorOf(table.props, slot));
+    // Cells picked stay picked only while their table is being edited.
+    if (reach !== undefined && (!table || editing !== table.id)) setReach(undefined);
+    // The handles of a table's column lines need its rows' heights where a merged cell lies over a line.
+    const grid = table && spansOf(table.props).length ? sheet.current!.querySelector(`[data-id="${table.id}"] .table`) : null;
+    const rows = grid ? getComputedStyle(grid).gridTemplateRows : "";
+    if (rows !== laid) setLaid(rows);
   });
 
   // The keys do what the latest drawing says, from the moment the editor is drawn. The listener itself stays for
@@ -1485,6 +1499,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const press = (e: globalThis.PointerEvent) => void (pressed.current ||= !e.button);
     const lift = () => {
       pressed.current = false;
+      cellDrag.current = false;
       // Moveable ends its drag with the mouse's or the finger's own event, which comes after the pointer's.
       setTimeout(() => pressed.current || due.current.splice(0).forEach((run) => run()));
     };
@@ -1955,15 +1970,79 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // new row begins.
   function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
     // Escape and F2 end the writing themselves: after a press in the panel a blur would not.
-    if (e.key === "Escape" || e.key === "F2") setEditing("");
+    if (e.key === "Escape" || e.key === "F2") {
+      setEditing("");
+      setReach(undefined);
+    }
+    // An arrow at the edge of the text goes on to the next cell, when there is one in that way.
+    const plain = !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
+    const field = e.currentTarget;
+    const at = field.selectionStart;
+    const line = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] [data-cell="${slot}"] p.open`);
+    let to: number | undefined;
+    if (plain && line && at === field.selectionEnd) {
+      if (e.key === "ArrowLeft" && at === 0) to = next(b.props, slot, -1);
+      if (e.key === "ArrowRight" && at === field.value.length) to = next(b.props, slot, 1);
+      if (e.key === "ArrowUp" && sameLine(line, at, 0)) to = beside(b.props, slot, "up");
+      if (e.key === "ArrowDown" && sameLine(line, at, field.value.length)) to = beside(b.props, slot, "down");
+    }
+    if (to !== undefined) {
+      e.preventDefault();
+      mergeKey.current = "";
+      setReach(undefined);
+      setSlot(to);
+      return;
+    }
     if (e.key !== "Tab") return;
     e.preventDefault();
     // What is typed in the next cell is an undo step of its own.
     mergeKey.current = "";
-    const to = Math.max(0, slot + (e.shiftKey ? -1 : 1));
-    const rows = b.props.cells.length;
-    if (to === rows * b.props.cols.length) rank(b, "row", rows, true);
-    setSlot(to);
+    setReach(undefined);
+    const after = next(b.props, slot, e.shiftKey ? -1 : 1);
+    if (after !== undefined) setSlot(after);
+    else if (!e.shiftKey) {
+      const rows = b.props.cells.length;
+      rank(b, "row", rows, true);
+      setSlot(rows * b.props.cols.length);
+    }
+  }
+  // Whether the caret at `at` of a cell's text stands on its first (0) or last line: the same top as the text's edge.
+  function sameLine(line: HTMLElement, at: number, edge: number) {
+    const top = (n: number) => {
+      let left = n;
+      const walk = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+      for (let t = walk.nextNode() as Text | null; t; t = walk.nextNode() as Text | null) {
+        if (left <= t.length) {
+          const range = document.createRange();
+          range.setStart(t, left);
+          range.collapse(true);
+          return range.getBoundingClientRect().top;
+        }
+        left -= t.length;
+      }
+      return line.getBoundingClientRect().top;
+    };
+    return Math.abs(top(at) - top(edge)) < 2;
+  }
+  // Makes the picked cells of the table being edited one cell. It is one step of undo.
+  function merge() {
+    if (!table || reach === undefined) return;
+    const rect = rectOf(table.props, slot, reach);
+    mergeKey.current = "";
+    tight.current = true;
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: merged(table.props, rect) } : o)));
+    setSlot(rect[0] * table.props.cols.length + rect[1]);
+    setReach(undefined);
+  }
+  // Brings back the single cells of the merged cell at the open cell. The freed cells stay picked.
+  function unmerge() {
+    if (!table) return;
+    const [r, c, h, w] = spanAt(table.props, slot);
+    if (h * w < 2) return;
+    mergeKey.current = "";
+    tight.current = true;
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: unmerged(table.props, slot) } : o)));
+    setReach((r + h - 1) * table.props.cols.length + c + w - 1);
   }
   // Adds an empty row or column to a table before the one at `i`, or takes the one at `i` away; the last one
   // stays. A new row adds its height to the block, a line of text with the cell's padding and line, and
@@ -1973,15 +2052,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const [rows, cols] = [b.props.cells.length, b.props.cols.length];
     const n = axis === "row" ? rows : cols;
     if (!add && n < 2) return;
-    const gone = sheet.current!.querySelector(`[data-id="${b.id}"] [data-cell="${i * cols}"]`);
-    const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone!.getBoundingClientRect().height / k;
+    // A row's height is read from its first cell, or from the grid when that cell is covered or spans rows.
+    const table = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`)!;
+    const first = table.querySelector<HTMLElement>(`[data-cell="${i * cols}"]`);
+    const gone = first && !first.dataset.span ? first.getBoundingClientRect().height / k : parseFloat(getComputedStyle(table).gridTemplateRows.split(" ")[i]) / K;
+    const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
-    const next = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
-    if (add && next !== slot) caret.current = sheet.current!.querySelector<HTMLTextAreaElement>(".table textarea")?.selectionStart;
-    setSlot(next);
+    const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
+    const props = spliced(b.props, axis, i, add);
+    if (add && target !== slot) caret.current = sheet.current!.querySelector<HTMLTextAreaElement>(".table textarea")?.selectionStart;
+    setSlot(anchorOf(props, target));
+    setReach(undefined);
     tight.current = true;
-    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, h: round(b.h + dh), props: spliced(b.props, axis, i, add) } : o)));
+    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, h: round(b.h + dh), props } : o)));
   }
   // Moves the line right of column `i` with the pointer. The columns on its two sides share the width they had,
   // and each keeps 5 mm, or half of it where they have less.
@@ -1995,6 +2079,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     cols[i] = Math.max(least, Math.min(pair - least, (point(e)[0] - b.x) / mm - left));
     cols[i + 1] = pair - cols[i];
     style("table", { cols }, "drag");
+  }
+  // Where the line right of column `i` shows, as [top, height] in mm of the page: all of the table's height, or
+  // the rows between the merged cells that lie over it. The rows' heights are the grid's own (`laid`).
+  function shown(b: TableBlock, i: number): [number, number][] {
+    const over = spansOf(b.props).filter(([, c, , w]) => c <= i && i + 1 < c + w);
+    if (!over.length) return [[b.y, b.h]];
+    const heights = laid.split(" ").map((px) => parseFloat(px) / K);
+    if (heights.length < b.props.cells.length || heights.some(Number.isNaN)) return [];
+    const free = b.props.cells.map((_, r) => !over.some(([at, , h]) => r >= at && r < at + h));
+    return free.flatMap((is, r) => (is && !free[r - 1] ? [[b.y + sum(heights.slice(0, r)), sum(heights.slice(r, free.indexOf(false, r) < 0 ? free.length : free.indexOf(false, r)))] as [number, number]] : []));
   }
   // An end handle remembers where the pointer took hold of it, so the end does not jump under the finger.
   function grip(e: PointerEvent) {
@@ -2312,6 +2406,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const locked = sel.length > 0 && !free.length;
   // A right click on the desk picks as in PowerPoint and opens the menu. In a field the browser's own stays: false.
   function menuAt(el: Element, x: number, y: number) {
+    // In the table being edited the menu holds the merge commands, once cells are picked or a merged cell is open.
+    const onCell = table && editing === table.id && el.closest(`[data-id="${table.id}"] :is([data-cell], textarea)`);
+    if (onCell && (reach !== undefined || spanAt(table.props, slot)[2] * spanAt(table.props, slot)[3] > 1)) {
+      setMenu({ x, y, cells: true });
+      return true;
+    }
     if (el.closest(".ProseMirror, textarea, input, select")) return false;
     // Moveable's area and a line's handles lie over a selection, so the block is looked up under them. Beside a block
     // there the selection stays.
@@ -2360,6 +2460,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           { label: "Seite löschen", icon: FileX, disabled: pages.length < 2, run: () => removePage(thumbed) },
         ]
       : [
+          ...(table && editing === table.id
+            ? ([
+                { label: "Zellen verbinden", disabled: reach === undefined, run: merge },
+                { label: "Zellen teilen", disabled: !(spanAt(table.props, slot)[2] * spanAt(table.props, slot)[3] > 1), run: unmerge },
+                "sep",
+              ] as Item[])
+            : []),
           ...clips,
           ...copies,
           "sep",
@@ -2781,11 +2888,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
             held.current = false;
+            // A press of the mouse on a cell of the table being edited picks cells. Moveable takes the focus from the
+            // field before the mouse's own event: the field stays open through that.
+            cellDrag.current = !touch.current && !!table && editing === table.id && !!(e.target as Element).closest(`[data-id="${table.id}"] [data-cell]`);
           }}
           onMouseDown={(e) => {
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
             // Enter and Tab.
             if (!document.activeElement?.closest(".block")) (document.activeElement as HTMLElement | null)?.blur();
+            // In the table being edited a press on a cell picks cells: Shift picks up to that cell, a drag picks across.
+            const hit = table && editing === table.id && (e.target as Element).closest(`[data-id="${table.id}"]`) ? (e.target as Element).closest<HTMLElement>("[data-cell]") : null;
+            if (hit && e.button === 0) {
+              const at = anchorOf(table!.props, +hit.dataset.cell!);
+              // Shift keeps the letters of the cells unpicked; a plain press in the open field sets its caret.
+              if (e.shiftKey) e.preventDefault();
+              else setSlot(at);
+              setReach(e.shiftKey && at !== slot ? at : undefined);
+              spot.current = undefined;
+              return;
+            }
             // The right button drags nothing: its menu picks the block.
             if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
@@ -2800,8 +2921,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           }}
           onClick={(e) => {
             if (moveable.current!.isMoveableElement(e.target as Element)) return;
+            // Moveable took the focus from the field with a press on a cell: it goes back to the cell that is open now.
+            if (table && editing === table.id && (e.target as Element).closest(`[data-id="${table.id}"]`)) return void written()?.focus();
             const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
             if (touch.current || still) pick(e.target as Element, false);
+          }}
+          // A drag over the cells of the table being edited picks the cells between its start and the pointer.
+          onMouseMove={(e) => {
+            if (!cellDrag.current || e.buttons !== 1 || !table) return;
+            const over = document.elementsFromPoint(e.clientX, e.clientY).map((el) => el.closest<HTMLElement>("[data-cell]")).find((el) => el && el.closest(`[data-id="${table.id}"]`));
+            if (!over) return;
+            const at = anchorOf(table.props, +over.dataset.cell!);
+            setReach(at === slot ? undefined : at);
           }}
           onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
@@ -2838,7 +2969,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     className={ids.includes(b.id) ? "block sel" : "block"}
                     style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}
                   >
-                    <Draw block={b} k={K} solved={solved} at={editing === b.id ? slot : undefined}>
+                    <Draw block={b} k={K} solved={solved} at={editing === b.id ? slot : undefined} reach={editing === b.id ? reach : undefined}>
                       {/* Only the text being edited needs a field; the others draw as they do in the PDF. */}
                       {boxed(b) && editing === b.id ? (
                         <Field
@@ -2883,7 +3014,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       ) : b.type === "table" && editing === b.id ? (
                         <textarea
                           value={b.props.cells.flat()[slot]}
-                          onChange={(e) => style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text")}
+                          onChange={(e) => {
+                            setReach(undefined);
+                            style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text");
+                          }}
                           onKeyDown={(e) => hop(e, b)}
                           onBlur={(e) => stays(e) || setEditing("")}
                         />
@@ -2933,15 +3067,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 <>
                   {guide[0] !== undefined && <i className="guide" style={{ left: guide[0] * k, height: "100%" }} />}
                   {guide[1] !== undefined && <i className="guide" style={{ top: guide[1] * k, width: "100%" }} />}
-                  {table?.props.cols.slice(1).map((_, i) => (
-                    <i
-                      key={i}
-                      className="bar"
-                      style={{ left: (table.x + (sum(table.props.cols.slice(0, i + 1)) / sum(table.props.cols)) * table.w) * k, top: table.y * k, height: table.h * k }}
-                      onPointerDown={grip}
-                      onPointerMove={(e) => widen(e, table, i)}
-                    />
-                  ))}
+                  {table?.props.cols.slice(1).flatMap((_, i) =>
+                    // A line that runs through a merged cell does not show there: its handle keeps to the rows where it does.
+                    shown(table, i).map(([top, height]) => (
+                      <i
+                        key={`${i} ${top}`}
+                        className="bar"
+                        style={{ left: (table.x + (sum(table.props.cols.slice(0, i + 1)) / sum(table.props.cols)) * table.w) * k, top: top * k, height: height * k }}
+                        onPointerDown={grip}
+                        onPointerMove={(e) => widen(e, table, i)}
+                      />
+                    )),
+                  )}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {line &&
                     [false, true].map((end) => (
@@ -3005,7 +3142,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
                     // on the group where the point the mouse reports lies beside what was pressed.
                     onClickGroup={(e) => cover.current && !held.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
-                    onDragStart={(e) => begin([e.target])}
+                    // A press on a cell of the table being edited picks cells: it moves no block.
+                    onDragStart={(e) => (cellDrag.current ? e.stopDrag() : begin([e.target]))}
                     onDragGroupStart={(e) => begin(e.targets)}
                     onDrag={(e) => drag([e])}
                     onDragGroup={(e) => drag(e.events, e)}
@@ -3138,6 +3276,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 }}
                 rank={rank}
                 cell={editing && editing === table?.id ? slot : undefined}
+                reach={editing && editing === table?.id ? reach : undefined}
+                merge={merge}
+                unmerge={unmerge}
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}

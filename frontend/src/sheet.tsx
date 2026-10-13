@@ -1,6 +1,7 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
 import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
+import { rectOf, spansOf, type Span } from "./cells";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
@@ -142,7 +143,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[] } };
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -443,14 +444,35 @@ export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
 // is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
-// A row or column that comes or goes takes its gap flags along: a new one has no gap.
-export function spliced({ cells, cols, gaps, ...rest }: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
+// A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
+// shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
+export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
+  const { cells, cols, gaps, spans: _, ...rest } = props;
   const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
   // A sheet may come from anywhere: the flags take the shape of the cells first.
   const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
-  const flags = held && { gaps: axis === "row" ? put(held, cols.map(() => false)) : held.map((row) => put(row, false)) };
-  if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")), ...flags };
-  return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags };
+  const grid = cells.map((row) => [...row]);
+  const flagged = held?.map((row) => [...row]);
+  const spans = spansOf(props).flatMap(([r, c, h, w]): Span[] => {
+    const start = axis === "row" ? r : c;
+    const len = axis === "row" ? h : w;
+    let to = start;
+    let n = len;
+    if (add ? start >= i : start > i) to = start + (add ? 1 : -1);
+    else if (!add && start === i && len > 1) {
+      const [ar, ac] = axis === "row" ? [r + 1, c] : [r, c + 1];
+      grid[ar][ac] = grid[r][c];
+      grid[r][c] = "";
+      if (flagged) [flagged[ar][ac], flagged[r][c]] = [flagged[r][c], false];
+      n = len - 1;
+    } else if (add ? start < i && i < start + len : start <= i && i < start + len) n = len + (add ? 1 : -1);
+    const span: Span = axis === "row" ? [to, c, n, w] : [r, to, h, n];
+    return span[2] * span[3] >= 2 ? [span] : [];
+  });
+  const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
+  const kept = spans.length ? { spans } : {};
+  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept };
 }
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
@@ -1458,7 +1480,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // makes each as high as its cells need and stretches them all by the same share of what is left. A text lies in
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
-function Table({ block, k, at, solved, children }: { block: TableBlock; k: number; at?: number; solved: boolean; children?: ReactNode }) {
+function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k: number; at?: number; reach?: number; solved: boolean; children?: ReactNode }) {
   const { cells, cols, line, head, syllables, breaks, tintsAcross, gaps } = block.props;
   const tints = pairOf(block.props.tints);
   const width = gapWidth(block.props.gapWidth);
@@ -1476,13 +1498,30 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
   const fade = fadeOf(block.props);
   const shade = (i: number): CSSProperties | undefined =>
     fade && { opacity: fade === "row" ? fadeAt(i % cols.length, cols.length) : fadeAt(Math.floor(i / cols.length), cells.length) };
+  // A merged cell is drawn once, over the cells it covers: those are not drawn, and each drawn cell takes its place in the grid.
+  const spans = spansOf(block.props);
+  const anchors = new Map(spans.map((s) => [s[0] * cols.length + s[1], s]));
+  const covered = new Set(spans.flatMap(([r, c, h, w]) => Array.from({ length: h * w }, (_, n) => (r + Math.floor(n / w)) * cols.length + c + (n % w)).slice(1)));
+  const place = (i: number) => spans.length > 0 && { gridRow: `${Math.floor(i / cols.length) + 1} / span ${anchors.get(i)?.[2] ?? 1}`, gridColumn: `${(i % cols.length) + 1} / span ${anchors.get(i)?.[3] ?? 1}` };
+  // The cells of a selection of two or more are picked. The selection is whole, so a cell lies in it by its row and column.
+  const area = at !== undefined && reach !== undefined ? rectOf(block.props, at, reach) : undefined;
+  const picked = (i: number) => {
+    if (!area || (area[2] - area[0] + 1) * (area[3] - area[1] + 1) < 2) return false;
+    const r = Math.floor(i / cols.length);
+    const c = i % cols.length;
+    return r >= area[0] && r <= area[2] && c >= area[1] && c <= area[3];
+  };
   return (
     <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
-      {cells.flat().map((text, i) => (
-        <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
-          {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
-        </div>
-      ))}
+      {cells.flat().map((text, i) => {
+        const span = anchors.get(i);
+        if (covered.has(i)) return null;
+        return (
+          <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...(place(i) || undefined) }}>
+            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
+          </div>
+        );
+      })}
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
     </div>
@@ -1662,10 +1701,10 @@ function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved:
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
-export function Draw({ block, k, solved = false, at, children }: { block: Block; k: number; solved?: boolean; at?: number; children?: ReactNode }) {
+export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
-  if (block.type === "table") return <Table block={block} k={k} at={at} solved={solved}>{children}</Table>;
+  if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
