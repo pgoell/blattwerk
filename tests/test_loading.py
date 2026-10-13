@@ -37,8 +37,13 @@ new MutationObserver(() => {
     const drawn = (el) => el.getClientRects().length;
     const seen = (css) => [...document.querySelectorAll(css)].some(drawn);
     const sheet = location.pathname.startsWith('/blatt/');
-    if (one('main.editor') && !one('.desk > .sheet')) window.bare = true;
-    if (sheet && seen('#root > nav, #root > footer')) window.flash = true;
+    // The first sighting of a fault, for the assertion's message: flag, time, address, root.
+    const note = (what) => {
+        const root = document.querySelector('#root')?.outerHTML.slice(0, 600);
+        window.seen ??= { what, at: performance.now(), path: location.pathname, root };
+    };
+    if (one('main.editor') && !one('.desk > .sheet')) { window.bare = true; note('bare'); }
+    if (sheet && seen('#root > nav, #root > footer')) { window.flash = true; note('flash'); }
     if (one('.sheet.blank')?.textContent) window.said = true;
 }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
 // Chromium tells when a page moved or changed its size from one frame to the next.
@@ -141,7 +146,7 @@ def expect_ready(page, blocks=0):
     expect(page.locator(".block[data-id]")).to_have_count(blocks)
     # From the click or the address to the editor, the desk was never empty and the app's bar
     # never showed.
-    assert not page.evaluate("window.bare || window.flash")
+    assert not page.evaluate("window.bare || window.flash"), page.evaluate("window.seen")
 
 
 def test_a_new_sheet_shows_its_page_while_it_loads(window, server):

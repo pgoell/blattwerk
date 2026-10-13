@@ -3,9 +3,12 @@ import json
 import os
 import signal
 import sqlite3
+import sys
 import threading
 import time
+import traceback
 from concurrent.futures import Future
+from contextlib import suppress
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,11 +17,58 @@ import pytest
 from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
+from playwright._impl._connection import Connection as PwConnection
 from playwright.sync_api import expect, sync_playwright
 from shards import split, times
 from ui import BROWSER, serving, sheet, user
 
 from blattwerk import auth, db
+
+# Probe for #458: on CI a reply from Playwright's driver carried an id that waits for nothing, and
+# dispatch raised KeyError. This says what was sent under that id, and then runs the real dispatch,
+# so the KeyError still comes. Take it out once the cause is known.
+_pw_send = PwConnection._send_message_to_server
+_pw_dispatch = PwConnection.dispatch
+
+
+def _pw_keep(book, key, value):
+    book[key] = value
+    if len(book) > 300:
+        del book[next(iter(book))]
+
+
+def _pw_sent(self, object, method, params, timeout, no_reply=False):
+    sent = self.__dict__.setdefault("_probe_sent", {})
+    thread = threading.current_thread()
+    said = f"{method} on {object._guid} from {thread.name}"
+    # The first catch on CI named a second thread as the sender (#463): such a send keeps its way.
+    if thread is not threading.main_thread():
+        said += " by\n" + "".join(traceback.format_stack(limit=25))
+    _pw_keep(sent, self._last_id + 1, said)
+    return _pw_send(self, object, method, params, timeout, no_reply)
+
+
+def _pw_answer(self, msg):
+    sent = self.__dict__.setdefault("_probe_sent", {})
+    answered = self.__dict__.setdefault("_probe_answered", {})
+    id = msg.get("id")
+    # After a close the real dispatch drops every reply, and no KeyError comes: nothing to say.
+    if id and id not in self._callbacks and not self._closed_error:
+        error = (msg.get("error") or {}).get("error") or {}
+        print(
+            f"playwright answered id {id} that waits for nothing: "
+            f"{sent.get(id, 'never sent')}, answered before: {id in answered}, "
+            f"reply error: {error.get('message')}, _closed_error: {self._closed_error!r}",
+            file=sys.__stderr__,
+            flush=True,
+        )
+    if id:
+        _pw_keep(answered, id, True)
+    _pw_dispatch(self, msg)
+
+
+PwConnection._send_message_to_server = _pw_sent
+PwConnection.dispatch = _pw_answer
 
 WEBKIT = BROWSER == "webkit"
 # The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
@@ -122,22 +172,32 @@ class Hang:
             f"No test has finished for {HANG_AFTER:g} s: the run hangs. "
             "The stacks of every process follow."
         )
-        for node in sorted(self.running):
+        # A copy: the main thread may still add a test while this one reads.
+        for node in sorted(tuple(self.running)):
             self.say(f"Started and not finished: {node}")
-        # The workers are the children of this process; each prints its stacks on SIGUSR1.
+        # The workers are the children of this process; each prints its stacks on SIGUSR1. A child
+        # is listed under the thread that started it, and execnet starts some from helper threads,
+        # so the lists of all threads count.
         me = os.getpid()
-        children = Path(f"/proc/{me}/task/{me}/children")
-        pids = [int(pid) for pid in children.read_text().split()] if children.is_file() else []
+        pids = set()
         try:
+            for task in Path(f"/proc/{me}/task").iterdir():
+                # A thread that ends while the lists are read takes its file along.
+                with suppress(OSError):
+                    pids.update(int(pid) for pid in (task / "children").read_text().split())
+            # One at a time: two dumps written to the same pipe at once come out interleaved (#461).
             for pid in pids:
-                os.kill(pid, signal.SIGUSR1)
-            time.sleep(2)
+                # A child that had gone before its signal came does not keep the others from theirs.
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGUSR1)
+                    time.sleep(1)
             faulthandler.dump_traceback(file=self.err, all_threads=True)
             # A worker that hangs never ends by itself, and would keep the pipes of the job open.
             for pid in pids:
-                os.kill(pid, signal.SIGKILL)
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGKILL)
         finally:
-            # Also when a child had gone before its signal came.
+            # Whatever went wrong above: a run that hangs must end.
             os._exit(1)
 
 
@@ -270,14 +330,17 @@ def editor(browser, server, playwright):
     """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
     contexts = []
 
-    def start(*blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None):
+    def start(
+        *blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None, wait=1100
+    ):
         """`more` holds the blocks of a second page. With `touch` the window takes fingers too,
         and with `touch="landscape"` the iPad lies on its side.
 
         `pages` holds the pages after the first, each a whole page: its blocks and, where it has
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut. `words`
-        are the sheet's Lernwörter.
+        are the sheet's Lernwörter. `wait` is the time in ms from a change to its save: a test
+        that counts on a change being unsaved for a while asks for a teacher's 2000.
         """
         window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if touch:
@@ -288,6 +351,9 @@ def editor(browser, server, playwright):
             window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
         context = browser.new_context(**window)
         contexts.append(context)
+        # The tests save 1.1 s after a change; a teacher's page waits 2 s (saves.ts). Not less: a
+        # test that waits for "Speichert …" looks at most 1 s apart, and must not look past it.
+        context.add_init_script(f"window.saveAfter = {wait}")
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
         # WebKit knows no leave to write, and lets the page write without one.
         context.grant_permissions(["clipboard-read", *([] if WEBKIT else ["clipboard-write"])])

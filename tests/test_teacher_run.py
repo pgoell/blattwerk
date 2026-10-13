@@ -435,7 +435,9 @@ def test_t7_tidy_runs_after_the_stage_is_down_and_once_more_at_the_end():
     clean = section("## Clean up")
     assert clean.index(f"{MISE} stage:down") < clean.index(f"{MISE} teacher:page -- tidy")
     assert "very last command before the `herdr` line" in clean
-    assert "Keep `/tmp/teacher-run`, because the issues name its screenshots." in clean
+    assert (
+        "Keep the folder `/tmp/teacher-run` and its pictures, because the issues name its" in clean
+    )
     report = section("## Report")
     assert re.search(r"^8\. What the last `tidy` deleted, if anything\.$", report, re.M)
 
@@ -468,12 +470,13 @@ def test_406_2_sheet_4_sets_the_title_in_the_window_that_built_the_sheet():
     assert "`fill`" not in sheet4
 
 
-def test_406_3_a_control_below_the_window_gets_a_wheel_on_the_panel_first():
+def test_406_3_a_control_below_the_window_is_clicked_and_the_tool_turns_the_panel():
     how = section("## How the editor works")
     lines = how.splitlines()
     bullet = next(line for line in lines if line.startswith("  - a control of the right panel"))
     assert "below the window's lower edge" in bullet
-    assert "`wheel`" in bullet and "the panel first" in bullet
+    assert "the tool turns the panel to it" in bullet
+    assert "`wheel` is needed only for a point given as `X,Y`" in bullet
     source = "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
     for label in ("Randstärke", "Jedes n-te Wort", "Lösungswörter"):
         assert f"`{label}`" in bullet, label
@@ -482,8 +485,9 @@ def test_406_3_a_control_below_the_window_gets_a_wheel_on_the_panel_first():
 
 def test_406_4_a_snapshot_is_searched_in_its_file_with_the_grep_tool():
     allowed = section("## Rules").split("\nForbidden:\n")[0]
-    grep = "- The Grep tool, on a snapshot file in `/tmp/teacher-run` and on nothing else."
+    grep = "- `grep` in the shell, on a snapshot file in `/tmp/teacher-run` and on nothing else."
     assert grep in allowed
+    assert "There is no Grep tool." in allowed
     assert "`take_snapshot` with its `filePath` `/tmp/teacher-run/" in allowed
     assert "do not search that answer" in allowed
 
@@ -565,7 +569,7 @@ def test_406_10_the_above_all_split_still_adds_up_to_50_minutes():
     assert 3 + int(sheets[1]) + int(pulls[1]) + int(issues[1]) == 50
     # Step 1 of the pull requests says the same stop: 30 minutes with an "above all".
     step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
-    assert 'Stop after 25 minutes (30 when an "above all" is named' in step
+    assert 'With an "above all", stop after 30 minutes instead, and do not stop at 25.' in step
 
 
 def test_406_11_a_gap_of_two_words_has_its_steps():
@@ -574,3 +578,120 @@ def test_406_11_a_gap_of_two_words_has_its_steps():
     assert "`key Home`" in bullet
     assert "`key Control+Shift+ArrowRight 2`" in bullet
     assert '`click "Lücke"`' in bullet
+
+
+# What the teacher run's pull request #430 asks: the brief says what is true of the tool, the
+# windows and the shell.
+
+
+def test_t1_click_takes_the_only_control_of_a_name():
+    assert "the only control of that name (a button, a field, a list or a tab)" in section(
+        "## Rules"
+    )
+
+
+def test_t2_where_takes_a_name_with_a_slash():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `where NAME`"))
+    assert 'A name with a slash, as `where "/ 7"`, works.' in listed
+
+
+def test_t3_a_list_is_found_by_its_label_only():
+    listed = next(line for line in BRIEF.splitlines() if line.startswith("  - `where NAME`"))
+    assert "A list is found by its label only, never by its options" in listed
+
+
+def test_t4_the_bar_paste_works_in_the_tools_window():
+    assert "The bar's `Einfügen` works in the tool's window too." in section("## Rules")
+
+
+def test_t5_a_control_outside_the_window_is_turned_to_by_the_tool():
+    rules = section("## Rules")
+    assert "its output ends with `(turned the page to it)`" in rules
+    assert "`where` changes nothing and still says `(outside the window)`" in BRIEF
+
+
+def test_t6_a_click_on_a_greyed_control_says_so():
+    assert "clicked at X,Y, on a greyed control: nothing happens" in section("## Rules")
+
+
+def test_t7_every_verb_output_names_the_page():
+    assert "Every verb's output ends with a line `The page is /blatt/12`" in section("## Rules")
+
+
+def test_t8_tidy_deletes_the_pdfs_in_the_run_folder():
+    assert "and each PDF in `/tmp/teacher-run`, and names each one it deleted" in section(
+        "## Rules"
+    )
+
+
+def test_d1_no_grep_tool_is_named():
+    assert "There is no Grep tool." in section("## Rules")
+
+
+def test_d2_pdftoppm_resolution_and_pdffonts():
+    assert "`pdftoppm` takes `-r` from 60 to 110" in section("## Rules")
+    assert "`pdffonts` names the fonts of a PDF." in section("## Rules")
+    assert "To check the font, run `pdffonts` on the PDF before the `rm`." in section(
+        "## Export and compare"
+    )
+
+
+def test_d3_screenshot_name_pattern():
+    assert (
+        "NAME takes letters, digits, `_`, commas and `-` only: no spaces and no dots."
+        in section("## Rules")
+    )
+
+
+def test_d4_no_own_script_and_no_sleep():
+    assert "A script of your own that wraps the tool, and `sleep`." in section("## Rules")
+
+
+def test_d5_the_zoom_has_no_100_percent():
+    assert "The zoom has no 100 %: its steps are 77, 88, 110 and 138 %." in section(
+        "## Export and compare"
+    )
+
+
+def test_d6_the_tour_opens_once_per_device():
+    how = section("## How the editor works")
+    assert "opens the first time the editor opens on a device" in how
+    assert "click `Rundgang` in the bar" in how
+
+
+def test_d7_a_sheet_may_be_built_in_either_window():
+    assert "A sheet may be built in either window" in section("## The five sheets")
+    assert '`click "Y"`, `key Control+a`, `type "40"`, `key Enter`' in section(
+        "## How the editor works"
+    )
+
+
+def test_d8_escape_after_a_list_unpicks_the_block():
+    how = section("## How the editor works")
+    assert (
+        "After a choice from a list (`Zahlenraum`), do not press Escape: it unpicks the block."
+        in how
+    )
+    assert "`End` goes to its last entry, which for `Zahlenraum` is `Eigener`" in how
+
+
+def test_d9_gespeichert_may_be_the_old_one():
+    assert "A `Gespeichert` read right after a change may be the old one" in section(
+        "## How the editor works"
+    )
+
+
+def test_d10_a_turn_to_the_wrong_place_is_undone_with_escape():
+    assert "press Escape to unpick the block and try again" in section("## Rules")
+
+
+def test_d12_above_all_stops_at_30_minutes():
+    assert 'With an "above all", stop after 30 minutes instead, and do not stop at 25.' in section(
+        PRS
+    )
+
+
+def test_d13_a_long_wait_for_answer_is_read_from_a_file():
+    how = section("## How the editor works")
+    assert "On a sheet with a Lernwörter list, that answer is very long" in how
+    assert "`take_snapshot` with a `filePath` writes the page to a file" in how

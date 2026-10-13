@@ -207,7 +207,8 @@ describe("laid", () => {
     laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed: 1 });
     // Measured 6,855,600 runs on seed 1; the bound is about twice that. The count depends on the seed, not the machine.
     expect(tried.runs).toBeLessThan(14_000_000);
-  });
+    // Its proof is the count of runs above, so it gets a limit of 30 s: the default 5 s fails on a busy runner.
+  }, 30_000);
 
   it("fills the empty squares by German letter frequency", () => {
     const out = laid({ ...base, cols: 20, rows: 20, words: ["Hund"], seed: 7 });

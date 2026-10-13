@@ -443,6 +443,7 @@ body:has(.print) { background: #fff; }
    pixels: without that the part cut off would give the desk room to scroll to. */
 .block .picture { position: relative; overflow: hidden; }
 .picture img { position: absolute; max-width: none; }
+.block .unknown { font-size: 9pt; color: #777; line-height: 1.3; }
 .block .fields { display: flex; align-items: flex-end; gap: 1em; font-family: Andika; line-height: 1.3; }
 /* An open field's input has a width of its own (size 20), which would widen its span past the line. */
 .fields span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: .3em; }

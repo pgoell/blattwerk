@@ -27,18 +27,18 @@ Allowed:
   - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
   - `key KEYS [N]`: a key as Playwright spells it (`Escape`, `ArrowRight`, `Control+z`, `Delete`), `N` times.
   - `type TEXT`: into whatever has the focus.
-  - `where NAME`: prints each visible match with its `x,y` and changes nothing. A whole name or text goes first. Where none is called so, it prints each name or text that holds `NAME`, with capitals as written: `where "28"` prints `28 + 5 = at x,y`, and `where "%"` prints the zoom's number, such as `88 % at x,y`.
+  - `where NAME`: prints each visible match with its `x,y` and changes nothing. A whole name or text goes first. Where none is called so, it prints each name or text that holds `NAME`, with capitals as written: `where "28"` prints `28 + 5 = at x,y`, and `where "%"` prints the zoom's number, such as `88 % at x,y`. A name with a slash, as `where "/ 7"`, works. A list is found by its label only, never by its options: `where "123"` finds no digit list. `where` changes nothing and still says `(outside the window)` for a match that lies outside the window: `where "Füllung und Rand"` may say so when the right panel is turned away.
   - `value NAME`: prints what the field of that name holds and changes nothing: a colour as `#rrggbb`, a slider's number.
   - `resize W H`
-  - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more.
+  - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more. NAME takes letters, digits, `_`, commas and `-` only: no spaces and no dots.
   - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key.
   - `expire`: ends the window's sign-in, as if the session had run out; the page stays as it is.
   - `box yes VERB [ARGS]` or `box no VERB [ARGS]`: runs that verb and answers the box it meets. A verb without `box` answers no. A box comes with a delete (its button's name ends in `löschen`) and when `open` would leave unsaved work; the output names its words.
-  - `tidy`: deletes each `TR*.pdf` in the downloads folder and names each one it deleted. It needs no window.
+  - `tidy`: deletes each `TR*.pdf` in the downloads folder and each PDF in `/tmp/teacher-run`, and names each one it deleted. It needs no window.
 
-  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. If one of the matches is the only button of that name, the tool takes that button: with a text picked, `click "Text"` takes the left panel's button, not the right panel's heading, which is also called `Text`. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
-- The shell commands this brief spells out, `date`, and `ls`, `rm` and `pdftoppm` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`.
-- The Grep tool, on a snapshot file in `/tmp/teacher-run` and on nothing else. `wait_for` answers with the whole page in the chat: do not search that answer. To find a control's name, `take_snapshot` with its `filePath` `/tmp/teacher-run/<name>.txt` writes the snapshot to that file, and Grep searches the file.
+  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. If one of the matches is the only control of that name (a button, a field, a list or a tab), the tool takes that control: `click "Zahlenraum"` takes the list, not the heading above it. With a text picked, `click "Text"` takes the left panel's button, not the right panel's heading, which is also called `Text`. If a named control lies outside the window and is the only one of that name, the tool turns the page or the panel to it by itself, clicks, and its output ends with `(turned the page to it)`. If the tool turns the page to a place you did not mean, as to a heading on page 2, press Escape to unpick the block and try again. A click on a greyed control prints `clicked at X,Y, on a greyed control: nothing happens`. Every verb's output ends with a line `The page is /blatt/12`: the sheet's number for `open /blatt/N`. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
+- The shell commands this brief spells out, `date`, and `ls`, `rm`, `pdftoppm` and `pdffonts` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`. `pdftoppm` takes `-r` from 60 to 110 (60 for the layout, up to 110 to read small digits), and `-f` and `-l` for one page, as `-f 2 -l 2`. `pdffonts` names the fonts of a PDF.
+- `grep` in the shell, on a snapshot file in `/tmp/teacher-run` and on nothing else. There is no Grep tool. `wait_for` answers with the whole page in the chat: do not search that answer. To find a control's name, `take_snapshot` with its `filePath` `/tmp/teacher-run/<name>.txt` writes the snapshot to that file, and `grep` searches the file.
 - `gh pr list`, `gh issue list`, `gh issue create` and `gh issue edit` as written below. Of a pull request you read the title and the body only.
 
 Forbidden:
@@ -51,10 +51,11 @@ Forbidden:
 - Reading any file under `/home/pascal/Code/blattwerk`: source, tests, other docs.
 - `gh pr diff` and `gh pr view --json files`.
 - The live site `blattwerk.pgoell.com`.
+- A script of your own that wraps the tool, and `sleep`. `where` waits up to 3 seconds for a match by itself, so run it again with no pause between the calls.
 
 The tool is no way around this list: `open` takes paths of the stage only, and every ban holds in both windows.
 
-Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. Both are signed in as the same teacher. A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box that asks to confirm: answer it with `handle_dialog`.
+Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. The bar's `Einfügen` works in the tool's window too. Both are signed in as the same teacher. A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box that asks to confirm: answer it with `handle_dialog`.
 
 A sheet is open in one of the two windows at a time. Before you change windows, wait for `Gespeichert`, go back to `Meine Blätter` in the one, then open the sheet in the other. Two windows on one sheet each hold a copy of their own: the later save meets the banner "Dieses Blatt wurde auf einem anderen Gerät geändert", and one copy's work is lost.
 
@@ -112,20 +113,20 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 ## How the editor works
 
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
-- After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. The answer of `wait_for` is a snapshot of the whole page, and a long one: use it, and take no `take_snapshot` right after it. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
+- After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. The answer of `wait_for` is a snapshot of the whole page, and a long one: use it, and take no `take_snapshot` right after it. On a sheet with a Lernwörter list, that answer is very long (a row repeats each word some 20 times): there, `take_snapshot` with a `filePath` writes the page to a file, and `grep` searches the file. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
 - A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
-- A tour (`Rundgang`) may open on the first sheet of each window. Close it with `Beenden`.
+- The tour (`Rundgang`) opens the first time the editor opens on a device, as the app remembers that in the browser. The tool's window starts a fresh browser at each `start`, so the tour opens there on the first sheet. The MCP browser has seen the tour long ago, so it does not open there: to see it in the MCP page, click `Rundgang` in the bar (it may lie under `Mehr`). Close it with `Beenden`.
 - The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
 - Many buttons are icons. Find a control by its name in `take_snapshot`. A screenshot of the MCP page never shows a name: that Chrome has no mouse, and the app shows an icon's name only to a mouse. In the tool's window `hover "<name>"` or `hover X,Y` shows the name of an icon in the bar or the left panel as a teacher sees it: read `last.png`. What a pull request claims "with a mouse", try in the tool's window.
-- A new block lands at the top of the page and is picked, often on top of the one before. Place the blocks below one another in the order of the recipe, so that none overlaps. The plain way, in the MCP page: `fill` the field `Y` of the right panel with the millimetres from the page's top, then `press_key` Enter. An upright page is 297 high, and `Höhe` beside it is the block's own height. In the tool's window, `drag X,Y X2,Y2` from the block's middle moves it as a teacher does.
-- The arrow keys move the picked block by 1 mm, but only while no field of the right panel has the focus: in `Y`, up and down change the number. One Escape in a field gives the keys back to the sheet and the block stays picked. A second Escape picks nothing, and so does a click on an empty part of the sheet.
+- A new block lands at the top of the page and is picked, often on top of the one before. Place the blocks below one another in the order of the recipe, so that none overlaps. The plain way, in the MCP page: `fill` the field `Y` of the right panel with the millimetres from the page's top, then `press_key` Enter. In the tool's window the same is `click "Y"`, `key Control+a`, `type "40"`, `key Enter`, for 40 millimetres. An upright page is 297 high, and `Höhe` beside it is the block's own height. In the tool's window, `drag X,Y X2,Y2` from the block's middle moves it as a teacher does.
+- The arrow keys move the picked block by 1 mm, but only while no field of the right panel has the focus: in `Y`, up and down change the number. One Escape in a number field gives the keys back to the sheet and the block stays picked. After a choice from a list (`Zahlenraum`), do not press Escape: it unpicks the block. The choice gives the keys back to the sheet by itself, so the arrows move the block at once. In a list, `End` goes to its last entry, which for `Zahlenraum` is `Eigener`, not the largest number. A click that misses a list leaves the arrow keys moving the picked block. A second Escape picks nothing, and so does a click on an empty part of the sheet.
 - A new `Text` or `Überschrift` is open for typing. Type, then press Escape. A double click opens a text, a table cell or a Lineatur again, and so does F2 on the one picked block.
-- The sheet saves by itself. The bar says `Gespeichert` when it has.
+- The sheet saves by itself. The bar says `Gespeichert` when it has. After a change the bar says `Speichert …` first. A `Gespeichert` read right after a change may be the old one: open the sheet again and check that the next screenshot shows the change.
 - Set each sheet's name in `Titel` before you export: the PDF file takes that name. In the MCP page, click `Titel` by its uid in `take_snapshot`, then `press_key` Control+A, `type_text` the name, `press_key` Enter. Do not `fill` it: `fill` adds to the text that stands there, so the name would follow `Unbenanntes Blatt`. In the tool's window: `click "Titel"`, `key Control+a`, `type "<the name>"`, `key Enter`.
 - Only the tool's window can do these:
   - pick two blocks: `click X,Y` on the first, `shift-click X,Y` on the second;
-  - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the tool says the name lies outside the window, turn the panel first: `wheel "Füllung und Rand" 400`;
-  - a control of the right panel below the window's lower edge, such as the slider `Randstärke` or the buttons `Jedes n-te Wort` and `Lösungswörter`: `wheel` the panel first, over a name or a point of the panel that lies in view, as `wheel "Füllung und Rand" 400`, or `wheel X,Y 400` with X,Y read off the screenshot;
+  - a slider: `click "Randstärke"`, then `key ArrowRight 3`. The click puts the slider at its middle, each arrow moves it one step. If the slider lies outside the window, the tool turns the panel to it by itself;
+  - a control of the right panel below the window's lower edge, such as the slider `Randstärke` or the buttons `Jedes n-te Wort` and `Lösungswörter`: `click` it, and the tool turns the panel to it. `wheel` is needed only for a point given as `X,Y`, or to bring something into view for a screenshot, as `wheel X,Y 400` with X,Y read off the screenshot;
   - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only. A changed border is hard to tell in a picture: read the colour before and after, with `value "Rand"` (or `value "Füllung"`, `value "Farbe"`);
   - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
 - A gap of two words: `key Enter` opens the text, `key Home` puts the caret at its start, `key Control+Shift+ArrowRight 2` picks two words, then `click "Lücke"` makes them a gap. Pick the words first: without a pick, `Lücke` gaps the word under the caret or the whole block.
@@ -134,7 +135,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 
 Do this for every sheet.
 
-1. Wait for `Gespeichert`. Click `Ganze Seite` in the bar first: the editor opens at 88 % and cuts the page off at the bottom. Then `take_screenshot` of the editor with the whole page in view. Save it as `/tmp/teacher-run/<n>-screen.png`. A sheet of two pages gets one screenshot per page, from the tool's window: see sheet 4.
+1. Wait for `Gespeichert`. Click `Ganze Seite` in the bar first: the editor opens at 88 % and cuts the page off at the bottom. The zoom has no 100 %: its steps are 77, 88, 110 and 138 %. Compare at `Ganze Seite` only. Then `take_screenshot` of the editor with the whole page in view. Save it as `/tmp/teacher-run/<n>-screen.png`. A sheet of two pages gets one screenshot per page, from the tool's window: see sheet 4.
 2. Click `PDF`. The page stays where it is and the browser saves `~/Downloads/<Titel>.pdf`. Wait until `ls ~/Downloads` shows it. If no file comes within 30 seconds, that is a fault.
 3. Turn the PDF into pictures, one per page, and delete the PDF:
 
@@ -146,7 +147,7 @@ Do this for every sheet.
    rm ~/Downloads/"TR1 Rechnen.pdf"
    ```
 
-   This writes `/tmp/teacher-run/1-pdf-1.png`, and `1-pdf-2.png` for a second page. Change the title and the number for the other sheets.
+   This writes `/tmp/teacher-run/1-pdf-1.png`, and `1-pdf-2.png` for a second page. Change the title and the number for the other sheets. To check the font, run `pdffonts` on the PDF before the `rm`.
 4. Open the pictures with your Read tool and hold them beside the screenshot. Check, block by block:
    - the same number of pages, in the same order, each upright or on its side as on screen;
    - each block at the same place and of the same size;
@@ -163,7 +164,7 @@ pdftoppm -png -r 60 "/tmp/teacher-run/TR3 Bild und Tabelle.pdf" /tmp/teacher-run
 
 ## The five sheets
 
-Build each one on a new sheet from `Meine Blätter`, in this order, with exactly this content. If a step cannot be done as written with clicks and keys, note it as a fault and go on.
+Build each one on a new sheet from `Meine Blätter`, in this order, with exactly this content. A sheet may be built in either window, as long as it is open in one window at a time. If a step cannot be done as written with clicks and keys, note it as a fault and go on.
 
 ### 1. Maths sheet, title `TR1 Rechnen`
 
@@ -227,7 +228,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 
 ## 25 minutes on the last five pull requests
 
-1. Note the time with `date`. Stop after 25 minutes (30 when an "above all" is named, as above), wherever you are, and not before.
+1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before. With an "above all", stop after 30 minutes instead, and do not stop at 25.
 2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor`, which a teacher does not see, before they take five:
 
    ```sh
@@ -246,7 +247,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
    - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
    - while a text, a cell or a menu is open;
-   - at once after a reload of the page. `key F5` does not reload the tool's window: there a reload is `open /blatt/N`, with the sheet's number from its address in the MCP page (`list_pages` shows it), or `open /` and a click on the sheet's title;
+   - at once after a reload of the page. `key F5` does not reload the tool's window: there a reload is `open /blatt/N`, with the sheet's number, which a line of each verb's output gives (`The page is /blatt/N`), or `open /` and a click on the sheet's title;
    - if the pull request names the iPad: `resize 1180 820` too, or `emulate` an iPad in the MCP page.
 6. After each try, check that the sheet still shows what it should. At the end set the window back to 1280 by 1024.
 7. If time is left after all five, do not stop early: go on to the five pull requests before them.
@@ -308,7 +309,7 @@ Do this always, also after a failure or a `BLOCKED`. The stage holds real teache
    mise -C /home/pascal/Code/blattwerk run teacher:page -- tidy
    ```
 
-   Keep `/tmp/teacher-run`, because the issues name its screenshots.
+   Keep the folder `/tmp/teacher-run` and its pictures, because the issues name its screenshots. `tidy` deletes its PDFs.
 
 5. Run `tidy` once more as the very last command before the `herdr` line. A PDF that came down late is deleted then, and the report names it (line 8). Then run the `herdr` line that the orchestrator's prompt gives you, and write the report.
 

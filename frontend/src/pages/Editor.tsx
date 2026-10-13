@@ -1617,7 +1617,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     } catch {
       return { blocks: [] };
     }
-    const whole = (b?: Block) => b?.id && b.type in NAMES && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
+    // A type this script does not know (a newer Blattomat's) is kept whole, as the sheet keeps it.
+    const whole = (b?: Block) => b?.id && typeof b.type === "string" && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
     return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
   }
   function clip(): Block[] {
@@ -3058,7 +3059,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">
-                {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
+                {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
               </p>
               <Format
                 // A block of a group with a locked one is as fixed there as the locked one.
