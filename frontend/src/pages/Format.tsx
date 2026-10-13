@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shade, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shade, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -261,7 +261,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {text && (
         <>
           <h2>Schrift</h2>
-          <FontSelect label="Schriftart" value={text.font ?? "andika"} onChange={(font) => look({ font })} />
+          <FontSelect label="Schriftart" value={fontOf(text.font)} onChange={(font) => look({ font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
             <output>{text.size} pt</output>
@@ -331,7 +331,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {rulings.length > 0 && (
         <>
           <h2>Lineatur</h2>
-          <select aria-label="Art der Lineatur" value={rulings[0].props.kind} onChange={(e) => rule(e.target.value as Ruling)}>
+          <select aria-label="Art der Lineatur" value={kindOf(rulings[0].props.kind)} onChange={(e) => rule(e.target.value as Ruling)}>
             {Object.entries(RULINGS).map(([kind, { name }]) => (
               <option key={kind} value={kind}>
                 {name}
@@ -348,7 +348,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
             <input type="color" value={rulings[0].props.color} onChange={(e) => style("ruling", { color: e.target.value }, "color")} />
           </label>
           {/* The house and the band: only the kinds with zones have them. A press is one undo step, and a drag over the colour is one. */}
-          {RULINGS[rulings[0].props.kind].zones && (
+          {RULINGS[kindOf(rulings[0].props.kind)].zones && (
             <>
               <button className={houseOf(rulings[0]) ? "on" : ""} aria-pressed={houseOf(rulings[0])} onClick={() => style("ruling", { house: !houseOf(rulings[0]) })}>Häuschen</button>
               {houseOf(rulings[0]) && (
@@ -396,11 +396,11 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           )}
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
-          {RULINGS[rulings[0].props.kind].at && (
-            <FontSelect label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(font) => style("ruling", { font })} />
+          {RULINGS[kindOf(rulings[0].props.kind)].at && (
+            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
-            <TraceControls props={rulings[0].props} font={RULINGS[rulings[0].props.kind].at ? rulings[0].props.font ?? "andika" : "andika"} onChange={traced} />
+            <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
         </>
       )}
@@ -436,7 +436,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
               <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", cell % tables[0].props.cols.length, false)}>Spalte löschen</button>
             </div>
           )}
-          <FontSelect label="Schriftart der Tabelle" value={tables[0].props.font ?? "andika"} onChange={(font) => style("table", { font })} />
+          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} onChange={(font) => style("table", { font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
             <output>{tables[0].props.size} pt</output>
@@ -549,7 +549,9 @@ function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fa
 }
 
 // A native font menu in FONT_GROUPS' order, each font shown in its own face.
-function FontSelect({ label, value, onChange }: { label: string; value: Font; onChange: (font: string) => void }) {
+function FontSelect({ label, value: stored, onChange }: { label: string; value: unknown; onChange: (font: string) => void }) {
+  // A font nobody knows shows as Druckschrift, the font it draws in.
+  const value = fontOf(stored);
   return (
     <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
       {FONT_GROUPS.map(([group, fonts]) => (
