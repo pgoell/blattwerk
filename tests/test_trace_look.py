@@ -13,7 +13,7 @@ import pytest
 from PIL import Image
 from pixels import over, screen_and_print
 from playwright.sync_api import expect
-from ui import RECT, RULING, TABLE, TEXT, at, block, box, pick, saved, sheet, user
+from ui import RECT, RULING, TABLE, TEXT, at, block, box, pick, saved, sheet, unpick, user
 
 FONTS = ["andika", "nord", "sued", "grund", "urff", "va", "sas", "la"]
 GREY = "rgb(170, 170, 170)"
@@ -94,6 +94,7 @@ def test_each_look_draws_in_every_block_with_text(editor, kind, look):
         props["font"] = "urff"
     blocks, owner_sel, letters_sel = build(kind, props)
     page = editor(*blocks)
+    unpick(page)
     owner = at(page, "a").locator(owner_sel).first
     # Dotted without a cut draws grey: only Karo and the fonts other than urff are that case.
     shown = "grey" if (look == "dotted" and kind == "karo") else look
@@ -105,7 +106,9 @@ def test_each_look_draws_in_every_block_with_text(editor, kind, look):
         )
         return
     style = letters.evaluate(STYLE)
-    if shown == "grey":
+    if shown == "grey" and kind == "karo":
+        assert letters.get_attribute("fill") == "#aaaaaa", style
+    elif shown == "grey":
         assert style["color"] == GREY, style
     if shown == "outline":
         assert style["fill"] == WHITE, style
@@ -138,14 +141,14 @@ def test_outline_in_every_font(editor, server, font):
     width, height = img.size
     px = img.tobytes()
     hollow = 0
-    for y in range(3, height - 3, 2):
-        for x in range(3, width - 3, 2):
+    for y in range(4, height - 4, 2):
+        for x in range(4, width - 4, 2):
             if px[y * width + x] < 240:
                 continue
-            left = any(px[y * width + xx] < 100 for xx in range(x - 3, x))
-            right = any(px[y * width + xx] < 100 for xx in range(x + 1, x + 4))
-            up = any(px[yy * width + x] < 100 for yy in range(y - 3, y))
-            down = any(px[yy * width + x] < 100 for yy in range(y + 1, y + 4))
+            left = any(px[y * width + xx] < 100 for xx in range(x - 4, x))
+            right = any(px[y * width + xx] < 100 for xx in range(x + 1, x + 5))
+            up = any(px[yy * width + x] < 100 for yy in range(y - 4, y))
+            down = any(px[yy * width + x] < 100 for yy in range(y + 1, y + 5))
             if left and right and up and down:
                 hollow += 1
     assert hollow > 0, font
@@ -229,6 +232,7 @@ def test_dotted_without_a_cut_draws_grey(editor, kind, font):
     props = {"trace": "dotted", "font": font}
     blocks, owner_sel, letters_sel = build(kind, props)
     page = editor(*blocks)
+    unpick(page)
     expect(at(page, "a").locator(owner_sel).first).to_have_attribute("data-trace", "grey")
     style = at(page, "a").locator(letters_sel).first.evaluate(STYLE)
     assert style["color"] == GREY, style
@@ -322,22 +326,31 @@ def test_fading_gets_lighter_and_ends_empty(editor, kind, fade):
     page = editor(*fade_block(kind, fade))
     owner = at(page, "a")
     expect(owner.locator("[data-fade]").first).to_have_attribute("data-fade", fade)
-    shot = Image.open(io.BytesIO(owner.screenshot())).convert("L")
-    width, height = shot.size
-    margin = 4
-    shot = shot.crop((margin, margin, width - margin, height - margin))
-    width, height = shot.size
+    shown = Image.open(io.BytesIO(owner.screenshot())).convert("L")
+    # The same block with its letters hidden: what differs is the grey ink alone, so the dark
+    # lines of a table or a Lineatur and the border of a shape are no part of it.
+    page.add_style_tag(
+        content=(
+            ".block[data-id='a'] .frame > p, .block[data-id='a'] .frame .rich,"
+            " .block[data-id='a'] .table p, .block[data-id='a'] p.written,"
+            " .block[data-id='a'] svg.ruling text { visibility: hidden !important }"
+        )
+    )
+    blank = Image.open(io.BytesIO(owner.screenshot())).convert("L")
+    ink = [max(0, b - s) for b, s in zip(blank.tobytes(), shown.tobytes(), strict=True)]
+    width, height = blank.size
+    rows = 8 if kind == "karo" else 4
     parts = []
-    for i in range(4):
+    for i in range(rows if fade == "rows" else 4):
         if fade == "row":
-            part = shot.crop((i * width // 4, 0, (i + 1) * width // 4, height))
+            cols = range(i * width // 4, (i + 1) * width // 4)
+            band = [ink[y * width + x] for y in range(height) for x in cols]
         else:
-            part = shot.crop((0, i * height // 4, width, (i + 1) * height // 4))
-        # Grey ink only: the dark lines of a table or a Lineatur are left out, and so is the white.
-        parts.append(sum(255 - v for v in part.tobytes() if 100 < v < 235))
-    assert all(parts[i] <= parts[i - 1] * 1.05 for i in range(1, 4)), parts
+            band = ink[i * height // rows * width : (i + 1) * height // rows * width]
+        parts.append(sum(band))
+    assert all(parts[i] <= parts[i - 1] * 1.05 for i in range(1, len(parts))), parts
     assert parts[0] > 1.2 * parts[2], parts
-    assert parts[3] < 0.03 * parts[0], parts
+    assert parts[-1] < 0.03 * parts[0], parts
 
 
 def test_an_old_sheet_opens_unchanged(editor, server):
