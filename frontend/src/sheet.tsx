@@ -1538,7 +1538,7 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
         </span>
       ) : (
         <span>
-          <Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} <Part e={e} part="b" {...num} /> =<Part e={e} part="result" {...num} />
+          <Part e={e} part="a" {...num} /> {SIGNS[e.op] ?? e.op} <Part e={e} part="b" {...num} /> = <Part e={e} part="result" {...num} />
           {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
         </span>
       )}

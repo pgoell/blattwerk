@@ -178,6 +178,8 @@ def test_a_sheet_with_every_value_unknown_opens_prints_and_saves(editor, browser
         expect(at(page, name)).to_be_visible()
         pick(page, name)
     expect(page.locator("body")).not_to_contain_text("undefined")
+    # A kind nobody knows draws as Lineatur 1: four lines to a row.
+    expect(at(page, "r").locator("svg.ruling > line")).to_have_count(4)
     pick(page, "t")
     page.keyboard.press("ArrowDown")
     expect(page.locator(".block.sel")).to_have_count(1)

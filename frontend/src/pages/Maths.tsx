@@ -96,6 +96,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   // Families hold for Zeile and Lücke with two numbers. Tauschaufgaben need a plus or a times, the only signs they draw.
   const swap = p.ops.includes("+") || p.ops.includes("*");
   const fam = numbered && !three && !!p.family && p.family !== "none" && !(p.family === "swap" && !swap);
+  const families = new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size;
   const whole = fam && p.family === "reverse";
   // The Lücke boxes: the block's gaps, a block saved before has none, which is every number. A hidden c keeps its tick.
   const all = p.gaps ?? ["a", "b", "c"];
@@ -335,7 +336,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
         <p className="hint" role="status">
           {fam
             ? p.exercises.length
-              ? `Mit diesen Grenzen gibt es nur ${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size === 1 ? "1 Familie" : `${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size} verschiedene Familien`}.`
+              ? `Mit diesen Grenzen gibt es nur ${families === 1 ? "1 Familie" : `${families} verschiedene Familien`}.`
               : "Mit diesen Grenzen gibt es keine Familie."
             : p.exercises.length
               ? `Mit diesen Grenzen gibt es nur ${p.exercises.length === 1 ? "1 Aufgabe" : `${p.exercises.length} verschiedene Aufgaben`}.`
