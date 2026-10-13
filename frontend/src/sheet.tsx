@@ -6,7 +6,7 @@ import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
-import { decimal } from "./decimal";
+import { decimal, GAP } from "./decimal";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -1539,13 +1539,13 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
 // With Geld a number has its euro after it, outside the gap. The rest of a division is never a decimal.
 function Part({ e, part, solved, d, money }: { e: Calc; part: "a" | "b" | "c" | "result" | "rest"; solved: boolean; d: number; money: boolean }) {
   const gap = part === "rest" || part === (e.hide ?? "result");
-  const text = part === "rest" ? e.rest : decimal(e[part] as number, d, money);
+  const text = part === "rest" ? decimal(e.rest, 0) : decimal(e[part] as number, d, money);
   const euro = money && part !== "rest" ? " €" : "";
   return <>{gap ? <u>{solved && text}</u> : text}{euro}</>;
 }
 
 // One side of a comparison as it reads: a number, or a term with its sign.
-const side = (s: Side) => (s.op ? `${s.a} ${SIGNS[s.op] ?? s.op} ${s.b}` : String(s.value));
+const side = (s: Side) => (s.op ? `${decimal(s.a as number, 0)} ${SIGNS[s.op] ?? s.op} ${decimal(s.b as number, 0)}` : decimal(s.value, 0));
 
 // A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
 // A square is `S` units wide: with a square of one unit a digit is under a unit high, and Chromium sets so small a
@@ -1586,8 +1586,9 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
   const d = decimalsOf(p);
   const money = d > 0 && !!p.money;
   const root = useRef<HTMLDivElement>(null);
-  // A gap holds the longest number, with its comma and its places after it.
-  const style = { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))`, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0)}ch` };
+  // A gap holds the longest number, with its comma and its places after it. Each group gap of its thousands takes a bit more.
+  const groupGaps = decimal(p.max, 0).split(GAP).length - 1;
+  const style = { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))`, gridTemplateColumns: `repeat(${p.columns}, 1fr)`, "--gap": `${String(p.max).length + 1.5 + (d ? d + 1 : 0) + 0.3 * groupGaps}ch` };
   const num = { solved, d, money };
   // Tasks wider than the block shrink the type, as PowerPoint shrinks a text. Everything inside is in em, so the
   // width is linear in the scale and one measurement is enough.
