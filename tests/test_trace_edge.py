@@ -54,13 +54,23 @@ def changed(before, after):
     return most.point(lambda v: 255 if v > 40 else 0).histogram()[255]
 
 
-def lifted(page, items):
+# The editor draws a Lineatur's text in a field, and a field cuts at its own edge whatever its
+# overflow says. So its cut is lifted by moving the edge: 40 px to the left, with a padding that
+# keeps the letters where they are. Only for a Lineatur with no house, whose padding is its indent.
+FIELD = (
+    ".block textarea.written { left: -40px !important; width: calc(100% + 40px) !important; "
+    "padding-left: 40px !important; box-sizing: border-box !important; }"
+)
+
+
+def lifted(page, items, field=False):
     """How many pixels each block's left edge gains once every cut is lifted: {name: count}.
 
-    `items` maps a name to its block's locator and its width in mm.
+    `items` maps a name to its block's locator and its width in mm. `field` lifts the cut of the
+    editor's field too.
     """
     before = {name: page.screenshot(clip=clip_of(el, w)) for name, (el, w) in items.items()}
-    page.add_style_tag(content=LIFT)
+    page.add_style_tag(content=LIFT + (FIELD if field else ""))
     return {
         name: changed(before[name], page.screenshot(clip=clip_of(el, w)))
         for name, (el, w) in items.items()
@@ -158,7 +168,7 @@ NAMES = ["text", "shape", "table", "ruling"]
 def test_the_start_dot_of_a_dotted_first_letter_is_whole(editor, kind):
     page = editor(dotted(kind))
     page.add_style_tag(content=HIDE)
-    assert lifted(page, {"a": (at(page, "a"), 150)}) == {"a": 0}
+    assert lifted(page, {"a": (at(page, "a"), 150)}, field=True) == {"a": 0}
 
 
 @pytest.mark.parametrize("kind", ["text", "ruling"])
@@ -183,7 +193,7 @@ def test_no_ink_of_an_outlined_first_letter_is_cut_at_the_left_on_screen(editor,
     page = editor(*four(font, "outline"))
     page.add_style_tag(content=HIDE)
     items = {name: (at(page, name), 150) for name in NAMES}
-    gained = lifted(page, items)
+    gained = lifted(page, items, field=True)
     cut = {name: count for name, count in gained.items() if count}
     assert not cut, (font, cut)
 
@@ -239,7 +249,7 @@ def test_the_open_field_shows_a_dotted_first_letter_whole(editor):
     page.add_style_tag(content=HIDE)
     at(page, "a").dblclick()
     expect(at(page, "a").locator("textarea.written")).to_be_focused()
-    assert lifted(page, {"a": (at(page, "a"), 150)}) == {"a": 0}
+    assert lifted(page, {"a": (at(page, "a"), 150)}, field=True) == {"a": 0}
 
 
 # The ink of the first letter and the house's right edge, in px. An outline's stroke takes half its
