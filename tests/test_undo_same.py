@@ -255,7 +255,7 @@ def test_the_last_row_of_a_ruling_stays_with_no_undo_step(editor):
     page = editor(box("a", "ruling", RULING, h=10))
     pick(page, "a")
     page.get_by_label("Eine Zeile weniger").click()
-    expect(page.locator(".panel output").first).to_have_text("1 Zeilen")
+    expect(page.locator(".panel output").first).to_have_text("1 Zeile")
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
 
 

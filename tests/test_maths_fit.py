@@ -140,7 +140,7 @@ def test_i2_fewer_columns_bring_the_type_back_to_its_size(editor):
     panel = page.locator(".panel .seg output")
     for columns in (2, 1):
         page.get_by_label("Eine Spalte weniger").click()
-        expect(panel.nth(1)).to_have_text(f"{columns} Spalten")
+        expect(panel.nth(1)).to_have_text("1 Spalte" if columns == 1 else f"{columns} Spalten")
         assert root.evaluate(FONT) <= full + 0.01
     assert abs(root.evaluate(FONT) - full) < 0.01
 
