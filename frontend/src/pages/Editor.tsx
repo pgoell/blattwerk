@@ -3059,7 +3059,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">
-                {sel.length > 1 ? `${sel.length} Felder` : NAMES[sel[0].type]}
+                {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
               </p>
               <Format
                 // A block of a group with a locked one is as fixed there as the locked one.

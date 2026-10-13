@@ -152,6 +152,7 @@ def test_picked_alone_the_panel_shows_its_place(editor):
     page = editor(unknown(), known())
     errors = watch(page)
     pick(page, "u")
+    expect(page.locator(".panel .what")).to_have_text("Unbekannter Block")
     expect(page.get_by_label("X", exact=True)).to_be_visible()
     expect(page.get_by_label("Y", exact=True)).to_be_visible()
     assert not errors, errors
