@@ -1,7 +1,7 @@
 """Blattomat: the API, the legal pages and the built frontend."""
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.resources import files
 from pathlib import Path
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     try:
         # Opens the database, so the start makes a new file's tables and a request need not.
         auth.retry_leftovers()
