@@ -357,9 +357,6 @@ def relatives(s: Settings, op: str, a: int, b: int) -> list[tuple[str, int, int]
         return [(op, a, b), (REVERSE[op], result(op, a, b), b)]
     if op == "/" and s.moves == "a":
         return [(op, a, b), (op, a - b, b), (op, a + b, b)]
-    if op == "/":
-        q, r = divmod(a, b)
-        return [(op, a, b), (op, q * (b - 1) + r, b - 1), (op, q * (b + 1) + r, b + 1)]
     if s.moves == "a":
         return [(op, a, b), (op, a - 1, b), (op, a + 1, b)]
     return [(op, a, b), (op, a, b - 1), (op, a, b + 1)]
@@ -383,12 +380,11 @@ def take_family(
     top: int,
     found: dict[frozenset, list],
     tasks: set[tuple[str, int, int]],
-    repeat: bool,
 ) -> bool:
-    """Keeps the family of the task when its key is new, and unless `repeat`, none of its tasks
-    is in the block yet."""
+    """Keeps the family of the task when none of its tasks is in the block yet, so a block
+    never holds a task twice."""
     fam = family_of(s, op, a, b, top)
-    if fam is None or frozenset(fam) in found or (not repeat and not tasks.isdisjoint(fam)):
+    if fam is None or frozenset(fam) in found or not tasks.isdisjoint(fam):
         return False
     found[frozenset(fam)] = fam
     tasks.update(fam)
@@ -404,8 +400,8 @@ def fill_small(
     tasks: set[tuple[str, int, int]],
     rng: random.Random,
 ) -> None:
-    """Families of one operation from every pair that keeps the limits. New tasks come first:
-    a repeat is taken only where the share is short."""
+    """Families of one operation from every pair that keeps the limits. The school tasks come
+    first; plain families (a * or / that is no school task) are at most a tenth of the block."""
     cand = valid_pairs(s, op, top)
     if op in "+-":
         rng.shuffle(cand)
@@ -415,12 +411,16 @@ def fill_small(
         others = [p for p in cand if not school(op, *p)]
         rng.shuffle(others)
         cand = weighted(op, school_pairs, len(school_pairs), rng) + others
-    got = 0
-    for repeat in (False, True):
-        for a, b in cand:
-            if got == want:
-                return
-            got += take_family(s, op, a, b, top, found, tasks, repeat)
+    got, few = 0, want // 10
+    for a, b in cand:
+        if got == want:
+            return
+        plain = op in "*/" and not school(op, a, b)
+        if plain and not few:
+            continue
+        if take_family(s, op, a, b, top, found, tasks):
+            got += 1
+            few -= plain
 
 
 def fill_big(
@@ -432,14 +432,21 @@ def fill_big(
     tasks: set[tuple[str, int, int]],
     rng: random.Random,
 ) -> None:
-    """Families of one operation from proposed pairs, each with only new tasks."""
-    got = 0
+    """Families of one operation from proposed pairs, each with only new tasks. Plain families
+    are at most a tenth of the block, as in fill_small."""
+    got, few = 0, want // 10
     for _ in range(1000 + 50 * want):
         if got == want:
             break
         pair = propose(s, op, top, rng)
-        if pair is not None:
-            got += take_family(s, op, *pair, top, found, tasks, False)
+        if pair is None:
+            continue
+        plain = op in "*/" and not school(op, *pair)
+        if plain and not few:
+            continue
+        if take_family(s, op, *pair, top, found, tasks):
+            got += 1
+            few -= plain
 
 
 def families(s: Settings, top: int) -> list[list[tuple[str, int, int]]]:
@@ -951,7 +958,8 @@ def right_pair(s: Settings, op: str, op2: str, top: int, rng: random.Random) -> 
 
 def dull(s: Settings, e: dict, found: dict) -> bool:
     """Whether a three-number task is too plain for a block with a Punkt sign: two of its numbers
-    are 0 or 1, its bracket comes to 0 or 1, or its result is 0 once the block has its share."""
+    are 0 or 1, its bracket comes to 0 or 1, or its result is 0 or 1 once the block has its
+    share."""
     if sum(e[k] in (0, 1) for k in "abc") > 1:
         return True
     if "paren" in e:
@@ -962,8 +970,11 @@ def dull(s: Settings, e: dict, found: dict) -> bool:
         )
         if inner in (0, 1):
             return True
-    # A result of 0 is rare: the block holds at most its tenth part of them.
-    return e["result"] == 0 and sum(t["result"] == 0 for t in found.values()) >= s.count // 10
+    # A result of 0 or 1 is rare: the block holds at most its tenth part of them, both together.
+    return (
+        e["result"] in (0, 1)
+        and sum(t["result"] in (0, 1) for t in found.values()) >= s.count // 10
+    )
 
 
 def take(
