@@ -414,7 +414,8 @@ def test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right(s
         assert o1 in s.ops and o2 in s.ops
         assert in_places(a, s.a) and in_places(b, s.b) and in_places(c, s.c)
         assert max(a, b, c) <= s.max
-        assert e.get("hide") in ("a", "b", "c") if s.format == "gap" else e.get("hide") is None
+        # No hide in a gap task is the result hidden: where no number is told by it (0 · 0 · 1).
+        assert e.get("hide") in ("a", "b", "c", None) if s.format == "gap" else "hide" not in e
         assert paren in (None, "left", "right")
         if rule:
             assert (o1 in "+-") != (o2 in "+-")

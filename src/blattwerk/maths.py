@@ -1104,7 +1104,8 @@ def chained(s: Settings) -> dict:
         allowed = gaps_of(s)
         for e in found:
             fair = [k for k in "abc" if told(s, e, k)]
-            cands = [k for k in allowed if k == "result" or k in fair] or fair or list("abc")
+            # No number is told: hide the result, as any number would fit a hidden a, b or c.
+            cands = [k for k in allowed if k == "result" or k in fair] or fair or ["result"]
             k = hide.choice(cands)
             if k != "result":
                 e["hide"] = k

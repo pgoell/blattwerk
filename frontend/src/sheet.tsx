@@ -1530,7 +1530,7 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
 
 // A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
 // true size in the PDF, where it needs no transform. The answer key says on each page that it is one.
-export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: number; page?: number; solved?: boolean }) {
+export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; k: number; page?: number; solved?: boolean; letter?: string }) {
   const all = read(doc);
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
@@ -1545,7 +1545,8 @@ export function Paper({ doc, k, page = 0, solved = false }: { doc: Doc; k: numbe
             <Mark block={b} k={K} n={ns.get(b.id)} />
           </div>
         ))}
-        {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>Lösungen</b>}
+        {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>{letter ? `Lösungen ${letter}` : "Lösungen"}</b>}
+        {letter && <b className="variant" style={{ position: "absolute", bottom: 5 * K, right: 8 * K, fontSize: 8 * PT * K }}>{letter}</b>}
       </div>
     </div>
     </Words.Provider>

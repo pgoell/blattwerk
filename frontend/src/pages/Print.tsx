@@ -10,9 +10,10 @@ export default function Print() {
   const [params] = useSearchParams();
   const [doc, setDoc] = useState<Doc>();
 
+  const variante = params.get("variante");
   useEffect(() => {
-    api<Doc>(`/render/${id}`).then((doc) => setDoc(read(doc)));
-  }, [id]);
+    api<Doc>(`/render/${id}${variante ? `?variante=${variante}` : ""}`).then((doc) => setDoc(read(doc)));
+  }, [id, variante]);
   // Chromium waits for this class: fonts and pictures load only once the pages that use them are laid out.
   useEffect(() => {
     if (!doc) return;
@@ -26,7 +27,7 @@ export default function Print() {
 
   return (
     <div className="print">
-      {doc?.pages.map((_, n) => <Paper key={n} doc={doc} k={K} page={n} solved={params.has("loesungen")} />)}
+      {doc?.pages.map((_, n) => <Paper key={n} doc={doc} k={K} page={n} solved={params.has("loesungen")} letter={params.get("buchstabe") ?? undefined} />)}
     </div>
   );
 }
