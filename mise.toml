@@ -35,7 +35,8 @@ description = "Build the frontend into the package"
 # Skipped while the build is newer than its sources: a build under a running test would swap the files it serves.
 sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts"]
 outputs = ["src/blattwerk/static/index.html"]
-run = "npm run build --prefix frontend"
+# A fresh git worktree has no frontend/node_modules.
+run = ["test -d frontend/node_modules || npm ci --prefix frontend", "npm run build --prefix frontend"]
 
 # ─── Testing ────────────────────────────────────────────────────────────────
 
