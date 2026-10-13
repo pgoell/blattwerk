@@ -21,10 +21,10 @@ from ui import at, box, maths, pick, saved, tool, user
 
 
 def fmt(n, d, money=False):
-    """A whole number of the smallest place as the sheet writes it: 350 with 2 places is 3,5."""
+    """A whole number of the smallest place as the sheet writes it: 350 with 1 place is 35."""
     digits = str(n).zfill(d + 1)
     whole, fraction = digits[: len(digits) - d], digits[len(digits) - d :]
-    if not money:
+    if not money and d != 2:
         fraction = fraction.rstrip("0")
     return f"{whole},{fraction}" if fraction else whole
 
@@ -290,15 +290,16 @@ def test_a_greyed_nachkommastellen_keeps_its_value(editor):
 
 
 def test_geld_shows_two_places_and_gives_the_earlier_value_back(editor):
-    """I2: Geld shows two places and locks the number buttons; Geld off brings the value back."""
+    """I2: Geld shows two places, the number buttons stay open; Geld off gives the value back."""
     client = user()
     page = editor(
         box("m", "maths", maths(client, ops=["+"], max=10, count=6, decimals=1)), client=client
     )
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Geld").click())
-    expect(ctl(page, "2 Nachkommastellen")).to_have_attribute("aria-pressed", "true")
-    expect(ctl(page, "1 Nachkommastelle")).to_be_disabled()
+    expect(ctl(page, "Geld")).to_have_attribute("aria-pressed", "true")
+    expect(ctl(page, "1 Nachkommastelle")).to_have_attribute("aria-pressed", "false")
+    expect(ctl(page, "1 Nachkommastelle")).to_be_enabled()
     assert all(re.search(r"\d+,\d\d €", text) for text in shown(at(page, "m")))
     props = changed(page, client, lambda: ctl(page, "Geld").click())
     assert props["money"] is False and props["decimals"] == 1

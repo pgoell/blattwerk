@@ -474,7 +474,7 @@ def test_tab_reaches_the_families_and_the_keyboard_sets_them(editor):
 
 
 def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(editor):
-    """I1: Tab from the Rechenart buttons reaches the three switches, then the Lücke boxes."""
+    """I1: Tab from the Rechenart buttons reaches the four switches, then the Lücke boxes."""
     client = user()
     props = maths(client, ops=["+", "*"], max=20, count=4, format="gap")
     page = editor(box("a", "maths", props), client=client)
@@ -495,6 +495,8 @@ def test_tab_reaches_the_switches_and_the_gap_boxes_and_the_keyboard_sets_them(e
     expect(page.locator(":focus")).to_have_accessible_name(
         "Aufgaben mit 1 beim Malnehmen und Teilen"
     )
+    page.keyboard.press("Tab")
+    expect(page.locator(":focus")).to_have_accessible_name("Kleines Einmaleins")
     page.keyboard.press("Tab")
     expect(page.locator(":focus")).to_have_accessible_name("keine gleichen Zahlen")
     page.keyboard.press("Space")

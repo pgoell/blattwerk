@@ -92,7 +92,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -380,7 +380,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -859,6 +859,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (!e.repeat) setPan(true);
       return;
     }
+    // A letter typed with one picked Lineatur opens it for writing, and the caret goes to the end of its text. The
+    // focus moves in the same flush, so the browser types the key into the textarea: no preventDefault. Keys that
+    // are commands, and a field, a button or the panel that keep their own, stay as they are.
+    const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    if (typed && !editing && sel.length === 1 && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+      flushSync(() => edit(free[0].id));
+      return;
+    }
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
     const step = e.shiftKey ? 10 : cell || 1;
     const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
@@ -1156,6 +1164,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table" || key === "words") tight.current = true;
     change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
+  }
+  // The text typed into a ruling is set, and in the same change the block grows by whole rows when the text needs more
+  // rows than it has. A Karo needs the rows of its squares. A Lineatur's field scrolls past its last row, so its
+  // scroll height is taller than its box: the lines are that height in rows. Growth stops at the foot of the page, and
+  // a block never shrinks by itself. Text and height share the typing's key, so one undo step takes both back.
+  function typeRuling(b: Extract<Block, { type: "ruling" }>, text: string, area: HTMLTextAreaElement) {
+    const { row, at } = RULINGS[kindOf(b.props.kind)];
+    const have = rowsOf(b);
+    const need = at
+      ? area.scrollHeight > area.clientHeight + 1 ? Math.round(area.scrollHeight / (row * K)) : 0
+      : Math.max(0, ...squares(text, colsOf(b)).map(([, y]) => y + 1));
+    // Near the foot it takes the rows that still fit the page, not none.
+    const rows = Math.max(have, Math.min(need, Math.floor((H - b.y) / row + 0.05)));
+    const h = round(rows * row);
+    const grows = rows > have;
+    change(
+      (bs) =>
+        bs.map((x) =>
+          ids.includes(x.id) && x.type === "ruling"
+            ? ({ ...x, ...(grows && x.id === b.id ? tall(x, h) : {}), props: { ...x.props, ...fresh(x, { text }) } } as Block)
+            : x,
+        ),
+      "text",
+    );
   }
   // Sets what a shape and a text share: the frame, and the text in it.
   function look(props: object, key?: string) {
@@ -2358,8 +2390,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (more) setIds(ids.filter((i) => !unit(id).includes(i)));
       // A click on a block of a picked group picks the block alone. A press drags the group instead.
       else if (!press && ids.length > 1 && unit(id).length > 1) setIds([id]);
-      // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks.
-      else if (touch.current) edit(id, el);
+      // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
+      // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
+      // branch above.
+      else if (touch.current || (!press && sel.length === 1 && free[0]?.type === "ruling")) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
@@ -2512,6 +2546,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const ctrl = APPLE ? "⌘" : "Strg+";
   const shift = APPLE ? "⇧" : "Umschalt+";
   const thumbed = menu?.thumb;
+  const ruled = menu?.rule;
   type Command = Exclude<Item, "sep">;
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
@@ -2528,7 +2563,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
   ];
   const items: Item[] =
-    thumbed !== undefined
+    ruled
+      ? // Only the one line goes, as one undo step: no merge key, so no other change joins it.
+        [{ label: "Hilfslinie entfernen", icon: Eraser, run: () => rules(ruled.n, (g) => ({ ...g, [ruled.axis]: g[ruled.axis].filter((_, j) => j !== ruled.i) })) }]
+      : thumbed !== undefined
       ? [
           { label: "Neue Seite", icon: FilePlus, run: () => addPage(thumbed) },
           { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPage(thumbed) },
@@ -3074,7 +3112,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           // Tab from a field of the panel does not stop at a Lineatur that is not written in.
                           tabIndex={editing === b.id ? undefined : -1}
                           style={writtenStyle(b, K)}
-                          onChange={(e) => style("ruling", { text: e.target.value }, "text")}
+                          onChange={(e) => typeRuling(b, e.target.value, e.currentTarget)}
                           // Tab types nothing and stays here: the browser's would end the writing. Escape and F2 end
                           // it themselves: after a press in the panel the blur would not.
                           onKeyDown={(e) => {
@@ -3132,7 +3170,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 (["x", "y"] as const).flatMap((axis) =>
                   (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
-                      <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
+                      <b
+                        data-axis={axis}
+                        data-i={i}
+                        data-page={at}
+                        // The right button drags nothing: its menu removes this one line, and picks no block.
+                        onPointerDown={(e) => e.button === 0 && grip(e)}
+                        onPointerMove={(e) => slide(e, axis, i, at)}
+                        onLostPointerCapture={() => drop(axis, i, at)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenu({ x: e.clientX, y: e.clientY, rule: { axis, i, n: at } });
+                        }}
+                      >
                         {mm}
                       </b>
                     </i>
@@ -3587,6 +3638,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 <Eraser size={14} aria-hidden />
                 Alle entfernen
               </button>
+              <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
               <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
@@ -3639,7 +3691,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             if (late.current) refit();
             const el = document.elementFromPoint(x, y);
             const n = el?.closest<HTMLElement>("[data-thumb]")?.dataset.thumb;
+            const guide = el?.closest<HTMLElement>("[data-axis]");
             if (n) thumbMenu(+n, x, y);
+            else if (guide) setMenu({ x, y, rule: { axis: guide.dataset.axis as Axis, i: +guide.dataset.i!, n: guide.dataset.page === undefined ? undefined : +guide.dataset.page } });
             else if (el?.closest(".desk")) menuAt(el, x, y);
           }}
         />

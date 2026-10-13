@@ -106,7 +106,7 @@ def test_the_choice_links_a_lineatur(editor, mode):
     expect(page.get_by_label("Text der Lineatur")).to_have_value(mode)
     assert rulings(doc(page, client))[0]["props"]["list"] == mode
     expect(page.get_by_label("Nachspurtext", exact=True)).to_have_count(0)
-    expect(page.get_by_text("Doppelklick auf die Lineatur")).to_have_count(0)
+    expect(page.get_by_text("Lineatur anklicken und lostippen")).to_have_count(0)
     expect(page.get_by_label("Schriftart auf den Zeilen")).to_be_visible()
 
 
