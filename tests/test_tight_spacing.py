@@ -1,4 +1,4 @@
-"""Issue #487: a line spacing under 1.3 cuts no ink, on screen, in the open field or in the PDF.
+"""Issue #487: no ink of a text is cut at any line spacing: on screen, open or in the PDF.
 
 Checklist ids are in each docstring.
 """
@@ -22,6 +22,7 @@ OPEN_LEVER = (
     ".block, .block *, .frame * { overflow: visible !important; clip-path: none !important; }"
 )
 CARET = "* { caret-color: transparent !important }"
+# The rules before #487: no padding, no margin, the clip of the paragraph.
 OLD_RULES = (
     ".frame p, .frame .rich { overflow: hidden !important; padding-block: 0 !important; "
     "margin-block: 0 !important; }"
@@ -29,16 +30,8 @@ OLD_RULES = (
 RICH = [{"runs": [{"text": "ÄÖÜ"}]}, {"runs": [{"text": "gjpß"}]}]
 ONE_LINE = "ÄgjpßÖÜ"
 MM = 0.3528
-# Playwrite fonts whose ink leaves the 1.3 line box too: at 1.3 the cut is the same as at 1.0
-# (grund 1.3 text: 1636 dark px, 1809 unclipped; va 1877 of 2171; sas 1858 of 2005; la 1962 of
-# 2161), so no spacing under 1.3 is to blame. Master's own cut, not fixed here.
-MASTER_CUT = ["grund", "va", "sas", "la"]
-MASTER_CUT_XFAIL = pytest.mark.xfail(strict=True, reason="ink leaves the 1.3 line box too (#487)")
-# A one-line shape at valign top: the dots of Ä Ö Ü are cut by the shape's own top edge, lever or
-# not (nord 2040 of 2120, sued 2272 of 2620, urff 1888 of 1965, andika 1872 of 1937 dark px).
-SHAPE_TOP_EDGE = [
-    ("one_line", key, "shape", "plain", 1.0) for key in ("nord", "sued", "urff", "andika")
-]
+# A shape has a padding of 1.3 mm and its border of 0.5 mm, top and bottom.
+SHAPE_EDGE = 2 * 1.3 + 2 * 0.5
 
 
 def dark(shot):
@@ -73,37 +66,34 @@ def text_props(key, kind, form, spacing):
     return props
 
 
-def _cases():
-    """Each case; the Playwrite fonts are an expected failure, see MASTER_CUT."""
-    cases = [
+def cases():
+    """Every font, kind and form at four spacings, and the issue's one-line block at 1.0."""
+    out = [
         ("middle", key, kind, form, spacing)
         for key in FONTS
         for kind in ("text", "shape")
         for form in ("plain", "rich")
-        for spacing in (1.0, 1.1)
+        for spacing in (1.0, 1.1, 1.3, 2.0)
     ]
-    cases += [("one_line", key, kind, "plain", 1.0) for key in FONTS for kind in ("text", "shape")]
-    return [
-        pytest.param(*c, marks=MASTER_CUT_XFAIL)
-        if (c[1] in MASTER_CUT and c[3] == "plain") or c in SHAPE_TOP_EDGE
-        else c
-        for c in cases
-    ]
+    out += [("one_line", key, kind, "plain", 1.0) for key in FONTS for kind in ("text", "shape")]
+    return out
 
 
-@pytest.mark.parametrize("layout,key,kind,form,spacing", _cases())
+@pytest.mark.parametrize("layout,key,kind,form,spacing", cases())
 def test_no_ink_is_cut_on_the_screen(editor, layout, key, kind, form, spacing):
-    """A1: a text or a shape at a spacing under 1.3 draws its ink as it does with the cut lifted.
+    """A1: a text or a shape draws its ink as it does with the cut lifted, at every spacing.
 
-    `middle` is a block larger than its text. `one_line` is the issue's block: one line
-    high, valign top.
+    `middle` is a block larger than its text. `one_line` is the issue's block: one line high
+    (plus the padding of a shape), valign top.
     """
     props = text_props(key, kind, form, spacing)
     if layout == "one_line":
         props |= {"valign": "top"}
-        block = box("a", kind, props, x=10, y=40, w=90, h=28 * MM)
+        height = 28 * MM + (SHAPE_EDGE if kind == "shape" else 0)
+        block = box("a", kind, props, x=10, y=40, w=90, h=height)
     else:
-        block = box("a", kind, props, x=10, y=40, w=90, h=40)
+        # Two lines at 2.0 are 40 mm and more: a block taller than them.
+        block = box("a", kind, props, x=10, y=40, w=90, h=60 if spacing == 2.0 else 40)
     page = editor(block)
     unpick(page)
     clip = clip_of(at(page, "a"))
@@ -118,9 +108,10 @@ def test_no_ink_is_cut_on_the_screen(editor, layout, key, kind, form, spacing):
     assert abs(bottom - bottom2) <= 1, (bottom, bottom2)
 
 
-def test_no_ink_is_cut_in_the_open_text(editor):
-    """A1: the open field of a text at a spacing of 1.0 keeps its ink, as its closed block does."""
-    props = text_props("urff", "text", "plain", 1.0) | {"valign": "middle"}
+@pytest.mark.parametrize("spacing", [1.0, 1.3])
+def test_no_ink_is_cut_in_the_open_text(editor, spacing):
+    """A1: the open field of a text keeps its ink, as its closed block does."""
+    props = text_props("urff", "text", "plain", spacing) | {"valign": "middle"}
     page = editor(box("a", "text", props, x=10, y=40, w=90, h=40))
     pick(page, "a")
     page.keyboard.press("Enter")
@@ -155,61 +146,58 @@ def fetch_pdf(server, client, sheet_id):
     return pypdfium2.PdfDocument(res.content)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="grund 1.0 vs 1.3 PDF: 15152 vs 14760 (2.6 %); va, sas, la share master's cut (#487)",
-)
 def test_no_ink_is_cut_in_the_pdf(server):
-    """A2: the same letters print the same ink at 1.0 and 1.3, for texts, shapes and rich texts."""
+    """A2: the same letters print the same ink at 1.0 and at 2.0, where nothing can be cut.
+
+    Texts, shapes and rich texts of every font; each at 1.0 against the same at 2.0.
+    """
     client = user()
-    first, second, regions = [], [], []
+    first, second, pairs = [], [], []
     for i, key in enumerate(FONTS):
         y = 10 + 30 * i
-        for x, spacing in ((5, 1.0), (65, 1.3)):
+        for x, spacing in ((5, 1.0), (65, 2.0)):
             props = text_props(key, "text", "plain", spacing)
             first.append(box(f"t{i}-{spacing}", "text", props, x=x, y=y, w=50, h=20))
-            regions.append((0, x, y, 50, 20))
+        pairs.append(((0, 5, y, 50, 20), (0, 65, y, 50, 20)))
     for i, key in enumerate(FONTS):
         y = 10 + 30 * i
-        for x, kind, form, spacing, w in (
-            (5, "shape", "plain", 1.0, 50),
-            (65, "shape", "plain", 1.3, 50),
-            (125, "text", "rich", 1.0, 35),
-            (170, "text", "rich", 1.3, 35),
+        for x, kind, form, spacing, w, h in (
+            (5, "shape", "plain", 1.0, 50, 24),
+            (65, "shape", "plain", 2.0, 50, 24),
+            (125, "text", "rich", 1.0, 35, 20),
+            (170, "text", "rich", 2.0, 35, 20),
         ):
             props = text_props(key, kind, form, spacing)
-            second.append(box(f"s{i}-{x}", kind, props, x=x, y=y, w=w, h=20))
-            regions.append((1, x, y, w, 20))
+            if form == "rich":
+                props["size"] = 14
+            second.append(box(f"s{i}-{x}", kind, props, x=x, y=y, w=w, h=h))
+        pairs.append(((1, 5, y, 50, 24), (1, 65, y, 50, 24)))
+        pairs.append(((1, 125, y, 35, 20), (1, 170, y, 35, 20)))
     mine = sheet(client, first, second)
     doc = fetch_pdf(server, client, mine["id"])
-    counts = [pdf_ink(doc, index, x, y, w, h) for index, x, y, w, h in regions]
-    for i in range(0, len(counts), 2):
-        assert counts[i] > 0
-        assert abs(counts[i] - counts[i + 1]) <= 0.02 * max(counts[i], counts[i + 1]), (
-            i,
-            counts[i : i + 2],
-        )
+    for one, two in pairs:
+        count = pdf_ink(doc, *one)
+        count2 = pdf_ink(doc, *two)
+        assert count > 0
+        assert abs(count - count2) <= 0.02 * max(count, count2), (one, count, count2)
 
 
+@pytest.mark.parametrize("key", FONTS)
 @pytest.mark.parametrize("spacing", [1.0, 1.3])
-def test_a_text_too_long_ends_at_the_foot(editor, server, spacing):
-    """A3: a text too long for its block is cut at its foot plus the spill, and not before it."""
+def test_a_text_too_long_ends_at_the_foot(editor, server, key, spacing):
+    """A3: a text too long for its block is cut at its foot plus the font's own reach below it."""
     text = "\n".join(["gjpß ÄÖÜ"] * 12)
-    props = {
-        **TEXT,
-        "text": text,
-        "font": "andika",
-        "size": 14,
-        "spacing": spacing,
-        "valign": "top",
-    }
+    props = {**TEXT, "text": text, "font": key, "size": 14, "spacing": spacing, "valign": "top"}
     page = editor(box("a", "text", props, x=10, y=40, w=90, h=20))
     unpick(page)
     block = at(page, "a")
     b = block.bounding_box()
     size_px = block.locator("p").first.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")
     mm = b["height"] / 20
-    spill = (1.3 - spacing) / 2 * size_px
+    down_em = block.locator(".frame").evaluate(
+        "el => parseFloat(getComputedStyle(el).getPropertyValue('--down')) || 0"
+    )
+    spill = down_em * size_px
     clip = {
         "x": b["x"] - 10,
         "y": b["y"] - 10,
@@ -223,23 +211,30 @@ def test_a_text_too_long_ends_at_the_foot(editor, server, spacing):
     assert dark_in(Image.open(BytesIO(shot)).convert("L"), round(foot - 2 * mm), round(foot)) > 0
     assert bottom <= foot + spill + 2, (bottom, foot, spill)
     if spacing == 1.0:
-        # In the PDF: the last 2 mm above the foot hold ink, and nothing lies 0.5 mm past the spill.
+        # In the PDF: the last 2 mm above the foot hold ink, and nothing lies 0.5 mm past the reach.
         client = user()
         mine = sheet(client, [box("a", "text", props, x=10, y=40, w=90, h=20)])
         paper = fetch_pdf(server, client, mine["id"])[0]
         img = paper.render(scale=4).to_pil().convert("L")
         per_mm = img.width / (paper.get_width() * 25.4 / 72)
         foot_mm = 40 + 20
-        spill_mm = (1.3 - spacing) / 2 * 14 * 25.4 / 72
+        spill_mm = down_em * 14 * 25.4 / 72
         assert dark_in(img, round((foot_mm - 2) * per_mm), round(foot_mm * per_mm)) > 0
         assert dark_in(img, round((foot_mm + spill_mm + 0.5) * per_mm), img.height) == 0
+
+
+# Fonts whose ink reaches past the line box at 1.3 too: their paragraphs carry the padding at 1.3.
+# Andika's ink reaches 0.015 em under its 1.3 line box, so it is one of them.
+REACHES_AT_13 = ["andika", "grund", "va", "sas", "la"]
 
 
 @pytest.mark.parametrize("spacing", [None, 1.3, 2.0])
 @pytest.mark.parametrize("kind", ["text", "shape", "rich", "long"])
 @pytest.mark.parametrize("key", FONTS)
 def test_the_default_spacing_draws_as_before(editor, key, kind, spacing):
-    """A4: at no spacing or at 1.3 and above, the frame has no `tight` class and draws as it did."""
+    """A4: a font whose ink its line holds draws as before; a font whose ink reaches out keeps every
+    letter in its paragraph and only lets the ink outside it show.
+    """
     props = {**(RECT if kind == "shape" else TEXT), "font": key, "size": 20, "valign": "middle"}
     if kind == "rich":
         props |= {"text": "ÄÖÜ\ngjpß", "rich": RICH}
@@ -253,18 +248,43 @@ def test_the_default_spacing_draws_as_before(editor, key, kind, spacing):
     page = editor(box("a", block_kind, props, x=10, y=40, w=90, h=40))
     unpick(page)
     frame = at(page, "a").locator(".frame")
-    expect(frame).not_to_have_class(re.compile(r"\btight\b"))
-    styles = frame.locator("p").first.evaluate(
-        """el => {
-            const s = getComputedStyle(el);
-            return [s.paddingTop, s.paddingBottom, s.marginTop, s.marginBottom, s.overflow];
-        }"""
-    )
-    assert styles == ["0px", "0px", "0px", "0px", "hidden"]
-    assert frame.evaluate("el => el.style.clipPath").startswith("inset(-1px")
+    reaches = (spacing or 1.3) < 2.0 and key in REACHES_AT_13
     clip = clip_of(at(page, "a"))
     before = page.screenshot(clip=clip)
+    if not reaches:
+        expect(frame).not_to_have_class(re.compile(r"\btight\b"))
+        styles = frame.locator("p").first.evaluate(
+            """el => {
+                const s = getComputedStyle(el);
+                return [s.paddingTop, s.paddingBottom, s.marginTop, s.marginBottom, s.overflow];
+            }"""
+        )
+        assert styles == ["0px", "0px", "0px", "0px", "hidden"]
+        assert frame.evaluate("el => el.style.clipPath").startswith("inset(-1px")
+        page.add_style_tag(content=OLD_RULES)
+        after = page.screenshot(clip=clip)
+        a, b = Image.open(BytesIO(before)).convert("RGB"), Image.open(BytesIO(after)).convert("RGB")
+        assert ImageChops.difference(a, b).getbbox() is None
+        return
+    # The paragraph's own box, without its new padding: the letters inside it may not move.
+    expect(frame).to_have_class(re.compile(r"\btight\b"))
+    box_ = frame.locator("p").first.evaluate(
+        """el => {
+            const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+            return [r.left + parseFloat(s.paddingLeft), r.top + parseFloat(s.paddingTop),
+                    r.right - parseFloat(s.paddingRight), r.bottom - parseFloat(s.paddingBottom)];
+        }"""
+    )
+    left, top = round(box_[0] - clip["x"]), round(box_[1] - clip["y"])
+    right, bottom = round(box_[2] - clip["x"]), round(box_[3] - clip["y"])
     page.add_style_tag(content=OLD_RULES)
     after = page.screenshot(clip=clip)
     a, b = Image.open(BytesIO(before)).convert("RGB"), Image.open(BytesIO(after)).convert("RGB")
-    assert ImageChops.difference(a, b).getbbox() is None
+    diff = ImageChops.difference(a, b)
+    assert diff.crop((left + 1, top + 1, right - 1, bottom - 1)).getbbox() is None
+    # With the new rules the dark count is the count of the unclipped letters, within 2 %.
+    if kind != "long":
+        page.add_style_tag(content=LEVER)
+        full = dark(page.screenshot(clip=clip))[0]
+        count = dark(before)[0]
+        assert abs(count - full) <= 0.02 * full, (count, full)
