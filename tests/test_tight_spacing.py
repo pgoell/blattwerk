@@ -309,11 +309,16 @@ NO_SIDES = (
 ALL_FONTS = ["andika", "nord", "sued", "grund", "urff", "va", "sas", "la"]
 
 
+@pytest.mark.parametrize("italic", [False, True])
 @pytest.mark.parametrize("align", ["left", "right"])
-@pytest.mark.parametrize("key", ALL_FONTS)
-def test_no_ink_is_cut_at_the_sides(editor, key, align):
-    """A1: a joined script's letters reach past their place, and no ink is cut at either side."""
-    props = {**TEXT, "font": key, "size": 40, "align": align, "text": "jgf Tgjp"}
+@pytest.mark.parametrize("key", REACHES_AT_13)
+def test_no_ink_is_cut_at_the_sides(editor, key, align, italic):
+    """A1: a joined script's letters reach past their place, and no ink is cut at either side.
+
+    j reaches left of its place and f right of it. The print fonts' plain text keeps its sides as
+    sheets saved before had them (#489).
+    """
+    props = {**TEXT, "font": key, "size": 40, "align": align, "text": "jgf Tgjf", "italic": italic}
     page = editor(box("a", "text", props, x=10, y=40, w=90, h=30))
     unpick(page)
     clip = clip_of(at(page, "a"))
@@ -322,7 +327,7 @@ def test_no_ink_is_cut_at_the_sides(editor, key, align):
     full = dark(page.screenshot(clip=clip))[0]
     count = dark(before)[0]
     assert full > 0
-    assert abs(count - full) <= 0.02 * full, (count, full)
+    assert abs(count - full) <= 0.005 * full, (count, full)
 
 
 @pytest.mark.parametrize("key", REACHES_AT_13)

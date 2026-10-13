@@ -1146,10 +1146,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     );
   }
   // Sets the trace text's look on every picked block that carries text, in one step: a text, a shape, a table and a
-  // Lineatur each have it.
+  // Lineatur each have it. A Lineatur that shows the Lernwörter has a look of its own and takes none.
   function traced(props: object) {
     tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "table" || b.type === "ruling" || ((b.type === "text" || b.type === "shape") && !isLine(b))) ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)));
+    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "table" || (b.type === "ruling" && !listOf(b)) ||((b.type === "text" || b.type === "shape") && !isLine(b))) ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)));
   }
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.

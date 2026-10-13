@@ -572,8 +572,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const below = reach(Math.max(0, INK[font][1] + FONTS[font][2] - s / 2)) + stroke;
   // How far a joined script's letters reach past their place to each side, and the outline's stroke with them.
   // A plain text takes the side reach only in a joined script, where a letter reaches 0.1 em or more past its place: a
-  // print font's plain text draws as it did before. An outline takes it in every font.
-  const side = stroke > 0 || (SIDE[font] ?? 0) >= 0.1 ? (SIDE[font] ?? 0) + stroke : 0;
+  // print font's plain text draws as it did before. An outline takes it in every font, and 0.12 em at least: Andika's
+  // j reaches further in its outline than the upright cut's measure says. A slanted text leans 0.15 em further.
+  const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0);
+  const side = stroke > 0 || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.

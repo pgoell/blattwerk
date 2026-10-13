@@ -175,6 +175,22 @@ def test_one_choice_sets_all_picked_blocks(editor, which):
         assert trace_of(page, client, name) is None
 
 
+def test_a_lineatur_of_lernwoerter_takes_no_look(editor):
+    """I1: picked with a text, a Lineatur that shows the Lernwörter keeps what it stores."""
+    client = user()
+    linked = {**RULING, "kind": "l1", "list": "trace", "trace": True}
+    page = editor(
+        box("a", "text", TEXT),
+        box("r", "ruling", linked, z=2, h=40),
+        client=client,
+        words=["Hund", "Katze"],
+    )
+    pick(page, "a", "r")
+    choose(page, "outline")
+    assert trace_of(page, client, "a") == "outline"
+    assert trace_of(page, client, "r") is True
+
+
 def test_aus_takes_the_fading_along(editor):
     """Aus removes the trace and its fading: no key is left, and a later Grau is not faded."""
     client = user()

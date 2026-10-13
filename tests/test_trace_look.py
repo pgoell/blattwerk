@@ -552,7 +552,8 @@ def test_the_outline_is_whole_at_every_edge(editor, font):
             "font": font,
             "size": 40,
             "align": align,
-            "text": "Tgjp",
+            # j reaches left of its place and f right of it.
+            "text": "jgf Tgjf",
             "trace": "outline",
         }
         page = editor(box("a", "text", props, x=10, y=40, w=90, h=20))
@@ -563,7 +564,7 @@ def test_the_outline_is_whole_at_every_edge(editor, font):
         full = dark_count(page.screenshot(clip=clip))
         count = dark_count(before)
         assert full > 0
-        assert abs(count - full) <= 0.01 * full, (align, count, full)
+        assert abs(count - full) <= 0.005 * full, (align, count, full)
 
 
 @pytest.mark.parametrize("kind", ["text", "ruling"])

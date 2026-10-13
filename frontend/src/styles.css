@@ -581,6 +581,11 @@ body:has(.print) { background: #fff; }
    --ink-down, em, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding and the margin cancel
    out: the text stays where it is. A text too long still ends at the foot, that far below. */
 .frame.tight p, .frame.tight .rich { padding-block: var(--ink-up) var(--ink-down); margin-block: calc(-1 * var(--ink-up)) calc(-1 * var(--ink-down)); padding-inline: var(--ink-side); margin-inline: calc(-1 * var(--ink-side)); }
+/* In whole pixels at the sides: Safari lays a box out on parts of a pixel, and a padding of a part moved the letters
+   by up to 0.7 px against sheets saved before. */
+@supports (width: round(up, 1px, 1px)) {
+  .frame.tight p, .frame.tight .rich { padding-inline: round(up, var(--ink-side), 1px); margin-inline: calc(-1 * round(up, var(--ink-side), 1px)); }
+}
 .frame.tight .rich p { padding-block: 0; margin-block: 0; overflow: visible; }
 /* The same at the sides, where a joined script's letters reach past their place. A paragraph of a list keeps its indent and its bullet. */
 .frame.tight .rich p:not([data-list]):not([data-level]) { padding-inline: 0; margin-inline: 0; }
