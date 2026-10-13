@@ -571,10 +571,9 @@ def test_deploy_tries_the_canary_before_it_touches_live():
     assert "if bash scripts/alive.sh blattwerk; then" in step["Wait for the app to answer"]
     assert "continue-on-error" not in DEPLOY
     # keep-prev is the first thing after the checkout.
-    assert re.findall(r"^      - (?:name|uses): (.+)$", code(DEPLOY), re.M)[:2] == [
-        "actions/checkout@v7",
-        "Keep the running image as prev",
-    ]
+    checkout, after = re.findall(r"^      - (?:name|uses): (.+)$", code(DEPLOY), re.M)[:2]
+    assert checkout.startswith("actions/checkout@")
+    assert after == "Keep the running image as prev"
 
 
 def test_latest_moves_only_once_the_canary_passed():
