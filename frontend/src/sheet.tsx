@@ -208,9 +208,8 @@ const INK: Record<Font, readonly [number, number]> = {
 };
 // How far a font's ink reaches left of its place or right of its advance, in em, the largest over ASCII and the
 // German capitals and signs (#76). Measured in Chromium with canvas measureText at 1000 px, regular cut, rounded up
-// to two decimals. Only the joined scripts have one: the print fonts reach 0.02 to 0.06 em, and a text of theirs with
-// no trace draws as it did before, so they have none.
-const SIDE: Partial<Record<Font, number>> = { grund: 0.1, va: 0.21, sas: 0.24, la: 0.29 };
+// to two decimals.
+const SIDE: Partial<Record<Font, number>> = { andika: 0.04, nord: 0.02, sued: 0.02, grund: 0.1, urff: 0.06, va: 0.21, sas: 0.24, la: 0.29 };
 // Trace text (Nachspurtext), for the children to write over, in a text, a shape, a table and a Lineatur. A block
 // stores `trace`: true for grey, "outline" for letters with a line around them and no fill (Umriss), "dotted" for the
 // font's own dotted cut (gepunktet). Sheets saved before have true or nothing. `fade` makes the trace text lighter
@@ -572,7 +571,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const above = reach(Math.max(0, INK[font][0] - FONTS[font][2] - s / 2)) + stroke;
   const below = reach(Math.max(0, INK[font][1] + FONTS[font][2] - s / 2)) + stroke;
   // How far a joined script's letters reach past their place to each side, and the outline's stroke with them.
-  const side = (SIDE[font] ?? 0) + stroke;
+  // A plain text takes the side reach only in a joined script, where a letter reaches 0.1 em or more past its place: a
+  // print font's plain text draws as it did before. An outline takes it in every font.
+  const side = stroke > 0 || (SIDE[font] ?? 0) >= 0.1 ? (SIDE[font] ?? 0) + stroke : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.
