@@ -124,14 +124,19 @@ class Hang:
         )
         for node in sorted(self.running):
             self.say(f"Started and not finished: {node}")
-        # The workers are the children of this process; each prints its stacks on SIGUSR1.
+        # The workers are the children of this process; each prints its stacks on SIGUSR1. A child
+        # is listed under the thread that started it, and execnet starts some from helper threads,
+        # so the lists of all threads count.
         me = os.getpid()
-        children = Path(f"/proc/{me}/task/{me}/children")
-        pids = [int(pid) for pid in children.read_text().split()] if children.is_file() else []
+        pids = set()
+        for task in Path(f"/proc/{me}/task").iterdir():
+            if (task / "children").is_file():
+                pids.update(int(pid) for pid in (task / "children").read_text().split())
         try:
+            # One at a time: two dumps written to the same pipe at once come out interleaved (#461).
             for pid in pids:
                 os.kill(pid, signal.SIGUSR1)
-            time.sleep(2)
+                time.sleep(1)
             faulthandler.dump_traceback(file=self.err, all_threads=True)
             # A worker that hangs never ends by itself, and would keep the pipes of the job open.
             for pid in pids:
