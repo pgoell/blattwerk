@@ -56,9 +56,7 @@ License: Creative Commons Attribution 3.0 (CC BY 3.0), as the repository's
 LICENSE.md says; that file is in frontend/public/fonts/urff/LICENSE.md, the
 license text in frontend/public/fonts/urff/CC-BY-3.0.txt.
 The font files in frontend/public/fonts/urff are the unchanged OTF files of
-version 3.0 (commit 0545c85). The app draws the font larger by a CSS
-size-adjust, so its small letters are half its size high; the files stay as
-they are.
+version 3.0 (commit 0545c85).
 
 Fibel Nord, Fibel Sued (Regular, Bold, Italic, Bold Italic)
 Copyright (c) 2009, Peter Wiegel, www.peter-wiegel.de, wiegel@peter-wiegel.de
@@ -68,7 +66,7 @@ frontend/public/fonts/fibel/OFL.txt.
 The font files in frontend/public/fonts/fibel are the unchanged TTF files of
 FibelNordTT.zip and FibelSuedTT.zip (https://www.peter-wiegel.de/Fibel.html),
 under file names without spaces. The app shows them as "Druckschrift Nord"
-and "Druckschrift Süd" and draws them larger by a CSS size-adjust.
+and "Druckschrift Süd".
 
 Syllables
 ---------

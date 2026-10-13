@@ -138,7 +138,7 @@ def test_a_line_of_spaces_alone_does_not_count(editor):
     assert abs(second - first - 2 * line) < 2
 
 
-@pytest.mark.parametrize("font", ["andika", "grund", "va", "sas", "la"])
+@pytest.mark.parametrize("font", ["andika", "grund", "va", "sas", "la", "nord", "sued", "urff"])
 def test_every_script_has_a_number_for_each_line_at_the_tightest_spacing(editor, font):
     """A8a: counted by a second measure, the paragraph's height over the height of a line."""
     look = {**TEXT, "text": LONG, "lines": 1, "font": font, "spacing": 1}

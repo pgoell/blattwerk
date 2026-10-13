@@ -25,7 +25,7 @@ ALLOW = {
     "kind": "rect|rounded|circle|triangle|star|bubble|line|arrow|double|l1|l2|l3|l4|lines|k5|k7",
     "align": "left|center|right",
     "valign": "top|middle|bottom",
-    "font": "andika|grund|va|sas|la",
+    "font": "andika|nord|sued|grund|urff|va|sas|la",
     "list": "bullet|number",
     "dash": "dashed|dotted",
     "from": "nw|ne|sw|se",

@@ -36,7 +36,16 @@ export default function About() {
           Instrument Sans: Copyright 2022 The Instrument Sans Project Authors
           (<a href="https://github.com/Instrument/instrument-sans">Instrument</a>). <a href="/fonts/instrument/OFL.txt">Lizenztext</a>
         </p>
-        <p className="hint">Alle Schriften stehen unter der SIL Open Font License 1.1.</p>
+        <p>
+          <a href="https://github.com/christianurff/grundschrift">Grundschrift von Christian Urff</a>: Copyright 2016 Christian Urff,
+          Lizenz CC BY 3.0 (<a href="/fonts/urff/LICENSE.md">Lizenz</a>, <a href="/fonts/urff/CC-BY-3.0.txt">Lizenztext</a>).
+          Blattomat nutzt die Schriftdateien unverändert.
+        </p>
+        <p>
+          Fibel Nord und Fibel Sued (im Blatt „Druckschrift Nord“ und „Druckschrift Süd“): Copyright 2009 Peter Wiegel
+          (<a href="https://www.peter-wiegel.de/Fibel.html">Peter Wiegel</a>). <a href="/fonts/fibel/OFL.txt">Lizenztext</a>
+        </p>
+        <p className="hint">Alle Schriften außer der Grundschrift von Christian Urff stehen unter der SIL Open Font License 1.1.</p>
       </div>
       <div className="card">
         <label>Silben</label>
