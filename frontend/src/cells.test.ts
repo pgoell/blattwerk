@@ -1,8 +1,8 @@
 // Properties of the merged cells of a table: what merging, splitting and adding or removing a row or column make of its grid.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { anchorOf, beside, merged, next, rectOf, spanAt, spansOf, unmerged, type Span } from "./cells";
-import { spliced, type TableBlock } from "./sheet";
+import { EDGE, anchorOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Span } from "./cells";
+import { PT, spliced, type TableBlock } from "./sheet";
 
 type Table = TableBlock["props"];
 type Op = { kind: "merge" | "unmerge" | "addRow" | "addCol" | "removeRow" | "removeCol"; a: number; b: number };
@@ -191,5 +191,47 @@ describe("spansOf", () => {
     expect(spanAt(p, 1)).toStrictEqual([0, 0, 1, 2]);
     expect(anchorOf(p, 1)).toBe(0);
     expect(anchorOf(p, 5)).toBe(5);
+  });
+});
+
+describe("sizes", () => {
+  it("shares a width by the columns", () => {
+    // The line at the block's left is no part of a column.
+    expect(widthsOf([1, 1, 2], 80 + EDGE)).toStrictEqual([20, 20, 40]);
+  });
+
+  it("reads the row heights only when they hold", () => {
+    const cells = [["a"], ["b"]];
+    expect(heightsOf({ cells, rows: [5, 7.5] })).toStrictEqual([5, 7.5]);
+    expect(heightsOf({ cells })).toBeUndefined();
+    const bad: unknown[] = ["5", null, 5, [5], [5, 7, 9], [5, 0], [5, -1], [5, NaN], [5, Infinity], [5, "7"], [5, null]];
+    for (const rows of bad) expect(heightsOf({ cells, rows })).toBeUndefined();
+  });
+
+  it("sets each entry in a range, or keeps the proportions and the sum", () => {
+    expect(sized([1, 2, 3, 4], 1, 2, 10, true)).toStrictEqual([1, 10, 10, 4]);
+    expect(sized([1, 2, 3, 4], 1, 2, 10, false)).toStrictEqual([1, 4, 6, 4]);
+  });
+
+  it("evens a range within its sum and leaves the rest", () => {
+    expect(evened([1, 2, 3, 4], 1, 2)).toStrictEqual([1, 2.5, 2.5, 4]);
+    expect(evened([1, 2, 3, 4], 0, 3)).toStrictEqual([2.5, 2.5, 2.5, 2.5]);
+  });
+});
+
+describe("spliced rows", () => {
+  const props = { cells: [["a"], ["b"]], cols: [1], size: 10, align: "left", line: "#000", rows: [5, 7] } as unknown as TableBlock["props"];
+  const added = 10 * PT * 1.6 + 0.25;
+
+  it("splices the set heights with the rows", () => {
+    expect(spliced(props, "row", 1, true).rows).toStrictEqual([5, added, 7]);
+    expect(spliced(props, "row", 0, false).rows).toStrictEqual([7]);
+  });
+
+  it("keeps the heights on a column change, and drops a list that does not hold", () => {
+    expect(spliced(props, "col", 0, true).rows).toStrictEqual([5, 7]);
+    // One entry too many: with a row more it would fit, and set rows that never had those heights.
+    expect("rows" in spliced({ ...props, rows: [5, 7, 9] } as TableBlock["props"], "row", 0, true)).toBe(false);
+    expect("rows" in spliced({ ...props, rows: [5] } as TableBlock["props"], "col", 0, true)).toBe(false);
   });
 });

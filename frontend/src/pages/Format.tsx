@@ -5,14 +5,14 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shade, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shade, shownParas, stepOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
 import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
-import { spanAt } from "../cells";
+import { rectOf, spanAt, widthsOf, type Rect } from "../cells";
 
 type Props = {
   sel: Block[];
@@ -48,6 +48,11 @@ type Props = {
   // Makes the picked cells one cell, or brings the open merged cell back to single cells.
   merge: () => void;
   unmerge: () => void;
+  // The height in mm of each row of the table being edited, as its grid lays them out.
+  laid: number[];
+  // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
+  sizeCells: (axis: "col" | "row", mm: number) => void;
+  evenCells: (axis: "col" | "row") => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
@@ -162,7 +167,23 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+// The one size that the lines from `from` to `to` share, or undefined where they differ by more than 0.005 mm.
+const alike = (sizes: number[], from: number, to: number) => {
+  const picked = sizes.slice(from, to + 1);
+  return picked.every((s) => Math.abs(s - picked[0]) <= 0.005) ? picked[0] : undefined;
+};
+
+// The width and height in mm that the panel shows: the open cell's own, or the picked cells' shared sizes.
+function sizeFields(t: TableBlock, cell: number, reach: number | undefined, laid: number[]): { width?: number; height?: number } {
+  const [r, c, h, w] = spanAt(t.props, cell);
+  const [r0, c0, r1, c1]: Rect = reach === undefined ? [r, c, r + h - 1, c + w - 1] : rectOf(t.props, cell, reach);
+  const widths = widthsOf(t.props.cols, t.w);
+  const width = reach === undefined ? sum(widths.slice(c0, c1 + 1)) : alike(widths, c0, c1);
+  const height = !laid.length ? undefined : reach === undefined ? sum(laid.slice(r0, r1 + 1)) : alike(laid, r0, r1);
+  return { width, height };
+}
+
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -455,6 +476,16 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
               <button aria-disabled={reach === undefined} onClick={() => reach !== undefined && merge()}>Zellen verbinden</button>
               <button aria-disabled={!(spanAt(tables[0].props, cell)[2] * spanAt(tables[0].props, cell)[3] > 1)} onClick={() => spanAt(tables[0].props, cell)[2] * spanAt(tables[0].props, cell)[3] > 1 && unmerge()}>Zellen teilen</button>
             </div>
+          )}
+          {tables.length === 1 && cell !== undefined && (
+            <>
+              <Num label="Spaltenbreite" value={sizeFields(tables[0], cell, reach, laid).width} disabled={fixed} onCommit={(n) => n > 0 && sizeCells("col", n)} />
+              <Num label="Zeilenhöhe" value={sizeFields(tables[0], cell, reach, laid).height} disabled={fixed} onCommit={(n) => n > 0 && sizeCells("row", n)} />
+              <div className="acts">
+                <button disabled={fixed} onClick={() => evenCells("col")}>Spalten gleichmäßig verteilen</button>
+                <button disabled={fixed} onClick={() => evenCells("row")}>Zeilen gleichmäßig verteilen</button>
+              </div>
+            </>
           )}
           <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} onChange={(font) => style("table", { font })} />
           <div className="seg">

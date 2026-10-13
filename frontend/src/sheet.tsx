@@ -1,7 +1,7 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
 import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
-import { rectOf, spansOf, type Span } from "./cells";
+import { heightsOf, rectOf, spansOf, type Span } from "./cells";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
@@ -143,7 +143,8 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[] } };
+// `rows` holds a lowest height in mm for each row; a row still grows when its text needs more.
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[]; rows?: number[] } };
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -446,9 +447,12 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
 // A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
+// A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
 export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
-  const { cells, cols, gaps, spans: _, ...rest } = props;
+  // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
+  const { cells, cols, gaps, spans: _, rows: __, ...rest } = props;
   const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
+  const heights = heightsOf(props);
   // A sheet may come from anywhere: the flags take the shape of the cells first.
   const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
   const grid = cells.map((row) => [...row]);
@@ -471,8 +475,8 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   });
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
-  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept };
-  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept };
+  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }) };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }) };
 }
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
@@ -1485,10 +1489,12 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   const tints = pairOf(block.props.tints);
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
+  const heights = heightsOf(block.props);
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
     borderColor: line,
     gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
+    ...(heights && { gridTemplateRows: heights.map((h) => `minmax(${h * k}px, auto)`).join(" ") }),
     "--edge": `${0.25 * k}px`,
     ...gapVar(width, k),
   };
