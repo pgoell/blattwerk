@@ -226,6 +226,19 @@ def test_a_word_that_fits_keeps_its_size(editor):
     assert jagen.evaluate("el => (el.firstElementChild ?? el).style.transform") == ""
 
 
+@pytest.mark.parametrize("angle", [30, 90])
+def test_a_turned_knickblatt_presses_the_long_word_as_a_level_one(editor, angle):
+    """From the review: the word is measured as laid out, so a turned block presses it alike."""
+    press = "el => el.firstElementChild.style.transform"
+    props = {**KNICK, "kind": "l1"}
+    level = box("k", "ruling", props, w=180, h=60)
+    turned = box("t", "ruling", props, z=2, x=15, y=100, w=180, h=60, angle=angle)
+    page = editor(level, turned, words=LONG)
+    want = at(page, "k").locator(".listed .row > span").nth(2).evaluate(press)
+    assert want.startswith("scaleX(0.")
+    assert at(page, "t").locator(".listed .row > span").nth(2).evaluate(press) == want
+
+
 def test_the_thumbnail_shows_the_long_word_whole(editor):
     """A6: the thumbnail of the page shows the long word whole, as the editor does."""
     page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG)

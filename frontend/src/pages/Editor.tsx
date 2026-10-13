@@ -649,17 +649,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = own;
       block.style.transform = was;
-      // A table with its rows set goes back to what they need, down as well. A text box never shrinks by itself.
-      const set = b.type === "table" && heightsOf(b.props) ? Math.abs(h - b.h) > 0.05 : h > b.h;
-      if (!set) continue;
-      // A table without rows gets the heights it had before its text grew, so that they can come back with the text.
-      // A table saved lower than its texts need had no heights of its own to come back to, so it grows with none.
-      if (h > b.h && b.type === "table" && !heightsOf(b.props) && b.id === table?.id && laidMm.length && sum(laidMm) <= b.h - EDGE + 0.05) {
-        grown.set(b.id, { ...tall(b, h), props: { ...b.props, rows: laidMm.map(round) } });
-        // The height the rows need is measured once more with the rows set.
-        tight.current = true;
-        continue;
-      }
+      const kept = b.type === "table" ? heightsOf(b.props) : undefined;
+      // A table with its rows set goes back to what they need, down as well. A text box never shrinks by itself, and
+      // neither does a table with a box of solution words: its rows do not sum to its height.
+      const down = kept && typeof (b as TableBlock).props.bank !== "number";
+      if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, h));
     }
@@ -3147,7 +3141,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           value={b.props.cells.flat()[slot]}
                           onChange={(e) => {
                             setReach(undefined);
-                            style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text");
+                            // A table without row heights gets, with the first text typed in it, the heights its rows have
+                            // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
+                            // table saved lower than its texts need, or with a box of solution words, has no such heights.
+                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm } : {};
+                            style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))), ...rows }, "text");
                           }}
                           onKeyDown={(e) => hop(e, b)}
                           onBlur={(e) => stays(e) || setEditing("")}

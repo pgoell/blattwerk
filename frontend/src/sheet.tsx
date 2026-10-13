@@ -435,6 +435,11 @@ export function lowest(b: Box) {
   const [c, s] = dir(b);
   return b.y + b.h / 2 + (Math.abs(b.w * s) + Math.abs(b.h * c)) / 2;
 }
+// The right edge of a block's outline, turned or not.
+export function rightmost(b: Box) {
+  const [c, s] = dir(b);
+  return b.x + b.w / 2 + (Math.abs(b.w * c) + Math.abs(b.h * s)) / 2;
+}
 // Whether a maths block with these props would end lower than it does and below the paper's edge, `H` mm down.
 // A sheet prints one page a page: what hangs below is cut, so the panel and the painter refuse such a change.
 export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
@@ -1435,8 +1440,9 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
       const word = span.firstElementChild as HTMLElement | null;
       if (!word) continue;
       word.style.transform = "";
-      const room = span.getBoundingClientRect().width;
-      const natural = word.getBoundingClientRect().width;
+      // The widths as laid out, not as drawn: a turned block's outline would measure wrong.
+      const room = parseFloat(getComputedStyle(span).width);
+      const natural = parseFloat(getComputedStyle(word).width);
       word.style.transform = natural > room ? `scaleX(${room / natural})` : "";
     }
   };

@@ -227,12 +227,46 @@ def test_a_table_made_taller_by_hand_goes_back_to_that_height(editor):
     """Issue 520: a table of 60 mm with no rows set, grown by a long text, goes back to 60 mm."""
     client = user()
     page = editor(box("t", "table", GRID, h=60), client=client)
+    rows_before = [mm_height(page, cell(page, "t", n)) for n in (0, 3, 6)]
     open_cell(page, "t", 4)
-    page.keyboard.type(LONG)
+    page.keyboard.type(LONG + " " + LONG)
     assert block(page, client)["h"] > 60
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - 60) <= 0.05
+    # The rows too: the row typed into did not keep the room it took from the others.
+    for n, was in zip((0, 3, 6), rows_before, strict=True):
+        assert abs(mm_height(page, cell(page, "t", n)) - was) <= 0.05
+
+
+def test_a_typed_height_holds_on_a_table_with_rows_and_solution_words(editor):
+    """From the review: the rows of a table with a box of solution words do not sum to its height,
+    so such a table does not shrink by itself and a typed `Höhe` holds."""
+    client = user()
+    gaps = [[True, False, False], [False] * 3, [False] * 3]
+    page = editor(
+        box("t", "table", {**GRID, "gaps": gaps, "bank": 3}, w=W, h=50 + EDGE), client=client
+    )
+    open_cell(page, "t", 3)
+    typed(page, "Zeilenhöhe", "12")
+    page.keyboard.press("Escape")
+    pick(page, "t")
+    typed(page, "Höhe", "90")
+    assert block(page, client)["h"] == 90
+
+
+def test_a_table_past_the_right_edge_is_warned_of(editor):
+    """Issue 537: a column more makes a table from margin to margin wider than the page, and the
+    panel says that what lies past the edge is not printed. Without the column it says nothing."""
+    client = user()
+    page = editor(box("t", "table", GRID, x=15, w=180), client=client)
+    open_cell(page, "t", 0)
+    expect(page.locator('[data-edge="over"]')).to_be_hidden()
+    page.get_by_role("button", name="Spalte rechts", exact=True).click()
+    assert block(page, client)["w"] > 195
+    expect(page.locator('[data-edge="over"]')).to_be_visible()
+    page.get_by_role("button", name="Spalte löschen", exact=True).click()
+    expect(page.locator('[data-edge="over"]')).to_be_hidden()
 
 
 def test_a_shrunk_table_agrees_on_screen_thumb_and_pdf(editor, browser, server):
