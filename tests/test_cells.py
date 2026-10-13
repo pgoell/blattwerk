@@ -182,18 +182,20 @@ def test_a_cell_over_rows_shares_its_height(editor):
 
 
 @pytest.mark.parametrize(
-    "open_at, label, stored_spans, cells_after",
+    "open_at, label, stored_spans, size",
     [
         # Through a row: the new row 1 lies inside the span.
-        (5, "Zeile darüber", [[0, 0, 3, 2]], 3),
-        (7, "Spalte links", [[0, 0, 2, 3]], 3),
-        (2, "Zeile darüber", [[1, 0, 2, 2]], 4),
-        (5, "Zeile löschen", [[0, 0, 1, 2]], 2),
-        (7, "Spalte löschen", [[0, 0, 2, 1]], 2),
-        (2, "Zeile löschen", [[0, 0, 1, 2]], 2),
+        (5, "Zeile darüber", [[0, 0, 3, 2]], (4, 3)),
+        (7, "Spalte links", [[0, 0, 2, 3]], (3, 4)),
+        (2, "Zeile darüber", [[1, 0, 2, 2]], (4, 3)),
+        (5, "Zeile löschen", [[0, 0, 1, 2]], (2, 3)),
+        (7, "Spalte löschen", [[0, 0, 2, 1]], (3, 2)),
+        # The span's first row and its first column: its text goes to the cell that starts it now.
+        (2, "Zeile löschen", [[0, 0, 1, 2]], (2, 3)),
+        (6, "Spalte löschen", [[0, 0, 2, 1]], (3, 2)),
     ],
 )
-def test_rows_and_columns_through_a_merged_cell(editor, open_at, label, stored_spans, cells_after):
+def test_rows_and_columns_through_a_merged_cell(editor, open_at, label, stored_spans, size):
     client = user()
     # High enough that the handle in the middle of its lower edge lies below the last row's cells.
     page = editor(box("t", "table", MERGED, h=40), client=client)
@@ -205,9 +207,10 @@ def test_rows_and_columns_through_a_merged_cell(editor, open_at, label, stored_s
     assert stored["spans"] == stored_spans
     for row in stored["cells"]:
         assert len(row) == len(stored["cols"])
-    assert len(stored["cells"]) > 0
-    if label == "Zeile löschen" and open_at == 2:
-        assert stored["cells"][0][0] == "a"
+    assert (len(stored["cells"]), len(stored["cols"])) == size
+    # The merged cell keeps its text, whatever was cut.
+    row, col = stored_spans[0][:2]
+    assert stored["cells"][row][col] == "a"
     assert not errors, errors
 
 
@@ -439,6 +442,15 @@ def test_the_selection_drops_and_the_buttons_know_when(editor):
     page.keyboard.press("Escape")
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(0)
 
+    # An arrow drops it too, whether it steps to the next cell or moves the caret in the text.
+    for key in ("ArrowDown", "ArrowLeft"):
+        open_cell(page, "t", 0)
+        cell(page, "t", 4).click(modifiers=["Shift"])
+        expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
+        page.keyboard.press(key)
+        expect(at(page, "t").locator(".table > div.picked")).to_have_count(0)
+        page.keyboard.press("Escape")
+
     # A disabled button changes nothing.
     open_cell(page, "t", 0)
     before = props(page, client)
@@ -511,3 +523,39 @@ def test_copy_keeps_the_merged_cells(editor):
     tables = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "table"]
     assert len(tables) == 2
     assert tables[0]["props"]["spans"] == tables[1]["props"]["spans"]
+
+
+def test_undo_drops_the_cells_picked(editor):
+    """Undo may take the picked cells away with their row: none stays picked, and nothing throws."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=40), client=client)
+    errors = watch(page)
+    open_cell(page, "t", 0)
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    cell(page, "t", 11).click(modifiers=["Shift"])
+    expect(at(page, "t").locator(".table > div.picked")).to_have_count(12)
+    page.keyboard.press("Control+z")
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(9)
+    expect(at(page, "t").locator(".table > div.picked")).to_have_count(0)
+    verbinden = page.get_by_role("button", name="Zellen verbinden", exact=True)
+    expect(verbinden).to_have_attribute("aria-disabled", "true")
+    verbinden.click(force=True)
+    assert props(page, client)["cells"] == CELLS
+    assert not errors, errors
+
+
+def test_shift_click_in_the_open_cell_picks_text(editor):
+    """As before merged cells: Shift+click in the field picks its text up to the click."""
+    grid = {**GRID, "cells": [["hello world here", "b", "c"], *CELLS[1:]]}
+    page = editor(box("t", "table", grid, w=150))
+    open_cell(page, "t", 0)
+    area = field(page, "t")
+    area.evaluate("e => e.setSelectionRange(0, 0)")
+    size = area.bounding_box()
+    page.keyboard.down("Shift")
+    page.mouse.click(size["x"] + size["width"] / 2 + 20, size["y"] + size["height"] / 2)
+    page.keyboard.up("Shift")
+    start, end = area.evaluate("e => [e.selectionStart, e.selectionEnd]")
+    assert start == 0 and end > 0
+    expect(area).to_be_focused()

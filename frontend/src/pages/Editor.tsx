@@ -693,7 +693,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A covered cell is no cell of its own: the field goes to the merged cell that covers it.
     else if (table && editing === table.id && anchorOf(table.props, slot) !== slot) setSlot(anchorOf(table.props, slot));
     // Cells picked stay picked only while their table is being edited.
-    if (reach !== undefined && (!table || editing !== table.id)) setReach(undefined);
+    if (reach !== undefined && (!table || editing !== table.id || reach >= table.props.cells.flat().length)) setReach(undefined);
     // The handles of a table's column lines need its rows' heights where a merged cell lies over a line.
     const grid = table && spansOf(table.props).length ? sheet.current!.querySelector(`[data-id="${table.id}"] .table`) : null;
     const rows = grid ? getComputedStyle(grid).gridTemplateRows : "";
@@ -1306,10 +1306,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function undo() {
     const last = hist.past.at(-1);
+    // The cells picked may be other cells in the sheet of the step before, or none.
+    setReach(undefined);
     if (last) show(last.from, (h) => undone(h, last));
   }
   function redo() {
     const next = hist.future[0];
+    setReach(undefined);
     if (next) show(next.to, (h) => redone(h, next));
   }
 
@@ -1980,6 +1983,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const at = field.selectionStart;
     const line = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] [data-cell="${slot}"] p.open`);
     let to: number | undefined;
+    if (e.key.startsWith("Arrow")) setReach(undefined);
     if (plain && line && at === field.selectionEnd) {
       if (e.key === "ArrowLeft" && at === 0) to = next(b.props, slot, -1);
       if (e.key === "ArrowRight" && at === field.value.length) to = next(b.props, slot, 1);
@@ -2900,9 +2904,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             const hit = table && editing === table.id && (e.target as Element).closest(`[data-id="${table.id}"]`) ? (e.target as Element).closest<HTMLElement>("[data-cell]") : null;
             if (hit && e.button === 0) {
               const at = anchorOf(table!.props, +hit.dataset.cell!);
-              // Shift keeps the letters of the cells unpicked; a plain press in the open field sets its caret.
-              if (e.shiftKey) e.preventDefault();
-              else setSlot(at);
+              // Shift on another cell keeps the letters of the cells unpicked; in the open field it picks text, and a
+              // plain press there sets the caret.
+              if (e.shiftKey && at !== slot) e.preventDefault();
+              else if (!e.shiftKey) setSlot(at);
               setReach(e.shiftKey && at !== slot ? at : undefined);
               spot.current = undefined;
               return;
