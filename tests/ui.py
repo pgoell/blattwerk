@@ -280,7 +280,7 @@ def caret(page, word, offset):
 
 def saved(page, client):
     """The first page's blocks as the server holds them, once the editor has saved a change."""
-    # The editor saves two seconds after the last change.
+    # The editor saves 0.3 s after a change in the `editor` fixture, 2 s for a teacher.
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=5000)
     sheet_id = page.url.rsplit("/", 1)[1]
     return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]

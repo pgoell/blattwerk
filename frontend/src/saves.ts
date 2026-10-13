@@ -2,6 +2,9 @@ import { useSyncExternalStore } from "react";
 import { api, catchUp, countLogin, onOther, onSignedOut, showLogin as signedOut, signed, type Refusal } from "./api";
 import { read, type Doc, type Sheet } from "./sheet";
 
+// The wait after a change before it is saved. The tests set a shorter one on the page; a teacher's page has none and waits 2 s.
+const AFTER = (window as { saveAfter?: number }).saveAfter ?? 2000;
+
 // Each sheet has one saver, and it outlives the editor: a save that is out, fails or never answers when the teacher
 // has left the sheet is still seen through, and no load waits for it. The editor says what the sheet holds now and
 // reads from here whether that is saved.
@@ -213,7 +216,7 @@ function settle(s: Saver, landed = 0) {
   s.idle.splice(0).forEach((done) => done());
   if (!unsaved(s) || s.clash || s.stop || s.gone) return;
   if (s.tries) plan(s, Math.min(2000 * 2 ** (s.tries - 1), 30000));
-  else if (s.open) plan(s, 2000);
+  else if (s.open) plan(s, AFTER);
   else send(s);
 }
 
@@ -289,7 +292,7 @@ export function set(id: number, want: Kept) {
   if (!s || (s.want.doc === want.doc && s.want.title === want.title)) return;
   s.want = want;
   // A save that failed has a clock of its own. An undo back to what is saved leaves nothing to keep.
-  if (!s.tries) plan(s, 2000);
+  if (!s.tries) plan(s, AFTER);
   if (!unsaved(s)) keep(s);
   // The store has the change within a second, also while nothing can be sent: a save is out, one failed, or a clash
   // stands. One write for the many changes of a drag.

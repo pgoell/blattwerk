@@ -288,6 +288,8 @@ def editor(browser, server, playwright):
             window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
         context = browser.new_context(**window)
         contexts.append(context)
+        # The tests save 0.3 s after a change; a teacher's page waits 2 s (saves.ts).
+        context.add_init_script("window.saveAfter = 300")
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
         # WebKit knows no leave to write, and lets the page write without one.
         context.grant_permissions(["clipboard-read", *([] if WEBKIT else ["clipboard-write"])])
