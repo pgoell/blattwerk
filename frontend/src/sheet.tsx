@@ -1425,13 +1425,34 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     : shown.map(cut).join("\n");
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
+  const list = useRef<HTMLDivElement>(null);
+  // A word wider than its column is pressed narrower, its letters as high as before, so it stays in the lines and
+  // the house. The ratio does not depend on the scale k, so the thumbnail and the print press alike. Only a Knickblatt's
+  // word has a width set, so the other lists are left alone. Measured after every render, and again when the fonts are in.
+  const press = () => {
+    for (const span of list.current?.querySelectorAll<HTMLElement>(".row > span") ?? []) {
+      // The word inside is the one scaled: the span is the clip, and a scaled clip would cut the word.
+      const word = span.firstElementChild as HTMLElement | null;
+      if (!word) continue;
+      word.style.transform = "";
+      const room = span.getBoundingClientRect().width;
+      const natural = word.getBoundingClientRect().width;
+      word.style.transform = natural > room ? `scaleX(${room / natural})` : "";
+    }
+  };
+  useLayoutEffect(press);
+  useLayoutEffect(() => {
+    document.fonts.ready.then(press);
+    document.fonts.addEventListener("loadingdone", press);
+    return () => document.fonts.removeEventListener("loadingdone", press);
+  }, []);
   const listed = mode && at && (
-    <div className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
+    <div ref={list} className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
             ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
-            : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{word}</span>}
+            : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{fold ? <span style={{ display: "inline-block", transformOrigin: "left" }}>{word}</span> : word}</span>}
         </div>
       ))}
     </div>

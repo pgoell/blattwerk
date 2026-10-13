@@ -10,7 +10,7 @@ from playwright.sync_api import expect
 from test_feed_print import pdf_text, printed, sheet_id
 from test_gaps import panel
 from test_words import list_tab, rulings, undo
-from ui import RULING, TEXT, at, box, doc, pick, user
+from ui import RULING, TEXT, at, box, doc, pick, thumb, user
 
 WORDS = ["Hund", "Katze", "Maus", "Vogel", "Pferd", "Schule"]
 KNICK = {**RULING, "kind": "l3", "list": "fold", "folds": 2}
@@ -139,3 +139,95 @@ def test_garbage_folds_draw_two_columns(editor):
     page = editor(box("k", "ruling", {**KNICK, "folds": 9}, w=180, h=69), words=WORDS)
     expect(at(page, "k").locator("line.fold")).to_have_count(1)
     expect(at(page, "k").locator("line.col")).to_have_count(1)
+
+
+LONG = ["jagen", "Übung", "Schmetterling"]
+# Each row's word and where its ink ends, against the fold line and the clip.
+# A word pressed narrower is whole; a cut word is not.
+EDGES = """(scope) => {
+  const line = scope.querySelector('svg.ruling line.fold').getBoundingClientRect().right;
+  return [...scope.querySelectorAll('.listed .row > span')].map((span) => {
+    const word = span.firstElementChild ?? span;
+    const range = document.createRange();
+    range.selectNodeContents(word);
+    return {
+      text: span.textContent,
+      drawn: range.getBoundingClientRect().right,
+      clip: span.getBoundingClientRect().right,
+      line,
+    };
+  });
+}"""
+
+
+def whole(scope, words):
+    """Each word is whole: its text is there, its ink is inside the clip and before the fold."""
+    found = scope.evaluate(EDGES)
+    assert [row["text"] for row in found] == words
+    for row in found:
+        assert row["drawn"] <= min(row["clip"], row["line"]) + 0.5, row
+
+
+def test_a_long_word_shows_whole_on_a_knickblatt(editor):
+    """A6: a word wider than its column is pressed narrower and shows whole, before the fold."""
+    page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG)
+    whole(at(page, "k"), LONG)
+
+
+@pytest.mark.parametrize("folds", [2, 3])
+def test_a_long_word_shows_whole_with_the_house(editor, folds):
+    """A6: with the house on, the first column is narrower, and the word still shows whole."""
+    page = editor(
+        box("k", "ruling", {**KNICK, "kind": "l1", "folds": folds, "house": True}, w=180, h=60),
+        words=LONG,
+    )
+    whole(at(page, "k"), LONG)
+
+
+@pytest.mark.parametrize(
+    ("font", "kind", "house"),
+    [
+        ("andika", "l1", False),
+        ("nord", "l1", False),
+        ("sued", "l1", False),
+        ("grund", "l1", False),
+        ("urff", "l1", False),
+        ("va", "l1", False),
+        ("sas", "l1", False),
+        ("la", "l2", True),
+    ],
+)
+def test_a_long_word_shows_whole_in_each_school_script(editor, font, kind, house):
+    """A6: in each school script the long word shows whole, in its lines and its house."""
+    page = editor(
+        box("k", "ruling", {**KNICK, "kind": kind, "font": font, "house": house}, w=180, h=60),
+        words=LONG,
+    )
+    whole(at(page, "k"), LONG)
+
+
+def test_a_long_word_prints_whole(editor, browser, server):
+    """A10: the PDF holds the long word, and the print page shows it whole."""
+    client = user()
+    page = editor(
+        box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), client=client, words=LONG
+    )
+    paper = printed(browser, server, sheet_id(page))
+    whole(paper.locator("body"), LONG)
+    paper.context.close()
+    assert "Schmetterling" in pdf_text(server, client, sheet_id(page))
+
+
+def test_a_word_that_fits_keeps_its_size(editor):
+    """A6: "jagen" fits its column, so it has no transform: it is not stretched or pressed."""
+    page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG)
+    jagen = at(page, "k").locator(".listed .row span").first
+    expect(jagen).to_have_text("jagen")
+    assert jagen.evaluate("el => (el.firstElementChild ?? el).style.transform") == ""
+
+
+def test_the_thumbnail_shows_the_long_word_whole(editor):
+    """A6: the thumbnail of the page shows the long word whole, as the editor does."""
+    page = editor(box("k", "ruling", {**KNICK, "kind": "l1"}, w=180, h=60), words=LONG)
+    expect(thumb(page, 0)).to_be_visible()
+    whole(thumb(page, 0), LONG)
