@@ -859,6 +859,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (!e.repeat) setPan(true);
       return;
     }
+    // A letter typed with one picked Lineatur opens it for writing, and the caret goes to the end of its text. The
+    // focus moves in the same flush, so the browser types the key into the textarea: no preventDefault. Keys that
+    // are commands, and a field, a button or the panel that keep their own, stay as they are.
+    const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    if (typed && !editing && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+      flushSync(() => edit(free[0].id));
+      return;
+    }
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
     const step = e.shiftKey ? 10 : cell || 1;
     const nudge = (dx: number, dy: number) => place(free.map((b) => [b.id, { x: round(b.x + dx * step), y: round(b.y + dy * step) }]), "nudge");
@@ -2358,8 +2366,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (more) setIds(ids.filter((i) => !unit(id).includes(i)));
       // A click on a block of a picked group picks the block alone. A press drags the group instead.
       else if (!press && ids.length > 1 && unit(id).length > 1) setIds([id]);
-      // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks.
-      else if (touch.current) edit(id, el);
+      // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
+      // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
+      // branch above.
+      else if (touch.current || (!press && free[0]?.type === "ruling" && free.length === 1)) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {

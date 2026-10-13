@@ -428,7 +428,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
             </p>
           )}
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
-          {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
+          {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
           {RULINGS[kindOf(rulings[0].props.kind)].at && (
             <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} onChange={(font) => style("ruling", { font })} />
           )}
