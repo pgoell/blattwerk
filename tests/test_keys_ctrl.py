@@ -22,7 +22,7 @@ FIELDS = [
 ]
 # What one undo leaves of "Wort". A text and a cell are the sheet's to undo, which takes the typing
 # as one step. A Lineatur is the browser's, which takes back the last letter typed.
-UNDONE = {"text": "Hallo", "shape": "", "ruling": "Wot", "table": "H"}
+UNDONE = {"text": "Hallo", "shape": "", "ruling": "Wot", "ruling l1": "Wot", "table": "H"}
 CLIPBOARD = "async (words) => (await navigator.clipboard.readText()) === words"
 
 
