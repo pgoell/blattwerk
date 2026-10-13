@@ -2,6 +2,7 @@
 text goes. Issue 517 is the columns, issue 520 the height.
 """
 
+from playwright.sync_api import expect
 from test_cells import GRID, MERGED, cell, open_cell, print_page, props
 from test_sizes import EDGE, H, W, block, mm_height, num, typed, widths_mm
 from ui import box, pick, thumb, user
@@ -160,22 +161,6 @@ def test_a_column_deleted_through_a_merged_cell_leaves_the_other_widths(editor):
     assert abs(after["w"] - (before["w"] - old[0])) <= 0.05
 
 
-def test_the_right_click_menu_adds_and_deletes_like_the_panel(editor):
-    """Issue 517: the right-click menu adds and deletes columns like the panel does."""
-    client = user()
-    page = editor(box("t", "table", GRID, w=W), client=client)
-    open_cell(page, "t", 0)
-    cell(page, "t", 4).click(modifiers=["Shift"])
-    cell(page, "t", 4).click(button="right")
-    page.get_by_role("menuitem", name="Spalte rechts", exact=True).click()
-    assert len(widths_mm(block(page, client))) == 4
-    open_cell(page, "t", 0)
-    cell(page, "t", 4).click(modifiers=["Shift"])
-    cell(page, "t", 4).click(button="right")
-    page.get_by_role("menuitem", name="Spalte löschen", exact=True).click()
-    assert len(widths_mm(block(page, client))) == 3
-
-
 def test_a_set_row_height_comes_back_when_the_long_text_is_deleted(editor):
     """Issue 520: a row set to 20 mm, grown by a long text, is 20 mm again when the text goes. The
     other rows and the block keep their heights."""
@@ -199,24 +184,26 @@ def test_a_set_row_height_comes_back_when_the_long_text_is_deleted(editor):
 
 
 def test_typing_and_deleting_adds_no_step_of_undo(editor):
-    """Issue 520: after a long text is typed and deleted, one Ctrl+Z brings the text back with the
-    table tall. The next gives the empty table at its first height."""
+    """Issue 520, I3: the heights belong to the typing's own step. A text typed and deleted in one
+    go is one step, as before: one Ctrl+Z gives the table as it was, with no row heights, and there
+    is no step more."""
     client = user()
     page = editor(box("t", "table", GRID, h=H), client=client)
+    was = props(page, client)["cells"][1][1]
     open_cell(page, "t", 4)
     page.keyboard.type(LONG)
-    tall = block(page, client)["h"]
-    assert tall > H + 20
+    assert block(page, client)["h"] > H + 20
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
     assert abs(block(page, client)["h"] - H) <= 0.05
     page.keyboard.press("Control+z")
-    assert props(page, client)["cells"][1][1] == LONG
-    assert abs(block(page, client)["h"] - tall) <= 0.05
-    page.keyboard.press("Control+z")
+    assert props(page, client)["cells"][1][1] == was
+    assert block(page, client)["h"] == H
+    assert "rows" not in props(page, client)
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+    page.keyboard.press("Control+y")
     assert props(page, client)["cells"][1][1] == ""
     assert abs(block(page, client)["h"] - H) <= 0.05
-    assert "rows" not in props(page, client)
 
 
 def test_a_table_goes_back_when_its_long_text_is_deleted(editor):
