@@ -92,7 +92,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -110,15 +110,15 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. Every block
 // gives and takes the numbering before it, `mark`. The Silbenbögen and the Silbenfarbe go along, `syllables`, `tints`
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
-const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
 const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
-type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean; numbering?: string };
+type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
-  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace"] : ["rule", "trace"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
-  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
+  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
