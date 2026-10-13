@@ -2078,7 +2078,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [variants, setVariants] = useState(false);
   const [count, setCount] = useState(2);
   const [letters, setLetters] = useState(true);
-  const varianten = useRef<HTMLButtonElement>(null);
+  // The button that opened the dialog gets the focus back when it shuts.
+  const variantsDoor = useRef<HTMLElement | null>(null);
+  const openVariants = (door: HTMLElement) => {
+    variantsDoor.current = door;
+    setVariants(true);
+  };
 
   // A template stored or deleted with the session run out brings the login. A second press while one is on its way
   // stores no second template. The name stays until the template is stored.
@@ -2388,6 +2393,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         ]),
     { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
     { label: "Feedback", icon: MessageSquare, run: () => feedback.current!() },
+    { label: "Varianten drucken", icon: Layers, run: () => openVariants(bar.current!.querySelector<HTMLElement>(".more")!) },
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
@@ -2574,6 +2580,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />
           </Feedback>
+          {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={(e) => openVariants(e.currentTarget)} />}
           {more.length > 0 && (
             <Tool
               icon={Ellipsis}
@@ -2600,7 +2607,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={varianten} onClose={() => setVariants(false)} />
+            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
           )}
         </div>
         {saver?.clash && (
@@ -3322,9 +3329,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 <Eraser size={14} aria-hidden />
                 Alle entfernen
               </button>
-              {/* Here and not beside "PDF": the bar has no room for one more button on an iPad. */}
+              {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
-              <button ref={varianten} className="wide" onClick={() => setVariants(true)}>
+              <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
                 <Layers size={14} aria-hidden />
                 Varianten drucken
               </button>
