@@ -542,14 +542,17 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
   const font = p.font ?? "andika";
   const s = typeof p.spacing === "number" && Number.isFinite(p.spacing) ? p.spacing : 1.3;
-  const reach = (v: number) => (v < 0.01 ? 0 : v);
+  // Under a fiftieth of the size it counts as none: Andika's lowest sign reaches 0.015 em out of a line of 1.3, less
+  // than a pixel at any size a sheet uses, and its texts stay as sheets saved before drew them.
+  const reach = (v: number) => (v < 0.02 ? 0 : v);
   const above = reach(Math.max(0, INK[font][0] - FONTS[font][2] - s / 2));
   const below = reach(Math.max(0, INK[font][1] + FONTS[font][2] - s / 2));
+  // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0;
-  // A trace text fades along its rows: a row is the font's size times its spacing, and `--up` is the room above the first.
+  // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.
   const fade = fadeOf(p);
   const rowMM = p.size * PT * (p.spacing ?? 1.3);
-  const mask = fade && fadeMask(fade, Math.max(1, Math.round((block.h - 2 * down) / rowMM)), rowMM * k, (px) => `calc(var(--up, 0px) + ${px}px)`);
+  const mask = fade && fadeMask(fade, Math.max(1, Math.round((block.h - 2 * down) / rowMM)), rowMM * k, (px) => `calc(var(--ink-up, 0px) + ${px}px)`);
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
@@ -586,7 +589,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       data-fade={fade}
       style={{
         ...textStyle(p, k),
-        ...(tight && { "--up": `${above}em`, "--down": `${below}em` }),
+        ...(tight && { "--ink-up": `calc(${above}em + 1px)`, "--ink-down": `calc(${below}em + 1px)` }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.

@@ -577,10 +577,10 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
-/* The ink of a font that its line does not hold cuts as far outside the paragraph as the font reaches (--up and
-   --down, em, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding and the margin cancel
+/* The ink of a font that its line does not hold cuts as far outside the paragraph as the font reaches (--ink-up and
+   --ink-down, em, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding and the margin cancel
    out: the text stays where it is. A text too long still ends at the foot, that far below. */
-.frame.tight p, .frame.tight .rich { padding-block: var(--up) var(--down); margin-block: calc(-1 * var(--up)) calc(-1 * var(--down)); }
+.frame.tight p, .frame.tight .rich { padding-block: var(--ink-up) var(--ink-down); margin-block: calc(-1 * var(--ink-up)) calc(-1 * var(--ink-down)); }
 .frame.tight .rich p { padding-block: 0; margin-block: 0; overflow: visible; }
 /* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
    text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */

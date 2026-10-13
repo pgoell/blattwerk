@@ -130,13 +130,18 @@ def test_no_ink_is_cut_in_the_open_text(editor, spacing):
 
 
 def pdf_ink(doc, index, x, y, w, h):
-    """The dark pixels of a PDF page in a block's region, the block plus 3 mm around it."""
+    """The ink of a PDF page in a block's region, the block plus 3 mm around it.
+
+    Summed darkness, not a count of dark pixels: a thin stem that falls between two pixels is pale
+    on both and would count as none.
+    """
     paper = doc[index]
     img = paper.render(scale=4).to_pil().convert("L")
     per_mm = img.width / (paper.get_width() * 25.4 / 72)
     left, top = round((x - 3) * per_mm), round((y - 3) * per_mm)
     right, bottom = round((x + w + 3) * per_mm), round((y + h + 3) * per_mm)
-    return sum(img.crop((left, top, right, bottom)).histogram()[:100])
+    shades = img.crop((left, top, right, bottom)).histogram()
+    return sum((255 - value) * n for value, n in enumerate(shades))
 
 
 def fetch_pdf(server, client, sheet_id):
@@ -155,10 +160,11 @@ def test_no_ink_is_cut_in_the_pdf(server):
     first, second, pairs = [], [], []
     for i, key in enumerate(FONTS):
         y = 10 + 30 * i
-        for x, spacing in ((5, 1.0), (65, 2.0)):
+        # 90 mm wide: a joined script's line of 28 pt breaks in 50 mm, and its second line is cut.
+        for x, spacing in ((5, 1.0), (105, 2.0)):
             props = text_props(key, "text", "plain", spacing)
-            first.append(box(f"t{i}-{spacing}", "text", props, x=x, y=y, w=50, h=20))
-        pairs.append(((0, 5, y, 50, 20), (0, 65, y, 50, 20)))
+            first.append(box(f"t{i}-{spacing}", "text", props, x=x, y=y, w=90, h=20))
+        pairs.append(((0, 5, y, 90, 20), (0, 105, y, 90, 20)))
     for i, key in enumerate(FONTS):
         y = 10 + 30 * i
         for x, kind, form, spacing, w, h in (
@@ -168,8 +174,8 @@ def test_no_ink_is_cut_in_the_pdf(server):
             (170, "text", "rich", 2.0, 35, 20),
         ):
             props = text_props(key, kind, form, spacing)
-            if form == "rich":
-                props["size"] = 14
+            # Small enough for one line in the block's width, in a joined script too.
+            props["size"] = 14
             second.append(box(f"s{i}-{x}", kind, props, x=x, y=y, w=w, h=h))
         pairs.append(((1, 5, y, 50, 24), (1, 65, y, 50, 24)))
         pairs.append(((1, 125, y, 35, 20), (1, 170, y, 35, 20)))
@@ -194,10 +200,11 @@ def test_a_text_too_long_ends_at_the_foot(editor, server, key, spacing):
     b = block.bounding_box()
     size_px = block.locator("p").first.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")
     mm = b["height"] / 20
-    down_em = block.locator(".frame").evaluate(
-        "el => parseFloat(getComputedStyle(el).getPropertyValue('--down')) || 0"
+    # The paragraph's padding is the font's reach below its line, in px: none where it holds it.
+    spill = block.locator("p").first.evaluate(
+        "el => parseFloat(getComputedStyle(el).paddingBottom)"
     )
-    spill = down_em * size_px
+    down_em = spill / size_px
     clip = {
         "x": b["x"] - 10,
         "y": b["y"] - 10,
@@ -224,8 +231,8 @@ def test_a_text_too_long_ends_at_the_foot(editor, server, key, spacing):
 
 
 # Fonts whose ink reaches past the line box at 1.3 too: their paragraphs carry the padding at 1.3.
-# Andika's ink reaches 0.015 em under its 1.3 line box, so it is one of them.
-REACHES_AT_13 = ["andika", "grund", "va", "sas", "la"]
+# Andika's lowest sign reaches 0.015 em under its line of 1.3, under the fiftieth that counts.
+REACHES_AT_13 = ["grund", "va", "sas", "la"]
 
 
 @pytest.mark.parametrize("spacing", [None, 1.3, 2.0])
