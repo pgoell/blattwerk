@@ -2919,7 +2919,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 onClick={(e) => {
                   if (!dragged.current) {
                     visit(n);
-                    // The keys of a thumbnail need its focus; a click gives it none in WebKit.
+                    // The keys of a thumbnail need its focus, and a click leaves it with the page.
                     e.currentTarget.focus({ preventScroll: true });
                   }
                   dragged.current = false;
