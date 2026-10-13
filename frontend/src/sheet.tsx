@@ -193,6 +193,19 @@ export const FONTS = {
 } as const;
 // The scale a Lineatur draws a font at: 1 for the fonts without a fourth number.
 export const fontScale = (font: Font) => (FONTS[font] as readonly [string, string, number, number?])[3] ?? 1;
+// How far the ink of a font reaches above and below its baseline, in em (#487). Measured in Chromium with
+// canvas measureText, at 1000 px, over the regular, bold and italic cut and each of the printable ASCII
+// characters and ÄÖÜäöüßẞ€§°; the largest of the three cuts, rounded up to three decimals.
+const INK: Record<Font, readonly [number, number]> = {
+  andika: [0.985, 0.25],
+  nord: [0.75, 0.25],
+  sued: [0.75, 0.25],
+  grund: [1.157, 0.469],
+  urff: [0.954, 0.282],
+  va: [1.218, 0.516],
+  sas: [1.125, 0.438],
+  la: [1.157, 0.469],
+};
 // Trace text (Nachspurtext), for the children to write over, in a text, a shape, a table and a Lineatur. A block
 // stores `trace`: true for grey, "outline" for letters with a line around them and no fill (Umriss), "dotted" for the
 // font's own dotted cut (gepunktet). Sheets saved before have true or nothing. `fade` makes the trace text lighter
@@ -524,10 +537,19 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
-  // A trace text fades along its rows: a row is the font's size times its spacing, and `--spill` is the room above the first.
+  // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
+  // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
+  // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
+  const font = p.font ?? "andika";
+  const s = typeof p.spacing === "number" && Number.isFinite(p.spacing) ? p.spacing : 1.3;
+  const reach = (v: number) => (v < 0.01 ? 0 : v);
+  const above = reach(Math.max(0, INK[font][0] - FONTS[font][2] - s / 2));
+  const below = reach(Math.max(0, INK[font][1] + FONTS[font][2] - s / 2));
+  const tight = above > 0 || below > 0;
+  // A trace text fades along its rows: a row is the font's size times its spacing, and `--up` is the room above the first.
   const fade = fadeOf(p);
   const rowMM = p.size * PT * (p.spacing ?? 1.3);
-  const mask = fade && fadeMask(fade, Math.max(1, Math.round((block.h - 2 * down) / rowMM)), rowMM * k, (px) => `calc(var(--spill, 0px) + ${px}px)`);
+  const mask = fade && fadeMask(fade, Math.max(1, Math.round((block.h - 2 * down) / rowMM)), rowMM * k, (px) => `calc(var(--up, 0px) + ${px}px)`);
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
@@ -559,11 +581,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   );
   return (
     <div
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight")}
       data-trace={traceOf(p)}
       data-fade={fade}
       style={{
         ...textStyle(p, k),
+        ...(tight && { "--up": `${above}em`, "--down": `${below}em` }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.
@@ -575,7 +598,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
+        clipPath: `inset(${tight ? `calc(-1px - ${above}em) -1px ${below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
