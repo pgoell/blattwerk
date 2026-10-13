@@ -448,9 +448,8 @@ def test_tab_reaches_the_gap_controls_and_space_and_enter_press_them(editor):
     page = editor(box("a", "text", WORDY), client=client)
     pick(page, "a")
     page.get_by_label("Zeilenabstand").focus()
-    page.keyboard.press("Tab")
-    page.keyboard.press("Tab")
-    page.keyboard.press("Tab")
+    for _ in range(4):
+        page.keyboard.press("Tab")
     expect(panel(page, "Lücke")).to_be_focused()
     page.keyboard.press("Space")
     expect(panel(page, "Lücke")).to_have_attribute("aria-pressed", "true")

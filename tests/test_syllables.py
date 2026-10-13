@@ -121,8 +121,11 @@ def test_one_click_draws_a_bow_under_each_syllable_and_one_more_takes_them_away(
     page = editor(box("a", "text", WORDS), client=client)
     pick(page, "a")
     expect_switch(page, False)
-    # It follows the last of the text settings.
-    assert switch(page).evaluate("(el) => el.previousElementSibling.textContent") == "Zeilenabstand"
+    # It follows the last text setting: the hint of the trace choice (Andika has no dotted cut).
+    assert (
+        switch(page).evaluate("(el) => el.previousElementSibling.textContent")
+        == "Gepunktet gibt es nur in der Grundschrift (Urff)."
+    )
     bows(page, "a").to_have_count(0)
     switch(page).click()
     expect_switch(page, True)
@@ -244,6 +247,7 @@ def test_tab_reaches_the_switch_and_space_and_enter_press_it(editor):
     page = editor(box("a", "text", WORDS))
     pick(page, "a")
     page.get_by_label("Zeilenabstand").focus()
+    page.keyboard.press("Tab")
     page.keyboard.press("Tab")
     expect(switch(page)).to_be_focused()
     expect_switch(page, False)
