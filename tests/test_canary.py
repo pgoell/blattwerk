@@ -1,5 +1,6 @@
-"""The deploy's canary and its way back: alive.sh, canary.sh, keep-prev.sh, go-back.sh and their
-place in deploy.yml. The scripts run against a docker that only writes down what it was asked.
+"""The deploy's canary and its way back: alive.sh, canary.sh, keep-prev.sh, go-back.sh and
+same-image.sh, their place in deploy.sh, and what deploy.yml sends to the VPS. The scripts run
+against a docker that only writes down what it was asked.
 """
 
 import hashlib
@@ -15,7 +16,9 @@ import pytest
 from blattwerk import db
 
 ROOT = Path(__file__).parent.parent
-DEPLOY = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+DEPLOY = (ROOT / "scripts" / "deploy.sh").read_text()
+SAME_IMAGE_SH = (ROOT / "scripts" / "same-image.sh").read_text()
+WORKFLOW = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
 COMPOSE = (ROOT / "docker-compose.yml").read_text()
 NAME = "blattwerk-canary"
 IMAGE = "blattwerk-blattwerk"
@@ -159,7 +162,7 @@ def test_start_runs_the_new_image_on_the_copy_and_nowhere_else(tmp_path, live, c
     assert result.returncode == 0, result.stdout + result.stderr
     (line,) = [call for call in calls if call.startswith("run ")]
     words = line.split()
-    # The image the build step named, never `latest`: that one runs live.
+    # The name deploy.sh gave the pulled image, never `latest`: that one runs live.
     assert words[-1] == f"{IMAGE}:canary"
     assert f"{IMAGE}:latest" not in (ROOT / "scripts" / "canary.sh").read_text()
     assert words[words.index("--name") + 1] == NAME
@@ -291,11 +294,11 @@ def test_start_fails_when_the_canary_never_answers_and_prints_no_logs(tmp_path, 
     assert result.returncode == 1
     (error,) = [line for line in result.stdout.splitlines() if line.startswith("::error::")]
     assert "the canary did not answer" in error
-    # The `always()` step removes the container at once, so its logs are no hint to give.
+    # The stop that follows removes the container at once, so its logs are no hint to give.
     assert "docker logs" not in error
     assert error.endswith(f"docker run --rm {IMAGE}:canary")
     assert not any(call.startswith("logs") for call in calls)
-    # The job's `always()` step removes the container and the copy.
+    # The stop that follows removes the container and the copy.
     assert copy.exists()
 
 
@@ -435,8 +438,7 @@ def test_go_back_leaves_a_prev_alone_that_this_deploy_did_not_tag(tmp_path):
     assert "::error::prev is not the image that ran before this deploy" in result.stdout
     assert calls == [ASK_PREV]
     # The deploy hands over what keep-prev.sh said.
-    assert "PREV_KEPT: ${{ steps.prev.outputs.kept }}" in steps()["Go back to prev"]
-    assert "id: prev" in steps()["Keep the running image as prev"]
+    assert "PREV_KEPT=$(sed -n 's/^kept=//p' \"$GITHUB_OUTPUT\") \\" in lines()
 
 
 def test_go_back_goes_back_after_keep_prev_tagged(tmp_path):
@@ -455,7 +457,9 @@ def test_keep_prev_writes_down_the_id_it_tagged(tmp_path):
     assert output.read_text() == "kept=yes\nimage=sha256:abc123\n"
     assert result.stdout == "prev is abc123\n"
     # The deploy hands the id over.
-    assert "PREV_IMAGE: ${{ steps.prev.outputs.image }}" in steps()["Go back to prev"]
+    assert "PREV_IMAGE=$(sed -n 's/^image=//p' \"$GITHUB_OUTPUT\") \\" in lines()
+    # And keep-prev.sh writes where the deploy reads.
+    assert at("export GITHUB_OUTPUT=$work/output") < at(STEPS[0])
 
 
 def test_keep_prev_goes_on_and_writes_nothing_down_when_the_tag_fails(tmp_path):
@@ -532,7 +536,7 @@ def test_go_back_fails_when_prev_does_not_answer(tmp_path):
     assert "::error::the prev image does not answer either" in result.stdout
 
 
-# ── deploy.yml ──
+# ── deploy.sh ──
 
 
 def code(text):
@@ -540,75 +544,66 @@ def code(text):
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
-def steps():
-    """Each named step of the deploy: its name and its lines, in the file's order."""
-    found = re.split(r"^      - name: (.+)\n", code(DEPLOY) + "\n", flags=re.M)
-    return dict(zip(found[1::2], found[2::2], strict=True))
+def lines():
+    """The lines of deploy.sh that do something, without their indent."""
+    return [line.strip() for line in code(DEPLOY).splitlines() if line.strip()]
+
+
+def at(start):
+    """Where the one line of deploy.sh stands that begins so."""
+    (found,) = [n for n, line in enumerate(lines()) if line.startswith(start)]
+    return found
+
+
+STEPS = [
+    'timeout 2m bash "$work/keep-prev.sh"',
+    'timeout 15m docker pull -q "$image:$sha"',
+    f'docker tag "$image:$sha" {IMAGE}:canary',
+    'timeout 3m bash "$work/canary.sh" start "$live" "$copy" &&',
+    'timeout 5m bash "$work/canary.sh" smoke || passed=no',
+    'timeout 2m bash "$work/canary.sh" stop "$live" "$copy"',
+    "[[ $passed == yes ]] || exit 1",
+    'timeout 3m python3 "$work/snapshot.py" "$live/blattwerk.db" "$backups" "$sha"',
+    "promoted=yes",
+    f"docker tag {IMAGE}:canary {IMAGE}:latest",
+    "timeout 3m docker compose up -d --no-build",
+    'timeout 1m bash "$work/same-image.sh"',
+    'if bash "$work/alive.sh" blattwerk; then',
+    "timeout 2m docker exec -i blattwerk /app/.venv/bin/python - --read-only",
+    "docker image prune -f",
+]
 
 
 def test_deploy_tries_the_canary_before_it_touches_live():
-    assert list(steps()) == [
-        "Keep the running image as prev",
-        "Refuse a commit whose canary does not run the build",
-        "Build image",
-        "Start the canary on a copy of the data",
-        "Smoke test the canary",
-        "Remove the canary and the copy",
-        "Snapshot the database",
-        "Name the tested image latest",
-        "Deploy",
-        "Check that the container runs the tested image",
-        "Wait for the app to answer",
-        "Smoke test live, read only",
-        "Go back to prev",
-        "Clean up old images",
-    ]
-    step = steps()
-    assert "run: bash scripts/canary.sh start " in step["Start the canary on a copy of the data"]
-    assert "run: bash scripts/canary.sh smoke\n" in step["Smoke test the canary"]
-    assert "run: bash scripts/canary.sh stop " in step["Remove the canary and the copy"]
-    assert "run: bash scripts/keep-prev.sh\n" in step["Keep the running image as prev"]
-    assert "if bash scripts/alive.sh blattwerk; then" in step["Wait for the app to answer"]
-    assert "continue-on-error" not in DEPLOY
-    # keep-prev is the first thing after the checkout.
-    checkout, after = re.findall(r"^      - (?:name|uses): (.+)$", code(DEPLOY), re.M)[:2]
-    assert checkout.startswith("actions/checkout@")
-    assert after == "Keep the running image as prev"
+    found = [at(step) for step in STEPS]
+    assert found == sorted(found)
+    assert "set -euo pipefail" in lines()
+    # keep-prev is the first thing the script runs.
+    assert at(STEPS[0]) == at("trap finish EXIT") + 1
+    # The canary goes pass or fail: a failed start or smoke test is only written down, and ends
+    # the run once the stop has run.
+    start, smoke, stop, passed = (at(step) for step in STEPS[3:7])
+    assert [smoke, stop, passed] == [start + 1, start + 2, start + 3]
+    assert "continue-on-error" not in WORKFLOW
 
 
 def test_latest_moves_only_once_the_canary_passed():
     """After a failed canary `latest` still names the image that runs."""
-    step = steps()
-    assert f"run: docker build -t {IMAGE}:canary .\n" in step["Build image"]
-    promote = step["Name the tested image latest"]
-    assert f"run: docker tag {IMAGE}:canary {IMAGE}:latest\n" in promote
-    assert "        id: promote\n" in promote
-    assert "        if: " not in promote
-    assert "run: docker compose up -d --no-build\n" in step["Deploy"]
+    promote = f"docker tag {IMAGE}:canary {IMAGE}:latest"
+    assert at("[[ $passed == yes ]] || exit 1") < at(promote)
     # Nothing else in the deploy builds, names `latest` or starts the container.
     assert "compose build" not in code(DEPLOY)
     assert "--build" not in code(DEPLOY)
-    assert re.findall(r"^.*compose up.*$", code(DEPLOY), re.M) == [
-        "        run: docker compose up -d --no-build"
+    assert "docker build" not in code(DEPLOY)
+    assert [line for line in lines() if "compose up" in line] == [
+        "timeout 3m docker compose up -d --no-build"
     ]
     assert code(DEPLOY).count(f"{IMAGE}:latest") == 1
-    assert [name for name, text in step.items() if "docker tag" in text] == [
-        "Name the tested image latest"
+    assert [line for line in lines() if "docker tag" in line] == [
+        f'docker tag "$image:$sha" {IMAGE}:canary',
+        promote,
     ]
-
-
-def test_a_commit_whose_canary_runs_latest_is_refused_before_the_build(tmp_path):
-    """A rerun of an old commit: the workflow is master's, canary.sh the commit's own."""
-    names = list(steps())
-    refuse = "Refuse a commit whose canary does not run the build"
-    assert names.index(refuse) < names.index("Build image")
-    (check,) = re.findall(r"^        run: \|\n((?:          .*\n)+)", steps()[refuse], re.M)
-    for script, code_ in ((ROOT / "scripts" / "canary.sh").read_text(), 0), ("x:latest", 1):
-        (tmp_path / "scripts").mkdir(exist_ok=True)
-        (tmp_path / "scripts" / "canary.sh").write_text(script)
-        done = subprocess.run(["bash", "-c", check], cwd=tmp_path, capture_output=True, text=True)
-        assert done.returncode == code_, done.stdout
-    assert "Revert on master" in done.stdout
+    assert f"{IMAGE}:latest" not in SAME_IMAGE_SH
 
 
 LAYERS = '["sha256:base","sha256:app"]'
@@ -637,12 +632,7 @@ echo "$answer"
 
 
 def same_image(tmp_path, **answers):
-    """Runs the deploy's check as the runner does (`bash -e`) against a docker that answers so."""
-    (check,) = re.findall(
-        r"^        run: \|\n((?:          .*\n)+)",
-        steps()["Check that the container runs the tested image"],
-        re.M,
-    )
+    """Runs same-image.sh as the deploy does against a docker that answers so."""
     stub = tmp_path / "docker"
     stub.write_text(SAME_IMAGE)
     stub.chmod(0o755)
@@ -656,7 +646,8 @@ def same_image(tmp_path, **answers):
         "CONFIG_CANARY": CONFIG,
         **{key.upper(): value for key, value in answers.items()},
     }
-    done = subprocess.run(["bash", "-e", "-c", check], env=env, capture_output=True, text=True)
+    command = ["bash", str(ROOT / "scripts" / "same-image.sh")]
+    done = subprocess.run(command, env=env, capture_output=True, text=True)
     # The config holds env values, and the job log is public.
     assert "hushhush" not in done.stdout + done.stderr
     return done
@@ -693,62 +684,263 @@ def test_a_container_that_kept_the_old_image_fails_the_deploy(tmp_path, answers)
     assert "::error::the blattwerk container does not run the image the canary tried" in done.stdout
 
 
-def test_the_build_has_an_end():
-    build = steps()["Build image"]
-    (limit,) = map(int, re.findall(r"^        timeout-minutes: (\d+)$", build, re.M))
-    assert limit == 15
-
-
 def test_every_step_has_an_end_and_the_job_ends_after_them_all():
     """The job's limit must not end the run between `up` and the way back."""
     limits = {}
-    for name, text in steps().items():
-        assert "        run: " in text
-        (limits[name],) = map(int, re.findall(r"^        timeout-minutes: (\d+)$", text, re.M))
+    for line in lines():
+        # A script, the pull, `up` or the live smoke test. One try of alive.sh ends by itself.
+        if not re.search(r'(bash|python3) "\$work/|docker (pull|compose|exec) ', line):
+            continue
+        if 'bash "$work/alive.sh"' in line:
+            continue
+        (limits[line],) = map(int, re.findall(r"^timeout (\d+)m ", line))
+    assert len(limits) == 10
     assert all(limit > 0 for limit in limits.values())
     # go-back.sh waits a minute for the app, after an `up`.
-    assert limits["Go back to prev"] >= 2
-    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", code(DEPLOY), re.M))
-    # Room for the checkout, the one step without a limit.
+    (back,) = [limit for line, limit in limits.items() if "go-back.sh" in line]
+    assert back >= 2
+    # The wait for the app: 30 tries, 2 s apart, and a try gives up after 2 s.
+    assert "for _ in $(seq 1 30); do" in lines()
+    assert "timeout=2" in (ROOT / "scripts" / "alive.sh").read_text()
+    (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", jobs()["deploy"], re.M))
+    # Room for that wait and for the lines without a limit: tag, rmi, the read of smoke.py, prune.
     assert sum(limits.values()) + 5 <= job
 
 
-def test_only_the_cleanup_and_the_way_back_run_after_a_fail():
-    """A plain step is skipped after a failed one, so a failed canary means no deploy."""
-    conditions = {
-        name: re.findall(r"^        if: (.+)$", text, re.M) for name, text in steps().items()
-    }
-    assert {name: found for name, found in conditions.items() if found} == {
-        "Remove the canary and the copy": ["always()"],
-        # A cancel in the wait or in the live smoke test must not leave the new image live. And
-        # from the tag step on, not from `up` on: `latest` has moved by then.
-        "Go back to prev": ["(failure() || cancelled()) && steps.promote.outcome != 'skipped'"],
-    }
-    assert re.findall(r"^        id: (\w+)$", code(DEPLOY), re.M) == ["prev", "promote"]
-    assert "run: bash scripts/go-back.sh\n" in steps()["Go back to prev"]
+def test_only_the_way_back_runs_after_a_fail():
+    """A failed line ends the script, so a failed canary means no deploy."""
+    assert [line for line in lines() if line.startswith("trap ")] == [
+        "trap - EXIT",
+        "trap finish EXIT",
+    ]
+    # From the tag step on, not from `up` on: `latest` has moved by then. Not before it: the old
+    # container is untouched and there is nothing to go back from.
+    assert [line for line in lines() if line.startswith("promoted=")] == [
+        "promoted=",
+        "promoted=yes",
+    ]
+    assert at("promoted=yes") == at(f"docker tag {IMAGE}:canary {IMAGE}:latest") - 1
+    assert "if [[ $status != 0 && -n $promoted ]]; then" in lines()
+    (back,) = [line for line in lines() if "go-back.sh" in line and not line.startswith("cp ")]
+    # A way back that fails must not hide the status of the deploy.
+    assert back == 'timeout 3m bash "$work/go-back.sh" || true'
+    assert at("if [[ $status != 0") < at(back) < at('exit "$status"') < at("trap finish EXIT")
 
 
 def test_the_live_smoke_test_is_the_read_only_half():
-    live = steps()["Smoke test live, read only"]
-    (line,) = re.findall(r"^        run: (.+)$", live, re.M)
+    (live,) = [line for line in lines() if "--read-only" in line]
     call = "docker exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000"
-    assert line == f"{call} < scripts/smoke.py"
-    # The invite makes a user: canary.sh does that, and deploy.yml gives it no way to the live app.
+    assert live == f'timeout 2m {call} <"$work/smoke.py"'
+    # The invite makes a user: canary.sh does that, and deploy.sh gives it no way to the live app.
     assert "SMOKE_INVITE" not in code(DEPLOY)
     assert "invite" not in code(DEPLOY)
     assert code(DEPLOY).count("--read-only") == 1
 
 
+def test_the_smoke_test_comes_out_of_the_image_it_tests():
+    read = f"docker run --rm --network none --entrypoint cat {IMAGE}:canary /app/scripts/smoke.py"
+    assert f'if ! {read} >"$work/smoke.py"; then' in lines()
+    assert "COPY scripts/smoke.py ./scripts/smoke.py\n" in (ROOT / "Dockerfile").read_text()
+    # No copy of it lies beside the scripts on the VPS.
+    (copied,) = [line for line in lines() if line.startswith("cp ")]
+    assert "smoke.py" not in copied
+
+
 def test_deploy_and_compose_name_the_same_data_folder():
     """A folder moved in one file only would snapshot nothing, or try the canary on no data."""
     (mounted,) = re.findall(r"^ +- (\S+):/data$", COMPOSE, re.M)
-    (snapshot,) = re.findall(r"scripts/snapshot\.py (\S+)/blattwerk\.db ", code(DEPLOY))
-    assert snapshot == mounted
-    canary = re.findall(r"scripts/canary\.sh (start|stop) (\S+) (\S+)$", code(DEPLOY), re.M)
-    assert [command for command, _, _ in canary] == ["start", "stop"]
-    for _, live, copy in canary:
-        assert live == mounted
-        assert copy == f"{mounted}-canary"
+    (live,) = re.findall(r"^live=(\S+)$", code(DEPLOY), re.M)
+    (copy,) = re.findall(r"^copy=(\S+)$", code(DEPLOY), re.M)
+    assert live == mounted
+    assert copy == f"{mounted}-canary"
+    (snapshot,) = re.findall(r'snapshot\.py" (\S+)/blattwerk\.db" ', code(DEPLOY))
+    assert snapshot == '"$live'
+    canary = re.findall(r'canary\.sh" (start|stop) (\S+) (\S+)', code(DEPLOY))
+    assert canary == [("start", '"$live"', '"$copy"'), ("stop", '"$live"', '"$copy"')]
+
+
+# ── deploy.sh, run ──
+
+SHA = "0123456789abcdef0123456789abcdef01234567"
+(LIVE,) = re.findall(r"^ +- (\S+):/data$", COMPOSE, re.M)
+
+# Keeps its images as files: a name's file holds the id it stands for, and `runs` the id of the
+# image the blattwerk container runs. An id stands for its own layers and config.
+REGISTRY = """#!/usr/bin/env bash
+echo "$*" >> "$DOCKER_LOG"
+id() { if [[ $1 == sha256:* ]]; then echo "$1"; else cat "$STATE/${1##*:}" 2>/dev/null; fi; }
+case "$1" in
+  pull) echo sha256:new > "$STATE/${3##*:}" ;;
+  tag) held=$(id "$2") && echo "$held" > "$STATE/${3##*:}" ;;
+  rmi) rm "$STATE/${2##*:}" ;;
+  run) echo "print('the smoke test')"; exit "${RC_RUN:-0}" ;;
+  compose) cp "$STATE/latest" "$STATE/runs" ;;
+  inspect) cat "$STATE/runs" ;;
+  image) if [ "$2" = inspect ]; then id "${@: -1}"; fi ;;
+  exec) case "$*" in *--read-only*) cat > /dev/null; exit "${RC_LIVE:-0}" ;; esac ;;
+esac
+"""
+
+# deploy.sh names the live folders itself, so the two scripts that read and write there get a
+# stand-in that only writes down how it was called.
+CANARY = """#!/usr/bin/env bash
+echo "canary.sh $*" >> "$DOCKER_LOG"
+if [ "$1" = smoke ]; then
+  cat "$(dirname "$0")/smoke.py" > "$DOCKER_LOG.smoke"
+  exit "${RC_CANARY:-0}"
+fi
+"""
+SNAPSHOT = """import os, sys
+with open(os.environ["DOCKER_LOG"], "a") as log:
+    print("snapshot.py", *sys.argv[1:], file=log)
+"""
+
+PULLED = [
+    "tag sha256:old blattwerk-blattwerk:prev",
+    f"pull -q ghcr.io/pgoell/blattwerk:{SHA}",
+    f"tag ghcr.io/pgoell/blattwerk:{SHA} {IMAGE}:canary",
+    f"rmi ghcr.io/pgoell/blattwerk:{SHA}",
+    f"run --rm --network none --entrypoint cat {IMAGE}:canary /app/scripts/smoke.py",
+]
+TRIED = [
+    f"canary.sh start {LIVE} {LIVE}-canary",
+    "canary.sh smoke",
+    f"canary.sh stop {LIVE} {LIVE}-canary",
+]
+WENT_LIVE = [
+    f"snapshot.py {LIVE}/blattwerk.db {LIVE}-backups {SHA}",
+    f"tag {IMAGE}:canary {IMAGE}:latest",
+    "compose up -d --no-build",
+    "exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000",
+]
+
+
+def deploy(tmp_path, **answers):
+    """Runs deploy.sh from a folder of its own, as it lies on the VPS.
+
+    Gives its result, what it did (the docker calls that only ask are left out) and the id each
+    name stands for at the end.
+    """
+    scripts, state, temp = tmp_path / "scripts", tmp_path / "state", tmp_path / "tmp"
+    stub, log = tmp_path / "bin" / "docker", tmp_path / "docker.log"
+    for folder in (scripts, state, temp, stub.parent):
+        folder.mkdir()
+    for name in ("deploy.sh", "alive.sh", "go-back.sh", "keep-prev.sh", "same-image.sh"):
+        (scripts / name).write_text((ROOT / "scripts" / name).read_text())
+    (scripts / "canary.sh").write_text(CANARY)
+    (scripts / "snapshot.py").write_text(SNAPSHOT)
+    stub.write_text(REGISTRY)
+    stub.chmod(0o755)
+    for name in ("latest", "runs"):
+        (state / name).write_text("sha256:old\n")
+    env = {
+        **os.environ,
+        "PATH": f"{stub.parent}:{os.environ['PATH']}",
+        "DOCKER_LOG": str(log),
+        "STATE": str(state),
+        "TMPDIR": str(temp),
+        "ALIVE_WAIT": "0",
+        **{key.upper(): str(value) for key, value in answers.items()},
+    }
+    command = ["bash", str(scripts / "deploy.sh"), SHA]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=60, env=env)
+    asks = ("inspect ", "image inspect ", "exec blattwerk ")
+    did = [call for call in log.read_text().splitlines() if not call.startswith(asks)]
+    # The folder of its own that the script made is gone again, pass or fail.
+    assert list(temp.iterdir()) == []
+    # The job log is public.
+    assert "/home" not in result.stdout + result.stderr
+    assert str(tmp_path) not in result.stdout + result.stderr
+    return result, did, {path.name: path.read_text().strip() for path in state.iterdir()}
+
+
+def test_a_deploy_puts_the_image_live_that_the_canary_tried(tmp_path):
+    result, did, names = deploy(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert did == [*PULLED, *TRIED, *WENT_LIVE, "image prune -f"]
+    # The registry's name is gone again, and `prev` names the image that ran before.
+    assert names == {
+        "runs": "sha256:new",
+        "latest": "sha256:new",
+        "canary": "sha256:new",
+        "prev": "sha256:old",
+    }
+    # The canary was fed the smoke test that came out of the image.
+    assert (tmp_path / "docker.log.smoke").read_text() == SMOKE
+    assert "::error::" not in result.stdout
+    assert result.stdout.endswith(f"blattwerk runs {SHA}\n")
+
+
+def test_a_failed_canary_leaves_latest_and_the_container_as_they_were(tmp_path):
+    result, did, names = deploy(tmp_path, rc_canary=1)
+    assert result.returncode == 1
+    # The canary and the copy go all the same, and nothing after them runs: no way back either.
+    assert did == [*PULLED, *TRIED]
+    assert names["latest"] == names["runs"] == "sha256:old"
+    # The failed image stays for a look.
+    assert names["canary"] == "sha256:new"
+
+
+def test_an_image_without_a_smoke_test_fails_before_the_canary(tmp_path):
+    """An image from before the Dockerfile copied scripts/smoke.py into it."""
+    result, did, names = deploy(tmp_path, rc_run=1)
+    assert result.returncode == 1
+    assert "::error::the image holds no /app/scripts/smoke.py" in result.stdout
+    assert did == PULLED
+    assert names["latest"] == names["runs"] == "sha256:old"
+
+
+def test_a_failed_live_smoke_test_goes_back_to_prev(tmp_path):
+    result, did, names = deploy(tmp_path, rc_live=1)
+    # The status of the deploy, not of the way back, which passed.
+    assert result.returncode == 1
+    # No prune: the failed image stays for a look.
+    assert did == [*PULLED, *TRIED, *WENT_LIVE, *WENT_BACK]
+    assert names["latest"] == names["runs"] == names["prev"] == "sha256:old"
+    assert "::error::the deploy failed and went back to the prev image" in result.stdout
+    assert result.stdout.endswith("blattwerk answers on the prev image\n")
+
+
+# ── deploy.yml ──
+
+
+def jobs():
+    """Each job of the workflow: its name and its lines."""
+    found = re.split(r"^  (\w+):\n", code(WORKFLOW).split("\njobs:\n")[1] + "\n", flags=re.M)
+    return dict(zip(found[1::2], found[2::2], strict=True))
+
+
+def test_the_build_has_an_end():
+    (limit,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", jobs()["build"], re.M))
+    assert limit == 20
+
+
+def test_no_job_runs_on_the_vps_and_the_deploy_job_sends_only_the_sha():
+    """Nothing of a commit runs on the box but its image."""
+    assert list(jobs()) == ["build", "deploy"]
+    assert "self-hosted" not in code(WORKFLOW)
+    assert "continue-on-error" not in WORKFLOW
+    for job in jobs().values():
+        assert re.findall(r"^    runs-on: (.+)$", job, re.M) == ["ubuntu-latest"]
+    build, deploy = jobs()["build"], jobs()["deploy"]
+    sha = "${{ github.event.workflow_run.head_sha }}"
+    # The image deploy.sh pulls is the one the build pushed.
+    (image,) = re.findall(r"^image=(\S+)$", code(DEPLOY), re.M)
+    assert f"          tags: {image}:{sha}\n" in build
+    assert f"          ref: {sha}\n" in build
+    assert "          persist-credentials: false\n" in build
+    # No checkout and no action: the job runs no file of the repo.
+    assert "uses:" not in deploy
+    assert "scripts/" not in deploy
+    assert "    needs: build\n" in deploy
+    assert "    environment: vps\n" in deploy
+    assert "    permissions: {}\n" in deploy
+    assert f"          SHA: {sha}\n" in deploy
+    assert re.findall(r"^          ssh .*$", deploy, re.M) == [
+        "          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+        ' "$DEPLOY_HOST" "$SHA"'
+    ]
+    assert deploy.rstrip().endswith('"$DEPLOY_HOST" "$SHA"')
 
 
 # ── every script ──
