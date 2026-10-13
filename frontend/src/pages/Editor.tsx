@@ -997,6 +997,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       e.preventDefault();
       aim(e.touches[0].clientX, e.touches[0].clientY);
+      scrollEdge(e.touches[0].clientX, e.touches[0].clientY);
     }
     el.addEventListener("touchstart", onStart);
     el.addEventListener("touchmove", onMove, { passive: false });

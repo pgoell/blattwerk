@@ -1,8 +1,8 @@
 """The thumbnails in Blattform: the drag, its hint, and the panel that scrolls under a drag."""
 
 from playwright.sync_api import expect
-from test_pages import expect_in_use, expect_no_drag, expect_order, half, lift, pull
-from ui import TEXT, box, centre, thumb
+from test_pages import DRAG, expect_in_use, expect_no_drag, expect_order, half, lift, pull
+from ui import TEXT, box, centre, drawer, finger, thumb
 
 NAMES = "abcdefghijklmnop"
 # The panel that holds the thumbnails. A drag at its lower or upper edge scrolls it.
@@ -183,16 +183,32 @@ def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(edit
     expect_order(page, "p" + NAMES[:15])
 
 
+def test_i1_a_held_finger_near_the_lower_edge_scrolls_the_panel(editor):
+    """I1"""
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in NAMES[1:]]
+    page = editor(box("a", "text", TEXT), pages=rest, theme="", touch=True)
+    drawer(page, "left")
+    with finger(page, centre(thumb(page, 0))) as touch:
+        # The hold is over once the thumbnail says so; the finger then moves on.
+        expect(thumb(page, 0)).to_have_class(DRAG)
+        touch("touchMove", bottom_edge(page))
+        scrolled_down(page)
+        touch("touchMove", half(page, 15, "right"))
+    expect_order(page, NAMES[1:] + "a")
+    expect_no_drag(page)
+
+
 def test_i2_escape_in_a_drag_that_scrolled_the_panel_calls_it_off(editor):
     """I2"""
     page = blatt(editor, NAMES)
     page.mouse.move(*centre(thumb(page, 0)))
     page.mouse.down()
     page.mouse.move(*bottom_edge(page), steps=10)
-    scrolled_down(page)
+    page.wait_for_function(f"{PANEL}.scrollTop > 0", timeout=5000)
     page.keyboard.press("Escape")
     expect_no_drag(page)
     stopped = frames(page)
+    assert stopped < page.evaluate(f"{PANEL}.scrollHeight - {PANEL}.clientHeight")
     assert frames(page) == stopped
     page.mouse.up()
     expect_order(page, NAMES)
