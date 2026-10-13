@@ -380,7 +380,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -2522,6 +2522,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const ctrl = APPLE ? "⌘" : "Strg+";
   const shift = APPLE ? "⇧" : "Umschalt+";
   const thumbed = menu?.thumb;
+  const ruled = menu?.rule;
   type Command = Exclude<Item, "sep">;
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
@@ -2538,7 +2539,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
   ];
   const items: Item[] =
-    thumbed !== undefined
+    ruled
+      ? // Only the one line goes, as one undo step: no merge key, so no other change joins it.
+        [{ label: "Hilfslinie entfernen", icon: Eraser, run: () => rules(ruled.n, (g) => ({ ...g, [ruled.axis]: g[ruled.axis].filter((_, j) => j !== ruled.i) })) }]
+      : thumbed !== undefined
       ? [
           { label: "Neue Seite", icon: FilePlus, run: () => addPage(thumbed) },
           { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPage(thumbed) },
@@ -3142,7 +3146,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 (["x", "y"] as const).flatMap((axis) =>
                   (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
-                      <b onPointerDown={grip} onPointerMove={(e) => slide(e, axis, i, at)} onLostPointerCapture={() => drop(axis, i, at)}>
+                      <b
+                        data-axis={axis}
+                        data-i={i}
+                        data-page={at}
+                        // The right button drags nothing: its menu removes this one line, and picks no block.
+                        onPointerDown={(e) => e.button === 0 && grip(e)}
+                        onPointerMove={(e) => slide(e, axis, i, at)}
+                        onLostPointerCapture={() => drop(axis, i, at)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenu({ x: e.clientX, y: e.clientY, rule: { axis, i, n: at } });
+                        }}
+                      >
                         {mm}
                       </b>
                     </i>
@@ -3597,6 +3614,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 <Eraser size={14} aria-hidden />
                 Alle entfernen
               </button>
+              <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
               <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
@@ -3649,7 +3667,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             if (late.current) refit();
             const el = document.elementFromPoint(x, y);
             const n = el?.closest<HTMLElement>("[data-thumb]")?.dataset.thumb;
+            const guide = el?.closest<HTMLElement>("[data-axis]");
             if (n) thumbMenu(+n, x, y);
+            else if (guide) setMenu({ x, y, rule: { axis: guide.dataset.axis as Axis, i: +guide.dataset.i!, n: guide.dataset.page === undefined ? undefined : +guide.dataset.page } });
             else if (el?.closest(".desk")) menuAt(el, x, y);
           }}
         />
