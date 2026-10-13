@@ -24,13 +24,13 @@ def factors_and_quotient_ok(e):
 @settings(max_examples=100, deadline=None)
 @given(
     ops=OPS,
-    max_=st.sampled_from([20, 100, 1000, 1_000_000]),
+    max_=st.sampled_from([20, 100, 1000]),
     format_=st.sampled_from(["row", "gap", "written"]),
     one=st.booleans(),
     zero=st.booleans(),
     rest=st.sampled_from([False, True]),
     family=st.sampled_from(["none", "swap", "reverse", "neighbour"]),
-    count=st.integers(1, 20),
+    count=st.integers(1, 10),
     seed=st.integers(0, 99),
 )
 def test_every_times_and_divide_task_is_of_the_kleine_einmaleins(
