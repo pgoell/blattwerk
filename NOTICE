@@ -53,7 +53,7 @@ Grundschrift von Christian Urff
 Copyright 2016 Christian Urff (https://github.com/christianurff/grundschrift,
 https://urff.app/grundschrift/)
 License: Creative Commons Attribution 3.0 (CC BY 3.0), as the repository's
-LICENSE.md says; that file is in frontend/public/fonts/urff/LICENSE.md, the
+LICENSE.md says; that file is in frontend/public/fonts/urff/LICENSE.txt, the
 license text in frontend/public/fonts/urff/CC-BY-3.0.txt.
 The font files in frontend/public/fonts/urff are the unchanged OTF files of
 version 3.0 (commit 0545c85).

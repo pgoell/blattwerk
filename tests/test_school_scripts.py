@@ -114,9 +114,23 @@ def test_the_credits_name_the_new_fonts(browser, server):
     expect(page.locator("body")).to_contain_text("Grundschrift von Christian Urff")
     expect(page.locator("body")).to_contain_text("Peter Wiegel")
     expect(page.locator("body")).to_contain_text("CC BY 3.0")
+    # The server answers any unknown path with the app's page, so each licence is read for its text.
+    licences = {
+        "/fonts/urff/LICENSE.txt": ("Grundschrift von Christian Urff", "CC BY 3.0"),
+        "/fonts/urff/CC-BY-3.0.txt": ("Creative Commons Legal Code", "Attribution 3.0"),
+        "/fonts/fibel/OFL.txt": ("SIL OPEN FONT LICENSE Version 1.1", "Peter Wiegel"),
+    }
+    for path, words in licences.items():
+        assert page.locator(f'a[href="{path}"]').count() == 1, path
+        text = httpx.get(f"{server}{path}").text
+        for word in words:
+            assert word in text, (path, word)
+    for href in (
+        "https://github.com/christianurff/grundschrift",
+        "https://www.peter-wiegel.de/Fibel.html",
+    ):
+        assert page.locator(f'a[href="{href}"]').count() == 1, href
     page.close()
-    for path in ("/fonts/urff/LICENSE.md", "/fonts/urff/CC-BY-3.0.txt", "/fonts/fibel/OFL.txt"):
-        assert httpx.get(f"{server}{path}").status_code == 200
     notice = (Path(__file__).resolve().parent.parent / "NOTICE").read_text(encoding="utf-8")
     for words in (
         "Grundschrift von Christian Urff",
@@ -156,7 +170,9 @@ def dark(shot):
 @pytest.mark.parametrize("key", NEW)
 def test_capital_umlauts_keep_their_dots(editor, key, kind, bold):
     """A7: the dots of Ä Ö Ü are not cut off by a paragraph's box, in a text or a shape."""
-    props = {**(TEXT if kind == "text" else RECT), "text": "ÄÖÜ", "font": key, "size": 20}
+    props = {**(TEXT if kind == "text" else RECT), "text": "ÄÖÜ", "font": key, "size": 40}
+    # In the block's middle: at its top edge the block itself cuts, with or without the lever.
+    props["valign"] = "middle"
     page = editor(box("a", kind, {**props, "bold": bold}, x=10, y=40, w=90, h=40))
     unpick(page)
     page.evaluate("document.fonts.ready.then(() => 0)")
@@ -169,19 +185,19 @@ def test_capital_umlauts_keep_their_dots(editor, key, kind, bold):
         "height": box_now["height"] + 20,
     }
     before = page.screenshot(clip=clip)
-    page.evaluate(
-        """() => {
-            const s = document.createElement('style');
-            s.textContent =
-                '.paper p, .frame .rich, .frame .rich * { overflow: visible !important }';
-            document.head.append(s);
-        }"""
+    page.add_style_tag(content=".frame p, .frame .rich { overflow: visible !important }")
+    # The lever works: the paragraph no longer clips before the shot after it is taken.
+    assert at(page, "a").locator("p").first.evaluate("el => getComputedStyle(el).overflow") == (
+        "visible"
     )
     after = page.screenshot(clip=clip)
     count, top = dark(before)
     count2, top2 = dark(after)
     assert count > 0
-    assert abs(count - count2) <= 0.005 * count2, (count, count2)
+    # Urff's Ü ends a hundredth of its size under the line's top, and Chromium cuts at whole
+    # pixels of the screen: up to a row of the dots' tops, 1.3 % of the ink. With the dots cut
+    # off, as at a line spacing of 1.0 (#487), 4 % and more are gone.
+    assert abs(count - count2) <= 0.02 * count2, (count, count2)
     assert abs(top - top2) <= 1, (top, top2)
 
 
@@ -303,6 +319,26 @@ def test_the_print_page_breaks_lines_where_the_editor_does(editor, browser, serv
     assert len(editor_lines) >= 2
     assert editor_lines == print_lines
     assert NEW[key] in editor_family and NEW[key] in print_family
+
+
+@pytest.mark.parametrize("font", ["nord", "sued", "urff"])
+@pytest.mark.parametrize("kind", ["l1", "l2", "l3", "l4"])
+def test_tall_and_deep_letters_are_whole_on_a_lineatur(editor, kind, font):
+    """A7: the capital umlauts and the descenders of a Lineatur are not cut off.
+
+    A Lineatur draws its words in a textarea, and Chromium gives a textarea overflow auto even
+    where the CSS says visible, so no style can lift its ink out. The test asks instead whether
+    the textarea holds more than it shows: content that does not fit would scroll, and so be cut.
+    """
+    props = {"kind": kind, "color": "#222222", "font": font, "text": "Äg\nÜp"}
+    page = editor(box("a", "ruling", props, x=10, y=40, w=90, h=40))
+    unpick(page)
+    page.evaluate("document.fonts.ready.then(() => 0)")
+    written = at(page, "a").locator(".written").first
+    fits = written.evaluate(
+        "el => [el.scrollHeight <= el.clientHeight, el.scrollWidth <= el.clientWidth]"
+    )
+    assert fits == [True, True], (font, kind, fits)
 
 
 def test_umlauts_and_digits_come_from_the_font_itself(editor, server):

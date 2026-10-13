@@ -38,7 +38,7 @@ export default function About() {
         </p>
         <p>
           <a href="https://github.com/christianurff/grundschrift">Grundschrift von Christian Urff</a>: Copyright 2016 Christian Urff,
-          Lizenz CC BY 3.0 (<a href="/fonts/urff/LICENSE.md">Lizenz</a>, <a href="/fonts/urff/CC-BY-3.0.txt">Lizenztext</a>).
+          Lizenz CC BY 3.0 (<a href="/fonts/urff/LICENSE.txt">Lizenz</a>, <a href="/fonts/urff/CC-BY-3.0.txt">Lizenztext</a>).
           Blattomat nutzt die Schriftdateien unverändert.
         </p>
         <p>
