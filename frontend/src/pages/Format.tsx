@@ -12,6 +12,7 @@ import Suchsel from "./Suchsel";
 import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
+import { spanAt } from "../cells";
 
 type Props = {
   sel: Block[];
@@ -42,6 +43,11 @@ type Props = {
   rank: (b: TableBlock, axis: "row" | "col", i: number, add: boolean) => void;
   // The cell of the table being edited, counted row by row.
   cell?: number;
+  // The far corner of the cells picked with the open one, if any.
+  reach?: number;
+  // Makes the picked cells one cell, or brings the open merged cell back to single cells.
+  merge: () => void;
+  unmerge: () => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
@@ -156,7 +162,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -427,19 +433,27 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
                     <button aria-label={`Eine ${name} mehr`} disabled={fixed} onClick={() => rank(tables[0], axis, n[i], true)}>＋</button>
                   </div>
                 );
-              const at = i ? cell % n[1] : Math.floor(cell / n[1]);
+              const [r, c, h, w] = spanAt(tables[0].props, cell);
+              const at = i ? c : r;
+              const after = i ? c + w : r + h;
               return (
                 <div key={name} className="acts">
                   <button onClick={() => rank(tables[0], axis, at, true)}>{name} {i ? "links" : "darüber"}</button>
-                  <button onClick={() => rank(tables[0], axis, at + 1, true)}>{name} {i ? "rechts" : "darunter"}</button>
+                  <button onClick={() => rank(tables[0], axis, after, true)}>{name} {i ? "rechts" : "darunter"}</button>
                 </div>
               );
             })}
           {/* The last row or column stays. A disabled button would take the focus from the cell. */}
           {tables.length === 1 && cell !== undefined && (
             <div className="acts">
-              <button aria-disabled={tables[0].props.cells.length < 2} onClick={() => rank(tables[0], "row", Math.floor(cell / tables[0].props.cols.length), false)}>Zeile löschen</button>
-              <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", cell % tables[0].props.cols.length, false)}>Spalte löschen</button>
+              <button aria-disabled={tables[0].props.cells.length < 2} onClick={() => rank(tables[0], "row", spanAt(tables[0].props, cell)[0], false)}>Zeile löschen</button>
+              <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", spanAt(tables[0].props, cell)[1], false)}>Spalte löschen</button>
+            </div>
+          )}
+          {tables.length === 1 && cell !== undefined && (
+            <div className="acts">
+              <button aria-disabled={reach === undefined} onClick={() => reach !== undefined && merge()}>Zellen verbinden</button>
+              <button aria-disabled={!(spanAt(tables[0].props, cell)[2] * spanAt(tables[0].props, cell)[3] > 1)} onClick={() => spanAt(tables[0].props, cell)[2] * spanAt(tables[0].props, cell)[3] > 1 && unmerge()}>Zellen teilen</button>
             </div>
           )}
           <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} onChange={(font) => style("table", { font })} />
