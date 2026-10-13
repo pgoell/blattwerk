@@ -549,6 +549,7 @@ def test_tab_reaches_the_colour_switch_and_its_settings_and_space_and_enter_pres
     pick(page, "a")
     page.get_by_label("Zeilenabstand").focus()
     page.keyboard.press("Tab")
+    page.keyboard.press("Tab")
     expect(
         page.locator(".panel").get_by_role("button", name="Silbenbögen", exact=True)
     ).to_be_focused()
