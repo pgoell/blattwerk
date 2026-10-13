@@ -1431,21 +1431,25 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
         / {children ?? block.props.max} Punkte
       </div>
     );
-  const [l, t, r, b] = block.props.cut;
-  const [w, h] = [1 - l - r, 1 - t - b];
-  // The picture clips itself at its cut. The box clips on whole pixels: alone it let a strip of the part that is
-  // cut off, up to a pixel wide, show beyond the cut and print. A whole picture is left as it was.
-  const clipPath = l || t || r || b ? `inset(${[t, r, b, l].map((share) => `${share * 100}%`).join(" ")})` : undefined;
-  return (
-    <div className="picture" style={flipped(block)}>
-      <img
-        src={`/api/uploads/${block.props.upload}`}
-        alt=""
-        draggable={false}
-        style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
-      />
-    </div>
-  );
+  if (block.type === "image") {
+    const [l, t, r, b] = block.props.cut;
+    const [w, h] = [1 - l - r, 1 - t - b];
+    // The picture clips itself at its cut. The box clips on whole pixels: alone it let a strip of the part that is
+    // cut off, up to a pixel wide, show beyond the cut and print. A whole picture is left as it was.
+    const clipPath = l || t || r || b ? `inset(${[t, r, b, l].map((share) => `${share * 100}%`).join(" ")})` : undefined;
+    return (
+      <div className="picture" style={flipped(block)}>
+        <img
+          src={`/api/uploads/${block.props.upload}`}
+          alt=""
+          draggable={false}
+          style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
+        />
+      </div>
+    );
+  }
+  // A block of a type this script does not know: a newer Blattomat made it, and it stays as it is in the sheet.
+  return <div className="unknown">Dieser Block braucht eine neuere Version von Blattomat.</div>;
 }
 
 // A score as it is typed: a whole number from 1 to 999, or else none.
