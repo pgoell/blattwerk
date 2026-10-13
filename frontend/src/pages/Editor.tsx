@@ -2916,8 +2916,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 className={[n === page && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
                 aria-pressed={n === page}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
-                onClick={() => {
-                  if (!dragged.current) visit(n);
+                onClick={(e) => {
+                  if (!dragged.current) {
+                    visit(n);
+                    // The keys of a thumbnail need its focus; a click gives it none in WebKit.
+                    e.currentTarget.focus({ preventScroll: true });
+                  }
                   dragged.current = false;
                 }}
                 onKeyDown={(e) => pageKey(e, n)}
