@@ -107,17 +107,18 @@ const SIDES = { top: true, left: true, bottom: true, right: true, center: true, 
 const CORNERS = ["nw", "ne", "sw", "se"];
 // The look the brush carries from a text or a shape to the next. A line gives and takes its stroke alone, a table
 // what its cells have and the colour of its lines, `rule`, a Lineatur its script, the colour of its lines, `rule`
-// too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. Every block
+// too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. A Lineatur also
+// gives and takes its houses, `house` and `houseTint`, and its middle band, `band` and `bandColor`. Every block
 // gives and takes the numbering before it, `mark`. The Silbenbögen and the Silbenfarbe go along, `syllables`, `tints`
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
 const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
 const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
-type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string };
+type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
-  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[b.props.kind].at ? ["font", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
   return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
@@ -1172,8 +1173,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const from = { ...(boxed(source) ?? source.props), ...marks, mark: source.mark } as Coat;
     // A table's `color` is the colour of its text: its lines have `line`.
     from.rule = source.type === "table" ? source.props.line : from.color;
-    // A field says "not bold" where a block says nothing: both are the same look.
-    setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false ? undefined : from[name]])));
+    // A field says "not bold" where a block says nothing: both are the same look. A band switched off is a look too:
+    // it stays false, or the target would fall back to its kind's default, which is on for Lineatur 1 and 2.
+    setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false && name !== "band" ? undefined : from[name]])));
   }
   // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
   // there. All of it is one undo step, and none where nothing changes.

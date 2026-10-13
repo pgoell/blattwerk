@@ -65,7 +65,7 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // again and again to the row's end. "fold" is the Knickblatt: each word at its row's start, cut at the first column,
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; folds?: number } };
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string } };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -193,6 +193,10 @@ export const FONTS = {
 } as const;
 // The scale a Lineatur draws a font at: 1 for the fonts without a fourth number.
 export const fontScale = (font: Font) => (FONTS[font] as readonly [string, string, number, number?])[3] ?? 1;
+// How far the ink of a font hangs left of where its letter starts, in em, for the letter j of the joined scripts.
+// Measured in Chromium with canvas measureText (actualBoundingBoxLeft) at 1000 px, over printable ASCII and
+// ÄÖÜäöüßẞ€§°; the largest value, rounded up to two decimals.
+const LEFT: Record<Font, number> = { andika: 0.1, nord: 0, sued: 0, grund: 0.1, urff: 0.05, va: 0.21, sas: 0.24, la: 0.29 };
 // How far the ink of a font reaches above and below its baseline, in em (#487). Measured in Chromium with
 // canvas measureText, at 1000 px, over the regular, bold and italic cut and each of the printable ASCII
 // characters and ÄÖÜäöüßẞ€§°; the largest of the three cuts, rounded up to three decimals.
@@ -254,14 +258,17 @@ export const FONT_GROUPS = [
 // Text stands on `base`, in a font of `size` mm. Every font's small letters are half its size high, so they fill
 // the band of Lineatur 1 to 3; single lines have no band and take small letters 0.3 of a row high. On Karo a
 // character is 0.75 of its square, as in a written exercise.
+// `zones` are four heights in mm from a row's top: they bound the roof, the room and the cellar of a house drawn on
+// each row. Lineatur 1 to 3 have them; Lineatur 4, the single lines and Karo have none, so they take no house.
+// `band` says whether the middle band is tinted by default (`band > 0`). A block may switch the band on or off.
 export const RULINGS = {
-  l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], band: 5, base: 12.5, size: 10 },
-  l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], band: 4, base: 10, size: 8 },
-  l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], band: 0, base: 7.5, size: 7 },
-  l4: { name: "Lineatur 4 (Klasse 4)", row: 10, at: [10], band: 0, base: 10, size: 6 },
-  lines: { name: "Linien, 8 mm", row: 8, at: [8], band: 0, base: 8, size: 4.8 },
-  k5: { name: "Karo 5 mm", row: 5, at: undefined, band: 0, base: 0, size: 3.75 },
-  k7: { name: "Karo 7 mm", row: 7, at: undefined, band: 0, base: 0, size: 5.25 },
+  l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], zones: [2.5, 7.5, 12.5, 17.5], band: 5, base: 12.5, size: 10 },
+  l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], zones: [2, 6, 10, 14], band: 4, base: 10, size: 8 },
+  l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], zones: [0.5, 4, 7.5, 11], band: 0, base: 7.5, size: 7 },
+  l4: { name: "Lineatur 4 (Klasse 4)", row: 10, at: [10], zones: undefined, band: 0, base: 10, size: 6 },
+  lines: { name: "Linien, 8 mm", row: 8, at: [8], zones: undefined, band: 0, base: 8, size: 4.8 },
+  k5: { name: "Karo 5 mm", row: 5, at: undefined, zones: undefined, band: 0, base: 0, size: 3.75 },
+  k7: { name: "Karo 7 mm", row: 7, at: undefined, zones: undefined, band: 0, base: 0, size: 5.25 },
 };
 // The signs as German schools write them.
 export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
@@ -303,6 +310,35 @@ export const listColsOf = (p: { listCols?: unknown }) => (typeof p.listCols === 
 export const holesOf = (p: { holes?: unknown }) => (p.holes === "one" || p.holes === "second" || p.holes === "vowels" ? p.holes : undefined);
 // The empty columns of a Knickblatt: 3 when `folds` says so, else 2.
 export const foldsOf = (b: RulingBlock): 2 | 3 => (b.props.folds === 3 ? 3 : 2);
+// A house stands on a row of a kind with zones, when the block says so. A sheet may come from anywhere, so the flag reads strictly.
+export const houseOf = (b: RulingBlock): boolean => !!RULINGS[b.props.kind].zones && b.props.house === true;
+// The tint of a house: the room alone, or roof, room and cellar. Any other stored value is no tint.
+export const houseTintOf = (b: RulingBlock): "room" | "all" | undefined =>
+  houseOf(b) && (b.props.houseTint === "room" || b.props.houseTint === "all") ? b.props.houseTint : undefined;
+// The middle band is tinted when the block says so, else as the kind does by default. A kind with no zones has none.
+export const bandOf = (b: RulingBlock): boolean =>
+  !!RULINGS[b.props.kind].zones && (typeof b.props.band === "boolean" ? b.props.band : RULINGS[b.props.kind].band > 0);
+// The band's own colour, when one is picked: a six digit hex colour. Anything else is none.
+export const bandColorOf = (b: RulingBlock): string | undefined =>
+  typeof b.props.bandColor === "string" && /^#[0-9a-f]{6}$/i.test(b.props.bandColor) ? b.props.bandColor : undefined;
+// The colour at 12 % on white, as the band paints it: what the colour field shows while no colour is picked.
+export const shade = (color: string): string =>
+  /^#[0-9a-f]{6}$/i.test(color) ? `#${[1, 3, 5].map((i) => Math.round(255 - 0.12 * (255 - parseInt(color.slice(i, i + 2), 16))).toString(16).padStart(2, "0")).join("")}` : "#ebebeb";
+// The three light tints of a house: its roof, its room and its cellar.
+export const HOUSE = { roof: "#f6c4bd", room: "#fcefb4", cellar: "#d9cdbd" };
+// A house is one and a half rooms wide, and a room is the band between a row's second and third zone line.
+export const houseWidth = (kind: Ruling): number => {
+  const z = RULINGS[kind].zones;
+  return z ? 1.5 * (z[2] - z[1]) : 0;
+};
+// How far the text starts from a block's left, in mm: past the house, 0.2 of a room of air, and the font's j, whose
+// ink hangs left of its letter. The 0.02 em covers half the stroke of an outline trace (0.035 em). None with no house.
+export const indentOf = (b: RulingBlock): number => {
+  const { kind } = b.props;
+  const z = RULINGS[kind].zones;
+  const font = b.props.font ?? "andika";
+  return houseOf(b) && z ? houseWidth(kind) + 0.2 * (z[2] - z[1]) + (LEFT[font] + 0.02) * RULINGS[kind].size * fontScale(font) : 0;
+};
 // The line after or under a mixed word: the stored one, else "after" for a linked text, and none for any other.
 export const lineOf = (p: { mixLine?: unknown; list?: unknown }): "after" | "under" | undefined =>
   p.mixLine === "after" || p.mixLine === "under" ? p.mixLine : p.list === true ? "after" : undefined;
@@ -435,7 +471,10 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   const look = traceOf(b.props);
   const fade = fadeOf(b.props);
   const mask = fade && fadeMask(fade, rowsOf(b), row * k, (px) => `${px}px`);
+  // The text starts right of a house. Border-box keeps the padding inside the full width of the box.
+  const indent = indentOf(b);
   return {
+    ...(indent > 0 && { paddingLeft: indent * k, boxSizing: "border-box" as const }),
     fontFamily: look === "dotted" ? dottedFamily(b.props.font) : font[1],
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
@@ -1270,7 +1309,7 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
 
 // Drawn in mm: the SVG's own scale takes it to the block's size. The editor passes the field the text is typed in.
 function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
-  const { row, at, band, size } = RULINGS[block.props.kind];
+  const { row, at, zones, size } = RULINGS[block.props.kind];
   const { text = "" } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
@@ -1307,7 +1346,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
             ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
-            : <span style={fold ? { width: first * k, overflow: "hidden" } : undefined}>{word}</span>}
+            : <span style={fold ? { width: (first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{word}</span>}
         </div>
       ))}
     </div>
@@ -1316,10 +1355,22 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     <div>
       <svg className="ruling" data-trace={karoLook} data-fade={karoFade} viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
         {/* The middle band lies between a row's second and third line. */}
-        {band > 0 && each(rows).map((top) => <rect key={top} y={top + at![1]} width={block.w} height={band} fill={block.props.color} fillOpacity={0.12} stroke="none" />)}
+        {zones && bandOf(block) && each(rows).map((top) => <rect key={top} className="band" y={top + zones[1]} width={block.w} height={zones[2] - zones[1]} fill={bandColorOf(block) ?? block.props.color} fillOpacity={bandColorOf(block) ? 1 : 0.12} stroke="none" />)}
         {ys.map((y) => (
           <line key={y} x2={at ? block.w : cols * row} y1={y} y2={y} />
         ))}
+        {/* A house stands on each row's left end, over the lines: its roof, its room and its cellar. */}
+        {zones && houseOf(block) && each(rows).map((top) => {
+          const w = houseWidth(block.props.kind);
+          const tint = houseTintOf(block);
+          return (
+            <g key={top} className="house">
+              <polygon className="roof" points={`0,${top + zones[1]} ${w / 2},${top + zones[0]} ${w},${top + zones[1]}`} fill={tint === "all" ? HOUSE.roof : "none"} strokeLinejoin="round" />
+              <rect className="room" x={0} y={top + zones[1]} width={w} height={zones[2] - zones[1]} fill={tint ? HOUSE.room : "none"} strokeLinejoin="round" />
+              <rect className="cellar" x={0} y={top + zones[2]} width={w} height={zones[3] - zones[2]} fill={tint === "all" ? HOUSE.cellar : "none"} strokeLinejoin="round" />
+            </g>
+          );
+        })}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
         {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
           <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" fill={mode ? (plain ? "currentColor" : "#aaaaaa") : karoLook === "grey" ? "#aaaaaa" : karoLook === "outline" ? "none" : "currentColor"} stroke={karoLook === "outline" ? "currentColor" : "none"} strokeWidth={karoLook === "outline" ? size * 0.035 : undefined} opacity={karoFade && fadeAt(karoFade === "row" ? x : y, karoFade === "row" ? cols : rows)}>
