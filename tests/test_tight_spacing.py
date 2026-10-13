@@ -255,7 +255,8 @@ def test_the_default_spacing_draws_as_before(editor, key, kind, spacing):
     page = editor(box("a", block_kind, props, x=10, y=40, w=90, h=40))
     unpick(page)
     frame = at(page, "a").locator(".frame")
-    reaches = (spacing or 1.3) < 2.0 and key in REACHES_AT_13
+    # The joined scripts reach past their place at the sides, so they are tight at every spacing.
+    reaches = key in REACHES_AT_13
     clip = clip_of(at(page, "a"))
     before = page.screenshot(clip=clip)
     if not reaches:
@@ -295,3 +296,67 @@ def test_the_default_spacing_draws_as_before(editor, key, kind, spacing):
         full = dark(page.screenshot(clip=clip))[0]
         count = dark(before)[0]
         assert abs(count - full) <= 0.02 * full, (count, full)
+
+
+SIDE_LEVER = (
+    ".frame, .frame p, .frame .rich { overflow: visible !important; clip-path: none !important; }"
+)
+# The side padding and margin off: the paragraph as it was before the sides were lifted.
+NO_SIDES = (
+    ".frame.tight p, .frame.tight .rich"
+    " { padding-inline: 0 !important; margin-inline: 0 !important; }"
+)
+ALL_FONTS = ["andika", "nord", "sued", "grund", "urff", "va", "sas", "la"]
+
+
+@pytest.mark.parametrize("align", ["left", "right"])
+@pytest.mark.parametrize("key", ALL_FONTS)
+def test_no_ink_is_cut_at_the_sides(editor, key, align):
+    """A1: a joined script's letters reach past their place, and no ink is cut at either side."""
+    props = {**TEXT, "font": key, "size": 40, "align": align, "text": "jgf Tgjp"}
+    page = editor(box("a", "text", props, x=10, y=40, w=90, h=30))
+    unpick(page)
+    clip = clip_of(at(page, "a"))
+    before = page.screenshot(clip=clip)
+    page.add_style_tag(content=SIDE_LEVER)
+    full = dark(page.screenshot(clip=clip))[0]
+    count = dark(before)[0]
+    assert full > 0
+    assert abs(count - full) <= 0.02 * full, (count, full)
+
+
+@pytest.mark.parametrize("key", REACHES_AT_13)
+def test_the_sides_keep_the_line_breaks(editor, key):
+    """A1: the side padding moves no letter and breaks no line of a wrapping text."""
+    props = {**TEXT, "font": key, "size": 20, "align": "left", "text": "Hallo gjpß Tgjp " * 6}
+    page = editor(box("a", "text", props, x=10, y=40, w=60, h=60))
+    unpick(page)
+    frame = at(page, "a").locator(".frame")
+    expect(frame).to_have_class(re.compile(r"\btight\b"))
+    measure = """el => {
+        const p = el.querySelector(':scope > p'), r = document.createRange();
+        r.setStart(p.firstChild, 0);
+        r.setEnd(p.firstChild, 1);
+        const lh = parseFloat(getComputedStyle(p).lineHeight);
+        return [r.getBoundingClientRect().left, Math.round(p.getBoundingClientRect().height / lh)];
+    }"""
+    tight = frame.evaluate(measure)
+    page.add_style_tag(content=NO_SIDES)
+    loose = frame.evaluate(measure)
+    assert abs(tight[0] - loose[0]) < 0.5, (tight, loose)
+    assert tight[1] == loose[1] > 1, (tight, loose)
+
+
+@pytest.mark.parametrize("key", REACHES_AT_13)
+def test_a_bullet_keeps_its_indent_in_a_tight_text(editor, key):
+    """A1: a bullet of a list in a tight text keeps its indent of 1.5 em."""
+    props = {**TEXT, "font": key, "size": 20, "align": "left", "text": "Liste"}
+    props["rich"] = [{"runs": [{"text": "Liste"}], "list": "bullet"}]
+    page = editor(box("a", "text", props, x=10, y=40, w=60, h=40))
+    unpick(page)
+    item = at(page, "a").locator(".frame .rich p[data-list]").first
+    expect(item).to_have_attribute("data-list", "bullet")
+    expect(at(page, "a").locator(".frame")).to_have_class(re.compile(r"\btight\b"))
+    em = item.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")
+    indent = item.evaluate("el => parseFloat(getComputedStyle(el).paddingLeft)")
+    assert abs(indent - 1.5 * em) < 0.5, (indent, em)

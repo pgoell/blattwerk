@@ -580,8 +580,14 @@ body:has(.print) { background: #fff; }
 /* The ink of a font that its line does not hold cuts as far outside the paragraph as the font reaches (--ink-up and
    --ink-down, em, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding and the margin cancel
    out: the text stays where it is. A text too long still ends at the foot, that far below. */
-.frame.tight p, .frame.tight .rich { padding-block: var(--ink-up) var(--ink-down); margin-block: calc(-1 * var(--ink-up)) calc(-1 * var(--ink-down)); }
+.frame.tight p, .frame.tight .rich { padding-block: var(--ink-up) var(--ink-down); margin-block: calc(-1 * var(--ink-up)) calc(-1 * var(--ink-down)); padding-inline: var(--ink-side); margin-inline: calc(-1 * var(--ink-side)); }
 .frame.tight .rich p { padding-block: 0; margin-block: 0; overflow: visible; }
+/* The same at the sides, where a joined script's letters reach past their place. A paragraph of a list keeps its indent and its bullet. */
+.frame.tight .rich p:not([data-list]):not([data-level]) { padding-inline: 0; margin-inline: 0; }
+.frame.tight .rich p[data-list], .frame.tight .rich p[data-level] { margin-inline: 0; padding-right: 0; }
+/* A text being typed in shows its look, not its fading: the caret and the letters are its own. */
+.frame[data-fade] .rich:has(.ProseMirror), .frame[data-fade] .ProseMirror { -webkit-mask-image: none; mask-image: none; }
+.block textarea.written:not(:read-only) { -webkit-mask-image: none !important; mask-image: none !important; }
 /* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
    text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */
 .frame.tailed > .body { grid-area: words; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
