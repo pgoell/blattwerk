@@ -1,9 +1,15 @@
 name: Deploy
 
-# Runs on the VPS, on a self-hosted runner. This repo is public, so the only
-# trigger is a finished CI run: workflow_run always reads this file from
-# master, never from a pull request. Do not add pull_request here, and do not
-# put a self-hosted job in any workflow that has it.
+# No runner on the VPS. The image is built here, on a GitHub-hosted runner, and
+# pushed to GHCR. The deploy job then sends the commit sha over SSH, and a copy
+# of scripts/deploy.sh that lies on the VPS, in server-infra, runs the steps:
+# prev, canary on a copy of the data, smoke test, snapshot, up, and the way
+# back. The key can do nothing else: no shell, and nothing of a commit runs on
+# the box but its image.
+#
+# This repo is public, so the only trigger is a finished CI run: workflow_run
+# always reads this file from master, never from a pull request. Do not add
+# pull_request here: the deploy job holds the key to the VPS.
 on:
   workflow_run:
     workflows: [CI]
@@ -17,150 +23,62 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy to blattwerk.pgoell.com
+  build:
+    name: Build image
     # `event == 'push'` matters: the branch filter above also matches a fork's
-    # pull request from a branch named master.
+    # pull request from a branch named master. The deploy job needs this one,
+    # so it is skipped with it.
     if: github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, Linux, X64]
-    # Every step that runs a command has a limit of its own, and this one lies
-    # above their sum with room for the checkout. So the job's limit never ends
-    # the run between `up` and the way back.
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    # The build runs apt for Chromium's libraries, and a slow mirror can stall
+    # it. With an end, a stalled build fails the job. The old container keeps
+    # running meanwhile: nothing has reached the VPS yet.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/pgoell/blattwerk:${{ github.event.workflow_run.head_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # First, before the build: here the running image surely still has its
-      # name `latest`, and nothing has had a chance to fail yet. An image with
-      # no name left is one docker's containerd store cannot tag.
-      - name: Keep the running image as prev
-        id: prev
-        timeout-minutes: 2
-        run: bash scripts/keep-prev.sh
-
-      # A rerun of an old commit brings its own scripts. A canary.sh that starts
-      # `latest` would try the image that already runs, pass, and let the
-      # untried build go live.
-      - name: Refuse a commit whose canary does not run the build
-        timeout-minutes: 1
-        run: |
-          if ! grep -q 'blattwerk-blattwerk:canary' scripts/canary.sh; then
-            echo "::error::this commit is older than the canary's own image name, so its canary would not try its build. Revert on master instead of a rerun."
-            exit 1
-          fi
-
-      # The build runs apt for Chromium's libraries, and a slow mirror can stall
-      # it. With an end, a stalled build fails the job. The old container keeps
-      # running meanwhile: nothing has changed yet. The build gets a name of its
-      # own, so `latest` still names the image that runs.
-      - name: Build image
-        timeout-minutes: 15
-        run: docker build -t blattwerk-blattwerk:canary .
-
-      # The new image runs on a copy of the data, off the proxy's network and
-      # with no port. A fail here stops the job before the live container
-      # changes.
-      - name: Start the canary on a copy of the data
-        timeout-minutes: 3
-        run: bash scripts/canary.sh start /home/pascal/.local/share/blattwerk /home/pascal/.local/share/blattwerk-canary
-
-      - name: Smoke test the canary
-        timeout-minutes: 5
-        run: bash scripts/canary.sh smoke
-
-      # Pass, fail or cancel. After a fail the steps below still do not run.
-      - name: Remove the canary and the copy
-        if: always()
-        timeout-minutes: 2
-        run: bash scripts/canary.sh stop /home/pascal/.local/share/blattwerk /home/pascal/.local/share/blattwerk-canary
-
-      # A schema move runs on the first request after a deploy and has no way
-      # back. After the build, so the copy is as new as it can be. A failed copy
-      # stops the job here, before the live container changes.
-      - name: Snapshot the database
-        timeout-minutes: 3
+  deploy:
+    name: Deploy to blattwerk.pgoell.com
+    needs: build
+    runs-on: ubuntu-latest
+    # Above the sum of the limits the script on the VPS sets for its own steps.
+    # The script runs to its end even if this job does not.
+    timeout-minutes: 60
+    # Holds the SSH key, and only master may use it.
+    environment: vps
+    permissions: {}
+    steps:
+      # No checkout: this job runs no file of the repo. It sends the sha and
+      # nothing else, and the VPS reads it as an image tag.
+      - name: Send the commit to the VPS
         env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           SHA: ${{ github.event.workflow_run.head_sha }}
-        run: python3 scripts/snapshot.py /home/pascal/.local/share/blattwerk/blattwerk.db /home/pascal/.local/share/blattwerk-backups "$SHA"
-
-      # Only now, after the canary passed: up to here `latest` names the image
-      # that runs, so a failed canary leaves nothing for a hand-run
-      # `docker compose up -d` to put live.
-      - name: Name the tested image latest
-        id: promote
-        timeout-minutes: 1
-        run: docker tag blattwerk-blattwerk:canary blattwerk-blattwerk:latest
-
-      # No build: were `latest` missing, compose would build an image that no
-      # canary has tried.
-      - name: Deploy
-        timeout-minutes: 3
-        run: docker compose up -d --no-build
-
-      # Were compose to keep the old container, every check below would pass
-      # on the old image.
-      # Not the ids: a build out of the cache (a commit that changes nothing the
-      # image holds) gets a new id for the same image, and compose rightly keeps
-      # the container. So the check reads what the two images hold. The config
-      # too: a new `ENV` or `CMD` adds no layer.
-      # An inspect that fails leaves an empty answer, and an empty answer fails:
-      # two empty answers must not count as the same.
-      # The config holds env values and this log is public: it is never printed.
-      - name: Check that the container runs the tested image
-        timeout-minutes: 1
         run: |
-          running=$(docker inspect -f '{{.Image}}' blattwerk) || running=
-          for part in .RootFS.Layers .Config; do
-            runs=$(docker image inspect -f "{{json $part}}" "$running") || runs=
-            tried=$(docker image inspect -f "{{json $part}}" blattwerk-blattwerk:canary) || tried=
-            if [ -z "$runs" ] || [ "$runs" != "$tried" ]; then
-              echo "::error::the blattwerk container does not run the image the canary tried: $part differs or could not be read (the container runs ${running:-nothing})"
-              exit 1
-            fi
-          done
-          echo "the container runs $running, which holds the layers and the config the canary tried"
-
-      # The app's logs hold invite tokens and this repo's job logs are public,
-      # so a failure points at the logs and does not print them.
-      - name: Wait for the app to answer
-        timeout-minutes: 3
-        run: |
-          for _ in $(seq 1 30); do
-            if bash scripts/alive.sh blattwerk; then
-              echo "blattwerk answers"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::blattwerk did not answer on :8000. On the VPS: docker logs blattwerk"
-          exit 1
-
-      # Three GETs and one read of the database, which must hold a user. No
-      # smoke user and no write.
-      - name: Smoke test live, read only
-        timeout-minutes: 2
-        run: docker exec -i blattwerk /app/.venv/bin/python - --read-only http://127.0.0.1:8000 < scripts/smoke.py
-
-      # After a fail, and after a cancel too: a cancel in the wait or in the
-      # live smoke test would leave an untested image live. Only once the tag
-      # step has run: before that `latest` names the image that runs and the
-      # old container is untouched, so there is nothing to go back from. From
-      # the tag step on `latest` has moved, even if `up` never ran.
-      - name: Go back to prev
-        if: (failure() || cancelled()) && steps.promote.outcome != 'skipped'
-        timeout-minutes: 3
-        env:
-          # Empty when keep-prev left an older `prev` in place.
-          PREV_KEPT: ${{ steps.prev.outputs.kept }}
-          # The id keep-prev tagged: go-back wants `prev` to still be that one.
-          PREV_IMAGE: ${{ steps.prev.outputs.image }}
-        run: bash scripts/go-back.sh
-
-      # Not after a fail: the failed image stays for a look, under the name
-      # `canary` until the next build.
-      - name: Clean up old images
-        timeout-minutes: 2
-        run: docker image prune -f
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_SSH_KEY" >~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$DEPLOY_HOST" "$SHA"
