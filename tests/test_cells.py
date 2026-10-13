@@ -525,6 +525,21 @@ def test_copy_keeps_the_merged_cells(editor):
     assert tables[0]["props"]["spans"] == tables[1]["props"]["spans"]
 
 
+def test_copy_and_paste_keeps_the_merged_cells(editor):
+    """Ctrl+C, Ctrl+V of a table with merged cells keeps the merged cells (Asked 13)."""
+    client = user()
+    page = editor(box("t", "table", MERGED), client=client)
+    pick(page, "t")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block")).to_have_count(2)
+    tables = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "table"]
+    assert len(tables) == 2
+    assert tables[0]["props"]["spans"] == tables[1]["props"]["spans"]
+    assert tables[0]["props"]["cells"] == tables[1]["props"]["cells"]
+    expect(page.locator('[data-span="2x2"]')).to_have_count(2)
+
+
 def test_undo_drops_the_cells_picked(editor):
     """Undo may take the picked cells away with their row: none stays picked, and nothing throws."""
     client = user()

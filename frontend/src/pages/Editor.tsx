@@ -96,7 +96,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput,
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
-import { anchorOf, beside, merged, next, rectOf, spanAt, spansOf, unmerged } from "../cells";
+import { EDGE, anchorOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Rect } from "../cells";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -313,7 +313,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
   const [reach, setReach] = useState<number | undefined>(undefined);
   const cellDrag = useRef(false);
-  // The heights of the rows of the picked table as its grid laid them out, in px, when it has merged cells.
+  // The heights of the rows of the picked table as its grid laid them out, in px.
   const [laid, setLaid] = useState("");
   // Where the caret stood in a cell that a new row or column moves to another place.
   const caret = useRef<number>(undefined);
@@ -695,7 +695,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Cells picked stay picked only while their table is being edited.
     if (reach !== undefined && (!table || editing !== table.id || reach >= table.props.cells.flat().length)) setReach(undefined);
     // The handles of a table's column lines need its rows' heights where a merged cell lies over a line.
-    const grid = table && spansOf(table.props).length ? sheet.current!.querySelector(`[data-id="${table.id}"] .table`) : null;
+    const grid = table ? sheet.current!.querySelector(`[data-id="${table.id}"] .table`) : null;
     const rows = grid ? getComputedStyle(grid).gridTemplateRows : "";
     if (rows !== laid) setLaid(rows);
   });
@@ -1140,7 +1140,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function place(boxes: [string, Partial<Box>][], key?: string) {
     const byId = new Map(boxes);
-    change((bs) => bs.map((b) => ({ ...b, ...byId.get(b.id) })), key);
+    change(
+      (bs) =>
+        bs.map((b) => {
+          const patch = byId.get(b.id);
+          // A table with row heights keeps them in proportion to its height.
+          const rows = b.type === "table" && patch?.h !== undefined && b.h > EDGE && patch.h !== b.h ? heightsOf(b.props) : undefined;
+          if (!rows) return { ...b, ...patch };
+          const f = (patch!.h! - EDGE) / (b.h - EDGE);
+          return { ...b, ...patch, props: { ...b.props, rows: rows.map((h) => h * f) } } as Block;
+        }),
+      key,
+    );
   }
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table" || key === "words") tight.current = true;
@@ -2047,6 +2058,59 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     tight.current = true;
     change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: unmerged(table.props, slot) } : o)));
     setReach((r + h - 1) * table.props.cols.length + c + w - 1);
+  }
+  // The heights of the rows as the grid lays them out now, in mm.
+  const laidMm = laid ? laid.split(" ").map((px) => parseFloat(px) / K) : [];
+  // The heights in mm that the rows' texts need, read from the grid with its rows free.
+  function needs(grid: HTMLElement): number[] {
+    const [rows, height] = [grid.style.gridTemplateRows, grid.style.height];
+    grid.style.gridTemplateRows = "none";
+    grid.style.height = "auto";
+    const px = getComputedStyle(grid).gridTemplateRows;
+    grid.style.gridTemplateRows = rows;
+    grid.style.height = height;
+    return px.split(" ").map((p) => parseFloat(p) / K);
+  }
+  // Sets the width of the picked columns, or the open cell's, or the height of the rows. With cells picked each
+  // one becomes `mm`; else the open cell's lines keep their share and sum to `mm`. It is one step of undo.
+  function sizeCells(axis: "col" | "row", mm: number) {
+    if (!table || !(mm > 0)) return;
+    const [r, c, h, w] = spanAt(table.props, slot);
+    const [r0, c0, r1, c1]: Rect = reach === undefined ? [r, c, r + h - 1, c + w - 1] : rectOf(table.props, slot, reach);
+    const each = reach !== undefined;
+    const [from, to] = axis === "col" ? [c0, c1] : [r0, r1];
+    const least = axis === "col" ? 5 : 0;
+    const value = each ? Math.max(least, mm) : Math.max(least * (to - from + 1), mm);
+    const base = axis === "col" ? widthsOf(table.props.cols, table.w) : laidMm;
+    if (!base.length) return;
+    const sizes = sized(base.map(round), from, to, value, each).map(round);
+    tight.current = true;
+    change((bs) =>
+      bs.map((o) =>
+        o.id !== table.id ? o : axis === "col" ? { ...table, w: round(sum(sizes) + EDGE), props: { ...table.props, cols: sizes } } : { ...table, h: round(sum(sizes) + EDGE), props: { ...table.props, rows: sizes } },
+      ),
+    );
+  }
+  // Makes the picked columns or rows equal within the room they hold: all of them with no cell picked. The rows
+  // take the higher of their share and the height their texts need. It is one step of undo.
+  function evenCells(axis: "col" | "row") {
+    if (!table) return;
+    const all: Rect = [0, 0, table.props.cells.length - 1, table.props.cols.length - 1];
+    const [r0, c0, r1, c1] = reach === undefined ? all : rectOf(table.props, slot, reach);
+    const [from, to] = axis === "col" ? [c0, c1] : [r0, r1];
+    tight.current = true;
+    if (axis === "col") {
+      const cols = evened(widthsOf(table.props.cols, table.w), from, to).map(round);
+      change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: { ...table.props, cols } } : o)));
+      return;
+    }
+    const grid = sheet.current!.querySelector<HTMLElement>(`[data-id="${table.id}"] .table`);
+    if (!grid || !laidMm.length) return;
+    const top = needs(grid).slice(from, to + 1);
+    const picked = laidMm.slice(from, to + 1);
+    const share = round(Math.max(sum(picked) / picked.length, ...top));
+    const rows = sized(laidMm.map(round), from, to, share, true).map(round);
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, h: round(sum(rows) + EDGE), props: { ...table.props, rows } } : o)));
   }
   // Adds an empty row or column to a table before the one at `i`, or takes the one at `i` away; the last one
   // stays. A new row adds its height to the block, a line of text with the cell's padding and line, and
@@ -3284,6 +3348,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 reach={editing && editing === table?.id ? reach : undefined}
                 merge={merge}
                 unmerge={unmerge}
+                laid={laidMm}
+                sizeCells={sizeCells}
+                evenCells={evenCells}
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}

@@ -124,3 +124,37 @@ export function beside(p: Grid, slot: number, to: "up" | "down"): number | undef
   if (row < 0 || row >= p.cells.length) return undefined;
   return anchorOf(p, row * p.cols.length + c);
 }
+
+// The table's line at its left and at its top, in mm: one pixel of the print. The columns share the block's width
+// without it, and the rows its height, so a column measures its width from line to line.
+export const EDGE = 25.4 / 96;
+
+// Each column's width in mm in a block `w` mm wide.
+export const widthsOf = (cols: number[], w: number): number[] => {
+  const total = cols.reduce((all, n) => all + n, 0);
+  return cols.map((n) => (n / total) * (w - EDGE));
+};
+
+// The lowest heights of a table's rows, one per row, when they hold: finite numbers above 0, as many as the rows.
+// Anything else counts as absent. Never throws.
+export function heightsOf(p: { cells: string[][]; rows?: unknown }): number[] | undefined {
+  const rows = p.rows;
+  if (!Array.isArray(rows) || rows.length !== p.cells.length) return undefined;
+  return rows.every((h) => typeof h === "number" && Number.isFinite(h) && h > 0) ? (rows as number[]) : undefined;
+}
+
+// `sizes` with the entries from `from` to `to` set: each one `value`, or, without `each`, the same proportions
+// with their sum `value`.
+export function sized(sizes: number[], from: number, to: number, value: number, each: boolean): number[] {
+  const inside = sizes.slice(from, to + 1);
+  const total = inside.reduce((all, n) => all + n, 0);
+  const share = inside.map((n) => (each ? value : total ? (n / total) * value : value / inside.length));
+  return [...sizes.slice(0, from), ...share, ...sizes.slice(to + 1)];
+}
+
+// `sizes` with the entries from `from` to `to` made equal, each their share of the sum they hold.
+export function evened(sizes: number[], from: number, to: number): number[] {
+  const inside = sizes.slice(from, to + 1);
+  const each = inside.reduce((all, n) => all + n, 0) / inside.length;
+  return [...sizes.slice(0, from), ...inside.map(() => each), ...sizes.slice(to + 1)];
+}
