@@ -218,6 +218,8 @@ def test_i3_the_scroll_stops_when_the_pointer_leaves_the_edge_and_the_line_follo
     page.mouse.move(box_["x"] + box_["width"] / 2, box_["y"] + box_["height"] / 2, steps=5)
     stopped = frames(page)
     assert frames(page) == stopped
+    # It stopped on the way, not because the panel had come to its end.
+    assert stopped < page.evaluate(f"{PANEL}.scrollHeight - {PANEL}.clientHeight")
     page.mouse.up()
     expect_no_drag(page)
 
