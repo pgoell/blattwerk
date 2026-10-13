@@ -144,11 +144,16 @@ def test_every_script_has_a_number_for_each_line_at_the_tightest_spacing(editor,
     look = {**TEXT, "text": LONG, "lines": 1, "font": font, "spacing": 1}
     page = editor(box("a", "text", look, w=80, h=200))
     expect(at(page, "a").locator(".unsplit")).to_have_count(0)
-    # In the block's own pixels: the zoom scales the paragraph's box on the screen.
+    # In the block's own pixels: the zoom scales the paragraph's box on the screen. Without the
+    # padding a tight line has for its ink (#487): that is no line.
     rows = (
         at(page, "a")
         .locator(".frame p")
-        .evaluate("el => el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight)")
+        .evaluate(
+            "el => { const s = getComputedStyle(el); return (el.offsetHeight"
+            " - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom))"
+            " / parseFloat(s.lineHeight) }"
+        )
     )
     assert round(rows) > 3
     expect(at(page, "a").locator(".ln")).to_have_count(round(rows))

@@ -15,6 +15,10 @@ SELECTS = [
     ("ruling", "Art der Lineatur"),
     ("ruling", "Schriftart auf den Zeilen"),
     ("table", "Schriftart der Tabelle"),
+    ("text", "Nachspurtext"),
+    ("shape", "Nachspurtext"),
+    ("ruling", "Nachspurtext"),
+    ("table", "Nachspurtext"),
 ]
 # The words of a text or a shape, of its own blue: all but the last letter are red.
 LAST = {

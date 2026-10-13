@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, dottedFamily, fadeOf, traceOf, type Fade, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -21,6 +21,8 @@ type Props = {
   bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
+  // Sets the trace text's look on every picked block that carries text, in one step.
+  traced: (props: object) => void;
   // Makes the picked texts and shapes take the sheet's Lernwörter as their text, or cut them loose with their words.
   link: (on: boolean) => void;
   // Sets props on the picked texts and shapes that take the Lernwörter, as `look` does for all of them.
@@ -154,7 +156,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -301,6 +303,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
+          <TraceControls props={text} font={text.font} onChange={traced} />
           {bows}
           {gaps}
           <Fed sel={sel} words={words} toList={toList} look={look} link={link} feed={feed} />
@@ -377,9 +380,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
             <FontSelect label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
-            <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
-              Nachspurtext
-            </button>
+            <TraceControls props={rulings[0].props} font={RULINGS[rulings[0].props.kind].at ? rulings[0].props.font ?? "andika" : "andika"} onChange={traced} />
           )}
         </>
       )}
@@ -439,6 +440,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
           <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
             Kopfzeile
           </button>
+          <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && bows}
           {!text && gaps}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
@@ -479,6 +481,49 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
       <h2>Nummerierung</h2>
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
+    </>
+  );
+}
+
+// The trace text of a text, a shape, a table or a Lineatur: Aus, Grau, Umriss or Gepunktet. Gepunktet needs the font's
+// dotted cut. Fading makes the trace lighter along the row or from row to row. Aus takes the fading along; the other
+// choices set only their own keys.
+const TRACE_CHOICE: Record<string, { trace?: true | "outline" | "dotted"; fade?: Fade }> = {
+  off: { trace: undefined, fade: undefined },
+  grey: { trace: true },
+  outline: { trace: "outline" },
+  dotted: { trace: "dotted" },
+};
+function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fade?: unknown; font?: Font }; font: Font | undefined; onChange: (props: { trace?: true | "outline" | "dotted"; fade?: Fade }) => void }) {
+  const trace = traceOf({ ...props, font }) ?? "off";
+  const fade = fadeOf({ ...props, font });
+  const dotted = !!dottedFamily(font);
+  return (
+    <>
+      <select aria-label="Nachspurtext" value={trace} onChange={(e) => onChange(TRACE_CHOICE[e.target.value])}>
+        <option value="off">Aus</option>
+        <option value="grey">Grau</option>
+        <option value="outline">Umriss</option>
+        <option value="dotted" disabled={!dotted}>
+          Gepunktet
+        </option>
+      </select>
+      {!dotted && <p className="hint">Gepunktet gibt es nur in der Grundschrift (Urff).</p>}
+      {trace !== "off" && (
+        <button className={fade ? "on" : ""} aria-pressed={!!fade} onClick={() => onChange({ fade: fade ? undefined : "row" })}>
+          Ausblenden
+        </button>
+      )}
+      {fade && (
+        <div className="seg">
+          <button className={fade === "row" ? "on" : ""} aria-pressed={fade === "row"} onClick={() => onChange({ fade: "row" })}>
+            In der Zeile
+          </button>
+          <button className={fade === "rows" ? "on" : ""} aria-pressed={fade === "rows"} onClick={() => onChange({ fade: "rows" })}>
+            Von Zeile zu Zeile
+          </button>
+        </div>
+      )}
     </>
   );
 }

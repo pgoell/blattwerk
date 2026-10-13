@@ -201,7 +201,8 @@ def test_a_control_reached_by_the_keys_alone_keeps_them(editor, name, label):
     # No press comes first.
     control.focus()
     was = control.input_value()
-    page.keyboard.type("l")
+    # No option of the trace select starts with an l: its letter is a g, of Grau.
+    page.keyboard.type("g" if label == "Nachspurtext" else "l")
     expect(control).to_be_focused()
     if (name, label) in SELECTS:
         expect(control).not_to_have_value(was)

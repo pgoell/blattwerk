@@ -577,6 +577,22 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
+/* The ink of a font that its line does not hold cuts as far outside the paragraph as the font reaches (--ink-up and
+   --ink-down, em, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding and the margin cancel
+   out: the text stays where it is. A text too long still ends at the foot, that far below. */
+.frame.tight p, .frame.tight .rich { padding-block: var(--ink-up) var(--ink-down); margin-block: calc(-1 * var(--ink-up)) calc(-1 * var(--ink-down)); padding-inline: var(--ink-side); margin-inline: calc(-1 * var(--ink-side)); }
+/* In whole pixels at the sides: Safari lays a box out on parts of a pixel, and a padding of a part moved the letters
+   by up to 0.7 px against sheets saved before. */
+@supports (width: round(up, 1px, 1px)) {
+  .frame.tight p, .frame.tight .rich { padding-inline: round(up, var(--ink-side), 1px); margin-inline: calc(-1 * round(up, var(--ink-side), 1px)); }
+}
+.frame.tight .rich p { padding-block: 0; margin-block: 0; overflow: visible; }
+/* The same at the sides, where a joined script's letters reach past their place. A paragraph of a list keeps its indent and its bullet. */
+.frame.tight .rich p:not([data-list]):not([data-level]) { padding-inline: 0; margin-inline: 0; }
+.frame.tight .rich p[data-list], .frame.tight .rich p[data-level] { margin-inline: 0; padding-right: 0; }
+/* A text being typed in shows its look, not its fading: the caret and the letters are its own. */
+.frame[data-fade] .rich:has(.ProseMirror), .frame[data-fade] .ProseMirror { -webkit-mask-image: none; mask-image: none; }
+.block textarea.written:not(:read-only) { -webkit-mask-image: none !important; mask-image: none !important; }
 /* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
    text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */
 .frame.tailed > .body { grid-area: words; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -643,6 +659,17 @@ body:has(.print) { background: #fff; }
 /* A linked text with no word in the list says what it is, on the desk alone. */
 .rich.nolist::before { content: "Lernwörter"; color: var(--faint); }
 .paper .rich.nolist::before { content: none; }
+/* Trace text, for the children to write over. Grey is the text's colour lightened, and a run's own colour goes too. */
+.frame[data-trace=grey] > p, .frame[data-trace=grey] > .body > p, .frame[data-trace=grey] .rich, .frame[data-trace=grey] .rich span, .table[data-trace=grey] p { color: #aaaaaa !important; }
+/* Outline is the letters' edge with no fill. The stroke goes under a white fill that multiplies away, so the lines of a
+   joined script do not show inside it, and what lies under the letters shows through. The blend stays off the frame
+   and the table: there it would reach their fill and their lines. */
+.frame[data-trace=outline] > p, .frame[data-trace=outline] > .body > p, .frame[data-trace=outline] .rich, .table[data-trace=outline] p { -webkit-text-fill-color: #fff; -webkit-text-stroke: .07em; paint-order: stroke fill; mix-blend-mode: multiply; }
+/* The dotted cut is drawn as the font has it: a bold or italic run would smear its dots, and a table's head row is bold. */
+.frame[data-trace=dotted] .rich span, .table[data-trace=dotted] > div { font-weight: 400 !important; font-style: normal !important; }
+[data-trace=dotted] { font-synthesis: none; }
+/* A fading trace text lies under its mask: the frame sets it (--fade), a row at a time. */
+.frame[data-fade] > p, .frame[data-fade] > .body > p, .frame[data-fade] .rich { -webkit-mask-image: var(--fade); mask-image: var(--fade); }
 /* The field a text is typed in. ProseMirror needs its spaces kept, and the sheet around it lets nothing be selected. */
 .ProseMirror { outline: 0; white-space: pre-wrap; overflow-wrap: break-word; cursor: text; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 /* A numbering in a ring. */

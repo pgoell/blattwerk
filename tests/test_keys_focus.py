@@ -25,11 +25,11 @@ from ui import (
 OPEN = ".ProseMirror, .block textarea:not([readonly])"
 # Every select and colour input the panel shows for a block, by its label.
 CONTROLS = {
-    "text": ["Schriftart", "Farbe", "Füllung", "Rand"],
-    "shape": ["Schriftart", "Farbe", "Füllung", "Rand"],
+    "text": ["Schriftart", "Farbe", "Nachspurtext", "Füllung", "Rand"],
+    "shape": ["Schriftart", "Farbe", "Nachspurtext", "Füllung", "Rand"],
     "line": ["Füllung", "Rand"],
-    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen"],
-    "table": ["Schriftart der Tabelle", "Farbe", "Linien"],
+    "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen", "Nachspurtext"],
+    "table": ["Schriftart der Tabelle", "Farbe", "Linien", "Nachspurtext"],
 }
 KINDS = {
     "text": ("text", TEXT),
