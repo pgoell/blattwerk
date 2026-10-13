@@ -86,6 +86,16 @@ def test_the_block_does_not_grow_past_the_foot_of_the_page(editor):
     assert block["y"] + block["h"] <= 297
 
 
+def test_near_the_foot_the_block_takes_the_rows_that_still_fit(editor):
+    client = user()
+    # Two rows of 20 mm from 210 mm down: two more fit above the page's end at 297 mm.
+    page = editor(box("l", "ruling", {**RULING, "kind": "l1"}, z=2, y=210, h=40), client=client)
+    at(page, "l").dblclick()
+    page.keyboard.type("Oma " * 80)
+    expect(at(page, "l").locator("textarea")).not_to_have_value("")
+    assert height(page, client) == 80
+
+
 def test_growth_and_typing_undo_together(editor):
     client = user()
     page = editor(box("l", "ruling", {**RULING, "kind": "l1"}, z=2, h=40), client=client)

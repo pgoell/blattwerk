@@ -145,12 +145,12 @@ def carries(op: str, a: int, b: int) -> list[int]:
     return out
 
 
-def kleine(op: str, a: int, b: int) -> bool:
+def kleine(op: str, a: int, b: int, low: int = 1) -> bool:
     """Whether a times or divide task is of the kleine Einmaleins: its factors, or its divisor and
-    its quotient, lie from 1 to 10."""
+    its quotient, lie from `low` to 10."""
     if op == "*":
-        return 1 <= a <= 10 and 1 <= b <= 10
-    return 1 <= b <= 10 and 1 <= a // b <= 10
+        return low <= a <= 10 and low <= b <= 10
+    return low <= b <= 10 and low <= a // b <= 10
 
 
 def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
@@ -159,8 +159,9 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
         return False
     if op == "/" and b == 0:
         return False
-    # The kleine Einmaleins has no 0 in it, so the switch keeps 0 out of these tasks.
-    if s.small and op in "*/" and not kleine(op, a, b):
+    # The kleine Einmaleins has no 0 in it, so the switch keeps 0 out of these tasks. Without the
+    # tasks with 1 its rows start at 2, so a quotient of 1 is out as well.
+    if s.small and op in "*/" and not kleine(op, a, b, 1 if s.one else 2):
         return False
     # A written task with a 0 as a number teaches nothing, whatever the operation.
     if s.format == "written" and 0 in (a, b):

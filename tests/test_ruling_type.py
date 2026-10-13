@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from ui import RULING, at, box, expect_picked, pick
+from ui import RULING, TEXT, at, box, expect_picked, pick
 
 KINDS = ["l1", "l2", "l3", "l4", "lines", "k5", "k7"]
 WRITTEN = "textarea.written"
@@ -122,6 +122,19 @@ def test_typing_with_several_blocks_picked_opens_none(editor):
     page.keyboard.type("x")
     expect(writing(page, "a")).to_have_value("")
     expect(writing(page, "b")).to_have_value("")
+
+
+def test_a_locked_block_picked_beside_the_ruling_keeps_it_shut(editor):
+    page = editor(box("fest", "text", TEXT, locked=True), ruling(z=2))
+    pick(page, "fest", "l")
+    page.keyboard.type("x")
+    expect(writing(page)).to_have_value("")
+    # Moveable's area lies over the two picked blocks, so the click goes to the point.
+    place = at(page, "l").bounding_box()
+    page.mouse.click(place["x"] + place["width"] / 2, place["y"] + place["height"] / 2)
+    page.keyboard.type("y")
+    expect(writing(page)).to_have_value("")
+    expect(writing(page)).not_to_be_focused()
 
 
 def test_the_panel_names_the_way_in(editor):

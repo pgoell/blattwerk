@@ -55,6 +55,7 @@ def test_every_times_and_divide_task_is_of_the_kleine_einmaleins(
         assert 0 not in (e["a"], e["b"], e["result"]), e
         if not one:
             assert 1 not in (e["a"], e["b"]), e
+            assert e["op"] == "*" or e["a"] // e["b"] >= 2, e
 
 
 @settings(max_examples=100, deadline=None)
@@ -74,19 +75,20 @@ def test_the_kleine_einmaleins_fills_the_block_in_any_zahlenraum(ops, max_, coun
 @given(
     ops=TIMES_OR_DIVIDE,
     sides=st.sampled_from(["tn", "tt"]),
+    one=st.booleans(),
     count=st.integers(1, 10),
     seed=st.integers(0, 99),
 )
-def test_comparisons_keep_to_the_kleine_einmaleins(ops, sides, count, seed):
-    out = generate(
-        Settings(
-            ops=ops, max=100, format="compare", sides=sides, count=count, seed=seed, small=True
-        )
-    )
+def test_comparisons_keep_to_the_kleine_einmaleins(ops, sides, one, count, seed):
+    s = Settings(ops=ops, max=100, format="compare", sides=sides, one=one, count=count, seed=seed)
+    out = generate(s.model_copy(update={"small": True}))
     for e in out["exercises"]:
         for term in e.values():
             if isinstance(term, dict) and term.get("op") in ("*", "/"):
                 assert factors_and_quotient_ok(term), term
+                if not one:
+                    assert 1 not in (term["a"], term["b"]), term
+                    assert term["op"] == "*" or term["a"] // term["b"] >= 2, term
 
 
 def test_too_few_tasks_name_the_switch():

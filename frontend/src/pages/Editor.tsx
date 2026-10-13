@@ -863,7 +863,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // focus moves in the same flush, so the browser types the key into the textarea: no preventDefault. Keys that
     // are commands, and a field, a button or the panel that keep their own, stay as they are.
     const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
-    if (typed && !editing && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+    if (typed && !editing && sel.length === 1 && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       flushSync(() => edit(free[0].id));
       return;
     }
@@ -1175,9 +1175,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const need = at
       ? area.scrollHeight > area.clientHeight + 1 ? Math.round(area.scrollHeight / (row * K)) : 0
       : Math.max(0, ...squares(text, colsOf(b)).map(([, y]) => y + 1));
-    const rows = Math.max(have, need);
+    // Near the foot it takes the rows that still fit the page, not none.
+    const rows = Math.max(have, Math.min(need, Math.floor((H - b.y) / row + 0.05)));
     const h = round(rows * row);
-    const grows = rows > have && b.y + h <= H;
+    const grows = rows > have;
     change(
       (bs) =>
         bs.map((x) =>
@@ -2392,7 +2393,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
       // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
       // branch above.
-      else if (touch.current || (!press && free[0]?.type === "ruling" && free.length === 1)) edit(id, el);
+      else if (touch.current || (!press && sel.length === 1 && free[0]?.type === "ruling")) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
