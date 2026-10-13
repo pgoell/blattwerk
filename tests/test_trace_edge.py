@@ -352,9 +352,10 @@ def test_no_ink_of_a_dotted_text_is_cut_above_or_below(browser, server, font):
     assert not cut, (font, cut)
 
 
-@pytest.mark.parametrize("font", ["va", "urff"])
-def test_no_ink_of_an_outlined_text_is_cut_above_or_below_on_screen(editor, font):
-    look = "outline" if font == "va" else "dotted"
+@pytest.mark.parametrize(
+    ("font", "look"), [*((font, "outline") for font in FONTS), ("urff", "dotted")]
+)
+def test_no_ink_of_an_outlined_text_is_cut_above_or_below_on_screen(editor, font, look):
     page = editor(*four(font, look))
     page.add_style_tag(content=HIDE)
     items = {name: (at(page, name), 150) for name in NAMES}
