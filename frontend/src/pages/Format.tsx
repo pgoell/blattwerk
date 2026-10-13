@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -213,10 +213,13 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
     // A level block keeps its y as it is.
     return { w, x: fine(b.x + (b.w - w + (on - back) * c) / 2), ...(Math.abs(s) > 1e-9 && { y: fine(b.y + ((on - back) * s) / 2) }) };
   };
-  // A maths block's height follows its exercises when they need more or less room than before.
+  // A maths block's height follows its exercises when they need more or less room than before. A change that would
+  // push it past the page's foot is refused: the PDF would cut what hangs below.
   const calc = (props: MathsProps) => {
+    if (overFoot(maths!, props, H)) return false;
     style("maths", props, "maths");
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], "maths");
+    return true;
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
 
@@ -459,7 +462,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
         </>
       )}
-      {maths && <Maths key={maths.id} block={maths} apply={calc} />}
+      {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {points && (
         <>

@@ -322,6 +322,19 @@ export function mathsHeight(p: MathsProps) {
   const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
   return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
 }
+// The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
+export function lowest(b: Box) {
+  const [c, s] = dir(b);
+  return b.y + b.h / 2 + (Math.abs(b.w * s) + Math.abs(b.h * c)) / 2;
+}
+// Whether a maths block with these props would end lower than it does and below the paper's edge, `H` mm down.
+// A sheet prints one page a page: what hangs below is cut, so the panel and the painter refuse such a change.
+export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
+  const h = mathsHeight(props);
+  if (h === mathsHeight(b.props)) return false;
+  const low = lowest({ ...b, ...tall(b, h) });
+  return low > H + 0.01 && low > lowest(b) + 0.01;
+}
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
 // is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
@@ -1277,6 +1290,11 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
     const el = root.current;
     if (!el) return;
     el.style.removeProperty("--fit");
+    // The numbers take the width of the widest one, in em so it scales with the type. offsetWidth is the laid out
+    // width, whole pixels and blind to a turn of the block; one pixel more holds the fraction it drops.
+    el.style.removeProperty("--num");
+    const marks = [...el.querySelectorAll<HTMLElement>("b")];
+    if (marks.length) el.style.setProperty("--num", `${(Math.max(...marks.map((b) => b.offsetWidth)) + 1) / parseFloat(getComputedStyle(el).fontSize)}em`);
     // A block with no width to speak of has no scale: it would come out below nothing.
     const over = el.clientWidth > 2 && el.scrollWidth > el.clientWidth + 1;
     // Two pixels of room: the paper's outer line lies half outside its svg, and the block cuts what leaves it.

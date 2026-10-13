@@ -2,7 +2,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from test_maths import keeps, places
 
-from blattwerk.maths import Settings, generate, scaled
+from blattwerk.maths import Settings, generate, scaled, school
 
 MAX = st.sampled_from([10, 20, 100, 1000, 1_000_000]) | st.integers(1, 1_000_000)
 CARRY = st.sampled_from(["none", "required", "either"])
@@ -63,11 +63,8 @@ def expected(kind, moves, op, a, b):
         return [(op, a, b), (op, b, a)]
     if kind == "reverse":
         return [(op, a, b), ({"+": "-", "-": "+", "*": "/", "/": "*"}[op], value(op, a, b), b)]
-    if op == "/":
-        q, r = divmod(a, b)
-        if moves == "a":
-            return [(op, a, b), (op, a - b, b), (op, a + b, b)]
-        return [(op, a, b), (op, q * (b - 1) + r, b - 1), (op, q * (b + 1) + r, b + 1)]
+    if op == "/" and moves == "a":
+        return [(op, a, b), (op, a - b, b), (op, a + b, b)]
     if moves == "a":
         return [(op, a, b), (op, a - 1, b), (op, a + 1, b)]
     return [(op, a, b), (op, a, b - 1), (op, a, b + 1)]
@@ -132,6 +129,8 @@ def test_every_task_of_a_family_keeps_every_limit_and_its_result_is_right(s):
     assert len(set(found)) == len(found)
     assert len(found) <= s.count
     assert (out["loosen"] is None) == (len(found) == s.count)
+    tasks = [(e["op"], e["a"], e["b"]) for e in exercises]
+    assert len(set(tasks)) == len(tasks)
     assert generate(s) == out
 
 
@@ -144,8 +143,11 @@ def test_every_block_fills_in_every_zahlenraum_of_the_panel(s):
         assert len(out["exercises"]) == s.count
         assert out["loosen"] is None
         return
-    assert len({e["family"] for e in out["exercises"]}) == s.count
-    assert out["loosen"] is None
+    # A block may come short, and then it says so.
+    numbers = len({e["family"] for e in out["exercises"]})
+    assert (numbers == s.count and out["loosen"] is None) or (
+        numbers < s.count and out["loosen"] is not None
+    )
 
 
 @given(single)
@@ -155,7 +157,7 @@ def test_no_family_is_missed_in_a_small_zahlenraum(s):
     if s.family == "swap" and op not in "+*":
         assert all("family" not in e for e in generate(s)["exercises"])
         return
-    seen = set()
+    seen: dict[frozenset, tuple] = {}  # family -> its drawn task
     wide = s.model_copy(update={"ops": list("+-*/")})
     for a in range(s.max + 1):
         for b in range(s.max + 1):
@@ -167,10 +169,26 @@ def test_no_family_is_missed_in_a_small_zahlenraum(s):
             if not fam:
                 continue
             if all(holds(wide, *t) for t in fam):
-                seen.add(frozenset(fam))
+                seen.setdefault(frozenset(fam), tuple(fam[0]))
     distinct = len(seen)
-    got = {e["family"] for e in generate(s)["exercises"]}
-    assert len(got) == min(s.count, distinct)
+    exercises = generate(s)["exercises"]
+    got = {e["family"] for e in exercises}
+    assert len(got) <= min(s.count, distinct)
+    if s.family != "neighbour" or len(got) == s.count:
+        return
+    # Short of the count, a family that shares no task with the block is refused only as a
+    # plain one, and only once the plain share is full.
+    used = {(e["op"], e["a"], e["b"]) for e in exercises}
+    # The drawn task of each family in the block is its first exercise.
+    drawn = {}
+    for e in exercises:
+        drawn.setdefault(e["family"], (e["op"], e["a"], e["b"]))
+    block_plain = sum(1 for t in drawn.values() if t[0] in "*/" and not school(*t))
+    for fam, first in seen.items():
+        if fam & used:
+            continue
+        assert first[0] in "*/" and not school(*first)
+        assert block_plain == s.count // 10
 
 
 def test_a_gap_of_nothing_times_nothing_hides_its_result():
