@@ -29,6 +29,14 @@ CONTROLS = {
     "shape": ["Schriftart", "Farbe", "Nachspurtext", "Füllung", "Rand"],
     "line": ["Füllung", "Rand"],
     "ruling": ["Art der Lineatur", "Farbe", "Schriftart auf den Zeilen", "Nachspurtext"],
+    "ruling l1": [
+        "Art der Lineatur",
+        "Farbe",
+        "Häuschen einfärben",
+        "Farbe des Mittelbands",
+        "Schriftart auf den Zeilen",
+        "Nachspurtext",
+    ],
     "table": ["Schriftart der Tabelle", "Farbe", "Linien", "Nachspurtext"],
 }
 KINDS = {
@@ -36,6 +44,7 @@ KINDS = {
     "shape": ("shape", RECT),
     "line": ("shape", LINE),
     "ruling": ("ruling", RULING),
+    "ruling l1": ("ruling", {"kind": "l1", "color": "#222222", "house": True}),
     "table": ("table", TABLE),
 }
 LABEL = "(el) => el.getAttribute('aria-label') ?? el.closest('label').firstChild.textContent.trim()"

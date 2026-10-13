@@ -19,6 +19,7 @@ SELECTS = [
     ("shape", "Nachspurtext"),
     ("ruling", "Nachspurtext"),
     ("table", "Nachspurtext"),
+    ("ruling l1", "Häuschen einfärben"),
 ]
 # The words of a text or a shape, of its own blue: all but the last letter are red.
 LAST = {

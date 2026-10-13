@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, dottedFamily, fadeOf, traceOf, type Fade, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shade, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -347,6 +347,26 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
             Farbe
             <input type="color" value={rulings[0].props.color} onChange={(e) => style("ruling", { color: e.target.value }, "color")} />
           </label>
+          {/* The house and the band: only the kinds with zones have them. A press is one undo step, and a drag over the colour is one. */}
+          {RULINGS[rulings[0].props.kind].zones && (
+            <>
+              <button className={houseOf(rulings[0]) ? "on" : ""} aria-pressed={houseOf(rulings[0])} onClick={() => style("ruling", { house: !houseOf(rulings[0]) })}>Häuschen</button>
+              {houseOf(rulings[0]) && (
+                <select aria-label="Häuschen einfärben" value={houseTintOf(rulings[0]) ?? "none"} onChange={(e) => style("ruling", { houseTint: e.target.value === "none" ? undefined : e.target.value })}>
+                  <option value="none">Nicht eingefärbt</option>
+                  <option value="room">Zimmer eingefärbt</option>
+                  <option value="all">Dach, Zimmer und Keller eingefärbt</option>
+                </select>
+              )}
+              <button className={bandOf(rulings[0]) ? "on" : ""} aria-pressed={bandOf(rulings[0])} onClick={() => style("ruling", { band: !bandOf(rulings[0]) })}>Mittelband einfärben</button>
+              {bandOf(rulings[0]) && (
+                <label>
+                  Farbe des Mittelbands
+                  <input type="color" value={bandColorOf(rulings[0]) ?? shade(rulings[0].props.color)} onChange={(e) => style("ruling", { bandColor: e.target.value }, "bandColor")} />
+                </label>
+              )}
+            </>
+          )}
           <div className="row">
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, wide(b)]))}>Seitenbreite</button>
             <button disabled={fixed} onClick={() => place(rulings.map((b) => [b.id, filled(b, W, H)]))}>Bis Seitenende</button>

@@ -7,11 +7,12 @@ from test_keys_focus import CONTROLS, KINDS, OPEN
 from test_keys_panel import SELECTS, expect_caret, expect_words, write
 from ui import BROWSER, TEXT, box, expect_picked, pick
 
+# The lists of a Lineatur with a house: the same as those of a Lineatur, and the house's own.
 COLOURS = [
     (name, label)
     for name, labels in CONTROLS.items()
     for label in labels
-    if (name, label) not in SELECTS
+    if (name, label) not in SELECTS and (name.split()[0], label) not in SELECTS
 ]
 # The colours of a block that holds words.
 WRITTEN = [(name, label) for name, label in COLOURS if name != "line"]
@@ -202,7 +203,8 @@ def test_a_control_reached_by_the_keys_alone_keeps_them(editor, name, label):
     control.focus()
     was = control.input_value()
     # No option of the trace select starts with an l: its letter is a g, of Grau.
-    page.keyboard.type("g" if label == "Nachspurtext" else "l")
+    # The house's is a z, of Zimmer.
+    page.keyboard.type({"Nachspurtext": "g", "Häuschen einfärben": "z"}.get(label, "l"))
     expect(control).to_be_focused()
     if (name, label) in SELECTS:
         expect(control).not_to_have_value(was)

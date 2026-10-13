@@ -186,7 +186,7 @@ def test_tab_after_a_letter_typed_from_the_panel_does_what_tab_does_there(editor
         expect(cells.nth(1).locator("textarea")).to_be_focused()
     else:
         # A tab stop in a text and a shape, nothing in a Lineatur.
-        expect_words(area, "Worlt" if name == "ruling" else "Worl\tt")
+        expect_words(area, "Worlt" if name.startswith("ruling") else "Worl\tt")
         expect(area).to_be_focused()
     expect(control).to_have_value(was)
     expect_picked(page, name)
