@@ -1684,7 +1684,7 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   if (block.type === "points")
     return (
       <div className="points" style={{ fontSize: 12 * PT * k, lineHeight: `${2 * Math.round((block.h * k) / 2 - 1)}px` }}>
-        / {children ?? block.props.max} Punkte
+        / {children ?? block.props.max} {block.props.max === 1 ? "Punkt" : "Punkte"}
       </div>
     );
   if (block.type === "image") {
