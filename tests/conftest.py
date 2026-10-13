@@ -6,6 +6,7 @@ import sqlite3
 import sys
 import threading
 import time
+import traceback
 from concurrent.futures import Future
 from contextlib import suppress
 from pathlib import Path
@@ -38,8 +39,12 @@ def _pw_keep(book, key, value):
 
 def _pw_sent(self, object, method, params, timeout, no_reply=False):
     sent = self.__dict__.setdefault("_probe_sent", {})
-    thread = threading.current_thread().name
-    _pw_keep(sent, self._last_id + 1, f"{method} on {object._guid} from {thread}")
+    thread = threading.current_thread()
+    said = f"{method} on {object._guid} from {thread.name}"
+    # The first catch on CI named a second thread as the sender (#463): such a send keeps its way.
+    if thread is not threading.main_thread():
+        said += " by\n" + "".join(traceback.format_stack(limit=25))
+    _pw_keep(sent, self._last_id + 1, said)
     return _pw_send(self, object, method, params, timeout, no_reply)
 
 

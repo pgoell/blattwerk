@@ -36,3 +36,20 @@ def test_a_second_reply_names_what_was_sent_under_its_id(browser, monkeypatch):
     said = err.getvalue()
     assert said.startswith(f"playwright answered id {last} that waits for nothing: close on ")
     assert "from MainThread, answered before: True, reply error: closed" in said
+
+
+def test_a_send_from_a_second_thread_keeps_the_way_it_came(monkeypatch):
+    # What the first catch on CI showed (#463): the sender was not the test's thread.
+    import threading
+
+    from conftest import _pw_sent
+
+    fake: Any = SimpleNamespace(_last_id=4, __dict__={})
+    thing = SimpleNamespace(_guid="page@1")
+    monkeypatch.setattr("conftest._pw_send", lambda *args: None)
+    other = threading.Thread(target=lambda: _pw_sent(fake, thing, "route", {}, 0), name="other")
+    other.start()
+    other.join()
+    said = fake._probe_sent[5]
+    assert said.startswith("route on page@1 from other by\n")
+    assert "test_dispatch_probe.py" in said
