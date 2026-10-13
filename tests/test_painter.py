@@ -220,8 +220,8 @@ def test_a_table_gives_a_lineatur_the_colour_of_its_lines(editor):
     )
     paint(page, "tabelle", "b")
     expect(at(page, "b").locator("svg.ruling")).to_have_attribute("stroke", "#ff0000")
-    # A table has no Nachspuren to give or to take off.
-    assert held(page, client)["b"] == {**RULING, "color": "#ff0000", "trace": True}
+    # A table has trace text too (#76): the brush takes the Lineatur's trace off it.
+    assert held(page, client)["b"] == {**RULING, "color": "#ff0000"}
 
 
 def test_a_table_that_names_no_line_colour_leaves_a_lineatur_its_own(editor):
@@ -250,7 +250,8 @@ def test_a_lineatur_gives_a_table_the_colour_of_its_lines(editor):
     expect(at(page, "tabelle").locator(".table")).to_have_css("border-color", "rgb(136, 136, 136)")
     # The text of the table keeps its colour: the brush brought the colour of lines alone.
     expect(at(page, "tabelle").locator(".table")).to_have_css("color", "rgb(0, 0, 255)")
-    assert held(page, client)["tabelle"] == {**table, "line": "#888888"}
+    # The table takes the Lineatur's trace too, as both have trace text (#76).
+    assert held(page, client)["tabelle"] == {**table, "line": "#888888", "trace": True}
 
 
 def test_a_table_gives_a_table_the_colour_of_its_lines(editor):
