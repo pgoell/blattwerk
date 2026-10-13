@@ -3,7 +3,7 @@
     python3 scripts/snapshot.py <database> <folder> <sha>
 
 Writes <folder>/pre-<sha>.db and keeps the newest 30 of those. Standard library only: the deploy
-runs it with the runner's own python3, which has no venv.
+runs it with the VPS's own python3, which has no venv.
 """
 
 import argparse

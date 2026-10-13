@@ -1,4 +1,4 @@
-"""The deploy's way back: snapshot.py, keep-prev.sh and their place in deploy.yml."""
+"""The deploy's way back: snapshot.py, keep-prev.sh and their place in deploy.sh."""
 
 import os
 import sqlite3
@@ -325,20 +325,19 @@ def test_keep_prev_goes_on_when_the_running_image_has_no_name(tmp_path):
     assert not (tmp_path / "output").exists()
 
 
-def test_deploy_keeps_prev_before_the_build_and_snapshots_after_it():
-    """prev before the build: there the running image surely still has its name.
+def test_deploy_keeps_prev_before_the_pull_and_snapshots_after_the_canary():
+    """prev before the pull: there the running image surely still has its name.
 
-    The snapshot after it, so it is not older than the cutover by the length of a build.
+    The snapshot after the canary, so it is not older than the cutover by the length of a pull
+    and a canary.
     """
-    text = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    text = (ROOT / "scripts" / "deploy.sh").read_text()
     steps = [
-        "actions/checkout",
-        "run: bash scripts/keep-prev.sh",
-        "scripts/canary.sh; then",
-        "run: docker build -t blattwerk-blattwerk:canary .",
-        "run: python3 scripts/snapshot.py",
-        "run: docker compose up -d --no-build",
+        'timeout 2m bash "$work/keep-prev.sh"',
+        'docker pull -q "$image:$sha"',
+        'bash "$work/canary.sh" smoke',
+        'python3 "$work/snapshot.py"',
+        "docker compose up -d --no-build",
     ]
     at = [text.index(step) for step in steps]
     assert at == sorted(at)
-    assert "continue-on-error" not in text
