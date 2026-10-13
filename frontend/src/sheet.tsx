@@ -448,6 +448,42 @@ export function spliced({ cells, cols, gaps, ...rest }: TableBlock["props"], axi
   if (axis === "row") return { ...rest, cols, cells: put(cells, cols.map(() => "")), ...flags };
   return { ...rest, cells: cells.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags };
 }
+// WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
+// Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
+let keepsFraction: boolean | undefined;
+// Each font's whole-pixel ascent and descent by family and size, from a canvas.
+const metrics = new Map<string, [number, number]>();
+function keepsFractions() {
+  if (keepsFraction === undefined) {
+    if (typeof document === "undefined") return false;
+    // Monospace: the measure does not wait for a font to load.
+    const p = document.createElement("p");
+    p.style.cssText = "position:absolute;visibility:hidden;margin:0;white-space:pre;font:48.0113px monospace;line-height:75.5906px";
+    const strut = document.createElement("span");
+    strut.style.cssText = "display:inline-block;width:1px;height:0";
+    p.append(strut, "a");
+    document.body.append(p);
+    const at = strut.getBoundingClientRect().top - p.getBoundingClientRect().top;
+    p.remove();
+    keepsFraction = at !== Math.floor(at);
+  }
+  return keepsFraction;
+}
+// The fraction in px of a first row's baseline: half the line height plus half the difference of ascent and
+// descent. None while the font is not loaded, since the canvas would measure another font.
+function baselineFraction(family: string | undefined, size: number, lineHeight: number) {
+  if (!family || !keepsFractions() || !document.fonts.check(`${size}px "${family}"`)) return 0;
+  const key = `${family}|${size}`;
+  if (!metrics.has(key)) {
+    const ctx = document.createElement("canvas").getContext("2d")!;
+    ctx.font = `${size}px "${family}"`;
+    const n = ctx.measureText("n");
+    metrics.set(key, [n.fontBoundingBoxAscent, n.fontBoundingBoxDescent]);
+  }
+  const [ascent, descent] = metrics.get(key)!;
+  const baseline = lineHeight / 2 + (ascent - descent) / 2;
+  return baseline - Math.floor(baseline);
+}
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
 // On Karo the field only takes the typing: its letters are unseen and as wide as a square, so the caret stands
@@ -477,12 +513,14 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   const mask = fade && fadeMask(fade, rowsOf(b), row * k, (px) => `${px}px`);
   // The text starts right of a house. Border-box keeps the padding inside the full width of the box.
   const indent = indentOf(b);
+  const family = look === "dotted" ? dottedFamily(b.props.font) : font[1];
+  const fraction = baselineFraction(family, size * s * k, row * k);
   return {
     ...(indent > 0 && { paddingLeft: indent * k, boxSizing: "border-box" as const }),
-    fontFamily: look === "dotted" ? dottedFamily(b.props.font) : font[1],
+    fontFamily: family,
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
-    top: top * k,
+    top: top * k - fraction,
     height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
     color: look === "grey" ? "#aaaaaa" : undefined,
     ...(look === "outline" && OUTLINE),
