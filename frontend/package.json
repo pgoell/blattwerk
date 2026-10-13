@@ -18,7 +18,7 @@
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
     "hyphen": "^1.14.1",
-    "lucide-react": "^1.52.0",
+    "lucide-react": "^1.55.0",
     "modern-screenshot": "^4.7.0",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-keymap": "^1.2.3",
@@ -37,7 +37,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "fast-check": "^4.10.2",
     "typescript": "^7.0.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.4",
     "vitest": "^5.0.3"
   }
 }
