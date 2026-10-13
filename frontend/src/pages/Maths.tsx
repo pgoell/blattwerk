@@ -300,10 +300,10 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       <h2>Anzahl</h2>
       <div className="seg">
         <button aria-label="Eine Aufgabe weniger" onClick={() => limit({ count: Math.max(1, p.count - 1) })}>−</button>
-        <output>{fam ? `${p.count} Familien` : `${p.count} Aufgaben`}</output>
+        <output>{p.count === 1 ? (fam ? "1 Familie" : "1 Aufgabe") : fam ? `${p.count} Familien` : `${p.count} Aufgaben`}</output>
         <button aria-label="Eine Aufgabe mehr" onClick={() => limit({ count: Math.min(100, p.count + 1) })}>＋</button>
       </div>
-      {fam && <p className="hint">Das sind {p.exercises.length} Aufgaben.</p>}
+      {fam && <p className="hint">{p.exercises.length === 1 ? "Das ist 1 Aufgabe." : `Das sind ${p.exercises.length} Aufgaben.`}</p>}
       {refused && (
         <p className="hint" role="status" data-foot="full" ref={line}>
           Das passt nicht mehr auf die Seite: Der Block würde unten über den Rand ragen. Mehr Platz gibt es mit weniger Aufgaben, mehr Spalten, kleinerer Schrift oder weiter oben auf der Seite.
@@ -316,7 +316,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       )}
       <div className="seg">
         <button aria-label="Eine Spalte weniger" onClick={() => show({ columns: Math.max(1, p.columns - 1) })}>−</button>
-        <output>{p.columns} Spalten</output>
+        <output>{p.columns === 1 ? "1 Spalte" : `${p.columns} Spalten`}</output>
         <button aria-label="Eine Spalte mehr" onClick={() => show({ columns: Math.min(6, p.columns + 1) })}>＋</button>
       </div>
       {scale < 0.97 && (
@@ -335,10 +335,10 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
         <p className="hint" role="status">
           {fam
             ? p.exercises.length
-              ? `Mit diesen Grenzen gibt es nur ${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size} verschiedene Familien.`
+              ? `Mit diesen Grenzen gibt es nur ${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size === 1 ? "1 Familie" : `${new Set(p.exercises.map((e) => ("family" in e ? e.family : undefined))).size} verschiedene Familien`}.`
               : "Mit diesen Grenzen gibt es keine Familie."
             : p.exercises.length
-              ? `Mit diesen Grenzen gibt es nur ${p.exercises.length} verschiedene Aufgaben.`
+              ? `Mit diesen Grenzen gibt es nur ${p.exercises.length === 1 ? "1 Aufgabe" : `${p.exercises.length} verschiedene Aufgaben`}.`
               : "Mit diesen Grenzen gibt es keine Aufgabe."}
           {p.loosen.length > 0 && ` Mehr gibt es mit einer lockereren Grenze: ${p.loosen.map((name) => LOOSEN[name]).join(", ")}.`}
         </p>

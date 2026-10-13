@@ -340,7 +340,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           </select>
           <div className="seg">
             <button aria-label="Eine Zeile weniger" disabled={fixed} onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) - 1)}>−</button>
-            <output>{rowsOf(rulings[0])} Zeilen</output>
+            <output>{rowsOf(rulings[0]) === 1 ? "1 Zeile" : `${rowsOf(rulings[0])} Zeilen`}</output>
             <button aria-label="Eine Zeile mehr" disabled={fixed} onClick={() => rule(rulings[0].props.kind, rowsOf(rulings[0]) + 1)}>＋</button>
           </div>
           <label>
@@ -417,7 +417,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
                 return (
                   <div key={name} className="seg">
                     <button aria-label={`Eine ${name} weniger`} disabled={fixed} onClick={() => rank(tables[0], axis, n[i] - 1, false)}>−</button>
-                    <output>{n[i]} {name}n</output>
+                    <output>{n[i] === 1 ? `1 ${name}` : `${n[i]} ${name}n`}</output>
                     <button aria-label={`Eine ${name} mehr`} disabled={fixed} onClick={() => rank(tables[0], axis, n[i], true)}>＋</button>
                   </div>
                 );
