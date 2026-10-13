@@ -75,7 +75,8 @@ def in_order(text, words):
 
 
 def opener(page):
-    return page.get_by_role("button", name="Varianten drucken", exact=True)
+    # The panel's button; the bar has one of the same name on a wide window.
+    return page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
 
 
 def open_dialog(page):
