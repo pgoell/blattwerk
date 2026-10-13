@@ -3,6 +3,8 @@
 The panel's hint says so too.
 """
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from ui import TEXT, at, box, expect_picked, pick
@@ -48,6 +50,8 @@ def test_a_guide_dragged_off_the_sheet_goes_alone_and_one_undo_brings_it_back(ed
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.move(left, y, steps=5)
+    # The line is let go where the page last drew it: a hand lets go after it sees the line there.
+    expect(all_tabs.nth(1)).to_have_text(re.compile("^-"))
     page.mouse.up()
     expect(all_tabs).to_have_text([before[0], before[2]])
     page.keyboard.press("Control+z")
