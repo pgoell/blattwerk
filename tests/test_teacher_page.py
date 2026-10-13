@@ -11,7 +11,9 @@ import re
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import pytest
@@ -29,6 +31,8 @@ from ui import (
     box,
     centre,
     expect_picked,
+    maths,
+    pick,
     saved,
     sheet,
     user,
@@ -79,8 +83,7 @@ def shape(editor, client=None):
     page = editor(box("a", "shape", RECT), client=client)
     tool.click(page, xy(at(page, "a")))
     expect(slider(page)).to_have_value("0.5")
-    with pytest.raises(tool.Refused, match='"Randstärke" lies outside the window'):
-        tool.click(page, "Randstärke")
+    assert tool.where(page, "Randstärke").endswith("(outside the window)")
     # A heading of the panel that lies in the window: the one over the border has moved below it.
     tool.wheel(page, "Schrift", "400")
     expect(slider(page)).to_be_in_viewport(ratio=1)
@@ -559,7 +562,7 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
         call("type", PASSWORD)
         call("key", "Enter")
         # The session cookie is Secure and the server speaks http: Chromium keeps it on 127.0.0.1.
-        place = call("where", "Neues Blatt")
+        place = call("where", "Neues Blatt").splitlines()[0]
         assert place.startswith("Neues Blatt at "), place
         shot = Path(call("screenshot", "home"))
         assert shot == folder / "home.png" and size(shot) == (1280, 1024)
@@ -597,6 +600,70 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
     assert done.stderr == "no page is running: start it first, with the verb `start`\n"
 
 
+def test_click_takes_the_one_control_of_a_name_beside_a_heading(editor):
+    # Issue #430: "Zahlenraum" is a heading of the panel and the select that holds that label.
+    client = user()
+    page = editor(box("a", "maths", maths(client)), client=client)
+    pick(page, "a")
+    tool.click(page, "Zahlenraum")
+    expect(page.get_by_label("Zahlenraum", exact=True)).to_be_focused()
+
+
+def test_where_takes_a_slash_and_a_quote_in_a_name(editor):
+    # Issue #430: `where "/ 7"` failed with a selector error on the slash.
+    page = editor(box("a", "text", {**TEXT, "text": "12 / 7 = 5"}))
+    found = at(page, "a").get_by_text("12 / 7 = 5")
+    assert tool.where(page, "/ 7") == f"12 / 7 = 5 at {middle(found)}"
+    with pytest.raises(tool.Refused, match="nothing on the page"):
+        tool.where(page, '"/\\')
+
+
+def test_where_does_not_read_a_select_as_the_text_of_its_options(editor):
+    # Issue #430: `where "123"` matched a select whose options 0 to 9 ran together as "0123456789".
+    page = editor(box("a", "text", ONE))
+    page.evaluate(
+        """() => {
+            const select = document.createElement("select");
+            select.setAttribute("aria-label", "Ziffern");
+            for (let i = 0; i < 10; i++) select.add(new Option(String(i)));
+            document.body.append(select);
+        }"""
+    )
+    with pytest.raises(tool.Refused, match='nothing on the page is called "123"'):
+        tool.where(page, "123")
+    assert tool.where(page, "Ziffern").startswith("Ziffern at ")
+
+
+def test_click_turns_the_page_to_the_one_control_below_the_window(editor):
+    # Issue #430: after a pick the panel jumped to its top, and the slider below failed.
+    page = editor(box("a", "shape", RECT))
+    tool.click(page, xy(at(page, "a")))
+    expect(slider(page)).to_have_value("0.5")
+    said = tool.click(page, "Randstärke")
+    assert said.endswith(": " + str(tool.STATE / "last.png") + " (turned the page to it)"), said
+    expect(slider(page)).to_be_focused()
+
+
+def test_click_says_a_greyed_control_does_nothing(editor):
+    # Issue #430: `click "0"` on a greyed button reported "clicked" though nothing happened.
+    page = editor(box("a", "text", ONE))
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+    assert "on a greyed control: nothing happens" in tool.click(page, "Rückgängig")
+
+
+def test_every_verb_says_the_page_it_is_on(editor, monkeypatch):
+    # Issue #430: `open` needs the sheet's number, and the output did not print it.
+    page = editor(box("a", "text", ONE))
+
+    @contextmanager
+    def joined_here():
+        yield page
+
+    monkeypatch.setattr(tool, "joined", joined_here)
+    said = tool.verb("where", ("Eins",), False)
+    assert f"The page is {urlsplit(page.url).path}" in said.splitlines()
+
+
 # The downloads, the session and the boxes
 
 
@@ -612,10 +679,28 @@ def test_tidy_deletes_the_tr_pdfs_in_downloads_and_nothing_else(
 
     done = run(folder, server, "tidy")
     assert (done.returncode, done.stderr) == (0, "")
-    assert sorted(done.stdout.splitlines()) == ["deleted TR1 Rechnen.pdf", "deleted TR2.pdf"]
+    assert sorted(done.stdout.splitlines()) == [
+        "deleted downloads/TR1 Rechnen.pdf",
+        "deleted downloads/TR2.pdf",
+    ]
     kept = sorted(str(path.relative_to(downloads)) for path in downloads.rglob("*"))
     assert kept == ["Other.pdf", "TR1.png", "TR3.pdf", "sub", "sub/TR4.pdf"]
     assert run(folder, server, "tidy").stdout == "nothing to delete\n"
+
+
+def test_tidy_deletes_the_pdfs_that_pdf_saved_in_the_tool_folder(
+    folder, server, tmp_path, monkeypatch
+):
+    # Issue #430: `pdf` saves into the tool's folder, and `tidy` left those files behind.
+    monkeypatch.setenv("TEACHER_PAGE_DOWNLOADS", str(tmp_path / "empty"))
+    (tmp_path / "empty").mkdir()
+    (folder / "Blatt 3.pdf").write_bytes(b"%PDF")
+    (folder / "last.png").write_bytes(b"png")
+
+    done = run(folder, server, "tidy")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert done.stdout == f"deleted {folder.name}/Blatt 3.pdf\n"
+    assert [path.name for path in folder.iterdir()] == ["last.png"]
 
 
 def test_expire_drops_the_session_and_the_page_stays(editor):
@@ -776,5 +861,45 @@ def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(
         client, page = join()
         assert page.evaluate("window.said") is False
         client.close()
+    finally:
+        run(folder, server, "stop")
+
+
+@pytest.mark.native
+def test_einfuegen_pastes_what_ctrl_c_copied_in_the_window(folder, server):
+    # Issue #430: the bar's Einfügen read the clipboard, and the window never answered its question.
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        said = ok("click", "Neues Blatt")
+        found = re.search(r"The page is /blatt/(\w+)", said)
+        assert found, said
+        sheet_id = found.group(1)
+        ok("click", "Beenden")
+        ok("click", "Text")
+        ok("type", "Hallo")
+        ok("key", "Escape")
+        ok("key", "Control+c")
+        ok("click", "Einfügen")
+
+        def blocks():
+            return client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
+
+        late = time.monotonic() + 10
+        while len(blocks()) < 2 and time.monotonic() < late:
+            time.sleep(0.1)
+        assert len(blocks()) == 2
     finally:
         run(folder, server, "stop")

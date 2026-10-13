@@ -18,13 +18,16 @@
                            focus stays where it was
     expire                 ends the window's sign-in, as if the session had run out; the page stays
     box yes VERB [ARGS]    runs VERB and answers the box it meets with yes; `box no` answers no
-    tidy                   deletes each TR*.pdf in ~/Downloads and names it; needs no window
+    tidy                   deletes each TR*.pdf in ~/Downloads and each PDF in the folder, and names
+                           each with its folder; needs no window
 
 A box that a verb meets is answered no unless `box yes` asks yes, and the output names its words.
 
 A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a name: the words
 on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
-once. Every verb that acts also writes the window to last.png and prints that path.
+once, or once as a control beside plain text of that name. A name below or above the window turns
+the page to it, if it is the only one. Every verb that acts also writes the window to last.png and
+prints that path. Every verb prints the page's path, `The page is /blatt/12`.
 
 One process, `hold`, keeps the window under xvfb-run, and each verb joins it over Chromium's
 debugging port. Python's Playwright has no `launch_server`, and a context that a client makes
@@ -48,9 +51,10 @@ import time
 from collections.abc import Callable
 from contextlib import contextmanager, suppress
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import unquote, urlsplit
 
-from playwright.sync_api import Error, Locator, Page, sync_playwright
+from playwright.sync_api import ElementHandle, Error, Locator, Page, sync_playwright
 from playwright.sync_api import TimeoutError as Late
 
 STATE = Path(os.environ.get("TEACHER_PAGE_DIR", "/tmp/teacher-run"))
@@ -88,25 +92,49 @@ def running() -> dict | None:
 CALLED = """el => [
     ...["aria-label", "title", "placeholder", "alt"].map((a) => el.getAttribute(a) ?? ""),
     ...[...(el.labels ?? [])].map((l) => l.textContent ?? ""),
-    el.textContent ?? "",
+    el.tagName === "SELECT" ? "" : el.textContent ?? "",
 ].map((s) => s.split(/\\s+/).filter(Boolean).join(" "))"""
+# The things a teacher clicks: a click on one of them is the control the name means.
+CONTROLS = (
+    "button, input, select, textarea, summary, a[href], [role=button], [role=tab], [role=switch], "
+    "[role=checkbox], [role=radio], [role=combobox], [role=slider], [role=option], [role=menuitem]"
+)
+# Where a verb turned the page to a name that lay below or above the window.
+NOTES: list[str] = []
+
+
+class Found(NamedTuple):
+    """A place of a name: its middle in px, the name it shows, whether it is a control."""
+
+    x: int
+    y: int
+    shown: str
+    control: bool
+    el: ElementHandle
 
 
 def named(page: Page, name: str | re.Pattern) -> Locator:
     """Each visible thing of that name, by what a user reads or hears only."""
     found = page.get_by_label(name, exact=True)
-    for by in (page.get_by_text, page.get_by_title, page.get_by_placeholder, page.get_by_alt_text):
+    for by in (page.get_by_title, page.get_by_placeholder, page.get_by_alt_text):
         found = found.or_(by(name, exact=True))
-    return found.filter(visible=True)
+    # A select's text is its options run together: a text is never a select or an option.
+    texts = page.get_by_text(name, exact=True).and_(page.locator(":not(select, option)"))
+    return found.or_(texts).filter(visible=True)
 
 
-def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int, str]]:
+def pattern(name: str) -> re.Pattern:
+    """The name as Playwright writes it into a selector: its slash, quote and backslash escaped."""
+    return re.compile(re.escape(name).replace("/", r"\/").replace('"', r"\""))
+
+
+def places(page: Page, name: str, part: bool = False) -> list[Found]:
     """The middle of each visible thing of that name, and the name it shows. With `part`, and
     where no whole name matches, of each thing whose text holds it, shown as that text with
     capitals as written.
     """
     whole = named(page, name)
-    found = whole.or_(named(page, re.compile(re.escape(name)))) if part else whole
+    found = whole.or_(named(page, pattern(name))) if part else whole
     try:
         found.first.wait_for(timeout=3000)
     except Late:
@@ -126,7 +154,9 @@ def places(page: Page, name: str, part: bool = False) -> list[tuple[int, int, st
         # A control is called by its label, its title or its placeholder, a text by its words: the
         # first of them that holds the name is what the user reads there.
         shown = name if matched_whole else next((s for s in el.evaluate(CALLED) if name in s), name)
-        out.append((round(box["x"] + box["width"] / 2), round(box["y"] + box["height"] / 2), shown))
+        control = el.evaluate("(el, sel) => el.matches(sel)", CONTROLS)
+        middle = (round(box["x"] + box["width"] / 2), round(box["y"] + box["height"] / 2))
+        out.append(Found(*middle, shown, control, el))
     return out
 
 
@@ -139,22 +169,25 @@ def point(page: Page, target: str) -> tuple[float, float]:
     """The place in the window that the target names."""
     if at := XY.fullmatch(target):
         return float(at[1]), float(at[2])
-    spots = [(x, y) for x, y, _ in places(page, target)]
-    seen = [p for p in spots if inside(page, *p)]
-    listed = ", ".join(f"{x},{y}" for x, y in seen or spots)
+    spots = places(page, target)
+    seen = [s for s in spots if inside(page, s.x, s.y)]
+    if not seen and len(spots) == 1:
+        # The one place lies below or above the window: the page turns to it.
+        spots[0].el.evaluate("el => el.scrollIntoView({block: 'center'})")
+        NOTES.append("turned the page to it")
+        spots = places(page, target)
+        seen = [s for s in spots if inside(page, s.x, s.y)]
+    listed = ", ".join(f"{s.x},{s.y}" for s in seen or spots)
     if not seen:
         raise Refused(f'"{target}" lies outside the window, at {listed}: scroll to it')
     if len(seen) > 1:
         # A bar's button and a panel's heading may share a name, as "Text" does with a text picked:
-        # the button is the control. Two buttons, or none, stay a refusal.
-        buttons = page.get_by_role("button", name=target, exact=True).filter(visible=True)
-        wide = buttons.bounding_box() if buttons.count() == 1 else None
-        if wide:
-            middle = (round(wide["x"] + wide["width"] / 2), round(wide["y"] + wide["height"] / 2))
-            if middle in seen:
-                return middle
+        # the control is the one that is taken. Two controls, or none, stay a refusal.
+        controls = [s for s in seen if s.control]
+        if len(controls) == 1:
+            return controls[0].x, controls[0].y
         raise Refused(f'"{target}" is on the page {len(seen)} times, at {listed}: give one as X,Y')
-    return seen[0]
+    return seen[0].x, seen[0].y
 
 
 def number(text: str, kind: Callable = int):
@@ -168,7 +201,28 @@ def shown(page: Page, did: str) -> str:
     """Writes the window to last.png, so the call that acts also shows what came of it."""
     path = STATE / "last.png"
     page.screenshot(path=path)
-    return f"{did}: {path}"
+    turned = " (turned the page to it)" if NOTES else ""
+    NOTES.clear()
+    return f"{did}: {path}{turned}"
+
+
+# The control at a place, when it is greyed out: a mouse still clicks it, and nothing happens.
+GREYED = """([x, y]) => {
+    const near = "button, input, select, textarea, [aria-disabled]";
+    const el = document.elementFromPoint(x, y)?.closest(near);
+    return !!el && (el.disabled === true || el.getAttribute("aria-disabled") === "true");
+}"""
+
+
+def greyed(page: Page, x: float, y: float) -> str:
+    """What the click says of a greyed control at its place, or nothing."""
+    return ", on a greyed control: nothing happens" if page.evaluate(GREYED, [x, y]) else ""
+
+
+def here(page: Page) -> str:
+    """The path and query of the page, so `open` can go back to it."""
+    way = urlsplit(page.url)
+    return f"The page is {way.path}" + (f"?{way.query}" if way.query else "")
 
 
 def go(page: Page, path: str) -> str:
@@ -188,22 +242,25 @@ def go(page: Page, path: str) -> str:
 
 def click(page: Page, target: str) -> str:
     x, y = point(page, target)
+    grey = greyed(page, x, y)
     page.mouse.click(x, y)
-    return shown(page, f"clicked at {x:g},{y:g}")
+    return shown(page, f"clicked at {x:g},{y:g}{grey}")
 
 
 def double_click(page: Page, target: str) -> str:
     x, y = point(page, target)
+    grey = greyed(page, x, y)
     page.mouse.dblclick(x, y)
-    return shown(page, f"double-clicked at {x:g},{y:g}")
+    return shown(page, f"double-clicked at {x:g},{y:g}{grey}")
 
 
 def shift_click(page: Page, target: str) -> str:
     x, y = point(page, target)
+    grey = greyed(page, x, y)
     page.keyboard.down("Shift")
     page.mouse.click(x, y)
     page.keyboard.up("Shift")
-    return shown(page, f"shift-clicked at {x:g},{y:g}")
+    return shown(page, f"shift-clicked at {x:g},{y:g}{grey}")
 
 
 def hover(page: Page, target: str) -> str:
@@ -244,8 +301,9 @@ def type_(page: Page, text: str) -> str:
 def where(page: Page, name: str) -> str:
     found = places(page, name, part=True)
     return "\n".join(
-        f"{shown} at {x},{y}" + ("" if inside(page, x, y) else " (outside the window)")
-        for x, y, shown in found
+        f"{one.shown} at {one.x},{one.y}"
+        + ("" if inside(page, one.x, one.y) else " (outside the window)")
+        for one in found
     )
 
 
@@ -331,14 +389,17 @@ def overdue(waiting: list, now: float) -> None:
 
 
 def tidy() -> str:
-    """Deletes each TR*.pdf directly in the downloads folder, and names each one it deleted."""
+    """Deletes each TR*.pdf directly in the downloads folder and each PDF in the tool's folder,
+    and names each one it deleted with its folder.
+    """
     downloads = Path(os.environ.get("TEACHER_PAGE_DOWNLOADS", Path.home() / "Downloads"))
     found = sorted(path for path in downloads.glob("TR*.pdf") if path.is_file())
+    found += sorted(path for path in STATE.glob("*.pdf") if path.is_file())
     for path in found:
         path.unlink()
     if not found:
         return "nothing to delete"
-    return "\n".join(f"deleted {path.name}" for path in found)
+    return "\n".join(f"deleted {path.parent.name}/{path.name}" for path in found)
 
 
 VERBS: dict[str, Callable[..., str]] = {
@@ -375,6 +436,8 @@ def hold() -> None:
             accept_downloads=True,
             args=["--remote-debugging-port=0"],
         )
+        # A teacher's Einfügen reads the clipboard: the window may do it without a question.
+        context.grant_permissions(["clipboard-read", "clipboard-write"])
         # A box waits for the verb that meets it. The holder keeps each one and says no to any
         # that no verb answers within PATIENCE seconds.
         waiting: list = []
@@ -458,6 +521,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     except TypeError:
         takes = " ".join(list(inspect.signature(VERBS[name]).parameters)[1:]).upper()
         raise Refused(f"{name} takes: {takes}") from None
+    NOTES.clear()
     with joined() as page:
         asked = answered(page, yes)
         try:
@@ -467,6 +531,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
             if not asked or yes or "ERR_ABORTED" not in error.message:
                 raise
             said = f"the page stayed on {page.url}"
+        place = here(page)
     lines = []
     for kind, text in asked:
         word = "yes" if yes else "no"
@@ -474,7 +539,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         if not yes:
             line += f" To say yes: box yes {shlex.join([name, *args])}"
         lines.append(line)
-    return "\n".join([said, *lines])
+    return "\n".join([said, place, *lines])
 
 
 def main(name: str = "", *args: str) -> str:
