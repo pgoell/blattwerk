@@ -487,6 +487,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
+  // A line spacing under 1.3 makes a line lower than its letters, so the clip reaches as far out as a line of 1.3
+  // would (#487). The top and the foot take it, the sides do not.
+  const spill = Math.max(0, (1.3 - (typeof p.spacing === "number" && Number.isFinite(p.spacing) ? p.spacing : 1.3)) / 2);
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
@@ -518,9 +521,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   );
   return (
     <div
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", spill > 0 && "tight")}
       style={{
         ...textStyle(p, k),
+        ...(spill > 0 && { "--spill": `${spill}em` }),
         ...gapVar(width, k),
         // A linked text grows to hold its words, past the height it is stored with.
         ...(linked && { height: "auto", minHeight: "100%" }),
@@ -531,7 +535,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
+        clipPath: `inset(${spill > 0 ? `calc(-1px - ${spill}em) -1px ${p.syllables ? `calc(-1px - .3em - ${spill}em)` : `calc(-1px - ${spill}em)`}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room) * k}px ${(across - room) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }

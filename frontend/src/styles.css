@@ -577,6 +577,11 @@ body:has(.print) { background: #fff; }
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */
 .frame .rich { display: block; min-height: 0; margin: 0; overflow: hidden; counter-reset: a b c; }
+/* A line spacing under 1.3 makes a line lower than its letters. The paragraph then cuts as far outside its box as
+   a line of 1.3 would reach (--spill, set by Frame in sheet.tsx), so no dot and no foot is lost (#487). The padding
+   and the margin cancel out: the text stays where it is. A text too long still ends at the foot, that far below. */
+.frame.tight p, .frame.tight .rich { padding-block: var(--spill); margin-block: calc(-1 * var(--spill)); }
+.frame.tight .rich p { padding-block: 0; margin-block: 0; overflow: visible; }
 /* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
    text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */
 .frame.tailed > .body { grid-area: words; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
