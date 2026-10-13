@@ -3,6 +3,7 @@ import json
 import os
 import signal
 import sqlite3
+import sys
 import threading
 import time
 from concurrent.futures import Future
@@ -14,11 +15,53 @@ import pytest
 from anyio.from_thread import BlockingPortal
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
+from playwright._impl._connection import Connection as PwConnection
 from playwright.sync_api import expect, sync_playwright
 from shards import split, times
 from ui import BROWSER, serving, sheet, user
 
 from blattwerk import auth, db
+
+# Probe for #458: on CI a reply from Playwright's driver carried an id that waits for nothing, and
+# dispatch raised KeyError. This says what was sent under that id, and then runs the real dispatch,
+# so the KeyError still comes. Take it out once the cause is known.
+_pw_send = PwConnection._send_message_to_server
+_pw_dispatch = PwConnection.dispatch
+
+
+def _pw_keep(book, key, value):
+    book[key] = value
+    if len(book) > 300:
+        del book[next(iter(book))]
+
+
+def _pw_sent(self, object, method, params, timeout, no_reply=False):
+    sent = self.__dict__.setdefault("_probe_sent", {})
+    thread = threading.current_thread().name
+    _pw_keep(sent, self._last_id + 1, f"{method} on {object._guid} from {thread}")
+    return _pw_send(self, object, method, params, timeout, no_reply)
+
+
+def _pw_answer(self, msg):
+    sent = self.__dict__.setdefault("_probe_sent", {})
+    answered = self.__dict__.setdefault("_probe_answered", {})
+    id = msg.get("id")
+    if id and id not in self._callbacks:
+        error = (msg.get("error") or {}).get("error") or {}
+        print(
+            f"playwright answered id {id} that waits for nothing: "
+            f"{sent.get(id, 'never sent')}, answered before: {id in answered}, "
+            f"reply error: {error.get('message')}, _closed_error: {self._closed_error!r}",
+            file=sys.__stderr__,
+            flush=True,
+        )
+    if id:
+        _pw_keep(answered, id, True)
+    _pw_dispatch(self, msg)
+
+
+PwConnection._send_message_to_server = _pw_sent
+PwConnection.dispatch = _pw_answer
 
 WEBKIT = BROWSER == "webkit"
 # The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
