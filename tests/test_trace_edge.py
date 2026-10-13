@@ -7,6 +7,7 @@ a change.
 
 import io
 import math
+import re
 from contextlib import contextmanager
 
 import pytest
@@ -367,6 +368,27 @@ def test_an_outlined_va_text_in_a_shape_loses_no_ink_above(browser, server):
     with print_page(browser, server, client, [four("va", "outline")[1]]) as page:
         gained = lifted_whole(page, {"shape": (page.locator(".block"), 150)})
     assert gained == {"shape": 0}, gained
+
+
+CUT = """(frames) => frames.map((f) => ({
+    clip: getComputedStyle(f).clipPath,
+    up: f.style.getPropertyValue("--ink-up"),
+}))"""
+
+
+def test_a_plain_and_a_grey_text_keep_their_cut(browser, server):
+    """The fringe is for the outline and the dotted look: other texts keep the pixel they had."""
+    text = {**TEXT, "text": "jÄgf Übung", "size": 30, "font": "va", "align": "left"}
+    blocks = [
+        box("plain", "text", text, x=30, y=20, w=150, h=30),
+        box("grey", "text", {**text, "trace": True}, x=30, y=60, w=150, h=30),
+        box("shape", "shape", {**RECT, **text}, x=30, y=100, w=150, h=30),
+    ]
+    with print_page(browser, server, user(), blocks) as page:
+        cuts = page.locator(".block .frame").evaluate_all(CUT)
+    for cut in cuts:
+        assert cut["clip"].startswith("inset("), cut
+        assert re.fullmatch(r"calc\([\d.]+em \+ 1px\)", cut["up"]), cut
 
 
 def test_a_grey_and_a_plain_lineatur_keep_their_style(editor):
