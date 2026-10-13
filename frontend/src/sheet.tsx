@@ -445,7 +445,7 @@ export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
 }
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
-// is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
+// is as wide as the others are on average. The block's width changes by that in `rank`: the widths are shares of it.
 // A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.

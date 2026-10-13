@@ -632,7 +632,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     if (!tight.current) return;
     tight.current = false;
-    const grown = new Map<string, Partial<Box>>();
+    const grown = new Map<string, Partial<Block>>();
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
@@ -649,7 +649,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = own;
       block.style.transform = was;
-      if (h <= b.h) continue;
+      // A table with its rows set goes back to what they need, down as well. A text box never shrinks by itself.
+      const set = b.type === "table" && heightsOf(b.props) ? Math.abs(h - b.h) > 0.05 : h > b.h;
+      if (!set) continue;
+      // A table without rows gets the heights it had before its text grew, so that they can come back with the text.
+      if (h > b.h && b.type === "table" && !heightsOf(b.props) && b.id === table?.id && laidMm.length) {
+        grown.set(b.id, { ...tall(b, h), props: { ...b.props, rows: laidMm.map(round) } });
+        // The height the rows need is measured once more with the rows set.
+        tight.current = true;
+        continue;
+      }
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, h));
     }
@@ -660,7 +669,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         setHist((h) => ({ ...h }));
       });
     if (!grown.size) return;
-    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, ...grown.get(b.id) } : b)) });
+    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? ({ ...b, ...grown.get(b.id) } as Block) : b)) });
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
@@ -2164,6 +2173,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const first = table.querySelector<HTMLElement>(`[data-cell="${i * cols}"]`);
     const gone = first && !first.dataset.span ? first.getBoundingClientRect().height / k : parseFloat(getComputedStyle(table).gridTemplateRows.split(" ")[i]) / K;
     const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
+    // A column that comes or goes takes its average width or its own width from the block, so the others keep theirs.
+    const widths = widthsOf(b.props.cols, b.w);
+    const dw = axis === "row" ? 0 : add ? sum(widths) / widths.length : -widths[i];
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
@@ -2172,7 +2184,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setSlot(anchorOf(props, target));
     setReach(undefined);
     tight.current = true;
-    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, h: round(b.h + dh), props } : o)));
+    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, w: round(b.w + dw), h: round(b.h + dh), props } : o)));
   }
   // Moves the line right of column `i` with the pointer. The columns on its two sides share the width they had,
   // and each keeps 5 mm, or half of it where they have less.
