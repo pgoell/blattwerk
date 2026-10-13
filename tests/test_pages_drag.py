@@ -1,8 +1,9 @@
 """The thumbnails in Blattform: the drag, its hint, and the panel that scrolls under a drag."""
 
+import pytest
 from playwright.sync_api import expect
 from test_pages import DRAG, expect_in_use, expect_no_drag, expect_order, half, lift, pull
-from ui import TEXT, box, centre, drawer, finger, thumb
+from ui import BROWSER, TEXT, box, centre, drawer, finger, thumb
 
 NAMES = "abcdefghijklmnop"
 # The panel that holds the thumbnails. A drag at its lower or upper edge scrolls it.
@@ -183,6 +184,12 @@ def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(edit
     expect_order(page, "p" + NAMES[:15])
 
 
+# Not strict: in CI's WebKit the panel does not scroll within 5 s in some shards (PR #510 one run
+# of two, PR #513 three of three), and here 20 of 20 pass in WebKit and in Chromium, on master and
+# on those branches.
+@pytest.mark.xfail(
+    BROWSER == "webkit", strict=False, reason="#512: the panel does not scroll in CI, now and then"
+)
 def test_i1_a_held_finger_near_the_lower_edge_scrolls_the_panel(editor):
     """I1"""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in NAMES[1:]]
