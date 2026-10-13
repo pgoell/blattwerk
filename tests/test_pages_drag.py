@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_pages import DRAG, expect_in_use, expect_no_drag, expect_order, half, lift, pull
-from ui import BROWSER, TEXT, box, centre, drawer, finger, thumb
+from ui import BROWSER, TEXT, box, centre, doc, drawer, finger, pick, thumb, user
 
 NAMES = "abcdefghijklmnop"
 # The panel that holds the thumbnails. A drag at its lower or upper edge scrolls it.
@@ -259,3 +259,55 @@ def test_i4_the_moved_page_is_in_use_and_its_thumbnail_is_in_view_after_the_drop
     expect_order(page, NAMES[1:] + "a")
     expect_in_use(page, 15)
     assert in_view(page, LAST)
+
+
+def test_a_click_on_a_thumbnail_then_ctrl_up_moves_its_page(editor):
+    """D1"""
+    page = blatt(editor)
+    thumb(page, 2).click()
+    page.keyboard.press("Control+ArrowUp")
+    expect_order(page, "acb")
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_enabled()
+    expect(thumb(page, 1)).to_be_focused()
+
+
+def test_ctrl_arrows_after_a_click_move_the_page_down_and_to_the_ends(editor):
+    """D2"""
+    page = blatt(editor)
+    thumb(page, 0).click()
+    page.keyboard.press("Control+ArrowDown")
+    expect_order(page, "bac")
+    thumb(page, 2).click()
+    page.keyboard.press("Control+Shift+ArrowUp")
+    expect_order(page, "cba")
+    thumb(page, 0).click()
+    page.keyboard.press("Control+Shift+ArrowDown")
+    expect_order(page, "bac")
+
+
+def test_a_click_on_a_thumbnail_with_a_block_picked_moves_the_page_not_the_block(editor):
+    """D3"""
+    client = user()
+    rest = [{"blocks": [box("b", "text", TEXT)]}, {"blocks": [box("c", "text", TEXT)]}]
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    pick(page, "a")
+    before = doc(page, client)["pages"][0]["blocks"][0]
+    thumb(page, 1).click()
+    page.keyboard.press("Control+ArrowDown")
+    expect_order(page, "acb")
+    after = doc(page, client)["pages"][0]["blocks"][0]
+    assert (after["x"], after["y"]) == (before["x"], before["y"])
+
+
+def test_after_a_click_ctrl_d_copies_and_a_second_ctrl_up_moves_again_and_ctrl_z_undoes(editor):
+    """I6"""
+    page = blatt(editor)
+    thumb(page, 0).click()
+    page.keyboard.press("Control+d")
+    expect(page.locator(".pages button[data-thumb]")).to_have_count(4)
+    thumb(page, 3).click()
+    page.keyboard.press("Control+ArrowUp")
+    page.keyboard.press("Control+ArrowUp")
+    expect_order(page, "ac+b")
+    page.keyboard.press("Control+z")
+    expect_order(page, "a+cb")

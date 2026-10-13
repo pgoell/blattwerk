@@ -435,6 +435,11 @@ export function lowest(b: Box) {
   const [c, s] = dir(b);
   return b.y + b.h / 2 + (Math.abs(b.w * s) + Math.abs(b.h * c)) / 2;
 }
+// The right edge of a block's outline, turned or not.
+export function rightmost(b: Box) {
+  const [c, s] = dir(b);
+  return b.x + b.w / 2 + (Math.abs(b.w * c) + Math.abs(b.h * s)) / 2;
+}
 // Whether a maths block with these props would end lower than it does and below the paper's edge, `H` mm down.
 // A sheet prints one page a page: what hangs below is cut, so the panel and the painter refuse such a change.
 export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
@@ -445,7 +450,7 @@ export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
 }
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column
-// is as wide as the others are on average, and the block keeps its width: the widths are shares of it.
+// is as wide as the others are on average. The block's width changes by that in `rank`: the widths are shares of it.
 // A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
@@ -1425,13 +1430,35 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     : shown.map(cut).join("\n");
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
+  const list = useRef<HTMLDivElement>(null);
+  // A word wider than its column is pressed narrower, its letters as high as before, so it stays in the lines and
+  // the house. The ratio does not depend on the scale k, so the thumbnail and the print press alike. Only a Knickblatt's
+  // word has a width set, so the other lists are left alone. Measured after every render, and again when the fonts are in.
+  const press = () => {
+    for (const span of list.current?.querySelectorAll<HTMLElement>(".row > span") ?? []) {
+      // The word inside is the one scaled: the span is the clip, and a scaled clip would cut the word.
+      const word = span.firstElementChild as HTMLElement | null;
+      if (!word) continue;
+      word.style.transform = "";
+      // The widths as laid out, not as drawn: a turned block's outline would measure wrong.
+      const room = parseFloat(getComputedStyle(span).width);
+      const natural = parseFloat(getComputedStyle(word).width);
+      word.style.transform = natural > room ? `scaleX(${room / natural})` : "";
+    }
+  };
+  useLayoutEffect(press);
+  useLayoutEffect(() => {
+    document.fonts.ready.then(press);
+    document.fonts.addEventListener("loadingdone", press);
+    return () => document.fonts.removeEventListener("loadingdone", press);
+  }, []);
   const listed = mode && at && (
-    <div className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
+    <div ref={list} className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
             ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
-            : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{word}</span>}
+            : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{fold ? <span style={{ display: "inline-block", transformOrigin: "left" }}>{word}</span> : word}</span>}
         </div>
       ))}
     </div>

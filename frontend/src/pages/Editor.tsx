@@ -503,6 +503,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const grasp = useRef<{ el: Element; id: number; draft: typeof draft }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
+  // Whether that measure may also bring a table down: only after a text change in a table that had no spare room.
+  const sink = useRef(false);
   const touch = useRef(false);
   // Set by a press on Moveable's box over the selection, not on a block.
   const cover = useRef(false);
@@ -632,7 +634,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     if (!tight.current) return;
     tight.current = false;
-    const grown = new Map<string, Partial<Box>>();
+    const snug = sink.current;
+    sink.current = false;
+    const grown = new Map<string, Partial<Block>>();
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
@@ -649,7 +653,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
       frame.style.height = own;
       block.style.transform = was;
-      if (h <= b.h) continue;
+      const kept = b.type === "table" ? heightsOf(b.props) : undefined;
+      // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
+      // never shrinks by itself, and neither does a table with a box of solution words: its rows do not sum to its
+      // height. No other change brings a table down: a height the teacher set holds.
+      const down = snug && kept && typeof (b as TableBlock).props.bank !== "number";
+      if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, h));
     }
@@ -660,7 +669,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         setHist((h) => ({ ...h }));
       });
     if (!grown.size) return;
-    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? { ...b, ...grown.get(b.id) } : b)) });
+    const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? ({ ...b, ...grown.get(b.id) } as Block) : b)) });
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
 
@@ -1046,7 +1055,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
       // unless a change still waits to be drawn.
       mergeKey.current = "";
-      if (live.current.doc === latest.current.doc) tight.current = false;
+      if (live.current.doc === latest.current.doc) tight.current = sink.current = false;
       return;
     }
     ahead.current = next.gesture.ahead;
@@ -2164,6 +2173,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const first = table.querySelector<HTMLElement>(`[data-cell="${i * cols}"]`);
     const gone = first && !first.dataset.span ? first.getBoundingClientRect().height / k : parseFloat(getComputedStyle(table).gridTemplateRows.split(" ")[i]) / K;
     const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
+    // A column that comes or goes takes its average width or its own width from the block, so the others keep theirs.
+    const widths = widthsOf(b.props.cols, b.w);
+    const dw = axis === "row" ? 0 : add ? sum(widths) / widths.length : -widths[i];
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
@@ -2172,7 +2184,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setSlot(anchorOf(props, target));
     setReach(undefined);
     tight.current = true;
-    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, h: round(b.h + dh), props } : o)));
+    change((bs) => bs.map((o) => (o.id === b.id ? { ...b, w: round(b.w + dw), h: round(b.h + dh), props } : o)));
   }
   // Moves the line right of column `i` with the pointer. The columns on its two sides share the width they had,
   // and each keeps 5 mm, or half of it where they have less.
@@ -2916,8 +2928,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 className={[n === page && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
                 aria-pressed={n === page}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
-                onClick={() => {
-                  if (!dragged.current) visit(n);
+                onClick={(e) => {
+                  if (!dragged.current) {
+                    visit(n);
+                    // The keys of a thumbnail need its focus, and a click leaves it with the page.
+                    e.currentTarget.focus({ preventScroll: true });
+                  }
                   dragged.current = false;
                 }}
                 onKeyDown={(e) => pageKey(e, n)}
@@ -3130,7 +3146,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           value={b.props.cells.flat()[slot]}
                           onChange={(e) => {
                             setReach(undefined);
-                            style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))) }, "text");
+                            // A table without row heights gets, with the first text typed in it, the heights its rows have
+                            // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
+                            // table saved lower than its texts need, or with a box of solution words, has no such heights.
+                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm.map(round) } : {};
+                            // The table may come down with its text when it has no spare room now: a table made taller
+                            // than its rows need keeps that height.
+                            const grid = e.currentTarget.closest<HTMLElement>(".table")!;
+                            const own = grid.style.height;
+                            grid.style.height = "auto";
+                            sink.current = "rows" in rows || parseFloat(getComputedStyle(grid).height) / K >= b.h - 0.05;
+                            grid.style.height = own;
+                            style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))), ...rows }, "text");
                           }}
                           onKeyDown={(e) => hop(e, b)}
                           onBlur={(e) => stays(e) || setEditing("")}
