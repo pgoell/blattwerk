@@ -1,4 +1,5 @@
 import faulthandler
+import gc
 import json
 import os
 import signal
@@ -293,6 +294,22 @@ def cheap(tmp_path_factory):
         patch.setattr(TestClient, "portal", one_loop())
         patch.setattr(db, "sqlite3", unsynced())
         yield
+
+
+@pytest.fixture(autouse=True)
+def swept(request):
+    """Collects what a browser test leaves, in the test's own thread, once its pages are shut.
+
+    A route that a test held leaves a coroutine of Playwright's that never ends. When the garbage
+    collector ends it, its `finally` starts a task that sends `setNetworkInterceptionPatterns`
+    (`Page._on_route`), on the loop of whatever thread the collector runs in. In the server's
+    thread, which has a loop of its own, the send goes out there, and the reply reaches the test's
+    thread before its callback is kept: `KeyError` in `dispatch`, and the worker ends (#458, #463).
+    Collected here, the task runs on Playwright's own loop, as every send does.
+    """
+    yield
+    if "browser" in request.fixturenames:
+        gc.collect()
 
 
 @pytest.fixture(autouse=True)
