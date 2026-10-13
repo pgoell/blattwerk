@@ -1145,6 +1145,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       key,
     );
   }
+  // Sets the trace text's look on every picked block that carries text, in one step: a text, a shape, a table and a
+  // Lineatur each have it.
+  function traced(props: object) {
+    tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && (b.type === "table" || b.type === "ruling" || ((b.type === "text" || b.type === "shape") && !isLine(b))) ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)));
+  }
   // The panel's bold, italic, underline and colour go to the field while a text is written, as in PowerPoint.
   // Else they go to the whole of every selected block, and there take the place of what its words had of their own.
   function paint(props: Marks, key?: string) {
@@ -3069,6 +3075,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 style={style}
                 bump={bump}
                 look={look}
+                traced={traced}
                 paint={paint}
                 itemize={itemize}
                 gap={gapping}
