@@ -41,6 +41,10 @@ def test_the_switch_is_grey_without_times_or_divide_and_with_three_numbers_and_k
     expect(ctl(page, SWITCH)).to_be_enabled()
     expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
     assert props["small"] is True
+    props = changed(page, client, lambda: page.get_by_label("3 Zahlen", exact=True).click())
+    expect(ctl(page, SWITCH)).to_be_disabled()
+    expect(ctl(page, SWITCH)).to_have_attribute("aria-pressed", "true")
+    assert props["small"] is True
 
 
 def test_the_switch_undoes_and_redoes(editor):
