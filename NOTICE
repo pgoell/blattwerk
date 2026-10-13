@@ -48,6 +48,28 @@ frontend/public/fonts/andika/OFL.txt.
 The font files in frontend/public/fonts/andika are the unchanged WOFF2 files
 of SIL's release 7.000 (https://github.com/silnrsi/font-andika).
 
+Grundschrift (Regular, Bold, Kontur, Punkt)
+Grundschrift von Christian Urff
+Copyright 2016 Christian Urff (https://github.com/christianurff/grundschrift,
+https://urff.app/grundschrift/)
+License: Creative Commons Attribution 3.0 (CC BY 3.0), as the repository's
+LICENSE.md says; that file is in frontend/public/fonts/urff/LICENSE.md, the
+license text in frontend/public/fonts/urff/CC-BY-3.0.txt.
+The font files in frontend/public/fonts/urff are the unchanged OTF files of
+version 3.0 (commit 0545c85). The app draws the font larger by a CSS
+size-adjust, so its small letters are half its size high; the files stay as
+they are.
+
+Fibel Nord, Fibel Sued (Regular, Bold, Italic, Bold Italic)
+Copyright (c) 2009, Peter Wiegel, www.peter-wiegel.de, wiegel@peter-wiegel.de
+with Reserved Font Name Gruenewals VE.
+License: SIL Open Font License 1.1, text in
+frontend/public/fonts/fibel/OFL.txt.
+The font files in frontend/public/fonts/fibel are the unchanged TTF files of
+FibelNordTT.zip and FibelSuedTT.zip (https://www.peter-wiegel.de/Fibel.html),
+under file names without spaces. The app shows them as "Druckschrift Nord"
+and "Druckschrift Süd" and draws them larger by a CSS size-adjust.
+
 Syllables
 ---------
 hyphen 1.14.1, text hyphenation in JavaScript
