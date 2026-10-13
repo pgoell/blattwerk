@@ -58,11 +58,12 @@ def started_in_a_loop_thread():
     return found
 
 
-@pytest.mark.parametrize("swept", [False, True], ids=["left", "swept"])
-def test_what_a_held_route_leaves_sends_from_the_thread_that_collects_it(browser, server, swept):
+@pytest.mark.parametrize("first", [False, True], ids=["left", "collected"])
+def test_what_a_held_route_leaves_sends_from_the_thread_that_collects_it(browser, server, first):
     """The cause of the KeyError (#458, #463). The coroutine of a held route never ends; when the
     collector ends it, Playwright's `finally` starts a task that sends to the driver, on the loop
-    of whatever thread collects. The fixture `swept` collects in the test's own thread."""
+    of whatever thread collects. Collected first in the test's own thread, as the fixture `swept`
+    asks for, nothing is left for another thread."""
     gc.collect()
     gc.disable()
     try:
@@ -78,10 +79,10 @@ def test_what_a_held_route_leaves_sends_from_the_thread_that_collects_it(browser
         page.unroute("**/api/me")
         context.close()
         del page, context, kept
-        if swept:
+        if first:
             gc.collect()
         found = started_in_a_loop_thread()
-        assert any("Connection.wrap_api_call" in coro for coro in found) is not swept, found
+        assert any("Connection.wrap_api_call" in coro for coro in found) is not first, found
     finally:
         gc.enable()
 
