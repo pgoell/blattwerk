@@ -18,15 +18,15 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const CARRIES = [["none", "Ohne"], ["required", "Mit"], ["either", "Egal"]] as const;
 const FORMATS = [["row", "Zeile"], ["gap", "Lücke"], ["written", "Schriftlich"], ["compare", "Vergleichen"]] as const;
 const SIDES = [["nn", "Zahl ○ Zahl"], ["tn", "Aufgabe ○ Zahl"], ["tt", "Aufgabe ○ Aufgabe"]] as const;
-const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien", zero: "Aufgaben mit 0", one: "Aufgaben mit 1 beim Malnehmen und Teilen", distinct: "keine gleichen Zahlen" };
+const LOOSEN: Record<string, string> = { carry: "Übertrag", rest: "Rest", a: "Ziffern der 1. Zahl", b: "Ziffern der 2. Zahl", c: "Ziffern der 3. Zahl", max: "Zahlenraum", close: "Knapp", equal: "Aufgaben mit =", brackets: "Klammern", family: "Aufgabenfamilien", zero: "Aufgaben mit 0", one: "Aufgaben mit 1 beim Malnehmen und Teilen", distinct: "keine gleichen Zahlen", small: "Kleines Einmaleins" };
 const GAPS = ["a", "b", "c", "result"] as const;
 const FAMILIES = [["none", "Keine"], ["swap", "Tauschaufgaben"], ["reverse", "Umkehraufgaben"], ["neighbour", "Nachbaraufgaben"]] as const;
 const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct }));
+export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }: Limits) =>
+  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }));
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
@@ -130,6 +130,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
         </button>
       </div>
       <div className="seg switch">
+        <button className={p.small ? "on" : ""} aria-pressed={!!p.small} disabled={!times || three} onClick={() => limit({ small: !p.small })}>
+          Kleines Einmaleins
+        </button>
+      </div>
+      <div className="seg switch">
         <button className={p.distinct ? "on" : ""} aria-pressed={!!p.distinct} onClick={() => limit({ distinct: !p.distinct })}>
           keine gleichen Zahlen
         </button>
@@ -163,7 +168,8 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       <h2>Nachkommastellen</h2>
       <div className="seg">
         {([0, 1, 2] as const).map((n) => (
-          <button key={n} aria-label={NACH[n]} className={dec === n ? "on" : ""} aria-pressed={dec === n} disabled={!open || money} onClick={() => limit({ decimals: n })}>
+          // With Geld on, a number takes its place in one step: Geld goes off and the number is lit.
+          <button key={n} aria-label={NACH[n]} className={dec === n && !money ? "on" : ""} aria-pressed={dec === n && !money} disabled={!open} onClick={() => limit({ decimals: n, money: false })}>
             {n}
           </button>
         ))}

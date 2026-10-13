@@ -128,6 +128,7 @@ export type Limits = {
   zero?: boolean;
   one?: boolean;
   distinct?: boolean;
+  small?: boolean;
 };
 // The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
 export function decimalsOf(p: Limits): number {

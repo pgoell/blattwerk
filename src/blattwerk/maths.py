@@ -77,6 +77,9 @@ class Settings(BaseModel):
     one: bool = True
     # Keine gleichen Zahlen: on keeps tasks out whose numbers are equal.
     distinct: bool = False
+    # Kleines Einmaleins: both factors of a times task, and the divisor and the quotient of a divide
+    # task, lie from 1 to 10.
+    small: bool = False
 
     @model_validator(mode="after")
     def places_fit(self) -> Settings:
@@ -142,11 +145,22 @@ def carries(op: str, a: int, b: int) -> list[int]:
     return out
 
 
+def kleine(op: str, a: int, b: int) -> bool:
+    """Whether a times or divide task is of the kleine Einmaleins: its factors, or its divisor and
+    its quotient, lie from 1 to 10."""
+    if op == "*":
+        return 1 <= a <= 10 and 1 <= b <= 10
+    return 1 <= b <= 10 and 1 <= a // b <= 10
+
+
 def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     """Whether an exercise keeps every limit. `top` is the highest result."""
     if not (fits(s.a, a) and fits(s.b, b) and a <= s.max and b <= s.max):
         return False
     if op == "/" and b == 0:
+        return False
+    # The kleine Einmaleins has no 0 in it, so the switch keeps 0 out of these tasks.
+    if s.small and op in "*/" and not kleine(op, a, b):
         return False
     # A written task with a 0 as a number teaches nothing, whatever the operation.
     if s.format == "written" and 0 in (a, b):
@@ -261,7 +275,7 @@ def valid_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
     """Every pair of numbers that keeps the limits for one operation."""
     # Only these limits tell whether a pair is valid; a row and a gap take the same pairs.
     limits = s.model_dump_json(
-        include={"max", "a", "b", "carry", "rest", "zero", "one", "distinct"}
+        include={"max", "a", "b", "carry", "rest", "zero", "one", "distinct", "small"}
     )
     only = tuple([] if three(s) else bound(s))
     return list(kept(limits, s.format == "written", only, op, top))
@@ -293,6 +307,34 @@ def kept(
     )
 
 
+def small_pairs(s: Settings, op: str, top: int) -> list[tuple[int, int]]:
+    """Every kleine Einmaleins pair that keeps the limits. A big Zahlenraum draws too rarely
+    from its own pairs to find these, so they are tried one by one."""
+    if op == "*":
+        cands = [(a, b) for a in range(1, 11) for b in range(1, 11)]
+    else:
+        cands = [
+            (q * b + r, b)
+            for q in range(1, 11)
+            for b in range(1, 11)
+            for r in ([0] if s.rest is False else (range(1, b) if s.rest else range(b)))
+        ]
+    return [p for p in cands if valid(s, op, *p, top)]
+
+
+def chosen(op: str, every: list[tuple[int, int]], count: int, rng: random.Random):
+    """Up to `count` of the pairs of a times or divide task."""
+    # About one task in ten may be a plain one with a 0 or a 1; the rest are school tasks.
+    school_pairs = [p for p in every if school(op, *p)]
+    others = [p for p in every if not school(op, *p)]
+    n_others = min(count // 10, len(others))
+    n_school = min(count - n_others, len(school_pairs))
+    n_others = min(count - n_school, len(others))
+    out = weighted(op, school_pairs, n_school, rng) + rng.sample(others, n_others)
+    rng.shuffle(out)
+    return out
+
+
 def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list[tuple[int, int]]:
     """Up to `count` different exercises of one operation."""
     sizes = below(s.a, s.max), below(s.b, s.max)
@@ -302,15 +344,9 @@ def draw(s: Settings, op: str, count: int, top: int, rng: random.Random) -> list
         every = valid_pairs(s, op, top)
         if op in "+-":
             return rng.sample(every, min(count, len(every)))
-        # About one task in ten may be a plain one with a 0 or a 1; the rest are school tasks.
-        school_pairs = [p for p in every if school(op, *p)]
-        others = [p for p in every if not school(op, *p)]
-        n_others = min(count // 10, len(others))
-        n_school = min(count - n_others, len(school_pairs))
-        n_others = min(count - n_school, len(others))
-        out = weighted(op, school_pairs, n_school, rng) + rng.sample(others, n_others)
-        rng.shuffle(out)
-        return out
+        return chosen(op, every, count, rng)
+    if s.small and op in "*/":
+        return chosen(op, small_pairs(s, op, top), count, rng)
     # A dict keeps the order they were found in, so a seed gives the same exercises again.
     found: dict[tuple[int, int], None] = {}
     for _ in range(1000 + 50 * count):
@@ -737,6 +773,7 @@ def loosened(s: Settings) -> dict[str, tuple[Settings, int]]:
         "zero": (s.model_copy(update={"zero": True}), s.max),
         "one": (s.model_copy(update={"one": True}), s.max),
         "distinct": (s.model_copy(update={"distinct": False}), s.max),
+        "small": (s.model_copy(update={"small": False}), s.max),
     }
 
 
@@ -746,7 +783,7 @@ def compared(s: Settings) -> dict:
     if len(found) == s.count:
         return {"exercises": found, "loosen": None}
     table = loosened(s)
-    names = ("carry", "a", "b", "max", "close", "equal", "zero", "one", "distinct")
+    names = ("carry", "a", "b", "max", "close", "equal", "zero", "one", "distinct", "small")
     # A limit already at its loosest changes nothing, so it is not tried again.
     return {
         "exercises": found,
@@ -1155,6 +1192,9 @@ def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random
 def generate(s: Settings) -> dict:
     """The exercises for these settings. With fewer than asked for, `loosen` names the limits
     that stand in the way: without one of them there would be more."""
+    # With three numbers the switch counts for nothing: they are drawn the same either way.
+    if three(s):
+        s = s.model_copy(update={"small": False})
     d = places(s)
     s = scaled(s)
     if s.format == "compare":
@@ -1173,7 +1213,7 @@ def generate(s: Settings) -> dict:
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
-    names = ("carry", "rest", "a", "b", "max", "family", "zero", "one", "distinct")
+    names = ("carry", "rest", "a", "b", "max", "family", "zero", "one", "distinct", "small")
     loosen = [name for name in names if len(groups(*table[name])) > len(drawn)]
     return {"exercises": exercises, "loosen": loosen}
 
