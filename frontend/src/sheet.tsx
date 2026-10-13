@@ -327,11 +327,13 @@ export function lowest(b: Box) {
   const [c, s] = dir(b);
   return b.y + b.h / 2 + (Math.abs(b.w * s) + Math.abs(b.h * c)) / 2;
 }
-// Whether a maths block with these props would be taller than it is and end below the paper's edge, `H` mm down.
+// Whether a maths block with these props would end lower than it does and below the paper's edge, `H` mm down.
 // A sheet prints one page a page: what hangs below is cut, so the panel and the painter refuse such a change.
 export function overFoot(b: MathsBlock, props: MathsProps, H: number) {
   const h = mathsHeight(props);
-  return h > mathsHeight(b.props) && lowest({ ...b, ...tall(b, h) }) > H + 0.01;
+  if (h === mathsHeight(b.props)) return false;
+  const low = lowest({ ...b, ...tall(b, h) });
+  return low > H + 0.01 && low > lowest(b) + 0.01;
 }
 export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A table's props with an empty row or column more, before the one at `i`, or without the one at `i`. A new column

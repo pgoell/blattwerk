@@ -48,6 +48,16 @@ def panel(name):
     return lambda page: page.locator(".panel").get_by_role("button", name=name, exact=True).click()
 
 
+def asked(action):
+    """The action, and the answer to it: the new exercises have come from the server."""
+
+    def run(page):
+        with page.expect_response(lambda r: r.url.endswith("/api/maths")):
+            action(page)
+
+    return run
+
+
 def refusal(page):
     expect(page.locator('[data-foot="full"]')).to_be_visible()
 
@@ -128,6 +138,27 @@ def test_a1_anzahl_stops_at_the_foot_with_neighbour_families(editor):
             True,
             id="written-division",
         ),
+        pytest.param(
+            "written-room",
+            {"format": "written", "ops": ["/"], "max": 10},
+            asked(lambda page: page.get_by_label("Zahlenraum").select_option("1000000")),
+            True,
+            id="written-room",
+        ),
+        pytest.param(
+            "written-rest",
+            {"format": "written", "ops": ["/"]},
+            asked(panel("Mit Rest")),
+            False,
+            id="written-rest",
+        ),
+        pytest.param(
+            "written-roll",
+            {"format": "written", "ops": ["-", "/"]},
+            asked(panel("Neu würfeln")),
+            False,
+            id="written-roll",
+        ),
     ],
 )
 def test_a2_no_panel_change_pushes_the_block_past_the_foot(editor, case, props, action, grows):
@@ -136,7 +167,7 @@ def test_a2_no_panel_change_pushes_the_block_past_the_foot(editor, case, props, 
     mine = maths(
         client,
         ops=props.get("ops", ["+", "-"]),
-        max=100,
+        max=props.get("max", 100),
         count=12,
         columns=3,
         size=14,
@@ -148,6 +179,9 @@ def test_a2_no_panel_change_pushes_the_block_past_the_foot(editor, case, props, 
     action(page)
     if grows:
         refusal(page)
+    else:
+        # The new exercises are drawn: each of the 12 divisions has its svg.
+        expect(at(page, "m").locator("svg")).to_have_count(12)
     on_sheet(page, "m")
     inside(page, "m")
 
@@ -217,8 +251,22 @@ def test_i3_a_block_below_the_edge_says_so_and_can_still_shrink(editor):
     page = editor(box("m", "maths", props, y=280, h=height(props)), client=client)
     pick(page, "m")
     expect(page.locator('[data-foot="over"]')).to_be_visible()
-    page.get_by_label("Eine Aufgabe weniger").click()
-    expect(tasks(page).first).to_have_text("11 Aufgaben")
+    before = at(page, "m").bounding_box()["height"]
+    # Four columns take three lines in place of four: the block gets shorter.
+    page.get_by_label("Eine Spalte mehr").click()
+    expect(tasks(page).nth(1)).to_have_text("4 Spalten")
+    assert at(page, "m").bounding_box()["height"] < before - 1, "the block did not get shorter"
+
+
+def test_a2_a_block_sized_by_hand_does_not_grow_past_the_foot(editor):
+    """A2 by hand: a block of 20 mm counts growth from its own foot: one column more is refused."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=270, h=20), client=client)
+    pick(page, "m")
+    page.get_by_label("Eine Spalte mehr").click()
+    refusal(page)
+    on_sheet(page, "m")
 
 
 def test_i7_a_turned_block_stops_at_its_lowest_corner(editor):
@@ -244,6 +292,22 @@ def test_i4_the_painter_does_not_grow_a_maths_block_past_the_foot(editor):
     page = editor(
         box("a", "maths", big, y=20, h=height(big)),
         box("m", "maths", small, y=FOOT - height(small) - 1, h=height(small)),
+        client=client,
+    )
+    paint(page, "a", "m")
+    pick(page, "m")
+    expect(tasks(page).nth(2)).to_have_text("14 pt")
+    on_sheet(page, "m")
+
+
+def test_i4_the_painter_does_not_grow_a_block_sized_by_hand(editor):
+    """I4 by hand: the painter's 10 pt would move the foot below the page: the block keeps 14 pt."""
+    client = user()
+    small = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=10, format="row")
+    mine = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("a", "maths", small, y=20, h=height(small)),
+        box("m", "maths", mine, y=270, h=20),
         client=client,
     )
     paint(page, "a", "m")

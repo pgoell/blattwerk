@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
-import { decimalsOf, lowest, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import { decimalsOf, lowest, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
@@ -34,13 +34,18 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   // The limits as last set, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<MathsProps>();
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
-  // A change the page has no room for was refused: the line says so until the block moves or a change goes through.
-  const [refused, setRefused] = useState(false);
+  // The props of the last change the page had no room for. The line shows while they would still grow the block past the foot.
+  const [denied, setDenied] = useState<MathsProps>();
+  const refused = !!denied && overFoot(block, denied, foot);
+  const line = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (refused) line.current?.scrollIntoView({ block: "nearest" });
+  }, [refused]);
   const asked = useRef(0);
   const p = pending ?? block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
-  useEffect(() => setRefused(false), [block.x, block.y, block.w, block.h, block.angle]);
+  const tried = (props: MathsProps) => setDenied(apply(props) ? undefined : props);
 
   // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
   // stays as set, and the line above the page asks again with it.
@@ -51,7 +56,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
       if (n !== asked.current) return;
-      setRefused(!apply({ ...next, ...made }));
+      tried({ ...next, ...made });
       setPending(undefined);
     });
   }
@@ -74,7 +79,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     const range = ([lo, hi]: Range): Range => (end ? [Math.min(lo, to), to] : [to, Math.max(hi, to)]);
     limit({ [key]: ranges(key).map((r, i) => (i === place ? range(r) : r)) });
   }
-  const show = (change: Partial<MathsProps>) => setRefused(!apply({ ...p, ...change }));
+  const show = (change: Partial<MathsProps>) => tried({ ...p, ...change });
   const plus = p.ops.includes("+") || p.ops.includes("-");
   const times = p.ops.includes("*") || p.ops.includes("/");
   // Times, divide and compare keep whole numbers: the places after the comma stay greyed then, and keep their value.
@@ -300,7 +305,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       </div>
       {fam && <p className="hint">Das sind {p.exercises.length} Aufgaben.</p>}
       {refused && (
-        <p className="hint" role="status" data-foot="full" ref={(el) => el?.scrollIntoView({ block: "nearest" })}>
+        <p className="hint" role="status" data-foot="full" ref={line}>
           Das passt nicht mehr auf die Seite: Der Block würde unten über den Rand ragen. Mehr Platz gibt es mit weniger Aufgaben, mehr Spalten, kleinerer Schrift oder weiter oben auf der Seite.
         </p>
       )}
