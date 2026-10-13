@@ -47,7 +47,8 @@ def _pw_answer(self, msg):
     sent = self.__dict__.setdefault("_probe_sent", {})
     answered = self.__dict__.setdefault("_probe_answered", {})
     id = msg.get("id")
-    if id and id not in self._callbacks:
+    # After a close the real dispatch drops every reply, and no KeyError comes: nothing to say.
+    if id and id not in self._callbacks and not self._closed_error:
         error = (msg.get("error") or {}).get("error") or {}
         print(
             f"playwright answered id {id} that waits for nothing: "
@@ -166,7 +167,8 @@ class Hang:
             f"No test has finished for {HANG_AFTER:g} s: the run hangs. "
             "The stacks of every process follow."
         )
-        for node in sorted(self.running):
+        # A copy: the main thread may still add a test while this one reads.
+        for node in sorted(tuple(self.running)):
             self.say(f"Started and not finished: {node}")
         # The workers are the children of this process; each prints its stacks on SIGUSR1. A child
         # is listed under the thread that started it, and execnet starts some from helper threads,
