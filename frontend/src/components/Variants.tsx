@@ -22,7 +22,8 @@ function message({ letter, page, type }: Short) {
 // Tab goes round the dialog and does not leave it for the page.
 function round(e: KeyboardEvent<HTMLDialogElement>) {
   if (e.key !== "Tab") return;
-  const all = e.currentTarget.querySelectorAll<HTMLElement>("input:not(:disabled), button:not(:disabled)");
+  // A radio group has one tab stop, its checked button: the others are not on the trap's list.
+  const all = e.currentTarget.querySelectorAll<HTMLElement>("input:not(:disabled, [type=radio]:not(:checked)), button:not(:disabled)");
   const first = all[0];
   const last = all[all.length - 1];
   if (e.shiftKey && document.activeElement === first) {
@@ -63,7 +64,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   setCount: (n: number) => void;
   letters: boolean;
   setLetters: (on: boolean) => void;
-  opener: RefObject<HTMLButtonElement | null>;
+  opener: RefObject<HTMLElement | null>;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);

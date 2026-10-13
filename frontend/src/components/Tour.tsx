@@ -100,13 +100,13 @@ const STEPS: Step[] = [
   },
   {
     title: "Seiten und Vorlagen",
-    text: "Links stehen die Seiten des Blatts und die Vorlagen. Eine Vorlage ersetzt das Blatt durch einen fertigen Anfang, etwa für eine Klassenarbeit. Jedes deiner Blätter kannst du hier als eigene Vorlage speichern.",
+    text: "Links stehen die Seiten des Blatts und die Vorlagen. Eine Vorlage ersetzt das Blatt durch einen fertigen Anfang, etwa für eine Klassenarbeit. Jedes deiner Blätter kannst du hier als eigene Vorlage speichern. Eine Seite verschiebst du, indem du ihre Vorschau ziehst.",
     find: ".left",
     tab: "Vorlagen",
   },
   {
     title: "Drucken",
-    text: "„PDF“ lädt das Blatt zum Drucken, „Lösungen“ dasselbe Blatt mit den Ergebnissen. Speichern musst du nie: Das Blatt sichert sich von selbst.",
+    text: "„PDF“ lädt das Blatt zum Drucken, „Lösungen“ dasselbe Blatt mit den Ergebnissen. „Varianten drucken“ macht mehrere Fassungen, damit der Nachbar nicht abschreibt. Speichern musst du nie: Das Blatt sichert sich von selbst.",
     find: "[data-tour=pdf]",
   },
   {

@@ -510,6 +510,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const strip = useRef<HTMLDivElement>(null);
   const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
   const press = useRef(0);
+  // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
+  const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0 });
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
   const grab = useRef([0, 0]);
@@ -971,6 +973,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
   });
+  useEffect(() => () => cancelAnimationFrame(auto.current.frame), []);
   // A finger held on a thumbnail for half a second drags it. One that moves away before then scrolls the panel, and
   // only a listener set by hand can keep the panel still once the drag is on.
   useEffect(() => {
@@ -994,6 +997,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       e.preventDefault();
       aim(e.touches[0].clientX, e.touches[0].clientY);
+      scrollEdge(e.touches[0].clientX, e.touches[0].clientY);
     }
     el.addEventListener("touchstart", onStart);
     el.addEventListener("touchmove", onMove, { passive: false });
@@ -1381,15 +1385,45 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // The place a dragged page would have after the drop.
   const landing = (from: number, slot: number) => (slot > from ? slot - 1 : slot);
+  // Near the top or the bottom of the panel a drag scrolls it, faster the nearer the pointer is to the edge, so a
+  // page can be dropped on a thumbnail out of view. The scroll goes on while the pointer rests there.
+  function scrollEdge(x: number, y: number) {
+    const panel = strip.current!.closest<HTMLElement>(".left")!.getBoundingClientRect();
+    const zone = 40;
+    const down = (y - (panel.bottom - zone)) / zone;
+    const up = (panel.top + zone - y) / zone;
+    const a = auto.current;
+    a.x = x;
+    a.y = y;
+    a.speed = (down > 0 ? Math.min(1, down) : up > 0 ? -Math.min(1, up) : 0) * 12;
+    if (!a.speed) {
+      cancelAnimationFrame(a.frame);
+      a.frame = 0;
+    } else if (!a.frame) a.frame = requestAnimationFrame(scrollStep);
+  }
+  function scrollStep() {
+    const a = auto.current;
+    a.frame = 0;
+    if (!tug.current || !a.speed) return;
+    strip.current!.closest<HTMLElement>(".left")!.scrollTop += a.speed;
+    aim(a.x, a.y);
+    a.frame = requestAnimationFrame(scrollStep);
+  }
   function quit() {
     clearTimeout(press.current);
+    cancelAnimationFrame(auto.current.frame);
+    auto.current.frame = 0;
+    auto.current.speed = 0;
     tug.current = undefined;
     setHaul(undefined);
   }
   function release() {
     const { from, slot } = tug.current ?? {};
     quit();
-    if (slot !== undefined) movePage(from!, landing(from!, slot));
+    if (slot === undefined) return;
+    const to = landing(from!, slot);
+    movePage(from!, to);
+    strip.current!.querySelector(`[data-thumb="${to}"]`)?.scrollIntoView({ block: "nearest" });
   }
   // On a thumbnail Ctrl with an arrow moves its page by one place, with Shift to the start or the end, and Ctrl+D
   // copies it. The focus follows the page.
@@ -2078,7 +2112,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [variants, setVariants] = useState(false);
   const [count, setCount] = useState(2);
   const [letters, setLetters] = useState(true);
-  const varianten = useRef<HTMLButtonElement>(null);
+  // The button that opened the dialog gets the focus back when it shuts.
+  const variantsDoor = useRef<HTMLElement | null>(null);
+  const openVariants = (door: HTMLElement) => {
+    variantsDoor.current = door;
+    setVariants(true);
+  };
 
   // A template stored or deleted with the session run out brings the login. A second press while one is on its way
   // stores no second template. The name stays until the template is stored.
@@ -2388,6 +2427,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         ]),
     { label: "Rundgang", icon: CircleHelp, run: () => setTour(true) },
     { label: "Feedback", icon: MessageSquare, run: () => feedback.current!() },
+    { label: "Varianten drucken", icon: Layers, run: () => openVariants(bar.current!.querySelector<HTMLElement>(".more")!) },
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
@@ -2574,6 +2614,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />
           </Feedback>
+          {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={(e) => openVariants(e.currentTarget)} />}
           {more.length > 0 && (
             <Tool
               icon={Ellipsis}
@@ -2600,7 +2641,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={varianten} onClose={() => setVariants(false)} />
+            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
           )}
         </div>
         {saver?.clash && (
@@ -2651,6 +2692,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               <button
                 key={n}
                 data-thumb={n}
+                title="Ziehen verschiebt die Seite"
                 className={[n === page && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
                 aria-pressed={n === page}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
@@ -2670,7 +2712,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 onPointerMove={(e) => {
                   const t = tug.current;
                   if (e.pointerType === "touch" || !t) return;
-                  if (t.slot !== undefined || Math.hypot(e.clientX - t.x, e.clientY - t.y) >= 4) aim(e.clientX, e.clientY);
+                  if (t.slot !== undefined || Math.hypot(e.clientX - t.x, e.clientY - t.y) >= 4) {
+                    aim(e.clientX, e.clientY);
+                    scrollEdge(e.clientX, e.clientY);
+                  }
                 }}
                 onPointerUp={(e) => e.pointerType !== "touch" && release()}
                 onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
@@ -3322,9 +3367,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 <Eraser size={14} aria-hidden />
                 Alle entfernen
               </button>
-              {/* Here and not beside "PDF": the bar has no room for one more button on an iPad. */}
+              {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
-              <button ref={varianten} className="wide" onClick={() => setVariants(true)}>
+              <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
                 <Layers size={14} aria-hidden />
                 Varianten drucken
               </button>

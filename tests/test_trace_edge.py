@@ -7,6 +7,7 @@ a change.
 
 import io
 import math
+import re
 from contextlib import contextmanager
 
 import pytest
@@ -36,6 +37,27 @@ def clip_of(block, width_mm):
         "width": 18 * mm,
         "height": b["height"] + 6 * mm,
     }
+
+
+def whole_clip(block, width_mm):
+    """The picture of a whole block: 3 mm around it on every side."""
+    b = block.bounding_box()
+    mm = b["width"] / width_mm
+    return {
+        "x": b["x"] - 3 * mm,
+        "y": b["y"] - 3 * mm,
+        "width": b["width"] + 6 * mm,
+        "height": b["height"] + 6 * mm,
+    }
+
+
+def changed_whole(before, after):
+    """The pixels that differ by more than 40 in red, green or blue, anywhere in the picture."""
+    one = Image.open(io.BytesIO(before)).convert("RGB")
+    two = Image.open(io.BytesIO(after)).convert("RGB")
+    red, green, blue = ImageChops.difference(one, two).split()
+    most = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    return most.point(lambda v: 255 if v > 40 else 0).histogram()[255]
 
 
 def changed(before, after):
@@ -294,6 +316,80 @@ def test_with_a_house_a_dotted_or_outlined_first_letter_is_whole_and_clear_of_th
     with print_page(browser, server, user(), [block]) as printed:
         ink, house = printed.locator(".block").evaluate(INK_OF_FIRST, look == "outline")
     assert math.floor(ink) >= math.ceil(house), (look, font, ink, house)
+
+
+# The fonts with a dotted cut: the dotted look is drawn grey in the others.
+DOTTED_FONTS = ["urff"]
+
+
+def lifted_whole(page, items, field=False):
+    """How many pixels differ in each whole block once every cut is lifted: {name: count}."""
+    before = {name: page.screenshot(clip=whole_clip(el, w)) for name, (el, w) in items.items()}
+    page.add_style_tag(content=LIFT + (FIELD if field else ""))
+    return {
+        name: changed_whole(before[name], page.screenshot(clip=whole_clip(el, w)))
+        for name, (el, w) in items.items()
+    }
+
+
+@pytest.mark.parametrize("font", FONTS)
+def test_no_ink_of_an_outlined_text_is_cut_above_or_below(browser, server, font):
+    client = user()
+    with print_page(browser, server, client, four(font, "outline")) as page:
+        items = {name: (page.locator(".block").nth(i), 150) for i, name in enumerate(NAMES)}
+        gained = lifted_whole(page, items)
+    cut = {name: count for name, count in gained.items() if count}
+    assert not cut, (font, cut)
+
+
+@pytest.mark.parametrize("font", DOTTED_FONTS)
+def test_no_ink_of_a_dotted_text_is_cut_above_or_below(browser, server, font):
+    client = user()
+    with print_page(browser, server, client, four(font, "dotted")) as page:
+        items = {name: (page.locator(".block").nth(i), 150) for i, name in enumerate(NAMES)}
+        gained = lifted_whole(page, items)
+    cut = {name: count for name, count in gained.items() if count}
+    assert not cut, (font, cut)
+
+
+@pytest.mark.parametrize(
+    ("font", "look"), [*((font, "outline") for font in FONTS), ("urff", "dotted")]
+)
+def test_no_ink_of_an_outlined_text_is_cut_above_or_below_on_screen(editor, font, look):
+    page = editor(*four(font, look))
+    page.add_style_tag(content=HIDE)
+    items = {name: (at(page, name), 150) for name in NAMES}
+    gained = lifted_whole(page, items, field=True)
+    cut = {name: count for name, count in gained.items() if count}
+    assert not cut, (font, cut)
+
+
+def test_an_outlined_va_text_in_a_shape_loses_no_ink_above(browser, server):
+    client = user()
+    with print_page(browser, server, client, [four("va", "outline")[1]]) as page:
+        gained = lifted_whole(page, {"shape": (page.locator(".block"), 150)})
+    assert gained == {"shape": 0}, gained
+
+
+CUT = """(frames) => frames.map((f) => ({
+    clip: getComputedStyle(f).clipPath,
+    up: f.style.getPropertyValue("--ink-up"),
+}))"""
+
+
+def test_a_plain_and_a_grey_text_keep_their_cut(browser, server):
+    """The fringe is for the outline and the dotted look: other texts keep the pixel they had."""
+    text = {**TEXT, "text": "jÄgf Übung", "size": 30, "font": "va", "align": "left"}
+    blocks = [
+        box("plain", "text", text, x=30, y=20, w=150, h=30),
+        box("grey", "text", {**text, "trace": True}, x=30, y=60, w=150, h=30),
+        box("shape", "shape", {**RECT, **text}, x=30, y=100, w=150, h=30),
+    ]
+    with print_page(browser, server, user(), blocks) as page:
+        cuts = page.locator(".block .frame").evaluate_all(CUT)
+    for cut in cuts:
+        assert cut["clip"].startswith("inset("), cut
+        assert re.fullmatch(r"calc\([\d.]+em \+ 1px\)", cut["up"]), cut
 
 
 def test_a_grey_and_a_plain_lineatur_keep_their_style(editor):

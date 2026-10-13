@@ -671,6 +671,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const side = stroke > 0 || dotted || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
+  // An outline's stroke and a dotted cut's dots reach a pixel past the measured ink, and a pixel more with the page's
+  // rounding (#503): the paragraph takes one pixel more above and below for them.
+  const fringe = stroke > 0 || dotted ? 2 : 1;
   // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.
   // The rows are the lines the text has once it is drawn (`lines`), and the block's height until then.
   const fade = fadeOf(p);
@@ -740,7 +743,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       data-fade={fade}
       style={{
         ...textStyle(p, k),
-        ...(tight && { "--ink-up": `calc(${above}em + 1px)`, "--ink-down": `calc(${below}em + 1px)`, "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
+        ...(tight && { "--ink-up": `calc(${above}em + ${fringe}px)`, "--ink-down": `calc(${below}em + ${fringe}px)`, "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.
@@ -1684,7 +1687,9 @@ export function Draw({ block, k, solved = false, at, children }: { block: Block;
   if (block.type === "points")
     return (
       <div className="points" style={{ fontSize: 12 * PT * k, lineHeight: `${2 * Math.round((block.h * k) / 2 - 1)}px` }}>
-        / {children ?? block.props.max} Punkte
+        {/* The word with its space as one piece of text, as before: the PDF sets each piece on its own. */}
+        / {children ?? block.props.max}
+        {block.props.max === 1 ? " Punkt" : " Punkte"}
       </div>
     );
   if (block.type === "image") {
