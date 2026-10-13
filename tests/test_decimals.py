@@ -21,10 +21,10 @@ from ui import at, box, maths, pick, saved, tool, user
 
 
 def fmt(n, d, money=False):
-    """A whole number of the smallest place as the sheet writes it: 350 with 2 places is 3,5."""
+    """A whole number of the smallest place as the sheet writes it: 350 with 1 place is 35."""
     digits = str(n).zfill(d + 1)
     whole, fraction = digits[: len(digits) - d], digits[len(digits) - d :]
-    if not money:
+    if not money and d != 2:
         fraction = fraction.rstrip("0")
     return f"{whole},{fraction}" if fraction else whole
 

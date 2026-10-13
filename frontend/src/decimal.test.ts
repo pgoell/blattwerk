@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { decimal, GAP } from "./decimal";
 
 describe("decimal", () => {
-  it("cuts the zeros after the comma of one place, and keeps them with two places or as money", () => {
+  it("two places keep their zeros, one place drops them", () => {
     expect([decimal(350, 2), decimal(300, 2), decimal(5, 2), decimal(350, 2, true), decimal(300, 2, true)]).toEqual(["3,50", "3,00", "0,05", "3,50", "3,00"]);
     expect([decimal(30, 1), decimal(35, 1)]).toEqual(["3", "3,5"]);
     expect([decimal(1730, 2), decimal(700, 2)]).toEqual(["17,30", "7,00"]);
