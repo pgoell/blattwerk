@@ -653,7 +653,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const set = b.type === "table" && heightsOf(b.props) ? Math.abs(h - b.h) > 0.05 : h > b.h;
       if (!set) continue;
       // A table without rows gets the heights it had before its text grew, so that they can come back with the text.
-      if (h > b.h && b.type === "table" && !heightsOf(b.props) && b.id === table?.id && laidMm.length) {
+      // A table saved lower than its texts need had no heights of its own to come back to, so it grows with none.
+      if (h > b.h && b.type === "table" && !heightsOf(b.props) && b.id === table?.id && laidMm.length && sum(laidMm) <= b.h - EDGE + 0.05) {
         grown.set(b.id, { ...tall(b, h), props: { ...b.props, rows: laidMm.map(round) } });
         // The height the rows need is measured once more with the rows set.
         tight.current = true;
