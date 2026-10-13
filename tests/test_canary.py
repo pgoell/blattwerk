@@ -585,6 +585,8 @@ def test_deploy_tries_the_canary_before_it_touches_live():
     start, smoke, stop, passed = (at(step) for step in STEPS[3:7])
     assert [smoke, stop, passed] == [start + 1, start + 2, start + 3]
     assert "continue-on-error" not in WORKFLOW
+    # The pulled image keeps its name `canary`: a registry name that stays must not end the run.
+    assert 'docker rmi "$image:$sha" >/dev/null || true' in lines()
 
 
 def test_latest_moves_only_once_the_canary_passed():
@@ -688,13 +690,15 @@ def test_every_step_has_an_end_and_the_job_ends_after_them_all():
     """The job's limit must not end the run between `up` and the way back."""
     limits = {}
     for line in lines():
-        # A script, the pull, `up` or the live smoke test. One try of alive.sh ends by itself.
-        if not re.search(r'(bash|python3) "\$work/|docker (pull|compose|exec) ', line):
+        # A script, the pull, the read of smoke.py, `up` or the live smoke test. One try of
+        # alive.sh ends by itself.
+        if not re.search(r'(bash|python3) "\$work/|docker (pull|run|compose|exec) ', line):
             continue
         if 'bash "$work/alive.sh"' in line:
             continue
-        (limits[line],) = map(int, re.findall(r"^timeout (\d+)m ", line))
-    assert len(limits) == 10
+        (limits[line],) = map(int, re.findall(r"^(?:if ! )?timeout (?:-k \d+s )?(\d+)m ", line))
+    assert len(limits) == 11
+    assert [limit for line, limit in limits.items() if "docker run " in line] == [1]
     assert all(limit > 0 for limit in limits.values())
     # go-back.sh waits a minute for the app, after an `up`.
     (back,) = [limit for line, limit in limits.items() if "go-back.sh" in line]
@@ -703,7 +707,7 @@ def test_every_step_has_an_end_and_the_job_ends_after_them_all():
     assert "for _ in $(seq 1 30); do" in lines()
     assert "timeout=2" in (ROOT / "scripts" / "alive.sh").read_text()
     (job,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", jobs()["deploy"], re.M))
-    # Room for that wait and for the lines without a limit: tag, rmi, the read of smoke.py, prune.
+    # Room for that wait and for the lines without a limit: tag, rmi, prune.
     assert sum(limits.values()) + 5 <= job
 
 
@@ -738,8 +742,10 @@ def test_the_live_smoke_test_is_the_read_only_half():
 
 
 def test_the_smoke_test_comes_out_of_the_image_it_tests():
-    read = f"docker run --rm --network none --entrypoint cat {IMAGE}:canary /app/scripts/smoke.py"
-    assert f'if ! {read} >"$work/smoke.py"; then' in lines()
+    read = f"docker run --rm --init --network none --entrypoint cat {IMAGE}:canary"
+    # TERM alone does not end a `docker run`: the first process of a container gets no signal
+    # it has no handler for. `--init` puts one before `cat` that hands it on, and KILL follows.
+    assert f'if ! timeout -k 10s 1m {read} /app/scripts/smoke.py >"$work/smoke.py"; then' in lines()
     assert "COPY scripts/smoke.py ./scripts/smoke.py\n" in (ROOT / "Dockerfile").read_text()
     # No copy of it lies beside the scripts on the VPS.
     (copied,) = [line for line in lines() if line.startswith("cp ")]
@@ -800,7 +806,7 @@ PULLED = [
     f"pull -q ghcr.io/pgoell/blattwerk:{SHA}",
     f"tag ghcr.io/pgoell/blattwerk:{SHA} {IMAGE}:canary",
     f"rmi ghcr.io/pgoell/blattwerk:{SHA}",
-    f"run --rm --network none --entrypoint cat {IMAGE}:canary /app/scripts/smoke.py",
+    f"run --rm --init --network none --entrypoint cat {IMAGE}:canary /app/scripts/smoke.py",
 ]
 TRIED = [
     f"canary.sh start {LIVE} {LIVE}-canary",
