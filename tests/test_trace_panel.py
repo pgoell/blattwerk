@@ -26,8 +26,9 @@ def fade_of(page, client, name):
     return block(page, client, name)["props"].get("fade")
 
 
-def choose(page, key):
-    page.get_by_label("Nachspurtext", exact=True).select_option(key)
+def choose(page, key, which="only"):
+    select = page.get_by_label("Nachspurtext", exact=True)
+    (select.last if which == "last" else select.first).select_option(key)
 
 
 def test_a_lineatur_has_four_choices(editor):
@@ -115,6 +116,12 @@ def test_each_choice_is_one_undo_step(editor, kind):
         step(page, lambda: page.keyboard.press("Control+y"))
     expect(page.get_by_label("Nachspurtext", exact=True)).to_have_value("outline")
     assert fade_of(page, client, "a") == "rows"
+    # Aus is one step too, and its undo brings back the trace and the fading together.
+    choose(page, "off")
+    assert trace_of(page, client, "a") is None
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert trace_of(page, client, "a") == "outline"
+    assert fade_of(page, client, "a") == "rows"
 
 
 @pytest.mark.parametrize(
@@ -146,22 +153,41 @@ def test_every_block_with_text_has_the_choice(editor, kind):
     assert trace_of(page, client, "a") == "outline"
 
 
-def test_one_choice_sets_all_picked_blocks(editor):
-    """I1: one choice sets Umriss on every picked block, and one Control+z takes it from all."""
+@pytest.mark.parametrize("which", ["first", "last"])
+def test_one_choice_sets_all_picked_blocks(editor, which):
+    """I1: one choice sets Umriss on every picked block with text; one Control+z undoes all."""
     client = user()
     page = editor(
         box("a", "text", TEXT),
-        box("b", "text", TEXT, z=2),
-        box("c", "shape", {**RECT, "text": "Im Kasten"}, z=3),
+        box("c", "shape", {**RECT, "text": "Im Kasten"}, z=2),
+        box("t", "table", TABLE, z=3),
+        box("l1", "ruling", RULING, z=4),
+        box("k", "ruling", KARO, z=5),
         client=client,
     )
-    pick(page, "a", "b", "c")
-    choose(page, "outline")
-    for name in "abc":
+    names = ["a", "c", "t", "l1", "k"]
+    pick(page, *names)
+    choose(page, "outline", which)
+    for name in names:
         assert trace_of(page, client, name) == "outline"
     step(page, lambda: page.keyboard.press("Control+z"))
-    for name in "abc":
+    for name in names:
         assert trace_of(page, client, name) is None
+
+
+def test_aus_takes_the_fading_along(editor):
+    """Aus removes the trace and its fading: no key is left, and a later Grau is not faded."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    pick(page, "a")
+    choose(page, "outline")
+    page.get_by_role("button", name="Ausblenden").click()
+    choose(page, "off")
+    props = block(page, client, "a")["props"]
+    assert "trace" not in props and "fade" not in props
+    choose(page, "grey")
+    assert trace_of(page, client, "a") is True
+    assert "fade" not in block(page, client, "a")["props"]
 
 
 def test_the_open_text_shows_the_look(editor):

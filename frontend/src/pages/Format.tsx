@@ -21,6 +21,8 @@ type Props = {
   bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
   look: (props: object, key?: string) => void;
+  // Sets the trace text's look on every picked block that carries text, in one step.
+  traced: (props: object) => void;
   // Makes the picked texts and shapes take the sheet's Lernwörter as their text, or cut them loose with their words.
   link: (on: boolean) => void;
   // Sets props on the picked texts and shapes that take the Lernwörter, as `look` does for all of them.
@@ -154,7 +156,7 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
 
-export default function Format({ sel, style, bump, look, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -301,7 +303,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
-          <TraceControls props={text} font={text.font} onChange={(p) => look(p)} />
+          <TraceControls props={text} font={text.font} onChange={traced} />
           {bows}
           {gaps}
           <Fed sel={sel} words={words} toList={toList} look={look} link={link} feed={feed} />
@@ -378,7 +380,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
             <FontSelect label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
-            <TraceControls props={rulings[0].props} font={RULINGS[rulings[0].props.kind].at ? rulings[0].props.font ?? "andika" : "andika"} onChange={(p) => style("ruling", p)} />
+            <TraceControls props={rulings[0].props} font={RULINGS[rulings[0].props.kind].at ? rulings[0].props.font ?? "andika" : "andika"} onChange={traced} />
           )}
         </>
       )}
@@ -438,7 +440,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
           <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
             Kopfzeile
           </button>
-          <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={(p) => style("table", p)} />
+          <TraceControls props={tables[0].props} font={tables[0].props.font} onChange={traced} />
           {!text && bows}
           {!text && gaps}
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
@@ -484,9 +486,10 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
 }
 
 // The trace text of a text, a shape, a table or a Lineatur: Aus, Grau, Umriss or Gepunktet. Gepunktet needs the font's
-// dotted cut. Fading makes the trace lighter along the row or from row to row. A choice sets only its own keys.
-const TRACE_CHOICE: Record<string, { trace?: true | "outline" | "dotted" }> = {
-  off: { trace: undefined },
+// dotted cut. Fading makes the trace lighter along the row or from row to row. Aus takes the fading along; the other
+// choices set only their own keys.
+const TRACE_CHOICE: Record<string, { trace?: true | "outline" | "dotted"; fade?: Fade }> = {
+  off: { trace: undefined, fade: undefined },
   grey: { trace: true },
   outline: { trace: "outline" },
   dotted: { trace: "dotted" },
