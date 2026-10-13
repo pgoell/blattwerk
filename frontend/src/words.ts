@@ -1,6 +1,6 @@
 // The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
 // Lernwörter page. Pure functions, so the editor and the tests share them.
-import { MARGIN, RULINGS, dir, listOf, rowsOf, shownParas, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
+import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -18,7 +18,7 @@ export function filled(b: RulingBlock, W: number, H: number): Partial<Box> {
   // The corner the block starts at; the other end of that edge lies its width along.
   const [x, y] = [b.x + (b.w - b.w * c + b.h * s) / 2, b.y + (b.h - b.w * s - b.h * c) / 2];
   const most = Math.min(room(x, -s, W), room(x + b.w * c, -s, W), room(y, c, H), room(y + b.w * s, c, H));
-  return tall(b, round(Math.max(1, Math.floor(most / RULINGS[b.props.kind].row + 0.05)) * RULINGS[b.props.kind].row));
+  return tall(b, round(Math.max(1, Math.floor(most / RULINGS[kindOf(b.props.kind)].row + 0.05)) * RULINGS[kindOf(b.props.kind)].row));
 }
 
 // The words a linked block does not show: a row holds one word, so the rest are cut off.
@@ -29,7 +29,7 @@ export const short = (b: RulingBlock, words: string[]): number => (listOf(b) ? M
 export function linked(b: RulingBlock, mode: ListMode, words: string[], W: number, H: number): RulingBlock {
   const props = { ...b.props, list: mode };
   if (listOf(b) || b.locked) return { ...b, props };
-  const { row } = RULINGS[b.props.kind];
+  const { row } = RULINGS[kindOf(b.props.kind)];
   const most = Math.floor((filled(b, W, H).h ?? b.h) / row + 0.05);
   const rows = Math.max(rowsOf(b), Math.min(words.length, most));
   if (rows <= rowsOf(b)) return { ...b, props };

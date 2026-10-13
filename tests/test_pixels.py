@@ -388,6 +388,31 @@ def test_a_mixed_text_prints_as_the_answer_key_shows_it(browser, server, case):
     assert not faults(browser, server, client, mixed_case(case), solved=True)
 
 
+@pytest.mark.parametrize("font", ["nord", "sued"])
+def test_an_outline_in_druckschrift_nord_and_sued_prints_as_the_screen_shows_it(
+    browser, server, font
+):
+    """Issue #499: WebKit's screen laid the outline of a Lineatur a pixel lower than the print."""
+    client = user()
+    line = {
+        **box(
+            "a",
+            "ruling",
+            {
+                "kind": "l1",
+                "color": "#222222",
+                "font": font,
+                "text": "jagen Igel und Maus im Garten",
+                "trace": "outline",
+            },
+        ),
+        "x": 45,
+        "y": 37,
+        "w": 120,
+    }
+    assert not faults(browser, server, client, [line])
+
+
 def test_a_mix_left_out_of_the_print_is_over_the_limit(browser, server):
     """The mixed words on the screen and the plain words in print: the letters differ."""
     client = user()
