@@ -255,6 +255,25 @@ def test_a_typed_height_holds_on_a_table_with_rows_and_solution_words(editor):
     assert block(page, client)["h"] == 90
 
 
+def test_a_height_set_on_a_table_grown_by_its_text_holds(editor):
+    """A table that a text made tall and the teacher then made taller keeps that height: on its
+    own, and when one more letter is typed. Only a table with no spare room comes down."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H), client=client)
+    open_cell(page, "t", 4)
+    page.keyboard.type(LONG)
+    assert 60 < block(page, client)["h"] < 85
+    page.keyboard.press("Escape")
+    pick(page, "t")
+    typed(page, "Höhe", "90")
+    assert block(page, client)["h"] == 90
+    open_cell(page, "t", 4)
+    page.keyboard.press("End")
+    page.keyboard.type("x")
+    assert props(page, client)["cells"][1][1].endswith("x")
+    assert block(page, client)["h"] == 90
+
+
 def test_a_table_past_the_right_edge_is_warned_of(editor):
     """Issue 537: a column more makes a table from margin to margin wider than the page, and the
     panel says that what lies past the edge is not printed. Without the column it says nothing."""

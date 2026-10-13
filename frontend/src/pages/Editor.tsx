@@ -503,6 +503,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const grasp = useRef<{ el: Element; id: number; draft: typeof draft }>(undefined);
   // Set by a change that can leave a text higher than its box.
   const tight = useRef(false);
+  // Whether that measure may also bring a table down: only after a text change in a table that had no spare room.
+  const sink = useRef(false);
   const touch = useRef(false);
   // Set by a press on Moveable's box over the selection, not on a block.
   const cover = useRef(false);
@@ -632,6 +634,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     if (!tight.current) return;
     tight.current = false;
+    const snug = sink.current;
+    sink.current = false;
     const grown = new Map<string, Partial<Block>>();
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
@@ -650,9 +654,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       frame.style.height = own;
       block.style.transform = was;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
-      // A table with its rows set goes back to what they need, down as well. A text box never shrinks by itself, and
-      // neither does a table with a box of solution words: its rows do not sum to its height.
-      const down = kept && typeof (b as TableBlock).props.bank !== "number";
+      // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
+      // never shrinks by itself, and neither does a table with a box of solution words: its rows do not sum to its
+      // height. No other change brings a table down: a height the teacher set holds.
+      const down = snug && kept && typeof (b as TableBlock).props.bank !== "number";
       if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, h));
@@ -3145,6 +3150,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
                             // table saved lower than its texts need, or with a box of solution words, has no such heights.
                             const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm } : {};
+                            // The table may come down with its text when it has no spare room now: a table made taller
+                            // than its rows need keeps that height.
+                            const grid = e.currentTarget.closest<HTMLElement>(".table")!;
+                            const own = grid.style.height;
+                            grid.style.height = "auto";
+                            sink.current = "rows" in rows || parseFloat(getComputedStyle(grid).height) / K >= b.h - 0.05;
+                            grid.style.height = own;
                             style("table", { cells: b.props.cells.map((row, r) => row.map((text, c) => (r * row.length + c === slot ? e.target.value : text))), ...rows }, "text");
                           }}
                           onKeyDown={(e) => hop(e, b)}
