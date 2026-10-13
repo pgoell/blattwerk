@@ -210,6 +210,17 @@ export const traceOf = (p: { trace?: unknown; font?: Font }): Trace | undefined 
 // The way a block's trace text fades, or none: a text that is no trace text does not fade.
 export const fadeOf = (p: { trace?: unknown; fade?: unknown; font?: Font }): Fade | undefined =>
   traceOf(p) && (p.fade === "row" || p.fade === "rows") ? p.fade : undefined;
+// How much of its ink part i of n keeps: the first all, the last none.
+export const fadeAt = (i: number, n: number) => (n > 1 ? Math.max(0, 1 - i / (n - 1)) : 1);
+// The mask that fades trace text. "row" goes from left to right; "rows" steps down, one step to a row, from `at` (a
+// CSS length for the first row's top) with `rowPx` for each row.
+const fadeMask = (fade: Fade, n: number, rowPx: number, at: (px: number) => string) =>
+  fade === "row"
+    ? "linear-gradient(to right, #000, transparent 75%)"
+    : `linear-gradient(to bottom, ${Array.from({ length: n }, (_, i) => `rgba(0,0,0,${fadeAt(i, n)}) ${at(i * rowPx)}, rgba(0,0,0,${fadeAt(i, n)}) ${at((i + 1) * rowPx)}`).join(", ")}, transparent ${at(n * rowPx)})`;
+// The look of a trace text in outline: stroke first, the fill white over it, then multiplied, so the white vanishes
+// and what lies under the letters shows through.
+const OUTLINE: CSSProperties = { WebkitTextFillColor: "#fff", WebkitTextStroke: ".07em", paintOrder: "stroke fill", mixBlendMode: "multiply" };
 // The font menu's groups, in order.
 export const FONT_GROUPS = [
   ["Druckschriften", ["andika", "nord", "sued"]],
@@ -401,25 +412,34 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   const font = FONTS[b.props.font ?? "andika"];
   const s = fontScale(b.props.font ?? "andika");
   const top = base - row / 2 - font[2] * size * s;
+  const look = traceOf(b.props);
+  const fade = fadeOf(b.props);
+  const mask = fade && fadeMask(fade, rowsOf(b), row * k, (px) => `${px}px`);
   return {
-    fontFamily: font[1],
+    fontFamily: look === "dotted" ? dottedFamily(b.props.font) : font[1],
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
     top: top * k,
     height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
-    color: b.props.trace ? "#aaaaaa" : undefined,
+    color: look === "grey" ? "#aaaaaa" : undefined,
+    ...(look === "outline" && OUTLINE),
+    ...(mask && { WebkitMaskImage: mask, maskImage: mask }),
   };
 }
-export const textStyle = (p: TextProps, k: number): CSSProperties => ({
-  fontFamily: FONTS[p.font ?? "andika"][1],
-  fontSize: p.size * PT * k,
-  fontWeight: p.bold ? 700 : 400,
-  fontStyle: p.italic ? "italic" : "normal",
-  textDecoration: p.underline ? "underline" : "none",
-  textAlign: p.align,
-  color: p.color,
-  lineHeight: p.spacing ?? 1.3,
-});
+export const textStyle = (p: TextProps, k: number): CSSProperties => {
+  // A dotted trace is the font's own dotted cut, regular and upright, so a bold or italic setting does not smear it.
+  const dotted = traceOf(p) === "dotted";
+  return {
+    fontFamily: dotted ? dottedFamily(p.font) : FONTS[p.font ?? "andika"][1],
+    fontSize: p.size * PT * k,
+    fontWeight: p.bold && !dotted ? 700 : 400,
+    fontStyle: p.italic && !dotted ? "italic" : "normal",
+    textDecoration: p.underline ? "underline" : "none",
+    textAlign: p.align,
+    color: p.color,
+    lineHeight: p.spacing ?? 1.3,
+  };
+};
 // How far in mm a text keeps its letters from its box's edge, down and across: its border, and the room a
 // PowerPoint text box leaves. A text with neither fill nor border stays where sheets saved before had it.
 export function inset(p: TextProps, shape: boolean) {
@@ -504,6 +524,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
+  // A trace text fades along its rows: a row is the font's size times its spacing, and `--spill` is the room above the first.
+  const fade = fadeOf(p);
+  const rowMM = p.size * PT * (p.spacing ?? 1.3);
+  const mask = fade && fadeMask(fade, Math.max(1, Math.round((block.h - 2 * down) / rowMM)), rowMM * k, (px) => `calc(var(--spill, 0px) + ${px}px)`);
   const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
@@ -536,9 +560,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   return (
     <div
       className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed")}
+      data-trace={traceOf(p)}
+      data-fade={fade}
       style={{
         ...textStyle(p, k),
         ...gapVar(width, k),
+        ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.
         ...(linked && { height: "auto", minHeight: "100%" }),
         background: d ? undefined : clear(p),
@@ -1161,13 +1188,17 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
 // Drawn in mm: the SVG's own scale takes it to the block's size. The editor passes the field the text is typed in.
 function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
   const { row, at, band, size } = RULINGS[block.props.kind];
-  const { text = "", trace } = block.props;
+  const { text = "" } = block.props;
   const rows = rowsOf(block);
   const cols = colsOf(block);
   // A block set to the list shows the list alone: with no word in it, empty rows, and not its own text, which the
   // editor could not open there.
   const words = useContext(Words);
   const mode = listOf(block);
+  // Karo draws its trace text in the squares, which have no dotted cut: a dotted trace there is grey. A Lernwörter
+  // list draws its own look, so it has none.
+  const karoLook = !at && !mode ? traceOf({ trace: block.props.trace }) : undefined;
+  const karoFade = karoLook ? fadeOf(block.props) : undefined;
   const s = fontScale(block.props.font ?? "andika");
   // A Knickblatt has its first column for the words and `folds` empty ones after it, all of the same width. On Karo
   // the first column is a whole number of squares, and the words are cut to it.
@@ -1188,7 +1219,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
   const listed = mode && at && (
-    <div className="written listed" style={{ ...writtenStyle(block, k), color: plain ? undefined : "#aaaaaa" }}>
+    <div className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
@@ -1200,7 +1231,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   );
   return (
     <div>
-      <svg className="ruling" viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
+      <svg className="ruling" data-trace={karoLook} data-fade={karoFade} viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
         {/* The middle band lies between a row's second and third line. */}
         {band > 0 && each(rows).map((top) => <rect key={top} y={top + at![1]} width={block.w} height={band} fill={block.props.color} fillOpacity={0.12} stroke="none" />)}
         {ys.map((y) => (
@@ -1208,7 +1239,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         ))}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
         {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
-          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" stroke="none" fill={mode ? (plain ? "currentColor" : "#aaaaaa") : trace ? "#aaaaaa" : "currentColor"}>
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" fill={mode ? (plain ? "currentColor" : "#aaaaaa") : karoLook === "grey" ? "#aaaaaa" : karoLook === "outline" ? "none" : "currentColor"} stroke={karoLook === "outline" ? "currentColor" : "none"} strokeWidth={karoLook === "outline" ? size * 0.035 : undefined} opacity={karoFade && fadeAt(karoFade === "row" ? x : y, karoFade === "row" ? cols : rows)}>
             {ch}
           </text>
         ))}
@@ -1226,7 +1257,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           </>
         )}
       </svg>
-      {mode ? listed : children ?? (at && text && <p className="written" style={writtenStyle(block, k)}>{text}</p>)}
+      {mode ? listed : children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
     </div>
   );
 }
@@ -1249,11 +1280,15 @@ function Table({ block, k, at, solved, children }: { block: TableBlock; k: numbe
   };
   // A gap cell holds its text as a gap does; the open cell's field goes after it.
   const wrap = (text: string, i: number) => (gaps?.[Math.floor(i / cols.length)]?.[i % cols.length] === true ? <span className="gap" data-gap="true"><span>{text}</span></span> : text);
+  // A trace text fades cell by cell: along the row for "row", from row to row for "rows". The lines stay solid.
+  const fade = fadeOf(block.props);
+  const shade = (i: number): CSSProperties | undefined =>
+    fade && { opacity: fade === "row" ? fadeAt(i % cols.length, cols.length) : fadeAt(Math.floor(i / cols.length), cells.length) };
   return (
-    <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} style={style as CSSProperties}>
+    <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
       {cells.flat().map((text, i) => (
         <div key={i} data-cell={i} style={{ fontWeight: head && i < cols.length ? 700 : undefined }}>
-          {i === at ? <p className="open">{wrap(text, i)}&#8203;{children}</p> : <p>{wrap(text, i)}</p>}
+          {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
         </div>
       ))}
       {(syllables || tints) && <Bows block={block} base={FONTS[block.props.font ?? "andika"][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}

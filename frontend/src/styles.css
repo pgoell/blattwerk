@@ -643,6 +643,17 @@ body:has(.print) { background: #fff; }
 /* A linked text with no word in the list says what it is, on the desk alone. */
 .rich.nolist::before { content: "Lernwörter"; color: var(--faint); }
 .paper .rich.nolist::before { content: none; }
+/* Trace text, for the children to write over. Grey is the text's colour lightened, and a run's own colour goes too. */
+.frame[data-trace=grey] > p, .frame[data-trace=grey] > .body > p, .frame[data-trace=grey] .rich, .frame[data-trace=grey] .rich span, .table[data-trace=grey] p { color: #aaaaaa !important; }
+/* Outline is the letters' edge with no fill. The stroke goes under a white fill that multiplies away, so the lines of a
+   joined script do not show inside it, and what lies under the letters shows through. The blend stays off the frame
+   and the table: there it would reach their fill and their lines. */
+.frame[data-trace=outline] > p, .frame[data-trace=outline] > .body > p, .frame[data-trace=outline] .rich, .table[data-trace=outline] p { -webkit-text-fill-color: #fff; -webkit-text-stroke: .07em; paint-order: stroke fill; mix-blend-mode: multiply; }
+/* The dotted cut is drawn as the font has it: a bold or italic run would smear its dots, and a table's head row is bold. */
+.frame[data-trace=dotted] .rich span, .table[data-trace=dotted] > div { font-weight: 400 !important; font-style: normal !important; }
+[data-trace=dotted] { font-synthesis: none; }
+/* A fading trace text lies under its mask: the frame sets it (--fade), a row at a time. */
+.frame[data-fade] > p, .frame[data-fade] > .body > p, .frame[data-fade] .rich { -webkit-mask-image: var(--fade); mask-image: var(--fade); }
 /* The field a text is typed in. ProseMirror needs its spaces kept, and the sheet around it lets nothing be selected. */
 .ProseMirror { outline: 0; white-space: pre-wrap; overflow-wrap: break-word; cursor: text; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 /* A numbering in a ring. */
