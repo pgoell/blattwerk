@@ -486,7 +486,8 @@ function baselineFraction(family: string | undefined, size: number, lineHeight: 
   }
   const [ascent, descent] = metrics.get(key)!;
   const baseline = lineHeight / 2 + (ascent - descent) / 2;
-  return baseline - Math.floor(baseline);
+  // A browser whose canvas does not tell a font's ascent takes nothing off.
+  return Number.isFinite(baseline) ? baseline - Math.floor(baseline) : 0;
 }
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
@@ -701,7 +702,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   }, [fade]);
   const estimate = Math.round((block.h - 2 * down) / rowMM);
   const mask = fade && Number.isFinite(rowMM) && rowMM > 0 && fadeMask(fade, lines ?? estimate, rowMM * k, (px) => `calc(var(--ink-up, 0px) + ${px}px)`);
-  const d = OUTLINES[p.kind!]?.(block.w, block.h, edge / 2);
+  // A kind nobody knows draws as a rectangle, also one that names a part of every object ("toString").
+  const d = Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2) : undefined;
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
   const solid = !d && !p.dash && edge > 0;

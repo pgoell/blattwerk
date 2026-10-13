@@ -70,6 +70,32 @@ def test_a_block_with_an_unknown_font_opens_its_panel(editor):
     assert not errors, errors
 
 
+def test_the_row_buttons_work_on_a_lineatur_of_an_unknown_kind_and_keep_it(editor):
+    client = user()
+    page = editor(box("a", "ruling", {**RULING, "kind": "l9"}), client=client)
+    errors = watch(page)
+    pick(page, "a")
+    rows = page.locator(".panel output", has_text="Zeile")
+    expect(rows).to_have_text("1 Zeile")
+    page.get_by_label("Eine Zeile mehr").click()
+    expect(rows).to_have_text("2 Zeilen")
+    # Two rows of Lineatur 1, the kind it draws as.
+    assert stored(client, page)["a"]["h"] == 40
+    assert stored(client, page)["a"]["props"]["kind"] == "l9"
+    assert not errors, errors
+
+
+@pytest.mark.parametrize("dash", [None, "dashed"])
+def test_a_shape_kind_that_every_object_has_draws_as_a_rectangle(editor, dash):
+    props = {**RECT, "kind": "toString", **({"dash": dash} if dash else {})}
+    page = editor(box("a", "shape", props), box("t", "text", TEXT, z=2))
+    errors = watch(page)
+    expect(at(page, "a")).to_be_visible()
+    expect(at(page, "a").locator("svg.outline")).to_have_count(0)
+    pick(page, "a")
+    assert not errors, errors
+
+
 def test_an_unknown_font_survives_a_save(editor):
     client = user()
     page = editor(comic("text"), client=client)

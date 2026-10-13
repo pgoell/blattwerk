@@ -193,7 +193,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // A ruling keeps its rows when its type changes, so the block's height follows.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
-    place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kind].row))]), "ruling");
+    place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kindOf(kind)].row))]), "ruling");
   };
   // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
   // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
