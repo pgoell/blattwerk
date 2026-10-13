@@ -225,6 +225,10 @@ export type Fade = "row" | "rows";
 // The fonts with a dotted cut, and its family. No other font is dotted: dots on a letter's outline are not what a
 // child traces.
 const DOTTED: Partial<Record<Font, string>> = { urff: "Grundschrift Urff Punkt" };
+// How far the dotted cut's ink reaches left of its place and right of its advance, in em: its start dots reach
+// further than SIDE measures for the regular cut. Measured in Chromium with canvas measureText at 1000 px, over
+// ASCII and ÄÖÜäöüßẞ€§°: 0.032 left and 0.042 right, rounded up to two decimals and taken as one for both sides.
+const DOTTED_SIDE = 0.05;
 export const dottedFamily = (font?: Font): string | undefined => DOTTED[fontOf(font)];
 // The look a block's trace text has. A sheet may come from anywhere: a value nobody knows is no trace text, and
 // "dotted" in a font without a dotted cut is grey.
@@ -515,8 +519,13 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   const indent = indentOf(b);
   const family = look === "dotted" ? dottedFamily(b.props.font) : font[1];
   const fraction = baselineFraction(family, size * s * k, row * k);
+  // An outline or a dotted cut reaches past the box's left edge: the box takes `ext` px more to the left and its
+  // padding takes them back, so no letter moves. Whole px, as the cut is (see `.frame` in styles.css).
+  const reach = look === "outline" ? Math.max(SIDE[fontOf(b.props.font)] ?? 0, 0.12) + 0.035 : look === "dotted" ? DOTTED_SIDE : 0;
+  const ext = reach ? Math.ceil(reach * size * s * k) + 1 : 0;
   return {
-    ...(indent > 0 && { paddingLeft: indent * k, boxSizing: "border-box" as const }),
+    ...((indent > 0 || ext > 0) && { paddingLeft: indent * k + ext, boxSizing: "border-box" as const }),
+    ...(ext > 0 && { left: -ext, width: `calc(100% + ${ext}px)` }),
     fontFamily: family,
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
@@ -655,8 +664,10 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // A plain text takes the side reach only in a joined script, where a letter reaches 0.1 em or more past its place: a
   // print font's plain text draws as it did before. An outline takes it in every font, and 0.12 em at least: Andika's
   // j reaches further in its outline than the upright cut's measure says. A slanted text leans 0.15 em further.
-  const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0);
-  const side = stroke > 0 || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
+  // A dotted look takes the dotted cut's reach the same way (DOTTED_SIDE).
+  const dotted = traceOf(p) === "dotted";
+  const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0, dotted ? DOTTED_SIDE : 0);
+  const side = stroke > 0 || dotted || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A trace text fades along its rows: a row is the font's size times its spacing, and `--ink-up` is the room above the first.
