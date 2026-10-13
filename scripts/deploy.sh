@@ -57,10 +57,14 @@ timeout 2m bash "$work/keep-prev.sh"
 # image that runs. The registry's name goes again: the commit shas would pile up.
 timeout 15m docker pull -q "$image:$sha" >/dev/null
 docker tag "$image:$sha" blattwerk-blattwerk:canary
-docker rmi "$image:$sha" >/dev/null
+# The image keeps its name `canary`, so a name that stays is no reason to stop.
+docker rmi "$image:$sha" >/dev/null || true
 # Read inside a container, so that a link in the image cannot name a file of
-# this box.
-if ! docker run --rm --network none --entrypoint cat blattwerk-blattwerk:canary /app/scripts/smoke.py >"$work/smoke.py"; then
+# this box. The image is untried, so the read has an end. `docker run` hands
+# TERM on to the container, where a first process without a handler never gets
+# it: `--init` puts one before `cat` that does, and KILL ends the wait if even
+# that fails.
+if ! timeout -k 10s 1m docker run --rm --init --network none --entrypoint cat blattwerk-blattwerk:canary /app/scripts/smoke.py >"$work/smoke.py"; then
   echo "::error::the image holds no /app/scripts/smoke.py, so nothing can try it"
   exit 1
 fi
