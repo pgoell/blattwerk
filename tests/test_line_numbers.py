@@ -284,6 +284,8 @@ def test_the_mark_stands_left_of_the_numbers(editor):
     """I5: the block's mark lies left of the column of numbers, and no number is under it."""
     page = editor(box("a", "text", {**TEXT, "text": LONG, "lines": 1}, w=80, h=60, mark="1."))
     expect(at(page, "a").locator(".mark")).to_be_visible()
+    # The numbers have their place once the text is measured. Before that they stand at the edge.
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
     # The mark's letters, not its box: the box keeps the column of numbers as padding on its right.
     letters = (
         at(page, "a")
