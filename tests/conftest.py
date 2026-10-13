@@ -1,4 +1,5 @@
 import faulthandler
+import gc
 import json
 import os
 import signal
@@ -144,6 +145,7 @@ def pytest_collection_modifyitems(config, items):
 # their own (SLOW), and a report comes at each phase, so a run that is only slow never gets here.
 HANG_AFTER = float(os.environ.get("BLATTWERK_HANG", "180"))
 GUARD = None  # the Hang of the controller; None in a worker
+SWEEP = []  # the browser test that runs now, where its leftovers are still to collect: see `swept`
 
 
 class Hang:
@@ -225,6 +227,11 @@ def pytest_runtest_logstart(nodeid, location):
 def pytest_runtest_logfinish(nodeid, location):
     if GUARD:
         GUARD.running.discard(nodeid)
+    # Here and not in the fixture's own end: only now has pytest let go of the test's fixture
+    # values, which may hold the routes of a gate.
+    if SWEEP:
+        SWEEP.clear()
+        gc.collect()
 
 
 def pytest_runtest_logreport(report):
@@ -293,6 +300,22 @@ def cheap(tmp_path_factory):
         patch.setattr(TestClient, "portal", one_loop())
         patch.setattr(db, "sqlite3", unsynced())
         yield
+
+
+@pytest.fixture(autouse=True)
+def swept(request):
+    """Collects what a browser test leaves, in the test's own thread, once its pages are shut.
+
+    A route that a test held leaves a coroutine of Playwright's that never ends. When the garbage
+    collector ends it, its `finally` starts a task that sends `setNetworkInterceptionPatterns`
+    (`Page._on_route`), on the loop of whatever thread the collector runs in. In the server's
+    thread, which has a loop of its own, the send goes out there, and the reply reaches the test's
+    thread before its callback is kept: `KeyError` in `dispatch`, and the worker ends (#458, #463).
+    Collected in the test's thread, the task runs on Playwright's own loop, as every send does.
+    This only asks for it: `pytest_runtest_logfinish` collects, once the test is let go whole.
+    """
+    if "playwright" in request.fixturenames:
+        SWEEP.append(request.node.nodeid)
 
 
 @pytest.fixture(autouse=True)
