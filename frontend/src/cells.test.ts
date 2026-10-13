@@ -228,8 +228,10 @@ describe("spliced rows", () => {
     expect(spliced(props, "row", 0, false).rows).toStrictEqual([7]);
   });
 
-  it("keeps the heights on a column change, and an invalid list as it is", () => {
+  it("keeps the heights on a column change, and drops a list that does not hold", () => {
     expect(spliced(props, "col", 0, true).rows).toStrictEqual([5, 7]);
-    expect(spliced({ ...props, rows: [5] } as TableBlock["props"], "row", 0, true).rows).toStrictEqual([5]);
+    // One entry too many: with a row more it would fit, and set rows that never had those heights.
+    expect("rows" in spliced({ ...props, rows: [5, 7, 9] } as TableBlock["props"], "row", 0, true)).toBe(false);
+    expect("rows" in spliced({ ...props, rows: [5] } as TableBlock["props"], "col", 0, true)).toBe(false);
   });
 });

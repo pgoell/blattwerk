@@ -365,3 +365,92 @@ def test_rows_and_copies_keep_the_set_heights(editor):
     tables = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "table"]
     assert len(tables) == 2
     assert tables[0]["props"]["rows"] == tables[1]["props"]["rows"]
+
+
+def test_a_table_with_solution_words_takes_a_row_height(editor):
+    """Review 1: the box of solution words is no row of the grid."""
+    client = user()
+    table = {**GRID, "gaps": [[True, False, False], [False] * 3, [False] * 3], "bank": 3}
+    page = editor(box("t", "table", table, w=W, h=50 + EDGE), client=client)
+    open_cell(page, "t", 3)
+    typed(page, "Zeilenhöhe", "20")
+    rows = block(page, client)["props"]["rows"]
+    assert len(rows) == 3
+    assert abs(rows[1] - 20) <= 0.01
+    assert abs(mm_height(page, cell(page, "t", 3)) - 20) <= 0.1
+    expect(num(page, "Zeilenhöhe")).to_have_value("20")
+
+    page.get_by_role("button", name="Zeilen gleichmäßig verteilen", exact=True).click()
+    rows = block(page, client)["props"]["rows"]
+    assert len(rows) == 3
+    assert max(rows) - min(rows) <= 0.01
+
+
+def test_a_tiny_height_in_a_merged_cell_keeps_the_other_rows(editor):
+    """Review 2: a height far below the text's need leaves the other rows as they are."""
+    client = user()
+    table = {
+        **GRID,
+        "cells": [["a", "b"], ["", "c"], ["", "d"], ["e", "f"]],
+        "cols": [1, 1],
+        "spans": [[0, 0, 3, 1]],
+        "rows": [10, 10, 10, 30],
+    }
+    page = editor(box("t", "table", table, h=60 + EDGE), client=client)
+    open_cell(page, "t", 0)
+    typed(page, "Zeilenhöhe", "0,01")
+    rows = block(page, client)["props"]["rows"]
+    assert len(rows) == 4
+    assert all(r > 0 for r in rows)
+    assert abs(rows[3] - 30) <= 0.01
+    assert abs(mm_height(page, cell(page, "t", 6)) - 30) <= 0.1
+
+
+def test_distribution_takes_what_a_picked_merged_cell_covers(editor):
+    """Review 4, Asked 12: a merged cell's columns and rows are the ones shared out."""
+    client = user()
+    table = {
+        **GRID,
+        "cols": [1, 2, 3],
+        "spans": [[0, 0, 2, 2]],
+        "cells": [["a", "", "c"], ["", "", "f"], ["g", "h", "i"]],
+        "rows": [12, 20, 10],
+    }
+    page = editor(box("t", "table", table, w=W, h=42 + EDGE), client=client)
+    open_cell(page, "t", 0)
+    cell(page, "t", 6).click(modifiers=["Shift"])
+    page.get_by_role("button", name="Spalten gleichmäßig verteilen", exact=True).click()
+    for got, want in zip(widths_mm(block(page, client)), [45, 45, 90], strict=True):
+        assert abs(got - want) <= 0.01
+    assert abs(mm_width(page, cell(page, "t", 0)) - 90) <= 0.1
+
+    rows_page = editor(box("t", "table", table, w=W, h=42 + EDGE), client=client)
+    open_cell(rows_page, "t", 0)
+    cell(rows_page, "t", 2).click(modifiers=["Shift"])
+    rows_page.get_by_role("button", name="Zeilen gleichmäßig verteilen", exact=True).click()
+    rows = block(rows_page, client)["props"]["rows"]
+    for got, want in zip(rows, [16, 16, 10], strict=True):
+        assert abs(got - want) <= 0.01
+    assert abs(mm_height(rows_page, cell(rows_page, "t", 2)) - 16) <= 0.1
+    assert abs(mm_height(rows_page, cell(rows_page, "t", 5)) - 16) <= 0.1
+    assert abs(mm_height(rows_page, cell(rows_page, "t", 8)) - 10) <= 0.1
+    assert abs(mm_height(rows_page, cell(rows_page, "t", 0)) - 32) <= 0.1
+
+    caret = editor(box("t", "table", table, w=W, h=42 + EDGE), client=client)
+    open_cell(caret, "t", 0)
+    caret.get_by_role("button", name="Spalten gleichmäßig verteilen", exact=True).click()
+    for got in widths_mm(block(caret, client)):
+        assert abs(got - 60) <= 0.01
+
+
+def test_a_row_added_drops_heights_that_do_not_hold(editor):
+    """Review 5: a sheet with one row height too many has no set heights; a row added keeps none."""
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [30, 10, 10, 10]}, h=H), client=client)
+    assert at(page, "t").locator(".table").evaluate("el => el.style.gridTemplateRows") == ""
+    open_cell(page, "t", 0)
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    found = block(page, client)
+    assert len(found["props"]["cells"]) == 4
+    assert "rows" not in found["props"]
+    assert found["h"] < 45

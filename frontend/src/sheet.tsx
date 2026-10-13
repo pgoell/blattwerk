@@ -449,7 +449,8 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
 export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
-  const { cells, cols, gaps, spans: _, ...rest } = props;
+  // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
+  const { cells, cols, gaps, spans: _, rows: __, ...rest } = props;
   const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
   const heights = heightsOf(props);
   // A sheet may come from anywhere: the flags take the shape of the cells first.
@@ -475,7 +476,7 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
   if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }) };
-  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }) };
 }
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.

@@ -2060,7 +2060,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setReach((r + h - 1) * table.props.cols.length + c + w - 1);
   }
   // The heights of the rows as the grid lays them out now, in mm.
-  const laidMm = laid ? laid.split(" ").map((px) => parseFloat(px) / K) : [];
+  // The grid's rows after the table's own hold no cells: the box of solution words is one. No heights are known
+  // while the grid has not laid its rows out.
+  const mmOf = (px: string) => {
+    const all = px.split(" ").slice(0, table?.props.cells.length).map((p) => parseFloat(p) / K);
+    return all.length === table?.props.cells.length && !all.some(Number.isNaN) ? all : [];
+  };
+  const laidMm = mmOf(laid);
   // The heights in mm that the rows' texts need, read from the grid with its rows free.
   function needs(grid: HTMLElement): number[] {
     const [rows, height] = [grid.style.gridTemplateRows, grid.style.height];
@@ -2069,7 +2075,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const px = getComputedStyle(grid).gridTemplateRows;
     grid.style.gridTemplateRows = rows;
     grid.style.height = height;
-    return px.split(" ").map((p) => parseFloat(p) / K);
+    return mmOf(px);
   }
   // Sets the width of the picked columns, or the open cell's, or the height of the rows. With cells picked each
   // one becomes `mm`; else the open cell's lines keep their share and sum to `mm`. It is one step of undo.
@@ -2083,7 +2089,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const value = each ? Math.max(least, mm) : Math.max(least * (to - from + 1), mm);
     const base = axis === "col" ? widthsOf(table.props.cols, table.w) : laidMm;
     if (!base.length) return;
-    const sizes = sized(base.map(round), from, to, value, each).map(round);
+    // A share rounded to nothing would be no height at all.
+    const sizes = sized(base.map(round), from, to, value, each).map((s) => Math.max(0.01, round(s)));
     tight.current = true;
     change((bs) =>
       bs.map((o) =>
