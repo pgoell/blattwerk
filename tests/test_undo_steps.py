@@ -71,13 +71,14 @@ INPUT = """(el, to) => {
 }"""
 
 
-def opened(editor, kind, n=1):
+def opened(editor, kind, n=1, **more):
     """The editor on `n` blocks of the kind, all selected. Gives the page and the user."""
     client = user()
     props = maths(client, count=12) if kind == "maths" else PROPS[kind]
     names = "ab"[:n]
     kind = "shape" if kind == "line" else kind.split()[-1]
-    page = editor(*(box(name, kind, props, z=z) for z, name in enumerate(names, 1)), client=client)
+    blocks = (box(name, kind, props, z=z) for z, name in enumerate(names, 1))
+    page = editor(*blocks, client=client, **more)
     pick(page, *names)
     return page, client
 
@@ -161,7 +162,8 @@ def test_a_colour_or_a_slider_moved_away_and_back_in_one_go_adds_no_undo_step(ed
 
 @pytest.mark.parametrize("kind, label", [*GESTURES, *BARE])
 def test_a_gesture_back_at_its_start_keeps_redo_and_leaves_the_sheet_saved(editor, kind, label):
-    page, _ = opened(editor, kind)
+    # A teacher's wait: the gesture must be back at its start before a save of its middle begins.
+    page, _ = opened(editor, kind, wait=2000)
     redo = page.get_by_label("Wiederholen", exact=True)
     status = page.locator("header [role=status]")
     page.keyboard.press("ArrowDown")

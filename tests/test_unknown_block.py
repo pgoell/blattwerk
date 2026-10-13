@@ -90,6 +90,7 @@ def test_the_unknown_block_can_be_picked_moved_deleted_and_brought_back(editor):
     pick(page, "u")
     page.keyboard.press("ArrowDown")
     expect(at(page, "u")).to_have_class("block sel")
+    assert stored(client, page)["u"] == {**unknown(), "y": unknown()["y"] + 1}
     page.keyboard.press("Delete")
     expect(at(page, "u")).to_have_count(0)
     page.keyboard.press("Control+z")

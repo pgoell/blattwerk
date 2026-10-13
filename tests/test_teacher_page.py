@@ -664,7 +664,38 @@ def test_every_verb_says_the_page_it_is_on(editor, monkeypatch):
 
     monkeypatch.setattr(tool, "joined", joined_here)
     said = tool.verb("where", ("Eins",), False)
-    assert f"The page is {urlsplit(page.url).path}" in said.splitlines()
+    assert said.splitlines()[-1] == f"The page is {urlsplit(page.url).path}"
+
+
+def test_drag_reads_its_start_anew_once_the_page_turned_to_its_end(editor, monkeypatch):
+    # The page turned to TO after FROM was read: the mouse must go down where FROM stands now.
+    page = editor(box("a", "text", ONE))
+    asked = []
+
+    def point(page, target):
+        asked.append(target)
+        if target == "TO" and asked.count("TO") == 1:
+            tool.NOTES.append("turned the page to it")
+        return {"FROM": (300.0 + 10 * asked.count("FROM"), 300.0), "TO": (400.0, 400.0)}[target]
+
+    monkeypatch.setattr(tool, "point", point)
+    said = tool.drag(page, "FROM", "TO")
+    assert asked == ["FROM", "TO", "FROM"]
+    assert said.startswith("dragged from 320,300 to 400,400")
+    assert said.endswith("(turned the page to it)")
+
+
+def test_drag_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.drag(page, "FROM", "TO")
+    tool.NOTES.clear()
 
 
 # The downloads, the session and the boxes

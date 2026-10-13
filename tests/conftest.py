@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from concurrent.futures import Future
+from contextlib import suppress
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -172,20 +173,24 @@ class Hang:
         # so the lists of all threads count.
         me = os.getpid()
         pids = set()
-        for task in Path(f"/proc/{me}/task").iterdir():
-            if (task / "children").is_file():
-                pids.update(int(pid) for pid in (task / "children").read_text().split())
         try:
+            for task in Path(f"/proc/{me}/task").iterdir():
+                # A thread that ends while the lists are read takes its file along.
+                with suppress(OSError):
+                    pids.update(int(pid) for pid in (task / "children").read_text().split())
             # One at a time: two dumps written to the same pipe at once come out interleaved (#461).
             for pid in pids:
-                os.kill(pid, signal.SIGUSR1)
-                time.sleep(1)
+                # A child that had gone before its signal came does not keep the others from theirs.
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGUSR1)
+                    time.sleep(1)
             faulthandler.dump_traceback(file=self.err, all_threads=True)
             # A worker that hangs never ends by itself, and would keep the pipes of the job open.
             for pid in pids:
-                os.kill(pid, signal.SIGKILL)
+                with suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGKILL)
         finally:
-            # Also when a child had gone before its signal came.
+            # Whatever went wrong above: a run that hangs must end.
             os._exit(1)
 
 
@@ -318,14 +323,17 @@ def editor(browser, server, playwright):
     """Opens the editor on a sheet of the given blocks, as a new user, and gives its page."""
     contexts = []
 
-    def start(*blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None):
+    def start(
+        *blocks, client=None, more=(), pages=(), theme=None, touch=False, words=None, wait=1100
+    ):
         """`more` holds the blocks of a second page. With `touch` the window takes fingers too,
         and with `touch="landscape"` the iPad lies on its side.
 
         `pages` holds the pages after the first, each a whole page: its blocks and, where it has
         them, its own guides, grid and landscape. `theme` is the one picked on the account page:
         "" opens the panel Seiten, none is Blattform, which starts with that panel shut. `words`
-        are the sheet's Lernwörter.
+        are the sheet's Lernwörter. `wait` is the time in ms from a change to its save: a test
+        that counts on a change being unsaved for a while asks for a teacher's 2000.
         """
         window = {"viewport": {"width": 1400, "height": 1000}, "has_touch": bool(touch)}
         if touch:
@@ -336,8 +344,9 @@ def editor(browser, server, playwright):
             window = {**playwright.devices["iPad Pro 11"], "viewport": window["viewport"]}
         context = browser.new_context(**window)
         contexts.append(context)
-        # The tests save 0.3 s after a change; a teacher's page waits 2 s (saves.ts).
-        context.add_init_script("window.saveAfter = 300")
+        # The tests save 1.1 s after a change; a teacher's page waits 2 s (saves.ts). Not less: a
+        # test that waits for "Speichert …" looks at most 1 s apart, and must not look past it.
+        context.add_init_script(f"window.saveAfter = {wait}")
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
         # WebKit knows no leave to write, and lets the page write without one.
         context.grant_permissions(["clipboard-read", *([] if WEBKIT else ["clipboard-write"])])

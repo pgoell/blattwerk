@@ -27,7 +27,7 @@ A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a
 on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
 once, or once as a control beside plain text of that name. A name below or above the window turns
 the page to it, if it is the only one. Every verb that acts also writes the window to last.png and
-prints that path. Every verb prints the page's path, `The page is /blatt/12`.
+prints that path. Every verb of the window prints the page's path, `The page is /blatt/12`.
 
 One process, `hold`, keeps the window under xvfb-run, and each verb joins it over Chromium's
 debugging port. Python's Playwright has no `launch_server`, and a context that a client makes
@@ -272,6 +272,13 @@ def hover(page: Page, target: str) -> str:
 def drag(page: Page, start: str, end: str) -> str:
     x, y = point(page, start)
     to = point(page, end)
+    if NOTES:
+        # The page turned to TO, so FROM stands elsewhere now. Both must be in the window at once.
+        NOTES.clear()
+        x, y = point(page, start)
+        if NOTES:
+            raise Refused(f'"{start}" and "{end}" are not in the window together: give X,Y')
+        NOTES.append("turned the page to it")
     page.mouse.move(x, y)
     page.mouse.down()
     # The editor follows the moves between the two, not a jump.
@@ -539,7 +546,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         if not yes:
             line += f" To say yes: box yes {shlex.join([name, *args])}"
         lines.append(line)
-    return "\n".join([said, place, *lines])
+    return "\n".join([said, *lines, place])
 
 
 def main(name: str = "", *args: str) -> str:
