@@ -390,10 +390,39 @@ def test_i5_the_brush_carries_the_band_a_lineatur_shows(editor, source, target, 
     paint(page, "a", "b")
     block = at(page, "b")
     if bands:
-        expect(block.locator("rect.band").first).to_be_attached()
-        assert block.locator("rect.band").count() == at(page, "a").locator("rect.band").count()
+        # The rows of an l3 in a box 20 mm high, as the editor counts them: 11.5 mm each.
+        rows = int(20 / 11.5 + 0.05)
+        expect(block.locator("rect.band")).to_have_count(rows)
     else:
         expect(block.locator("rect.band")).to_have_count(0)
+
+
+@pytest.mark.parametrize("kind", ["l1", "l3"])
+def test_i5_a_brush_that_changes_nothing_is_no_undo_step(editor, kind):
+    """I5"""
+    client = user()
+    page = editor(
+        box("a", "ruling", {**RULING, "kind": kind}),
+        box("b", "ruling", {**RULING, "kind": kind}, z=2),
+        client=client,
+    )
+    paint(page, "a", "b")
+    expect(undo(page)).to_be_disabled()
+    target = {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}["b"]["props"]
+    assert "band" not in target
+
+
+def test_i5_a_brushed_lineatur_of_the_same_look_still_follows_its_kind(editor):
+    """I5"""
+    page = editor(
+        box("a", "ruling", L1),
+        box("b", "ruling", L1, z=2),
+    )
+    paint(page, "a", "b")
+    pick(page, "b")
+    kind(page).select_option("l3")
+    expect(kind(page)).to_have_value("l3")
+    expect(at(page, "b").locator("rect.band")).to_have_count(0)
 
 
 def test_i5_the_brush_from_a_lineatur_4_leaves_house_and_band(editor):
