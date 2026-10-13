@@ -547,7 +547,8 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
     def call(*words):
         done = run(folder, server, *words)
         assert done.returncode == 0, (words, done.stdout, done.stderr)
-        return done.stdout.strip()
+        # The verb's first line: the page's line after it is no part of what each call checks.
+        return done.stdout.strip().splitlines()[0]
 
     try:
         assert call("start") == f"started: a window of 1280 x 1024 on {server}"
@@ -555,7 +556,9 @@ def test_the_command_line_starts_a_window_logs_in_by_the_verbs_alone_and_stops(f
         first = left(folder)
         assert call("start") == f"started: a window of 1280 x 1024 on {server}"
         assert len(left(folder)) == len(first)
-        assert call("where", "Anmelden").count("\n") == 1
+        # Two places, and the page's line after them.
+        lines = run(folder, server, "where", "Anmelden").stdout.splitlines()
+        assert len([line for line in lines if " at " in line]) == 2, lines
         call("click", "E-Mail")
         call("type", email)
         call("click", "Passwort")
