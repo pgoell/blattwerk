@@ -11,7 +11,7 @@ WORDS = ["Hund", "Katze", "Maus"]
 GREY = "rgb(170, 170, 170)"
 LONG = "Donaudampfschifffahrtsgesellschaftskapitänsmütze"
 MODES = ["copy", "trace", "row"]
-FONTS = ["andika", "grund", "va", "sas", "la"]
+FONTS = ["andika", "grund", "va", "sas", "la", "nord", "sued", "urff"]
 LINED = ["l1", "l2", "l3", "l4", "lines"]
 # A row of each Lineatur in mm, as RULINGS has it.
 ROW = {"l1": 20, "l2": 16, "l3": 11.5, "l4": 10, "lines": 8}

@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, boxed, counts, dir, foldsOf, holesOf, isLine, lineOf, listColsOf, listOf, mathsHeight, overFoot, pairOf, parasOf, rowsOf, shownParas, stepOf, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -259,13 +259,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
       {text && (
         <>
           <h2>Schrift</h2>
-          <select aria-label="Schriftart" value={text.font ?? "andika"} onChange={(e) => look({ font: e.target.value })}>
-            {Object.entries(FONTS).map(([font, [name]]) => (
-              <option key={font} value={font}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <FontSelect label="Schriftart" value={text.font ?? "andika"} onChange={(font) => look({ font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
             <output>{text.size} pt</output>
@@ -380,13 +374,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Doppelklick auf die Lineatur, um hineinzuschreiben.</p>}
           {RULINGS[rulings[0].props.kind].at && (
-            <select aria-label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(e) => style("ruling", { font: e.target.value })}>
-              {Object.entries(FONTS).map(([font, [name]]) => (
-                <option key={font} value={font}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <FontSelect label="Schriftart auf den Zeilen" value={rulings[0].props.font ?? "andika"} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
             <button className={rulings[0].props.trace ? "on" : ""} aria-pressed={!!rulings[0].props.trace} onClick={() => style("ruling", { trace: !rulings[0].props.trace })}>
@@ -427,13 +415,7 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
               <button aria-disabled={tables[0].props.cols.length < 2} onClick={() => rank(tables[0], "col", cell % tables[0].props.cols.length, false)}>Spalte löschen</button>
             </div>
           )}
-          <select aria-label="Schriftart der Tabelle" value={tables[0].props.font ?? "andika"} onChange={(e) => style("table", { font: e.target.value })}>
-            {Object.entries(FONTS).map(([font, [name]]) => (
-              <option key={font} value={font}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <FontSelect label="Schriftart der Tabelle" value={tables[0].props.font ?? "andika"} onChange={(font) => style("table", { font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
             <output>{tables[0].props.size} pt</output>
@@ -498,6 +480,23 @@ export default function Format({ sel, style, bump, look, link, feed, paint, item
       <Numbering value={mark} onChange={number} symbol={() => number("2B50")} />
       {mark && !counts(mark) && <Symbols value={mark} onPick={number} />}
     </>
+  );
+}
+
+// A native font menu in FONT_GROUPS' order, each font shown in its own face.
+function FontSelect({ label, value, onChange }: { label: string; value: Font; onChange: (font: string) => void }) {
+  return (
+    <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
+      {FONT_GROUPS.map(([group, fonts]) => (
+        <optgroup key={group} label={group}>
+          {fonts.map((font) => (
+            <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
+              {FONTS[font][0]}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
   );
 }
 

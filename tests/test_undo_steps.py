@@ -32,11 +32,11 @@ PROPS = {
 # Every list of the panel, by the block's kind: its name, the key that walks it, and the two values
 # the key picks after the one the block has.
 LISTS = [
-    ("text", "Schriftart", "ArrowDown", ("andika", "grund", "va")),
-    ("shape", "Schriftart", "ArrowDown", ("andika", "grund", "va")),
+    ("text", "Schriftart", "ArrowDown", ("andika", "nord", "sued")),
+    ("shape", "Schriftart", "ArrowDown", ("andika", "nord", "sued")),
     ("ruling", "Art der Lineatur", "ArrowUp", ("l4", "l3", "l2")),
-    ("ruling", "Schriftart auf den Zeilen", "ArrowDown", ("andika", "grund", "va")),
-    ("table", "Schriftart der Tabelle", "ArrowDown", ("andika", "grund", "va")),
+    ("ruling", "Schriftart auf den Zeilen", "ArrowDown", ("andika", "nord", "sued")),
+    ("table", "Schriftart der Tabelle", "ArrowDown", ("andika", "nord", "sued")),
     ("maths", "Zahlenraum", "ArrowDown", ("20", "100", "1000")),
     ("maths", "E von", "ArrowDown", ("0", "1", "2")),
     ("maths", "Z bis", "ArrowUp", ("9", "8", "7")),
@@ -229,7 +229,7 @@ def test_undo_and_redo_walk_the_picks_of_a_list_one_by_one(editor, kind, label, 
     "kind, label, key, prop, values",
     [
         ("ruling", "Art der Lineatur", "ArrowUp", "kind", ("l4", "l3", "l2")),
-        ("text", "Schriftart", "ArrowDown", "font", (None, "grund", "va")),
+        ("text", "Schriftart", "ArrowDown", "font", (None, "nord", "sued")),
     ],
 )
 def test_a_pick_in_a_list_is_one_step_for_all_the_selected_blocks(

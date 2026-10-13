@@ -175,16 +175,29 @@ export const PT = 25.4 / 72; // mm per point
 // The pixels per mm of the PDF. Every page is laid out at this scale and drawn at another by a transform, so a
 // line of text breaks at the same word in the PDF, at every zoom and in a thumbnail.
 export const K = 96 / 25.4;
-// Self-hosted, all under the SIL Open Font License: Andika for print, Playwrite for the four school scripts.
-// The number is how far a font's baseline lies below the middle of a line of text, in em: half of its ascent less
-// its descent. Text on a ruling needs it to stand on the line.
+// Self-hosted: Andika, Playwrite and Fibel (Druckschrift Nord and Süd) under the SIL Open Font License, Urff's
+// Grundschrift under CC BY 3.0. The number is how far a font's baseline lies below the middle of a line of text, in
+// em: half of its ascent less its descent. Text on a ruling needs it to stand on the line. A fourth number is the
+// scale a Lineatur draws the font at, for a font whose small letters are not half its size high (0.5 over its
+// x-height); text blocks, shapes and tables draw every font at its own size, since a paragraph cuts what stands out
+// of its line.
 export const FONTS = {
   andika: ["Druckschrift", "Andika", 0.415],
+  nord: ["Druckschrift Nord", "Fibel Nord", 0.2888, 1.2703],
+  sued: ["Druckschrift Süd", "Fibel Sued", 0.2888, 1.2703],
   grund: ["Grundschrift", "Playwrite DE Grund Variable", 0.4545],
+  urff: ["Grundschrift (Urff)", "Grundschrift Urff", 0.299, 1.1628],
   va: ["Vereinfachte Ausgangsschrift", "Playwrite DE VA Variable", 0.46],
   sas: ["Schulausgangsschrift", "Playwrite DE SAS Variable", 0.4515],
   la: ["Lateinische Ausgangsschrift", "Playwrite DE LA Variable", 0.4545],
 } as const;
+// The scale a Lineatur draws a font at: 1 for the fonts without a fourth number.
+export const fontScale = (font: Font) => (FONTS[font] as readonly [string, string, number, number?])[3] ?? 1;
+// The font menu's groups, in order.
+export const FONT_GROUPS = [
+  ["Druckschriften", ["andika", "nord", "sued"]],
+  ["Grund- und Schreibschriften", ["grund", "urff", "va", "sas", "la"]],
+] as const;
 // One row of each ruling: its height, and where its lines lie in mm from the row's top; Karo has squares instead.
 // Lineatur 1 to 4 follow DIN 16552-1: four lines 5 mm apart, four lines 4 mm apart, a band of 3.5 mm, single lines
 // 10 mm apart. The gap to the next row's lines (5, 4 and 8 mm) lies half above and half below, so blocks stack.
@@ -369,10 +382,11 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
       caretColor: "#222222",
     };
   const font = FONTS[b.props.font ?? "andika"];
-  const top = base - row / 2 - font[2] * size;
+  const s = fontScale(b.props.font ?? "andika");
+  const top = base - row / 2 - font[2] * size * s;
   return {
     fontFamily: font[1],
-    fontSize: size * k,
+    fontSize: size * s * k,
     lineHeight: `${row * k}px`,
     top: top * k,
     height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
@@ -1137,6 +1151,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   // editor could not open there.
   const words = useContext(Words);
   const mode = listOf(block);
+  const s = fontScale(block.props.font ?? "andika");
   // A Knickblatt has its first column for the words and `folds` empty ones after it, all of the same width. On Karo
   // the first column is a whole number of squares, and the words are cut to it.
   const fold = mode === "fold";
@@ -1160,7 +1175,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
       {shown.map((word, i) => (
         <div className="row" key={i} style={{ height: row * k }}>
           {mode === "row"
-            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
+            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
             : <span style={fold ? { width: first * k, overflow: "hidden" } : undefined}>{word}</span>}
         </div>
       ))}

@@ -30,7 +30,7 @@ EVERY_FIFTH = {
     ],
 }
 # The school script of the teachers' screenshots, next to the print face.
-FONTS = ["andika", "va"]
+FONTS = ["andika", "va", "urff", "nord"]
 # The opening zoom at 1280 by 1024 reads 88 % in Chromium, 90 % in WebKit; Ganze Seite reads 77 %.
 # The percent button shows the page's size, so the test takes those few points of difference.
 OPENING = r"^(8[6-9]|90)\s*%"
