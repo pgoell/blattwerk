@@ -7,14 +7,8 @@ dialog. Wait with `expect`, never for a fixed time.
 
 import pytest
 from playwright.sync_api import expect
-from test_bar import expect_fitted, listed, more, sized, text, tool
+from test_bar import expect_fitted, item, listed, more, sized, text, tool
 from ui import box, maths, user
-
-WINDOWS = pytest.mark.parametrize(
-    ("width", "height", "touch"),
-    [(1400, 1000, False), (834, 1194, True)],
-    ids=["desktop", "ipad"],
-)
 
 
 def bar_button(page):
@@ -25,23 +19,37 @@ def dialog(page):
     return page.locator("dialog.variants")
 
 
-@WINDOWS
-def test_the_variants_stand_in_the_bar_or_under_mehr(editor, width, height, touch):
-    """A10: the button stands in the bar where there is room, else under "Mehr"; PDF stays."""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme="")
+def test_the_desktop_bar_holds_the_variants_beside_pdf(editor):
+    """A10: on a desktop the button stands in the bar; "Mehr" does not list it."""
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
     expect_fitted(page)
-    assert bar_button(page).count() + listed(page).count("Varianten drucken") == 1
+    expect(bar_button(page)).to_be_visible()
+    if more(page).count():
+        assert "Varianten drucken" not in listed(page)
 
 
-@WINDOWS
-def test_the_door_in_the_bar_or_mehr_opens_the_dialog(editor, width, height, touch):
-    """A10: the bar's button, or its item under "Mehr", opens the dialog."""
-    page = sized(editor, text("a"), width=width, height=height, touch=touch, theme="")
+def test_the_ipad_bar_folds_the_variants_under_mehr(editor):
+    """A10: on an iPad "Mehr" lists the variants, and PDF and undo stay in the window."""
+    page = sized(editor, text("a"), width=834, height=1194, touch=True, theme="")
     expect_fitted(page)
-    if bar_button(page).count():
-        bar_button(page).click()
-    else:
-        tool(page, "Varianten drucken").tap() if touch else tool(page, "Varianten drucken").click()
+    expect(bar_button(page)).to_have_count(0)
+    assert "Varianten drucken" in listed(page)
+
+
+def test_the_desktop_bar_button_opens_the_dialog(editor):
+    """A10: the bar's button opens the dialog."""
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    expect_fitted(page)
+    bar_button(page).click()
+    expect(dialog(page)).to_be_visible()
+
+
+def test_the_ipad_mehr_entry_opens_the_dialog(editor):
+    """A10: on an iPad "Mehr" lists the variants, and its entry opens the dialog."""
+    page = sized(editor, text("a"), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    more(page).tap()
+    item(page, "Varianten drucken").tap()
     expect(dialog(page)).to_be_visible()
 
 
@@ -62,7 +70,10 @@ def test_the_tour_names_the_variants_beside_the_pdf(editor):
     for _ in range(20):
         if step.locator("h2").inner_text() == "Drucken":
             break
-        step.locator("button.primary").click()
+        count = step.locator("small").inner_text()
+        step.locator(".primary").click()
+        expect(step.locator("small")).not_to_have_text(count)
+    expect(step.locator("h2")).to_have_text("Drucken")
     expect(step).to_contain_text("„Varianten drucken“")
 
 
