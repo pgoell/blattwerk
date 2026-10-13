@@ -17,6 +17,8 @@ RUN /app/.venv/bin/playwright install --with-deps --only-shell chromium && rm -r
 COPY src ./src
 COPY --from=frontend /app/src/blattwerk/static ./src/blattwerk/static
 RUN uv sync --locked
+# The deploy's smoke test. It runs in this container, so it comes with the image it tests.
+COPY scripts/smoke.py ./scripts/smoke.py
 # Same uid as the host user, so the bind-mounted data dir stays writable.
 USER 1000:1000
 ENV BLATTWERK_DATA_DIR=/data
