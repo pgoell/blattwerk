@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
-import { decimalsOf, lowest, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import { decimalsOf, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
@@ -308,11 +308,6 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       {refused && (
         <p className="hint" role="status" data-foot="full" ref={line}>
           Das passt nicht mehr auf die Seite: Der Block würde unten über den Rand ragen. Mehr Platz gibt es mit weniger Aufgaben, mehr Spalten, kleinerer Schrift oder weiter oben auf der Seite.
-        </p>
-      )}
-      {!refused && lowest(block) > foot + 0.01 && (
-        <p className="hint" role="status" data-foot="over">
-          Der Block ragt unten über die Seite hinaus. Was unter dem Rand steht, wird nicht gedruckt.
         </p>
       )}
       <div className="seg">

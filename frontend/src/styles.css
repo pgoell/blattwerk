@@ -702,6 +702,7 @@ body:has(.print) { background: #fff; }
 .geo input:disabled { color: var(--faint); }
 .geo span { align-self: end; display: flex; align-items: center; justify-content: space-between; min-height: var(--ctl); margin-bottom: 8px; color: var(--muted); }
 .panel > .hint { margin-top: 14px; }
+.panel > .warn { color: var(--rec); }
 .panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
 .panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
 /* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
