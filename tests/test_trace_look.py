@@ -58,7 +58,7 @@ def build(kind, props):
         blocks = [
             box("a", "ruling", {**RULING, "kind": "l1", "text": "Hallo", **props}, w=120, h=40)
         ]
-        return blocks, "p.written", "p.written"
+        return blocks, ".written[data-trace]", ".written"
     if kind == "karo":
         blocks = [
             box("a", "ruling", {"kind": "k5", "color": INK, "text": "Hallo", **props}, w=120, h=40)
@@ -127,63 +127,53 @@ def test_each_look_draws_in_every_block_with_text(editor, kind, look):
 
 
 @pytest.mark.parametrize("font", FONTS)
-def test_outline_in_every_font(editor, server, font):
-    """B3: a 40 pt text and a Lineatur l1 in each font: the outline is drawn, its stroke hollow."""
+def test_outline_in_every_font(editor, font):
+    """B3: a 40 pt text in each font: dark ink, fewer than plain, and the stem middles white."""
     text = {**TEXT, "text": "Hallo", "size": 40, "font": font}
-    plain = editor(box("a", "text", text, w=180, h=40, x=15, y=40))
-    plain_dark = ink_pixels(at(plain, "a").screenshot())
-    outlined = editor(box("a", "text", {**text, "trace": "outline"}, w=180, h=40, x=15, y=40))
-    shot = at(outlined, "a").screenshot()
-    assert ink_pixels(shot) > 0
-    assert ink_pixels(shot) < 0.8 * plain_dark
-    # The middle of a thick stroke is white: a white pixel with dark on all four sides nearby.
-    img = Image.open(io.BytesIO(shot)).convert("L")
-    width, height = img.size
-    px = img.tobytes()
-    hollow = 0
-    for y in range(4, height - 4, 2):
-        for x in range(4, width - 4, 2):
-            if px[y * width + x] < 240:
-                continue
-            left = any(px[y * width + xx] < 100 for xx in range(x - 4, x))
-            right = any(px[y * width + xx] < 100 for xx in range(x + 1, x + 5))
-            up = any(px[yy * width + x] < 100 for yy in range(y - 4, y))
-            down = any(px[yy * width + x] < 100 for yy in range(y + 1, y + 5))
-            if left and right and up and down:
-                hollow += 1
-    assert hollow > 0, font
+    plain_page = editor(box("a", "text", text, w=180, h=40, x=15, y=40))
+    plain = Image.open(io.BytesIO(at(plain_page, "a").screenshot())).convert("L")
+    outlined_page = editor(box("a", "text", {**text, "trace": "outline"}, w=180, h=40, x=15, y=40))
+    outlined = Image.open(io.BytesIO(at(outlined_page, "a").screenshot())).convert("L")
+    assert plain.size == outlined.size
+    width, height = plain.size
+    p, o = plain.tobytes(), outlined.tobytes()
+    dark_plain = sum(1 for v in p if v < 100)
+    dark_outline = sum(1 for v in o if v < 100)
+    assert dark_outline > 0
+    assert dark_outline < 0.8 * dark_plain, (dark_outline, dark_plain)
+    # The middle of a stem: dark in the plain text, with dark 2 px away on all four sides.
+    stems = [
+        (x, y)
+        for y in range(2, height - 2)
+        for x in range(2, width - 2)
+        if p[y * width + x] < 100
+        and all(p[(y + dy) * width + x + dx] < 100 for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2)))
+    ]
+    assert stems, font
+    hollow = sum(1 for x, y in stems if o[y * width + x] >= 100)
+    assert hollow / len(stems) > 0.9, (hollow, len(stems))
 
-    ruling = box("r", "ruling", {**RULING, "kind": "l1", "font": font}, w=180, h=40, x=15, y=40)
-    blank = editor(ruling)
-    with_text = editor(
-        box(
-            "r",
-            "ruling",
-            {**RULING, "kind": "l1", "font": font, "text": "Hallo", "trace": "outline"},
-            w=180,
-            h=40,
-            x=15,
-            y=40,
-        )
-    )
     if font == "va":
-        blank_shot = Image.open(io.BytesIO(at(blank, "r").screenshot())).convert("RGB")
-        text_shot = Image.open(io.BytesIO(at(with_text, "r").screenshot())).convert("RGB")
+
+        def ruling(**more):
+            props = {**RULING, "kind": "l1", "font": font, **more}
+            page = editor(box("r", "ruling", props, w=180, h=40, x=15, y=40))
+            return Image.open(io.BytesIO(at(page, "r").screenshot())).convert("RGB")
+
+        blank = ruling()
+        typed = ruling(text="Hallo", trace="outline")
 
         def line_pixels(img, row):
+            # Right of the word: no letter there, only the ruling's line.
             return sum(
                 1
-                for x in range(img.width)
-                if all(
-                    abs(c - v) <= 40
-                    for c, v in zip(img.getpixel((x, row)), (34, 34, 34), strict=True)
-                )
+                for x in range(int(img.width * 0.7), img.width)
+                if sum(img.getpixel((x, row))) < 3 * 120
             )
 
-        # The row of a ruling line: where the blank ruling is darkest.
-        row = max(range(blank_shot.height), key=lambda y: line_pixels(blank_shot, y))
-        plain_count = line_pixels(blank_shot, row)
-        text_count = line_pixels(text_shot, row)
+        row = max(range(blank.height), key=lambda y: line_pixels(blank, y))
+        plain_count = line_pixels(blank, row)
+        text_count = line_pixels(typed, row)
         assert plain_count > 0
         assert abs(text_count - plain_count) <= 0.15 * plain_count, (plain_count, text_count)
 
@@ -261,46 +251,31 @@ def test_dotted_is_never_bold(editor, kind, props):
 
 
 def fade_block(kind, fade):
-    """A block that fills with the same words in rows, grey and faded, and its size."""
+    """Four rows of the same words, each row full across the block, grey and faded."""
     props = {"trace": True, "fade": fade}
+    full = "Hallo " * 12
     if kind == "text":
-        text = "\n".join(["Hallo Hallo Hallo Hallo"] * 4)
-        return [box("a", "text", {**TEXT, "text": text, **props}, w=180, h=30, x=15, y=40)]
+        # Four rows of 14 pt, 6.4 mm each.
+        text = "\n".join([full] * 4)
+        return [box("a", "text", {**TEXT, "text": text, **props}, w=180, h=26, x=15, y=40)]
     if kind == "shape":
-        text = "\n".join(["Hallo Hallo Hallo Hallo"] * 4)
-        return [
-            box(
-                "a",
-                "shape",
-                {**RECT, "stroke": "none", "text": text, **props},
-                w=180,
-                h=30,
-                x=15,
-                y=40,
-            )
-        ]
+        text = "\n".join([full] * 4)
+        shape = {**RECT, "stroke": "none", "valign": "top", "align": "left", "text": text, **props}
+        return [box("a", "shape", shape, w=180, h=29, x=15, y=40)]
     if kind == "table":
         cells = [["Hallo"] * 4 for _ in range(4)]
-        return [
-            box(
-                "a",
-                "table",
-                {**TABLE, "cells": cells, "cols": [1, 1, 1, 1], **props},
-                w=180,
-                h=60,
-                x=15,
-                y=40,
-            )
-        ]
+        table = {**TABLE, "cells": cells, "cols": [1, 1, 1, 1], **props}
+        return [box("a", "table", table, w=180, h=60, x=15, y=40)]
     if kind == "ruling":
-        text = "\n".join(["Hallo Hallo Hallo"] * 4)
+        # Four rows of 20 mm, a word in each.
+        text = "\n".join(["Hallo " * 4] * 4)
         return [
             box(
                 "a",
                 "ruling",
                 {**RULING, "kind": "l1", "text": text, **props},
                 w=180,
-                h=40,
+                h=80,
                 x=15,
                 y=40,
             )
@@ -332,7 +307,7 @@ def test_fading_gets_lighter_and_ends_empty(editor, kind, fade):
     page.add_style_tag(
         content=(
             ".block[data-id='a'] .frame > p, .block[data-id='a'] .frame .rich,"
-            " .block[data-id='a'] .table p, .block[data-id='a'] p.written,"
+            " .block[data-id='a'] .table p, .block[data-id='a'] .written,"
             " .block[data-id='a'] svg.ruling text { visibility: hidden !important }"
         )
     )
@@ -371,7 +346,7 @@ def test_an_old_sheet_opens_unchanged(editor, server):
         place("tb", "table", TABLE, x=15, y=160, w=120, h=40),
     ]
     page = editor(*blocks, client=client)
-    expect(at(page, "r").locator("p.written").first).to_have_attribute("data-trace", "grey")
+    expect(at(page, "r").locator(".written").first).to_have_attribute("data-trace", "grey")
     pick(page, "t")
     page.keyboard.press("ArrowRight")
     stored = {b["id"]: b for b in saved(page, client)}
