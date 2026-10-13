@@ -1055,7 +1055,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // Any other gesture is over: the next change is a step of its own. No text has grown, so nothing is measured,
       // unless a change still waits to be drawn.
       mergeKey.current = "";
-      if (live.current.doc === latest.current.doc) tight.current = false;
+      if (live.current.doc === latest.current.doc) tight.current = sink.current = false;
       return;
     }
     ahead.current = next.gesture.ahead;
@@ -3149,7 +3149,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             // A table without row heights gets, with the first text typed in it, the heights its rows have
                             // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
                             // table saved lower than its texts need, or with a box of solution words, has no such heights.
-                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm } : {};
+                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm.map(round) } : {};
                             // The table may come down with its text when it has no spare room now: a table made taller
                             // than its rows need keeps that height.
                             const grid = e.currentTarget.closest<HTMLElement>(".table")!;
