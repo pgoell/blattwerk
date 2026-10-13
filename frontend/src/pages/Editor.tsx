@@ -92,7 +92,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, far, isLine, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, wordsIn, boxed, cleared, dir, fadeOf, far, isLine, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, sizeOf, spliced, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -2804,6 +2804,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       ) : b.type === "ruling" && !listOf(b) ? (
                         <textarea
                           className="written"
+                          data-trace={traceOf(b.props)}
+                          data-fade={fadeOf(b.props)}
                           value={b.props.text ?? ""}
                           readOnly={editing !== b.id}
                           // Tab from a field of the panel does not stop at a Lineatur that is not written in.
