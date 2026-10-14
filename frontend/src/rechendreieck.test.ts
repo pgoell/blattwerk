@@ -223,7 +223,8 @@ describe("typed numbers", () => {
       ),
       { numRuns: 300 },
     );
-  });
+    // A brute force per run: about 3 s on a laptop, over 5 s on a loaded runner (#569).
+  }, 30_000);
 
   it("contradicting typed numbers give a wrong triangle that shows the typed values", () => {
     const typed: Typed[] = [
