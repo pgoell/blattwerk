@@ -1850,7 +1850,8 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   const rows = Math.max(1, Math.ceil(walls.length / p.columns));
   return (
     <div className={`zahlenmauer${solved ? " solved" : ""}`}>
-      <svg viewBox={`0 0 ${p.columns * wallW + (p.columns - 1) * gap} ${rows * wallH + (rows - 1) * gap}`} preserveAspectRatio="xMidYMin meet">
+      {/* Half a unit of room around the walls, so the lines at the edge show whole. */}
+      <svg viewBox={`-0.5 -0.5 ${p.columns * wallW + (p.columns - 1) * gap + 1} ${rows * wallH + (rows - 1) * gap + 1}`} preserveAspectRatio="xMidYMin meet">
         {walls.map((w, i) => {
           const [x0, y0] = [(i % p.columns) * (wallW + gap), Math.floor(i / p.columns) * (wallH + gap)];
           const stones = Array.from({ length: p.base }, (_, r) => Array.from({ length: p.base - r }, (_, c) => {
