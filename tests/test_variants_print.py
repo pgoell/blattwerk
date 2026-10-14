@@ -572,6 +572,38 @@ def test_a_zahlenstrahl_gets_another_seed_and_keeps_its_marks():
     assert len(seeds) == 4
 
 
+def test_a_hunderterfeld_gets_another_seed_and_keeps_its_settings():
+    """B to D give a Hunderterfeld a seed of its own; its hidden, tinted, cut, filled stay."""
+    field = {
+        "look": "tafel",
+        "from": 1,
+        "show": "random",
+        "hide": 20,
+        "hidden": [0, 5, 99],
+        "tint": "free",
+        "times": 2,
+        "line": 1,
+        "color": 2,
+        "tints": [[11, 1], [12, 2]],
+        "cut": True,
+        "shape": [34, 43, 44, 45, 54],
+        "given": 44,
+        "fill": "free",
+        "dots": 0,
+        "filled": [3, 4],
+        "seed": 7,
+    }
+    doc = {"pages": [{"blocks": [{"id": "f", "type": "hunderterfeld", "props": field}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**field, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == field
+
+
 def test_a_rechendreieck_gets_another_seed_and_loses_its_typed_numbers():
     """I2 of #83: B to D give a triangle block a seed of its own, drop `typed`; A is as stored."""
     triangle = {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "seed": 7}

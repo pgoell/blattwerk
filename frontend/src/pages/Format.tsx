@@ -12,6 +12,7 @@ import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
+import Hunderterfeld from "./Hunderterfeld";
 import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -264,6 +265,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
+  const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -310,8 +312,8 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const whole = sel.some((b) => b.group);
   const box = bounds(sel);
   const shared = (of: (b: Block) => number) => (whole ? undefined : sel.every((b) => of(b) === of(sel[0])) ? of(sel[0]) : undefined);
-  // A picture and a symbol always keep their shape.
-  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol");
+  // A picture, a symbol and a Hunderterfeld always keep their shape.
+  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = lock || shaped;
   const move = (axis: Axis, to: number) => place(sel.map((b) => [b.id, { [axis]: whole ? round(b[axis] + to - box[axis]) : to }]));
   // The corner stays. With the lock each block keeps its own shape.
@@ -619,6 +621,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => style("zahlenmauer", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
+      {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>
