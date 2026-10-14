@@ -73,6 +73,8 @@
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
 
+import { rng } from "./zahlenmauer";
+
 export type UhrProps = {
   numbers: "all" | "quarters" | "none";
   minutes: boolean;
@@ -111,16 +113,49 @@ export const INK = "#222";
 // The hours' words, index 1 to 12.
 export const HOURS = ["", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"];
 
-// The props as they draw: any stored value gives whole props in range.
-// STUB: the model's subagent writes it as the contract says.
+const isWhole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+const whole = (v: unknown, lo: number, hi: number, dflt: number): number => (isWhole(v) && v >= lo && v <= hi ? v : dflt);
+const pick = <T extends string | number>(v: unknown, list: readonly T[], dflt: T): T => list.find((x) => x === v) ?? dflt;
+// A minute of the day, 0 to 1439.
+const isTime = (v: unknown): v is number => isWhole(v) && v >= 0 && v <= 1439;
+
+// The props as they draw: any stored value gives whole props in range. A bad entry of `times` becomes -1, so the
+// other clocks keep their places; `timesOf` takes -1 as no time.
 export function sane(p: UhrProps): UhrProps {
-  return { ...DEFAULTS, ...(p ?? {}) };
+  const r = (p ?? {}) as unknown as Record<string, unknown>;
+  return {
+    numbers: pick(r.numbers, ["all", "quarters", "none"] as const, DEFAULTS.numbers),
+    minutes: typeof r.minutes === "boolean" ? r.minutes : DEFAULTS.minutes,
+    ring: typeof r.ring === "boolean" ? r.ring : DEFAULTS.ring,
+    task: pick(r.task, ["read", "draw"] as const, DEFAULTS.task),
+    answer: pick(r.answer, ["box", "line"] as const, DEFAULTS.answer),
+    format: pick(r.format, ["12", "24", "words"] as const, DEFAULTS.format),
+    region: pick(r.region, ["nach", "viertel"] as const, DEFAULTS.region),
+    count: whole(r.count, 1, 12, DEFAULTS.count),
+    cols: whole(r.cols, 1, 6, DEFAULTS.cols),
+    step: pick(r.step, [60, 30, 15, 5, 1] as const, DEFAULTS.step),
+    fill: pick(r.fill, ["random", "free"] as const, DEFAULTS.fill),
+    times: Array.isArray(r.times) ? r.times.map((x) => (isTime(x) ? x : -1)) : undefined,
+    seed: isWhole(r.seed) ? r.seed : 0,
+  };
 }
 
-// The time each clock shows, `count` of them. `p` is already sane.
-// STUB: the model's subagent writes it as the contract says.
+// The time each clock shows, `count` of them. `p` is already sane. Random times come from the seed; with "free" a
+// clock keeps its own time from `times` where that is a whole minute of the day.
 export function timesOf(p: UhrProps): number[] {
-  return Array.from({ length: p.count }, (_, i) => p.times?.[i] ?? (60 + i * 75) % 1440);
+  const twelve = p.format !== "24";
+  const lo = twelve ? 60 : 0;
+  const hi = twelve ? 779 : 1439;
+  const own = (i: number) => (p.fill === "free" && isTime(p.times?.[i]) ? (p.times as number[])[i] : undefined);
+  const taken = new Set(Array.from({ length: p.count }, (_, i) => own(i)).filter((t): t is number => t !== undefined));
+  const pool: number[] = [];
+  for (let t = Math.ceil(lo / p.step) * p.step; t <= hi; t += p.step) if (!taken.has(t)) pool.push(t);
+  const rnd = rng(p.seed);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return Array.from({ length: p.count }, (_, i) => own(i) ?? pool[i % pool.length]);
 }
 
 // The angles of the hands in degrees, clockwise from 12: [hour, minute].
@@ -130,21 +165,54 @@ export function hands(t: number): [number, number] {
 }
 
 // The time in words, as the contract says.
-// STUB: the model's subagent writes it as the contract says.
 export function inWords(t: number, region: UhrProps["region"]): string {
-  void region;
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")} Uhr`;
+  const h = Math.floor(t / 60) % 12 || 12;
+  const n = (h % 12) + 1;
+  const m = t % 60;
+  const hour = h === 1 ? "ein" : HOURS[h];
+  const H = HOURS[h];
+  const N = HOURS[n];
+  const nach = region === "nach";
+  switch (m) {
+    case 0:
+      return `${hour} Uhr`;
+    case 5:
+      return `fünf nach ${H}`;
+    case 10:
+      return `zehn nach ${H}`;
+    case 15:
+      return nach ? `viertel nach ${H}` : `viertel ${N}`;
+    case 20:
+      return `zwanzig nach ${H}`;
+    case 25:
+      return `fünf vor halb ${N}`;
+    case 30:
+      return `halb ${N}`;
+    case 35:
+      return `fünf nach halb ${N}`;
+    case 40:
+      return `zwanzig vor ${N}`;
+    case 45:
+      return nach ? `viertel vor ${N}` : `dreiviertel ${N}`;
+    case 50:
+      return `zehn vor ${N}`;
+    case 55:
+      return `fünf vor ${N}`;
+  }
+  if (m < 30) return m === 1 ? `1 Minute nach ${H}` : `${m} Minuten nach ${H}`;
+  const k = 60 - m;
+  return k === 1 ? `1 Minute vor ${N}` : `${k} Minuten vor ${N}`;
 }
 
 // The time as `p.format` writes it: `3:30 Uhr`, `15:30 Uhr`, or in words.
-// STUB: the model's subagent writes it as the contract says.
 export function written(t: number, p: Pick<UhrProps, "format" | "region">): string {
   if (p.format === "words") return inWords(t, p.region);
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")} Uhr`;
+  const h = Math.floor(t / 60);
+  const hour = p.format === "24" ? h : h % 12 || 12;
+  return `${hour}:${String(t % 60).padStart(2, "0")} Uhr`;
 }
 
 // `h:mm` (hours 0 to 23) as minutes, or undefined when it does not parse.
-// STUB: the model's subagent writes it as the contract says.
 export function parsed(text: string): number | undefined {
   const m = /^(\d{1,2}):(\d{2})$/.exec(text.trim());
   return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : undefined;
