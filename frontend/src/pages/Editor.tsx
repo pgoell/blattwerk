@@ -110,7 +110,7 @@ import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
-import { DEFAULTS as UHR } from "../uhr";
+import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
@@ -1319,20 +1319,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // A maths block grows downward when a change in its panel needs more room, to the page's foot at most, in the same
   // undo step; it never shrinks by itself. A Zahlenstrahl grows by what its line rises, so the line keeps its place.
+  // The blocks that grow so that their drawing keeps the size of the default block's: the height their props need at
+  // width w, and the props that change it (#588, #598).
+  const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, string[]]>> = {
+    rechendreieck: [(p, w) => heightFor(saneDreieck(p), w), ["count", "columns"]],
+    zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
+    uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
+  };
   function grown(b: Block, next: Block): Partial<Box> {
     const foot = Math.max(b.h, H - b.y);
     if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
       const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
     }
-    // A Rechendreieck grows so that its triangles keep the size of the default block's.
-    if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
-      const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
-      if (need > b.h) return tall(b, need);
-    }
-    // A Zahlenmauer grows so that its stones keep the size of the default block's, as a Rechendreieck does (#588).
-    if (b.type === "zahlenmauer" && next.type === "zahlenmauer" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns || next.props.base !== b.props.base)) {
-      const need = round(Math.min(heightForMauer(saneMauer(next.props), b.w), foot));
+    const grow = GROWS[b.type];
+    if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
+      const need = round(Math.min(grow[0](next.props, b.w), foot));
       if (need > b.h) return tall(b, need);
     }
     return {};

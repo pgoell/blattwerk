@@ -61,7 +61,8 @@
 // hands are drawn, in #222 or in the key #c0392b), `circle.hub`, and under the face `text.task` (the written time
 // of "draw", or `__:__ Uhr`), `line.answer` for a writing line, and in the key `text.answer` (#c0392b). Numbers and
 // text in Andika. The dock adds a block of 180 by 58.5 mm under "Mathe-Blöcke". The block keeps its size when
-// `count` or `cols` change; the clocks grow or shrink to fit it, and the teacher resizes the block.
+// `count` or `cols` change so the clocks keep the default block's size, to the page's foot at most, and it never
+// shrinks by itself; the teacher resizes the block.
 //
 // The panel (pages/Uhr.tsx), by aria-label: "Zahlen" (select: "all" 1 bis 12, "quarters" 12, 3, 6, 9, "none"
 // Keine), "Minutenstriche" (checkbox), "13 bis 24" (checkbox, disabled with "none"), "Aufgabe" (select: "read"
@@ -117,6 +118,7 @@ export const INK = "#222";
 // The hours' words, index 1 to 12.
 export const HOURS = ["", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"];
 
+
 const isWhole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
 const whole = (v: unknown, lo: number, hi: number, dflt: number): number => (isWhole(v) && v >= lo && v <= hi ? v : dflt);
 const pick = <T extends string | number>(v: unknown, list: readonly T[], dflt: T): T => list.find((x) => x === v) ?? dflt;
@@ -142,6 +144,21 @@ export function sane(p: UhrProps): UhrProps {
     times: Array.isArray(r.times) ? r.times.map((x) => (isTime(x) ? x : -1)) : undefined,
     seed: isWhole(r.seed) ? r.seed : 0,
   };
+}
+
+// The drawing's viewBox in svg units: a row of clocks is as wide as its columns, the rows as high as one clock each.
+const layout = (p: UhrProps) => {
+  const cols = Math.min(p.cols, p.count);
+  return { vbW: CELL_W * cols, vbH: CELL_H * Math.ceil(p.count / cols) };
+};
+// The default block (4 clocks in 4 columns, 180 by 58.5 mm) draws its clocks at the scale s0.
+const DEFAULT_LAYOUT = layout(sane({ ...DEFAULTS, seed: 0 }));
+const S0 = Math.min(180 / DEFAULT_LAYOUT.vbW, 58.5 / DEFAULT_LAYOUT.vbH);
+
+// The height in mm of a block of width w with the props p, at which its clocks draw at least at the default scale.
+export function heightFor(p: UhrProps, w: number): number {
+  const L = layout(sane(p));
+  return L.vbH * Math.min(w / L.vbW, S0);
 }
 
 // The time each clock shows, `count` of them. `p` is already sane. Random times come from the seed; with "free" a
