@@ -731,6 +731,11 @@ body:has(.print) { background: #fff; }
 .panel .bold { font-weight: 700; }
 .panel .italic { font-style: italic; }
 .panel .underline { text-decoration: underline; }
+/* A small wall of the panel: its rows centred, one above the other, each stone a square of buttons or fields. */
+.panel .mauer { display: grid; justify-items: center; gap: 2px; margin: 0 0 8px; }
+.panel .mauer-row { display: flex; gap: 2px; }
+.panel .mauer button, .panel .mauer input { width: 30px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: var(--field); color: var(--ink); text-align: center; font: 12px var(--mono); }
+.panel .mauer button.on { background: var(--ink); color: var(--bg); }
 .symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; max-height: 196px; margin-bottom: 8px; overflow: auto; }
 .symbols button { min-height: 36px; padding: 0; border-color: transparent; background: none; }
 .symbols img { width: 26px; height: 26px; }
