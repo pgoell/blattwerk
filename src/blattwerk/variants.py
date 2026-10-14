@@ -81,7 +81,9 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 props["seed"] = new
                 props["exercises"] = made["exercises"]
                 props["loosen"] = made["loosen"]
-            elif kind in ("suchsel", "zahlenmauer", "rechendreieck") and whole(props.get("seed")):
+            elif kind in ("suchsel", "zahlenmauer", "rechendreieck", "zahlenstrahl") and whole(
+                props.get("seed")
+            ):
                 props["seed"] = derived(props["seed"], letter)
                 # The numbers a teacher typed into stones or fields belong to the stored ones.
                 props.pop("typed", None)
