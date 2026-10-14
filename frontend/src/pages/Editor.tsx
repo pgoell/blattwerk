@@ -2785,10 +2785,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           "sep",
           ...groups,
           "sep",
-          { label: "In den Vordergrund", disabled: none, run: () => raise(true) },
-          { label: "Eine Ebene nach vorn", disabled: none, run: () => raise(true, true) },
-          { label: "Eine Ebene nach hinten", disabled: none, run: () => raise(false, true) },
-          { label: "In den Hintergrund", disabled: none, run: () => raise(false) },
+          { label: "In den Vordergrund", disabled: none || !stacked(true), run: () => raise(true) },
+          { label: "Eine Ebene nach vorn", disabled: none || !stacked(true, true), run: () => raise(true, true) },
+          { label: "Eine Ebene nach hinten", disabled: none || !stacked(false, true), run: () => raise(false, true) },
+          { label: "In den Hintergrund", disabled: none || !stacked(false), run: () => raise(false) },
         ];
   const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
   const brand = (
@@ -3771,12 +3771,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
               <h2>Ebene</h2>
               <div className="acts">
-                <button onClick={() => raise(true)}>Nach vorn</button>
-                <button onClick={() => raise(false)}>Nach hinten</button>
+                <button disabled={!stacked(true)} onClick={() => raise(true)}>Nach vorn</button>
+                <button disabled={!stacked(false)} onClick={() => raise(false)}>Nach hinten</button>
               </div>
               <div className="acts">
-                <button onClick={() => raise(true, true)}>Eine nach vorn</button>
-                <button onClick={() => raise(false, true)}>Eine nach hinten</button>
+                <button disabled={!stacked(true, true)} onClick={() => raise(true, true)}>Eine nach vorn</button>
+                <button disabled={!stacked(false, true)} onClick={() => raise(false, true)}>Eine nach hinten</button>
               </div>
             </>
           )}

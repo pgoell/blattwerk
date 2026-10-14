@@ -11,6 +11,7 @@ from ui import (
     TEXT,
     at,
     box,
+    centre,
     drawer,
     expect_picked,
     maths,
@@ -69,13 +70,14 @@ def test_a_part_of_a_group_steps_within_the_group(editor):
     expect_stack(page, "acbde")
     step(page, "Eine nach vorn")
     expect_stack(page, "acdbe")
-    # In front of its group it stays: one step back from there shows it never passed "e".
-    step(page, "Eine nach vorn")
+    # In front of its group it stays: the forward step is grey, and one step back shows that.
+    expect_grey(page, ["Eine nach vorn"], True)
     step(page, "Eine nach hinten")
     expect_stack(page, "acbde")
     step(page, "Eine nach hinten")
     expect_stack(page, "abcde")
-    step(page, "Eine nach hinten")
+    # At the back of its group it cannot go lower: the step back is grey.
+    expect_grey(page, ["Eine nach hinten"], True)
     step(page, "Eine nach vorn")
     expect_stack(page, "acbde")
 
@@ -128,15 +130,16 @@ def test_a_step_at_the_end_leaves_nothing_to_undo(editor):
     pick(page, "a")
     step(page, "Eine nach vorn")
     expect_stack(page, "bacd")
+    # Each of these lies at its end already, so its button is grey.
     pick(page, "d")
-    step(page, "Eine nach vorn")
+    expect_grey(page, FORWARD, True)
     pick(page, "b")
-    step(page, "Eine nach hinten")
+    expect_grey(page, BACKWARD, True)
     # Several with nothing unselected beyond them.
     pick(page, "c", "d")
-    step(page, "Eine nach vorn")
+    expect_grey(page, FORWARD, True)
     pick(page, "b", "a")
-    step(page, "Eine nach hinten")
+    expect_grey(page, BACKWARD, True)
     page.keyboard.press("Control+z")
     expect_stack(page, "abcd")
 
@@ -162,6 +165,99 @@ def test_several_blocks_step_together(editor):
     expect_stack(page, "abcd")
     step(page, "Eine nach hinten")
     expect_stack(page, "bcad")
+
+
+FORWARD = ["Nach vorn", "Eine nach vorn"]
+BACKWARD = ["Nach hinten", "Eine nach hinten"]
+FORWARD_ITEMS = ["In den Vordergrund", "Eine Ebene nach vorn"]
+BACKWARD_ITEMS = ["Eine Ebene nach hinten", "In den Hintergrund"]
+
+
+def expect_grey(page, names, grey, role="button"):
+    """Waits until each button, or menu item, is disabled when `grey`, enabled when not."""
+    for name in names:
+        locator = page.get_by_role(role, name=name, exact=True)
+        if grey:
+            expect(locator).to_be_disabled()
+        else:
+            expect(locator).to_be_enabled()
+
+
+def expect_menu(page, name, names, grey):
+    """A right click on the block opens the menu; its layer items grey as told, then it closes."""
+    # A picked block's frame can take the click, so the right click starts from no pick.
+    unpick(page)
+    page.mouse.click(*centre(at(page, name)), button="right")
+    expect(page.get_by_role("menu")).to_be_visible()
+    expect_grey(page, names, grey, role="menuitem")
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("menu")).to_have_count(0)
+
+
+def test_the_order_buttons_grey_at_the_ends(editor):
+    page = editor(*boxes(*"abc"))
+    pick(page, "c")
+    expect_grey(page, FORWARD, True)
+    expect_grey(page, BACKWARD, False)
+    expect_menu(page, "c", FORWARD_ITEMS, True)
+    expect_menu(page, "c", BACKWARD_ITEMS, False)
+    pick(page, "a")
+    expect_grey(page, FORWARD, False)
+    expect_grey(page, BACKWARD, True)
+    expect_menu(page, "a", FORWARD_ITEMS, False)
+    expect_menu(page, "a", BACKWARD_ITEMS, True)
+    pick(page, "b")
+    expect_grey(page, FORWARD + BACKWARD, False)
+    expect_menu(page, "b", FORWARD_ITEMS + BACKWARD_ITEMS, False)
+
+
+def test_the_grey_follows_each_move_and_undo(editor):
+    page = editor(*boxes(*"abc"))
+    pick(page, "b")
+    step(page, "Nach vorn")
+    expect_stack(page, "acb")
+    expect_grey(page, FORWARD, True)
+    page.keyboard.press("Control+z")
+    expect_stack(page, "abc")
+    expect_grey(page, FORWARD, False)
+    page.keyboard.press("Control+y")
+    expect_stack(page, "acb")
+    expect_grey(page, FORWARD, True)
+
+
+def test_a_part_of_a_group_in_front_of_its_group_greys_forward(editor):
+    page = editor(*boxes(*"abcde", grouped="bcd"))
+    # One click picks the whole group, a second one the block alone.
+    at(page, "d").click()
+    expect_picked(page, "b", "c", "d")
+    at(page, "d").click(force=True)
+    expect_picked(page, "d")
+    # "e" lies over it, but within its group "d" is already in front.
+    expect_grey(page, FORWARD, True)
+    expect_grey(page, BACKWARD, False)
+
+
+def test_several_grey_only_when_all_lie_in_front(editor):
+    page = editor(*boxes(*"abcd"))
+    pick(page, "c", "d")
+    expect_grey(page, FORWARD, True)
+    pick(page, "b", "d")
+    expect_grey(page, FORWARD, False)
+
+
+def test_a_whole_group_in_front_greys_forward(editor):
+    page = editor(*boxes(*"abcd", grouped="cd"))
+    # One click on a part picks the whole group.
+    at(page, "c").click()
+    expect_picked(page, "c", "d")
+    expect_grey(page, FORWARD, True)
+    expect_grey(page, BACKWARD, False)
+
+
+def test_a_lone_block_greys_all_four(editor):
+    page = editor(*boxes(*"a"))
+    pick(page, "a")
+    expect_grey(page, FORWARD + BACKWARD, True)
 
 
 # Asked #143
