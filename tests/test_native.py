@@ -247,8 +247,9 @@ def test_a_letter_after_a_click_beside_a_real_list_changes_no_font(editor):
     page.keyboard.type("l")
     expect(found).to_have_value("andika")
     expect(found).not_to_be_focused()
-    expect(undo(page)).to_be_disabled()
-    # The sheet has the keys.
+    # The sheet has the keys: the letter opens the picked text and lands after its words (#516).
+    expect(at(page, "a").locator(".ProseMirror")).to_have_text("Hallol")
+    page.keyboard.press("Escape")
     page.keyboard.press("Delete")
     expect(at(page, "a")).to_have_count(0)
 
