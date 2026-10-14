@@ -601,6 +601,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const ns = numbers(hist.doc);
   // The built-in templates have ids below zero; the teacher's own can be deleted.
   const kept = templates.filter((t) => t.id > 0);
+  // The built-in templates' documents for their thumbnails, read once, so a thumbnail draws again only with the list.
+  const builtIn = useMemo(() => templates.filter((t) => t.id < 0).map((t) => ({ ...t, shown: read(t.doc) })), [templates]);
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
@@ -3275,7 +3277,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           </div>
           <h2>Vorlagen</h2>
           {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
-            const group = templates.filter((t) => t.id < 0 && t.group === g);
+            const group = builtIn.filter((t) => t.group === g);
             return group.length ? (
               <div role="group" aria-label={g} className="tpl-group" key={g}>
                 <h3>{g}</h3>
@@ -3283,7 +3285,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   <div key={t.id} className="tpl">
                     <button onClick={() => apply(t)}>
                       <span className="tpl-thumb" aria-hidden>
-                        <Thumb doc={read(t.doc)} k={48 / 210} page={0} />
+                        <Thumb doc={t.shown} k={48 / 210} page={0} />
                       </span>
                       {t.name}
                     </button>

@@ -82,8 +82,11 @@ def test_each_builtin_template_button_shows_a_paper_thumbnail(editor):
     open_panel(page)
     buttons = page.locator(".tpl button")
     expect(buttons.first).to_be_visible()
-    for i in range(buttons.count()):
-        assert buttons.nth(i).locator("svg").count() >= 1
+    groups = page.locator(".tpl-group .tpl button")
+    assert groups.count() == 13
+    for i in range(groups.count()):
+        # A page drawn small, with the template's blocks on it.
+        expect(groups.nth(i).locator(".paper .block").first).to_be_attached()
 
 
 def test_groups_are_in_the_order_of_the_contract(editor):
