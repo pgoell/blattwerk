@@ -419,6 +419,8 @@ function lay(p: ZahlenmauerProps): Made {
       const j = Math.floor(next() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
+    // Where a 0 may stand (5 base stones bis 10), the rows with the fewest come first, so a wall is not mostly 0.
+    if (lo === 0) list.sort((a, b) => a.filter((v) => v === 0).length - b.filter((v) => v === 0).length);
     rows = list.slice(0, p.count);
   } else {
     rows = [];

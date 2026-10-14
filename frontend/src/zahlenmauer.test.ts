@@ -210,6 +210,16 @@ describe("made: limits", () => {
       { numRuns: 200 },
     );
   });
+
+  // Teacher run 10: a wall bis 10 with 5 base stones was full of zeros. A wall there must hold a 0 or two, no more.
+  it("plus, 5 base stones bis 10: no base row of 4 walls holds more than two zeros", () => {
+    fc.assert(
+      fc.property(seeds, (seed) => {
+        for (const w of made(P({ seed, base: 5, max: 10, count: 4 })).walls) expect(w.numbers.slice(0, 5).filter((v) => v === 0).length).toBeLessThanOrEqual(2);
+      }),
+      { numRuns: 100 },
+    );
+  });
 });
 
 describe("fixes", () => {
