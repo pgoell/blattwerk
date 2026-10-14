@@ -9,7 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
-import type { RechendreieckProps } from "./rechendreieck";
+import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -1878,9 +1878,62 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   );
 }
 
-// A Rechendreieck: its triangles in columns, as the contract in rechendreieck.ts says.
-function Rechendreieck({ solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
-  return <div className={`rechendreieck${solved ? " solved" : ""}`} />;
+// A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
+// are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
+// with the block.
+function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
+  const p = saneRechen(block.props);
+  const { triangles } = drawnRechen(p);
+  const SIDE = 60;
+  const H = (SIDE * Math.sqrt(3)) / 2;
+  const [GAP, RING, BOX] = [10, 7, [16, 10]];
+  const corner: [number, number][] = [[SIDE / 2, 0], [0, H], [SIDE, H]];
+  const centre: [number, number] = [SIDE / 2, (2 * H) / 3];
+  const inner = corner.map(([x, y]): [number, number] => [x + (centre[0] - x) / 2, y + (centre[1] - y) / 2]);
+  // Outside the middle of each side, pushed out until the box clears the side.
+  const outer = SIDES.map(([a, b]): [number, number] => {
+    const [mx, my] = [(corner[a][0] + corner[b][0]) / 2, (corner[a][1] + corner[b][1]) / 2];
+    const [dx, dy] = [mx - centre[0], my - centre[1]];
+    const len = Math.hypot(dx, dy);
+    const [nx, ny] = [dx / len, dy / len];
+    const reach = (BOX[0] / 2) * Math.abs(nx) + (BOX[1] / 2) * Math.abs(ny) + 2;
+    return [mx + nx * reach, my + ny * reach];
+  });
+  const [minX, maxX] = [Math.min(0, ...outer.map(([x]) => x - BOX[0] / 2)), Math.max(SIDE, ...outer.map(([x]) => x + BOX[0] / 2))];
+  const maxY = Math.max(H, ...outer.map(([, y]) => y + BOX[1] / 2));
+  const [cellW, cellH] = [maxX - minX, maxY];
+  const cols = p.columns;
+  const rows = Math.max(1, Math.ceil(triangles.length / cols));
+  return (
+    <div className={`rechendreieck${solved ? " solved" : ""}`}>
+      {/* Half a unit of room around the triangles, so the lines at the edge show whole. */}
+      <svg viewBox={`-0.5 -0.5 ${cols * cellW + (cols - 1) * GAP + 1} ${rows * cellH + (rows - 1) * GAP + 1}`} preserveAspectRatio="xMidYMin meet">
+        {triangles.map((tri, t) => {
+          const [x, y] = [(t % cols) * (cellW + GAP) - minX, Math.floor(t / cols) * (cellH + GAP)];
+          return (
+            <g key={t} className={`triangle${tri.wrong ? " wrong" : ""}`} data-triangle={t} transform={`translate(${x} ${y})`}>
+              <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
+              {Array.from({ length: RECHEN_FIELDS }, (_, j) => {
+                const [cx, cy] = j < 3 ? inner[j] : outer[j - 3];
+                const shows = !p.empty && (tri.given[j] || solved);
+                return (
+                  <g key={j} className="field" data-field={j}>
+                    {j < 3
+                      ? <circle cx={cx} cy={cy} r={RING} fill="white" stroke="#222" strokeWidth={0.4} />
+                      : <rect x={cx - BOX[0] / 2} y={cy - BOX[1] / 2} width={BOX[0]} height={BOX[1]} fill="white" stroke="#222" strokeWidth={0.4} />}
+                    {shows && (
+                      <text x={cx} y={cy} fontSize={5.5} textAnchor="middle" dominantBaseline="central"
+                        fill={tri.given[j] ? "#222" : "#c0392b"} className={tri.given[j] ? "given" : "answer"}>{tri.numbers[j]}</text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
 }
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.

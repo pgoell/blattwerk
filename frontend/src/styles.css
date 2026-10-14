@@ -504,6 +504,8 @@ body:has(.print) { background: #fff; }
 .suchsel .ring { fill: #c0392b; fill-opacity: .12; stroke: #c0392b; }
 .block .zahlenmauer { height: 100%; font-family: Andika; }
 .zahlenmauer svg { width: 100%; height: 100%; font-family: Andika; }
+.block .rechendreieck { height: 100%; font-family: Andika; }
+.rechendreieck svg { width: 100%; height: 100%; font-family: Andika; }
 /* A table: its top and left line are its own, and each cell brings the line to its right and the one below it.
    A text too high for its cell starts at the top and is cut off below. An empty cell keeps a line of text's
    height, so a row with no text does not close up, and a table in a block too low for its rows is as high as they
