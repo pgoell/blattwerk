@@ -99,7 +99,7 @@ import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
+import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -1212,10 +1212,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     );
   }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
-  // A changed list changes every linked text on the page, which the grow effect measures.
+  // A changed list changes every linked text on the page, which the grow effect measures. A linked ruling grows by a
+  // row for each new word, in the same step.
   function listWords(value: string) {
     tight.current = true;
-    update((doc) => ({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
+    update((doc) => {
+      const next = { ...doc, words: value === "" ? undefined : value.split("\n") };
+      const words = wordsIn(next);
+      return { ...next, pages: doc.pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(doc, n)[0], sizeOf(doc, n)[1]) })) };
+    }, "words");
   }
   // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
   const listField = useRef<HTMLTextAreaElement>(null);
@@ -2646,7 +2651,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       })),
     })));
     if (turn !== applied.current) return;
-    update((cur) => ({ ...doc, pages, words: doc.words ?? cur.words }));
+    update((cur) => {
+      const next = { ...doc, words: doc.words ?? cur.words };
+      const words = wordsIn(next);
+      return { ...next, pages: pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(next, n)[0], sizeOf(next, n)[1]) })) };
+    });
     setIds([]);
   }
   async function forget(t: Template) {
