@@ -15,7 +15,8 @@
 //   (default "none"). A rule tints in colour `color`, 1 or 2 (default 1). `times` 1 to 10 (default 2), `line` 1 to 10,
 //   counted from the top or the left (default 1). `tints`: `[cell, 1 | 2]` each.
 // - `cut`, the Ausschnitt (default false): only the cells in `shape` are drawn, the cell `given` shows its number and
-//   the others are empty for the pupil to fill in; `show` does not count then, tints do. `shape`: cell indices
+//   the others are empty for the pupil to fill in (`shown` false, so the answer key prints them in red); `show` does
+//   not count then, tints do. `shape`: cell indices
 //   (default a cross: 34, 43, 44, 45, 54). `given`: a cell index; one not in `shape` gives the lowest cell of `shape`.
 //   An empty shape draws nothing but the hint in the panel.
 // - `fill`, the dots: "count" the first `dots` dots row by row (0 to 100, default 0), "free" the dots in `filled`
@@ -34,7 +35,8 @@
 // - Punkte: dot (row, col) has its centre at `dotAt(col)`, `dotAt(row)`: 8 + 9·k, plus 3 from the sixth on (the gap
 //   after five each way), radius 3.6. A filled dot is #222, an empty one a circle of 0.4 in #222.
 // - Tint colours (`TINT`): 1 a yellow and 2 a blue whose greys differ by at least 40 of 255 from each other and from
-//   white (the grey of a black and white copy: 0.299 r + 0.587 g + 0.114 b), so they tell apart on a copy.
+//   white (the grey of a black and white copy: 0.299 r + 0.587 g + 0.114 b), so they tell apart on a copy; the key's
+//   red #c0392b differs from both by at least 40 too.
 //
 // The drawing, on screen and in print alike (`Draw` in sheet.tsx): `div.hunderterfeld` (with `.solved` in the answer
 // key) holds one `svg` with the viewBox above. Tafel: per drawn cell `g.cell[data-i=i][data-value=v]` (with
