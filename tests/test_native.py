@@ -130,7 +130,7 @@ ORDER = {
             "Aufgaben",
             "Ein Kästchen weniger",
             "Ein Kästchen mehr",
-            "Ein Pfeil weniger",
+            # No arrows yet: "Ein Pfeil weniger" is disabled and Tab passes it.
             "Ein Pfeil mehr",
             "Neu würfeln",
             "Sprungbögen",
