@@ -101,6 +101,29 @@ ORDER = {
             "Neu würfeln",
         ],
     ),
+    # The given fields are the inner ones, so the free choice's buttons are not there. The inputs
+    # run in the drawing's order: the top, then the outer left, the outer right, and so on.
+    "rechendreieck": (
+        {"count": 3, "columns": 2, "max": 20, "given": "inner", "empty": False, "seed": 7},
+        [
+            *START,
+            "Ein Dreieck weniger",
+            "Ein Dreieck mehr",
+            "Eine Spalte weniger",
+            "Eine Spalte mehr",
+            "Zahlenraum",
+            "Gegebene Felder",
+            "Leer",
+            "Dreieck für eigene Zahlen",
+            "Zahl im Feld innen oben",
+            "Zahl im Feld außen links",
+            "Zahl im Feld außen rechts",
+            "Zahl im Feld innen links",
+            "Zahl im Feld außen unten",
+            "Zahl im Feld innen rechts",
+            "Neu würfeln",
+        ],
+    ),
 }
 
 
