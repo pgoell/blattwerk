@@ -30,13 +30,17 @@ run = "uv run uvicorn blattwerk.app:app --reload"
 description = "Run the frontend dev server, proxying /api to :8000"
 run = "npm run dev --prefix frontend"
 
+[tasks.deps]
+description = "Install frontend/node_modules when a fresh git worktree has none"
+run = "test -d frontend/node_modules || npm ci --prefix frontend"
+
 [tasks.build]
 description = "Build the frontend into the package"
 # Skipped while the build is newer than its sources: a build under a running test would swap the files it serves.
 sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts"]
 outputs = ["src/blattwerk/static/index.html"]
-# A fresh git worktree has no frontend/node_modules.
-run = ["test -d frontend/node_modules || npm ci --prefix frontend", "npm run build --prefix frontend"]
+depends = ["deps"]
+run = "npm run build --prefix frontend"
 
 # ─── Testing ────────────────────────────────────────────────────────────────
 
@@ -70,6 +74,7 @@ run = "xvfb-run -a uv run pytest -n 0"
 
 [tasks."test:model"]
 description = "Run the sheet model's property tests: vitest and fast-check, no browser"
+depends = ["deps"]
 run = "npm test --prefix frontend"
 
 [tasks.shot]
@@ -95,6 +100,7 @@ run = "uv run python scripts/teacher-page.py"
 
 [tasks.lint]
 description = "Lint, format-check and type-check"
+depends = ["deps"]
 run = [
   "uv run ruff check",
   "uv run ruff format --check",
