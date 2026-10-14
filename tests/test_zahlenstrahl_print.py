@@ -194,6 +194,19 @@ def test_no_box_covers_a_number_and_no_arrow_touches_a_tick(editor):
     assert line_of(page).evaluate(CLASH)["gap"] >= 1.9
 
 
+def test_a_large_first_number_is_not_cut_off(editor):
+    """I8: "340" at 24 pt is wider than the 12 mm round its tick; the svg lets it reach past the
+    block's left edge, whole."""
+    page = editor(
+        box("z", "zahlenstrahl", {**PROPS, "start": 340, "end": 360, "size": 24}, w=180, h=30),
+        client=user(),
+    )
+    first = line_of(page).locator("text.label").first
+    expect(first).to_have_text("340")
+    assert first.evaluate("t => t.getBBox().x") < 0
+    assert line_of(page).locator("svg").evaluate("s => getComputedStyle(s).overflow") == "visible"
+
+
 def test_labels_ends_shows_only_the_first_and_the_last_number(editor):
     """Own: labels "ends" with no tasks shows the numbers 0 and 20 and no other."""
     page = editor(
