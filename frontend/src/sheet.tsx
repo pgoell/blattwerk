@@ -12,7 +12,7 @@ import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
-import { BELOW, LEFT as STRAHL_LEFT, arrowXs, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
+import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -1956,7 +1956,7 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   const p = saneStrahl(block.props);
   const { ticks, arrows, arcs } = drawnStrahl(p);
   const { w, h } = block;
-  const y = h - BELOW;
+  const y = h - below(p, w);
   const FS = (p.size * 25.4) / 72;
   const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
   const cut = p.cut && p.start > 0;
@@ -1978,14 +1978,9 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
         {ticks.map((t, i) => {
           const x = xOf(i, ticks.length, w);
           const reach = t.long ? 3 : 1.5;
-          // Room for the number at the numbers' size: Andika's digits are about 0.55 em.
-          const bw = Math.max(8, 3 + String(t.value).length * 0.6 * FS);
-          // Andika's line box is about 1.55 em high.
-          const bh = Math.max(6, 1.6 * FS);
-          // A box that would cover a number shown beside it goes one row lower.
-          const covers = t.task === "box" && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
-          // A number's line box is about 1.35 em high.
-          const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
+          // The box's size, and a box that would cover a number shown beside it, which goes one row lower.
+          const { bw, bh, covers, dy } = t.task === "box" ? boxUnder(ticks, i, w, p.size) : { bw: 0, bh: 0, covers: false, dy: 0 };
+          const top = y + dy;
           // The leader stops short of a shown number's digits where one stands on it. A digit is taken as 0.65 em wide,
           // more than Andika's, so a line that only grazes a number breaks too.
           const through = covers && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) <= (String(o.value).length * 0.65 * FS) / 2 + 0.5);

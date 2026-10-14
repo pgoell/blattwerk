@@ -36,7 +36,8 @@
 // the same to the tenth of a mm at any zoom:
 // - The ticks spread exactly over the block's width less `LEFT` and `RIGHT`: tick i of n stands at `xOf(i, n, w)`.
 //   The arrow head ends at `w - 1`. Widening the block widens the gaps; the numbers keep their size.
-// - The line lies `BELOW` mm above the block's bottom. A long tick reaches 3 mm above and below it, a small one 1.5.
+// - The line lies `below(p, w)` mm above the block's bottom, `BELOW` at least, lower when a box hangs lower. A long
+//   tick reaches 3 mm above and below it, a small one 1.5.
 //   Numbers and boxes stand under it, arrows' numbers and arcs above it. A box that would cover a number shown
 //   beside it stands one row lower, a thin line from its tick down to it. An arrow's stub ends 2 mm above the ticks.
 //
@@ -144,6 +145,33 @@ export function count(p: ZahlenstrahlProps): number {
 export function crowded(p: ZahlenstrahlProps, w: number): boolean {
   const n = count(p);
   return n > 1 && (w - LEFT - RIGHT) / (n - 1) < 1;
+}
+
+// The box under tick i of a line in a block w mm wide with numbers `size` pt: its x, its width and height, its top
+// `dy` mm below the line, and whether it is lowered over a number shown beside it. The drawing and `below` share it.
+export function boxUnder(ticks: Tick[], i: number, w: number, size: number) {
+  const FS = (size * 25.4) / 72;
+  const x = xOf(i, ticks.length, w);
+  const bw = Math.max(8, 3 + String(ticks[i].value).length * 0.6 * FS);
+  const bh = Math.max(6, 1.6 * FS);
+  const covers = ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+  return { x, bw, bh, covers, dy: covers ? 5 + 1.35 * FS + 0.5 : 3.5 };
+}
+
+// The mm the line lies above the block's bottom: `BELOW`, or lower when a box or a number under the line reaches
+// further down, with half a mm to spare. `p` is already sane.
+export function below(p: ZahlenstrahlProps, w: number): number {
+  const { ticks } = made(p);
+  const FS = (p.size * 25.4) / 72;
+  let low = BELOW;
+  if (ticks.some((t) => t.label && !t.task)) low = Math.max(low, 5 + 1.55 * FS + 0.5);
+  ticks.forEach((t, i) => {
+    if (t.task === "box") {
+      const b = boxUnder(ticks, i, w, p.size);
+      low = Math.max(low, b.dy + b.bh + 0.5);
+    }
+  });
+  return low;
 }
 
 // The settings as a Zahlenstrahl can take them, whatever a stored sheet holds: a value of the wrong kind or out of
