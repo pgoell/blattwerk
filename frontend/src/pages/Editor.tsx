@@ -112,7 +112,7 @@ import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
 
-type Template = { id: number; name: string; doc: Doc };
+type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
 type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
@@ -2604,9 +2604,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
     });
   }
-  // A template takes the place of the sheet; undo brings the sheet back.
-  function apply(t: Template) {
-    update(() => read(t.doc));
+  // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
+  // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
+  // Lernwörter unless the template brings some.
+  async function apply(t: Template) {
+    const doc = read(t.doc);
+    const pages = t.id > 0 ? doc.pages : await Promise.all(doc.pages.map(async (p) => ({
+      ...p,
+      blocks: await Promise.all(p.blocks.map(async (b): Promise<Block> => {
+        const props = b.props as Record<string, unknown>;
+        if (typeof props.seed !== "number") return b;
+        const limits = { ...props, seed: newSeed() };
+        if (b.type !== "maths") return { ...b, props: limits } as Block;
+        const made = await generate(limits as Parameters<typeof generate>[0]).catch(() => undefined);
+        return made ? ({ ...b, props: { ...limits, ...made } } as Block) : b;
+      })),
+    })));
+    update((cur) => ({ ...doc, pages, words: doc.words ?? cur.words }));
     setIds([]);
   }
   async function forget(t: Template) {
@@ -3254,15 +3268,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </div>
           <h2>Vorlagen</h2>
-          {templates.filter((t) => t.id < 0).map((t) => (
-            <div key={t.id} className="tpl">
-              <button onClick={() => apply(t)}>
-                <LayoutTemplate size={14} aria-hidden />
-                {t.name}
-              </button>
-              <small>eingebaut</small>
-            </div>
-          ))}
+          {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
+            const group = templates.filter((t) => t.id < 0 && t.group === g);
+            return group.length ? (
+              <div role="group" aria-label={g} className="tpl-group" key={g}>
+                <h3>{g}</h3>
+                {group.map((t) => (
+                  <div key={t.id} className="tpl">
+                    <button onClick={() => apply(t)}>
+                      <span className="tpl-thumb" aria-hidden>
+                        <Thumb doc={read(t.doc)} k={48 / 210} page={0} />
+                      </span>
+                      {t.name}
+                    </button>
+                    <small>eingebaut</small>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })}
           <h2>Meine Vorlagen</h2>
           {kept.map((t) => (
             <div key={t.id} className="tpl">
