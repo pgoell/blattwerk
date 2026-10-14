@@ -57,6 +57,8 @@
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
 
+import { rng } from "./zahlenmauer";
+
 export type Task = "box" | "arrow";
 export type Mark = [number, Task];
 export type ZahlenstrahlProps = {
@@ -126,27 +128,102 @@ export function crowded(p: ZahlenstrahlProps, w: number): boolean {
 // range gives its default (an `end` not above `start` gives `start + 20`; a `major` or `jump` that is no multiple of
 // `minor` gives `minor * 5` and `major`), a `marks` entry that is not a whole number and a task is dropped, and of
 // two for one number the last stays; an `arcs` entry that is not a string becomes null.
-// PLACEHOLDER until the model is built: trusts the props.
 export function sane(p: ZahlenstrahlProps): ZahlenstrahlProps {
-  return { ...DEFAULTS, ...p };
+  const r = (p ?? {}) as unknown as Record<string, unknown>;
+  const start = whole(r.start, 0, MAX - 1, DEFAULTS.start);
+  const given = whole(r.end, 0, MAX, DEFAULTS.end);
+  const end = given > start ? given : Math.min(start + 20, MAX);
+  const minor = whole(r.minor, 1, MAX, DEFAULTS.minor);
+  const major = multipleOf(r.major, minor) ? (r.major as number) : minor * 5;
+  const jump = multipleOf(r.jump, minor) ? (r.jump as number) : undefined;
+  const marks = new Map<number, Task>();
+  if (Array.isArray(r.marks))
+    for (const m of r.marks) if (Array.isArray(m) && isWhole(m[0]) && (m[1] === "box" || m[1] === "arrow")) marks.set(m[0], m[1]);
+  return {
+    start,
+    end,
+    minor,
+    major,
+    labels: pick(r.labels, ["all", "major", "ends", "none"] as const, DEFAULTS.labels),
+    size: whole(r.size, 8, 24, DEFAULTS.size),
+    cut: typeof r.cut === "boolean" ? r.cut : DEFAULTS.cut,
+    tasks: pick(r.tasks, ["random", "free"] as const, DEFAULTS.tasks),
+    boxes: whole(r.boxes, 0, 12, DEFAULTS.boxes),
+    arrows: whole(r.arrows, 0, 6, DEFAULTS.arrows),
+    marks: [...marks],
+    jumps: typeof r.jumps === "boolean" ? r.jumps : DEFAULTS.jumps,
+    jump,
+    arcs: Array.isArray(r.arcs) ? r.arcs.map((a) => (typeof a === "string" ? a : null)) : undefined,
+    seed: isWhole(r.seed) ? r.seed : 0,
+  };
+}
+
+const isWhole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+const whole = (v: unknown, lo: number, hi: number, dflt: number): number => (isWhole(v) && v >= lo && v <= hi ? v : dflt);
+const pick = <T extends string>(v: unknown, list: readonly T[], dflt: T): T => list.find((x) => x === v) ?? dflt;
+// A whole positive number that `of` divides.
+const multipleOf = (v: unknown, of: number): boolean => isWhole(v) && v >= 1 && v % of === 0;
+
+// Shuffled with `rnd`, the input left as it is.
+function shuffle<T>(xs: T[], rnd: () => number): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// The random boxes first, on ticks that show no number where there are enough, then the arrows, on the ticks left.
+// Never the first tick.
+function placeRandom(ticks: Tick[], boxes: number, arrows: number, rnd: () => number): void {
+  const open = ticks.map((_, i) => i).filter((i) => i > 0);
+  const quiet = shuffle(
+    open.filter((i) => !ticks[i].label),
+    rnd,
+  );
+  const loud = shuffle(
+    open.filter((i) => ticks[i].label),
+    rnd,
+  );
+  for (const i of [...quiet, ...loud].slice(0, boxes)) ticks[i].task = "box";
+  const rest = shuffle(
+    open.filter((i) => !ticks[i].task),
+    rnd,
+  );
+  for (const i of rest.slice(0, arrows)) ticks[i].task = "arrow";
 }
 
 // The ticks with their tasks, the arrow numbers in their order, and the arcs. No ticks above LIMIT.
-// PLACEHOLDER until the model is built: the free marks only, the second tick a box when random.
+// `p` is already sane.
 export function made(p: ZahlenstrahlProps): Made {
   const n = count(p);
   if (n > LIMIT) return { ticks: [], arrows: [], arcs: [] };
-  const free = new Map(p.tasks === "free" ? (p.marks ?? []) : []);
+  const rnd = rng(p.seed);
   const ticks = Array.from({ length: n }, (_, i): Tick => {
     const value = p.start + i * p.minor;
     const long = (value - p.start) % p.major === 0;
     const label = p.labels === "all" || (p.labels === "major" && long) || (p.labels === "ends" && (i === 0 || i === n - 1));
-    const task = p.tasks === "free" ? free.get(value) : i === 1 && p.boxes > 0 ? "box" : undefined;
-    return { value, long, label, ...(task && { task }) };
+    return { value, long, label };
   });
-  const arrows = ticks.filter((t) => t.task === "arrow").map((t) => t.value);
-  const jump = p.jump ?? p.major;
+  if (p.tasks === "free") {
+    const free = new Map(p.marks ?? []);
+    for (const t of ticks) {
+      const task = free.get(t.value);
+      if (task) t.task = task;
+    }
+  } else {
+    placeRandom(ticks, p.boxes, p.arrows, rnd);
+  }
+  const arrows = shuffle(
+    ticks.filter((t) => t.task === "arrow").map((t) => t.value),
+    rnd,
+  );
   const arcs: Arc[] = [];
-  if (p.jumps) for (let a = p.start, i = 0; a + jump <= ticks[n - 1].value; a += jump, i++) arcs.push({ from: a, to: a + jump, label: p.arcs?.[i] ?? `+${jump}` });
+  if (p.jumps) {
+    const jump = p.jump ?? p.major;
+    const last = ticks[n - 1].value;
+    for (let a = p.start, i = 0; a + jump <= last; a += jump, i++) arcs.push({ from: a, to: a + jump, label: p.arcs?.[i] ?? `+${jump}` });
+  }
   return { ticks, arrows, arcs };
 }
