@@ -46,5 +46,5 @@ def test_deckblatt_prints_its_name_line(server):
     client = user()
     made = sheet(client, *template("Klassenarbeit Deckblatt")["doc"]["pages"])
     _, text = printed(server, client, made)
-    assert "Name" in text.split()
-    assert "Klasse" in text.split()
+    assert "Name:" in text.split()
+    assert "Klasse:" in text.split()
