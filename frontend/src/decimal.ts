@@ -1,3 +1,11 @@
+import type { Limits } from "./sheet";
+
+// The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
+export function decimalsOf(p: Limits): number {
+  if (p.ops.includes("*") || p.ops.includes("/") || p.format === "compare") return 0;
+  return p.money ? 2 : p.decimals ?? 0;
+}
+
 // The gap between the groups of a big number: a narrow no-break space, as the school books set it.
 export const GAP = String.fromCharCode(0x202f);
 

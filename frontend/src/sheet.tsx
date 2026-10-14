@@ -13,7 +13,7 @@ import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneReche
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
 import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
-import { decimal, GAP } from "./decimal";
+import { decimal, decimalsOf, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -144,11 +144,7 @@ export type Limits = {
   distinct?: boolean;
   small?: boolean;
 };
-// The places after the comma of a maths block's numbers. Times, divide and compare have none; Geld has two.
-export function decimalsOf(p: Limits): number {
-  if (p.ops.includes("*") || p.ops.includes("/") || p.format === "compare") return 0;
-  return p.money ? 2 : p.decimals ?? 0;
-}
+export { decimalsOf } from "./decimal";
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
 export type Made = { exercises: Exercise[]; loosen: string[] | null };
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
