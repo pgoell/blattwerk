@@ -498,6 +498,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [panning, setPanning] = useState(false);
   // Where the hand's drag began: the pointer, and the desk's scroll.
   const hand = useRef([0, 0, 0, 0]);
+  // Space pressed on a picked text, shape, table or Lineatur: opens it at the keyup, unless the hand dragged meanwhile.
+  const spaced = useRef<(() => void) | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -881,15 +883,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
-    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space too, when
-    // it is typed into a picked block; with nothing picked it stays the hand's key below.
+    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space is also
+    // the hand's key: on a picked block it opens it at the keyup and types the space, unless the hand dragged first.
     const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
-      flushSync(() => edit(free[0].id));
+      const id = free[0].id;
+      if (space) {
+        e.preventDefault();
+        if (!e.repeat) {
+          setPan(true);
+          spaced.current = () => edit(id);
+        }
+        return;
+      }
+      flushSync(() => edit(id));
+      // A key that comes while Space is still down: the space first, then the key.
+      if (spaced.current) {
+        spaced.current = null;
+        document.execCommand("insertText", false, " ");
+      }
       return;
     }
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
-    if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (space) {
       if (!target.closest("button, a, summary")) e.preventDefault();
       if (!e.repeat) setPan(true);
       return;
@@ -955,11 +972,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const onKey = (e: KeyboardEvent) => {
       setMod((e.shiftKey ? KEEP : 0) | ((APPLE ? e.altKey : e.ctrlKey) ? CENTRE : 0) | ((APPLE ? e.metaKey : e.altKey) ? LOOSE : 0));
       // Letting Space go puts the hand down. A drag that is on goes on until the pointer lifts.
-      if (e.type === "keyup" && e.code === "Space") setPan(false);
+      if (e.type === "keyup" && e.code === "Space") {
+        setPan(false);
+        const open = spaced.current;
+        spaced.current = null;
+        if (open) {
+          flushSync(open);
+          document.execCommand("insertText", false, " ");
+        }
+      }
     };
     const onBlur = () => {
       setMod(0);
       setPan(false);
+      spaced.current = null;
       setPanning(false);
     };
     window.addEventListener("keydown", onKey);
@@ -3468,6 +3494,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               if (e.button) return;
               e.currentTarget.setPointerCapture(e.pointerId);
               hand.current = [e.clientX, e.clientY, desk.current!.scrollLeft, desk.current!.scrollTop];
+              // A drag: the Space was the hand's, not a space to type.
+              spaced.current = null;
               setPanning(true);
               // A button that has the focus would take Space's keyup as its click.
               if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();

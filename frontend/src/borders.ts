@@ -90,17 +90,19 @@ export function cutLines<T extends Table>(p: T, on: boolean): T {
 
 // The `edges` of the table after a row or a column is added before the one at `i`, or the one at `i` is taken away.
 // `p` is the table before the change. Undefined when it has no valid `edges`. A new row's top rim stays the rim.
-// A new row or column takes the lines of its neighbour (the one before it, or the first at the top or left), so a
-// closed frame stays closed. The line between the new one and its neighbour is null: the table's style.
+// A new row or column takes the rim of its neighbour at both ends (the one before it, or the first at the top or
+// left), so a closed frame stays closed. Its other new lines are null: the table's style.
 export function edgesSpliced(p: Table, axis: "row" | "col", i: number, add: boolean): Edges | undefined {
   const e = edgesOf(p);
   if (!e) return undefined;
   const [rows, cols] = [p.cells.length, p.cols.length];
   const neighbour = i > 0 ? i - 1 : 0;
   if (axis === "row") {
-    if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, [...e.v[neighbour]]) };
+    const ends = nulls(cols + 1);
+    [ends[0], ends[cols]] = [e.v[neighbour][0], e.v[neighbour][cols]];
+    if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, ends) };
     return { h: remove(e.h, i === rows - 1 ? i : i + 1), v: remove(e.v, i) };
   }
-  if (add) return { h: e.h.map((list) => insert(list, i, list[neighbour])), v: e.v.map((list) => insert(list, i === 0 ? 1 : i, null)) };
+  if (add) return { h: e.h.map((list, r) => insert(list, i, r === 0 || r === rows ? list[neighbour] : null)), v: e.v.map((list) => insert(list, i === 0 ? 1 : i, null)) };
   return { h: e.h.map((list) => remove(list, i)), v: e.v.map((list) => remove(list, i === cols - 1 ? i : i + 1)) };
 }

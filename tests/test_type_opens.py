@@ -214,3 +214,18 @@ def test_a_space_with_nothing_picked_types_nothing(editor):
     expect(page.locator(FIELD)).to_have_count(0)
     expect(page.locator("textarea:focus")).to_have_count(0)
     expect(at(page, "a")).to_have_text("Hallo")
+
+
+def test_a_held_space_with_a_picked_text_pans_and_types_nothing(editor):
+    """The orchestrator's check on #561: Space held and a drag move the desk with a picked text,
+    as before this fix, and no space lands in the text."""
+    from test_zoom import pan, roomy
+
+    page = editor(box("a", "text", TEXT))
+    roomy(page)
+    pick(page, "a")
+    corner = page.locator(".desk").bounding_box()
+    pan(page, (corner["x"] + 40, corner["y"] + 40), 60, 40)
+    expect(page.locator(FIELD)).to_have_count(0)
+    expect_picked(page, "a")
+    expect(at(page, "a")).to_have_text("Hallo")
