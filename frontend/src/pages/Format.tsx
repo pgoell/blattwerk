@@ -46,7 +46,7 @@ type Props = {
   part?: Picked;
   place: (boxes: [string, Partial<Box>][], key?: string) => void;
   // Adds a row or a column to a table before the one at `i`, or takes the one at `i` away.
-  rank: (b: TableBlock, axis: "row" | "col", i: number, add: boolean) => void;
+  rank: (b: TableBlock, axis: "row" | "col", i: number, add: boolean, after?: boolean) => void;
   // The cell of the table being edited, counted row by row.
   cell?: number;
   // The far corner of the cells picked with the open one, if any.
@@ -521,7 +521,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
               return (
                 <div key={name} className="acts">
                   <button onClick={() => rank(tables[0], axis, at, true)}>{name} {i ? "links" : "darüber"}</button>
-                  <button onClick={() => rank(tables[0], axis, after, true)}>{name} {i ? "rechts" : "darunter"}</button>
+                  <button onClick={() => rank(tables[0], axis, after, true, true)}>{name} {i ? "rechts" : "darunter"}</button>
                 </div>
               );
             })}

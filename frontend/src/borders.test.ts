@@ -139,6 +139,20 @@ describe("edgesSpliced", () => {
     expect(out.v.every((list) => list[1] === null)).toBe(true);
   });
 
+  // Issue #574: a row or column added after its anchor keeps the line at the join with the anchor, so a box round the
+  // anchor stays closed.
+  it("keeps the line between an anchor row and the next when a row goes after it, and leaves the new line null", () => {
+    const out = edgesSpliced(sized, "row", 1, true, true)!;
+    expect(out.h[1]).toStrictEqual(valid.h[1]);
+    expect(out.h[2].every((edge) => edge === null)).toBe(true);
+  });
+
+  it("keeps the line between an anchor column and the next when a column goes after it, and leaves the new line null", () => {
+    const out = edgesSpliced(sized, "col", 1, true, true)!;
+    expect(out.v.map((list) => list[1])).toStrictEqual(valid.v.map((list) => list[1]));
+    expect(out.v.every((list) => list[2] === null)).toBe(true);
+  });
+
   // The first column framed alone: its right line is thick inside the table.
   const column = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 0], "outer", pen)) } as Table;
 

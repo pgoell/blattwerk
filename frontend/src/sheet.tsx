@@ -483,7 +483,7 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A row or column that comes or goes takes its gap flags along: a new one has no gap. A merged cell that grows or
 // shrinks keeps its span; one that loses its first row or column hands its text and flag to the cell that starts it.
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
-export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
+export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean, after = false): TableBlock["props"] {
   // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
   // Lines that do not hold go too: with a row more or less they could fit by chance, on the wrong cells.
   const { cells, cols, gaps, spans: _, rows: __, edges: ___, ...rest } = props;
@@ -511,7 +511,7 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   });
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
-  const edges = edgesSpliced(props, axis, i, add);
+  const edges = edgesSpliced(props, axis, i, add, after);
   if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }), ...(edges && { edges }) };
   return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }), ...(edges && { edges }) };
 }
