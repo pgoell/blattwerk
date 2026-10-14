@@ -236,11 +236,9 @@ const exponent = (n: number, p: number): number => {
 // contradict each other or some stone comes out not whole, below 0 (plus) or below 1 (times).
 function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, number>): { numbers: number[]; wrong: boolean } {
   const base = p.base;
-  const n = stones(base);
   const times = p.op === "*";
   const shown = { numbers: generated.map((v, i) => (typed.has(i) ? (typed.get(i) as number) : v)), wrong: true };
   if (times && [...typed.values()].includes(0)) return shown;
-  const value = (i: number) => (typed.has(i) ? (typed.get(i) as number) : generated[i]);
   const used: number[] = [...typed.keys()];
   const rows = used.map((i) => vector(base, i));
   for (let j = 0; j < base; j++) {
@@ -251,35 +249,65 @@ function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, numbe
       rows.push(e);
     }
   }
-  if (!times) {
-    const res = solve(base, rows, used.map(value));
-    if (!res.ok || !res.x) return shown;
-    const out: number[] = [];
-    for (let i = 0; i < n; i++) {
-      const [r, c] = cells(base)[i];
-      let s: Fr = [0, 1];
-      for (let j = 0; j <= r; j++) s = add(s, mul(res.x[c + j], [binom(r, j), 1]));
-      if (s[1] !== 1 || s[0] < 0) return shown;
-      out.push(s[0]);
-    }
-    return { numbers: out, wrong: false };
+  const valueOf = (i: number) => typed.get(i) ?? generated[i];
+  const greedy = derive(p, typed, used, rows, valueOf);
+  if (greedy) return { numbers: greedy, wrong: false };
+  // The greedy fill gave no wall: try other values for the generated base stones, in order, and take the first that fits.
+  const free = used.filter((i) => !typed.has(i));
+  if (!free.length) return shown;
+  const lo = floorOf(p);
+  const hi = Math.max(...typed.values());
+  const digits = free.map(() => lo);
+  for (let t = 0; t < 20000; t++) {
+    const cand = new Map(free.map((i, k) => [i, digits[k]]));
+    const found = derive(p, typed, used, rows, (i) => typed.get(i) ?? cand.get(i) ?? generated[i]);
+    if (found) return { numbers: found, wrong: false };
+    let k = 0;
+    while (k < digits.length && digits[k] + 1 > hi) digits[k++] = lo;
+    if (k === digits.length) break;
+    digits[k]++;
   }
-  const primes = new Set<number>();
-  for (const i of used) for (const q of primesOf(value(i))) primes.add(q);
+  return shown;
+}
+
+// The numbers of a wall from the rows of its constrained stones and the value of each: solved exactly, then checked.
+// Undefined when the stones are not whole, below 0 (plus) or below 1 (times), above 9999, or contradict the typed ones.
+function derive(p: ZahlenmauerProps, typed: Map<number, number>, used: number[], rows: number[][], valueOf: (i: number) => number): number[] | undefined {
+  const base = p.base;
+  const n = stones(base);
+  // The value of a stone from the solved base stones x: its row times x, which must be whole and 0 or more.
+  const of = (x: Fr[], i: number): number | undefined => {
+    const [r, c] = cells(base)[i];
+    let s: Fr = [0, 1];
+    for (let j = 0; j <= r; j++) s = add(s, mul(x[c + j], [binom(r, j), 1]));
+    return s[1] === 1 && s[0] >= 0 ? s[0] : undefined;
+  };
   const out = Array.from({ length: n }, () => 1);
-  for (const q of primes) {
-    const res = solve(base, rows, used.map((i) => exponent(value(i), q)));
-    if (!res.ok || !res.x) return shown;
+  if (p.op !== "*") {
+    const res = solve(base, rows, used.map(valueOf));
+    if (!res.ok || !res.x) return undefined;
     for (let i = 0; i < n; i++) {
-      const [r, c] = cells(base)[i];
-      let s: Fr = [0, 1];
-      for (let j = 0; j <= r; j++) s = add(s, mul(res.x[c + j], [binom(r, j), 1]));
-      if (s[1] !== 1 || s[0] < 0) return shown;
-      out[i] *= q ** s[0];
-      if (!Number.isSafeInteger(out[i])) return shown;
+      const v = of(res.x, i);
+      if (v === undefined) return undefined;
+      out[i] = v;
+    }
+  } else {
+    const primes = new Set<number>();
+    for (const i of used) for (const q of primesOf(valueOf(i))) primes.add(q);
+    for (const q of primes) {
+      const res = solve(base, rows, used.map((i) => exponent(valueOf(i), q)));
+      if (!res.ok || !res.x) return undefined;
+      for (let i = 0; i < n; i++) {
+        const e = of(res.x, i);
+        if (e === undefined) return undefined;
+        out[i] *= q ** e;
+        if (!Number.isSafeInteger(out[i])) return undefined;
+      }
     }
   }
-  return { numbers: out, wrong: false };
+  if (out.some((v) => v > 9999)) return undefined;
+  if ([...typed].some(([i, v]) => out[i] !== v)) return undefined;
+  return out;
 }
 
 // The walls of sane settings and what to loosen. The same settings give the same walls on every call.

@@ -247,6 +247,25 @@ describe("typed numbers", () => {
     expect(w.numbers[5]).toBe(5);
   });
 
+  it("(e) plus, typed top 6 over the generated 4 5 4 (seed 1) finds a wall: 1 1 4 makes 6", () => {
+    const w = made(P({ typed: [[0, 5, 6]] })).walls[0];
+    expect(w.wrong).toBe(false);
+    expect(w.numbers[5]).toBe(6);
+    expect(holdsRule(3, w.numbers, "+")).toBe(true);
+  });
+
+  it("(f) times, typed top 36 alone gives a valid wall with top 36", () => {
+    const w = made(P({ op: "*", max: 1000, typed: [[0, 5, 36]] })).walls[0];
+    expect(w.wrong).toBe(false);
+    expect(w.numbers[5]).toBe(36);
+    expect(holdsRule(3, w.numbers, "*")).toBe(true);
+  });
+
+  it("(g) plus, typed base stones 5000, 5000, 5000 are wrong: the top would be 20000", () => {
+    const w = made(P({ max: 1000, typed: [[0, 0, 5000], [0, 1, 5000], [0, 2, 5000]] })).walls[0];
+    expect(w.wrong).toBe(true);
+  });
+
   it("(d) times, a typed top 7 is wrong and a typed top 9 gives the middle stone 3; a typed 0 is wrong", () => {
     const seven = made(P({ op: "*", typed: [[0, 0, 1], [0, 2, 1], [0, 5, 7]] })).walls[0];
     expect(seven.wrong).toBe(true);
