@@ -217,6 +217,36 @@ def test_the_lernwoerter_blatt_is_a_new_page_in_one_step(editor):
     assert len(doc(page, client)["pages"]) == 2
 
 
+def test_a_long_blatt_runs_on_to_more_pages(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, [f"Wort{i}" for i in range(25)])
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    pages = doc(page, client)["pages"]
+    # The page in use, then the Blatt over three pages of 9 rows a block (the last one has 7).
+    assert len(pages) == 4
+    assert [b["type"] for b in pages[1]["blocks"]][:2] == ["text", "name"]
+    for mode in ["copy", "trace", "row"]:
+        blocks = [b for p in pages[1:] for b in p["blocks"] if b["type"] == "ruling"]
+        blocks = [b for b in blocks if b["props"]["list"] == mode]
+        assert [b["props"].get("from", 0) for b in blocks] == [0, 9, 18]
+    undo(page)
+    assert len(doc(page, client)["pages"]) == 1
+
+
+def test_a_short_blatt_is_one_page_as_before(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, ["Hund", "Katze", "Igel", "Reh", "Maus"])
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    stored = doc(page, client)
+    assert len(stored["pages"]) == 2
+    rulings_1 = [b for b in stored["pages"][1]["blocks"] if b["type"] == "ruling"]
+    assert all("from" not in b["props"] for b in rulings_1)
+
+
 def test_the_blatt_button_is_off_without_words(editor):
     page = editor(box("a", "text", TEXT), client=user())
     list_tab(page)
@@ -609,17 +639,18 @@ def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor
     assert rulings(doc(page, client))[0]["props"]["text"] == "Hund"
 
 
-def test_a_list_too_long_for_the_blatt_is_said_on_the_tab(editor):
-    """Review: the Lernwörter-Blatt picks no block, so the tab itself says what does not fit."""
+def test_a_list_too_long_for_one_page_of_the_blatt_runs_on_with_no_warning(editor):
+    """A list too long for one page's rows goes on to the next page, so the tab says nothing."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     store_words(page, client, [f"Wort{n}" for n in range(12)])
     list_tab(page)
     expect(page.locator(".panel [role=status]")).to_have_count(0)
     page.get_by_role("button", name="Lernwörter-Blatt").click()
-    said = "In einer Lineatur passen 3 Wörter nicht in die Zeilen."
-    expect(page.locator(".panel [role=status]")).to_have_text(said)
-    assert [b["h"] for b in rulings(doc(page, client), 1)] == [72, 72, 72]
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    stored = doc(page, client)
+    assert len(stored["pages"]) == 3
+    assert [b["h"] for b in rulings(stored, 1)] == [72, 72, 72]
 
 
 def test_a_lineatur_in_a_group_with_a_locked_block_takes_the_list_and_does_not_grow(editor):
