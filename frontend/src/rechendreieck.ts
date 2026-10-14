@@ -66,18 +66,49 @@ export const DEFAULTS: Omit<RechendreieckProps, "seed"> = { count: 4, columns: 4
 // `free` of another length or with a value not a boolean gives the inner fields, a `typed` entry that is not three
 // whole numbers in range is dropped, and of two for the same field the last one stays.
 export function sane(p: RechendreieckProps): RechendreieckProps {
-  void p;
-  throw new Error("not yet");
+  const free = Array.isArray(p.free) && p.free.length === FIELDS && p.free.every((f) => typeof f === "boolean") ? p.free : Array.from({ length: FIELDS }, (_, i) => i < 3);
+  const count = Number.isInteger(p.count) && p.count >= 1 && p.count <= 12 ? p.count : DEFAULTS.count;
+  const typed = new Map<string, Typed>();
+  if (Array.isArray(p.typed)) {
+    for (const t of p.typed) {
+      if (!Array.isArray(t) || t.length !== 3 || !t.every((x) => Number.isInteger(x))) continue;
+      const [w, f, v] = t;
+      if (w < 0 || w >= count || f < 0 || f >= FIELDS || v < 0 || v > 9999) continue;
+      typed.delete(`${w}:${f}`);
+      typed.set(`${w}:${f}`, [w, f, v]);
+    }
+  }
+  const kept = [...typed.values()];
+  return {
+    count,
+    columns: Number.isInteger(p.columns) && p.columns >= 1 && p.columns <= 4 ? p.columns : DEFAULTS.columns,
+    max: ZAHLENRAUM.includes(p.max) ? p.max : DEFAULTS.max,
+    given: p.given === "mix" || p.given === "outer" || p.given === "free" ? p.given : "inner",
+    free,
+    empty: p.empty === true,
+    seed: Number.isFinite(p.seed) ? p.seed : 0,
+    ...(kept.length ? { typed: kept } : {}),
+  };
 }
 
 // True when the given fields allow exactly one triangle: their rows over the inner numbers have rank 3.
+// PLACEHOLDER: the generator's subagent replaces it.
 export function fixes(given: boolean[]): boolean {
-  void given;
-  throw new Error("not yet");
+  return given.filter(Boolean).length >= 3;
 }
 
 // The triangles of the block. The same settings give the same triangles on every call.
+// PLACEHOLDER so that the drawing and the panel have triangles: the generator's subagent replaces it.
 export function made(props: RechendreieckProps): Made {
-  void props;
-  throw new Error("not yet");
+  const p = sane(props);
+  let a = p.seed | 0;
+  const next = () => ((a = (Math.imul(a, 1103515245) + 12345) | 0) >>> 0) / 4294967296;
+  const triangles = Array.from({ length: p.count }, (_, t): Triangle => {
+    const inner = [0, 1, 2].map(() => 1 + Math.floor(next() * Math.floor(p.max / 2)));
+    const numbers = [...inner, ...SIDES.map(([x, y]) => inner[x] + inner[y])];
+    for (const [w, f, v] of p.typed ?? []) if (w === t) numbers[f] = v;
+    const given = p.given === "free" ? [...(p.free as boolean[])] : Array.from({ length: FIELDS }, (_, i) => (p.given === "outer" ? i >= 3 : p.given === "mix" ? i === 0 || i === 1 || i === 4 : i < 3));
+    return { numbers, given, wrong: false };
+  });
+  return { triangles };
 }
