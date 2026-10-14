@@ -2013,9 +2013,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
     const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
-    const end = row.at(-1)!.box[axis] + row.at(-1)!.box[size];
-    const gap = (end - row[0].box[axis] - row.reduce((sum, r) => sum + r.box[size], 0)) / (row.length - 1);
-    let next = row[0].box[axis];
+    // Between the outer things, or between the page's edges. One thing goes to the middle of the frame.
+    const lo = among ? Math.min(...row.map((r) => r.box[axis])) : 0;
+    const hi = among ? Math.max(...row.map((r) => r.box[axis] + r.box[size])) : axis === "x" ? W : H;
+    const sum = row.reduce((total, r) => total + r.box[size], 0);
+    const gap = row.length > 1 ? (hi - lo - sum) / (row.length - 1) : 0;
+    let next = row.length > 1 ? lo : (lo + hi - sum) / 2;
     bring(
       row.flatMap(({ t, box }) => {
         const by = next - box[axis];
@@ -3755,8 +3758,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
               <h2>Verteilen</h2>
               <div className="acts">
-                <button disabled={things.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
-                <button disabled={things.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+                <button disabled={among ? things.length < 3 : !things.length} onClick={() => distribute("x")}>Waagerecht</button>
+                <button disabled={among ? things.length < 3 : !things.length} onClick={() => distribute("y")}>Senkrecht</button>
               </div>
               <h2>Größe angleichen</h2>
               <div className="acts">
