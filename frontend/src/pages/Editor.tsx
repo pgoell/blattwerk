@@ -1063,7 +1063,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const on = e.target as Element;
       if (!e.ctrlKey && !e.metaKey) {
         // The hand lies over the desk, so a wheel on it scrolls the desk from here.
-        if (on.closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
+        if (on.closest(".hand")) {
+          steer();
+          desk.current!.scrollBy(e.deltaX, e.deltaY);
+        }
         return;
       }
       e.preventDefault();
@@ -1312,7 +1315,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
     }
     // A Rechendreieck grows so that its triangles keep the size of the default block's.
-    if (b.type === "rechendreieck" && next.type === "rechendreieck") {
+    if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
       const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
       if (need > b.h) return tall(b, need);
     }
@@ -1489,6 +1492,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // On another page than before nothing is selected, and a crop ends with the picture as it was.
   function show(n: number, step: (h: typeof hist) => typeof hist) {
     mergeKey.current = "";
+    steered.current = 0;
     flushSync(() => {
       setHist(step);
       setAt(n);
@@ -1523,6 +1527,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function visit(n: number) {
     done();
+    steered.current = 0;
     flushSync(() => {
       setAt(n);
       setIds([]);
@@ -1664,10 +1669,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The page that fills most of the desk's view becomes the page in use when the teacher scrolls the desk (the wheel,
   // a finger, its scroll bar), so a new block lands where the teacher looks. A scroll the editor makes itself, to
   // show a page or a block, or a zoom with Ctrl and the wheel, leaves the page in use as it is.
+  // `steered` is the time until which a scroll counts as the teacher's; `scrollHeld` holds while the scroll bar is held.
+  // A text being typed keeps its page.
   const steered = useRef(0);
-  const steer = () => (steered.current = performance.now());
+  const scrollHeld = useRef(false);
+  const steer = (ms = 500) => (steered.current = performance.now() + ms);
   function follow() {
-    if (performance.now() - steered.current > 500) return;
+    if ((performance.now() > steered.current && !scrollHeld.current) || editing) return;
     const view = desk.current!.getBoundingClientRect();
     let [best, most] = [page, 0];
     for (const el of desk.current!.querySelectorAll<HTMLElement>("[data-page]")) {
@@ -2746,7 +2754,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
-    steer();
+    // One finger scrolls the desk, and its fling goes on after the lift; two pinch, which keeps the page in use.
+    if (e.touches.length === 1) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
@@ -3271,7 +3280,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           onScroll={follow}
           onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) steer();
+            if (e.target === e.currentTarget) {
+              scrollHeld.current = true;
+              window.addEventListener("pointerup", () => (scrollHeld.current = false), { once: true });
+            }
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
@@ -3619,6 +3631,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               if (!panning) return;
               // The button came up where the hand could not see it.
               if (!e.buttons) return setPanning(false);
+              steer();
               desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
               desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
             }}

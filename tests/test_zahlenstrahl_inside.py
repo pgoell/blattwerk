@@ -46,15 +46,23 @@ EDGES = """block => {
 
 
 @pytest.mark.parametrize(
-    "size, width, height",
-    [(20, 180, 30), (14, 180, 30), (28, 180, 40), (20, 120, 30)],
+    "size, width, height, more",
+    [
+        (20, 180, 30, {}),
+        (14, 180, 30, {}),
+        (24, 180, 30, {}),
+        (20, 120, 30, {}),
+        (20, 180, 30, {"marks": [[362, "box"], [380, "arrow"]], "jumps": True}),
+        (24, 180, 22, {"marks": [[362, "box"], [380, "arrow"]], "jumps": True}),
+    ],
+    ids=["20pt", "14pt", "24pt", "narrow", "arrow-arcs", "short-block"],
 )
-def test_the_drawing_of_a_lowered_box_stays_inside_the_block(editor, size, width, height):
+def test_the_drawing_of_a_lowered_box_stays_inside_the_block(editor, size, width, height, more):
     """A box on 362 among the numbers of 340 to 420: its line and its box, at font size `size` in a
     block `width` by `height` mm, lie within the block: top, bottom and right to half a pixel,
-    left to 1 mm. The 28 pt line needs 38 mm of height, so its block is taller."""
+    left to 1 mm. With an arrow and arcs above the line, and in a block too short for it all."""
     page = editor(
-        box("z", "zahlenstrahl", {**PROPS, "size": size}, w=width, h=height),
+        box("z", "zahlenstrahl", {**PROPS, "size": size, **more}, w=width, h=height),
         client=user(),
     )
     expect(at(page, "z").locator(".zahlenstrahl g.box rect")).to_have_count(1)

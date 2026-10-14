@@ -114,3 +114,18 @@ def test_the_block_grows_no_further_than_the_page_foot(editor):
     drawn = page.locator('.block[data-id="d"]').bounding_box()
     assert block["h"] > 50
     assert drawn["y"] + drawn["height"] <= sheet["y"] + sheet["height"] + 1
+
+
+@pytest.mark.parametrize("act", ["zahlenraum", "leer"])
+def test_another_setting_leaves_a_short_block_as_it_is(editor, act):
+    """#578 review: only Dreiecke and Spalten grow the block. A saved 12-triangle block at 50 mm
+    keeps its height when the Zahlenraum or Leer changes."""
+    client = user()
+    page = editor(dz("d", {**DREIECK, "count": 12}), client=client)
+    pick(page, "d")
+    controls = page.locator(".panel")
+    if act == "zahlenraum":
+        step(page, lambda: controls.get_by_label("Zahlenraum").select_option("100"))
+    else:
+        step(page, lambda: controls.get_by_role("button", name="Leer", exact=True).click())
+    assert stored_h(client, page) == 50

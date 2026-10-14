@@ -1936,10 +1936,17 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
 function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; solved: boolean }) {
   const p = saneStrahl(block.props);
   const { ticks, arrows, arcs } = drawnStrahl(p);
-  const { w, h } = block;
-  const y = h - below(p, w);
+  const { w } = block;
   const FS = (p.size * 25.4) / 72;
   const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
+  // An arc's height above the line: a wide jump stays a flat arc.
+  const rise = (a: { from: number; to: number }) => Math.min(((tickX(a.to) - tickX(a.from)) / 2) * 0.7, 6);
+  // The room the line needs below it, and above it for its ticks, or its arcs and their numbers (an arrow's number
+  // keeps inside by itself). A block too short for both, saved so or held at the page's foot, draws the whole line a
+  // little smaller, so nothing leaves it.
+  const room = below(p, w);
+  const h = Math.max(block.h, room + Math.max(3.5, ...arcs.map((a) => rise(a) + 2.5 + 1.25 * FS)));
+  const y = h - room;
   const cut = p.cut && p.start > 0;
   const axs = arrowXs(arrows.length, ticks.length, w);
   // An arrow's number stands on the baseline y - 7.6, raised when its digits would pass the block's top; its stub
@@ -2003,9 +2010,7 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
         })}
         {arcs.map((a) => {
           const [x1, x2] = [tickX(a.from), tickX(a.to)];
-          const rx = (x2 - x1) / 2;
-          // A wide jump stays a flat arc, its label inside the block's room above the line.
-          const ry = Math.min(rx * 0.7, 6);
+          const [rx, ry] = [(x2 - x1) / 2, rise(a)];
           return (
             <g key={`${a.from}-${a.to}`} className="arc" data-from={a.from} data-to={a.to}>
               <path d={`M ${x1} ${y - 0.5} A ${rx} ${ry} 0 0 1 ${x2} ${y - 0.5}`} fill="none" stroke="#222" strokeWidth={0.3} />

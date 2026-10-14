@@ -133,10 +133,22 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
       return { h: [...e.h.slice(0, i), a, b, ...e.h.slice(i + 1)], v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     }
     // Under the last row, a box round some of its cells stays round them: the bottom stays under its row, and a side
-    // comes only where the line runs the table's full height (#584).
+    // comes only where the line runs the table's full height (#584). A box round whole columns, its sides the table's
+    // full height, is a frame of those columns: its bottom moves to the new rim with the sides, as a frame round the
+    // table does.
     if (add && i === rows && rows > 0 && !e.h[rows].every((edge) => same(edge, e.h[rows][0]))) {
-      const side = (c: number) => (e.v.every((list) => same(list[c], e.v[rows - 1][c])) ? taken("v", c) : null);
-      return { h: [...e.h, nulls(cols)], v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => side(c))) };
+      const full = (c: number) => e.v.every((list) => same(list[c], e.v[rows - 1][c]));
+      const framed = (c: number) => {
+        let [l, r] = [c, c + 1];
+        while (l > 0 && !e.v[rows - 1][l]) l--;
+        while (r < cols && !e.v[rows - 1][r]) r++;
+        return full(l) && full(r);
+      };
+      const bottom = e.h[rows];
+      return {
+        h: [...e.h.slice(0, rows), bottom.map((edge, c) => (framed(c) ? null : edge)), bottom.map((edge, c) => (framed(c) ? edge : null))],
+        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (full(c) ? taken("v", c) : null))),
+      };
     }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     return { h: remove(e.h, i === rows - 1 ? i : i + 1), v: remove(e.v, i) };

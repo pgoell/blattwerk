@@ -67,6 +67,19 @@ def test_a_text_lands_on_page_1_after_the_wheel_brings_page_1_back(editor):
     assert texts(saved_doc, 2) == ["Hallo"]
 
 
+def test_typing_goes_on_while_the_wheel_scrolls_to_another_page(editor):
+    """#579 review: a text being typed keeps its page and its focus when the wheel brings the next
+    page into view; the next keys still go into it."""
+    client = user()
+    rest = [{"blocks": [box("b", "text", TEXT)]}]
+    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    add_text(page, "Erst")
+    wheel(page, 5000)
+    page.keyboard.type("dann")
+    expect(page.locator(".block.sel .ProseMirror")).to_have_text("Erstdann")
+    expect(page.locator(COUNTER)).to_have_text("Seite 1 von 2")
+
+
 def test_a_maths_block_from_the_dock_lands_on_the_page_in_view(editor):
     """#579: an item of "Mathe-Blöcke" lands on page 2 with page 2 in view, as a text does."""
     client = user()
