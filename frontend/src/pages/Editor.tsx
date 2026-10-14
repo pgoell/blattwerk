@@ -107,6 +107,7 @@ import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK } from "../rechendreieck";
 import { DEFAULTS as STRAHL } from "../zahlenstrahl";
+import { DEFAULTS as FELD } from "../hunderterfeld";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -168,6 +169,7 @@ const NAMES: Record<Block["type"], string> = {
   zahlenmauer: "Zahlenmauer",
   rechendreieck: "Rechendreieck",
   zahlenstrahl: "Zahlenstrahl",
+  hunderterfeld: "Hunderterfeld",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -611,8 +613,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
   // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
-  // A picture and a symbol always keep their shape, so only their corners have handles.
-  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol");
+  // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
+  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || lock;
   // The selection's size in px. An edge has a handle too, as in PowerPoint, once the 14 px handles of its corners
   // leave room for a third. The edges come last, so they lie on top where the areas a finger can hit overlap.
@@ -1997,7 +1999,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const along = c >= s ? side : other;
         const across = along === "w" ? "h" : "w";
         const k = to / outline(b)[side];
-        const sized = b.type === "image" || b.type === "symbol" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
+        const sized = b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
         const [was, now] = [outline(b), outline(sized)];
         return [b, { x: sized.x + was.x - now.x, y: sized.y + was.y - now.y, w: sized.w, h: sized.h }];
       }),
@@ -2841,6 +2843,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Zahlenmauer", icon: BrickWall, run: () => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } }) },
     { label: "Rechendreieck", icon: TriangleDashed, run: () => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } }) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => add(180, 30, { type: "zahlenstrahl", props: { ...STRAHL, seed: newSeed() } }) },
+    { label: "Hunderterfeld", icon: Grid3x3, run: () => add(100, 100, { type: "hunderterfeld", props: { ...FELD, seed: newSeed() } }) },
   ];
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (

@@ -10,6 +10,7 @@ import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
+import { made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { BELOW, LEFT as STRAHL_LEFT, RIGHT as STRAHL_RIGHT, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
@@ -181,7 +182,9 @@ export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerPr
 export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock;
+// A Hunderterfeld: its stored shape is the contract at the top of hunderterfeld.ts.
+export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -2022,6 +2025,22 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   );
 }
 
+// A Hunderterfeld, drawn as the contract at the top of hunderterfeld.ts says. Stub: the drawing task fills it in.
+function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k: number; solved: boolean }) {
+  const { cells, frame } = drawnFeld(saneFeld(block.props));
+  return (
+    <div className={`hunderterfeld${solved ? " solved" : ""}`}>
+      <svg viewBox={frame.join(" ")}>
+        {cells.map((c) => (
+          <g key={c.i} className="cell" data-i={c.i} data-value={c.value}>
+            <rect x={(c.i % 10) * 10} y={Math.floor(c.i / 10) * 10} width={10} height={10} fill="none" stroke="#222" strokeWidth={0.3} />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
@@ -2030,6 +2049,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
+  if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
