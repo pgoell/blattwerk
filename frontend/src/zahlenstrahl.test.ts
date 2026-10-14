@@ -1,7 +1,7 @@
 // The Zahlenstrahl model: the ticks, the labels, the random and the free tasks, the arcs, and the sanitising of stored props.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, LEFT, LIMIT, RIGHT, count, crowded, made, sane, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
+import { arrowXs, DEFAULTS, LEFT, LIMIT, RIGHT, count, crowded, made, sane, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 
 const P = (over: Partial<ZahlenstrahlProps> = {}): ZahlenstrahlProps => ({ ...DEFAULTS, seed: 1, ...over });
 const values = (p: ZahlenstrahlProps) => made(p).ticks.map((t) => t.value);
@@ -224,5 +224,34 @@ describe("sane", () => {
         expect(sane(once)).toEqual(once);
       }),
     );
+  });
+});
+
+describe("arrowXs puts the arrow numbers over the gaps", () => {
+  it("each x lies midway between two ticks", () => {
+    for (const n of [2, 3, 7, 21, 200])
+      for (const w of [60, 180, 297])
+        for (const k of [1, 2, 3, 6]) {
+          const ticks = Array.from({ length: n }, (_, i) => xOf(i, n, w));
+          for (const x of arrowXs(k, n, w)) {
+            const g = ticks.findIndex((t, i) => i < n - 1 && Math.abs((t + ticks[i + 1]) / 2 - x) < 1e-9);
+            expect(g, `n ${n} w ${w} k ${k} x ${x}`).toBeGreaterThanOrEqual(0);
+          }
+        }
+  });
+
+  it("distinct and strictly increasing while there are gaps for them", () => {
+    for (const n of [2, 3, 7, 21])
+      for (const k of [1, 2, 3, 6]) {
+        if (k > n - 1) continue;
+        const xs = arrowXs(k, n, 180);
+        expect(xs).toHaveLength(k);
+        for (let i = 1; i < k; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1]);
+      }
+  });
+
+  it("keeps the even spot with fewer than two ticks", () => {
+    expect(arrowXs(2, 1, 120)).toEqual([LEFT + (120 - LEFT - RIGHT) / 3, LEFT + (2 * (120 - LEFT - RIGHT)) / 3]);
+    expect(arrowXs(1, 0, 120)).toEqual([LEFT + (120 - LEFT - RIGHT) / 2]);
   });
 });

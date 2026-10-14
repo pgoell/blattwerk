@@ -11,7 +11,7 @@ import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
-import { BELOW, LEFT as STRAHL_LEFT, RIGHT as STRAHL_RIGHT, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
+import { BELOW, LEFT as STRAHL_LEFT, arrowXs, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -1956,8 +1956,8 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   const y = h - BELOW;
   const FS = (p.size * 25.4) / 72;
   const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
-  const span = w - STRAHL_LEFT - STRAHL_RIGHT;
   const cut = p.cut && p.start > 0;
+  const axs = arrowXs(arrows.length, ticks.length, w);
   return (
     <div className={`zahlenstrahl${solved ? " solved" : ""}`}>
       <svg viewBox={`0 0 ${w} ${h}`}>
@@ -1980,6 +1980,10 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           const covers = t.task === "box" && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
           // A number's line box is about 1.35 em high.
           const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
+          // The leader stops short of a shown number's digits where one stands on it.
+          const through = covers && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) <= (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+          const gapTop = y + 4.5;
+          const gapBottom = y + 5 + 0.75 * FS + 0.5;
           return (
             <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
               <line x1={x} y1={y - reach} x2={x} y2={y + reach} stroke="#222" strokeWidth={0.4} />
@@ -1988,7 +1992,13 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
               )}
               {t.task === "box" && (
                 <g className="box">
-                  {covers && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
+                  {covers && !through && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
+                  {covers && through && (
+                    <>
+                      <line x1={x} y1={y + reach} x2={x} y2={gapTop} stroke="#222" strokeWidth={0.2} />
+                      <line x1={x} y1={gapBottom} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />
+                    </>
+                  )}
                   <rect x={x - bw / 2} y={top} width={bw} height={bh} fill="none" stroke="#222" strokeWidth={0.3} />
                   {solved && (
                     <text className="answer" x={x} y={top + bh / 2} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
@@ -1999,10 +2009,10 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           );
         })}
         {arrows.map((v, k) => {
-          const ax = STRAHL_LEFT + ((k + 1) * span) / (arrows.length + 1);
+          const ax = axs[k];
           return (
             <g key={v} className="arrow" data-value={v}>
-              <text className="given" x={ax} y={y - 9} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#222">{v}</text>
+              <text className="given" x={ax} y={y - 7.6} fontSize={FS} textAnchor="middle" fill="#222">{v}</text>
               <line x1={ax} y1={y - 7} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />
               {solved && <path className="answer" d={`M ${ax} ${y - 5} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
             </g>
