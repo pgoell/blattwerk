@@ -179,6 +179,28 @@ def test_typing_a_number_stores_it_and_one_undo_takes_both_digits_back(editor):
     assert "typed" not in props_of(doc(page, client))
 
 
+def test_numbers_of_a_hidden_wall_stay_when_the_count_goes_back(editor):
+    """Z6: a number of Mauer 4 survives: count down to 3, type into Mauer 1, count back to 4."""
+    client = user()
+    page = editor(zw("w", {**WALL, "typed": [[3, 0, 9]]}), client=client)
+    pick(page, "w")
+    step(page, lambda: panel(page, "Eine Mauer weniger").click())
+    step(page, lambda: field(page, ONE_STONE).fill("7"))
+    step(page, lambda: panel(page, "Eine Mauer mehr").click())
+    assert sorted(props_of(doc(page, client))["typed"]) == [[0, 0, 7], [3, 0, 9]]
+
+
+def test_each_stone_is_its_own_undo_step(editor):
+    """Z6: 7 and then 8 typed into two stones; one Ctrl+Z takes back only the second."""
+    client = user()
+    page = editor(zw("w", WALL), client=client)
+    pick(page, "w")
+    step(page, lambda: field(page, ONE_STONE).fill("7"))
+    step(page, lambda: field(page, "Zahl im Stein 2 der Reihe 1").fill("8"))
+    undo(page)
+    assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
+
+
 def test_emptying_a_number_field_removes_its_entry(editor):
     """Z6: emptying the field removes the entry; the stored props have no typed numbers left."""
     client = user()

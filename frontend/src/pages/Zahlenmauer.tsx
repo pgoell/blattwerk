@@ -20,9 +20,12 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
   const rows = Array.from({ length: p.base }, (_, i) => p.base - 1 - i);
 
   function setTyped(stone: number, text: string) {
-    const others = (p.typed ?? []).filter(([tw, ts]) => tw !== w || ts !== stone);
-    if (text === "") return apply({ typed: others.length ? others : undefined }, "typed");
-    apply({ typed: [...others, [w, stone, Number(text)]] }, "typed");
+    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
+    const raw = block.props.typed;
+    const others = (Array.isArray(raw) ? raw : []).filter(([tw, ts]) => tw !== w || ts !== stone);
+    const key = `typed:${w}:${stone}`;
+    if (text === "") return apply({ typed: others.length ? others : undefined }, key);
+    apply({ typed: [...others, [w, stone, Number(text)]] }, key);
   }
 
   return (
