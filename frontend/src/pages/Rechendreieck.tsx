@@ -1,5 +1,5 @@
 // The format panel's settings for a Rechendreieck block: its triangles, its numbers and which fields are given.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RechendreieckBlock } from "../sheet";
 import { draw } from "../bank";
 import { fixes, made, NAMES, sane, ZAHLENRAUM, type RechendreieckProps } from "../rechendreieck";
@@ -18,6 +18,8 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
   const [which, setWhich] = useState(0);
   // The number field with focus keeps its own text, so that typing is not fought by the re-render.
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
+  // Set when a number field gets focus, until the mouseup of that click has selected its number.
+  const fresh = useRef(false);
 
   const w = Math.min(which, m.triangles.length - 1);
 
@@ -111,7 +113,16 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
                   inputMode="numeric"
                   aria-label={`Zahl im Feld ${NAMES[i]}`}
                   value={draft?.key === key ? draft.text : String(m.triangles[w].numbers[i])}
-                  onFocus={() => setDraft({ key, text: String(m.triangles[w].numbers[i]) })}
+                  onFocus={() => {
+                    fresh.current = true;
+                    setDraft({ key, text: String(m.triangles[w].numbers[i]) });
+                  }}
+                  onMouseUp={(e) => {
+                    if (!fresh.current) return;
+                    fresh.current = false;
+                    e.preventDefault();
+                    e.currentTarget.select();
+                  }}
                   onBlur={() => setDraft(null)}
                   onChange={(e) => {
                     if (!/^\d{0,4}$/.test(e.target.value)) return;
@@ -124,7 +135,13 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           </div>
         ))}
       </div>
-      {m.triangles.map((t, i) => t.wrong && <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>)}
+      {m.triangles.map((t, i) =>
+        t.wrong ? (
+          <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>
+        ) : t.numbers.some((v) => v > p.max) ? (
+          <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht über den Zahlenraum bis ${p.max} hinaus.`}</p>
+        ) : null,
+      )}
       {p.typed && <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>}
       <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }).triangles) }]) })}>
         Neu würfeln

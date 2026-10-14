@@ -1860,7 +1860,7 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
           const stones = Array.from({ length: p.base }, (_, r) => Array.from({ length: p.base - r }, (_, c) => {
             const s = at(p.base, r, c);
             const [x, y] = [x0 + r * S + c * 2 * S, y0 + (p.base - 1 - r) * S];
-            const shows = !p.empty && (w.given[s] || solved);
+            const shows = !p.empty && (w.given[s] || (solved && !w.wrong));
             return (
               <g key={s} className="stone" data-stone={s} data-row={r} data-col={c}>
                 <rect x={x} y={y} width={2 * S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
@@ -1915,7 +1915,7 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
               <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
               {Array.from({ length: RECHEN_FIELDS }, (_, j) => {
                 const [cx, cy] = j < 3 ? inner[j] : outer[j - 3];
-                const shows = !p.empty && (tri.given[j] || solved);
+                const shows = !p.empty && (tri.given[j] || (solved && !tri.wrong));
                 return (
                   <g key={j} className="field" data-field={j}>
                     {j < 3

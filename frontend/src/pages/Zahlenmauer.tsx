@@ -1,5 +1,5 @@
 // The format panel's settings for a Zahlenmauer block: its walls, its numbers and which stones are given.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ZahlenmauerBlock, ZahlenmauerProps } from "../sheet";
 import { draw } from "../bank";
 import { at, fixes, made, sane, stones } from "../zahlenmauer";
@@ -14,6 +14,8 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
   const [which, setWhich] = useState(0);
   // The number field with focus keeps its own text, so that typing is not fought by the re-render.
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
+  // Set when a number field gets focus, until the mouseup of that click has selected its number.
+  const fresh = useRef(false);
 
   const w = Math.min(which, m.walls.length - 1);
   const free = p.free ?? Array.from({ length: stones(p.base) }, (_, i) => i < p.base);
@@ -123,7 +125,17 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
                   inputMode="numeric"
                   aria-label={`Zahl im Stein ${c + 1} der Reihe ${r + 1}`}
                   value={draft?.key === key ? draft.text : String(m.walls[w].numbers[i])}
-                  onFocus={() => setDraft({ key, text: String(m.walls[w].numbers[i]) })}
+                  onFocus={() => {
+                    fresh.current = true;
+                    setDraft({ key, text: String(m.walls[w].numbers[i]) });
+                  }}
+                  // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
+                  onMouseUp={(e) => {
+                    if (!fresh.current) return;
+                    fresh.current = false;
+                    e.preventDefault();
+                    e.currentTarget.select();
+                  }}
                   onBlur={() => setDraft(null)}
                   onChange={(e) => {
                     if (!/^\d{0,4}$/.test(e.target.value)) return;
@@ -136,7 +148,13 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           </div>
         ))}
       </div>
-      {m.walls[w].wrong && <p className="hint" role="status">{`Mauer ${w + 1} geht mit diesen Zahlen nicht auf.`}</p>}
+      {m.walls.map((mw, i) =>
+        mw.wrong ? (
+          <p key={i} className="hint" role="status">{`Mauer ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>
+        ) : mw.numbers.some((v) => v > p.max) ? (
+          <p key={i} className="hint" role="status">{`Mauer ${i + 1} geht über den Zahlenraum bis ${p.max} hinaus.`}</p>
+        ) : null,
+      )}
       {p.typed && (
         <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>
       )}
