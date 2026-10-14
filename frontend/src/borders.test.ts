@@ -430,3 +430,51 @@ describe("splices keep the lines", () => {
     expect([...e.h.flat(), ...e.v.flat()].every(entry)).toBe(true);
   });
 });
+
+// Found by the review of #596: each case as the reviewer gave it. `t(r, c)` is an empty table; the lines are read as
+// their style after the splice, "s" where a line takes the table's solid default.
+describe("review of #596", () => {
+  const t = (rows: number, cols: number) => ({ cells: Array.from({ length: rows }, () => Array(cols).fill("")), cols: Array(cols).fill(1), size: 12 }) as unknown as Table;
+  const none = { style: "none" as const, width: 0.25 };
+  const dashed = { style: "dashed" as const, width: 0.25 };
+  const styles = (p: Table, axis: "row" | "col", i: number, after = false) => {
+    const e = edgesOf(spliced(p, axis, i, true, after) as never)!;
+    const s = (edge: Edge) => edge?.style ?? "s";
+    return { h: e.h.map((list) => list.map(s)), v: e.v.map((list) => list.map(s)) };
+  };
+
+  it("keeps a table without a rim without one, below, above and to the right", () => {
+    const p = bordered(t(2, 3), [0, 0, 1, 2], "outer", none);
+    const below = styles(p, "row", 2, true);
+    expect(below.h[2]).toStrictEqual(["s", "s", "s"]);
+    expect(below.h[3]).toStrictEqual(["none", "none", "none"]);
+    expect(below.v[2]).toStrictEqual(["none", "s", "s", "none"]);
+    expect(styles(p, "row", 0).h[0]).toStrictEqual(["none", "none", "none"]);
+    const right = styles(p, "col", 3, true);
+    expect(right.v.map((list) => list[4])).toStrictEqual(["none", "none"]);
+    expect(right.h[0][3]).toBe("none");
+    // A row inside: the new row's sides stay none (master drew them solid).
+    expect(styles(p, "row", 1).v[1]).toStrictEqual(["none", "s", "s", "none"]);
+  });
+
+  it("keeps a none line at the join on one side when a row goes in between", () => {
+    const p = bordered(t(2, 2), [0, 0, 1, 1], "across", none);
+    const out = styles(p, "row", 1);
+    expect([out.h[1], out.h[2]].filter((list) => list.every((x) => x === "none"))).toHaveLength(1);
+  });
+
+  it("keeps a dashed table of one column or one row dashed", () => {
+    const column = bordered(t(3, 1), [0, 0, 2, 0], "all", dashed);
+    for (const i of [0, 1]) expect(styles(column, "col", i, i === 1).h.flat().every((x) => x === "dashed")).toBe(true);
+    const row = bordered(t(1, 3), [0, 0, 0, 2], "all", dashed);
+    for (const i of [0, 1]) expect(styles(row, "row", i, i === 1).v.flat().every((x) => x === "dashed")).toBe(true);
+  });
+
+  it("keeps the dashed frame round a box round the whole last row", () => {
+    const p = bordered(bordered(t(3, 4), [0, 0, 2, 3], "all", dashed), [2, 0, 2, 3], "outer", { style: "solid", width: 1 });
+    const out = styles(p, "row", 3, true);
+    expect(out.v[3]).toStrictEqual(["dashed", "dashed", "dashed", "dashed", "dashed"]);
+    expect(out.h[4]).toStrictEqual(["dashed", "dashed", "dashed", "dashed"]);
+    expect(out.h[3]).toStrictEqual(["solid", "solid", "solid", "solid"]);
+  });
+});

@@ -97,6 +97,12 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
               ＋
             </button>
           </div>
+          {/* Two boxes never overlap, so a close line can take fewer than asked (#593): the panel says how many. */}
+          {m.ticks.length > 0 && m.ticks.filter((t) => t.task === "box").length < p.boxes && (
+            <p className="hint warn" role="status" data-hint="boxes">
+              {`Nur ${m.ticks.filter((t) => t.task === "box").length} Kästchen passen, ohne sich zu überdecken. Größerer Schritt oder breiterer Block.`}
+            </p>
+          )}
           <div className="seg">
             <button aria-label="Ein Pfeil weniger" disabled={p.arrows === 0} onClick={() => apply({ arrows: p.arrows - 1 })}>
               −

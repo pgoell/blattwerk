@@ -259,3 +259,25 @@ def test_the_boxes_of_the_issues_line_do_not_overlap_on_the_page(editor):
     assert spans
     for (_, left_end), (right_start, _) in itertools.pairwise(spans):
         assert right_start >= left_end - 0.5, spans
+
+
+def test_a_crowded_line_says_how_many_boxes_it_takes(editor):
+    """#593, asked by the orchestrator: 12 boxes asked on 0 to 1000 step 10 do not fit side by
+    side. The panel says how many it takes, and that many boxes stand on the page. The issue's
+    line with 3 boxes takes all 3 and says nothing."""
+    client = user()
+    crowded = {**STRAHL, "end": 1000, "minor": 10, "major": 100, "seed": 123, "boxes": 12}
+    page = editor(zs("z", crowded), client=client)
+    pick(page, "z")
+    hint = page.locator('[data-hint="boxes"]')
+    expect(hint).to_be_visible()
+    rects = page.locator(".zahlenstrahl g.box rect")
+    expect(rects.first).to_be_visible()
+    shown = rects.count()
+    assert 0 < shown < 12
+    expect(hint).to_contain_text(f"Nur {shown} Kästchen passen")
+    block = zs("y", {**crowded, "boxes": 3})
+    page = editor(block, client=client)
+    pick(page, "y")
+    expect(page.locator(".zahlenstrahl g.box rect")).to_have_count(3)
+    expect(page.locator('[data-hint="boxes"]')).to_have_count(0)

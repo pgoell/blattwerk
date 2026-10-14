@@ -110,12 +110,16 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
   const rows = k.v.length;
   const cols = k.h[0].length;
   if (i === 0) return flip(rowAdded(flip(e), flip(k), rows, after));
-  // The grid pen: a key that more than half of the inner h lines, and more than half of the inner v lines, have.
-  const majority = (lines: [string | null, Edge][]) => lines.find(([key]) => key !== null && lines.filter(([x]) => x === key).length * 2 > lines.length);
+  // The grid pen: a key that more than half of all inner lines have, and at least half of those across and of those
+  // down: a box round a whole row, half the lines across, does not hide a dashed grid, three boxes in one pen down
+  // the table do not make a grid of it (#591).
   const innerH: [string | null, Edge][] = span(1, rows).flatMap((r) => span(0, cols).map((c): [string | null, Edge] => [k.h[r][c], e.h[r][c]]));
   const innerV: [string | null, Edge][] = span(0, rows).flatMap((r) => span(1, cols).map((c): [string | null, Edge] => [k.v[r][c], e.v[r][c]]));
-  const [hh, vv] = [majority(innerH), majority(innerV)];
-  const G: Edge = hh && vv && hh[0] === vv[0] ? hh[1] : null;
+  const count = (lines: [string | null, Edge][], key: string | null) => lines.filter(([x]) => x === key).length;
+  const grid = [...innerH, ...innerV].find(
+    ([key]) => key !== null && count([...innerH, ...innerV], key) * 2 > innerH.length + innerV.length && count(innerH, key) * 2 >= innerH.length && count(innerV, key) * 2 >= innerV.length,
+  );
+  const G: Edge = innerH.length && innerV.length && grid ? grid[1] : null;
 
   if (i < rows) {
     // The join splits in two. A run goes with the side whose lines across meet its ends in its key, or with the
@@ -152,6 +156,8 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
       break;
     }
   }
+  // Every cell of the rim row a box, all in one pen, is a grid, not boxes: a dashed table of one row or column.
+  if (boxes.some((b) => b.l !== boxes[0].l) && span(0, cols).every((c) => boxes.some((b) => b.l <= c && c < b.r)) && boxes.every((b) => bottom[b.l] === bottom[0])) boxes.length = 0;
   const boxed = (c: number) => boxes.some((b) => b.l <= c && c < b.r);
   // A frame of whole columns: full-height sides in the top line's key, on either side of the column.
   const full = (j: number) => k.v.every((list) => list[j] !== null);
@@ -160,7 +166,8 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
     const f = k.h[0][c];
     if (f === null) return undefined;
     const side = (j: number) => full(j) && k.v[0][j] === f;
-    const shows = (L: number, R: number) => side(L) && side(R) && span(L, R).some((x) => bottom[x] === f);
+    // The table's own frame counts though a box covers its whole bottom; a frame of some columns shows its key there.
+    const shows = (L: number, R: number) => side(L) && side(R) && ((L === 0 && R === cols) || span(L, R).some((x) => bottom[x] === f));
     if (rows === 1) return shows(0, cols) ? [0, cols] : undefined;
     // The nearest pair of sides whose bottom shows the key: in a dashed grid with a box round B3 the sides of B alone
     // do not, the table's do (#594).
@@ -198,7 +205,10 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
     const pen = pens(p);
     const key = (line: "h" | "v", r: number, c: number) => {
       const drawn = pen(line, r, c);
-      return drawn.style === "none" ? null : JSON.stringify({ style: drawn.style, width: drawn.width });
+      // Null only for a line hidden inside a merged cell. A line drawn "none" is a pen like any other: a table
+      // without a rim keeps none on its new rim (review of #596).
+      const own = e[line][r][c]?.style ?? p.lineStyle ?? "solid";
+      return drawn.style === "none" && own !== "none" ? null : JSON.stringify({ style: drawn.style, width: drawn.width });
     };
     const keys: Grid<string | null> = {
       h: Array.from({ length: rows + 1 }, (_, r) => Array.from({ length: cols }, (_, c) => key("h", r, c))),
