@@ -160,30 +160,32 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
     const f = k.h[0][c];
     if (f === null) return undefined;
     const side = (j: number) => full(j) && k.v[0][j] === f;
-    const L = rows === 1 ? 0 : span(0, c + 1).reverse().find(side);
-    const R = rows === 1 ? cols : span(c + 1, cols + 1).find(side);
-    if (L === undefined || R === undefined || !side(L) || !side(R) || !span(L, R).some((x) => bottom[x] === f)) return undefined;
-    return [L, R];
+    const shows = (L: number, R: number) => side(L) && side(R) && span(L, R).some((x) => bottom[x] === f);
+    if (rows === 1) return shows(0, cols) ? [0, cols] : undefined;
+    // The nearest pair of sides whose bottom shows the key: in a dashed grid with a box round B3 the sides of B alone
+    // do not, the table's do (#594).
+    for (const L of span(0, c + 1).reverse().filter(side)) for (const R of span(c + 1, cols + 1).filter(side)) if (shows(L, R)) return [L, R];
+    return undefined;
   };
   const framed = (c: number) => frameOf(c) !== undefined;
   const uniform = bottom[0] !== null && bottom.every((x) => x === bottom[0]) && boxes.length === 0;
   const moves = (c: number) => !boxed(c) && ((framed(c) && bottom[c] === k.h[0][c]) || uniform);
   const between = Array.from({ length: cols }, (_, c): Edge => (moves(c) ? G : e.h[rows][c]));
   const rim = Array.from({ length: cols }, (_, c): Edge => (moves(c) ? e.h[rows][c] : framed(c) ? e.h[0][c] : null));
-  // The new row's side at j. Beside a frame's side: the key most rows above have, a box's sides left out. Else the one
-  // pen all rows have. Else G, or null where no row is left to ask.
+  // The new row's side at j: the last row's, as Word runs a line on (#567), unless it is the side of a box that stays.
+  // Then, beside a frame's side, the key most rows above have, a box's sides left out; else G, or null where no row is
+  // left to ask (a box round a cell of a one-row table does not grow).
   const frameAt = (c: number) => (c >= 0 && c < cols ? frameOf(c) : undefined);
   const sides = Array.from({ length: cols + 1 }, (_, j): Edge => {
     const rowsOf = span(0, rows).filter((row) => !boxes.some((b) => (j === b.l || j === b.r) && b.top <= row));
+    if (rowsOf.includes(last)) return k.v[last][j] === null ? null : e.v[last][j];
     const keys = rowsOf.map((row) => k.v[row][j]);
+    if (keys.length === 0) return null;
     if ([frameAt(j - 1), frameAt(j)].some((f) => f && (f[0] === j || f[1] === j))) {
-      if (keys.length === 0) return null;
       const most = keys.reduce((best, key) => (keys.filter((x) => x === key).length > keys.filter((x) => x === best).length ? key : best));
       return e.v[rowsOf[keys.indexOf(most)]][j];
     }
-    const all = k.v.map((list) => list[j]);
-    if (all[0] !== null && all.every((x) => x === all[0])) return e.v[0][j];
-    return keys.length === 0 ? null : G;
+    return G;
   });
   return { h: [...e.h.slice(0, rows), between, rim], v: [...e.v, sides] };
 }

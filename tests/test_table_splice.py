@@ -31,14 +31,9 @@ ONE_ROW = {"cells": [["a", "b", "c"]], "cols": [1, 1, 1], "size": 14, "align": "
 
 
 def dashed_look():
-    """A 3 by 4 grid, every line dashed 0.25 mm, each an explicit edge as Rahmen gives it."""
-    return {
-        **FOUR,
-        "line": INK,
-        "lineStyle": "dashed",
-        "lineWidth": 0.25,
-        "edges": edges(3, 4, paint(3, 4, DASHED)),
-    }
+    """A 3 by 4 grid, every line dashed 0.25 mm, each an explicit edge as Rahmen gives it: with
+    cells picked, Rahmen Alle writes the pen into every line and leaves the table's style solid."""
+    return {**FOUR, "line": INK, "edges": edges(3, 4, paint(3, 4, DASHED))}
 
 
 def pen_of(pen):
@@ -190,23 +185,23 @@ MATRIX = [
         for side in SPLICE
         for case in ("frame_two_pens", "frame_one_pen", "dashed_grid")
     ],
-    ("inside", "dashed_grid"),
+    ("inside_row", "dashed_grid"),
+    ("inside_col", "dashed_grid"),
 ]
 
 
 @pytest.mark.parametrize("side,case", MATRIX, ids=[f"{s}-{c}" for s, c in MATRIX])
 def test_splice_matrix(editor, side, case):
     """A row or column added at a rim keeps the frame closed on the new rim, and the box round its
-    cell; a dashed grid stays dashed. The inside case adds a row below row 0 and a column right of
+    cell; a dashed grid stays dashed. The inside cases add a row below row 0 or a column right of
     column 0, in a dashed grid."""
     client = user()
-    if side == "inside":
-        look = dashed_look()
-        page = editor(box("t", "table", look), client=client)
-        splice(page, 0, "Zeile darunter")
-        expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(16)
-        splice(page, 0, "Spalte rechts")
-        expect_grid(page, 4, 5, paint(4, 5, DASHED))
+    if side.startswith("inside"):
+        page = editor(box("t", "table", dashed_look()), client=client)
+        row = side == "inside_row"
+        splice(page, 0, "Zeile darunter" if row else "Spalte rechts")
+        rows, cols = (4, 4) if row else (3, 5)
+        expect_grid(page, rows, cols, paint(rows, cols, DASHED))
         return
 
     button, cell, before, after, (rows, cols) = SPLICE[side]
@@ -249,3 +244,15 @@ def test_beyond_issue_595_a_one_row_frame_stays_closed_under_a_new_row(editor):
     )
     splice(page, 1, "Zeile darunter")
     expect_grid(page, 2, 3, paint(2, 3, PLAIN, rim(2, 3, SOLID)))
+
+
+def test_beyond_issue_594_a_thin_solid_box_in_a_dashed_grid_stays_and_the_new_rim_is_dashed(editor):
+    """Beyond the brief, #594's second case as the panel makes it: a solid 0.25 mm box round B3 is
+    the table's own pen, so its lines are null in a grid of dashed edges. After Zeile darunter the
+    box stays round B3, and the new rim under B is dashed like the rest."""
+    client = user()
+    pens = {**paint(3, 4, DASHED), **round_cell(2, 1, None)}
+    look = {**FOUR, "line": INK, "edges": edges(3, 4, pens)}
+    page = editor(box("t", "table", look), client=client)
+    splice(page, 9, "Zeile darunter")
+    expect_grid(page, 4, 4, paint(4, 4, DASHED, round_cell(2, 1, PLAIN)))
