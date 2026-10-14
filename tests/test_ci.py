@@ -137,13 +137,29 @@ def test_a_slow_pull_of_the_image_leaves_the_webkit_tests_their_time():
     assert limit + 10 <= job
 
 
+def test_a_webkit_shard_ends_well_before_its_limit():
+    """With twelve shards the Pytest step took up to 515 s against its limit of 540 s.
+
+    Sixteen shards take three quarters of that; the limit leaves the slowest step half again.
+    """
+    webkit = part(CI, "webkit")
+    (listed,) = re.findall(r"shard: \[([\d, ]+)\]", webkit)
+    n = len(listed.split(","))
+    (step,) = [s for s in re.split(r"\n      - ", webkit) if "test:webkit" in s]
+    (limit,) = map(int, re.findall(r"timeout-minutes: (\d+)", step))
+    slowest = 515 * 12 / n
+    assert limit * 60 >= 1.5 * slowest + 60
+    # A run that hangs before the hang guard is armed holds its runner until the limit.
+    assert limit <= 15
+
+
 IDS = [f"tests/test_x.py::test_{k}[{k} ä b]" for k in range(40)] + [
     f"tests/test_y.py::test_{k}" for k in range(7)
 ]
 SECONDS = {f"tests/test_x.py::test_{k}": 0.5 + k for k in range(0, 40, 2)}
 
 
-@pytest.mark.parametrize("n", [1, 6, 12])
+@pytest.mark.parametrize("n", [1, 6, 12, 16])
 def test_a_split_puts_every_test_in_exactly_one_shard(n):
     shards = split(IDS, SECONDS, n)
     assert len(shards) == n
@@ -177,7 +193,7 @@ def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
         assert "--durations=0" in run
 
 
-def test_webkit_runs_in_twelve_shards():
+def test_webkit_runs_in_sixteen_shards():
     for job, name in (("shards", "Test shard"), ("webkit", "WebKit shard")):
         text = part(CI, job)
         (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
@@ -185,7 +201,7 @@ def test_webkit_runs_in_twelve_shards():
         assert numbers == list(range(1, len(numbers) + 1))
         n = len(numbers)
         if job == "webkit":
-            assert n == 12
+            assert n == 16
         assert f"name: {name} ${{{{ matrix.shard }}}}/{n}" in text
         assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in text
 

@@ -59,12 +59,12 @@ jobs:
           SHARD: ${{ matrix.shard }}/8
 
   webkit:
-    name: WebKit shard ${{ matrix.shard }}/12
+    name: WebKit shard ${{ matrix.shard }}/16
     runs-on: ubuntu-latest
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
     # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
     container: mcr.microsoft.com/playwright:v1.63.0-noble
-    # Slower than Chromium, test for test: twelve shards, split by time. The limit counts from the
+    # Slower than Chromium, test for test: sixteen shards, split by time. The limit counts from the
     # start of the job, and the pull of the image is part of it: it takes half a minute, and on
     # 2026-10-12 it took five to ten minutes four times, so a shard whose tests had all passed was
     # cancelled at ten (#439). The tests have a limit of their own, the step's below, and a run
@@ -74,16 +74,18 @@ jobs:
       # As the shards above: a failure costs a rerun of its own shard only.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
+      # With twelve shards the step took up to 515 s against a limit of 9 minutes, as the Chromium
+      # shards before #552; sixteen take three quarters of that, and the limit leaves room for a stall.
       - name: Pytest
-        timeout-minutes: 9
+        timeout-minutes: 12
         # The runner has four cores, and WebKit is slower to start than Chromium.
         run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/12
+          SHARD: ${{ matrix.shard }}/16
 
   # The lists, the colour picker and the file dialog in a real window. Not required yet: the gate
   # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
