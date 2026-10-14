@@ -3,6 +3,7 @@ import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
 import { type Lines } from "./edges";
+import { edgesSpliced } from "./borders";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
@@ -482,8 +483,9 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   });
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
-  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }) };
-  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }) };
+  const edges = edgesSpliced(props, axis, i, add);
+  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }), ...(edges && { edges }) };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }), ...(edges && { edges }) };
 }
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
