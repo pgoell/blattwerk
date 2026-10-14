@@ -96,8 +96,8 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -394,6 +394,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [tab, setTab] = useState(TABS[0]);
+  // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
+  const idKey = ids.join();
+  useEffect(() => {
+    if (idKey) setTab((now) => (now === "Lernwörter" ? "Format" : now));
+  }, [idKey]);
+  // So does a click on a block that is picked already: the pick does not change then.
+  useEffect(() => {
+    if (tab !== "Lernwörter") return;
+    const down = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest(".block") && sheet.current?.contains(e.target)) setTab("Format");
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [tab]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   // The panel's lock: a new width sets the height to match, in its fields and on the handles.
@@ -545,7 +559,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The sheet's Lernwörter, the same list until the sheet's own changes.
   const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
   // How many of them the most crowded Lineatur of the sheet cannot show.
-  const crowded = Math.max(0, ...pages.flatMap((p) => p.blocks.map((b) => (b.type === "ruling" ? short(b, learnt) : 0))));
+  const lineaturen = useMemo(() => pages.flatMap((p) => p.blocks).filter((b): b is RulingBlock => b.type === "ruling"), [pages]);
+  const crowded = unshown(lineaturen, learnt);
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -1191,17 +1206,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // that page instead. Its size is the sheet's, or the empty page's own.
   function addBlatt() {
     const n = page;
-    if (live.current.doc.pages[n].blocks.length === 0) {
-      const [w, h] = sizeOf(live.current.doc, n);
-      const fill = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
-      turn((p) => ({ ...p, blocks: fill }), "", n);
+    const empty = live.current.doc.pages[n].blocks.length === 0;
+    const [w, h] = empty ? sizeOf(live.current.doc, n) : live.current.doc.landscape ? [297, 210] : [210, 297];
+    // One undo step for every page of the Blatt: the first fills the empty page or comes after the page in use, the rest follow it.
+    const [first, ...rest] = blatt(learnt, w, h).map((page) => page.map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block));
+    if (empty) {
+      // The empty page keeps what is its own, and the run-on pages lie as it does.
+      const { landscape } = live.current.doc.pages[n];
+      const lie = landscape === undefined ? {} : { landscape };
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n), { ...doc.pages[n], blocks: first }, ...rest.map((blocks) => ({ ...lie, blocks })), ...doc.pages.slice(n + 1)] }), "", n);
       setIds([]);
       return;
     }
-    const [w, h] = live.current.doc.landscape ? [297, 210] : [210, 297];
-    const sheetBlocks = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: sheetBlocks }, ...doc.pages.slice(n + 1)] }), "", n + 1);
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: first }, ...rest.map((blocks) => ({ blocks })), ...doc.pages.slice(n + 1)] }), "", n + 1);
       setAt(n + 1);
       setIds([]);
     });
@@ -3625,6 +3643,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
                 words={learnt}
+                lineaturen={lineaturen}
                 list={takeList}
                 link={takeText}
                 feed={feed}
@@ -3779,16 +3798,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   {crowded === 1 ? "In einer Lineatur passt 1 Wort nicht in die Zeilen." : `In einer Lineatur passen ${crowded} Wörter nicht in die Zeilen.`}
                 </p>
               )}
-              <button disabled={!learnt.length} onClick={addBlatt}>
+              <button
+                disabled={!learnt.length}
+                onClick={addBlatt}
+                title="Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter."
+              >
                 Lernwörter-Blatt
               </button>
+              <p className="hint">Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter.</p>
               {/* A Lineatur as wide as the page between the margins, a row for each word, at most as many as a page holds. */}
               <button
                 disabled={!learnt.length}
+                title="Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis."
                 onClick={() => add(W - 2 * MARGIN, Math.max(1, Math.min(learnt.length, Math.floor((H - 2 * MARGIN) / RULINGS.l3.row))) * RULINGS.l3.row, { type: "ruling", props: { kind: "l3", color: "#222222", list: "fold", folds: 2 } })}
               >
                 Knickblatt
               </button>
+              <p className="hint">Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis.</p>
             </>
           )}
           {tab === "Ansicht" && (

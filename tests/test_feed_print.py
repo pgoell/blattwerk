@@ -100,9 +100,56 @@ def test_each_mode_hides_its_letters(editor, mode):
             assert len(hidden) == 1
             assert para["first"]
         elif mode == "second":
-            assert len(hidden) in (len(source) // 2, (len(source) + 1) // 2)
+            assert len(hidden) == len(source) // 2
+            assert para["first"]
         else:
             assert hidden == [c for c in source if c.lower() in VOWELS]
+
+
+JEDER = ["Zebra", "Kuh", "Blume", "Birne", "Fahrrad", "Schmetterling", "Wolke"]
+
+
+def test_jeder_zweite_keeps_the_first_letter_of_every_word(editor):
+    """A4: "Jeder zweite" keeps each first letter and hides the 2nd, 4th... (Kuh: K, _, h)."""
+    page = editor(box("a", "text", {**LISTED, "holes": "second", "holeSeed": 7}), words=JEDER)
+    paras = gaps_of(at(page, "a").locator(".rich p"))
+    assert [para["word"] for para in paras] == JEDER
+    assert all(para["first"] for para in paras)
+    assert [para["hidden"] for para in paras] == [
+        ["e", "r"],
+        ["u"],
+        ["l", "m"],
+        ["i", "n"],
+        ["a", "r", "a"],
+        ["c", "m", "t", "e", "l", "n"],
+        ["o", "k"],
+    ]
+
+
+def test_jeder_zweite_hides_nothing_of_a_one_letter_word_and_the_second_of_two(editor):
+    """A4: a word of one letter stays whole; a word of two loses its second letter only."""
+    page = editor(box("a", "text", {**LISTED, "holes": "second", "holeSeed": 7}), words=["a", "Ei"])
+    paras = gaps_of(at(page, "a").locator(".rich p"))
+    assert [para["hidden"] for para in paras] == [[], ["i"]]
+    assert all(para["first"] for para in paras)
+
+
+def test_jeder_zweite_prints_the_first_letter_of_every_word(editor, browser, server):
+    """A4: the print of "Jeder zweite" keeps every first letter and hides what the editor hides."""
+    page = editor(box("a", "text", {**LISTED, "holes": "second", "holeSeed": 7}), words=JEDER)
+    paper = printed(browser, server, sheet_id(page))
+    printed_paras = gaps_of(paper.locator(".rich p"))
+    assert all(para["first"] for para in printed_paras)
+    assert printed_paras == gaps_of(at(page, "a").locator(".rich p"))
+    paper.context.close()
+
+
+@pytest.mark.parametrize("mode, shown", [("one", 1), ("second", 0), ("vowels", 0)])
+def test_neu_waehlen_is_shown_only_in_ein_buchstabe(editor, mode, shown):
+    """A5: "Neu wählen" is shown for "Ein Buchstabe" only; the other modes ignore the seed."""
+    page = editor(box("a", "text", {**LISTED, "holes": mode, "holeSeed": 7}), words=JEDER)
+    pick(page, "a")
+    expect(panel(page, "Neu wählen")).to_have_count(shown)
 
 
 def test_a_hidden_letter_is_a_gap_of_its_own(editor, browser, server):
@@ -141,7 +188,7 @@ def test_neu_waehlen_picks_other_letters(editor):
 
 
 def test_neu_waehlen_with_all_vowels_makes_no_step(editor):
-    """A5: with "Alle Vokale" Neu wählen moves no letter, stores nothing and makes no undo step."""
+    """A5: with "Alle Vokale" there is no Neu wählen, so nothing is stored and no undo step."""
     client = user()
     page = editor(
         box("a", "text", {**LISTED, "holes": "vowels", "holeSeed": 7}), client=client, words=WORDS
@@ -150,7 +197,7 @@ def test_neu_waehlen_with_all_vowels_makes_no_step(editor):
     undo = page.get_by_label("Rückgängig", exact=True)
     before = held(page, client)["a"]
     was = undo.is_enabled()
-    panel(page, "Neu wählen").click()
+    expect(panel(page, "Neu wählen")).to_have_count(0)
     page.evaluate(FRAMES)
     assert held(page, client)["a"] == before
     assert undo.is_enabled() == was

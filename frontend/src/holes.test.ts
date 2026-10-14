@@ -25,13 +25,14 @@ describe("holed", () => {
     expect(picks.size).toBeGreaterThan(1);
   });
 
-  it("hides every second letter, the odd or the even places as the seed says", () => {
-    const word = "Schmetterling";
-    const picks = new Set(SEEDS.map((seed) => JSON.stringify(gaps(holed(word, "second", seed)))));
-    expect(picks.size).toBe(2);
+  it("hides every second letter from the second on, the first letter always stays, whatever the seed", () => {
     for (const seed of SEEDS) {
-      const runs = holed(word, "second", seed);
-      expect(runs.every((r, i) => r.text.length === 1 && (r.gap === true) === (i % 2 === (runs[0].gap ? 0 : 1)))).toBe(true);
+      expect(holed("Schmetterling", "second", seed)[0].gap).not.toBe(true);
+      expect(gaps(holed("Schmetterling", "second", seed))).toEqual(["c", "m", "t", "e", "l", "n"]);
+      expect(gaps(holed("Kuh", "second", seed))).toEqual(["u"]);
+      expect(gaps(holed("Zebra", "second", seed))).toEqual(["e", "r"]);
+      expect(gaps(holed("Blume", "second", seed))).toEqual(["l", "m"]);
+      expect(gaps(holed("Ei", "second", seed))).toEqual(["i"]);
     }
   });
 

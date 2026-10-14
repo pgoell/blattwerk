@@ -12,7 +12,7 @@ import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
-import { filled, room, short } from "../words";
+import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
 import { rectOf, spanAt, widthsOf, type Rect } from "../cells";
@@ -68,6 +68,8 @@ type Props = {
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
   words: string[];
+  // Every Lineatur of the sheet: a picked one that a run-on Lineatur goes on from cuts off no word.
+  lineaturen: RulingBlock[];
   list: (mode?: ListMode) => void;
   // Shows the list of the Lernwörter in the panel.
   toList: () => void;
@@ -207,7 +209,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -227,7 +229,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // The mode the Lineaturen take the Lernwörter in, when every picked one takes them; else none.
   const mode = rulings.length > 0 && rulings.every((b) => listOf(b)) ? listOf(rulings[0]) : undefined;
   // How many words of the list the most crowded Lineatur cannot show.
-  const n = Math.max(0, ...rulings.map((b) => short(b, words)));
+  const n = unshown(rulings, words, lineaturen);
   const tables = of("table");
   // The pen starts at the first table's lines each time a cell opens.
   const open = cell !== undefined;
@@ -788,7 +790,7 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
 const solutions = (b: Block) => (b.type === "table" ? cellEntries(b.props.cells, b.props.gaps) : entries(parasOf(boxed(b)!)));
 
 // The sheet's Lernwörter for a text or a shape: as its own text or as the list, in 1 to 4 columns, with letters hidden as
-// gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew.
+// gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew, in "one" only: the other two modes do not depend on the seed.
 function Fed({ sel, words, toList, look, link, feed }: Pick<Props, "sel" | "words" | "toList" | "look" | "link" | "feed">) {
   const held = sel.flatMap((b) => {
     const p = boxed(b);
@@ -827,16 +829,18 @@ function Fed({ sel, words, toList, look, link, feed }: Pick<Props, "sel" | "word
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => {
-                  const seed = seedOf(held[0].holeSeed);
-                  const shown = words.map((w) => ({ seed, show: (s: number) => holed(w, mode, s).map((run) => (run.gap ? "_" : run.text)).join("") }));
-                  const next = draw(shown);
-                  if (moves(shown, next)) feed({ holeSeed: next }, "holesPick");
-                }}
-              >
-                Neu wählen
-              </button>
+              {mode === "one" && (
+                <button
+                  onClick={() => {
+                    const seed = seedOf(held[0].holeSeed);
+                    const shown = words.map((w) => ({ seed, show: (s: number) => holed(w, mode, s).map((run) => (run.gap ? "_" : run.text)).join("") }));
+                    const next = draw(shown);
+                    if (moves(shown, next)) feed({ holeSeed: next }, "holesPick");
+                  }}
+                >
+                  Neu wählen
+                </button>
+              )}
             </>
           )}
         </>

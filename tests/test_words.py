@@ -1,20 +1,45 @@
 """The Lernwörter: a sheet's list, the Lineatur that takes it, the Blatt, and copies of both."""
 
+import io
+import re
+
+import httpx
 import pytest
 from playwright.sync_api import expect
+from pypdf import PdfReader
+from test_feed_print import sheet_id
 from test_keys_focus import choose
-from ui import RULING, TEXT, at, box, copy_text, doc, pick, sheet, thumb, unpick, user
+from ui import (
+    LINE,
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    at,
+    box,
+    copy_text,
+    doc,
+    maths,
+    pick,
+    picture,
+    sheet,
+    thumb,
+    unpick,
+    upload,
+    user,
+)
 
 LINKED = {**RULING, "list": "copy"}
 MODES = ["copy", "trace", "row"]
+WORDS = ["Hund", "Katze", "Igel"]
 
 
 @pytest.fixture
 def editor(editor):
-    """The editor with its panel open, where the tabs Format and Lernwörter are."""
+    """The editor with its panel open, with the tabs. `theme=None` is Blattform."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **{"theme": "", **more})
 
     return start
 
@@ -196,6 +221,55 @@ def test_the_lernwoerter_blatt_is_a_new_page_in_one_step(editor):
     assert len(doc(page, client)["pages"]) == 1
     redo(page)
     assert len(doc(page, client)["pages"]) == 2
+
+
+def test_a_long_blatt_runs_on_to_more_pages(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, [f"Wort{i}" for i in range(25)])
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    pages = doc(page, client)["pages"]
+    # The page in use, then the Blatt over three pages of 9 rows a block (the last one has 7).
+    assert len(pages) == 4
+    assert [b["type"] for b in pages[1]["blocks"]][:2] == ["text", "name"]
+    for mode in ["copy", "trace", "row"]:
+        blocks = [b for p in pages[1:] for b in p["blocks"] if b["type"] == "ruling"]
+        blocks = [b for b in blocks if b["props"]["list"] == mode]
+        assert [b["props"].get("from", 0) for b in blocks] == [0, 9, 18]
+    undo(page)
+    assert len(doc(page, client)["pages"]) == 1
+
+
+def test_a_long_blatt_on_an_empty_page_keeps_how_that_page_lies(editor):
+    """Review of #571: the Blatt fills an empty landscape page; its run-on pages lie the same."""
+    client = user()
+    empty = {"blocks": [], "landscape": True, "grid": 5}
+    words = [f"Wort{i}" for i in range(25)]
+    page = editor(box("a", "text", TEXT), pages=[empty], client=client, words=words)
+    page.locator('.sheet[data-page="1"]').click(position={"x": 40, "y": 40})
+    expect(page.locator('.sheet[data-page="1"]')).to_have_class(re.compile(r"\bon\b"))
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    expect(page.locator(".sheet[data-page]")).not_to_have_count(2)
+    pages = doc(page, client)["pages"]
+    assert len(pages) > 2
+    assert pages[1]["grid"] == 5
+    for p in pages[1:]:
+        assert p["landscape"] is True
+        assert all(b["w"] == 297 - 2 * 15 for b in p["blocks"] if b["type"] == "ruling")
+
+
+def test_a_short_blatt_is_one_page_as_before(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, ["Hund", "Katze", "Igel", "Reh", "Maus"])
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    stored = doc(page, client)
+    assert len(stored["pages"]) == 2
+    rulings_1 = [b for b in stored["pages"][1]["blocks"] if b["type"] == "ruling"]
+    assert all("from" not in b["props"] for b in rulings_1)
 
 
 def test_the_blatt_button_is_off_without_words(editor):
@@ -450,6 +524,114 @@ def test_tab_reaches_the_list_controls_and_keys_press_them(editor):
     assert len(doc(page, client)["pages"]) == 2
 
 
+@pytest.mark.parametrize(
+    "kind", ["text", "shape", "line", "picture", "table", "lineatur", "maths", "group"]
+)
+def test_a_picked_block_of_any_kind_shows_its_settings_not_the_list(editor, kind):
+    client = user()
+    blocks = {
+        "text": [box("k", "text", TEXT)],
+        "shape": [box("k", "shape", RECT)],
+        "line": [box("k", "shape", LINE)],
+        "picture": [{**picture(upload(client)), "id": "k"}],
+        "table": [box("k", "table", TABLE)],
+        "lineatur": [box("k", "ruling", RULING)],
+        "maths": [box("k", "maths", maths(client))],
+        "group": [
+            {**box("k", "shape", RECT), "group": ["g"]},
+            {**box("j", "shape", RECT, z=2), "group": ["g"]},
+        ],
+    }[kind]
+    page = editor(*blocks, words=WORDS, client=client)
+    list_tab(page)
+    expect(field(page)).to_be_visible()
+    # A click on a block of a group picks the whole group, so no count of one is waited for here.
+    at(page, "k").click()
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    expect(field(page)).to_have_count(0)
+    expect(page.locator(".what")).to_be_visible()
+
+
+def test_a_lineatur_added_from_the_panel_shows_its_settings(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    page.locator(".dock").get_by_label("Lineatur", exact=True).click()
+    expect(page.get_by_label("Art der Lineatur")).to_be_visible()
+    expect(field(page)).to_have_count(0)
+
+
+def test_blattform_a_picked_block_shows_its_settings_not_the_list(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), words=WORDS, client=client, theme=None)
+    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
+    expect(field(page)).to_be_visible()
+    pick(page, "a")
+    expect(field(page)).to_have_count(0)
+    expect(page.locator(".what")).to_be_visible()
+
+
+def test_the_knickblatt_shows_its_own_settings(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    page.get_by_role("button", name="Knickblatt", exact=True).click()
+    expect(page.get_by_label("Text der Lineatur")).to_have_value("fold")
+    expect(field(page)).to_have_count(0)
+
+
+def test_typing_in_the_list_with_nothing_picked_stays_on_the_list(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    field(page).click()
+    page.keyboard.press("End")
+    page.keyboard.type("\nApfel")
+    expect(field(page)).to_contain_text("Apfel")
+    expect(page.get_by_role("tab", name="Lernwörter")).to_have_attribute("aria-selected", "true")
+
+
+def test_lernwoerter_bearbeiten_brings_the_list_back(editor):
+    page = editor(box("r", "ruling", LINKED), words=WORDS)
+    list_tab(page)
+    pick(page, "r")
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    page.get_by_role("button", name="Lernwörter bearbeiten").click()
+    expect(field(page)).to_be_visible()
+    # Review of #571: a click on the block that is picked still shows its settings.
+    at(page, "r").click()
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    expect(field(page)).to_have_count(0)
+
+
+def test_an_undo_in_the_list_stays_on_the_list(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    field(page).click()
+    page.keyboard.press("End")
+    page.keyboard.type("\nApfel")
+    expect(field(page)).to_contain_text("Apfel")
+    undo(page)
+    expect(field(page)).to_be_visible()
+    expect(page.get_by_role("tab", name="Lernwörter")).to_have_attribute("aria-selected", "true")
+
+
+def test_a_pick_on_the_ansicht_tab_stays_on_ansicht(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    page.get_by_role("tab", name="Ansicht").click()
+    pick(page, "a")
+    expect(page.get_by_role("tab", name="Ansicht")).to_have_attribute("aria-selected", "true")
+
+
+def test_the_two_buttons_under_the_list_say_what_they_make(editor):
+    """#429: a teacher could not tell what each button makes."""
+    page = editor(words=WORDS)
+    list_tab(page)
+    blatt = page.get_by_role("button", name="Lernwörter-Blatt")
+    knick = page.get_by_role("button", name="Knickblatt", exact=True)
+    expect(blatt).to_have_attribute("title", re.compile("Überschrift"))
+    expect(knick).to_have_attribute("title", re.compile("Falten"))
+    expect(page.locator(".panel .hint", has_text="Überschrift")).to_be_visible()
+    expect(page.locator(".panel .hint", has_text="Falten")).to_be_visible()
+
+
 def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor):
     """A6: the blocks draw from the list, on the page in use and on the others."""
     client = user()
@@ -498,17 +680,30 @@ def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor
     assert rulings(doc(page, client))[0]["props"]["text"] == "Hund"
 
 
-def test_a_list_too_long_for_the_blatt_is_said_on_the_tab(editor):
-    """Review: the Lernwörter-Blatt picks no block, so the tab itself says what does not fit."""
+def test_a_list_too_long_for_one_page_of_the_blatt_runs_on_with_no_warning(editor):
+    """A list too long for one page's rows goes on to the next page, so the tab says nothing."""
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
     store_words(page, client, [f"Wort{n}" for n in range(12)])
     list_tab(page)
     expect(page.locator(".panel [role=status]")).to_have_count(0)
     page.get_by_role("button", name="Lernwörter-Blatt").click()
-    said = "In einer Lineatur passen 3 Wörter nicht in die Zeilen."
-    expect(page.locator(".panel [role=status]")).to_have_text(said)
-    assert [b["h"] for b in rulings(doc(page, client), 1)] == [72, 72, 72]
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    stored = doc(page, client)
+    assert len(stored["pages"]) == 3
+    assert [b["h"] for b in rulings(stored, 1)] == [72, 72, 72]
+
+
+def test_a_short_lineatur_is_said_though_another_shows_every_word(editor):
+    """Review of #571: only a run-on Lineatur covers the words another cannot show."""
+    page = editor(
+        box("a", "ruling", LINKED, h=40),
+        box("b", "ruling", LINKED, y=120, h=10, z=2),
+        words=["Hund", "Katze", "Igel"],
+    )
+    list_tab(page)
+    status = page.locator(".panel [role=status]")
+    expect(status).to_have_text("In einer Lineatur passen 2 Wörter nicht in die Zeilen.")
 
 
 def test_a_lineatur_in_a_group_with_a_locked_block_takes_the_list_and_does_not_grow(editor):
@@ -593,3 +788,61 @@ def test_a_change_kept_by_an_older_build_takes_the_sheets_list_and_deletes_none(
     back = doc(page, client)
     assert back["words"] == ["Hund", "Katze"]
     assert rulings(back)[0]["x"] == 30
+
+
+def pdf_pages(server, client, mine):
+    """The text of each page of a sheet's PDF, as the server makes it."""
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    return [p.extract_text() for p in PdfReader(io.BytesIO(res.content)).pages]
+
+
+LONG = [f"Wort{n:02d}" for n in range(25)]
+
+
+def test_the_run_on_blatt_prints_its_later_words_on_its_later_pages(editor, server):
+    """#416 the PDF has a page per sheet page, and the Blatt's page 2 shows the 10th word on."""
+    client = user()
+    page = editor(client=client, words=LONG)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    assert len(doc(page, client)["pages"]) == 3
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert len(texts) == 3
+    assert "Wort00" in texts[0] and "Wort09" not in texts[0]
+    assert "Wort09" in texts[1] and "Wort00" not in texts[1]
+    assert "Wort18" in texts[2] and "Wort17" not in texts[2]
+
+
+def test_words_taken_out_leave_the_run_on_page_empty_with_no_warning(editor, server):
+    """#416 a Blatt page past the list shows empty rows and the tab says nothing."""
+    client = user()
+    page = editor(client=client, words=LONG)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    assert len(doc(page, client)["pages"]) == 3
+    store_words(page, client, LONG[:12])
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort09" in texts[1] and "Wort11" in texts[1]
+    assert "Wort" not in texts[2]
+
+
+def test_a_from_past_the_list_shows_empty_rows(editor, server):
+    """#416 own: a ruling whose `from` is past the list has no word to show, and does not fail."""
+    client = user()
+    page = editor(box("a", "ruling", {**LINKED, "from": 30}, h=40), client=client)
+    store_words(page, client, LONG[:5])
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort" not in " ".join(texts)
+
+
+def test_a_bad_from_counts_as_none(editor, server):
+    """#416 own: a bad `from` shows the list from its first word."""
+    client = user()
+    page = editor(box("a", "ruling", {**LINKED, "from": -1}, h=40), client=client)
+    store_words(page, client, LONG[:5])
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort00" in " ".join(texts)

@@ -21,12 +21,13 @@ const hash = (text: string) => {
   return h;
 };
 
-// The places among a word's letters that are hidden, counted from 0. The first letter is never the one to go with
-// "one": a word of two letters loses its second.
+// The places among a word's letters that are hidden, counted from 0. The first letter always stays. "one" hides one
+// letter from the second on, so a word of two letters loses its second. "second" hides the 2nd, 4th, 6th ... letters
+// (places 1, 3, 5), whatever the seed. "vowels" hides every vowel.
 function places(word: string, letters: string[], mode: Holes, seed: number): number[] {
   const rng = (seed ^ hash(word)) >>> 0;
   if (mode === "vowels") return letters.flatMap((ch, i) => (VOWELS.includes(ch.toLowerCase()) ? [i] : []));
-  if (mode === "second") return letters.flatMap((_, i) => (i % 2 === (rng & 1) ? [i] : []));
+  if (mode === "second") return letters.flatMap((_, i) => (i % 2 === 1 ? [i] : []));
   const [at] = shuffled(Array.from({ length: letters.length - 1 }, (_, i) => i + 1), rng);
   return [at];
 }
