@@ -3551,7 +3551,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}
-                border={border}
+                border={table && border}
                 cutting={cutting}
                 cropping={!!cropping}
                 spin={spin}

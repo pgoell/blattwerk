@@ -245,6 +245,7 @@ def test_extra_a_table_with_broken_edges_takes_a_border(editor):
     broken = {**GRID, "lineStyle": "dotted", "edges": {"h": [[None]], "v": []}}
     page = editor(box("t", "table", broken), client=client)
     open_cell(page, 0)
+    style(page).select_option("dashed")
     border(page, "Oben").click()
     p = props(page, client)
     assert drawn(p) == {"h0,0"}
@@ -256,8 +257,9 @@ def test_extra_a_one_cell_table_has_no_inner_lines(editor):
     client = user()
     single = {**GRID, "cells": [["a"]], "cols": [1]}
     page = editor(box("t", "table", single), client=client)
-    pick(page, "t")
+    open_cell(page, 0)
     expect(border(page, "Innen")).to_be_disabled()
+    style(page).select_option("dashed")
     border(page, "Außen").click()
     p = props(page, client)
     assert drawn(p) == {"h0,0", "h1,0", "v0,0", "v0,1"}
@@ -432,13 +434,59 @@ def test_i7_the_panel_shows_the_table_and_a_pen_changes_no_doc(editor):
 
 
 def test_a3_whole_table_border_with_no_cell_open(editor):
-    """A3: with the table picked and no cell open, a border button writes the table's own style."""
+    """A3: with the table picked and no cell open, a border button gives its lines the table's own
+    style back; on a table that has it already it changes nothing and adds no step of undo."""
     client = user()
-    page = editor(box("t", "table", {**GRID, "lineStyle": "dashed"}), client=client)
+    dotted = {"style": "dotted", "width": 1}
+    h = [[None] * 3, [dotted] * 3, [dotted] * 3, [None] * 3]
+    v = [[None, dotted, None, None], [None] * 4, [None] * 4]
+    look = {"lineStyle": "dashed", "edges": {"h": h, "v": v}}
+    page = editor(box("t", "table", {**GRID, **look}), box("p", "table", GRID, z=4), client=client)
     pick(page, "t")
     border(page, "Innen waagerecht").click()
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_enabled()
+    assert drawn(props(page, client)) == {"v0,1"}
+    border(page, "Innen senkrecht").click()
     p = props(page, client)
-    assert drawn(p) == {f"h{r},{c}" for r in (1, 2) for c in range(3)}
-    for r in (1, 2):
-        for c in range(3):
-            assert p["edges"]["h"][r][c] == {"style": "dashed", "width": 0.25}
+    assert "edges" not in p and p["lineStyle"] == "dashed"
+    # A plain table: every border is as the table draws it anyway.
+    page.keyboard.press("Control+z")
+    page.keyboard.press("Control+z")
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+    pick(page, "p")
+    for label in ("Alle", "Außen", "Oben"):
+        border(page, label).click()
+    expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
+    expect(page.locator(".table.edged")).to_have_count(1)
+
+
+def test_a10_a_border_button_is_one_undo_step(editor):
+    """A10: a border button undoes in one step and redo brings its lines back."""
+    client = user()
+    page = editor(box("t", "table", GRID), client=client)
+    square(page)
+    style(page).select_option("dashed")
+    border(page, "Außen").click()
+    expect(page.locator('.table line[data-style="dashed"]')).not_to_have_count(0)
+    lines = drawn(props(page, client))
+    assert len(lines) == 8
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+z")
+    expect(page.locator(".table.edged")).to_have_count(0)
+    assert "edges" not in props(page, client)
+    page.keyboard.press("Control+y")
+    expect(page.locator(".table.edged")).to_have_count(1)
+    assert drawn(props(page, client)) == lines
+
+
+def test_a_locked_table_shows_no_border_buttons(editor):
+    """I3: the border buttons stand only where they can draw: not for a locked table, and not
+    for a table picked with another block."""
+    page = editor(box("t", "table", GRID, locked=True), box("u", "table", GRID, z=4))
+    pick(page, "u")
+    expect(page.get_by_role("group", name="Rahmen")).to_be_visible()
+    pick(page, "t")
+    expect(style(page)).to_be_visible()
+    expect(page.get_by_role("group", name="Rahmen")).to_have_count(0)
+    pick(page, "t", "u")
+    expect(page.get_by_role("group", name="Rahmen")).to_have_count(0)

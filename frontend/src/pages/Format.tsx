@@ -59,7 +59,8 @@ type Props = {
   lines: (patch: { style?: LineStyle; width?: number }, key?: string) => void;
   cutting: (on: boolean) => void;
   // Draws the pen on the chosen borders of the table being edited.
-  border: (which: Border, pen: Pen) => void;
+  // Absent unless one table that is not locked is picked alone.
+  border?: (which: Border, pen: Pen) => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
@@ -583,7 +584,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
             />
           </label>
           <output>{lineShown.width.toFixed(2).replace(".", ",")} mm</output>
-          {tables.length === 1 && (
+          {border && (
             <div role="group" aria-label="Rahmen" className="borders">
               {BORDERS.map(([which, label]) => (
                 <button key={which} aria-disabled={off(which)} onClick={() => !off(which) && border(which, lineShown)}>

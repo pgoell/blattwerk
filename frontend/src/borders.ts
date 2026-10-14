@@ -41,9 +41,15 @@ function edged<T extends Table>(p: T, set: (e: Edges) => void): T {
 // The table with the lines of the rect that `which` names drawn with `pen`. A line between two cells is one line,
 // so the later click wins. The cells of the rect stay as they are.
 export function bordered<T extends Table>(p: T, rect: Rect, which: Border, pen: Pen): T {
-  return edged(p, (e) => {
-    for (const [axis, r, c] of linesOf(rect, which)) e[axis][r][c] = { style: pen.style, width: pen.width };
+  // A line drawn as the table draws its lines anyway holds nothing of its own: a table asked for what it has stays as it is.
+  const own = pen.style === (p.lineStyle ?? "solid") && pen.width === (p.lineWidth ?? THIN);
+  const out = edged(p, (e) => {
+    for (const [axis, r, c] of linesOf(rect, which)) e[axis][r][c] = own ? null : { style: pen.style, width: pen.width };
   });
+  if ([...out.edges!.h.flat(), ...out.edges!.v.flat()].some((edge) => edge !== null)) return out;
+  if (!("edges" in p)) return p;
+  const { edges: _, ...rest } = out;
+  return rest as T;
 }
 
 // The table with its lines all of one style or width: `lineStyle` and `lineWidth` set, and the same key taken out of

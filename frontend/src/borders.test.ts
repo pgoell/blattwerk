@@ -115,6 +115,19 @@ describe("edgesSpliced", () => {
 
 describe("splices keep the lines", () => {
   const cut = (n: number) => fc.integer({ min: 0, max: n });
+  it("drops lines that do not fit the table, so a later splice cannot make them fit the wrong cells", () => {
+    // As an older build leaves them: a row more, the edges of the table before.
+    const stale = { ...grid, cells: [...grid.cells, ["", "", "", ""]], edges: drawn(bordered(grid, [0, 0, 0, 0], "all", pen)) } as Table;
+    expect(edgesOf(stale)).toBeUndefined();
+    expect("edges" in spliced(stale, "row", 1, false)).toBe(false);
+  });
+
+  it("writes nothing when the pen is the table's own, and takes a line's own look away", () => {
+    expect(bordered(grid, [0, 0, 1, 1], "all", { style: "solid", width: 0.25 })).toBe(grid);
+    const drawnOn = bordered(grid, [0, 0, 0, 0], "top", pen);
+    expect("edges" in bordered(drawnOn, [0, 0, 0, 0], "top", { style: "solid", width: 0.25 })).toBe(false);
+  });
+
   it("holds the sizes of the edges through any run of splices", () => {
     fc.assert(
       fc.property(

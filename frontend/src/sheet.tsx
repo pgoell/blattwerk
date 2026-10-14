@@ -459,8 +459,9 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
 export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
   // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
-  const { cells, cols, gaps, spans: _, rows: __, ...rest } = props;
-  const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
+  // Lines that do not hold go too: with a row more or less they could fit by chance, on the wrong cells.
+  const { cells, cols, gaps, spans: _, rows: __, edges: ___, ...rest } = props;
+  const put =<T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
   const heights = heightsOf(props);
   // A sheet may come from anywhere: the flags take the shape of the cells first.
   const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
@@ -1560,8 +1561,10 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
         const n = length / period;
         const f = n / Math.max(1, line.dataset.style === "dotted" ? 2 * Math.round((n - 1) / 2) + 1 : Math.round(n));
         if (line.dataset.style === "dashed") {
-          line.setAttribute("stroke-dasharray", `${4 * w * f - w} ${3 * w * f + w}`);
-          line.setAttribute("stroke-dashoffset", String((4 * w * f - w) / 2));
+          // An edge shorter than two of its line's widths has room for the caps of one dash and no more.
+          const dash = Math.max(0, 4 * w * f - w);
+          line.setAttribute("stroke-dasharray", `${dash} ${7 * w * f - dash}`);
+          line.setAttribute("stroke-dashoffset", String(dash / 2));
         } else line.setAttribute("stroke-dasharray", `0 ${2.5 * w * f}`);
       }
     }
@@ -1576,6 +1579,8 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     const watch = new ResizeObserver(() => fit(el));
     watch.observe(el);
     el.querySelectorAll(":scope > svg.edge").forEach((svg) => watch.observe(svg));
+    // The page that prints waits for the fonts and no longer: the fit is asked for before it, so it runs first.
+    document.fonts.ready.then(() => fit(el));
     return () => watch.disconnect();
   }, [styled, cells.length, cols.length]);
   const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];

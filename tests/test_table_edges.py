@@ -316,6 +316,20 @@ def test_beyond_a_one_by_one_table_with_cut_and_dots(editor):
     expect(page.locator(".scissors")).to_have_count(1)
 
 
+def test_a_wide_dashed_line_on_a_short_edge_keeps_a_dash(editor):
+    """A7: a column 4 mm wide under a line 3 mm wide: no dash has a length below nothing, which
+    a browser would draw as a solid line."""
+    look = {**THREE, "cols": [1, 1, 40], "line": INK, "lineStyle": "dashed", "lineWidth": 3}
+    page = editor(box("t", "table", look))
+    first = page.locator('.table svg.edge[data-edge="0"] line[data-side="top"]').first
+    expect(first).not_to_have_attribute("stroke-dasharray", f"{9 * scale(page)} {12 * scale(page)}")
+    arrays = page.locator(".table line[data-period]").evaluate_all(
+        "els => els.map((e) => e.getAttribute('stroke-dasharray').split(' ').map(Number))"
+    )
+    assert all(dash >= 0 and gap > 0 for dash, gap in arrays), arrays
+    assert any(dash == 0 for dash, _ in arrays)
+
+
 def test_beyond_broken_edges_are_ignored_and_the_width_holds(editor):
     """Beyond the brief: edges of the wrong shape are left out whole; every line then takes the
     table's style and width."""
