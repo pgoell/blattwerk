@@ -6,6 +6,7 @@ from ui import (
     FIELD,
     LINE,
     RECT,
+    RULING,
     TABLE,
     TEXT,
     at,
@@ -138,3 +139,78 @@ def test_an_altgr_character_opens_a_picked_text(editor):
     pick(page, "a")
     page.keyboard.press("AltGraph+e")
     expect(page.locator(FIELD)).to_be_focused()
+
+
+@pytest.mark.parametrize(
+    "name, made, field, expected",
+    [
+        pytest.param("a", box("a", "text", TEXT), FIELD, "Hallo Welt", id="text"),
+        pytest.param(
+            "s",
+            box("s", "shape", {**SHAPE, "text": "Rose"}),
+            FIELD,
+            "Rose rot",
+            id="shape",
+        ),
+        pytest.param(
+            "t",
+            box("t", "table", {**TABLE, "cells": [["Zahl", "Z"], ["3", "7"]]}),
+            CELL,
+            "Zahl Eins",
+            id="table",
+        ),
+        pytest.param(
+            "r",
+            box("r", "ruling", {**RULING, "text": "Oma"}),
+            ".block.sel textarea",
+            "Oma malt",
+            id="ruling",
+        ),
+    ],
+)
+def test_a_space_opens_a_picked_block_and_types_into_it(editor, name, made, field, expected):
+    page = editor(made)
+    pick(page, name)
+    page.keyboard.press("Space")
+    expect(page.locator(field)).to_be_focused()
+    page.keyboard.type(expected.split(" ")[-1])
+    if field == FIELD:
+        expect(page.locator(field)).to_have_text(expected)
+    else:
+        expect(page.locator(field)).to_have_value(expected)
+
+
+def test_a_space_after_escape_on_a_typed_text_types_the_space(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.type("Birne")
+    expect(page.locator(FIELD)).to_have_text("HalloBirne")
+    page.keyboard.press("Escape")
+    expect_picked(page, "a")
+    page.keyboard.press("Space")
+    page.keyboard.type("Ei")
+    expect(page.locator(FIELD)).to_have_text("HalloBirne Ei")
+
+
+def test_undo_after_escape_gives_back_the_word_before_the_space(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.type("Birne")
+    page.keyboard.press("Escape")
+    expect_picked(page, "a")
+    page.keyboard.press("Space")
+    page.keyboard.type("Ei")
+    expect(page.locator(FIELD)).to_have_text("HalloBirne Ei")
+    page.keyboard.press("Escape")
+    expect_picked(page, "a")
+    page.keyboard.press("Control+z")
+    expect(at(page, "a")).to_contain_text("HalloBirne")
+    expect(at(page, "a")).not_to_contain_text("Ei")
+
+
+def test_a_space_with_nothing_picked_types_nothing(editor):
+    page = editor(box("a", "text", TEXT))
+    page.keyboard.press("Space")
+    expect(page.locator(FIELD)).to_have_count(0)
+    expect(page.locator("textarea:focus")).to_have_count(0)
+    expect(at(page, "a")).to_have_text("Hallo")

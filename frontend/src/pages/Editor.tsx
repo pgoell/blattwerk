@@ -879,18 +879,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // only undo and redo are the sheet's.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
+    // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
+    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space too, when
+    // it is typed into a picked block; with nothing picked it stays the hand's key below.
+    const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+      flushSync(() => edit(free[0].id));
+      return;
+    }
     // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
     if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (!target.closest("button, a, summary")) e.preventDefault();
       if (!e.repeat) setPan(true);
-      return;
-    }
-    // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
-    // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
-    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are.
-    const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
-    if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
-      flushSync(() => edit(free[0].id));
       return;
     }
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
