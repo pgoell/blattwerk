@@ -1661,9 +1661,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const on = n === undefined ? sheet.current! : desk.current!.querySelector(`[data-page="${n}"]`)!;
     return (desk.current!.getBoundingClientRect().top + down - on.getBoundingClientRect().top) / k;
   };
-  // The page that fills most of the desk's view becomes the page in use when the desk scrolls, so a new block lands
-  // where the teacher looks.
+  // The page that fills most of the desk's view becomes the page in use when the teacher scrolls the desk (the wheel,
+  // a finger, its scroll bar), so a new block lands where the teacher looks. A scroll the editor makes itself, to
+  // show a page or a block, or a zoom with Ctrl and the wheel, leaves the page in use as it is.
+  const steered = useRef(0);
+  const steer = () => (steered.current = performance.now());
   function follow() {
+    if (performance.now() - steered.current > 500) return;
     const view = desk.current!.getBoundingClientRect();
     let [best, most] = [page, 0];
     for (const el of desk.current!.querySelectorAll<HTMLElement>("[data-page]")) {
@@ -2742,6 +2746,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
+    steer();
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
@@ -3264,7 +3269,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           className="desk"
           ref={desk}
           onScroll={follow}
+          onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
           onPointerDown={(e) => {
+            if (e.target === e.currentTarget) steer();
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.

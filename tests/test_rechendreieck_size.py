@@ -84,3 +84,33 @@ def test_back_from_twelve_to_four_the_block_does_not_shrink(editor):
     expect(page.locator('.block[data-id="d"] g.triangle')).to_have_count(4)
     assert stored_h(client, page) >= grown
     assert triangle_height(page) == pytest.approx(before, rel=0.02)
+
+
+def test_one_undo_takes_back_the_triangle_and_the_height(editor):
+    """#578: a fifth triangle opens a second row and grows the block; one undo takes back both,
+    one redo brings both again."""
+    client = user()
+    page = editor(dz("d", DREIECK), client=client)
+    pick(page, "d")
+    step(page, lambda: panel(page, "Ein Dreieck mehr").click())
+    grown = stored_h(client, page)
+    assert grown > 50
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert stored_h(client, page) == 50
+    step(page, lambda: page.get_by_label("Wiederholen", exact=True).first.click())
+    assert stored_h(client, page) == grown
+
+
+def test_the_block_grows_no_further_than_the_page_foot(editor):
+    """#578: a block low on the page grows to the page's foot and no further; the triangles then
+    draw as large as that room allows."""
+    client = user()
+    page = editor(box("d", "rechendreieck", DREIECK, w=180, h=50, y=220), client=client)
+    pick(page, "d")
+    for _ in range(8):
+        step(page, lambda: panel(page, "Ein Dreieck mehr").click())
+    block = {b["id"]: b for b in saved(page, client)}["d"]
+    sheet = page.locator(".sheet").first.bounding_box()
+    drawn = page.locator('.block[data-id="d"]').bounding_box()
+    assert block["h"] > 50
+    assert drawn["y"] + drawn["height"] <= sheet["y"] + sheet["height"] + 1

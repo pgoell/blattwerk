@@ -1,7 +1,7 @@
 """The page in use follows the desk's view: a new block lands on the page the teacher scrolls to."""
 
 from playwright.sync_api import expect
-from ui import TEXT, box, doc, user
+from ui import TEXT, box, doc, insert, user
 
 # The counter floats over the desk in the leaf theme, on a wide window.
 COUNTER = ".dock.at"
@@ -65,3 +65,17 @@ def test_a_text_lands_on_page_1_after_the_wheel_brings_page_1_back(editor):
     saved_doc = doc(page, client)
     assert texts(saved_doc, 0) == ["Hallo", "Wort"]
     assert texts(saved_doc, 2) == ["Hallo"]
+
+
+def test_a_maths_block_from_the_dock_lands_on_the_page_in_view(editor):
+    """#579: an item of "Mathe-Blöcke" lands on page 2 with page 2 in view, as a text does."""
+    client = user()
+    rest = [{"blocks": [box("b", "text", TEXT)]}]
+    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    wheel(page, 5000)
+    expect(page.locator(COUNTER)).to_have_text("Seite 2 von 2")
+    insert(page, "Zahlenstrahl")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    saved_doc = doc(page, client)
+    kinds = [[b["type"] for b in p["blocks"]] for p in saved_doc["pages"]]
+    assert kinds == [["text"], ["text", "zahlenstrahl"]]
