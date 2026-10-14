@@ -771,11 +771,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (document.querySelector("dialog:modal")) return;
     // Words with tabs, or the cells copied, spread over the table's cells from the open one on: one step of undo.
     const text = e.clipboardData?.getData("text/plain") ?? "";
-    if ((e.target as HTMLElement).closest(".sheet .table textarea") && table && (text.includes("\t") || (text.includes("\n") && text === cellsCopied.current))) {
+    if ((e.target as HTMLElement).closest(".sheet .table textarea") && table && (text.includes("\t") || (text.includes("\n") && text.replace(/\r\n/g, "\n") === cellsCopied.current))) {
       e.preventDefault();
       e.stopPropagation();
       mergeKey.current = "";
       tight.current = true;
+      sink.current = snug(table);
       change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: putTsv(table.props,[Math.floor(slot / table.props.cols.length), slot % table.props.cols.length], text) } : o)));
       return;
     }
@@ -1171,6 +1172,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!grid || b.type !== "table") return undefined;
     const px = getComputedStyle(grid).gridTemplateRows.split(" ").slice(0, b.props.cells.length).map((p) => parseFloat(p) / K);
     return px.length === b.props.cells.length && !px.some(Number.isNaN) ? px : undefined;
+  }
+  // Whether a table has no spare room now: then it may come down with the texts that go from its cells. A table made
+  // taller than its rows need keeps that height.
+  function snug(b: TableBlock): boolean {
+    const grid = sheet.current?.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`);
+    if (!grid) return false;
+    const own = grid.style.height;
+    grid.style.height = "auto";
+    const full = parseFloat(getComputedStyle(grid).height) / K >= b.h - 0.05;
+    grid.style.height = own;
+    return full;
   }
   // The height in mm that a table's box of solution words needs: the grid's rows after the table's own, read with the
   // grid's height free. In a table with spare room the box is stretched as the rows are, and that share is the rows'.
@@ -2087,6 +2099,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         if (key === "x") {
           mergeKey.current = "";
           tight.current = true;
+          sink.current = snug(b);
           change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
         }
         return;
@@ -2096,6 +2109,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         // Not through the field's change, which would drop the pick.
         mergeKey.current = "";
         tight.current = true;
+        sink.current = snug(b);
         change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
         return;
       }
@@ -2476,7 +2490,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
       // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
       // branch above.
-      else if (touch.current || (!press && sel.length === 1 && free[0] && writable(free[0]))) edit(id, el);
+      else if (touch.current || (!press && sel.length === 1 && free[0]?.type === "ruling")) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {

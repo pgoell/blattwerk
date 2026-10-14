@@ -45,32 +45,6 @@ def test_typing_opens_the_first_cell_of_a_picked_table(editor):
     expect(page.locator(CELL)).to_be_focused()
 
 
-def test_a_second_click_opens_a_picked_text(editor):
-    page = editor(box("a", "text", TEXT))
-    pick(page, "a")
-    at(page, "a").click()
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.type("Welt")
-    expect(page.locator(FIELD)).to_contain_text("Welt")
-
-
-def test_a_second_click_opens_a_picked_shape(editor):
-    page = editor(box("s", "shape", SHAPE))
-    pick(page, "s")
-    at(page, "s").click()
-    expect(page.locator(FIELD)).to_be_focused()
-
-
-def test_a_second_click_opens_the_clicked_cell_of_a_picked_table(editor):
-    page = editor(box("t", "table", TABLE))
-    pick(page, "t")
-    # Bottom right is the cell "7".
-    box_ = at(page, "t").bounding_box()
-    page.mouse.click(box_["x"] + box_["width"] * 0.75, box_["y"] + box_["height"] * 0.75)
-    page.keyboard.type("y")
-    expect(page.locator(CELL)).to_have_value("7y")
-
-
 def test_a_drag_of_a_picked_text_still_moves_it(editor):
     page = editor(box("a", "text", TEXT))
     pick(page, "a")

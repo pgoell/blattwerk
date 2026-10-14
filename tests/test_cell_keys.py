@@ -210,3 +210,22 @@ def test_backspace_on_one_cell_still_deletes_one_letter(editor):
     page.keyboard.type("abc")
     page.keyboard.press("Backspace")
     assert cells(page, client)[0][0] == "ab"
+
+
+def test_a_table_comes_down_when_entf_empties_the_cell_that_made_it_tall(editor):
+    """From the review: Entf on picked cells lets the table go back, as Entf in one cell does."""
+    client = user()
+    page = editor(box("t", "table", SQUARE, h=40), client=client)
+
+    def height():
+        return doc(page, client)["pages"][0]["blocks"][0]["h"]
+
+    before = height()
+    open_at(page, "t", 10)
+    page.keyboard.type(" ".join(f"wort{n}" for n in range(25)))
+    assert height() > before + 10
+    cell(page, "t", 11).click(modifiers=["Shift"])
+    expect(picked(page, "t")).to_have_count(2)
+    page.keyboard.press("Delete")
+    assert cells(page, client)[2] == ["", "", "", ""]
+    assert abs(height() - before) <= 0.05
