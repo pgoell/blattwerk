@@ -877,11 +877,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (!e.repeat) setPan(true);
       return;
     }
-    // A letter typed with one picked Lineatur opens it for writing, and the caret goes to the end of its text. The
-    // focus moves in the same flush, so the browser types the key into the textarea: no preventDefault. Keys that
-    // are commands, and a field, a button or the panel that keep their own, stay as they are.
+    // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
+    // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
+    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are.
     const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
-    if (typed && !editing && sel.length === 1 && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+    if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       flushSync(() => edit(free[0].id));
       return;
     }
@@ -2476,7 +2476,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
       // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
       // branch above.
-      else if (touch.current || (!press && sel.length === 1 && free[0]?.type === "ruling")) edit(id, el);
+      else if (touch.current || (!press && sel.length === 1 && free[0] && writable(free[0]))) edit(id, el);
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
@@ -2484,6 +2484,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
     }
   }
+  // The blocks that open for writing at once on a key or a second click: those with words of their own.
+  const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
