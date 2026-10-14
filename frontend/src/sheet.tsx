@@ -11,6 +11,7 @@ import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
+import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
 import { BELOW, LEFT as STRAHL_LEFT, arrowXs, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
@@ -184,7 +185,9 @@ export type RechendreieckBlock = Box & { type: "rechendreieck"; props: Rechendre
 export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
 // A Hunderterfeld: its stored shape is the contract at the top of hunderterfeld.ts.
 export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock;
+// An Uhr: its stored shape is the contract at the top of uhr.ts.
+export type UhrBlock = Box & { type: "uhr"; props: UhrProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -2039,6 +2042,99 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   );
 }
 
+// An Uhr, drawn as the contract at the top of uhr.ts says: one svg, a cell of 100 by 130 per clock.
+function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean }) {
+  const p = saneUhr(block.props);
+  const times = timesOf(p);
+  const cols = Math.min(p.cols, times.length);
+  const rows = Math.ceil(times.length / cols);
+  // A point of the face at `r` from the centre, `deg` degrees clockwise from 12.
+  const polar = (r: number, deg: number) => [50 + r * Math.sin((deg * Math.PI) / 180), 50 - r * Math.cos((deg * Math.PI) / 180)];
+  const hour = (n: number, r: number) => polar(r, 30 * ((n - (n > 12 ? 12 : 0)) % 12));
+  return (
+    <div className={`uhr${solved ? " solved" : ""}`}>
+      <svg viewBox={`0 0 ${CELL_W * cols} ${CELL_H * rows}`}>
+        {times.map((t, i) => {
+          const [hourDeg, minuteDeg] = hands(t);
+          const [hx, hy] = polar(p.ring && p.numbers !== "none" ? 13 : 25, hourDeg);
+          const [mx, my] = polar(40, minuteDeg);
+          const text = written(t, p);
+          const size = Math.min(10, 180 / text.length);
+          const numbers = p.numbers === "all" ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : p.numbers === "quarters" ? [3, 6, 9, 12] : [];
+          const ring = p.ring && p.numbers !== "none" ? [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24] : [];
+          return (
+            <g key={i} className="clock" data-i={i} data-time={t} transform={`translate(${CELL_W * (i % cols)} ${CELL_H * Math.floor(i / cols)})`}>
+              <circle className="face" cx={50} cy={50} r={46} fill="none" stroke={UHR_INK} strokeWidth={1.2} />
+              <g className="ticks">
+                {Array.from({ length: 60 }, (_, m) => m)
+                  .filter((m) => m % 5 === 0 || p.minutes)
+                  .map((m) => {
+                    const hourTick = m % 5 === 0;
+                    const [x1, y1] = polar(46, 6 * m);
+                    const [x2, y2] = polar(hourTick ? 39 : 42.5, 6 * m);
+                    return <line key={m} x1={x1} y1={y1} x2={x2} y2={y2} stroke={UHR_INK} strokeWidth={hourTick ? 1.2 : 0.5} />;
+                  })}
+              </g>
+              {numbers.map((n) => {
+                const [x, y] = hour(n, 33);
+                return (
+                  <text key={`n${n}`} className="number" data-n={n} x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central" fill={UHR_INK}>
+                    {n}
+                  </text>
+                );
+              })}
+              {ring.map((n) => {
+                const [x, y] = hour(n, 22);
+                return (
+                  <text key={`r${n}`} className="number" data-n={n} x={x} y={y} fontSize={5.5} textAnchor="middle" dominantBaseline="central" fill={UHR_INK}>
+                    {n}
+                  </text>
+                );
+              })}
+              {p.task === "read" && (
+                <>
+                  <line className="hour" x1={50} y1={50} x2={hx} y2={hy} stroke={UHR_INK} strokeWidth={4.5} strokeLinecap="round" />
+                  <line className="minute" x1={50} y1={50} x2={mx} y2={my} stroke={UHR_INK} strokeWidth={1.6} strokeLinecap="round" />
+                </>
+              )}
+              {p.task === "draw" && solved && (
+                <>
+                  <line className="hour" x1={50} y1={50} x2={hx} y2={hy} stroke={RED} strokeWidth={4.5} strokeLinecap="round" />
+                  <line className="minute" x1={50} y1={50} x2={mx} y2={my} stroke={RED} strokeWidth={1.6} strokeLinecap="round" />
+                </>
+              )}
+              <circle className="hub" cx={50} cy={50} r={2.5} fill={UHR_INK} />
+              {p.task === "draw" && (
+                <text className="task" x={50} y={120} fontSize={size} textAnchor="middle" fill={UHR_INK}>
+                  {text}
+                </text>
+              )}
+              {p.task === "read" && p.answer === "box" && !solved && (
+                <text className="task" x={50} y={120} fontSize={10} textAnchor="middle" fill={UHR_INK}>
+                  __:__ Uhr
+                </text>
+              )}
+              {p.task === "read" && p.answer === "box" && solved && (
+                <text className="answer" x={50} y={120} fontSize={size} textAnchor="middle" fill={RED}>
+                  {text}
+                </text>
+              )}
+              {p.task === "read" && p.answer === "line" && (
+                <line className="answer" x1={12} y1={122} x2={88} y2={122} stroke={UHR_INK} strokeWidth={0.6} />
+              )}
+              {p.task === "read" && p.answer === "line" && solved && (
+                <text className="answer" x={50} y={120} fontSize={size} textAnchor="middle" fill={RED}>
+                  {text}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Hunderterfeld, drawn as the contract at the top of hunderterfeld.ts says. Its lines are 0.3 and its outer frame
 // 0.6 of a 100 field, so they keep that share when a cut-out makes the field smaller.
 function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k: number; solved: boolean }) {
@@ -2101,6 +2197,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
+  if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

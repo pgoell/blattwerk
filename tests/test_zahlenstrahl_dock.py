@@ -64,6 +64,23 @@ ZAHLENSTRAHL = {
                 "dots": 0,
             },
         ),
+        (
+            "Uhr",
+            "uhr",
+            {
+                "numbers": "all",
+                "minutes": True,
+                "ring": False,
+                "task": "read",
+                "answer": "box",
+                "format": "12",
+                "region": "nach",
+                "count": 4,
+                "cols": 4,
+                "step": 15,
+                "fill": "random",
+            },
+        ),
     ],
 )
 def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, kind, defaults):

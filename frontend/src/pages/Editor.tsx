@@ -38,6 +38,7 @@ import {
   Eye,
   Group,
   Grid3x3,
+  Clock3,
   FileCheck,
   FileDown,
   FilePlus,
@@ -109,6 +110,7 @@ import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK } from "../rechendreieck";
 import { DEFAULTS as STRAHL } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
+import { DEFAULTS as UHR } from "../uhr";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -171,6 +173,7 @@ const NAMES: Record<Block["type"], string> = {
   rechendreieck: "Rechendreieck",
   zahlenstrahl: "Zahlenstrahl",
   hunderterfeld: "Hunderterfeld",
+  uhr: "Uhr",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -2864,6 +2867,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Rechendreieck", icon: TriangleDashed, run: () => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } }) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => add(180, 30, { type: "zahlenstrahl", props: { ...STRAHL, seed: newSeed() } }) },
     { label: "Hunderterfeld", icon: Grid3x3, run: () => add(100, 100, { type: "hunderterfeld", props: { ...FELD, seed: newSeed() } }) },
+    { label: "Uhr", icon: Clock3, run: () => add(180, 58.5, { type: "uhr", props: { ...UHR, seed: newSeed() } }) },
   ];
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
