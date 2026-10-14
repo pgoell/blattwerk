@@ -253,7 +253,9 @@ function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, numbe
   const greedy = derive(p, typed, used, rows, valueOf);
   if (greedy) return { numbers: greedy, wrong: false };
   // The greedy fill gave no wall: search the base stones for one that fits the typed numbers.
-  const found = search(p, typed, generated);
+  // A base stone in no typed stone keeps its number, unless only a smaller one keeps every stone within 9999: the
+  // smallest it may be makes every stone over it as small as it gets.
+  const found = search(p, typed, generated) ?? search(p, typed, generated.map((v, j) => (j < base ? (times ? 1 : 0) : v)));
   return found ? { numbers: found, wrong: false } : shown;
 }
 
@@ -262,7 +264,8 @@ function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, numbe
 function search(p: ZahlenmauerProps, typed: Map<number, number>, generated: number[]): number[] | undefined {
   const base = p.base;
   const times = p.op === "*";
-  const floor = floorOf(p);
+  // The teacher's own wall may hold a 0 where plus allows it.
+  const floor = times ? 1 : 0;
   const cons = [...typed].map(([i, v]) => ({ v, a: vector(base, i) }));
   const searched = Array.from({ length: base }, (_, j) => j).filter((j) => cons.some((c) => c.a[j] > 0));
   const x = generated.slice(0, base);

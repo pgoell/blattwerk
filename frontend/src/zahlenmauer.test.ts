@@ -335,11 +335,24 @@ describe("typed numbers: the search over the base stones", () => {
     for (const w of m.walls) expect(w.wrong).toBe(true);
   });
 
-  it("(j) plus, base 5, typed top 9999 and base stone 0 = 9999 is wrong, under 200 ms", () => {
+  it("(j) plus, base 5, typed top 9999 and base stones 0 = 9999 and 4 = 1 is wrong, under 200 ms", () => {
     const t = performance.now();
-    const w = made(P({ base: 5, max: 1000, seed: 5150, typed: [[0, 14, 9999], [0, 0, 9999]] })).walls[0];
+    const w = made(P({ base: 5, max: 1000, seed: 5150, typed: [[0, 14, 9999], [0, 0, 9999], [0, 4, 1]] })).walls[0];
     expect(performance.now() - t).toBeLessThan(200);
     expect(w.wrong).toBe(true);
+  });
+
+  it("(l) a base stone in no typed stone gives way when its own number lets no wall fit", () => {
+    const w = made(P({ base: 3, op: "*", max: 100, seed: -111799679, typed: [[0, 2, 7], [0, 4, 35]] })).walls[0];
+    expect(w.wrong).toBe(false);
+    expect([w.numbers[2], w.numbers[4]]).toEqual([7, 35]);
+    expect(w.numbers[5]).toBe(w.numbers[3] * w.numbers[4]);
+  });
+
+  it("(m) plus: a teacher's wall may hold a 0, so a typed top 2 fits", () => {
+    const w = made(P({ seed: 1, typed: [[0, 5, 2]] })).walls[0];
+    expect(w.wrong).toBe(false);
+    expect(w.numbers[5]).toBe(2);
   });
 
   it("(k) a wall made by the generator, with some of its stones typed, is not wrong and keeps the typed numbers", () => {
