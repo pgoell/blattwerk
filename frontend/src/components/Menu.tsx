@@ -5,9 +5,10 @@ import type { LucideIcon } from "lucide-react";
 // `on` is set for a command that is on or off, and marks the one that is on.
 export type Item = { label: string; icon?: LucideIcon; keys?: string; disabled?: boolean; on?: boolean; run: () => void } | "sep";
 
-type Props = { x: number; y: number; items: Item[]; onClose: () => void; onElsewhere: (x: number, y: number) => void };
+// `up` puts the menu's bottom edge at `y`, for a menu that opens above its button.
+type Props = { x: number; y: number; up?: boolean; items: Item[]; onClose: () => void; onElsewhere: (x: number, y: number) => void };
 
-export default function Menu({ x, y, items, onClose, onElsewhere }: Props) {
+export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const d = ref.current!;
@@ -15,7 +16,7 @@ export default function Menu({ x, y, items, onClose, onElsewhere }: Props) {
     // Near the right or the bottom edge the menu moves back into the window.
     const box = d.getBoundingClientRect();
     d.style.left = `${Math.max(0, Math.min(x, innerWidth - box.width))}px`;
-    d.style.top = `${Math.max(0, Math.min(y, innerHeight - box.height))}px`;
+    d.style.top = `${Math.max(0, Math.min(up ? y - box.height : y, innerHeight - box.height))}px`;
     d.querySelector<HTMLElement>("button:enabled")?.focus();
   }, [x, y]);
   // In a window of another size, as after a turn of the iPad, the menu's place is no longer right: it shuts.
