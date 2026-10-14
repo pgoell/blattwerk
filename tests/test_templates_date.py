@@ -30,7 +30,8 @@ def test_deckblatt_keeps_its_name_line_on_screen(editor):
     page = editor()
     open_panel(page)
     apply(page, "Klassenarbeit Deckblatt")
-    expect(page.locator(".sheet").first.get_by_text("Name", exact=True).first).to_be_visible()
+    fields = page.locator(".sheet").first.locator(".fields > span")
+    expect(fields).to_have_text(["Name:", "Klasse:"])
 
 
 @pytest.mark.parametrize("name", ["Elternbrief", "Klassenarbeit Deckblatt"])
