@@ -10,6 +10,7 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type KeyboardEvent as Key,
+  type MouseEvent as Click,
   type PointerEvent,
   type ReactNode,
   type TouchEvent,
@@ -1979,6 +1980,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const z = new Map(stack.map((b, i) => [b.id, i + 1]));
     place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
   }
+  // A button of the order that greys with its press gives the focus to its pair, which the press made live, so who
+  // works the panel with the keys stays where they were.
+  function layer(e: Click<HTMLButtonElement>, front: boolean, one = false) {
+    const el = e.currentTarget;
+    const had = document.activeElement === el;
+    flushSync(() => raise(front, one));
+    if (had && el.disabled) ((el.nextElementSibling ?? el.previousElementSibling) as HTMLElement | null)?.focus();
+  }
 
   // Puts the blocks where they belong, rounded. What already lies there leaves nothing to undo.
   function bring(to: [Block, Partial<Record<"x" | "y" | "w" | "h", number>>][]) {
@@ -3771,12 +3780,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
               <h2>Ebene</h2>
               <div className="acts">
-                <button disabled={!stacked(true)} onClick={() => raise(true)}>Nach vorn</button>
-                <button disabled={!stacked(false)} onClick={() => raise(false)}>Nach hinten</button>
+                <button disabled={!stacked(true)} onClick={(e) => layer(e, true)}>Nach vorn</button>
+                <button disabled={!stacked(false)} onClick={(e) => layer(e, false)}>Nach hinten</button>
               </div>
               <div className="acts">
-                <button disabled={!stacked(true, true)} onClick={() => raise(true, true)}>Eine nach vorn</button>
-                <button disabled={!stacked(false, true)} onClick={() => raise(false, true)}>Eine nach hinten</button>
+                <button disabled={!stacked(true, true)} onClick={(e) => layer(e, true, true)}>Eine nach vorn</button>
+                <button disabled={!stacked(false, true)} onClick={(e) => layer(e, false, true)}>Eine nach hinten</button>
               </div>
             </>
           )}

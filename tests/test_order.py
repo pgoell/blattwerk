@@ -254,6 +254,36 @@ def test_a_whole_group_in_front_greys_forward(editor):
     expect_grey(page, BACKWARD, False)
 
 
+@pytest.mark.parametrize(
+    "start, name, pair, stack",
+    [
+        ("a", "Nach vorn", "Nach hinten", "bca"),
+        ("a", "Eine nach vorn", "Eine nach hinten", "bac"),
+        ("c", "Nach hinten", "Nach vorn", "cab"),
+    ],
+)
+def test_a_button_that_greys_with_its_press_hands_the_keys_to_its_pair(
+    editor, start, name, pair, stack
+):
+    page = editor(*boxes(*"abc"))
+    pick(page, start)
+    button = page.get_by_role("button", name=name, exact=True)
+    button.focus()
+    # The last step greys it: "Eine nach vorn" needs two presses from the back of three.
+    page.keyboard.press("Enter")
+    if name.startswith("Eine"):
+        expect_stack(page, stack)
+        page.keyboard.press("Enter")
+        stack = "bca"
+    expect_stack(page, stack)
+    expect(button).to_be_disabled()
+    expect(page.get_by_role("button", name=pair, exact=True)).to_be_focused()
+    # The keys are still the panel's: Enter presses the pair, and the selection stays.
+    page.keyboard.press("Enter")
+    expect(button).to_be_enabled()
+    expect_picked(page, start)
+
+
 def test_a_lone_block_greys_all_four(editor):
     page = editor(*boxes(*"a"))
     pick(page, "a")
