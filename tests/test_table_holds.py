@@ -5,7 +5,7 @@ text goes. Issue 517 is the columns, issue 520 the height.
 from playwright.sync_api import expect
 from test_cells import GRID, MERGED, cell, open_cell, print_page, props
 from test_sizes import EDGE, H, W, block, mm_height, num, typed, widths_mm
-from ui import box, pick, thumb, user
+from ui import box, centre, drag, pick, thumb, unpick, user
 
 LONG = " ".join(f"wort{n}" for n in range(25))
 
@@ -310,3 +310,137 @@ def test_a_shrunk_table_agrees_on_screen_thumb_and_pdf(editor, browser, server):
     # A millimetre is 96 / 25.4 px in the PDF.
     assert abs(drawn.bounding_box()["height"] - height * 96 / 25.4) <= 0.3
     context.close()
+
+
+def typed_height(page, mm):
+    pick(page, "t")
+    typed(page, "Höhe", str(mm))
+
+
+def test_a_typed_height_holds_when_more_text_is_typed_and_deleted(editor):
+    """Issue 540: a height typed in the panel holds when more text is typed and deleted."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H), client=client)
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Escape")
+    typed_height(page, 90)
+    assert block(page, client)["h"] == 90
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - 90) <= 0.1
+    pick(page, "t")
+    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - 90) <= 0.1
+
+
+def test_a_dragged_height_holds_when_text_is_typed_and_deleted(editor):
+    """Issue 540: a height dragged on the bottom handle holds when text is typed and deleted."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H), client=client)
+    pick(page, "t")
+    start = centre(page.locator(".moveable-control.moveable-s"))
+    drag(page, start, (start[0], start[1] + 60))
+    dragged = block(page, client)["h"]
+    assert dragged > H + 5
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - dragged) <= 0.1
+
+
+def test_a_typed_height_holds_when_the_text_goes_into_another_row(editor):
+    """Issue 540: a height typed in the panel holds when the long text goes into another row."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H), client=client)
+    typed_height(page, 90)
+    open_cell(page, "t", 6)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - 90) <= 0.1
+
+
+def test_a_table_with_solution_words_goes_back_when_its_long_text_is_deleted(editor):
+    """Issue 539: a table with a box of solution words goes back to its height after long text."""
+    client = user()
+    gaps = [[True, False, False], [False] * 3, [False] * 3]
+    page = editor(
+        box("t", "table", {**GRID, "gaps": gaps, "bank": 3}, w=W, h=50 + EDGE), client=client
+    )
+    before = block(page, client)["h"]
+    open_cell(page, "t", 4)
+    page.keyboard.type(LONG)
+    assert block(page, client)["h"] > before + 10
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - before) <= 0.05
+
+
+def test_a_typed_height_holds_on_a_table_with_solution_words_after_typing_and_deleting(editor):
+    """Issue 539: a height typed on a table with a box of solution words holds after long text."""
+    client = user()
+    gaps = [[True, False, False], [False] * 3, [False] * 3]
+    page = editor(
+        box("t", "table", {**GRID, "gaps": gaps, "bank": 3}, w=W, h=50 + EDGE), client=client
+    )
+    open_cell(page, "t", 4)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Escape")
+    # The long text alone needs some 96 mm: 120 is a height above that.
+    typed_height(page, 120)
+    assert block(page, client)["h"] == 120
+    open_cell(page, "t", 4)
+    page.keyboard.type(LONG)
+    assert block(page, client)["h"] > 130
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - 120) <= 0.1
+    pick(page, "t")
+    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - 120) <= 0.1
+
+
+def test_undo_brings_back_the_height_and_rows_before_a_typed_height(editor):
+    """Issue 540: one Ctrl+Z after a typed height takes back the height and the rows before it."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H), client=client)
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Escape")
+    start = block(page, client)
+    typed_height(page, 90)
+    assert block(page, client)["h"] == 90
+    unpick(page)
+    page.keyboard.press("Control+z")
+    after = block(page, client)
+    assert abs(after["h"] - start["h"]) <= 0.05
+    assert after["props"].get("rows") == start["props"].get("rows")
+
+
+def test_a_turned_table_holds_its_typed_height(editor):
+    """Issue 540: a turned table keeps a typed height when long text is typed and deleted."""
+    client = user()
+    page = editor(box("t", "table", GRID, h=H, angle=90), client=client)
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Escape")
+    typed_height(page, 90)
+    open_cell(page, "t", 3)
+    page.keyboard.type(LONG)
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    assert abs(block(page, client)["h"] - 90) <= 0.1
+
+
+def test_a_typed_column_width_past_the_right_edge_is_warned_of(editor):
+    """Issue 523: two columns set wide on a six-column table show the warning past the edge."""
+    client = user()
+    six = {**GRID, "cells": [["", "", "", "", "", ""] for _ in range(3)], "cols": [1] * 6}
+    page = editor(box("t", "table", six, x=15, w=180), client=client)
+    open_cell(page, "t", 0)
+    typed(page, "Spaltenbreite", "40")
+    open_cell(page, "t", 1)
+    typed(page, "Spaltenbreite", "45")
+    expect(page.locator('[data-edge="over"]')).to_be_visible()

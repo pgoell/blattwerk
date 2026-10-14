@@ -96,7 +96,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput,
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
-import { EDGE, anchorOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Rect } from "../cells";
+import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -655,9 +655,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       block.style.transform = was;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
       // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
-      // never shrinks by itself, and neither does a table with a box of solution words: its rows do not sum to its
-      // height. No other change brings a table down: a height the teacher set holds.
-      const down = snug && kept && typeof (b as TableBlock).props.bank !== "number";
+      // never shrinks by itself. No other change brings a table down: a height the teacher set holds.
+      const down = snug && kept;
       if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, h));
@@ -770,6 +769,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Outside a field, words copied in another app make a text block; the editor's own bring the copied blocks.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal")) return;
+    // Words with tabs, or the cells copied, spread over the table's cells from the open one on: one step of undo.
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    if ((e.target as HTMLElement).closest(".sheet .table textarea") && table && (text.includes("\t") || (text.includes("\n") && text.replace(/\r\n/g, "\n") === cellsCopied.current))) {
+      e.preventDefault();
+      e.stopPropagation();
+      mergeKey.current = "";
+      tight.current = true;
+      sink.current = snug(table);
+      change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: putTsv(table.props,[Math.floor(slot / table.props.cols.length), slot % table.props.cols.length], text) } : o)));
+      return;
+    }
     const field = (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select");
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
@@ -868,11 +878,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (!e.repeat) setPan(true);
       return;
     }
-    // A letter typed with one picked Lineatur opens it for writing, and the caret goes to the end of its text. The
-    // focus moves in the same flush, so the browser types the key into the textarea: no preventDefault. Keys that
-    // are commands, and a field, a button or the panel that keep their own, stay as they are.
+    // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
+    // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
+    // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are.
     const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
-    if (typed && !editing && sel.length === 1 && free.length === 1 && free[0].type === "ruling" && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
+    if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       flushSync(() => edit(free[0].id));
       return;
     }
@@ -1155,15 +1165,52 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (n === undefined) update((doc) => ({ ...doc, guides: fn(doc.guides) }), key);
     else turn((p) => ({ ...p, guides: fn(p.guides ?? NONE) }), key, n);
   }
+  // The heights of a table's own rows as the screen lays them out now, in mm. The grid's rows after them are the box of
+  // solution words. Undefined when the grid is not there or its rows do not parse.
+  function screenRows(b: Block): number[] | undefined {
+    const grid = sheet.current?.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`);
+    if (!grid || b.type !== "table") return undefined;
+    const px = getComputedStyle(grid).gridTemplateRows.split(" ").slice(0, b.props.cells.length).map((p) => parseFloat(p) / K);
+    return px.length === b.props.cells.length && !px.some(Number.isNaN) ? px : undefined;
+  }
+  // Whether a table has no spare room now: then it may come down with the texts that go from its cells. A table made
+  // taller than its rows need keeps that height.
+  function snug(b: TableBlock): boolean {
+    const grid = sheet.current?.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`);
+    if (!grid) return false;
+    const own = grid.style.height;
+    grid.style.height = "auto";
+    const full = parseFloat(getComputedStyle(grid).height) / K >= b.h - 0.05;
+    grid.style.height = own;
+    return full;
+  }
+  // The height in mm that a table's box of solution words needs: the grid's rows after the table's own, read with the
+  // grid's height free. In a table with spare room the box is stretched as the rows are, and that share is the rows'.
+  function boxOf(grid: HTMLElement, rows: number): number {
+    const own = grid.style.height;
+    grid.style.height = "auto";
+    const box = getComputedStyle(grid).gridTemplateRows.split(" ").slice(rows).reduce((all, p) => all + (parseFloat(p) || 0) / K, 0);
+    grid.style.height = own;
+    return box;
+  }
   function place(boxes: [string, Partial<Box>][], key?: string) {
     const byId = new Map(boxes);
     change(
       (bs) =>
         bs.map((b) => {
           const patch = byId.get(b.id);
-          // A table with row heights keeps them in proportion to its height.
+          // A table with row heights keeps them in proportion to its height. The rows are those on screen: a row the text
+          // holds up is taller than its saved height.
           const rows = b.type === "table" && patch?.h !== undefined && b.h > EDGE && patch.h !== b.h ? heightsOf(b.props) : undefined;
           if (!rows) return { ...b, ...patch };
+          // A row as high as it is saved is taken as saved: the screen lays rows out on parts of a pixel.
+          const screen = screenRows(b)?.map((h, i) => (Math.abs(h - rows[i]) <= 0.05 ? rows[i] : h));
+          if (screen && sum(screen) > 0) {
+            // The rows fill the height without the table's line and the box of solution words.
+            const to = patch!.h! - EDGE - boxOf(sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`)!, screen.length);
+            if (to <= 0) return { ...b, ...patch };
+            return { ...b, ...patch, props: { ...b.props, rows: screen.map((h) => (h * to) / sum(screen)) } } as Block;
+          }
           const f = (patch!.h! - EDGE) / (b.h - EDGE);
           return { ...b, ...patch, props: { ...b.props, rows: rows.map((h) => h * f) } } as Block;
         }),
@@ -1683,6 +1730,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // They go out in a copy of the browser's own, which needs no leave and is done before the next paste. A copy with
   // no words waiting, as a field's, stays the browser's.
   const pending = useRef<string | null>(null);
+  // The text of the last cells copied: a paste of exactly that, with line breaks, spreads over the cells.
+  const cellsCopied = useRef("");
   useEffect(() => {
     const copied = (e: ClipboardEvent) => {
       if (pending.current === null) return;
@@ -2023,11 +2072,47 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   };
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
+  // The text of cells on the system's clipboard, as copy() does for blocks: the browser's copy first, then the fallback.
+  function copyCells(tsv: string) {
+    cellsCopied.current = tsv;
+    pending.current = tsv;
+    document.execCommand("copy");
+    if (pending.current === null) return;
+    pending.current = null;
+    navigator.clipboard?.writeText(tsv).catch(() => {});
+  }
   function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
     // Escape and F2 end the writing themselves: after a press in the panel a blur would not.
     if (e.key === "Escape" || e.key === "F2") {
       setEditing("");
       setReach(undefined);
+    }
+    // With two or more cells picked, the keys work on all of them: Entf and Backspace empty them, Ctrl+C copies them as
+    // text, Ctrl+X copies and empties them. The cells stay picked. Ctrl+V is the paste, see onPaste.
+    if (reach !== undefined && slotsIn(b.props, rectOf(b.props, slot, reach)).length > 1) {
+      const rect = rectOf(b.props, slot, reach);
+      const ctrl = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (ctrl && (key === "c" || key === "x")) {
+        e.preventDefault();
+        copyCells(tsvOf(b.props, rect));
+        if (key === "x") {
+          mergeKey.current = "";
+          tight.current = true;
+          sink.current = snug(b);
+          change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
+        }
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        // Not through the field's change, which would drop the pick.
+        mergeKey.current = "";
+        tight.current = true;
+        sink.current = snug(b);
+        change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
+        return;
+      }
     }
     // An arrow at the edge of the text goes on to the next cell, when there is one in that way.
     const plain = !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
@@ -2413,6 +2498,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (press) moveable.current!.waitToChangeTarget().then(() => moveable.current!.dragStart(press));
     }
   }
+  // The blocks that open for writing at once on a key or a second click: those with words of their own.
+  const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
   function edit(id?: string, el?: Element, all = false) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
@@ -3148,11 +3235,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             setReach(undefined);
                             // A table without row heights gets, with the first text typed in it, the heights its rows have
                             // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
-                            // table saved lower than its texts need, or with a box of solution words, has no such heights.
-                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE)) <= 0.05 ? { rows: laidMm.map(round) } : {};
+                            // table saved lower than its texts need has no such heights.
+                            const grid = e.currentTarget.closest<HTMLElement>(".table")!;
+                            // The box of solution words is the grid's rows after the table's own, so the rows fill b.h less that.
+                            // What the box is stretched by goes to the rows, so they and the box as it needs to be fill b.h.
+                            const boxMm = getComputedStyle(grid).gridTemplateRows.split(" ").slice(b.props.cells.length).reduce((all, p) => all + parseFloat(p) / K, 0);
+                            const fill = boxMm > 0 ? b.h - EDGE - boxOf(grid, b.props.cells.length) : sum(laidMm);
+                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE - boxMm)) <= 0.05 ? { rows: laidMm.map((h) => round((h * fill) / sum(laidMm))) } : {};
                             // The table may come down with its text when it has no spare room now: a table made taller
                             // than its rows need keeps that height.
-                            const grid = e.currentTarget.closest<HTMLElement>(".table")!;
                             const own = grid.style.height;
                             grid.style.height = "auto";
                             sink.current = "rows" in rows || parseFloat(getComputedStyle(grid).height) / K >= b.h - 0.05;

@@ -79,6 +79,34 @@ export function slotsIn(p: Grid, [r0, c0, r1, c1]: Rect): number[] {
   return out;
 }
 
+// The texts of the rect as text: a tab between the cells of a row, a line break between rows. A line break inside
+// a cell becomes a space, so that each row stays one line.
+export function tsvOf(p: Grid, [r0, c0, r1, c1]: Rect): string {
+  const rows: string[] = [];
+  for (let r = r0; r <= r1; r++) rows.push(p.cells[r].slice(c0, c1 + 1).map((t) => t.replace(/\r?\n/g, " ")).join("\t"));
+  return rows.join("\n");
+}
+
+// The grid with the texts of `tsv` put in from the cell at [r, c] on, a row down per line and a column right per tab.
+// Cells past the grid's edge and cells a merged cell covers are left out.
+export function putTsv<T extends Grid>(p: T, [r, c]: [number, number], tsv: string): T {
+  const width = p.cols.length;
+  const cells = p.cells.map((row) => [...row]);
+  tsv.replace(/\r?\n$/, "").split(/\r?\n/).forEach((line, i) =>
+    line.split("\t").forEach((text, j) => {
+      const [row, col] = [r + i, c + j];
+      if (row < cells.length && col < width && anchorOf(p, row * width + col) === row * width + col) cells[row][col] = text;
+    }),
+  );
+  return { ...p, cells } as T;
+}
+
+// The grid with the texts of the cells of the rect emptied. Merged cells keep their span.
+export function emptied<T extends Grid>(p: T, [r0, c0, r1, c1]: Rect): T {
+  const cells = p.cells.map((row, r) => row.map((t, c) => (r >= r0 && r <= r1 && c >= c0 && c <= c1 ? "" : t)));
+  return { ...p, cells } as T;
+}
+
 // Sets the merged cells of a grid to `spans`, or takes the key away when there are none.
 const withSpans = <T extends Grid>(p: T, spans: Span[]): T => {
   const { spans: _, ...rest } = p;
