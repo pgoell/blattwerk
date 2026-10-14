@@ -9,7 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
-import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
+import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
 import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
@@ -1899,30 +1899,11 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
 function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
   const p = saneRechen(block.props);
   const { triangles } = drawnRechen(p);
-  const SIDE = 60;
-  const H = (SIDE * Math.sqrt(3)) / 2;
-  const [GAP, RING, BOX] = [10, 7, [16, 10]];
-  const corner: [number, number][] = [[SIDE / 2, 0], [0, H], [SIDE, H]];
-  const centre: [number, number] = [SIDE / 2, (2 * H) / 3];
-  const inner = corner.map(([x, y]): [number, number] => [x + (centre[0] - x) / 2, y + (centre[1] - y) / 2]);
-  // Outside the middle of each side, pushed out until the box clears the side.
-  const outer = SIDES.map(([a, b]): [number, number] => {
-    const [mx, my] = [(corner[a][0] + corner[b][0]) / 2, (corner[a][1] + corner[b][1]) / 2];
-    const [dx, dy] = [mx - centre[0], my - centre[1]];
-    const len = Math.hypot(dx, dy);
-    const [nx, ny] = [dx / len, dy / len];
-    const reach = (BOX[0] / 2) * Math.abs(nx) + (BOX[1] / 2) * Math.abs(ny) + 2;
-    return [mx + nx * reach, my + ny * reach];
-  });
-  const [minX, maxX] = [Math.min(0, ...outer.map(([x]) => x - BOX[0] / 2)), Math.max(SIDE, ...outer.map(([x]) => x + BOX[0] / 2))];
-  const maxY = Math.max(H, ...outer.map(([, y]) => y + BOX[1] / 2));
-  const [cellW, cellH] = [maxX - minX, maxY];
-  const cols = p.columns;
-  const rows = Math.max(1, Math.ceil(triangles.length / cols));
+  const { GAP, RING, BOX, corner, inner, outer, minX, cellW, cellH, cols, vbW, vbH } = layout(p);
   return (
     <div className={`rechendreieck${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the triangles, so the lines at the edge show whole. */}
-      <svg viewBox={`-0.5 -0.5 ${cols * cellW + (cols - 1) * GAP + 1} ${rows * cellH + (rows - 1) * GAP + 1}`} preserveAspectRatio="xMidYMin meet">
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
         {triangles.map((tri, t) => {
           const [x, y] = [(t % cols) * (cellW + GAP) - minX, Math.floor(t / cols) * (cellH + GAP)];
           return (

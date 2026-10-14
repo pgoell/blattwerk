@@ -93,6 +93,45 @@ export function sane(p: RechendreieckProps): RechendreieckProps {
   };
 }
 
+// The drawing in svg units: a triangle has sides of 60 units, its inner fields are circles just inside the corners,
+// its outer fields boxes beyond the middle of each side. `vbW` and `vbH` are the viewBox of the whole drawing.
+export function layout(p: Pick<RechendreieckProps, "count" | "columns">) {
+  const SIDE = 60;
+  const H = (SIDE * Math.sqrt(3)) / 2;
+  const [GAP, RING, BOX] = [10, 7, [16, 10]];
+  const corner: [number, number][] = [[SIDE / 2, 0], [0, H], [SIDE, H]];
+  const centre: [number, number] = [SIDE / 2, (2 * H) / 3];
+  const inner = corner.map(([x, y]): [number, number] => [x + (centre[0] - x) / 2, y + (centre[1] - y) / 2]);
+  // Outside the middle of each side, pushed out until the box clears the side.
+  const outer = SIDES.map(([a, b]): [number, number] => {
+    const [mx, my] = [(corner[a][0] + corner[b][0]) / 2, (corner[a][1] + corner[b][1]) / 2];
+    const [dx, dy] = [mx - centre[0], my - centre[1]];
+    const len = Math.hypot(dx, dy);
+    const [nx, ny] = [dx / len, dy / len];
+    const reach = (BOX[0] / 2) * Math.abs(nx) + (BOX[1] / 2) * Math.abs(ny) + 2;
+    return [mx + nx * reach, my + ny * reach];
+  });
+  const [minX, maxX] = [Math.min(0, ...outer.map(([x]) => x - BOX[0] / 2)), Math.max(SIDE, ...outer.map(([x]) => x + BOX[0] / 2))];
+  const maxY = Math.max(H, ...outer.map(([, y]) => y + BOX[1] / 2));
+  const [cellW, cellH] = [maxX - minX, maxY];
+  const cols = p.columns;
+  const rows = Math.max(1, Math.ceil(p.count / cols));
+  const vbW = cols * cellW + (cols - 1) * GAP + 1;
+  const vbH = rows * cellH + (rows - 1) * GAP + 1;
+  return { SIDE, H, GAP, RING, BOX, corner, inner, outer, minX, cellW, cellH, cols, vbW, vbH };
+}
+
+// The default block (4 in a row, 180 by 50 mm) draws its triangles at the scale s0. A block of width w draws them at
+// the same scale, and its height grows with the rows, so that they keep the size of the default block.
+const DEFAULT_LAYOUT = layout(DEFAULTS);
+const S0 = Math.min(180 / DEFAULT_LAYOUT.vbW, 50 / DEFAULT_LAYOUT.vbH);
+
+// The height in mm of a block of width w with the props p, at which its triangles draw at least at the default scale.
+export function heightFor(p: RechendreieckProps, w: number): number {
+  const L = layout(sane(p));
+  return L.vbH * Math.min(w / L.vbW, S0);
+}
+
 // The row of a field over the three inner numbers: a unit row for an inner field, the sum of its two ends for an outer.
 const row = (f: number): number[] => [0, 1, 2].map((i) => (f < 3 ? (i === f ? 1 : 0) : SIDES[f - 3].includes(i) ? 1 : 0));
 
