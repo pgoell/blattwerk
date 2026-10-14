@@ -8,7 +8,7 @@ import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
-import { at, made as walled, sane as saneWall } from "./zahlenmauer";
+import { at, layout as wallLayout, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -1863,13 +1863,11 @@ function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved:
 function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; solved: boolean }) {
   const p = saneWall(block.props);
   const { walls } = walled(p);
-  const S = 10;
-  const [wallW, wallH, gap] = [p.base * 2 * S, p.base * S, 2 * S];
-  const rows = Math.max(1, Math.ceil(walls.length / p.columns));
+  const { S, wallW, wallH, gap, vbW, vbH } = wallLayout(p);
   return (
     <div className={`zahlenmauer${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the walls, so the lines at the edge show whole. */}
-      <svg viewBox={`-0.5 -0.5 ${p.columns * wallW + (p.columns - 1) * gap + 1} ${rows * wallH + (rows - 1) * gap + 1}`} preserveAspectRatio="xMidYMin meet">
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
         {walls.map((w, i) => {
           const [x0, y0] = [(i % p.columns) * (wallW + gap), Math.floor(i / p.columns) * (wallH + gap)];
           const stones = Array.from({ length: p.base }, (_, r) => Array.from({ length: p.base - r }, (_, c) => {

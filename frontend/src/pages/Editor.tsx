@@ -111,8 +111,9 @@ import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendr
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
+import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 
-type Template = { id: number; name: string; doc: Doc };
+type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
 type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> : never;
 
@@ -600,6 +601,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const ns = numbers(hist.doc);
   // The built-in templates have ids below zero; the teacher's own can be deleted.
   const kept = templates.filter((t) => t.id > 0);
+  // The built-in templates' documents for their thumbnails, read once, so a thumbnail draws again only with the list.
+  const builtIn = useMemo(() => templates.filter((t) => t.id < 0).map((t) => ({ ...t, shown: read(t.doc) })), [templates]);
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
@@ -1317,6 +1320,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A Rechendreieck grows so that its triangles keep the size of the default block's.
     if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
       const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
+      if (need > b.h) return tall(b, need);
+    }
+    // A Zahlenmauer grows so that its stones keep the size of the default block's, as a Rechendreieck does (#588).
+    if (b.type === "zahlenmauer" && next.type === "zahlenmauer" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns || next.props.base !== b.props.base)) {
+      const need = round(Math.min(heightForMauer(saneMauer(next.props), b.w), foot));
       if (need > b.h) return tall(b, need);
     }
     return {};
@@ -2604,9 +2612,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
     });
   }
-  // A template takes the place of the sheet; undo brings the sheet back.
-  function apply(t: Template) {
-    update(() => read(t.doc));
+  // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
+  // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
+  // Lernwörter unless the template brings some.
+  // The last click wins: an apply still waiting for its exercises gives way to one started after it.
+  const applied = useRef(0);
+  async function apply(t: Template) {
+    const turn = ++applied.current;
+    const doc = read(t.doc);
+    const pages = t.id > 0 ? doc.pages : await Promise.all(doc.pages.map(async (p) => ({
+      ...p,
+      blocks: await Promise.all(p.blocks.map(async (b): Promise<Block> => {
+        const props = b.props as Record<string, unknown>;
+        if (typeof props.seed !== "number") return b;
+        const limits = { ...props, seed: newSeed() };
+        if (b.type !== "maths") return { ...b, props: limits } as Block;
+        const made = await generate(limits as Parameters<typeof generate>[0]).catch(() => undefined);
+        if (!made) return b;
+        // New exercises may need more room than the template's block: it grows, to the page's foot at most.
+        const fresh = { ...limits, ...made };
+        const h = Math.min(Math.max(b.h, mathsHeight(fresh as Parameters<typeof mathsHeight>[0])), 297 - b.y);
+        return { ...b, h, props: fresh } as Block;
+      })),
+    })));
+    if (turn !== applied.current) return;
+    update((cur) => ({ ...doc, pages, words: doc.words ?? cur.words }));
     setIds([]);
   }
   async function forget(t: Template) {
@@ -3254,15 +3284,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </div>
           <h2>Vorlagen</h2>
-          {templates.filter((t) => t.id < 0).map((t) => (
-            <div key={t.id} className="tpl">
-              <button onClick={() => apply(t)}>
-                <LayoutTemplate size={14} aria-hidden />
-                {t.name}
-              </button>
-              <small>eingebaut</small>
-            </div>
-          ))}
+          {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
+            const group = builtIn.filter((t) => t.group === g);
+            return group.length ? (
+              <div role="group" aria-label={g} className="tpl-group" key={g}>
+                <h3>{g}</h3>
+                {group.map((t) => (
+                  <div key={t.id} className="tpl">
+                    <button onClick={() => apply(t)}>
+                      <span className="tpl-thumb" aria-hidden>
+                        <Thumb doc={t.shown} k={48 / 210} page={0} />
+                      </span>
+                      {t.name}
+                    </button>
+                    <small>eingebaut</small>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })}
           <h2>Meine Vorlagen</h2>
           {kept.map((t) => (
             <div key={t.id} className="tpl">

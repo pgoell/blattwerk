@@ -692,12 +692,29 @@ def test_built_in_templates_are_everyones_and_stay():
     other = user("b@example.com")
     built_in = client.get("/api/templates").json()
     assert other.get("/api/templates").json() == built_in
-    assert [t["name"] for t in built_in] == ["Arbeitsblatt", "Klassenarbeit", "Beschriftungsblatt"]
+    assert [t["name"] for t in built_in] == [
+        "Arbeitsblatt",
+        "Klassenarbeit",
+        "Beschriftungsblatt",
+        "Wochenplan",
+        "Elternbrief",
+        "Rechenblatt Klasse 1",
+        "Rechenblatt Klasse 2",
+        "Rechenblatt Klasse 3",
+        "Rechenblatt Klasse 4",
+        "Schreibblatt Lineatur 1",
+        "Schreibblatt Lineatur 2",
+        "Lernwörter",
+        "Klassenarbeit Deckblatt",
+    ]
     for t in built_in:
         assert client.delete(f"/api/templates/{t['id']}").status_code == 404
     assert client.get("/api/templates").json() == built_in
 
     for t in built_in:
+        assert t["group"] in {"Allgemein", "Mathe", "Deutsch", "Organisation"}
+        if t["id"] < -3:
+            assert t["doc"]["pages"][0]["blocks"][0]["type"] == "name"
         blocks = [b for page in t["doc"]["pages"] for b in page["blocks"]]
         # A start point: every block can move, and each has its own id.
         assert not any(b["locked"] for b in blocks)
@@ -706,7 +723,7 @@ def test_built_in_templates_are_everyones_and_stay():
         assert all(0 <= b["x"] <= b["x"] + b["w"] <= 210 for b in blocks)
         assert all(0 <= b["y"] <= b["y"] + b["h"] <= 297 for b in blocks)
 
-    sheet, test, labels = (t["doc"]["pages"] for t in built_in)
+    sheet, test, labels = (t["doc"]["pages"] for t in built_in[:3])
     # The name, the title and two empty areas.
     assert [kinds(page) for page in sheet] == [["name", "text", "rounded", "rounded"]]
     # Three pages, each with the name, the points total and numbered tasks with their points.
