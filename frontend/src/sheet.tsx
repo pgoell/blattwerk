@@ -10,7 +10,7 @@ import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
-import { made as drawnStrahl, sane as saneStrahl, type ZahlenstrahlProps } from "./zahlenstrahl";
+import { BELOW, LEFT as STRAHL_LEFT, RIGHT as STRAHL_RIGHT, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -1940,15 +1940,68 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
 }
 
 // A Zahlenstrahl, drawn in the block's mm as the contract at the top of zahlenstrahl.ts says.
-// STUB until the drawing is built: the line alone.
 function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; solved: boolean }) {
   const p = saneStrahl(block.props);
-  drawnStrahl(p);
+  const { ticks, arrows, arcs } = drawnStrahl(p);
   const { w, h } = block;
+  const y = h - BELOW;
+  const FS = (p.size * 25.4) / 72;
+  const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
+  const span = w - STRAHL_LEFT - STRAHL_RIGHT;
+  const cut = p.cut && p.start > 0;
   return (
     <div className={`zahlenstrahl${solved ? " solved" : ""}`}>
       <svg viewBox={`0 0 ${w} ${h}`}>
-        <line className="axis" x1={0} y1={h - 14} x2={w} y2={h - 14} stroke="#222" strokeWidth={0.4} />
+        <line className="axis" x1={cut ? 0.5 : STRAHL_LEFT - 2} y1={y} x2={w - 2.5} y2={y} stroke="#222" strokeWidth={0.4} />
+        <path className="head" d={`M ${w - 3.2} ${y - 1.2} L ${w - 1} ${y} L ${w - 3.2} ${y + 1.2} Z`} fill="#222" />
+        {cut && (
+          <g className="cut" stroke="#222" strokeWidth={0.4}>
+            <line x1={2.1} y1={y + 1.6} x2={2.9} y2={y - 1.6} />
+            <line x1={3.1} y1={y + 1.6} x2={3.9} y2={y - 1.6} />
+          </g>
+        )}
+        {ticks.map((t, i) => {
+          const x = xOf(i, ticks.length, w);
+          const reach = t.long ? 3 : 1.5;
+          const bw = Math.max(8, 4 + 2.5 * String(t.value).length);
+          return (
+            <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
+              <line x1={x} y1={y - reach} x2={x} y2={y + reach} stroke="#222" strokeWidth={0.4} />
+              {t.label && !t.task && (
+                <text className="label" x={x} y={y + 5} fontSize={FS} textAnchor="middle" dominantBaseline="hanging" fill="#222">{t.value}</text>
+              )}
+              {t.task === "box" && (
+                <g className="box">
+                  <rect x={x - bw / 2} y={y + 3.5} width={bw} height={6} fill="none" stroke="#222" strokeWidth={0.3} />
+                  {solved && (
+                    <text className="answer" x={x} y={y + 6.5} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
+                  )}
+                </g>
+              )}
+            </g>
+          );
+        })}
+        {arrows.map((v, k) => {
+          const ax = STRAHL_LEFT + ((k + 1) * span) / (arrows.length + 1);
+          return (
+            <g key={v} className="arrow" data-value={v}>
+              <text className="given" x={ax} y={y - 9} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#222">{v}</text>
+              <line x1={ax} y1={y - 6.5} x2={ax} y2={y - 2} stroke="#222" strokeWidth={0.4} />
+              {solved && <path className="answer" d={`M ${ax} ${y - 2} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
+            </g>
+          );
+        })}
+        {arcs.map((a) => {
+          const [x1, x2] = [tickX(a.from), tickX(a.to)];
+          const rx = (x2 - x1) / 2;
+          const ry = rx * 0.7;
+          return (
+            <g key={`${a.from}-${a.to}`} className="arc" data-from={a.from} data-to={a.to}>
+              <path d={`M ${x1} ${y - 0.5} A ${rx} ${ry} 0 0 1 ${x2} ${y - 0.5}`} fill="none" stroke="#222" strokeWidth={0.3} />
+              <text x={x1 + rx} y={y - ry - 2} fontSize={FS} textAnchor="middle" fill="#222">{a.label}</text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
