@@ -81,7 +81,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 props["seed"] = new
                 props["exercises"] = made["exercises"]
                 props["loosen"] = made["loosen"]
-            elif kind == "suchsel" and whole(props.get("seed")):
+            elif kind in ("suchsel", "zahlenmauer") and whole(props.get("seed")):
                 props["seed"] = derived(props["seed"], letter)
             elif kind in ("text", "shape"):
                 for key in ("mix", "bank", "holeSeed"):
