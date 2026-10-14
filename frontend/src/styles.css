@@ -372,7 +372,7 @@ body:has(.print) { background: #fff; }
 .tpl button:first-child { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; padding: 0 6px 0 14px; border: 0; border-radius: 0; background: none; font-weight: 400; text-align: left; }
 .tpl .lucide { color: var(--muted); }
 .tpl small { flex: none; white-space: nowrap; padding-right: 6px; font-size: 11px; color: var(--faint); }
-.tpl-name { min-width: 0; overflow-wrap: anywhere; }
+.tpl-name { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
 .tpl-group h3 { margin: 10px 14px 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
 .tpl-thumb { flex: none; width: 48px; }
 .tpl-thumb svg { display: block; width: 100%; height: auto; }
