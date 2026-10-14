@@ -1,6 +1,6 @@
 """A Rechendreieck block does what every block can do: copy, group, lock, layer, turn, resize,
 paint, number, survive odd stored props and a save. The docstrings name the lines of the
-checklist (A12, A13, A16, A17, I3). It tests the block as a box and its stored props, not what it
+checklist (A12, A16, A17, I3). It tests the block as a box and its stored props, not what it
 draws or what its panel offers.
 """
 
@@ -194,7 +194,7 @@ def test_a_triangle_with_mark_shows_its_numbering(editor):
 
 
 def test_numbering_1_2_3_in_the_panel_marks_a_triangle_without_one(editor):
-    """A13: "1 2 3" in the panel's Nummerierung sets a mark on a triangle without one."""
+    """A12: "1 2 3" in the panel's Nummerierung sets a mark on a triangle without one."""
     client = user()
     page = editor(triangle(), client=client)
     pick(page, "w")

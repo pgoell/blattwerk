@@ -128,7 +128,8 @@ function fill(typed: Map<number, number>, gen: number[]): number[] | undefined {
   const eqs: Eq[] = [...typed].map(([f, v]) => ({ row: row(f), rhs: v }));
   const cands: number[][] = [];
   const add = (x: number[]): void => {
-    const ok = x.every((v) => Number.isInteger(v) && v >= 0 && v <= 9999) && eqs.every((e) => e.row[0] * x[0] + e.row[1] * x[1] + e.row[2] * x[2] === e.rhs);
+    // Every field, the outer sums too, stays within 9999, so that its number fits its field.
+    const ok = x.every((v) => Number.isInteger(v) && v >= 0) && sums(x).every((v) => v <= 9999) && eqs.every((e) => e.row[0] * x[0] + e.row[1] * x[1] + e.row[2] * x[2] === e.rhs);
     if (ok) cands.push(x.map((v) => v + 0));
   };
   let tri: Eq[] | undefined;

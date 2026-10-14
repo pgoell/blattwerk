@@ -248,6 +248,16 @@ describe("typed numbers", () => {
     expect(made(P({ seed: 5, count: 1, typed })).triangles[0].wrong).toBe(true);
   });
 
+  it("no field goes above 9999: two typed inner numbers of 9999 give a wrong triangle, 5000 and 4999 do not", () => {
+    const big = (b: number) => made(P({ seed: 5, count: 1, typed: [[0, 0, 9999], [0, 1, b]] })).triangles[0];
+    expect(big(9999).wrong).toBe(true);
+    expect(big(0).wrong).toBe(false);
+    expect(big(0).numbers.every((v) => v <= 9999)).toBe(true);
+    const fits = made(P({ seed: 5, count: 1, typed: [[0, 0, 5000], [0, 1, 4999]] })).triangles[0];
+    expect(fits.wrong).toBe(false);
+    expect(fits.numbers[3]).toBe(9999);
+  });
+
   it("a typed 0 is allowed", () => {
     const t = made(P({ seed: 5, count: 1, typed: [[0, 0, 0]] })).triangles[0];
     expect(t.wrong).toBe(false);
