@@ -182,11 +182,15 @@ describe("edgesSpliced", () => {
   const column = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 0], "outer", pen)) } as Table;
 
   it("runs a thick line inside the table on through a new row, below and at the top", () => {
-    for (const i of [3, 1, 0]) {
+    for (const i of [1, 0]) {
       const out = edgesSpliced(column, "row", i, true)!;
       expect(out.v[i]).toStrictEqual([pen, pen, null, null, null]);
       expect(out.h[i === 0 ? 1 : i].every((edge) => edge === null)).toBe(true);
     }
+    // Below the last row the column's bottom is one of the cells' (not all), so it stays under its row (#584).
+    const below = edgesSpliced(column, "row", 3, true)!;
+    expect(below.v[3]).toStrictEqual([pen, pen, null, null, null]);
+    expect(below.h[3]).toStrictEqual([pen, null, null, null]);
   });
 
   // Found by the review of #568: a line hidden inside a merged cell is not taken into the new row or column.
@@ -203,6 +207,16 @@ describe("edgesSpliced", () => {
     const one = { ...grid, edges: drawn(bordered(grid, [1, 1, 1, 1], "outer", pen)) } as Table;
     for (const i of [1, 2]) expect(edgesSpliced(one, "row", i, true)!.v[i]).toStrictEqual(nulls(5));
     for (const i of [1, 2]) expect(edgesSpliced(one, "col", i, true)!.h.map((list) => list[i])).toStrictEqual(nulls(4));
+  });
+
+  // Issue #584: a box round one cell of the last row stays round that cell. The new row below takes no side of it, and
+  // its bottom is plain; the box's bottom stays under the cell.
+  it("keeps a box round one cell of the last row at that cell when a row is added below", () => {
+    const boxed = { ...grid, edges: drawn(bordered(grid, [2, 1, 2, 1], "outer", pen)) } as Table;
+    const out = edgesSpliced(boxed, "row", 3, true)!;
+    expect(out.h[3]).toStrictEqual([null, pen, null, null]);
+    expect(out.h[4]).toStrictEqual(nulls(4));
+    expect(out.v[3]).toStrictEqual(nulls(5));
   });
 
   it("runs a thick line across the table on through a new column", () => {
