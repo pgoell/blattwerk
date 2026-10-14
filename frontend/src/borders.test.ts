@@ -289,6 +289,17 @@ describe("edgesSpliced", () => {
       expect(out.h[4]).toStrictEqual([pen, pen, null, null]);
       expect(out.v[3]).toStrictEqual([pen, null, pen, null, null]);
     });
+
+    // Review of #591: a dotted box round column A, and a solid box round its last cell A3. The column's bottom is
+    // not a frame's (its top and bottom differ in pen), so the new row takes no side of it and its bottom stays.
+    it("keeps a column box whose last cell has a solid box open under row 3, no side into the new row", () => {
+      const a = with_(grid, [0, 0, 2, 0], "outer", pen);
+      const both = { ...a, edges: drawn(bordered(a, [2, 0, 2, 0], "outer", solid)) } as Table;
+      const out = edgesSpliced(both, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([solid, null, null, null]);
+      expect(out.h[4]).toStrictEqual(nulls(4));
+      expect(out.v[3]).toStrictEqual(nulls(5));
+    });
   });
 
   it("runs a thick line across the table on through a new column", () => {

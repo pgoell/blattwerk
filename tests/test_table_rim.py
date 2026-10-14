@@ -114,6 +114,30 @@ def test_issue_591_column_box_beside_a_box_round_a_cell_in_the_same_pen(editor):
     assert saved_edges["v"][3] == [DOTTED, DOTTED, None, None, None]
 
 
+def test_issue_591_a_column_box_with_a_solid_box_on_its_last_cell_takes_no_side_below(editor):
+    """Issue #591 (review): a dotted box round column A and a solid box round its last cell A3. The
+    column box stays as it ends under row 3: no side and no bottom in the new row."""
+    client = user()
+    edges = {
+        "h": [
+            [DOTTED, None, None, None],
+            [None] * 4,
+            [SOLID, None, None, None],
+            [SOLID, None, None, None],
+        ],
+        "v": [[DOTTED, DOTTED, None, None, None]] * 2 + [[SOLID, SOLID, None, None, None]],
+    }
+    page = editor(box("t", "table", {**FOUR, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(8).dblclick()
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(16)
+    saved_edges = next(b for b in saved(page, client) if b["id"] == "t")["props"]["edges"]
+    assert saved_edges["h"][3] == [SOLID, None, None, None]
+    assert saved_edges["h"][4] == [None] * 4
+    assert saved_edges["v"][3] == [None] * 5
+
+
 def test_issue_584_undo_brings_the_box_back(editor):
     """Issue #584: after Zeile darunter, Ctrl+Z takes the new row away and the box stays round the
     cell of row 3, as it was before."""

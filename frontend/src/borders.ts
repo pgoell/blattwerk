@@ -151,8 +151,17 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
       const bottom = e.h[rows];
       return {
         h: [...e.h.slice(0, rows), bottom.map((edge, c) => (framed(c) ? null : edge)), bottom.map((edge, c) => (framed(c) ? edge : null))],
-        // The new row's side takes the pen of the first row, not of the last, which a box round a cell may change.
-        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (rows > 1 && full(c) ? e.v[0][c] : null))),
+        // The new row's side at c comes where a frame moves to the rim beside it, or where the side is one pen down the
+        // whole column (as before #591). Its pen is the first row's, not the last's, which a box round a cell may change.
+        v: insert(
+          e.v,
+          rows,
+          Array.from({ length: cols + 1 }, (_, c) => {
+            const frame = (c > 0 && framed(c - 1)) || (c < cols && framed(c));
+            const one = e.v.every((list) => same(list[c], e.v[0][c]));
+            return rows > 1 && ((full(c) && frame) || one) ? e.v[0][c] : null;
+          }),
+        ),
       };
     }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
