@@ -122,7 +122,7 @@ const build = (base: number, row: number[], times: boolean): number[] => {
 };
 
 // A seeded generator of numbers from 0 up to 1: mulberry32, as `rng` in suchsel.ts.
-function rng(seed: number) {
+export function rng(seed: number) {
   let a = seed | 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;

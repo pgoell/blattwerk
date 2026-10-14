@@ -33,6 +33,8 @@
 // `g.field[data-field=j]`, its number a `text.given` (#222) when the field is given, or a `text.answer` (#c0392b) in
 // the answer key when it is not. With `empty` no text at all. The dock adds a block of 180 by 50 mm.
 
+import { rng } from "./zahlenmauer";
+
 export type Typed = [number, number, number];
 export type RechendreieckProps = {
   count: number;
@@ -91,24 +93,118 @@ export function sane(p: RechendreieckProps): RechendreieckProps {
   };
 }
 
-// True when the given fields allow exactly one triangle: their rows over the inner numbers have rank 3.
-// PLACEHOLDER: the generator's subagent replaces it.
+// The row of a field over the three inner numbers: a unit row for an inner field, the sum of its two ends for an outer.
+const row = (f: number): number[] => [0, 1, 2].map((i) => (f < 3 ? (i === f ? 1 : 0) : SIDES[f - 3].includes(i) ? 1 : 0));
+
+const det3 = (a: number[], b: number[], c: number[]): number =>
+  a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+
+// True when the given fields allow exactly one triangle: their rows over the inner numbers have rank 3, that is some
+// three of them give a determinant other than 0.
 export function fixes(given: boolean[]): boolean {
-  return given.filter(Boolean).length >= 3;
+  const rows = Array.from({ length: FIELDS }, (_, f) => f).filter((f) => given[f]).map(row);
+  for (let i = 0; i < rows.length; i++)
+    for (let j = i + 1; j < rows.length; j++)
+      for (let k = j + 1; k < rows.length; k++) if (det3(rows[i], rows[j], rows[k]) !== 0) return true;
+  return false;
+}
+
+const key = (x: number[]): string => x.join(",");
+const sums = (inner: number[]): number[] => SIDES.map(([x, y]) => inner[x] + inner[y]);
+const dist = (x: number[], y: number[]): number => x.reduce((s, v, i) => s + Math.abs(v - y[i]), 0);
+const lexLess = (x: number[], y: number[]): boolean => {
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i];
+  return false;
+};
+
+// The inner numbers nearest to `gen` that hold the typed numbers `typed` (field to value) and are not `taken`. The
+// typed inner fields fix their numbers. The others come from the typed sums, enumerating one free inner number from
+// 0 up to 9999 (or up to a typed sum it sits in). An outer typed with both ends free takes the generated end as near as
+// it may. Undecided inner numbers keep their generated value. Undefined when no inner triple holds the typed numbers.
+function fill(typed: Map<number, number>, gen: number[], taken: Set<string>): number[] | undefined {
+  const fixed = [0, 1, 2].map((i) => typed.get(i));
+  const free = [0, 1, 2].find((i) => fixed[i] === undefined);
+  const hi = (e: number): number => {
+    let b = 9999;
+    for (const [f, v] of typed) if (f >= 3 && SIDES[f - 3].includes(e)) b = Math.min(b, v);
+    return b;
+  };
+  const holds = (x: number[]): boolean =>
+    x.every((v) => v >= 0 && v <= 9999) && [...typed].every(([f, v]) => (f < 3 ? x[f] : x[SIDES[f - 3][0]] + x[SIDES[f - 3][1]]) === v);
+  const propagate = (k: (number | undefined)[]): void => {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [f, v] of typed) {
+        if (f < 3) continue;
+        const [a, b] = SIDES[f - 3];
+        if (k[a] !== undefined && k[b] === undefined) [k[b], changed] = [v - k[a], true];
+        else if (k[b] !== undefined && k[a] === undefined) [k[a], changed] = [v - k[b], true];
+        else if (k[a] === undefined && k[b] === undefined) {
+          k[a] = Math.min(Math.max(gen[a], 0), v);
+          k[b] = v - k[a];
+          changed = true;
+        }
+      }
+    }
+  };
+  let best: number[] | undefined;
+  const starts: (number | undefined)[][] = [];
+  if (free === undefined) starts.push([...fixed]);
+  else for (let x = 0; x <= hi(free); x++) starts.push(fixed.map((v, i) => (i === free ? x : v)));
+  for (const s of starts) {
+    const k = [...s];
+    propagate(k);
+    const x = k.map((v, i) => v ?? gen[i]);
+    if (!holds(x) || taken.has(key(x))) continue;
+    if (!best || dist(x, gen) < dist(best, gen) || (dist(x, gen) === dist(best, gen) && lexLess(x, best))) best = x;
+  }
+  return best;
 }
 
 // The triangles of the block. The same settings give the same triangles on every call.
-// PLACEHOLDER so that the drawing and the panel have triangles: the generator's subagent replaces it.
 export function made(props: RechendreieckProps): Made {
   const p = sane(props);
-  let a = p.seed | 0;
-  const next = () => ((a = (Math.imul(a, 1103515245) + 12345) | 0) >>> 0) / 4294967296;
-  const triangles = Array.from({ length: p.count }, (_, t): Triangle => {
-    const inner = [0, 1, 2].map(() => 1 + Math.floor(next() * Math.floor(p.max / 2)));
-    const numbers = [...inner, ...SIDES.map(([x, y]) => inner[x] + inner[y])];
-    for (const [w, f, v] of p.typed ?? []) if (w === t) numbers[f] = v;
-    const given = p.given === "free" ? [...(p.free as boolean[])] : Array.from({ length: FIELDS }, (_, i) => (p.given === "outer" ? i >= 3 : p.given === "mix" ? i === 0 || i === 1 || i === 4 : i < 3));
-    return { numbers, given, wrong: false };
+  const next = rng(p.seed);
+  const half = Math.floor(p.max / 2);
+  const gen: number[][] = [];
+  const givens: boolean[][] = [];
+  const seen = new Set<string>();
+  for (let t = 0; t < p.count; t++) {
+    let inner: number[];
+    do inner = [0, 1, 2].map(() => 1 + Math.floor(next() * half));
+    while (seen.has(key(inner)));
+    seen.add(key(inner));
+    gen.push(inner);
+    if (p.given === "inner") givens.push([true, true, true, false, false, false]);
+    else if (p.given === "outer") givens.push([false, false, false, true, true, true]);
+    else if (p.given === "free") givens.push([...(p.free as boolean[])]);
+    else {
+      // Mix: the inner left out, and one of the two outer fields beside it, both from the seed.
+      const k = Math.floor(next() * 3);
+      const beside = SIDES.flatMap((side, s) => (side.includes(k) ? [s] : []));
+      const s = beside[next() < 0.5 ? 0 : 1];
+      const g = [false, false, false, false, false, false];
+      for (let i = 0; i < 3; i++) g[i] = i !== k;
+      g[3 + s] = true;
+      givens.push(g);
+    }
+  }
+  const typedOf = (t: number): Map<number, number> => new Map((p.typed ?? []).filter(([w]) => w === t).map(([, f, v]) => [f, v]));
+  const finals = gen.map((g) => [...g]);
+  const wrong = gen.map(() => false);
+  for (let t = 0; t < p.count; t++) {
+    const T = typedOf(t);
+    if (T.size === 0) continue;
+    const taken = new Set(finals.filter((_, u) => u !== t).map(key));
+    const best = fill(T, gen[t], taken);
+    if (best) finals[t] = best;
+    else wrong[t] = true;
+  }
+  const triangles = finals.map((inner, t): Triangle => {
+    const numbers = [...inner, ...sums(inner)];
+    for (const [f, v] of typedOf(t)) numbers[f] = v;
+    return { numbers, given: givens[t], wrong: wrong[t] };
   });
   return { triangles };
 }
