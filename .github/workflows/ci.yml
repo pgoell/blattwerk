@@ -23,16 +23,17 @@ jobs:
         run: mise run lint
 
   shards:
-    name: Test shard ${{ matrix.shard }}/6
+    name: Test shard ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
-    # A shard takes four minutes; a run that hangs ends itself after three silent minutes
-    # (tests/conftest.py), so the limit is only the last net.
-    timeout-minutes: 8
+    # With six shards a job took 5 to 8.5 minutes and the limit of 8 cancelled shards whose tests
+    # had all passed (#541, #550); eight shards take three quarters of that. A run that hangs ends
+    # itself after three silent minutes (tests/conftest.py), so the limit is only the last net.
+    timeout-minutes: 12
     strategy:
       # One flaky test then costs a rerun of its own shard, not of all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -54,7 +55,7 @@ jobs:
       - name: Pytest
         run: mise run test -- -n 8 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/6
+          SHARD: ${{ matrix.shard }}/8
 
   webkit:
     name: WebKit shard ${{ matrix.shard }}/12

@@ -52,8 +52,23 @@ def test_ci_has_the_checks_the_merge_needs():
         assert f'test "${{{{ needs.{job}.result }}}}" = success' in gate
     assert "continue-on-error" not in code(CI)
     shards = part(CI, "shards")
-    assert "name: Test shard ${{ matrix.shard }}/6" in shards
+    assert "name: Test shard ${{ matrix.shard }}/8" in shards
     assert "run: mise run test " in shards
+
+
+def test_a_chromium_shard_ends_well_before_its_limit():
+    """#541, #550: with six shards a job took up to 504 s and the limit cancelled it at 480 s.
+
+    Eight shards take three quarters of that; the limit leaves the slowest job half again.
+    """
+    shards = part(CI, "shards")
+    (listed,) = re.findall(r"shard: \[([\d, ]+)\]", shards)
+    n = len(listed.split(","))
+    (limit,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", shards, re.M))
+    slowest = 504 * 6 / n
+    assert limit * 60 >= 1.5 * slowest + 60
+    # A hung run still ends: the hang guard after three silent minutes, the limit after that.
+    assert limit <= 15
 
 
 def test_the_native_job_runs_the_headed_tests_and_no_merge_waits_for_it():
