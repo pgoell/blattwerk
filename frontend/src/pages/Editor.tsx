@@ -394,6 +394,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [tab, setTab] = useState(TABS[0]);
+  // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
+  const idKey = ids.join();
+  useEffect(() => {
+    if (idKey) setTab((now) => (now === "Lernwörter" ? "Format" : now));
+  }, [idKey]);
+  // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   // The panel's lock: a new width sets the height to match, in its fields and on the handles.
@@ -3779,16 +3785,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   {crowded === 1 ? "In einer Lineatur passt 1 Wort nicht in die Zeilen." : `In einer Lineatur passen ${crowded} Wörter nicht in die Zeilen.`}
                 </p>
               )}
-              <button disabled={!learnt.length} onClick={addBlatt}>
+              <button
+                disabled={!learnt.length}
+                onClick={addBlatt}
+                title="Eine neue Seite mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren."
+              >
                 Lernwörter-Blatt
               </button>
+              <p className="hint">Eine neue Seite mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren.</p>
               {/* A Lineatur as wide as the page between the margins, a row for each word, at most as many as a page holds. */}
               <button
                 disabled={!learnt.length}
+                title="Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis."
                 onClick={() => add(W - 2 * MARGIN, Math.max(1, Math.min(learnt.length, Math.floor((H - 2 * MARGIN) / RULINGS.l3.row))) * RULINGS.l3.row, { type: "ruling", props: { kind: "l3", color: "#222222", list: "fold", folds: 2 } })}
               >
                 Knickblatt
               </button>
+              <p className="hint">Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis.</p>
             </>
           )}
           {tab === "Ansicht" && (

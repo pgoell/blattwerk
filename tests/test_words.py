@@ -3,18 +3,37 @@
 import pytest
 from playwright.sync_api import expect
 from test_keys_focus import choose
-from ui import RULING, TEXT, at, box, copy_text, doc, pick, sheet, thumb, unpick, user
+from ui import (
+    LINE,
+    RECT,
+    RULING,
+    TABLE,
+    TEXT,
+    at,
+    box,
+    copy_text,
+    doc,
+    maths,
+    pick,
+    picture,
+    sheet,
+    thumb,
+    unpick,
+    upload,
+    user,
+)
 
 LINKED = {**RULING, "list": "copy"}
 MODES = ["copy", "trace", "row"]
+WORDS = ["Hund", "Katze", "Igel"]
 
 
 @pytest.fixture
 def editor(editor):
-    """The editor with its panel open, where the tabs Format and Lernwörter are."""
+    """The editor with its panel open, with the tabs. `theme=None` is Blattform."""
 
     def start(*blocks, **more):
-        return editor(*blocks, theme="", **more)
+        return editor(*blocks, **{"theme": "", **more})
 
     return start
 
@@ -448,6 +467,98 @@ def test_tab_reaches_the_list_controls_and_keys_press_them(editor):
     expect(page.get_by_role("button", name="Lernwörter-Blatt")).to_be_focused()
     page.keyboard.press("Enter")
     assert len(doc(page, client)["pages"]) == 2
+
+
+@pytest.mark.parametrize(
+    "kind", ["text", "shape", "line", "picture", "table", "lineatur", "maths", "group"]
+)
+def test_a_picked_block_of_any_kind_shows_its_settings_not_the_list(editor, kind):
+    client = user()
+    blocks = {
+        "text": [box("k", "text", TEXT)],
+        "shape": [box("k", "shape", RECT)],
+        "line": [box("k", "shape", LINE)],
+        "picture": [{**picture(upload(client)), "id": "k"}],
+        "table": [box("k", "table", TABLE)],
+        "lineatur": [box("k", "ruling", RULING)],
+        "maths": [box("k", "maths", maths(client))],
+        "group": [
+            {**box("k", "shape", RECT), "group": ["g"]},
+            {**box("j", "shape", RECT, z=2), "group": ["g"]},
+        ],
+    }[kind]
+    page = editor(*blocks, words=WORDS, client=client)
+    list_tab(page)
+    expect(field(page)).to_be_visible()
+    # A click on a block of a group picks the whole group, so no count of one is waited for here.
+    at(page, "k").click()
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    expect(field(page)).to_have_count(0)
+    expect(page.locator(".what")).to_be_visible()
+
+
+def test_a_lineatur_added_from_the_panel_shows_its_settings(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    page.locator(".dock").get_by_label("Lineatur", exact=True).click()
+    expect(page.get_by_label("Art der Lineatur")).to_be_visible()
+    expect(field(page)).to_have_count(0)
+
+
+def test_blattform_a_picked_block_shows_its_settings_not_the_list(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), words=WORDS, client=client, theme=None)
+    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
+    expect(field(page)).to_be_visible()
+    pick(page, "a")
+    expect(field(page)).to_have_count(0)
+    expect(page.locator(".what")).to_be_visible()
+
+
+def test_the_knickblatt_shows_its_own_settings(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    page.get_by_role("button", name="Knickblatt", exact=True).click()
+    expect(page.get_by_label("Text der Lineatur")).to_have_value("fold")
+    expect(field(page)).to_have_count(0)
+
+
+def test_typing_in_the_list_with_nothing_picked_stays_on_the_list(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    field(page).click()
+    page.keyboard.press("End")
+    page.keyboard.type("\nApfel")
+    expect(field(page)).to_contain_text("Apfel")
+    expect(page.get_by_role("tab", name="Lernwörter")).to_have_attribute("aria-selected", "true")
+
+
+def test_lernwoerter_bearbeiten_brings_the_list_back(editor):
+    page = editor(box("r", "ruling", LINKED), words=WORDS)
+    list_tab(page)
+    pick(page, "r")
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    page.get_by_role("button", name="Lernwörter bearbeiten").click()
+    expect(field(page)).to_be_visible()
+
+
+def test_an_undo_in_the_list_stays_on_the_list(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    list_tab(page)
+    field(page).click()
+    page.keyboard.press("End")
+    page.keyboard.type("\nApfel")
+    expect(field(page)).to_contain_text("Apfel")
+    undo(page)
+    expect(field(page)).to_be_visible()
+    expect(page.get_by_role("tab", name="Lernwörter")).to_have_attribute("aria-selected", "true")
+
+
+def test_a_pick_on_the_ansicht_tab_stays_on_ansicht(editor):
+    page = editor(box("a", "text", TEXT), words=WORDS)
+    page.get_by_role("tab", name="Ansicht").click()
+    pick(page, "a")
+    expect(page.get_by_role("tab", name="Ansicht")).to_have_attribute("aria-selected", "true")
 
 
 def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor):
