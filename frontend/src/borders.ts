@@ -137,10 +137,12 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
     // full height, is a frame of those columns: its bottom moves to the new rim with the sides, as a frame round the
     // table does.
     if (add && i === rows && rows > 0 && !e.h[rows].every((edge) => same(edge, e.h[rows][0]))) {
-      const full = (c: number) => e.v.every((list) => same(list[c], e.v[rows - 1][c]));
-      // In a table of one row every side runs its full height: a box there is round its cell.
+      // A side runs the full height when a line stands at it in every row, in whatever pen (#591).
+      const full = (c: number) => e.v.every((list) => list[c] !== null);
+      // In a table of one row every side runs its full height: a box there is round its cell. A frame of whole
+      // columns has its top on the table's first line in the same pen as its bottom (#591).
       const framed = (c: number) => {
-        if (rows === 1) return false;
+        if (rows === 1 || !same(e.h[0][c], e.h[rows][c])) return false;
         let [l, r] = [c, c + 1];
         while (l > 0 && !e.v[rows - 1][l]) l--;
         while (r < cols && !e.v[rows - 1][r]) r++;
@@ -149,7 +151,8 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
       const bottom = e.h[rows];
       return {
         h: [...e.h.slice(0, rows), bottom.map((edge, c) => (framed(c) ? null : edge)), bottom.map((edge, c) => (framed(c) ? edge : null))],
-        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (rows > 1 && full(c) ? taken("v", c) : null))),
+        // The new row's side takes the pen of the first row, not of the last, which a box round a cell may change.
+        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (rows > 1 && full(c) ? e.v[0][c] : null))),
       };
     }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };

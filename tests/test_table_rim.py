@@ -6,7 +6,7 @@ line of the given width stands on a line of the table.
 
 from playwright.sync_api import expect
 from test_table_edges import FRAME, INK, THREE, thick_between
-from ui import at, box, pick, user
+from ui import at, box, pick, saved, user
 
 
 def add_row_below(page, cell):
@@ -52,6 +52,66 @@ def test_issue_584_a_frame_round_the_table_stays_closed(editor):
     assert thick_between(at(page, "t"), 3, ("h", 3), 1.25) == set()
     assert thick_between(at(page, "t"), 3, ("v", 0), 1.25) == {0, 1, 2, 3}
     assert thick_between(at(page, "t"), 3, ("v", 3), 1.25) == {0, 1, 2, 3}
+
+
+DOTTED = {"style": "dotted", "width": 1.25}
+SOLID = {"style": "solid", "width": 1.25}
+# A 3 by 4 table, as the issue's steps.
+FOUR = {
+    "cells": [["a", "b", "c", "d"], ["e", "f", "g", "h"], ["i", "j", "k", "l"]],
+    "cols": [1, 1, 1, 1],
+    "size": 14,
+    "align": "center",
+}
+
+
+def test_issue_591_column_boxes_stay_closed_beside_a_solid_box_round_a_cell(editor):
+    """Issue #591: a dotted box round column A and one round column C stay closed when a row is
+    added below the last row, with a solid box round B3. The solid box keeps its bottom under row 3,
+    the columns' bottoms move to the new rim, and the new row takes their pen."""
+    client = user()
+    edges = {
+        "h": [
+            [DOTTED, None, DOTTED, None],
+            [None] * 4,
+            [None, SOLID, None, None],
+            [DOTTED, SOLID, DOTTED, None],
+        ],
+        "v": [[DOTTED, DOTTED, DOTTED, DOTTED, None]] * 2 + [[DOTTED, SOLID, SOLID, DOTTED, None]],
+    }
+    page = editor(box("t", "table", {**FOUR, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(9).dblclick()
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(16)
+    saved_edges = next(b for b in saved(page, client) if b["id"] == "t")["props"]["edges"]
+    assert saved_edges["h"][3] == [None, SOLID, None, None]
+    assert saved_edges["h"][4] == [DOTTED, None, DOTTED, None]
+    assert saved_edges["v"][3] == [DOTTED, DOTTED, DOTTED, DOTTED, None]
+
+
+def test_issue_591_column_box_beside_a_box_round_a_cell_in_the_same_pen(editor):
+    """Issue #591: a dotted box round column A and a dotted box round B3 of the last row: the column
+    box stays closed, its bottom moves to the new rim, and the box round B3 stays under row 3."""
+    client = user()
+    edges = {
+        "h": [
+            [DOTTED, None, None, None],
+            [None] * 4,
+            [None, DOTTED, None, None],
+            [DOTTED, DOTTED, None, None],
+        ],
+        "v": [[DOTTED, DOTTED, None, None, None]] * 2 + [[DOTTED, DOTTED, DOTTED, None, None]],
+    }
+    page = editor(box("t", "table", {**FOUR, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(9).dblclick()
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(16)
+    saved_edges = next(b for b in saved(page, client) if b["id"] == "t")["props"]["edges"]
+    assert saved_edges["h"][3] == [None, DOTTED, None, None]
+    assert saved_edges["h"][4] == [DOTTED, None, None, None]
+    assert saved_edges["v"][3] == [DOTTED, DOTTED, None, None, None]
 
 
 def test_issue_584_undo_brings_the_box_back(editor):

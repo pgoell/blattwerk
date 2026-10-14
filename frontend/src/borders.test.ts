@@ -236,6 +236,61 @@ describe("edgesSpliced", () => {
     expect(out.v[3]).toStrictEqual(nulls(5));
   });
 
+  // Issue #591: a box round a cell of the last row, in another pen, does not stop a box round whole columns from
+  // closing: the columns' bottoms move to the new rim, the cell's box stays under its row, the new row takes the
+  // columns' sides in their pen.
+  describe("issue #591: a column box beside a box round a cell of the last row", () => {
+    const solid = { style: "solid" as const, width: 1 };
+    const with_ = (p: Table, rect: [number, number, number, number], which: "outer", style: typeof pen) => ({ ...p, edges: drawn(bordered(p, rect, which, style)) }) as Table;
+
+    it("keeps the column boxes closed when the cell's box is solid", () => {
+      const a = with_(grid, [0, 0, 2, 0], "outer", pen);
+      const c = { ...a, edges: drawn(bordered(a, [0, 2, 2, 2], "outer", pen)) } as Table;
+      const both = { ...c, edges: drawn(bordered(c, [2, 1, 2, 1], "outer", solid)) } as Table;
+      const out = edgesSpliced(both, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([null, solid, null, null]);
+      expect(out.h[4]).toStrictEqual([pen, null, pen, null]);
+      expect(out.v[3]).toStrictEqual([pen, pen, pen, pen, null]);
+    });
+
+    it("keeps the column box closed when the cell's box is in the same pen", () => {
+      const a = with_(grid, [0, 0, 2, 0], "outer", pen);
+      const both = { ...a, edges: drawn(bordered(a, [2, 1, 2, 1], "outer", pen)) } as Table;
+      const out = edgesSpliced(both, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([null, pen, null, null]);
+      expect(out.h[4]).toStrictEqual([pen, null, null, null]);
+      expect(out.v[3]).toStrictEqual([pen, pen, null, null, null]);
+    });
+
+    it("keeps the column boxes closed when all three boxes are in the same pen", () => {
+      const a = with_(grid, [0, 0, 2, 0], "outer", pen);
+      const c = { ...a, edges: drawn(bordered(a, [0, 2, 2, 2], "outer", pen)) } as Table;
+      const all = { ...c, edges: drawn(bordered(c, [2, 1, 2, 1], "outer", pen)) } as Table;
+      const out = edgesSpliced(all, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([null, pen, null, null]);
+      expect(out.h[4]).toStrictEqual([pen, null, pen, null]);
+      expect(out.v[3]).toStrictEqual([pen, pen, pen, pen, null]);
+    });
+
+    it("keeps a column box at the right edge closed beside a solid cell box", () => {
+      const d = with_(grid, [0, 3, 2, 3], "outer", pen);
+      const both = { ...d, edges: drawn(bordered(d, [2, 1, 2, 1], "outer", solid)) } as Table;
+      const out = edgesSpliced(both, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([null, solid, null, null]);
+      expect(out.h[4]).toStrictEqual([null, null, null, pen]);
+      expect(out.v[3]).toStrictEqual([null, null, null, pen, pen]);
+    });
+
+    it("keeps a box round two whole columns closed beside a solid box round C3", () => {
+      const ab = with_(grid, [0, 0, 2, 1], "outer", pen);
+      const both = { ...ab, edges: drawn(bordered(ab, [2, 2, 2, 2], "outer", solid)) } as Table;
+      const out = edgesSpliced(both, "row", 3, true)!;
+      expect(out.h[3]).toStrictEqual([null, null, solid, null]);
+      expect(out.h[4]).toStrictEqual([pen, pen, null, null]);
+      expect(out.v[3]).toStrictEqual([pen, null, pen, null, null]);
+    });
+  });
+
   it("runs a thick line across the table on through a new column", () => {
     const across = { ...grid, edges: drawn(bordered(grid, [0, 0, 0, 3], "outer", pen)) } as Table;
     const out = edgesSpliced(across, "col", 2, true)!;
