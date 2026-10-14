@@ -2042,7 +2042,7 @@ function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean })
       <svg viewBox={`0 0 ${CELL_W * cols} ${CELL_H * rows}`}>
         {times.map((t, i) => {
           const [hourDeg, minuteDeg] = hands(t);
-          const [hx, hy] = polar(p.ring ? 19 : 25, hourDeg);
+          const [hx, hy] = polar(p.ring && p.numbers !== "none" ? 13 : 25, hourDeg);
           const [mx, my] = polar(40, minuteDeg);
           const text = written(t, p);
           const size = Math.min(10, 180 / text.length);

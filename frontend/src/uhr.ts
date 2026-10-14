@@ -42,7 +42,7 @@
 //   from 46 to 42.5, stroke 0.5. Numbers 1 to 12 centred at radius 33, font size 10; the ring's 13 to 24 at radius
 //   22, font size 5.5. A centre dot of radius 2.5.
 // - The hands from the centre, at angle 0 for 12 o'clock and clockwise: the minute hand at 6·m degrees, length 40,
-//   stroke 1.6; the hour hand at 30·(h mod 12) + m/2 degrees, length 25 (19 with the ring), stroke 4.5. So the
+//   stroke 1.6; the hour hand at 30·(h mod 12) + m/2 degrees, length 25 (13 where the ring is drawn, so it ends short of the ring's numbers), stroke 4.5. So the
 //   hour hand stands between the numbers as on a real clock, and on a black and white copy it is the short thick one.
 //   Both with round caps.
 // - Under the face, centred at x 50, baseline 120: "read" with "box" the text `__:__ Uhr` and "line" a line from

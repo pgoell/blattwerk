@@ -205,3 +205,32 @@ def test_fifteen_thirty_points_where_three_thirty_does(editor):
     rows = clocks(page).evaluate_all(ANGLES)
     assert turned(rows[0][1], rows[1][1]) <= 0.5
     assert turned(rows[0][2], rows[1][2]) <= 0.5
+
+
+def test_with_the_ring_the_hour_hand_ends_short_of_its_numbers(editor, browser, server):
+    """Own: with 13 to 24 drawn the hour hand, its round cap included, ends inside the ring's
+    numbers at every hour, so it covers none of them, on screen and in print."""
+    client = user()
+    props = {
+        **PROPS,
+        "ring": True,
+        "count": 12,
+        "cols": 6,
+        "times": [60 * h + 15 for h in range(12)],
+    }
+    page = editor(box("u", "uhr", props, w=180, h=80), client=client)
+    paper = printed(browser, server, sheet_id(page))
+    for where in (at(page, "u"), paper.locator(".uhr")):
+        for g in where.locator("g.clock").all():
+            length, width = g.evaluate(HANDS)[0]
+            inner = g.evaluate(
+                """g => Math.min(...[...g.querySelectorAll('text.number')]
+                    .filter(t => +t.dataset.n > 12).map(t => {
+                        const b = t.getBBox();
+                        const dx = Math.max(Math.abs(b.x + b.width / 2 - 50) - b.width / 2, 0);
+                        const dy = Math.max(Math.abs(b.y + b.height / 2 - 50) - b.height / 2, 0);
+                        return Math.hypot(dx, dy);
+                    }))"""
+            )
+            assert length + width / 2 < inner, (length, width, inner)
+    paper.context.close()
