@@ -528,6 +528,7 @@ body:has(.print) { background: #fff; }
 .selbstkontrolle h3.title { margin: 0 0 .3em; font-size: 1.2em; }
 .selbstkontrolle ul { margin: 0; padding: 0; list-style: none; }
 .selbstkontrolle li { display: flex; align-items: baseline; gap: .4em; }
+.selbstkontrolle ul.mixed { display: flex; flex-wrap: wrap; gap: .3em 1.2em; padding: .4em .6em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); }
 .selbstkontrolle .tick { flex: none; display: inline-block; width: .9em; height: .9em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); }
 .selbstkontrolle table.word { margin: 0 auto; border-collapse: collapse; }
 .selbstkontrolle table.word td { min-width: 1.6em; padding: .15em .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); text-align: center; }

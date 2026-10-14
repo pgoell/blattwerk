@@ -265,7 +265,8 @@ export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
   const L = Array.from(q.word.replace(/\s/g, "").toUpperCase());
   const N = wordTasks.length;
   let fault: string | undefined;
-  if (q.word.trim() === "") fault = "Gib ein Lösungswort ein.";
+  if (q.form !== "word") fault = undefined;
+  else if (q.word.trim() === "") fault = "Gib ein Lösungswort ein.";
   else if (L.length !== N) fault = `Das Wort hat ${L.length} Buchstaben, die Aufgaben sind ${N}.`;
   else {
     for (let j = 0; j < N && !fault; j++) {
@@ -301,11 +302,21 @@ export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
 }
 
 // The letters of every block that a "word" Selbstkontrolle of the sheet links: id to a letter per task.
+// Each "word" block in sheet order; a source an earlier one took keeps its letters, and a block with a lost link
+// prints nothing, so it gives no boxes. Kept per doc: every source block asks on each draw.
+const lettered = new WeakMap<Doc, Map<string, string[]>>();
 export function lettersOf(doc: Doc): Map<string, string[]> {
-  const first = placed(doc).sort(inOrder).find(({ b }) => (b as { type: string }).type === "selbstkontrolle");
-  if (!first) return new Map();
-  const p = sane((first.b as unknown as { props: SelbstkontrolleProps }).props);
-  return p.form === "word" ? checked(p, doc).letters : new Map();
+  const known = lettered.get(doc);
+  if (known) return known;
+  const out = new Map<string, string[]>();
+  for (const { b } of placed(doc).sort(inOrder)) {
+    if (b.type !== "selbstkontrolle" || b.props?.form !== "word") continue;
+    const c = checked(b.props, doc);
+    if (c.lost.length) continue;
+    for (const [id, letters] of c.letters) if (!out.has(id)) out.set(id, letters);
+  }
+  lettered.set(doc, out);
+  return out;
 }
 
 // The height in mm the content needs at width `w` mm: a line is 1.2 times the size in points.

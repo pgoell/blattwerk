@@ -14,7 +14,7 @@ import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
 import Uhr from "./Uhr";
-import Selbstkontrolle, { type SelbstkontrolleBlock } from "./Selbstkontrolle";
+import Selbstkontrolle from "./Selbstkontrolle";
 import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -88,8 +88,8 @@ type Props = {
   setLock: (on: boolean) => void;
   // The width and height in mm of the page in use.
   size: number[];
-  // The whole sheet, for the maths blocks a Selbstkontrolle can check. Optional until the Editor passes it.
-  doc?: Doc;
+  // The whole sheet, for the maths blocks a Selbstkontrolle can check.
+  doc: Doc;
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
@@ -271,8 +271,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
   const uhr = sel.length === 1 && sel[0].type === "uhr" ? sel[0] : undefined;
-  // Until Block's union lists the Selbstkontrolle, its type is only a string here.
-  const skb = sel.length === 1 && (sel[0].type as string) === "selbstkontrolle" ? (sel[0] as unknown as SelbstkontrolleBlock) : undefined;
+  const skb = sel.length === 1 && sel[0].type === "selbstkontrolle" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -630,7 +629,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
       {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key) => style("uhr", props, key)} />}
-      {skb && doc && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle" as Block["type"], props, key)} />}
+      {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>

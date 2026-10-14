@@ -3817,6 +3817,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 lock={lock}
                 setLock={setLock}
                 size={[W, H]}
+                doc={hist.doc}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
                 words={learnt}
                 lineaturen={lineaturen}

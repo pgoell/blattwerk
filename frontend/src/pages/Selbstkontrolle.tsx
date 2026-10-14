@@ -1,12 +1,9 @@
 // The format panel's settings for a Selbstkontrolle block: its heading, form, Lösungswort, size and turn, and the
 // maths blocks of the sheet that it checks.
 import { useState } from "react";
-import type { Block, Box, Doc } from "../sheet";
+import type { Block, Doc, SelbstkontrolleBlock } from "../sheet";
 import { checked, labelOf, ordered, sane, tasksOf, worded, type SelbstkontrolleProps } from "../selbstkontrolle";
 import { newSeed } from "./Maths";
-
-// Until sheet.tsx lists the block in its union, the block is declared here.
-export type SelbstkontrolleBlock = Box & { type: "selbstkontrolle"; props: SelbstkontrolleProps };
 
 type Apply = (props: Partial<SelbstkontrolleProps>, key?: string) => void;
 
