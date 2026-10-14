@@ -2447,7 +2447,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
     // A column that comes or goes takes its average width or its own width from the block, so the others keep theirs.
     const widths = widthsOf(b.props.cols, b.w);
-    const dw = axis === "row" ? 0 : add ? sum(widths) / widths.length : -widths[i];
+    const dw = axis === "row" ? 0 : add ? Math.min(sum(widths) / widths.length, Math.max(0, W - MARGIN - b.x - b.w)) : -widths[i];
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
