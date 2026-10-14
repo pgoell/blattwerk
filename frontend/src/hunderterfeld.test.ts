@@ -135,6 +135,10 @@ describe("cut-out", () => {
     expect(m.frame).toEqual([0, 0, 100, 100]);
     expect(m.cells.every((c) => c.drawn)).toBe(true);
   });
+
+  it("the Punkte look ignores a stored cut: the frame is the whole field", () => {
+    expect(made(P({ look: "punkte", cut: true })).frame).toEqual([0, 0, 100, 100]);
+  });
 });
 
 describe("dots", () => {

@@ -54,13 +54,16 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
   const tafel = p.look === "tafel";
 
   // The modes that take a click: the grid shows while one is on, and a select says which a click sets.
+  // In a cut-out `show` does not count, so a click cannot hide there.
   const modes: Mode[] = tafel
-    ? [...(p.show === "free" ? (["hide"] as Mode[]) : []), ...(p.tint === "free" ? (["tint"] as Mode[]) : []), ...(p.cut ? (["cut"] as Mode[]) : [])]
+    ? [...(p.show === "free" && !p.cut ? (["hide"] as Mode[]) : []),...(p.tint === "free" ? (["tint"] as Mode[]) : []), ...(p.cut ? (["cut"] as Mode[]) : [])]
     : p.fill === "free"
       ? ["fill"]
       : [];
   const [chosen, setChosen] = useState<Mode | null>(null);
   const mode = chosen && modes.includes(chosen) ? chosen : modes[0];
+  // The given cell as `made` takes it: the stored one in the shape, else the shape's lowest.
+  const given = shape.includes(p.given!) ? p.given! : Math.min(...shape);
 
   const click = (i: number) => {
     if (mode === "hide") {
@@ -71,9 +74,13 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
       const rest = tints.filter(([c]) => c !== i);
       apply({ tints: next ? [...rest, [i, next]] : rest });
     } else if (mode === "cut") {
-      if (!shape.includes(i)) apply({ shape: [...shape, i].sort((a, b) => a - b) });
-      else if (p.given !== i) apply({ given: i });
-      else apply({ shape: shape.filter((c) => c !== i) });
+      if (!shape.includes(i)) apply({ shape: [...shape, i].sort((a, b) => a - b), ...(shape.length === 0 && { given: i }) });
+      else if (given !== i) apply({ given: i });
+      else {
+        // The given cell leaves the shape and hands its part to the lowest cell left, as `made` would.
+        const rest = shape.filter((c) => c !== i);
+        apply({ shape: rest, ...(rest.length > 0 && { given: Math.min(...rest) }) });
+      }
     } else if (mode === "fill") {
       apply({ filled: filled.includes(i) ? filled.filter((c) => c !== i) : [...filled, i] });
     }
@@ -155,10 +162,10 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
                 <button
                   key={i}
                   aria-label={`Feld ${v}`}
-                  data-hidden={hidden.includes(i) ? "" : undefined}
-                  data-tint={tint}
-                  data-cut={!p.cut ? undefined : p.given === i && shape.includes(i) ? "given" : shape.includes(i) ? "in" : undefined}
-                  data-filled={filled.includes(i) ? "" : undefined}
+                  data-hidden={modes.includes("hide") && hidden.includes(i) ? "" : undefined}
+                  data-tint={modes.includes("tint") ? tint : undefined}
+                  data-cut={!modes.includes("cut") ? undefined : given === i ? "given" : shape.includes(i) ? "in" : undefined}
+                  data-filled={modes.includes("fill") && filled.includes(i) ? "" : undefined}
                   onClick={() => click(i)}
                 >
                   {v}

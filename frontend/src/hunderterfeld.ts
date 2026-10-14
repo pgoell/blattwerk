@@ -31,7 +31,8 @@
 // - Tafel: cell i is the square of side 10 at (10·col, 10·row); its number centred in it at 4 units (40 % of a
 //   square). The lines: 0.3 units, the outer frame 0.6.
 // - Ausschnitt: the frame is the square around the bounding box of `shape`, side 10·max(cols, rows), centred on
-//   it, so the cut-out fills the block; the lines and the numbers keep their size relative to a square.
+//   it, so the cut-out fills the block; the numbers keep their size relative to a square, the lines their width on
+//   the page (0.3 of a 100 field). The Punkte look ignores `cut` and always shows the whole field.
 // - The svg's viewBox is the frame grown by one line width (0.3 of a 100 field) on each side, so no line lies on
 //   the svg's edge.
 // - Punkte: dot (row, col) has its centre at `dotAt(col)`, `dotAt(row)`: 8 + 9·k, plus 3 from the sixth on (the gap
@@ -187,7 +188,7 @@ function tintOf(q: HunderterfeldProps, i: number, value: number, tints: Map<numb
 
 // The viewBox: the whole field, or with a cut-out the square around the bounding box of the shape, centred on it.
 function frameOf(q: HunderterfeldProps, shape: number[]): Made["frame"] {
-  if (!q.cut || shape.length === 0) return [0, 0, SIDE, SIDE];
+  if (q.look !== "tafel" || !q.cut || shape.length === 0) return [0, 0, SIDE, SIDE];
   const rows = shape.map((i) => Math.floor(i / 10));
   const cols = shape.map((i) => i % 10);
   const r0 = Math.min(...rows);

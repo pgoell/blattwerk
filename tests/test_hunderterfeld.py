@@ -117,8 +117,7 @@ def test_neu_wuerfeln_stores_a_new_seed_and_keeps_the_rest(editor):
     step(page, lambda: panel(page, "Neu würfeln").click())
     stored = props_of(doc(page, client))
     assert stored["seed"] != 7
-    assert {**stored, "seed": 7} == {**props_of(doc(page, client)), "seed": 7}
-    assert (stored["hide"], stored["show"], stored["tint"]) == (30, "random", "none")
+    assert {**stored, "seed": 7} == {**TAFEL, "show": "random", "hide": 30}
 
 
 @pytest.mark.parametrize(
@@ -150,6 +149,46 @@ def test_a_second_given_replaces_the_first(editor):
     step(page, lambda: square(page, 45).click())
     stored = props_of(doc(page, client))
     assert (stored["given"], stored["shape"]) == (44, [34, 44])
+
+
+def test_the_given_leaving_the_shape_hands_its_part_on_and_the_panel_marks_what_the_sheet_shows(
+    editor,
+):
+    """A click on the given 45 takes it out: 35, the lowest left, is given on the sheet and in the
+    panel; 45 clicked back comes in plain, not given."""
+    client = user()
+    page = editor(feld("h", {**TAFEL, "cut": True}), client=client)
+    pick(page, "h")
+    expect(square(page, 45)).to_have_attribute("data-cut", "given")
+    step(page, lambda: square(page, 45).click())
+    assert props_of(doc(page, client))["given"] == 34
+    expect(square(page, 35)).to_have_attribute("data-cut", "given")
+    shown = page.locator('.block[data-id="h"] text.given')
+    expect(shown).to_have_text(["35"])
+    step(page, lambda: square(page, 45).click())
+    expect(square(page, 45)).to_have_attribute("data-cut", "in")
+    expect(shown).to_have_text(["35"])
+
+
+def test_klick_setzt_picks_the_mode_and_the_grid_marks_only_modes_that_are_on(editor):
+    """With free tints and a cut-out, "Klick setzt" offers Färben and Ausschnitt (no Verdecken,
+    which a cut-out ignores); a click in Färben tints, in Ausschnitt takes the square in. Stored
+    tints show only while the tint is free."""
+    client = user()
+    props = {**TAFEL, "show": "free", "tint": "free", "tints": [[0, 2]], "cut": True}
+    page = editor(feld("h", props), client=client)
+    pick(page, "h")
+    mode = field(page, "Klick setzt")
+    expect(mode.locator("option")).to_have_text(["Färben", "Ausschnitt"])
+    expect(square(page, 1)).to_have_attribute("data-tint", "2")
+    step(page, lambda: square(page, 36).click())
+    assert props_of(doc(page, client))["tints"] == [[0, 2], [35, 1]]
+    mode.select_option("cut")
+    step(page, lambda: square(page, 36).click())
+    assert props_of(doc(page, client))["shape"] == [34, 35, 43, 44, 45, 54]
+    expect(square(page, 36)).to_have_attribute("data-cut", "in")
+    step(page, lambda: field(page, "Färben").select_option("even"))
+    expect(square(page, 1)).not_to_have_attribute("data-tint", "2")
 
 
 def test_zahlen_free_to_all_and_back_keeps_hidden(editor):
