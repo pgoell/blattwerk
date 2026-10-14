@@ -326,21 +326,23 @@ describe("typed numbers: the search over the base stones", () => {
     expect(holdsRule(4, w.numbers, "+")).toBe(true);
   });
 
-  it("(i) times, base 5, count 12, typed top 9973 and stone 5 = 2 in every wall, finishes under 200 ms", () => {
+  it("(i) times, base 5, count 12, typed top 9973 and stone 5 = 2 in every wall, finishes under a second", () => {
     const typed: [number, number, number][] = [];
     for (let w = 0; w < 12; w++) typed.push([w, 14, 9973], [w, 5, 2]);
     const t = performance.now();
     const m = made({ base: 5, op: "*", max: 1000, count: 12, columns: 2, given: "base", empty: false, seed: 424242, typed });
-    expect(performance.now() - t).toBeLessThan(200);
+    // 13 ms here; a busy CI machine took 210. The search it guards against took seconds.
+    expect(performance.now() - t).toBeLessThan(1000);
     expect(m.walls.length).toBe(12);
     // 9973 is prime: the top is one base stone to the power 1, so the wall would need stone 5 = 2 to be a single factor; none fits.
     for (const w of m.walls) expect(w.wrong).toBe(true);
   });
 
-  it("(j) plus, base 5, typed top 9999 and base stones 0 = 9999 and 4 = 1 is wrong, under 200 ms", () => {
+  it("(j) plus, base 5, typed top 9999 and base stones 0 = 9999 and 4 = 1 is wrong, under a second", () => {
     const t = performance.now();
     const w = made(P({ base: 5, max: 1000, seed: 5150, typed: [[0, 14, 9999], [0, 0, 9999], [0, 4, 1]] })).walls[0];
-    expect(performance.now() - t).toBeLessThan(200);
+    // 13 ms here; a busy CI machine took 210. The search it guards against took seconds.
+    expect(performance.now() - t).toBeLessThan(1000);
     expect(w.wrong).toBe(true);
   });
 
