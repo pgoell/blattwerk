@@ -528,3 +528,18 @@ def test_access_is_for_the_owner_and_the_token_only():
         chromium(pdf.new_token(mine["id"])).get(f"/api/render/{mine['id']}?variante=E").status_code
         == 422
     )
+
+
+def test_a_zahlenmauer_gets_another_seed_and_loses_its_typed_numbers():
+    """I2 of #82: B to D give a wall block a seed of its own and drop `typed`; A is as stored."""
+    wall = {"base": 3, "count": 4, "columns": 2, "max": 20, "op": "+", "given": "base"}
+    wall = {**wall, "empty": False, "seed": 7, "typed": [[0, 0, 5]]}
+    doc = {"pages": [{"blocks": [{"id": "w", "type": "zahlenmauer", "props": wall}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**{k: v for k, v in wall.items() if k != "typed"}, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == wall
