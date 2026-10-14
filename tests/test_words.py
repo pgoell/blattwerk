@@ -1,9 +1,13 @@
 """The Lernwörter: a sheet's list, the Lineatur that takes it, the Blatt, and copies of both."""
 
+import io
 import re
 
+import httpx
 import pytest
 from playwright.sync_api import expect
+from pypdf import PdfReader
+from test_feed_print import sheet_id
 from test_keys_focus import choose
 from ui import (
     LINE,
@@ -749,3 +753,61 @@ def test_a_change_kept_by_an_older_build_takes_the_sheets_list_and_deletes_none(
     back = doc(page, client)
     assert back["words"] == ["Hund", "Katze"]
     assert rulings(back)[0]["x"] == 30
+
+
+def pdf_pages(server, client, mine):
+    """The text of each page of a sheet's PDF, as the server makes it."""
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    return [p.extract_text() for p in PdfReader(io.BytesIO(res.content)).pages]
+
+
+LONG = [f"Wort{n:02d}" for n in range(25)]
+
+
+def test_the_run_on_blatt_prints_its_later_words_on_its_later_pages(editor, server):
+    """#416 the PDF has a page per sheet page, and the Blatt's page 2 shows the 10th word on."""
+    client = user()
+    page = editor(client=client, words=LONG)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    assert len(doc(page, client)["pages"]) == 3
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert len(texts) == 3
+    assert "Wort00" in texts[0] and "Wort09" not in texts[0]
+    assert "Wort09" in texts[1] and "Wort00" not in texts[1]
+    assert "Wort18" in texts[2] and "Wort17" not in texts[2]
+
+
+def test_words_taken_out_leave_the_run_on_page_empty_with_no_warning(editor, server):
+    """#416 a Blatt page past the list shows empty rows and the tab says nothing."""
+    client = user()
+    page = editor(client=client, words=LONG)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    assert len(doc(page, client)["pages"]) == 3
+    store_words(page, client, LONG[:12])
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort09" in texts[1] and "Wort11" in texts[1]
+    assert "Wort" not in texts[2]
+
+
+def test_a_from_past_the_list_shows_empty_rows(editor, server):
+    """#416 own: a ruling whose `from` is past the list has no word to show, and does not fail."""
+    client = user()
+    page = editor(box("a", "ruling", {**LINKED, "from": 30}, h=40), client=client)
+    store_words(page, client, LONG[:5])
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort" not in " ".join(texts)
+
+
+def test_a_bad_from_counts_as_none(editor, server):
+    """#416 own: a bad `from` shows the list from its first word."""
+    client = user()
+    page = editor(box("a", "ruling", {**LINKED, "from": -1}, h=40), client=client)
+    store_words(page, client, LONG[:5])
+    texts = pdf_pages(server, client, sheet_id(page))
+    assert "Wort00" in " ".join(texts)
