@@ -51,12 +51,13 @@ def test_a_lost_link_prints_no_result_and_no_hint(browser, server):
     client = user()
     mine = sheet(
         client,
-        [box("s", "selbstkontrolle", {**SK, "links": ["gone"]}, z=1, w=180, h=60)],
+        [box("s", "selbstkontrolle", {**SK, "links": ["gone"], "turn": "fold"}, z=1, w=180, h=60)],
     )["id"]
     paper = printed(browser, server, mine)
     expect(paper.locator("div.selbstkontrolle")).to_have_count(1)
     assert paper.locator("div.selbstkontrolle li").count() == 0
-    assert paper.locator("div.selbstkontrolle p.hint").count() == 0
+    expect(paper.locator("div.selbstkontrolle p.hint")).to_be_hidden()
+    expect(paper.locator("div.selbstkontrolle h3, div.selbstkontrolle .fold")).to_have_count(0)
     paper.context.close()
 
 

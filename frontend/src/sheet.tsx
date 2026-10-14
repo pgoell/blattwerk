@@ -2183,7 +2183,7 @@ function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k:
   const hint = check.lost.length ? "Die Selbstkontrolle hat ihre Quelle verloren." : check.empty ? "Wähle rechts die Blöcke, die die Selbstkontrolle prüft." : check.fault;
   return (
     <div ref={root} className={`selbstkontrolle${solved ? " solved" : ""}${p.turn === "none" ? "" : ` ${p.turn}`}`} style={{ fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }}>
-      {p.turn === "fold" && <div className="fold">Hier umknicken</div>}
+      {whole && p.turn === "fold" && <div className="fold">Hier umknicken</div>}
       <div className="inner">
         {whole && p.title && <h3 className="title">{p.title}</h3>}
         {whole && p.form === "mixed" && <ul className="mixed">{check.mixed.map((text, i) => <li key={i}><span className="tick" />{text}</li>)}</ul>}
@@ -2199,8 +2199,9 @@ function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k:
             {solved && <p className="answer">{p.word}</p>}
           </>
         )}
-        {hint && <p className="hint">{hint}</p>}
       </div>
+      {/* Outside the turned content and out of the flow: it reads upright and does not shrink the type. */}
+      {hint && <p className="hint">{hint}</p>}
     </div>
   );
 }

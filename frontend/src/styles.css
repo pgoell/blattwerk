@@ -533,7 +533,8 @@ body:has(.print) { background: #fff; }
 .selbstkontrolle table.word { margin: 0 auto; border-collapse: collapse; }
 .selbstkontrolle table.word td { min-width: 1.6em; padding: .15em .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); text-align: center; }
 .selbstkontrolle .answer { margin: .3em 0 0; font-size: 1.4em; font-weight: bold; text-align: center; color: #c0392b; }
-.selbstkontrolle .hint { margin: 0; font-size: 12px; color: #c0392b; }
+.selbstkontrolle { position: relative; }
+.selbstkontrolle .hint { position: absolute; left: 0; bottom: 0; margin: 0; font-size: 12px; line-height: 1.2; color: #c0392b; background: #fffc; }
 .paper .selbstkontrolle .hint { display: none; }
 .selbstkontrolle.upside > .inner, .selbstkontrolle.fold > .inner { transform: rotate(180deg); }
 .selbstkontrolle > .fold { border-bottom: 1px dashed #222; text-align: center; font-size: .8em; color: #666; }

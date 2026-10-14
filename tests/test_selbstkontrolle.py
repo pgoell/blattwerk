@@ -98,7 +98,7 @@ def test_neu_wuerfeln_on_the_linked_block_changes_the_list_to_its_new_results(ed
 
 
 def test_a_new_max_on_the_linked_block_changes_the_list_too(editor):
-    """Größte Zahl 9 on the maths block: the list shows the results of the new exercises."""
+    """One task more on the maths block: the list shows the results of the new exercises."""
     client = user()
     page = editor(
         box("m", "maths", maths(client, exercises=SUMS), z=1, w=180, h=20),
@@ -106,8 +106,9 @@ def test_a_new_max_on_the_linked_block_changes_the_list_too(editor):
         client=client,
     )
     pick(page, "m")
-    step(page, lambda: field(page, "Größte Zahl").fill("9"))
+    step(page, lambda: field(page, "Eine Aufgabe mehr").click())
     stored = doc(page, client)
+    assert len(props_of(stored, "m")["exercises"]) == 4
     assert texts(at(page, "s").locator("ul.mixed li")) == results(stored, "m")
 
 
@@ -208,5 +209,8 @@ def test_the_lost_link_in_the_panel_is_a_ticked_box_that_unlinks_it(editor):
         client=client,
     )
     pick(page, "s")
-    step(page, lambda: field(page, "Gelöschter Block").uncheck())
+    expect(field(page, "Gelöschter Block")).to_be_checked()
+    # Unticked, the box goes with the link, so a click and no wait for an unticked box.
+    step(page, lambda: field(page, "Gelöschter Block").click())
     assert props_of(doc(page, client), "s")["links"] == []
+    expect(field(page, "Gelöschter Block")).to_have_count(0)
