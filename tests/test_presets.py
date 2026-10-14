@@ -294,9 +294,10 @@ def test_every_preset_box_is_unlocked_and_ungrouped(sheet_name):
             assert b["locked"] is False and "group" not in b, b["id"]
 
 
+# The three first templates only: the newer ones have maths, tables and rulings, not these boxes.
 PRESET_BOXES = [
     (sheet_name, b["id"], b["type"], b.get("props", {}).get("kind"))
-    for sheet_name in SHEETS
+    for sheet_name in SHEETS[:3]
     for page in preset(sheet_name)
     for b in page["blocks"]
 ]
