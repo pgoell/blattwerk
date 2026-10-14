@@ -1,5 +1,7 @@
 """The Lernwörter: a sheet's list, the Lineatur that takes it, the Blatt, and copies of both."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_keys_focus import choose
@@ -589,6 +591,18 @@ def test_a_pick_on_the_ansicht_tab_stays_on_ansicht(editor):
     page.get_by_role("tab", name="Ansicht").click()
     pick(page, "a")
     expect(page.get_by_role("tab", name="Ansicht")).to_have_attribute("aria-selected", "true")
+
+
+def test_the_two_buttons_under_the_list_say_what_they_make(editor):
+    """#429: a teacher could not tell what each button makes."""
+    page = editor(words=WORDS)
+    list_tab(page)
+    blatt = page.get_by_role("button", name="Lernwörter-Blatt")
+    knick = page.get_by_role("button", name="Knickblatt", exact=True)
+    expect(blatt).to_have_attribute("title", re.compile("neue Seite"))
+    expect(knick).to_have_attribute("title", re.compile("Falten"))
+    expect(page.locator(".panel .hint", has_text="neue Seite")).to_be_visible()
+    expect(page.locator(".panel .hint", has_text="Falten")).to_be_visible()
 
 
 def test_a_change_to_the_list_reaches_every_linked_block_in_one_undo_step(editor):
