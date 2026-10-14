@@ -252,23 +252,117 @@ function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, numbe
   const valueOf = (i: number) => typed.get(i) ?? generated[i];
   const greedy = derive(p, typed, used, rows, valueOf);
   if (greedy) return { numbers: greedy, wrong: false };
-  // The greedy fill gave no wall: try other values for the generated base stones, in order, and take the first that fits.
-  const free = used.filter((i) => !typed.has(i));
-  if (!free.length) return shown;
-  // The teacher's own wall may hold a 0 where plus allows it.
-  const lo = p.op === "*" ? 1 : 0;
-  const hi = Math.max(...typed.values());
-  const digits = free.map(() => lo);
-  for (let t = 0; t < 20000; t++) {
-    const cand = new Map(free.map((i, k) => [i, digits[k]]));
-    const found = derive(p, typed, used, rows, (i) => typed.get(i) ?? cand.get(i) ?? generated[i]);
-    if (found) return { numbers: found, wrong: false };
-    let k = 0;
-    while (k < digits.length && digits[k] + 1 > hi) digits[k++] = lo;
-    if (k === digits.length) break;
-    digits[k]++;
+  // The greedy fill gave no wall: search the base stones for one that fits the typed numbers.
+  const found = search(p, typed, generated);
+  return found ? { numbers: found, wrong: false } : shown;
+}
+
+// A depth-first search over the base stones for a wall that holds every typed number, in integers only. A base stone in
+// no typed stone keeps its generated value. Undefined when no wall fits, or after 100000 nodes.
+function search(p: ZahlenmauerProps, typed: Map<number, number>, generated: number[]): number[] | undefined {
+  const base = p.base;
+  const times = p.op === "*";
+  const floor = floorOf(p);
+  const cons = [...typed].map(([i, v]) => ({ v, a: vector(base, i) }));
+  const searched = Array.from({ length: base }, (_, j) => j).filter((j) => cons.some((c) => c.a[j] > 0));
+  const x = generated.slice(0, base);
+  const assigned = Array.from({ length: base }, () => false);
+  let visited = 0;
+  let result: number[] | undefined;
+
+  // The assigned part of a constraint (sum, or product), and the stones of it not yet assigned.
+  const part = (c: { v: number; a: number[] }) => {
+    let s = times ? 1 : 0;
+    const open: number[] = [];
+    for (let j = 0; j < base; j++) {
+      if (c.a[j] === 0) continue;
+      if (!assigned[j]) {
+        open.push(j);
+        continue;
+      }
+      for (let k = 0; k < c.a[j]; k++) {
+        s = times ? s * x[j] : s + x[j];
+        if (times && s > c.v) return { s, open };
+      }
+    }
+    return { s, open };
+  };
+
+  // The stone m that is the only open one of a constraint must be this: plus (v - sum) / a, times the a-th root of v / product.
+  const forced = (c: { v: number; a: number[] }, m: number, s: number): number | undefined => {
+    if (!times) {
+      const rem = c.v - s;
+      if (rem < 0 || rem % c.a[m] !== 0) return undefined;
+      return rem / c.a[m];
+    }
+    if (c.v % s !== 0) return undefined;
+    const rem = c.v / s;
+    const r = Math.round(rem ** (1 / c.a[m]));
+    for (let y = Math.max(1, r - 1); y <= r + 1; y++) {
+      let pw = 1;
+      for (let k = 0; k < c.a[m]; k++) pw *= y;
+      if (pw === rem) return y;
+    }
+    return undefined;
+  };
+
+  // The values to try for stone j, the generated one first, then by distance from it.
+  function* candidates(j: number): Generator<number> {
+    const mine = cons.filter((c) => c.a[j] > 0);
+    const g = generated[j];
+    if (times) {
+      let G = 0;
+      for (const c of mine) G = gcd(G, c.v);
+      const divs: number[] = [];
+      for (let d = 1; d * d <= G; d++) if (G % d === 0) divs.push(d, G / d);
+      divs.sort((p1, p2) => Math.abs(p1 - g) - Math.abs(p2 - g) || p1 - p2);
+      yield* divs;
+      return;
+    }
+    const u = Math.min(...mine.map((c) => c.v));
+    for (let d = 0; d <= Math.max(u, g) + 1; d++) {
+      for (const y of d === 0 ? [g] : [g - d, g + d]) if (y >= floor && y <= u) yield y;
+    }
   }
-  return shown;
+
+  const fullCheck = (): boolean => {
+    const wall = build(base, x, times);
+    if (wall.some((v) => v > 9999)) return false;
+    if ([...typed].some(([i, v]) => wall[i] !== v)) return false;
+    result = wall;
+    return true;
+  };
+
+  const dfs = (depth: number): boolean => {
+    if (++visited > 100000) return false;
+    if (depth === searched.length) return fullCheck();
+    const j = searched[depth];
+    const mine = cons.filter((c) => c.a[j] > 0);
+    let domain: Iterable<number> = candidates(j);
+    for (const c of mine) {
+      const { s, open } = part(c);
+      if (open.length === 1 && open[0] === j) {
+        const f = forced(c, j, s);
+        if (f === undefined || f < floor) return false;
+        domain = [f];
+        break;
+      }
+    }
+    for (const y of domain) {
+      x[j] = y;
+      assigned[j] = true;
+      const ok = mine.every((c) => {
+        const { s, open } = part(c);
+        if (times ? c.v % s !== 0 : s > c.v) return false;
+        return open.length > 0 || s === c.v;
+      });
+      if (ok && dfs(depth + 1)) return true;
+      assigned[j] = false;
+    }
+    return false;
+  };
+
+  return dfs(0) ? result : undefined;
 }
 
 // The numbers of a wall from the rows of its constrained stones and the value of each: solved exactly, then checked.

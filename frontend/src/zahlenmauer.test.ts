@@ -314,3 +314,45 @@ describe("own cases", () => {
     expect(fixes(3, [true, true, false, false, false, false])).toBe(false);
   });
 });
+
+describe("typed numbers: the search over the base stones", () => {
+  it("(h) plus, base 4, typed 2105 and 2393 in stones 6 and 5 is not wrong: 521 1629 764 1341 fits", () => {
+    const w = made({ base: 4, op: "+", max: 1000, count: 1, columns: 1, given: "base", empty: false, seed: 0, typed: [[0, 6, 2105], [0, 5, 2393]] }).walls[0];
+    expect(w.wrong).toBe(false);
+    expect(w.numbers[6]).toBe(2105);
+    expect(w.numbers[5]).toBe(2393);
+    expect(holdsRule(4, w.numbers, "+")).toBe(true);
+  });
+
+  it("(i) times, base 5, count 12, typed top 9973 and stone 5 = 2 in every wall, finishes under 200 ms", () => {
+    const typed: [number, number, number][] = [];
+    for (let w = 0; w < 12; w++) typed.push([w, 14, 9973], [w, 5, 2]);
+    const t = performance.now();
+    const m = made({ base: 5, op: "*", max: 1000, count: 12, columns: 2, given: "base", empty: false, seed: 424242, typed });
+    expect(performance.now() - t).toBeLessThan(200);
+    expect(m.walls.length).toBe(12);
+    // 9973 is prime: the top is one base stone to the power 1, so the wall would need stone 5 = 2 to be a single factor; none fits.
+    for (const w of m.walls) expect(w.wrong).toBe(true);
+  });
+
+  it("(j) plus, base 5, typed top 9999 and base stone 0 = 9999 is wrong, under 200 ms", () => {
+    const t = performance.now();
+    const w = made(P({ base: 5, max: 1000, seed: 5150, typed: [[0, 14, 9999], [0, 0, 9999]] })).walls[0];
+    expect(performance.now() - t).toBeLessThan(200);
+    expect(w.wrong).toBe(true);
+  });
+
+  it("(k) a wall made by the generator, with some of its stones typed, is not wrong and keeps the typed numbers", () => {
+    fc.assert(
+      fc.property(seeds, base, op, fc.array(fc.boolean(), { minLength: 15, maxLength: 15 }), (seed, b, o, mask) => {
+        const wall = made(P({ base: b, op: o, max: 1000, seed })).walls[0].numbers;
+        const typed: [number, number, number][] = [];
+        for (let i = 0; i < stones(b); i++) if (mask[i]) typed.push([0, i, wall[i]]);
+        const w = made(P({ base: b, op: o, max: 1000, seed, typed })).walls[0];
+        expect(w.wrong).toBe(false);
+        for (const [, i, v] of typed) expect(w.numbers[i]).toBe(v);
+      }),
+      { numRuns: 300 },
+    );
+  });
+});
