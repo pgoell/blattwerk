@@ -8,7 +8,7 @@ import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
-import { made as walled, sane as saneWall } from "./zahlenmauer";
+import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -1840,11 +1840,38 @@ function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved:
   );
 }
 
-// STUB: the drawing's part replaces this body.
+// A Zahlenmauer: its walls in columns, row by row, in its own units. A stone is twice as wide as high, and a row
+// sits half a stone right of the one under it, so a wall is as wide as its base row. The svg scales with the block.
 function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; solved: boolean }) {
   const p = saneWall(block.props);
   const { walls } = walled(p);
-  return <div className="zahlenmauer">{walls.map((w, i) => <p key={i}>{w.numbers.map((n, s) => (w.given[s] || solved ? n : "_")).join(" ")}</p>)}</div>;
+  const S = 10;
+  const [wallW, wallH, gap] = [p.base * 2 * S, p.base * S, 2 * S];
+  const rows = Math.max(1, Math.ceil(walls.length / p.columns));
+  return (
+    <div className={`zahlenmauer${solved ? " solved" : ""}`}>
+      <svg viewBox={`0 0 ${p.columns * wallW + (p.columns - 1) * gap} ${rows * wallH + (rows - 1) * gap}`} preserveAspectRatio="xMidYMin meet">
+        {walls.map((w, i) => {
+          const [x0, y0] = [(i % p.columns) * (wallW + gap), Math.floor(i / p.columns) * (wallH + gap)];
+          const stones = Array.from({ length: p.base }, (_, r) => Array.from({ length: p.base - r }, (_, c) => {
+            const s = at(p.base, r, c);
+            const [x, y] = [x0 + r * S + c * 2 * S, y0 + (p.base - 1 - r) * S];
+            const shows = !p.empty && (w.given[s] || solved);
+            return (
+              <g key={s} className="stone" data-stone={s} data-row={r} data-col={c}>
+                <rect x={x} y={y} width={2 * S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
+                {shows && (
+                  <text x={x + S} y={y + S / 2} fontSize={0.6 * S} textAnchor="middle" dominantBaseline="central"
+                    fill={w.given[s] ? "#222" : "#c0392b"} className={w.given[s] ? "given" : "answer"}>{w.numbers[s]}</text>
+                )}
+              </g>
+            );
+          }));
+          return <g key={i} className={`wall${w.wrong ? " wrong" : ""}`} data-wall={i}>{stones.flat()}</g>;
+        })}
+      </svg>
+    </div>
+  );
 }
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
