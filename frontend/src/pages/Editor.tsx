@@ -959,10 +959,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
     // Shift+Tab the one in front.
     const plain = !target.closest("button, a");
+    // Ctrl+] and Ctrl+[ step the picked blocks in the stack, with Shift to the front or the back, as in PowerPoint.
+    // With Alt or AltGr the key types a character, so it is no order key.
+    const order = (front: boolean) => sel.length > 0 && !e.altKey && !e.getModifierState("AltGraph") && (() => raise(front, !e.shiftKey));
     // Ctrl+V alone is not here: a key stopped on its way down brings no paste.
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false) }
         : {
             delete: remove,
             backspace: remove,
