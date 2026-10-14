@@ -36,7 +36,7 @@
 // the same to the tenth of a mm at any zoom:
 // - The ticks spread exactly over the block's width less `LEFT` and `RIGHT`: tick i of n stands at `xOf(i, n, w)`.
 //   The arrow head ends at `w - 1`. Widening the block widens the gaps; the numbers keep their size.
-// - The line lies `below(p, w)` mm above the block's bottom, `BELOW` at least, lower when a box hangs lower. A long
+// - The line lies `below(p, w)` mm above the block's bottom, `BELOW` at least, more when a box hangs lower. A long
 //   tick reaches 3 mm above and below it, a small one 1.5.
 //   Numbers and boxes stand under it, arrows' numbers and arcs above it. A box that would cover a number shown
 //   beside it stands one row lower, a thin line from its tick down to it. An arrow's stub ends 2 mm above the ticks.

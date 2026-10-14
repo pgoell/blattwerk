@@ -108,7 +108,7 @@ import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK } from "../rechendreieck";
-import { DEFAULTS as STRAHL } from "../zahlenstrahl";
+import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
 
@@ -1293,7 +1293,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table" || key === "words") tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
+    change(
+      (bs) =>
+        bs.map((b) => {
+          if (!ids.includes(b.id) || b.type !== type) return b;
+          const next = { ...b, props: { ...b.props, ...fresh(b, props) } } as Block;
+          return { ...next, ...grown(b, next) } as Block;
+        }),
+      key,
+    );
+  }
+  // A maths block grows downward when a change in its panel needs more room, to the page's foot at most, in the same
+  // undo step; it never shrinks by itself. A Zahlenstrahl grows by what its line rises, so the line keeps its place.
+  function grown(b: Block, next: Block): Partial<Box> {
+    const foot = Math.max(b.h, H - b.y);
+    if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
+      const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
+      if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
+    }
+    return {};
   }
   // The text typed into a ruling is set, and in the same change the block grows by whole rows when the text needs more
   // rows than it has. A Karo needs the rows of its squares. A Lineatur's field scrolls past its last row, so its
