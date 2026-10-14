@@ -140,6 +140,18 @@ describe("checked and the forms", () => {
     expect(letters.get("a")).toEqual(["A", "B"]);
     expect(letters.get("b")).toEqual(["A"]);
   });
+
+  it("a mixed Selbstkontrolle above a word one takes no letters from it, and has no word fault", () => {
+    const above = { ...selbst({ form: "mixed", links: ["a"] }), id: "m", y: 0 } as Block;
+    const doc = sheet([above, a, b, selbst({ form: "word", links: ["a", "b"], word: "ABA" })]);
+    expect(lettersOf(doc).get("a")).toEqual(["A", "B"]);
+    expect(checked(P({ form: "mixed", links: ["a"] }), doc).fault).toBeUndefined();
+    expect(checked(P({ form: "sum", links: ["a"] }), doc).fault).toBeUndefined();
+  });
+
+  it("a word Selbstkontrolle with a lost link gives no letter boxes", () => {
+    expect(lettersOf(sheet([a, b, selbst({ form: "word", links: ["a", "b", "gone"], word: "ABA" })])).size).toBe(0);
+  });
 });
 
 describe("links and labels", () => {
