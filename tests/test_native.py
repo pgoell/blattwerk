@@ -18,6 +18,7 @@ pytestmark = pytest.mark.native
 
 POPUP = ".panel select:open, .panel input[type=color]:open"
 BLACK = {**TEXT, "color": "#000000"}
+WALL = {"count": 4, "columns": 2, "max": 20, "op": "+", "given": "base", "empty": False, "seed": 7}
 # A select of the panel, the block that shows it and the value it starts with.
 LISTS = [
     ("Schriftart", "text", TEXT, "andika"),
@@ -71,6 +72,32 @@ ORDER = {
             "Umlaute und ß behalten",
             "Wörterliste",
             "Nur Anzahl",
+            "Neu würfeln",
+        ],
+    ),
+    # The base row is given, so the free choice's stones are not there. The fields run from the
+    # top stone down.
+    "zahlenmauer": (
+        {**WALL, "base": 3},
+        [
+            *START,
+            "Grundsteine",
+            "Eine Mauer weniger",
+            "Eine Mauer mehr",
+            "Eine Spalte weniger",
+            "Eine Spalte mehr",
+            "Zahlenraum",
+            "Plus",
+            "Mal",
+            "Gegebene Steine",
+            "Leer",
+            "Mauer für eigene Zahlen",
+            "Zahl im Stein 1 der Reihe 3",
+            "Zahl im Stein 1 der Reihe 2",
+            "Zahl im Stein 2 der Reihe 2",
+            "Zahl im Stein 1 der Reihe 1",
+            "Zahl im Stein 2 der Reihe 1",
+            "Zahl im Stein 3 der Reihe 1",
             "Neu würfeln",
         ],
     ),

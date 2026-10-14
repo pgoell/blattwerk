@@ -23,6 +23,7 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   ArrowRight,
+  BrickWall,
   Calculator,
   ChevronLeft,
   Circle,
@@ -159,6 +160,7 @@ const NAMES: Record<Block["type"], string> = {
   symbol: "Symbol",
   ruling: "Lineatur",
   suchsel: "Suchsel",
+  zahlenmauer: "Zahlenmauer",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -2809,6 +2811,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       {/* What makes exercises, a group to a subject. */}
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
+      <Tool icon={BrickWall} label="Zahlenmauer" onClick={() => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } })} />
       <Tool icon={Ruler} label="Strecke" onClick={() => add(50, 0, { type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } })} />
       <i className="sep" data-name="Formen" />
       <span className="shapes">

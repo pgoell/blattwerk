@@ -502,6 +502,8 @@ body:has(.print) { background: #fff; }
 .suchsel svg { flex: 0 1 auto; min-height: 0; width: 100%; font-family: Andika; }
 .suchsel .found { flex: none; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .1em 1em; line-height: 1.3; color: #222; }
 .suchsel .ring { fill: #c0392b; fill-opacity: .12; stroke: #c0392b; }
+.block .zahlenmauer { height: 100%; font-family: Andika; }
+.zahlenmauer svg { width: 100%; height: 100%; font-family: Andika; }
 /* A table: its top and left line are its own, and each cell brings the line to its right and the one below it.
    A text too high for its cell starts at the top and is cut off below. An empty cell keeps a line of text's
    height, so a row with no text does not close up, and a table in a block too low for its rows is as high as they
@@ -729,6 +731,11 @@ body:has(.print) { background: #fff; }
 .panel .bold { font-weight: 700; }
 .panel .italic { font-style: italic; }
 .panel .underline { text-decoration: underline; }
+/* A small wall of the panel: its rows centred, one above the other, each stone a square of buttons or fields. */
+.panel .mauer { display: grid; justify-items: center; gap: 2px; margin: 0 0 8px; }
+.panel .mauer-row { display: flex; gap: 2px; }
+.panel .mauer button, .panel .mauer input { width: 30px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: var(--field); color: var(--ink); text-align: center; font: 12px var(--mono); }
+.panel .mauer button.on { background: var(--ink); color: var(--bg); }
 .symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; max-height: 196px; margin-bottom: 8px; overflow: auto; }
 .symbols button { min-height: 36px; padding: 0; border-color: transparent; background: none; }
 .symbols img { width: 26px; height: 26px; }

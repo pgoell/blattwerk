@@ -8,6 +8,7 @@ import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
+import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -158,7 +159,17 @@ export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols
 export type Ways = "across" | "down" | "diag" | "back";
 export type SuchselProps = { words: string[]; cols: number; rows: number; ways: Ways; caps: boolean; umlauts: boolean; show: "words" | "count"; seed: number };
 export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock;
+// A Zahlenmauer: walls of stones in rows, each stone the sum (or with `op` "*" the product) of the two under it.
+// `base` is the number of stones in the lowest row, `count` the walls of the block and `columns` how many stand side
+// by side. No stone is above `max`. `given` says which stones show their number: the base row, per wall a mix that
+// needs the way back, or with "free" the stones `free` flags, a flag per stone index, the same for every wall. With
+// `empty` no stone shows a number. `typed` holds the numbers the teacher typed into stones: wall (from 0), stone
+// index, value. A stone's index counts from the base row's left end up, a row at a time (zahlenmauer.ts). The walls
+// come from `seed` alone, so every draw gives the same ones.
+export type Typed = [number, number, number];
+export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number; max: number; op: "+" | "*"; given: "base" | "mix" | "free"; free?: boolean[]; empty: boolean; seed: number; typed?: Typed[] };
+export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -1829,11 +1840,47 @@ function Suchsel({ block, k, solved }: { block: SuchselBlock; k: number; solved:
   );
 }
 
+// A Zahlenmauer: its walls in columns, row by row, in its own units. A stone is twice as wide as high, and a row
+// sits half a stone right of the one under it, so a wall is as wide as its base row. The svg scales with the block.
+function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; solved: boolean }) {
+  const p = saneWall(block.props);
+  const { walls } = walled(p);
+  const S = 10;
+  const [wallW, wallH, gap] = [p.base * 2 * S, p.base * S, 2 * S];
+  const rows = Math.max(1, Math.ceil(walls.length / p.columns));
+  return (
+    <div className={`zahlenmauer${solved ? " solved" : ""}`}>
+      {/* Half a unit of room around the walls, so the lines at the edge show whole. */}
+      <svg viewBox={`-0.5 -0.5 ${p.columns * wallW + (p.columns - 1) * gap + 1} ${rows * wallH + (rows - 1) * gap + 1}`} preserveAspectRatio="xMidYMin meet">
+        {walls.map((w, i) => {
+          const [x0, y0] = [(i % p.columns) * (wallW + gap), Math.floor(i / p.columns) * (wallH + gap)];
+          const stones = Array.from({ length: p.base }, (_, r) => Array.from({ length: p.base - r }, (_, c) => {
+            const s = at(p.base, r, c);
+            const [x, y] = [x0 + r * S + c * 2 * S, y0 + (p.base - 1 - r) * S];
+            const shows = !p.empty && (w.given[s] || solved);
+            return (
+              <g key={s} className="stone" data-stone={s} data-row={r} data-col={c}>
+                <rect x={x} y={y} width={2 * S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
+                {shows && (
+                  <text x={x + S} y={y + S / 2} fontSize={0.6 * S} textAnchor="middle" dominantBaseline="central"
+                    fill={w.given[s] ? "#222" : "#c0392b"} className={w.given[s] ? "given" : "answer"}>{w.numbers[s]}</text>
+                )}
+              </g>
+            );
+          }));
+          return <g key={i} className={`wall${w.wrong ? " wrong" : ""}`} data-wall={i}>{stones.flat()}</g>;
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
+  if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
