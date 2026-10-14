@@ -115,42 +115,48 @@ describe("edgesSpliced", () => {
 
   // Issues #562 and #567 (PR #546): a new row or column takes the lines that cross its neighbour, so a closed frame
   // stays closed and a thick line inside runs on. The line between it and its neighbour is null, as I5 has it.
-  it("gives a row added below every line that crosses the row above, and leaves the line between null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("gives a row added below every line that crosses the row above, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "row", 1, true)!;
     expect(out.v[1]).toStrictEqual(Array(5).fill(pen));
-    expect(out.h[1].every((edge) => edge === null)).toBe(true);
+    expect(out.h[1]).toStrictEqual(Array(4).fill(pen));
   });
 
-  it("gives a row added at the top the first row's lines, and leaves the line under it null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("gives a row added at the top the first row's lines, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "row", 0, true)!;
     expect(out.v[0]).toStrictEqual(Array(5).fill(pen));
-    expect(out.h[1].every((edge) => edge === null)).toBe(true);
+    expect(out.h[1]).toStrictEqual(Array(4).fill(pen));
   });
 
-  it("gives a column added to the right the last column's lines, and leaves the line beside it null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("gives a column added to the right the last column's lines, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "col", 4, true)!;
     expect(out.h.map((list) => list[4])).toStrictEqual(Array(4).fill(pen));
-    expect(out.v.every((list) => list[4] === null)).toBe(true);
+    expect(out.v.map((list) => list[4])).toStrictEqual(Array(3).fill(pen));
   });
 
-  it("gives a column added at the left the first column's lines, and leaves the line beside it null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("gives a column added at the left the first column's lines, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "col", 0, true)!;
     expect(out.h.map((list) => list[0])).toStrictEqual(Array(4).fill(pen));
-    expect(out.v.every((list) => list[1] === null)).toBe(true);
+    expect(out.v.map((list) => list[1])).toStrictEqual(Array(3).fill(pen));
   });
 
   // Issue #574: a row or column added after its anchor keeps the line at the join with the anchor, so a box round the
   // anchor stays closed.
-  it("keeps the line between an anchor row and the next when a row goes after it, and leaves the new line null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("keeps the line between an anchor row and the next when a row goes after it, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "row", 1, true, true)!;
     expect(out.h[1]).toStrictEqual(valid.h[1]);
-    expect(out.h[2].every((edge) => edge === null)).toBe(true);
+    expect(out.h[2]).toStrictEqual(Array(4).fill(pen));
   });
 
-  it("keeps the line between an anchor column and the next when a column goes after it, and leaves the new line null", () => {
+  // #594: a grid drawn all in one pen keeps that pen, so the new line takes it.
+  it("keeps the line between an anchor column and the next when a column goes after it, and gives the line between the grid's pen (#594)", () => {
     const out = edgesSpliced(sized, "col", 1, true, true)!;
     expect(out.v.map((list) => list[1])).toStrictEqual(valid.v.map((list) => list[1]));
-    expect(out.v.every((list) => list[2] === null)).toBe(true);
+    expect(out.v.map((list) => list[2])).toStrictEqual(Array(3).fill(pen));
   });
 
   // Whether every line round the cells of the rect is drawn with `pen`.
@@ -307,6 +313,74 @@ describe("edgesSpliced", () => {
     const out = edgesSpliced(across, "col", 2, true)!;
     expect(out.h.map((list) => list[2])).toStrictEqual([pen, pen, null, null]);
     expect(out.v.every((list) => list[2] === null)).toBe(true);
+  });
+});
+
+describe("edgesSpliced, the rule", () => {
+  const solid = { style: "solid" as const, width: 1.25 };
+  const dotted = { style: "dotted" as const, width: 1.25 };
+  const dashed = { style: "dashed" as const, width: 0.25 };
+  const json = (edge: Edge) => JSON.stringify(edge);
+  // The table of each case: (a) a solid frame and a dotted box, (b) the same pen for both, (c) every line dashed.
+  const tables: Record<string, Table> = {
+    a: bordered(bordered(grid, [0, 0, 2, 3], "outer", solid), [2, 1, 2, 1], "outer", dotted) as Table,
+    b: bordered(bordered(grid, [0, 0, 2, 3], "outer", solid), [2, 1, 2, 1], "outer", solid) as Table,
+    c: bordered(grid, [0, 0, 2, 3], "all", dashed) as Table,
+  };
+  // The cell of the box and the new row or column, for each side.
+  const sides = {
+    "row below": { axis: "row", i: 3, after: true, cell: [2, 1] },
+    "row above": { axis: "row", i: 0, after: false, cell: [0, 1] },
+    "column right": { axis: "col", i: 4, after: true, cell: [1, 3] },
+    "column left": { axis: "col", i: 0, after: false, cell: [1, 0] },
+  } as const;
+
+  it.each(Object.keys(tables).flatMap((k) => Object.keys(sides).map((side) => [k, side])))("case %s, %s", (k, side) => {
+    const { axis, i, after } = sides[side as keyof typeof sides];
+    const out = edgesSpliced(tables[k], axis, i, true, after)!;
+    if (k === "c") {
+      expect([...out.h.flat(), ...out.v.flat()].filter((edge) => edge !== null).every((edge) => json(edge) === json(dashed))).toBe(true);
+      return;
+    }
+    // The frame stays closed on the new rim.
+    const rim = [...out.h[0], ...out.h[out.h.length - 1], ...out.v.map((list) => list[0]), ...out.v.map((list) => list[list.length - 1])];
+    // A box on the rim shows its own pen there.
+    expect(rim.every((edge) => json(edge) === json(solid) || json(edge) === json(dotted))).toBe(true);
+    // The box stays round its old cell: four sides.
+    // In b the box has the frame's pen, so its sides cannot be counted apart.
+    if (k === "a") expect([...out.h.flat(), ...out.v.flat()].filter((edge) => json(edge) === json(dotted)).length).toBe(4);
+    // The new row or column is plain inside.
+    if (axis === "row") {
+      const newRow = out.v[i];
+      expect(newRow.slice(1, -1).every((edge) => edge === null)).toBe(true);
+    } else {
+      const newCol = out.h.map((list) => list[i]);
+      expect(newCol.slice(1, -1).every((edge) => edge === null)).toBe(true);
+    }
+  });
+
+  it("issue #595: a frame closes on the new rim, and the box's bottom stays under its cell", () => {
+    const framed = bordered(grid, [0, 0, 2, 3], "outer", solid) as Table;
+    const boxed = { ...framed, edges: drawn(bordered(framed, [2, 1, 2, 1], "outer", dotted)) } as Table;
+    const out = edgesSpliced(boxed, "row", 3, true, true)!;
+    expect(out.h[4]).toStrictEqual([solid, solid, solid, solid]);
+    expect(out.h[3]).toStrictEqual([null, dotted, null, null]);
+  });
+
+  it("keeps every line dashed when a row is added inside a dashed table", () => {
+    const dashedTable = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 3], "all", dashed)) } as Table;
+    const out = edgesSpliced(dashedTable, "row", 1, true)!;
+    expect(out.h[1].every((edge) => json(edge) === json(dashed))).toBe(true);
+    expect(out.h[2].every((edge) => json(edge) === json(dashed))).toBe(true);
+    expect(out.v[1].every((edge) => json(edge) === json(dashed))).toBe(true);
+  });
+
+  it("keeps a frame round a one-row table when a column is added at its right", () => {
+    const row = { cells: [["", "", "", ""]], cols: [1, 1, 1, 1] } as unknown as Table;
+    const framed = { ...row, edges: drawn(bordered(row, [0, 0, 0, 3], "outer", solid)) } as Table;
+    const out = edgesSpliced(framed, "col", 4, true, true)!;
+    expect(out.h[0][4]).toStrictEqual(solid);
+    expect(out.h[1][4]).toStrictEqual(solid);
   });
 });
 
