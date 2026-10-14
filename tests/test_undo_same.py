@@ -261,8 +261,11 @@ def test_the_view_set_as_it_is_adds_no_undo_step(editor, own):
         for nth in (0, 1):
             panel.get_by_role("button", name="Wie Blatt").nth(nth).click()
     else:
-        for name in ("Alle Seiten", "Hoch", "Aus"):
+        # Two buttons read Aus: the Raster's and the Seitenzahlen' (#88). Both are set as they are.
+        for name in ("Alle Seiten", "Hoch"):
             panel.get_by_role("button", name=name, exact=True).click()
+        panel.get_by_role("button", name="Aus", exact=True).first.click()
+        panel.get_by_role("group", name="Seitenzahlen").get_by_role("button", name="Aus").click()
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
 

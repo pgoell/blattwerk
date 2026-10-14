@@ -198,7 +198,15 @@ export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?
 // on its side.
 // `words` holds the sheet's Lernwörter as the teacher typed them, a line of the list to an entry. Sheets saved
 // before have none.
-export type Doc = { pages: Page[]; guides: Guides; grid: number; landscape?: boolean; words?: string[] };
+export type Doc = {
+  pages: Page[];
+  guides: Guides;
+  grid: number;
+  landscape?: boolean;
+  words?: string[];
+  pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
+};
+export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
 // The server counts a sheet's saved documents in `version`.
 export type Sheet = { id: number; user_id: number; title: string; updated: string; version: number; doc: Doc };
 
@@ -331,12 +339,13 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
   words,
+  pageNumbers,
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
@@ -2323,16 +2332,55 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
   );
 }
 
+// A sheet's page numbers: off unless `on` is true. A value nobody knows reads as the default.
+export const pageNumbersOf = (doc: Doc) => {
+  const p = doc.pageNumbers ?? {};
+  return {
+    on: p.on === true,
+    at: (["bottom", "right", "outer", "top"] as const).find((at) => at === p.at) ?? "bottom",
+    form: (["n", "seite", "of", "seiteVon"] as const).find((form) => form === p.form) ?? "n",
+    notFirst: p.notFirst === true,
+    black: p.black === true,
+  };
+};
+// The text and place of a page's number, or nothing when the sheet shows none on that page. Pages count from 1.
+export const folioOf = (doc: Doc, page: number) => {
+  const f = pageNumbersOf(doc);
+  if (!f.on || (f.notFirst && page === 0)) return undefined;
+  const [w] = sizeOf(doc, page);
+  const n = page + 1;
+  const m = doc.pages.length;
+  const text = { n: `${n}`, seite: `Seite ${n}`, of: `${n} / ${m}`, seiteVon: `Seite ${n} von ${m}` }[f.form];
+  const pos: CSSProperties =
+    f.at === "bottom" ? { left: 0, width: w * K, textAlign: "center", bottom: 6 * K }
+    : f.at === "top" ? { right: 15 * K, top: 6 * K }
+    : f.at === "outer" && n % 2 === 0 ? { left: 15 * K, bottom: 6 * K }
+    : { right: 15 * K, bottom: 6 * K };
+  return { text, pos, at: f.at, black: f.black };
+};
+// A page's number, the first child of its `.scaled` div, so the blocks draw over it.
+export function PageNumber({ doc, page }: { doc: Doc; page: number }) {
+  const f = folioOf(doc, page);
+  return f ? (
+    <span className="folio" aria-hidden style={{ ...f.pos, fontSize: 9 * PT * K, color: f.black ? "#000000" : "#707070" }}>
+      {f.text}
+    </span>
+  ) : null;
+}
+
 // A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
-// true size in the PDF, where it needs no transform. The answer key says on each page that it is one.
+// true size in the PDF, where it needs no transform. The answer key says on each page that it is one; with the page
+// number at the top right, it moves to the top left.
 export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; k: number; page?: number; solved?: boolean; letter?: string }) {
   const all = read(doc);
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
+  const moved = solved && folioOf(all, page)?.at === "top";
   return (
     <Words.Provider value={wordsIn(all)}>
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
+        <PageNumber doc={all} page={page} />
         {all.pages[page].blocks.map((b) => (
           <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />
@@ -2340,7 +2388,7 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
             <Mark block={b} k={K} n={ns.get(b.id)} />
           </div>
         ))}
-        {solved && <b className="key" style={{ top: 5 * K, right: 15 * K, fontSize: 11 * PT * K }}>{letter ? `Lösungen ${letter}` : "Lösungen"}</b>}
+        {solved && <b className="key" style={{ top: 5 * K, ...(moved ? { left: 15 * K } : { right: 15 * K }), fontSize: 11 * PT * K }}>{letter ? `Lösungen ${letter}` : "Lösungen"}</b>}
         {letter && <b className="variant" style={{ position: "absolute", bottom: 5 * K, right: 8 * K, fontSize: 8 * PT * K }}>{letter}</b>}
       </div>
     </div>

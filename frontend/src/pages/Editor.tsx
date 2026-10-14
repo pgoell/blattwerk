@@ -98,7 +98,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -573,6 +573,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  // Page numbers are sheet-wide. A change turns them on and keeps the rest; "Aus" turns them off and keeps the rest too.
+  const folio = pageNumbersOf(hist.doc);
+  // A click on what is already set makes no step to undo.
+  const numbering = (change: Partial<PageNumbers>, on = true) => {
+    const next = { ...folio, ...change, on };
+    if (Object.entries(next).every(([key, value]) => folio[key as keyof typeof folio] === value)) return;
+    update((doc) => ({ ...doc, pageNumbers: next }));
+  };
   const [W, H] = sizes[page];
   // Pixels per mm when the widest page fills the desk's width.
   const fit = room / Math.max(...sizes.map(([w]) => w));
@@ -3283,6 +3291,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               Neue Seite
             </button>
           </div>
+          <label className="tick numbers">
+            <input type="checkbox" checked={folio.on} onChange={(e) => numbering({}, e.target.checked)} /> Seitenzahlen
+          </label>
           <h2>Vorlagen</h2>
           {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
             const group = builtIn.filter((t) => t.group === g);
@@ -3419,6 +3430,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
                   beside them, in px of the screen. */}
               <div className="scaled" style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
+                <PageNumber doc={hist.doc} page={n} />
                 {p.blocks.map((b) => (
 
                   <div
@@ -4014,6 +4026,49 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 Alle entfernen
               </button>
               <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
+              <h2>Seitenzahlen</h2>
+              <div className="seg" role="group" aria-label="Seitenzahlen">
+                <button className={folio.on ? "" : "on"} aria-pressed={!folio.on} onClick={() => numbering({}, false)}>Aus</button>
+                <button className={folio.on ? "on" : ""} aria-pressed={folio.on} onClick={() => numbering({})}>An</button>
+              </div>
+              {folio.on && (
+                <>
+                  <h2>Ort</h2>
+                  <div className="seg">
+                    {[
+                      ["bottom", "Unten Mitte"],
+                      ["right", "Unten rechts"],
+                      ["outer", "Unten außen"],
+                      ["top", "Oben rechts"],
+                    ].map(([at, label]) => (
+                      <button key={at} className={folio.at === at ? "on" : ""} aria-pressed={folio.at === at} onClick={() => numbering({ at: at as PageNumbers["at"] })}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <h2>Form</h2>
+                  <div className="seg">
+                    {[
+                      ["n", "2"],
+                      ["seite", "Seite 2"],
+                      ["of", "2 / 5"],
+                      ["seiteVon", "Seite 2 von 5"],
+                    ].map(([form, label]) => (
+                      <button key={form} className={folio.form === form ? "on" : ""} aria-pressed={folio.form === form} onClick={() => numbering({ form: form as PageNumbers["form"] })}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="tick">
+                    <input type="checkbox" checked={folio.notFirst} onChange={(e) => numbering({ notFirst: e.target.checked })} /> Nicht auf der ersten Seite
+                  </label>
+                  <h2>Farbe</h2>
+                  <div className="seg">
+                    <button className={folio.black ? "" : "on"} aria-pressed={!folio.black} onClick={() => numbering({ black: false })}>Grau</button>
+                    <button className={folio.black ? "on" : ""} aria-pressed={folio.black} onClick={() => numbering({ black: true })}>Schwarz</button>
+                  </div>
+                </>
+              )}
               {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
               <button className="wide" onClick={(e) => openVariants(e.currentTarget)}>
