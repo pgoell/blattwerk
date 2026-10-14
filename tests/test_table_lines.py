@@ -313,7 +313,8 @@ def test_i4_a_merged_cell_counts_as_one_for_the_border_buttons(editor):
 
 
 def test_i5_rows_and_columns_keep_their_lines(editor):
-    """I5: a row or column that comes or goes keeps each line with its cells; new lines are null."""
+    """I5: a row or column that comes or goes keeps each line with its cells. A new row or column
+    takes the lines that cross its neighbour, as Word does (#567); the line beside it is null."""
     client = user()
     page = editor(box("t", "table", DASHED), client=client)
     pick(page, "t")
@@ -327,19 +328,22 @@ def test_i5_rows_and_columns_keep_their_lines(editor):
     border_row = page.get_by_role("button", name="Zeile darüber", exact=True)
     border_row.click()
     expect(at(page, "t").locator("[data-cell]")).to_have_count(12)
-    # The rim stays the rim, so the lines below the new row move down by one.
-    assert lines_of(props(page, client)) == ((5, 3, 4, 4), {("h", 2, 0), ("v", 1, 1)})
+    # The rim stays the rim, so the lines below the new row move down by one; the new row takes
+    # the dashed line that crosses the first row.
+    held = {("h", 2, 0), ("v", 0, 1), ("v", 1, 1)}
+    assert lines_of(props(page, client)) == ((5, 3, 4, 4), held)
     page.get_by_role("button", name="Spalte links", exact=True).click()
     expect(at(page, "t").locator("[data-cell]")).to_have_count(16)
-    assert lines_of(props(page, client)) == ((5, 4, 4, 5), {("h", 2, 1), ("v", 1, 2)})
+    held = {("h", 2, 0), ("h", 2, 1), ("v", 0, 2), ("v", 1, 2)}
+    assert lines_of(props(page, client)) == ((5, 4, 4, 5), held)
     # Delete the first row: its own line and the line on its left go; the others move up.
     cell(page, 0).dblclick()
     page.get_by_role("button", name="Zeile löschen", exact=True).click()
     expect(at(page, "t").locator("[data-cell]")).to_have_count(12)
-    assert lines_of(props(page, client)) == ((4, 4, 3, 5), {("h", 1, 1), ("v", 0, 2)})
+    assert lines_of(props(page, client)) == ((4, 4, 3, 5), {("h", 1, 0), ("h", 1, 1), ("v", 0, 2)})
     page.keyboard.press("Control+z")
     expect(at(page, "t").locator("[data-cell]")).to_have_count(16)
-    assert lines_of(props(page, client)) == ((5, 4, 4, 5), {("h", 2, 1), ("v", 1, 2)})
+    assert lines_of(props(page, client)) == ((5, 4, 4, 5), held)
 
 
 def test_i6_two_tables_take_the_style_width_and_cut(editor):

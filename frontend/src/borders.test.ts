@@ -112,30 +112,48 @@ describe("edgesSpliced", () => {
     expect(out.v.length).toBe(2);
   });
 
-  // Issue #562 (PR #546): a new row or column takes the rim of its neighbour at both ends, so a closed frame stays
-  // closed. Its other new lines are null, as I5 has it.
-  it("gives a row added below the frame's pen at both ends, and null inside", () => {
+  // Issues #562 and #567 (PR #546): a new row or column takes the lines that cross its neighbour, so a closed frame
+  // stays closed and a thick line inside runs on. The line between it and its neighbour is null, as I5 has it.
+  it("gives a row added below every line that crosses the row above, and leaves the line between null", () => {
     const out = edgesSpliced(sized, "row", 1, true)!;
-    expect(out.v[1]).toStrictEqual([pen, null, null, null, pen]);
+    expect(out.v[1]).toStrictEqual(Array(5).fill(pen));
     expect(out.h[1].every((edge) => edge === null)).toBe(true);
   });
 
-  it("gives a row added at the top the first row's ends, and leaves the line under it null", () => {
+  it("gives a row added at the top the first row's lines, and leaves the line under it null", () => {
     const out = edgesSpliced(sized, "row", 0, true)!;
-    expect(out.v[0]).toStrictEqual([pen, null, null, null, pen]);
+    expect(out.v[0]).toStrictEqual(Array(5).fill(pen));
     expect(out.h[1].every((edge) => edge === null)).toBe(true);
   });
 
-  it("gives a column added to the right the last column's ends, and null inside", () => {
+  it("gives a column added to the right the last column's lines, and leaves the line beside it null", () => {
     const out = edgesSpliced(sized, "col", 4, true)!;
-    expect(out.h.map((list) => list[4])).toStrictEqual([pen, null, null, pen]);
+    expect(out.h.map((list) => list[4])).toStrictEqual(Array(4).fill(pen));
     expect(out.v.every((list) => list[4] === null)).toBe(true);
   });
 
-  it("gives a column added at the left the first column's ends, and leaves the line beside it null", () => {
+  it("gives a column added at the left the first column's lines, and leaves the line beside it null", () => {
     const out = edgesSpliced(sized, "col", 0, true)!;
-    expect(out.h.map((list) => list[0])).toStrictEqual([pen, null, null, pen]);
+    expect(out.h.map((list) => list[0])).toStrictEqual(Array(4).fill(pen));
     expect(out.v.every((list) => list[1] === null)).toBe(true);
+  });
+
+  // The first column framed alone: its right line is thick inside the table.
+  const column = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 0], "outer", pen)) } as Table;
+
+  it("runs a thick line inside the table on through a new row, below and at the top", () => {
+    for (const i of [3, 1, 0]) {
+      const out = edgesSpliced(column, "row", i, true)!;
+      expect(out.v[i]).toStrictEqual([pen, pen, null, null, null]);
+      expect(out.h[i === 0 ? 1 : i].every((edge) => edge === null)).toBe(true);
+    }
+  });
+
+  it("runs a thick line across the table on through a new column", () => {
+    const across = { ...grid, edges: drawn(bordered(grid, [0, 0, 0, 3], "outer", pen)) } as Table;
+    const out = edgesSpliced(across, "col", 2, true)!;
+    expect(out.h.map((list) => list[2])).toStrictEqual([pen, pen, null, null]);
+    expect(out.v.every((list) => list[2] === null)).toBe(true);
   });
 });
 
