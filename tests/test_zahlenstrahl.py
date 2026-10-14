@@ -3,6 +3,7 @@
 The docstrings name what each test proves. The drawing is tested with the model.
 """
 
+import itertools
 import re
 
 import pytest
@@ -243,3 +244,18 @@ def test_a_sprungweite_that_is_no_multiple_of_minor_is_not_applied(editor):
     # The editor saves 1.1 s after a change; a refused number saves nothing, so wait that out.
     page.wait_for_timeout(2000)
     assert "jump" not in props_of(doc(page, client))
+
+
+def test_the_boxes_of_the_issues_line_do_not_overlap_on_the_page(editor):
+    """#593: 180 by 40 mm, 0 to 1000 step 10, seed 123: no two boxes overlap on the page."""
+    client = user()
+    block = zs("z", {**STRAHL, "end": 1000, "minor": 10, "major": 100, "seed": 123})
+    page = editor(block, client=client)
+    pick(page, "z")
+    rects = page.locator(".zahlenstrahl g.box rect")
+    expect(rects.first).to_be_visible()
+    boxes = [rects.nth(i).bounding_box() for i in range(rects.count())]
+    spans = sorted((b["x"], b["x"] + b["width"]) for b in boxes)
+    assert spans
+    for (_, left_end), (right_start, _) in itertools.pairwise(spans):
+        assert right_start >= left_end - 0.5, spans

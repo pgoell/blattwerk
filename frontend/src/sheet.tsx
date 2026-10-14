@@ -1933,8 +1933,8 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
 // A Zahlenstrahl, drawn in the block's mm as the contract at the top of zahlenstrahl.ts says.
 function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; solved: boolean }) {
   const p = saneStrahl(block.props);
-  const { ticks, arrows, arcs } = drawnStrahl(p);
   const { w } = block;
+  const { ticks, arrows, arcs } = drawnStrahl(p, w);
   const FS = (p.size * 25.4) / 72;
   const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
   // An arc's height above the line: a wide jump stays a flat arc.
