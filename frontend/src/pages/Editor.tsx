@@ -97,6 +97,8 @@ import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted,
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
+import { bordered, cutLines, lined, type Border } from "../borders";
+import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -2245,6 +2247,27 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const rows = sized(laidMm.map(round), from, to, share, true).map(round);
     change((bs) => bs.map((o) => (o.id === table.id ? { ...table, h: round(sum(rows) + EDGE), props: { ...table.props, rows } } : o)));
   }
+  // Sets the line style or width of every picked table, each line of it. A drag of the slider passes its `key`, so that
+  // the whole drag is one step of undo.
+  function drawLines(patch: { style?: LineStyle; width?: number }, key?: string) {
+    if (!key) tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "table" ? ({ ...b, props: lined(b.props, patch) } as Block) : b)), key);
+  }
+  // Draws the pen on the chosen borders: of the cells picked with the open one, or of the open cell alone, or with no
+  // cell open, of the whole table. It is one step of undo, and the cells stay picked.
+  function border(which: Border, pen: Pen) {
+    if (!table) return;
+    const open = editing === table.id;
+    const [r, c, h, w] = spanAt(table.props, slot);
+    const rect: Rect = !open ? [0, 0, table.props.cells.length - 1, table.props.cols.length - 1] : reach === undefined ? [r, c, r + h - 1, c + w - 1] : rectOf(table.props, slot, reach);
+    tight.current = true;
+    change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: bordered(table.props, rect, which, pen) } : o)));
+  }
+  // Turns Schneidelinien on or off for every picked table.
+  function cutting(on: boolean) {
+    tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "table" ? ({ ...b, props: cutLines(b.props, on) } as Block) : b)));
+  }
   // Adds an empty row or column to a table before the one at `i`, or takes the one at `i` away; the last one
   // stays. A new row adds its height to the block, a line of text with the cell's padding and line, and
   // a row that goes takes with it the height it has now. The field stays with its cell, and goes to a neighbour
@@ -3527,6 +3550,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 laid={laidMm}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
+                lines={drawLines}
+                border={table && border}
+                cutting={cutting}
                 cropping={!!cropping}
                 spin={spin}
                 mirror={mirror}

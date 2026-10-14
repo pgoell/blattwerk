@@ -2,11 +2,14 @@
 import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
+import { edged, linesOf, type Lines, type Pen } from "./edges";
+import { edgesSpliced } from "./borders";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { decimal, GAP } from "./decimal";
+import { Scissors } from "lucide-react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -145,7 +148,7 @@ export type MathsBlock = Box & { type: "maths"; props: MathsProps };
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
 // `rows` holds a lowest height in mm for each row; a row still grows when its text needs more.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[]; rows?: number[] } };
+export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[]; rows?: number[] } & Lines };
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -456,8 +459,9 @@ export const sum = (ns: number[]) => ns.reduce((all, n) => all + n, 0);
 // A row that comes takes the height a new row gets in the editor; set heights of the other rows stay.
 export function spliced(props: TableBlock["props"], axis: "row" | "col", i: number, add: boolean): TableBlock["props"] {
   // Row heights that do not hold go: with a row more they could fit by chance and set rows that never had them.
-  const { cells, cols, gaps, spans: _, rows: __, ...rest } = props;
-  const put = <T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
+  // Lines that do not hold go too: with a row more or less they could fit by chance, on the wrong cells.
+  const { cells, cols, gaps, spans: _, rows: __, edges: ___, ...rest } = props;
+  const put =<T,>(all: T[], one: T) => [...all.slice(0, i), ...(add ? [one] : []), ...all.slice(add ? i : i + 1)];
   const heights = heightsOf(props);
   // A sheet may come from anywhere: the flags take the shape of the cells first.
   const held = gaps && cells.map((row, r) => row.map((_, c) => gaps[r]?.[c] === true));
@@ -481,8 +485,9 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
   });
   const flags = flagged && { gaps: axis === "row" ? put(flagged, cols.map(() => false)) : flagged.map((row) => put(row, false)) };
   const kept = spans.length ? { spans } : {};
-  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }) };
-  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }) };
+  const edges = edgesSpliced(props, axis, i, add);
+  if (axis === "row") return { ...rest, cols, cells: put(grid, cols.map(() => "")), ...flags, ...kept, ...(heights && { rows: put(heights, props.size * PT * 1.6 + 0.25) }), ...(edges && { edges }) };
+  return { ...rest, cells: grid.map((row) => put(row, "")), cols: put(cols, sum(cols) / cols.length), ...flags, ...kept, ...(heights && { rows: heights }), ...(edges && { edges }) };
 }
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
@@ -1518,9 +1523,73 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
   const heights = heightsOf(block.props);
+  // A table with one of the new keys draws its lines in svgs laid over the cells, so the borders of the cells go
+  // transparent: they keep their pixel in the layout and only the ink goes. An old table gets none of this.
+  const styled = edged(block.props);
+  const lineAt = linesOf(block.props);
+  const plain = linesOf({ ...block.props, edges: undefined })("v", 0, 0);
+  // One line of the grid, from one end to the other. A dashed or dotted line is drawn from each end to its middle,
+  // so that the dashes start fresh at both ends and every corner gets a piece of dash from each side.
+  const rim = (side: string, pen: Pen, [a, b, mid]: string[][]) => {
+    if (pen.style === "none") return null;
+    const w = pen.width * k;
+    const pieces = pen.style === "solid" ? [[a, b]] : [[a, mid], [b, mid]];
+    const dashes = pen.style === "dashed" ? { strokeDasharray: `${3 * w} ${4 * w}`, strokeDashoffset: 1.5 * w } : pen.style === "dotted" ? { strokeDasharray: `0 ${2.5 * w}` } : {};
+    // The period of the dashes, which `fit` changes so that a whole number of them lies on the edge.
+    const period = pen.style === "dashed" ? 7 * w : pen.style === "dotted" ? 2.5 * w : undefined;
+    return pieces.map(([p, q], i) => (
+      <line key={i} data-side={side} data-style={pen.style} data-period={period} data-w={w} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={line} strokeWidth={w} strokeLinecap={pen.style === "dotted" ? "round" : "square"} {...dashes} />
+    ));
+  };
+  // Each dashed or dotted line gets a whole number of periods along its edge, so that the two halves meet in the
+  // middle of a dash or a gap and no dash is doubled. It reads the sizes the layout already has, and does not change them.
+  const host = useRef<HTMLDivElement>(null);
+  const fit = (el: HTMLElement) => {
+    const zoom = el.getBoundingClientRect().width / el.offsetWidth || 1;
+    for (const svg of el.querySelectorAll<SVGSVGElement>(":scope > svg.edge")) {
+      // Not clientWidth: that is whole pixels, and a column is seldom a whole number of them wide.
+      const { width, height } = svg.getBoundingClientRect();
+      const [across, down] = [width / zoom, height / zoom];
+      for (const line of svg.querySelectorAll<SVGLineElement>("line[data-period]")) {
+        const side = line.dataset.side;
+        const length = side === "top" || side === "bottom" ? across : down;
+        if (!(length > 0)) continue;
+        const period = Number(line.dataset.period);
+        const w = Number(line.dataset.w);
+        // A dot right at the end of its half is not drawn, by either half: so the dots are an odd number of
+        // periods, and the middle of the edge lies between two of them.
+        const n = length / period;
+        const f = n / Math.max(1, line.dataset.style === "dotted" ? 2 * Math.round((n - 1) / 2) + 1 : Math.round(n));
+        if (line.dataset.style === "dashed") {
+          // An edge shorter than two of its line's widths has room for the caps of one dash and no more.
+          const dash = Math.max(0, 4 * w * f - w);
+          line.setAttribute("stroke-dasharray", `${dash} ${7 * w * f - dash}`);
+          line.setAttribute("stroke-dashoffset", String(dash / 2));
+        } else line.setAttribute("stroke-dasharray", `0 ${2.5 * w * f}`);
+      }
+    }
+  };
+  useLayoutEffect(() => {
+    if (styled && host.current) fit(host.current);
+  });
+  // The sizes change when a font comes in or a row grows, and the fit follows them.
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!styled || !el) return;
+    const watch = new ResizeObserver(() => fit(el));
+    watch.observe(el);
+    el.querySelectorAll(":scope > svg.edge").forEach((svg) => watch.observe(svg));
+    // The page that prints waits for the fonts and no longer: the fit is asked for before it, so it runs first.
+    document.fonts.ready.then(() => fit(el));
+    return () => watch.disconnect();
+  }, [styled, cells.length, cols.length]);
+  const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
+  const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
+  const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
+  const RIGHT = [["100%", "0"], ["100%", "100%"], ["100%", "50%"]];
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
-    borderColor: line,
+    borderColor: styled ? "transparent" : line,
     gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
     ...(heights && { gridTemplateRows: heights.map((h) => `minmax(${h * k}px, auto)`).join(" ") }),
     "--edge": `${0.25 * k}px`,
@@ -1546,7 +1615,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     return r >= area[0] && r <= area[2] && c >= area[1] && c <= area[3];
   };
   return (
-    <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
+    <div ref={host} className={classes("table", tints && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
       {cells.flat().map((text, i) => {
         const span = anchors.get(i);
         if (covered.has(i)) return null;
@@ -1558,6 +1627,32 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       })}
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
+      {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
+      {styled && cells.flatMap((_, r) => cols.map((_c, c) => (
+        <svg key={`e${r}-${c}`} className="edge" data-edge={r * cols.length + c} style={{ gridRow: `${r + 1} / ${r + 2}`, gridColumn: `${c + 1} / ${c + 2}` }}>
+          <g transform="translate(-0.5 -0.5)">
+            {rim("top", lineAt("h", r, c), TOP)}
+            {rim("left", lineAt("v", r, c), LEFT)}
+            {r === cells.length - 1 && rim("bottom", lineAt("h", r + 1, c), BOTTOM)}
+            {c === cols.length - 1 && rim("right", lineAt("v", r, c + 1), RIGHT)}
+            {r === 0 && c === 0 && block.props.cut === true && (
+              <g className="scissors">
+                <Scissors size={4 * k} x={-4.5 * k} y={-2 * k} color={line} />
+              </g>
+            )}
+          </g>
+        </svg>
+      )))}
+      {/* The box of solution words takes the table's style on its left, right and bottom: its top is the table's bottom. */}
+      {styled && words.length > 0 && (
+        <svg className="edge" data-edge="bank" style={{ gridRow: `${cells.length + 1} / ${cells.length + 2}`, gridColumn: "1 / -1" }}>
+          <g transform="translate(-0.5 -0.5)">
+            {rim("left", plain, LEFT)}
+            {rim("right", plain, RIGHT)}
+            {rim("bottom", plain, BOTTOM)}
+          </g>
+        </svg>
+      )}
     </div>
   );
 }

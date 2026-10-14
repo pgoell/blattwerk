@@ -1,6 +1,6 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
 import { Fragment, useEffect, useRef, useState } from "react";
-import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
+import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, Scissors, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
@@ -13,6 +13,8 @@ import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
 import { rectOf, spanAt, widthsOf, type Rect } from "../cells";
+import type { Border } from "../borders";
+import type { LineStyle, Pen } from "../edges";
 
 type Props = {
   sel: Block[];
@@ -53,6 +55,12 @@ type Props = {
   // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
   sizeCells: (axis: "col" | "row", mm: number) => void;
   evenCells: (axis: "col" | "row") => void;
+  // The line style and width of every picked table, or the one line of its `key` in a drag; Schneidelinien on or off.
+  lines: (patch: { style?: LineStyle; width?: number }, key?: string) => void;
+  cutting: (on: boolean) => void;
+  // Draws the pen on the chosen borders of the table being edited.
+  // Absent unless one table that is not locked is picked alone.
+  border?: (which: Border, pen: Pen) => void;
   // Starts or ends crop mode; absent unless one picture that is not locked is selected.
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
@@ -183,10 +191,25 @@ function sizeFields(t: TableBlock, cell: number, reach: number | undefined, laid
   return { width, height };
 }
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+// The border buttons of the panel, each with the border it draws.
+const BORDERS: [Border, string][] = [
+  ["all", "Alle"],
+  ["inner", "Innen"],
+  ["outer", "Außen"],
+  ["top", "Oben"],
+  ["bottom", "Unten"],
+  ["left", "Links"],
+  ["right", "Rechts"],
+  ["across", "Innen waagerecht"],
+  ["down", "Innen senkrecht"],
+];
+
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
+  // The line style and width that a border button or the pen draws with while a cell is open. It starts at the table's.
+  const [pen, setPen] = useState<Pen>({ style: "solid", width: 0.25 });
   const fixed = sel.some((b) => b.locked);
   const level = fixed || sel.some((b) => b.type === "table" || (isLine(b) && alone(b)));
   const plain = fixed || !sel.some((b) => !alone(b) || b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
@@ -203,6 +226,28 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // How many words of the list the most crowded Lineatur cannot show.
   const n = Math.max(0, ...rulings.map((b) => short(b, words)));
   const tables = of("table");
+  // The pen starts at the first table's lines each time a cell opens.
+  const open = cell !== undefined;
+  useEffect(() => {
+    if (tables[0]) setPen({ style: tables[0].props.lineStyle ?? "solid", width: tables[0].props.lineWidth ?? 0.25 });
+  }, [open]);
+  // What the line controls show: the table's own lines with no cell open, else the pen.
+  const lineShown: Pen = !open && tables[0] ? { style: tables[0].props.lineStyle ?? "solid", width: tables[0].props.lineWidth ?? 0.25 } : pen;
+  // The border buttons draw on the open cell's rect (or the cells picked with it), or on the whole table with no cell open.
+  // A rect of one cell or of one merged cell has no inner line, and one row or one column has no line across or down.
+  const grid = tables[0]?.props;
+  let rect: Rect = [0, 0, 0, 0];
+  if (grid && cell === undefined) rect = [0, 0, grid.cells.length - 1, grid.cols.length - 1];
+  else if (grid && cell !== undefined) {
+    if (reach === undefined) {
+      const [r, c, h, w] = spanAt(grid, cell);
+      rect = [r, c, r + h - 1, c + w - 1];
+    } else rect = rectOf(grid, cell, reach);
+  }
+  const [r0, c0, r1, c1] = rect;
+  const first = grid ? spanAt(grid, r0 * grid.cols.length + c0) : undefined;
+  const single = !!first && first[0] === r0 && first[1] === c0 && first[2] === r1 - r0 + 1 && first[3] === c1 - c0 + 1;
+  const off = (which: Border) => (which === "across" ? single || r0 === r1 : which === "down" ? single || c0 === c1 : which === "inner" && (single || r0 === r1 || c0 === c1));
   const texts = of("text");
   // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
   const numbered = texts.length > 0 && texts.every((b) => stepOf(b.props.lines) > 0);
@@ -514,6 +559,44 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
             Linien
             <input type="color" value={tables[0].props.line} onChange={(e) => style("table", { line: e.target.value }, "line")} />
           </label>
+          <label>
+            Linienart
+            <select
+              aria-label="Linienart"
+              value={lineShown.style}
+              onChange={(e) => (open ? setPen({ ...pen, style: e.target.value as LineStyle }) : lines({ style: e.target.value as LineStyle }))}
+            >
+              <option value="solid">Durchgezogen</option>
+              <option value="dashed">Gestrichelt</option>
+              <option value="dotted">Gepunktet</option>
+              <option value="none">Keine</option>
+            </select>
+          </label>
+          <label>
+            Linienstärke
+            <input
+              type="range"
+              min={0.25}
+              max={3}
+              step={0.25}
+              value={lineShown.width}
+              onChange={(e) => (open ? setPen({ ...pen, width: +e.target.value }) : lines({ width: +e.target.value }, "lineWidth"))}
+            />
+          </label>
+          <output>{lineShown.width.toFixed(2).replace(".", ",")} mm</output>
+          {border && (
+            <div role="group" aria-label="Rahmen" className="borders">
+              {BORDERS.map(([which, label]) => (
+                <button key={which} aria-disabled={off(which)} onClick={() => !off(which) && border(which, lineShown)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className={tables[0].props.cut ? "wide on" : "wide"} aria-pressed={!!tables[0].props.cut} onClick={() => cutting(!tables[0].props.cut)}>
+            <Scissors size={14} aria-hidden />
+            Schneidelinien
+          </button>
           <button className={tables[0].props.head ? "on" : ""} aria-pressed={!!tables[0].props.head} onClick={() => style("table", { head: !tables[0].props.head })}>
             Kopfzeile
           </button>
