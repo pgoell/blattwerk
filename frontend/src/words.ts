@@ -34,16 +34,18 @@ export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock
 }
 
 // A linked ruling grows by a row for each word the list has past its rows, as far as the page margin and the top of
-// a block below it that it overlaps. It never shrinks, and a locked ruling or one a run-on block among `all` (the
-// rulings of every page) goes on from keeps its height.
+// a block below it that it overlaps. A block that reaches past its foot, over it or round it, leaves it no room. It
+// never shrinks, and a turned or locked ruling, or one a run-on block among `all` (the rulings of every page) goes on
+// from, keeps its height.
 export function follow(blocks: Block[], words: string[], W: number, H: number, all: Block[] = blocks): Block[] {
   const rulings = all.filter((o): o is RulingBlock => o.type === "ruling");
   return blocks.map((b) => {
-    if (b.type !== "ruling" || !listOf(b) || b.locked || runsOn(b, rulings)) return b;
+    if (b.type !== "ruling" || !listOf(b) || b.locked || b.angle || runsOn(b, rulings)) return b;
     const need = words.length - startOf(b);
     if (need <= rowsOf(b)) return b;
     const { row } = RULINGS[kindOf(b.props.kind)];
-    const edge = Math.min(...blocks.filter((o) => o !== b && o.y >= b.y + b.h && o.x < b.x + b.w && o.x + o.w > b.x).map((o) => o.y));
+    const foot = b.y + b.h;
+    const edge = Math.min(...blocks.filter((o) => o !== b && o.y + o.h > foot && o.x < b.x + b.w && o.x + o.w > b.x).map((o) => Math.max(o.y, foot)));
     const room = Math.min(filled(b, W, H).h ?? b.h, edge - b.y);
     const rows = Math.min(need, Math.floor(room / row + 0.05));
     if (rows <= rowsOf(b)) return b;

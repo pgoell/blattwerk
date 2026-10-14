@@ -375,6 +375,17 @@ describe("follow", () => {
     expect(out[0].h).toBe(120);
   });
 
+  it("keeps a turned ruling as it is", () => {
+    expect(follow([lernwoerter({}, { angle: 180 })], words(14), 210, 297)[0].h).toBe(120);
+  });
+
+  it("stops at a block that lies over the ruling's foot or round it", () => {
+    const over = block("l4", 40, {}, { id: "over", y: 150 });
+    expect(follow([lernwoerter(), over], words(14), 210, 297)[0].h).toBe(120);
+    const frame = block("l4", 150, {}, { id: "frame", y: 50 });
+    expect(follow([lernwoerter(), frame], words(14), 210, 297)[0].h).toBe(120);
+  });
+
   it("keeps the height of a ruling whose run-on ruling lies on the next page", () => {
     const first = lernwoerter();
     const runOn = block("l1", 60, { list: "copy", from: 6 }, { id: "next", y: 15 });

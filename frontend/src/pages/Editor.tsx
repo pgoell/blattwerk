@@ -1333,7 +1333,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
   };
   function grown(b: Block, next: Block): Partial<Box> {
-    const foot = Math.max(b.h, H - b.y);
+    const foot = Math.max(b.h, H - MARGIN - b.y);
     if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
       const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
@@ -2453,7 +2453,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
     // A column that comes or goes takes its average width or its own width from the block, so the others keep theirs.
     const widths = widthsOf(b.props.cols, b.w);
-    const dw = axis === "row" ? 0 : add ? Math.min(sum(widths) / widths.length, Math.max(0, W - MARGIN - b.x - b.w)) : -widths[i];
+    // A new column widens the table only to the right margin; there its columns narrow, and a column that goes from a
+    // table at the margin leaves its width to the others, so the two undo each other (#602).
+    const room = W - MARGIN - b.x - b.w;
+    const dw = axis === "row" ? 0 : add ? Math.min(sum(widths) / widths.length, Math.max(0, room)) : Math.abs(room) <= 0.5 ? 0 : -widths[i];
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);

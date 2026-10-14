@@ -27,9 +27,10 @@ UHR = {
 }
 
 
-def uhr(name, props, h=58.5, **more):
-    """An Uhr block of 180 mm wide and h mm high."""
-    return box(name, "uhr", props, w=180, h=h, **more)
+def uhr(name, props, h=58.5, y=20, **more):
+    """An Uhr block of 180 mm wide and h mm high, y mm from the top: at 20 mm it has room for 234
+    mm above the bottom margin."""
+    return box(name, "uhr", props, w=180, h=h, y=y, **more)
 
 
 def field(page, label):
@@ -83,14 +84,15 @@ def test_one_undo_takes_back_the_clocks_and_the_height(editor):
 
 
 def test_a_block_low_on_the_page_stops_at_the_foot(editor):
-    """#598: a block at 200 mm from the top grows to the page's foot at 297 mm, and no further."""
+    """#598: a block at 200 mm from the top grows to the page's bottom margin at 282 mm, and no
+    further (review: not to the paper's edge at 297)."""
     client = user()
     page = editor(uhr("d", UHR, y=200), client=client)
     pick(page, "d")
     step(page, lambda: field(page, "Uhren").fill("12"))
     block = stored(page, client)
-    assert block["h"] == 97
-    assert block["y"] + block["h"] == 297
+    assert block["h"] == 82
+    assert block["y"] + block["h"] == 282
 
 
 def test_six_columns_are_width_bound_and_the_block_takes_their_height(editor):

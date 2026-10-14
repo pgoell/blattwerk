@@ -2,7 +2,8 @@
 
 The table keeps its place on the page: its right edge stays at the margin of 15 mm from the right
 edge of an A4 page (195 mm), and the columns narrow instead. A table already past it keeps its
-width. Removing a column is as before.
+width. A column that goes from a table at the margin leaves its width to the others; from any other
+table it takes its width along.
 """
 
 import pytest
@@ -88,3 +89,26 @@ def test_a_table_already_past_the_margin_does_not_grow(editor):
     got = stored(page, client)
     assert got["w"] == 190
     assert len(got["props"]["cols"]) == 4
+
+
+def test_a_column_more_and_one_less_give_back_the_table_at_the_margin(editor):
+    """#602, review: at the margin a new column narrows the others, and "Eine Spalte weniger" then
+    gives back the 180 mm table of three equal columns, as it did before the new rule."""
+    client = user()
+    page = editor(table("t", ROW, 180), client=client)
+    pick(page, "t")
+    step(page, lambda: panel(page, "Eine Spalte mehr").click())
+    step(page, lambda: panel(page, "Eine Spalte weniger").click())
+    got = stored(page, client)
+    assert got["w"] == 180
+    assert got["props"]["cols"] == [1, 1, 1]
+
+
+def test_a_column_less_from_a_narrow_table_takes_its_width(editor):
+    """#602, review: a table short of the margin loses the width of a column that goes."""
+    client = user()
+    page = editor(table("t", ROW, 90), client=client)
+    pick(page, "t")
+    step(page, lambda: panel(page, "Eine Spalte weniger").click())
+    # The table's line takes a part of a mm from the width its columns share.
+    assert stored(page, client)["w"] == pytest.approx(60, abs=0.2)
