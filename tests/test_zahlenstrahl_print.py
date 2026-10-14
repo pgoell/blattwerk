@@ -4,6 +4,8 @@ The docstrings name what each test proves. The numbers are read from the page, n
 tasks of a random block may change with the model.
 """
 
+from itertools import pairwise
+
 import pytest
 from pixels import LIMITS, measures, over, screen_and_print
 from playwright.sync_api import expect
@@ -253,3 +255,153 @@ def test_a_free_arrow_is_drawn_with_its_stub_and_its_key_path(editor, browser, s
     paper = key_print(browser, server, mine)
     expect(paper.locator(".zahlenstrahl path.answer")).to_have_count(1)
     paper.context.close()
+
+
+# The lines of a box and of an arrow, and the numbers, in the svg's mm; the stubs' and the ticks' x.
+CROSSES = """el => {
+    const segs = [...el.querySelectorAll('g.box line, g.arrow line')].map(l => {
+        const [x1, y1, x2, y2] = ['x1', 'y1', 'x2', 'y2'].map(a => +l.getAttribute(a));
+        return {x: Math.min(x1, x2), y: Math.min(y1, y2),
+            w: Math.abs(x2 - x1), h: Math.abs(y2 - y1)};
+    });
+    // The digits' band: a getBBox also takes the font's descent, which no digit reaches.
+    const texts = [...el.querySelectorAll('text.label, text.given')].map(t => {
+        const b = t.getBBox(), fs = +t.getAttribute('font-size'), y = +t.getAttribute('y');
+        const top = t.getAttribute('class') === 'given' ? y - 0.75 * fs : y;
+        return {x: b.x, width: b.width, y: top, height: 0.75 * fs};
+    });
+    const hit = (s, b) => s.x <= b.x + b.width && b.x <= s.x + s.w
+        && s.y <= b.y + b.height && b.y <= s.y + s.h;
+    const boxes = [...el.querySelectorAll('text.given')].map(t => t.getBBox());
+    return {
+        crossings: segs.flatMap(s => texts.filter(b => hit(s, b))).length,
+        stubs: [...el.querySelectorAll('g.arrow > line')].map(l => +l.getAttribute('x1')),
+        ticks: [...el.querySelectorAll('g.tick > line')].map(l => +l.getAttribute('x1')),
+        numbers: boxes.map(b => [b.x, b.y, b.width, b.height]),
+    };
+}"""
+
+
+def assert_clear(paper):
+    found = paper.locator(".zahlenstrahl").evaluate(CROSSES)
+    assert found["crossings"] == 0, found
+    return found
+
+
+@pytest.mark.parametrize("size", [12, 20])
+def test_issue_576_no_line_runs_through_a_number(editor, browser, server, size):
+    """#576: on 340 to 420 in steps of 2 a box's leader ran through a neighbour's number, and an
+    arrow's stub through its own. No line of a box or an arrow crosses a number, on screen and
+    in print."""
+    client = user()
+    props = {
+        **PROPS,
+        "start": 340,
+        "end": 420,
+        "minor": 2,
+        "major": 10,
+        "cut": True,
+        "size": size,
+        "tasks": "free",
+        "boxes": 0,
+        "marks": [[362, "box"], [378, "box"], [352, "arrow"], [396, "arrow"]],
+    }
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=40), client=client)
+    found = line_of(page).evaluate(CROSSES)
+    assert found["crossings"] == 0, found
+    paper = printed(browser, server, sheet_id(page))
+    assert_clear(paper)
+    paper.context.close()
+
+
+def test_issue_577_an_arrow_number_stands_over_a_gap(editor, browser, server):
+    """#577: arrow 13 of 0 to 20 stood right above tick 10 with its stub at 10, so it read as the
+    label of 10. Its stub stands at least 1 mm from every tick, on screen and in print."""
+    client = user()
+    props = {**PROPS, "tasks": "free", "boxes": 0, "marks": [[13, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=120, h=30), client=client)
+    found = line_of(page).evaluate(CROSSES)
+    assert (
+        found["stubs"] and min(abs(s - t) for s in found["stubs"] for t in found["ticks"]) >= 1
+    ), found
+    mine = sheet_id(page)
+    paper = printed(browser, server, mine)
+    found = paper.locator(".zahlenstrahl").evaluate(CROSSES)
+    assert min(abs(s - t) for s in found["stubs"] for t in found["ticks"]) >= 1, found
+    paper.context.close()
+
+
+def test_six_arrows_keep_distinct_gaps_and_no_number_overlaps(editor):
+    """Own: six arrows on 0 to 20 each stand over a gap of their own; no two numbers overlap."""
+    marks = [[2, "arrow"], [5, "arrow"], [9, "arrow"], [12, "arrow"], [15, "arrow"], [18, "arrow"]]
+    props = {**PROPS, "tasks": "free", "boxes": 0, "marks": marks}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=40), client=user())
+    found = line_of(page).evaluate(CROSSES)
+    assert found["crossings"] == 0, found
+    assert len(set(found["stubs"])) == 6, found
+    nums = found["numbers"]
+    for i, a in enumerate(nums):
+        for b in nums[i + 1 :]:
+            apart = (
+                a[0] >= b[0] + b[2]
+                or b[0] >= a[0] + a[2]
+                or a[1] >= b[1] + b[3]
+                or b[1] >= a[1] + a[3]
+            )
+            assert apart, (a, b)
+
+
+@pytest.mark.parametrize("size", [20, 24])
+def test_an_arrow_number_is_not_cut_off_at_the_top_of_the_dock_block(editor, browser, server, size):
+    """Own: on the dock's 180 by 30 mm block the line is at 12 mm, and a number of 20 or 24 pt
+    keeps its digits inside the svg, on screen and in print, and clear of its stub."""
+    client = user()
+    props = {**PROPS, "tasks": "free", "boxes": 0, "size": size, "marks": [[13, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=30), client=client)
+    band = """el => [...el.querySelectorAll('text.given')].map(t => {
+        const fs = +t.getAttribute('font-size');
+        return +t.getAttribute('y') - 0.75 * fs;
+    })"""
+    assert line_of(page).evaluate(band) and min(line_of(page).evaluate(band)) >= 0
+    assert line_of(page).evaluate(CROSSES)["crossings"] == 0
+    paper = printed(browser, server, sheet_id(page))
+    assert min(paper.locator(".zahlenstrahl").evaluate(band)) >= 0
+    assert_clear(paper)
+    paper.context.close()
+
+
+@pytest.mark.parametrize(("size", "h"), [(12, 26), (24, 28)])
+def test_review_576_in_a_short_block_no_stub_runs_through_its_number(
+    editor, browser, server, size, h
+):
+    """Review of #576: a block lower than the dock's 30 mm raises the number to the top; its stub
+    then has no room and is left out, so no line crosses the digits, on screen and in print."""
+    client = user()
+    props = {**PROPS, "tasks": "free", "boxes": 0, "size": size, "marks": [[13, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=h), client=client)
+    assert line_of(page).evaluate(CROSSES)["crossings"] == 0
+    paper = printed(browser, server, sheet_id(page))
+    assert_clear(paper)
+    paper.context.close()
+
+
+def test_review_577_arrows_on_every_tick_stand_apart(editor, browser, server):
+    """Review of #577: 0 to 2 with an arrow on each of the three ticks has more arrows than gaps;
+    the numbers keep the even spots, so no two stand on one place, on screen and in print."""
+    client = user()
+    marks = [[0, "arrow"], [1, "arrow"], [2, "arrow"]]
+    props = {**PROPS, "end": 2, "tasks": "free", "boxes": 0, "marks": marks}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=40), client=client)
+    xs = "el => [...el.querySelectorAll('text.given')].map(t => +t.getAttribute('x'))"
+    paper = printed(browser, server, sheet_id(page))
+    for where in (line_of(page), paper.locator(".zahlenstrahl")):
+        got = sorted(where.evaluate(xs))
+        assert len(got) == 3 and all(b - a > 10 for a, b in pairwise(got)), got
+    paper.context.close()
+
+
+def test_size_24_arrow_number_stays_clear_of_its_stub(editor):
+    """Own: at 24 pt the arrow's number still ends above its stub."""
+    props = {**PROPS, "tasks": "free", "boxes": 0, "size": 24, "marks": [[5, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=40), client=user())
+    assert line_of(page).evaluate(CROSSES)["crossings"] == 0

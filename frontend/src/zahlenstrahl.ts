@@ -25,7 +25,8 @@
 //
 // A box: the tick's number is hidden, a box stands under the tick for the pupil to write it in; the answer key
 // writes the number into the box. An arrow: the number stands above the line, at a place of its own (the arrow
-// numbers are spread evenly across the line in the order of `arrows` in `Made`), with a short stub under it; the
+// numbers are spread evenly across the line in the order of `arrows` in `Made`, each over the middle of a gap
+// between two ticks), with a short stub under it; the
 // pupil draws the arrow to the right tick. The answer key draws that arrow, from the stub to the tick.
 //
 // Random tasks: never on the first tick, never two on one tick; boxes first, on ticks that show no number where
@@ -112,6 +113,26 @@ export const BELOW = 18;
 // The x of tick i of n in a block w mm wide. One tick stands at LEFT.
 export function xOf(i: number, n: number, w: number): number {
   return n < 2 ? LEFT : LEFT + (i * (w - LEFT - RIGHT)) / (n - 1);
+}
+
+// The x of each of k arrow numbers among n ticks in a block w mm wide: the even spot, moved to the middle of the
+// nearest gap between two ticks, each gap used once, left to right. With fewer gaps than arrows (free tasks can set
+// an arrow on every tick), the even spot, so no two numbers stand on one place.
+export function arrowXs(k: number, n: number, w: number): number[] {
+  if (k === 0) return [];
+  const span = w - LEFT - RIGHT;
+  const even = Array.from({ length: k }, (_, i) => ((i + 1) * (n - 1)) / (k + 1));
+  if (n < 2 || k > n - 1) return Array.from({ length: k }, (_, i) => LEFT + ((i + 1) * span) / (k + 1));
+  // The nearest gap; a tie (the spot on a tick) takes the lower gap.
+  const gap = even.map((t) => {
+    const u = t - 0.5;
+    const g = u - Math.floor(u) === 0.5 ? Math.floor(u) : Math.round(u);
+    return Math.min(n - 2, Math.max(0, g));
+  });
+  for (let i = 1; i < k; i++) gap[i] = Math.max(gap[i], gap[i - 1] + 1);
+  gap[k - 1] = Math.min(gap[k - 1], n - 2);
+  for (let i = k - 2; i >= 0; i--) gap[i] = Math.min(gap[i], gap[i + 1] - 1);
+  return gap.map((g) => xOf(g + 0.5, n, w));
 }
 
 // How many ticks the line has.

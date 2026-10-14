@@ -93,8 +93,8 @@ export function cutLines<T extends Table>(p: T, on: boolean): T {
 // A new row or column takes a line that crosses it where its neighbours on both sides draw that same line (the one
 // neighbour at the rim): a closed frame stays closed and a thick line inside runs on (#562, #567), and a box round
 // one cell does not grow. A line hidden inside a merged cell is not taken. Its other new lines are null: the
-// table's style.
-export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col", i: number, add: boolean): Edges | undefined {
+// table's style. `after`: the new row or column goes after the anchor (the cell open while it is added), not before it.
+export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col", i: number, add: boolean, after = false): Edges | undefined {
   const e = edgesOf(p);
   if (!e) return undefined;
   const [rows, cols] = [p.cells.length, p.cols.length];
@@ -106,14 +106,42 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
     return pen(cross, r, k).style === "none" ? null : e[cross][r][k];
   };
   const taken = (cross: "h" | "v", c: number): Edge => {
-    const [before, after] = [crossing(cross, i - 1, c), crossing(cross, i, c)];
-    if (before === null || after === null) return null;
-    if (before === undefined || after === undefined) return before ?? after ?? null;
-    return JSON.stringify(before) === JSON.stringify(after) ? before : null;
+    const [before, below] = [crossing(cross, i - 1, c), crossing(cross, i, c)];
+    if (before === null || below === null) return null;
+    if (before === undefined || below === undefined) return before ?? below ?? null;
+    return JSON.stringify(before) === JSON.stringify(below) ? before : null;
+  };
+  const same = (a: Edge, b: Edge | undefined) => a !== null && JSON.stringify(a) === JSON.stringify(b);
+  // The line at the join, split in two: each run of one pen along it stays with the side whose lines across meet the
+  // run's ends in that pen too (a box round cells on that side), and with the anchor where both sides or neither do
+  // (#574). `first(k)` and `second(k)` are the lines across on each side at point k of the join.
+  const split = (join: Edge[], first: (k: number) => Edge | undefined, second: (k: number) => Edge | undefined): [Edge[], Edge[]] => {
+    const [a, b] = [nulls(join.length), nulls(join.length)];
+    for (let s = 0, t = 0; s < join.length; s = t) {
+      for (t = s + 1; t < join.length && JSON.stringify(join[t]) === JSON.stringify(join[s]); t++);
+      const line = join[s];
+      const one = same(line, first(s)) || same(line, first(t));
+      const two = same(line, second(s)) || same(line, second(t));
+      const [toFirst, toSecond] = one === two ? [after, !after] : [one, two];
+      for (let k = s; k < t; k++) [a[k], b[k]] = [toFirst ? line : null, toSecond ? line : null];
+    }
+    return [a, b];
   };
   if (axis === "row") {
+    if (add && i > 0 && i < rows) {
+      const [a, b] = split(e.h[i], (k) => e.v[i - 1][k], (k) => e.v[i][k]);
+      return { h: [...e.h.slice(0, i), a, b, ...e.h.slice(i + 1)], v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
+    }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     return { h: remove(e.h, i === rows - 1 ? i : i + 1), v: remove(e.v, i) };
+  }
+  if (add && i > 0 && i < cols) {
+    const [a, b] = split(
+      e.v.map((list) => list[i]),
+      (k) => e.h[k][i - 1],
+      (k) => e.h[k][i],
+    );
+    return { h: e.h.map((list, r) => insert(list, i, taken("h", r))), v: e.v.map((list, r) => [...list.slice(0, i), a[r], b[r], ...list.slice(i + 1)]) };
   }
   if (add) return { h: e.h.map((list, r) => insert(list, i, taken("h", r))), v: e.v.map((list) => insert(list, i === 0 ? 1 : i, null)) };
   return { h: e.h.map((list) => remove(list, i)), v: e.v.map((list) => remove(list, i === cols - 1 ? i : i + 1)) };
