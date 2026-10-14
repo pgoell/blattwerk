@@ -106,6 +106,14 @@
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
 
 import type { Block, Doc } from "./sheet";
+import { decimal, decimalsOf } from "./decimal";
+import { at, rng, made as wallsOf } from "./zahlenmauer";
+import { made as trianglesOf } from "./rechendreieck";
+import { made as strahlOf } from "./zahlenstrahl";
+import { made as feldOf } from "./hunderterfeld";
+import { timesOf, written } from "./uhr";
+
+const PT = 25.4 / 72; // mm per point
 
 export type Form = "mixed" | "word" | "sum";
 export type Turn = "none" | "upside" | "fold";
@@ -125,40 +133,202 @@ export type Check = {
   fault?: string;
 };
 
+const pick = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options as readonly unknown[]).includes(v) ? (v as T) : fallback;
+
 export function sane(p: SelbstkontrolleProps): SelbstkontrolleProps {
-  void p;
-  throw new Error("todo");
+  const r = (p ?? {}) as unknown as Record<string, unknown>;
+  return {
+    form: pick(r.form, ["mixed", "word", "sum"] as const, DEFAULTS.form),
+    links: Array.isArray(r.links) ? r.links.filter((id): id is string => typeof id === "string") : [],
+    word: typeof r.word === "string" ? r.word : DEFAULTS.word,
+    title: typeof r.title === "string" ? r.title : DEFAULTS.title,
+    size: typeof r.size === "number" && r.size >= 8 && r.size <= 24 ? r.size : DEFAULTS.size,
+    turn: pick(r.turn, ["none", "upside", "fold"] as const, DEFAULTS.turn),
+    seed: Number.isSafeInteger(r.seed) ? (r.seed as number) : 0,
+  };
 }
 
 export function tasksOf(b: Block): Result[][] | undefined {
-  void b;
-  throw new Error("todo");
+  switch (b.type) {
+    case "maths": {
+      const p = b.props;
+      const d = decimalsOf(p);
+      const money = d > 0 && !!p.money;
+      const euro = money ? " €" : "";
+      return p.exercises.map((e): Result[] => {
+        if ("sign" in e) return [{ text: e.sign }];
+        if (e.rest > 0) return [{ text: `${decimal(e.result, d, money)}${euro} R ${decimal(e.rest, 0)}`, value: e.result }];
+        const v = e[e.hide ?? "result"] as number;
+        return [{ text: decimal(v, d, money) + euro, value: v }];
+      });
+    }
+    case "zahlenmauer": {
+      const p = b.props;
+      if (p.empty) return [];
+      const out: Result[][] = [];
+      for (const w of wallsOf(p).walls) {
+        if (w.wrong) continue;
+        const task: Result[] = [];
+        for (let r = p.base - 1; r >= 0; r--) {
+          for (let c = 0; c < p.base - r; c++) {
+            const s = at(p.base, r, c);
+            if (!w.given[s]) task.push({ text: String(w.numbers[s]), value: w.numbers[s] });
+          }
+        }
+        if (task.length) out.push(task);
+      }
+      return out;
+    }
+    case "rechendreieck": {
+      const p = b.props;
+      if (p.empty) return [];
+      const out: Result[][] = [];
+      for (const t of trianglesOf(p).triangles) {
+        if (t.wrong) continue;
+        const task: Result[] = [];
+        t.numbers.forEach((n, j) => {
+          if (!t.given[j]) task.push({ text: String(n), value: n });
+        });
+        if (task.length) out.push(task);
+      }
+      return out;
+    }
+    case "zahlenstrahl":
+      return strahlOf(b.props, b.w).ticks.filter((t) => t.task === "box").map((t) => [{ text: String(t.value), value: t.value }]);
+    case "hunderterfeld":
+      if (b.props.look === "punkte") return [];
+      return feldOf(b.props).cells.filter((c) => c.drawn && !c.shown).map((c) => [{ text: String(c.value), value: c.value }]);
+    case "uhr":
+      if (b.props.task !== "read") return [];
+      return timesOf(b.props).map((t) => [{ text: written(t, b.props) }]);
+    default:
+      return undefined;
+  }
 }
 
 export const worded = (b: Block): boolean => b.type === "maths" || b.type === "zahlenmauer" || b.type === "rechendreieck" || b.type === "uhr";
 
+// Every block of the sheet with its page, in sheet order: page, then y, then x, then id.
+const placed = (doc: Doc) => doc.pages.flatMap((pg, page) => pg.blocks.map((b) => ({ b, page })));
+const inOrder = (x: { b: Block; page: number }, y: { b: Block; page: number }) =>
+  x.page - y.page || x.b.y - y.b.y || x.b.x - y.b.x || (x.b.id < y.b.id ? -1 : x.b.id > y.b.id ? 1 : 0);
+
 export function ordered(doc: Doc, ids: string[]): Block[] {
-  void doc, ids;
-  throw new Error("todo");
+  const want = new Set(ids);
+  return placed(doc).filter(({ b }) => want.has(b.id)).sort(inOrder).map(({ b }) => b);
 }
+
+const NAMES: Record<string, string> = { maths: "Rechnen", zahlenmauer: "Zahlenmauer", rechendreieck: "Rechendreieck", zahlenstrahl: "Zahlenstrahl", hunderterfeld: "Hunderterfeld", uhr: "Uhr" };
 
 export function labelOf(b: Block, doc: Doc): string {
-  void b, doc;
-  throw new Error("todo");
+  const name = NAMES[b.type] ?? b.type;
+  const same = ordered(doc, placed(doc).filter(({ b: o }) => o.type === b.type).map(({ b: o }) => o.id));
+  if (same.length < 2) return name;
+  return `${name} ${same.findIndex((o) => o.id === b.id) + 1}`;
 }
 
+// A shuffle by seed: Fisher-Yates over the seeded generator of zahlenmauer.ts.
+function shuffle<T>(xs: T[], seed: number): T[] {
+  const out = [...xs];
+  const r = rng(seed);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Decimals and " €" of a block's results, as its answer key prints them.
+const moneyOf = (b: Block): [number, boolean] => (b.type === "maths" ? [decimalsOf(b.props), decimalsOf(b.props) > 0 && !!b.props.money] : [0, false]);
+
 export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
-  void p, doc;
-  throw new Error("todo");
+  const q = sane(p);
+  const all = new Set(doc.pages.flatMap((pg) => pg.blocks.map((b) => b.id)));
+  const sources = ordered(doc, q.links);
+  const tasks = sources.map((b) => tasksOf(b) ?? []);
+
+  const mixed = shuffle(tasks.flat().flat().map((r) => r.text), q.seed);
+
+  const sums: [string, string][] = [];
+  sources.forEach((b, i) => {
+    const values = tasks[i].flat().map((r) => r.value).filter((v): v is number => v !== undefined);
+    if (!values.length) return;
+    const [d, money] = moneyOf(b);
+    sums.push([labelOf(b, doc), decimal(values.reduce((a, v) => a + v, 0), d, money) + (money ? " €" : "")]);
+  });
+
+  // One entry per worded task of the sheet, in sheet order: its block and its key result.
+  const wordTasks: { id: string; text: string }[] = [];
+  sources.forEach((b, i) => {
+    if (worded(b)) for (const task of tasks[i]) wordTasks.push({ id: b.id, text: task[0].text });
+  });
+  const L = Array.from(q.word.replace(/\s/g, "").toUpperCase());
+  const N = wordTasks.length;
+  let fault: string | undefined;
+  if (q.word.trim() === "") fault = "Gib ein Lösungswort ein.";
+  else if (L.length !== N) fault = `Das Wort hat ${L.length} Buchstaben, die Aufgaben sind ${N}.`;
+  else {
+    for (let j = 0; j < N && !fault; j++) {
+      for (let i = 0; i < j && !fault; i++) {
+        if (wordTasks[i].text === wordTasks[j].text && L[i] !== L[j]) {
+          fault = `Aufgabe ${i + 1} und ${j + 1} haben dasselbe Ergebnis ${wordTasks[j].text}, das Wort braucht dort ${L[i]} und ${L[j]}.`;
+        }
+      }
+    }
+  }
+
+  const letters = new Map<string, string[]>();
+  const table: [string, string][] = [];
+  if (q.form === "word") {
+    wordTasks.forEach((t, k) => {
+      const a = letters.get(t.id) ?? [];
+      a.push(fault ? "" : L[k]);
+      letters.set(t.id, a);
+      if (!fault && !table.some(([x]) => x === t.text)) table.push([t.text, L[k]]);
+    });
+  }
+
+  return {
+    empty: q.links.length === 0,
+    lost: q.links.filter((id) => !all.has(id)),
+    sources,
+    mixed,
+    sums,
+    letters,
+    table: shuffle(table, q.seed),
+    fault,
+  };
 }
 
 // The letters of every block that a "word" Selbstkontrolle of the sheet links: id to a letter per task.
 export function lettersOf(doc: Doc): Map<string, string[]> {
-  void doc;
-  throw new Error("todo");
+  const first = placed(doc).sort(inOrder).find(({ b }) => (b as { type: string }).type === "selbstkontrolle");
+  if (!first) return new Map();
+  const p = sane((first.b as unknown as { props: SelbstkontrolleProps }).props);
+  return p.form === "word" ? checked(p, doc).letters : new Map();
 }
 
+// The height in mm the content needs at width `w` mm: a line is 1.2 times the size in points.
 export function heightFor(p: SelbstkontrolleProps, doc: Doc, w: number): number {
-  void p, doc, w;
-  throw new Error("todo");
+  const q = sane(p);
+  const c = checked(q, doc);
+  const line = 1.2 * q.size * PT;
+  let h = q.title ? line : 0;
+  if (q.form === "sum") h += c.sums.length * line;
+  else if (q.form === "word") h += 2 * line;
+  else {
+    // Items in rows: each as wide as its text and its tick box, a row filled left to right.
+    let rows = 0;
+    let cur = 0;
+    for (const t of c.mixed) {
+      const iw = (t.length + 3) * 0.6 * q.size * PT;
+      if (rows === 0 || cur + iw > w) {
+        rows++;
+        cur = 0;
+      }
+      cur += iw;
+    }
+    h += rows * line;
+  }
+  return h + 4;
 }
