@@ -1638,6 +1638,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const on = n === undefined ? sheet.current! : desk.current!.querySelector(`[data-page="${n}"]`)!;
     return (desk.current!.getBoundingClientRect().top + down - on.getBoundingClientRect().top) / k;
   };
+  // The page that fills most of the desk's view becomes the page in use when the desk scrolls, so a new block lands
+  // where the teacher looks.
+  function follow() {
+    const view = desk.current!.getBoundingClientRect();
+    let [best, most] = [page, 0];
+    for (const el of desk.current!.querySelectorAll<HTMLElement>("[data-page]")) {
+      const r = el.getBoundingClientRect();
+      const shown = (Math.min(r.right, view.right) - Math.max(r.left, view.left)) * (Math.min(r.bottom, view.bottom) - Math.max(r.top, view.top));
+      if (shown > most) [best, most] = [+el.dataset.page!, shown];
+    }
+    setAt(best);
+  }
 
   // Notes page `was` for what the server sends later, and gives a way to look it up then. The pages may have changed
   // by that time: the page is found where it is now; one changed since is known by a block it still holds, or keeps
@@ -3228,6 +3240,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         <div
           className="desk"
           ref={desk}
+          onScroll={follow}
           onPointerDown={(e) => {
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
