@@ -476,3 +476,98 @@ def test_issue_567_a_thick_line_across_runs_on_through_a_new_column(editor, brow
     paper = printed(browser, server, sheet_id(page))
     assert thick_between(paper, 4, ("h", 1), 1.25) == {0, 1, 2, 3}
     paper.context.close()
+
+
+def test_issue_574_a_new_row_below_keeps_the_box_closed(editor, browser, server):
+    """Issue #574: a box of 1.25 mm round the cell in row 2, column 0 of a four-row table stays
+    closed when a row is added below that cell. The new row has the table's plain lines, on the
+    screen and in print."""
+    client = user()
+    four = {**THREE, "cells": [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"], ["j", "k", "l"]]}
+    edges = {
+        "h": [[None] * 3, [None] * 3, [FRAME, None, None], [FRAME, None, None], [None] * 3],
+        "v": [[None] * 4, [None] * 4, [FRAME, FRAME, None, None], [None] * 4],
+    }
+    page = editor(box("t", "table", {**four, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(6).dblclick()
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(15)
+    assert thick_between(at(page, "t"), 3, ("h", 3), 1.25) == {0}
+    assert thick_between(at(page, "t"), 3, ("h", 2), 1.25) == {0}
+    assert thick_between(at(page, "t"), 3, ("h", 4), 1.25) == set()
+    assert thick_between(at(page, "t"), 3, ("v", 0), 1.25) == {2}
+    assert thick_between(at(page, "t"), 3, ("v", 1), 1.25) == {2}
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    assert thick_between(paper, 3, ("h", 3), 1.25) == {0}
+    assert thick_between(paper, 3, ("h", 4), 1.25) == set()
+    assert thick_between(paper, 3, ("v", 1), 1.25) == {2}
+    paper.context.close()
+
+
+def test_issue_574_a_new_column_right_keeps_the_box_closed(editor):
+    """Issue #574: a box of 1.25 mm round the middle cell of a 3x3 table stays closed when a column
+    is added to its right."""
+    edges = {
+        "h": [[None] * 3, [None, FRAME, None], [None, FRAME, None], [None] * 3],
+        "v": [[None] * 4, [None, FRAME, FRAME, None], [None] * 4],
+    }
+    page = editor(box("t", "table", {**THREE, "line": INK, "edges": edges}))
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(4).dblclick()
+    page.get_by_role("button", name="Spalte rechts", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    assert thick_between(at(page, "t"), 4, ("v", 1), 1.25) == {1}
+    assert thick_between(at(page, "t"), 4, ("v", 2), 1.25) == {1}
+    assert thick_between(at(page, "t"), 4, ("v", 3), 1.25) == set()
+    assert thick_between(at(page, "t"), 4, ("h", 1), 1.25) == {1}
+    assert thick_between(at(page, "t"), 4, ("h", 2), 1.25) == {1}
+
+
+def test_issue_574_a_row_above_then_undo_restores_the_box(editor):
+    """Issue #574: a row added above a boxed cell, undone with Ctrl+Z, keeps the box."""
+    four = {**THREE, "cells": [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"], ["j", "k", "l"]]}
+    edges = {
+        "h": [[None] * 3, [None] * 3, [FRAME, None, None], [FRAME, None, None], [None] * 3],
+        "v": [[None] * 4, [None] * 4, [FRAME, FRAME, None, None], [None] * 4],
+    }
+    page = editor(box("t", "table", {**four, "line": INK, "edges": edges}))
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(6).dblclick()
+    page.get_by_role("button", name="Zeile darüber", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(15)
+    page.keyboard.press("Control+z")
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    assert thick_between(at(page, "t"), 3, ("h", 2), 1.25) == {0}
+    assert thick_between(at(page, "t"), 3, ("h", 3), 1.25) == {0}
+    assert thick_between(at(page, "t"), 3, ("v", 0), 1.25) == {2}
+    assert thick_between(at(page, "t"), 3, ("v", 1), 1.25) == {2}
+
+
+@pytest.mark.parametrize(
+    ("cell", "button", "boxed"), [(3, "Zeile darunter", 3), (9, "Zeile darüber", 2)]
+)
+def test_review_574_a_box_beside_the_new_row_stays_closed(
+    editor, browser, server, cell, button, boxed
+):
+    """Review of #574: the box round row 2, column 0 stays closed when the new row comes in on its
+    other side: below the row above it, or above the row under it. On screen and in print."""
+    client = user()
+    four = {**THREE, "cells": [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"], ["j", "k", "l"]]}
+    edges = {
+        "h": [[None] * 3, [None] * 3, [FRAME, None, None], [FRAME, None, None], [None] * 3],
+        "v": [[None] * 4, [None] * 4, [FRAME, FRAME, None, None], [None] * 4],
+    }
+    page = editor(box("t", "table", {**four, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(cell).dblclick()
+    page.get_by_role("button", name=button, exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(15)
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    for where in (at(page, "t"), paper):
+        assert thick_between(where, 3, ("h", boxed), 1.25) == {0}
+        assert thick_between(where, 3, ("h", boxed + 1), 1.25) == {0}
+        assert thick_between(where, 3, ("v", 1), 1.25) == {boxed}
+    paper.context.close()

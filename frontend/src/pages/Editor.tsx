@@ -2357,7 +2357,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // stays. A new row adds its height to the block, a line of text with the cell's padding and line, and
   // a row that goes takes with it the height it has now. The field stays with its cell, and goes to a neighbour
   // when its cell goes.
-  function rank(b: TableBlock, axis: "row" | "col", i: number, add: boolean) {
+  function rank(b: TableBlock, axis: "row" | "col", i: number, add: boolean, after = false) {
     const [rows, cols] = [b.props.cells.length, b.props.cols.length];
     const n = axis === "row" ? rows : cols;
     if (!add && n < 2) return;
@@ -2372,7 +2372,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
-    const props = spliced(b.props, axis, i, add);
+    const props = spliced(b.props, axis, i, add, after);
     if (add && target !== slot) caret.current = sheet.current!.querySelector<HTMLTextAreaElement>(".table textarea")?.selectionStart;
     setSlot(anchorOf(props, target));
     setReach(undefined);
