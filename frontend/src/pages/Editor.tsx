@@ -575,8 +575,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
   // Page numbers are sheet-wide. A change turns them on and keeps the rest; "Aus" turns them off and keeps the rest too.
   const folio = pageNumbersOf(hist.doc);
-  const numbering = (change: Partial<PageNumbers>, on = true) =>
-    update((doc) => ({ ...doc, pageNumbers: { ...doc.pageNumbers, ...change, on } }));
+  // A click on what is already set makes no step to undo.
+  const numbering = (change: Partial<PageNumbers>, on = true) => {
+    const next = { ...folio, ...change, on };
+    if (Object.entries(next).every(([key, value]) => folio[key as keyof typeof folio] === value)) return;
+    update((doc) => ({ ...doc, pageNumbers: next }));
+  };
   const [W, H] = sizes[page];
   // Pixels per mm when the widest page fills the desk's width.
   const fit = room / Math.max(...sizes.map(([w]) => w));

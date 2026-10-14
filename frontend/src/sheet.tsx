@@ -2332,8 +2332,6 @@ export function Mark({ block, k, n }: { block: Block; k: number; n?: number }) {
   );
 }
 
-// A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
-// true size in the PDF, where it needs no transform. The answer key says on each page that it is one.
 // A sheet's page numbers: off unless `on` is true. A value nobody knows reads as the default.
 export const pageNumbersOf = (doc: Doc) => {
   const p = doc.pageNumbers ?? {};
@@ -2370,6 +2368,9 @@ export function PageNumber({ doc, page }: { doc: Doc; page: number }) {
   ) : null;
 }
 
+// A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
+// true size in the PDF, where it needs no transform. The answer key says on each page that it is one; with the page
+// number at the top right, it moves to the top left.
 export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; k: number; page?: number; solved?: boolean; letter?: string }) {
   const all = read(doc);
   const ns = numbers(all);
