@@ -216,6 +216,32 @@ def test_a_space_with_nothing_picked_types_nothing(editor):
     expect(at(page, "a")).to_have_text("Hallo")
 
 
+@pytest.mark.parametrize("key", ["Enter", "F2"])
+def test_a_held_space_then_enter_keeps_the_text(editor, key):
+    """Review of #561: Space held, Enter or F2, Space let go opens the text with all of it picked
+    and types no space over it."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.down("Space")
+    page.keyboard.press(key)
+    page.keyboard.up("Space")
+    expect(page.locator(FIELD)).to_be_focused()
+    expect(page.locator(FIELD)).to_have_text("Hallo")
+
+
+def test_a_held_space_then_a_click_in_the_panel_types_nothing(editor):
+    """Review of #561: Space held, a click into the panel's first field, Space let go: the field
+    keeps the focus and the text stays as it was."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.down("Space")
+    first = page.locator(".panel input").first
+    first.click()
+    page.keyboard.up("Space")
+    expect(first).to_be_focused()
+    expect(at(page, "a")).to_have_text("Hallo")
+
+
 def test_a_held_space_with_a_picked_text_pans_and_types_nothing(editor):
     """The orchestrator's check on #561: Space held and a drag move the desk with a picked text,
     as before this fix, and no space lands in the text."""

@@ -971,6 +971,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       setMod((e.shiftKey ? KEEP : 0) | ((APPLE ? e.altKey : e.ctrlKey) ? CENTRE : 0) | ((APPLE ? e.metaKey : e.altKey) ? LOOSE : 0));
+      // Any key but a letter, which types the space before it, takes the waiting space back: Enter or F2 would open
+      // the text with all of it picked, and the space would take its place.
+      const letter = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+      if (e.type === "keydown" && e.code !== "Space" && !letter) spaced.current = null;
       // Letting Space go puts the hand down. A drag that is on goes on until the pointer lifts.
       if (e.type === "keyup" && e.code === "Space") {
         setPan(false);
@@ -988,13 +992,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       spaced.current = null;
       setPanning(false);
     };
+    // A press anywhere, on the hand or in the panel, takes the waiting space back too.
+    const onPress = () => (spaced.current = null);
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("pointerdown", onPress, true);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKey);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pointerdown", onPress, true);
     };
   }, []);
 

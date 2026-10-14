@@ -220,6 +220,11 @@ describe("made: limits", () => {
       { numRuns: 100 },
     );
   });
+
+  it("plus, 5 base stones bis 10: 20 seeds give more than 5 different single walls", () => {
+    const walls = new Set(Array.from({ length: 20 }, (_, seed) => made(P({ seed, base: 5, max: 10 })).walls[0].numbers.join(",")));
+    expect(walls.size).toBeGreaterThan(5);
+  });
 });
 
 describe("fixes", () => {
