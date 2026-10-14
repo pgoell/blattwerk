@@ -255,7 +255,8 @@ function over(p: ZahlenmauerProps, generated: number[], typed: Map<number, numbe
   // The greedy fill gave no wall: try other values for the generated base stones, in order, and take the first that fits.
   const free = used.filter((i) => !typed.has(i));
   if (!free.length) return shown;
-  const lo = floorOf(p);
+  // The teacher's own wall may hold a 0 where plus allows it.
+  const lo = p.op === "*" ? 1 : 0;
   const hi = Math.max(...typed.values());
   const digits = free.map(() => lo);
   for (let t = 0; t < 20000; t++) {
