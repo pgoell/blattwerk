@@ -26,6 +26,7 @@ import {
   BrickWall,
   Calculator,
   ChevronLeft,
+  Sigma,
   Circle,
   CircleHelp,
   ClipboardPaste,
@@ -70,6 +71,7 @@ import {
   Trash2,
   Triangle,
   TriangleDashed,
+  MoveRight,
   Type,
   Undo2,
   Ungroup,
@@ -104,6 +106,7 @@ import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK } from "../rechendreieck";
+import { DEFAULTS as STRAHL } from "../zahlenstrahl";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -164,6 +167,7 @@ const NAMES: Record<Block["type"], string> = {
   suchsel: "Suchsel",
   zahlenmauer: "Zahlenmauer",
   rechendreieck: "Rechendreieck",
+  zahlenstrahl: "Zahlenstrahl",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -388,6 +392,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
+  const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [tab, setTab] = useState(TABS[0]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
@@ -2813,6 +2818,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   ];
   const more = folding.slice(fits ?? folding.length);
   const inBar = (label: string) => !more.some((item) => item.label === label);
+  // The maths blocks, picked from the "Mathe-Blöcke" menu.
+  const mathBlocks: Item[] = [
+    { label: "Zahlenmauer", icon: BrickWall, run: () => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } }) },
+    { label: "Rechendreieck", icon: TriangleDashed, run: () => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } }) },
+    { label: "Zahlenstrahl", icon: MoveRight, run: () => add(180, 30, { type: "zahlenstrahl", props: { ...STRAHL, seed: newSeed() } }) },
+  ];
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
     <>
@@ -2849,8 +2860,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       {/* What makes exercises, a group to a subject. */}
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
-      <Tool icon={BrickWall} label="Zahlenmauer" onClick={() => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } })} />
-      <Tool icon={TriangleDashed} label="Rechendreieck" onClick={() => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } })} />
+      <Tool
+        icon={Sigma}
+        label="Mathe-Blöcke"
+        aria-haspopup="menu"
+        aria-expanded={!!mathMenu}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          setMathMenu({ x: box.left, y: box.top - 4 });
+        }}
+      />
       <Tool icon={Ruler} label="Strecke" onClick={() => add(50, 0, { type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } })} />
       <i className="sep" data-name="Formen" />
       <span className="shapes">
@@ -3849,6 +3868,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             localStorage.setItem("tour", "1");
             setTour(false);
           }}
+        />
+      )}
+      {mathMenu && (
+        <Menu
+          x={mathMenu.x}
+          y={mathMenu.y}
+          up
+          items={mathBlocks}
+          onClose={() => setMathMenu(undefined)}
+          onElsewhere={() => setMathMenu(undefined)}
         />
       )}
       {menu && (

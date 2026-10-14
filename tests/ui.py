@@ -331,6 +331,13 @@ def tool(page, label):
     return page.locator("dialog.menu").get_by_label(label, exact=True)
 
 
+def insert(page, label):
+    """Adds a maths block from the "Mathe-Blöcke" menu of the dock (or of Blattform's panel): opens
+    it and picks the item of that name."""
+    page.locator(".dock, .insert").get_by_label("Mathe-Blöcke", exact=True).click()
+    page.locator("dialog.menu").get_by_label(label, exact=True).click()
+
+
 def drawer(page, side):
     """Opens a panel on the iPad held upright, where both start shut and lie over the sheet."""
     bar(page, side).tap()

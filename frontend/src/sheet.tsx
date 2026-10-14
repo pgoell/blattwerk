@@ -10,6 +10,7 @@ import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
+import { BELOW, LEFT as STRAHL_LEFT, RIGHT as STRAHL_RIGHT, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -172,7 +173,9 @@ export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number
 export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
 // A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
 export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock;
+// A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
+export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -1936,6 +1939,83 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
   );
 }
 
+// A Zahlenstrahl, drawn in the block's mm as the contract at the top of zahlenstrahl.ts says.
+function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; solved: boolean }) {
+  const p = saneStrahl(block.props);
+  const { ticks, arrows, arcs } = drawnStrahl(p);
+  const { w, h } = block;
+  const y = h - BELOW;
+  const FS = (p.size * 25.4) / 72;
+  const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
+  const span = w - STRAHL_LEFT - STRAHL_RIGHT;
+  const cut = p.cut && p.start > 0;
+  return (
+    <div className={`zahlenstrahl${solved ? " solved" : ""}`}>
+      <svg viewBox={`0 0 ${w} ${h}`}>
+        <line className="axis" x1={cut ? 0.5 : STRAHL_LEFT - 2} y1={y} x2={w - 2.5} y2={y} stroke="#222" strokeWidth={0.4} />
+        <path className="head" d={`M ${w - 3.2} ${y - 1.2} L ${w - 1} ${y} L ${w - 3.2} ${y + 1.2} Z`} fill="#222" />
+        {cut && (
+          <g className="cut" stroke="#222" strokeWidth={0.4}>
+            <line x1={2.1} y1={y + 1.6} x2={2.9} y2={y - 1.6} />
+            <line x1={3.1} y1={y + 1.6} x2={3.9} y2={y - 1.6} />
+          </g>
+        )}
+        {ticks.map((t, i) => {
+          const x = xOf(i, ticks.length, w);
+          const reach = t.long ? 3 : 1.5;
+          // Room for the number at the numbers' size: Andika's digits are about 0.55 em.
+          const bw = Math.max(8, 3 + String(t.value).length * 0.6 * FS);
+          // Andika's line box is about 1.55 em high.
+          const bh = Math.max(6, 1.6 * FS);
+          // A box that would cover a number shown beside it goes one row lower.
+          const covers = t.task === "box" && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+          // A number's line box is about 1.35 em high.
+          const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
+          return (
+            <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
+              <line x1={x} y1={y - reach} x2={x} y2={y + reach} stroke="#222" strokeWidth={0.4} />
+              {t.label && !t.task && (
+                <text className="label" x={x} y={y + 5} fontSize={FS} textAnchor="middle" dominantBaseline="hanging" fill="#222">{t.value}</text>
+              )}
+              {t.task === "box" && (
+                <g className="box">
+                  {covers && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
+                  <rect x={x - bw / 2} y={top} width={bw} height={bh} fill="none" stroke="#222" strokeWidth={0.3} />
+                  {solved && (
+                    <text className="answer" x={x} y={top + bh / 2} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
+                  )}
+                </g>
+              )}
+            </g>
+          );
+        })}
+        {arrows.map((v, k) => {
+          const ax = STRAHL_LEFT + ((k + 1) * span) / (arrows.length + 1);
+          return (
+            <g key={v} className="arrow" data-value={v}>
+              <text className="given" x={ax} y={y - 9} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#222">{v}</text>
+              <line x1={ax} y1={y - 7} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />
+              {solved && <path className="answer" d={`M ${ax} ${y - 5} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
+            </g>
+          );
+        })}
+        {arcs.map((a) => {
+          const [x1, x2] = [tickX(a.from), tickX(a.to)];
+          const rx = (x2 - x1) / 2;
+          // A wide jump stays a flat arc, its label inside the block's room above the line.
+          const ry = Math.min(rx * 0.7, 6);
+          return (
+            <g key={`${a.from}-${a.to}`} className="arc" data-from={a.from} data-to={a.to}>
+              <path d={`M ${x1} ${y - 0.5} A ${rx} ${ry} 0 0 1 ${x2} ${y - 0.5}`} fill="none" stroke="#222" strokeWidth={0.3} />
+              <text x={x1 + rx} y={y - ry - 2} fontSize={FS} textAnchor="middle" fill="#222">{a.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
@@ -1943,6 +2023,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
+  if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

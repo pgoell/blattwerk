@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, pick, user
+from ui import box, doc, insert, pick, user
 
 WALL = {
     "base": 3,
@@ -58,7 +58,7 @@ def test_the_bar_tool_adds_a_zahlenmauer_with_the_default_props(editor):
     """Z1: the bar's "Zahlenmauer" adds a block with the default props and a whole seed."""
     client = user()
     page = editor(client=client)
-    page.get_by_role("toolbar", name="Einfügen").get_by_label("Zahlenmauer", exact=True).click()
+    insert(page, "Zahlenmauer")
     expect(
         page.locator(".panel").get_by_role("heading", name="Zahlenmauer", exact=True)
     ).to_be_visible()
