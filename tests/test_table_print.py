@@ -8,7 +8,7 @@ from pixels import INK, LOADED, dark, grey
 from playwright.sync_api import expect
 from test_pixels import PLACES, faults, planted
 from test_zoom import expect_width, wheel, width
-from ui import TEXT, block, sheet, user
+from ui import BROWSER, TEXT, block, sheet, user
 
 from blattwerk import pdf
 
@@ -104,6 +104,9 @@ def dashes(found, image, left):
 def test_a_table_prints_as_the_screen_shows_it(browser, server, case):
     """A11: one table of 3 by 3 and each case of its lines, on the screen and in print."""
     props, look = CASES[case]
+    if BROWSER == "webkit" and case == "solid wide":
+        # WebKit paints each svg from a whole pixel: the rim lies 0.2 mm left of where it prints.
+        pytest.xfail("issue #547: a wide line lies under a pixel off on WebKit's screen")
     client = user()
     # The answer key shows a gap's word on the screen and in print alike: it needs a gap.
     gap = [block("text", 120, 20, {**TEXT, "text": "Der Hund", "rich": [GAPPED]})] if look else []
