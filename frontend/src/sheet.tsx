@@ -9,6 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
+import type { RechendreieckProps } from "./rechendreieck";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -169,7 +170,9 @@ export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
 export type Typed = [number, number, number];
 export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number; max: number; op: "+" | "*"; given: "base" | "mix" | "free"; free?: boolean[]; empty: boolean; seed: number; typed?: Typed[] };
 export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock;
+// A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
+export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -1875,12 +1878,18 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   );
 }
 
+// A Rechendreieck: its triangles in columns, as the contract in rechendreieck.ts says.
+function Rechendreieck({ solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
+  return <div className={`rechendreieck${solved ? " solved" : ""}`} />;
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
+  if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

@@ -69,6 +69,7 @@ import {
   Table,
   Trash2,
   Triangle,
+  TriangleDashed,
   Type,
   Undo2,
   Ungroup,
@@ -102,6 +103,7 @@ import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
+import { DEFAULTS as DREIECK } from "../rechendreieck";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -161,6 +163,7 @@ const NAMES: Record<Block["type"], string> = {
   ruling: "Lineatur",
   suchsel: "Suchsel",
   zahlenmauer: "Zahlenmauer",
+  rechendreieck: "Rechendreieck",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -2812,6 +2815,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
       <Tool icon={BrickWall} label="Zahlenmauer" onClick={() => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } })} />
+      <Tool icon={TriangleDashed} label="Rechendreieck" onClick={() => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } })} />
       <Tool icon={Ruler} label="Strecke" onClick={() => add(50, 0, { type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } })} />
       <i className="sep" data-name="Formen" />
       <span className="shapes">
