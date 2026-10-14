@@ -268,7 +268,9 @@ def test_a_height_set_on_a_table_grown_by_its_text_holds(editor):
     typed(page, "Höhe", "90")
     assert block(page, client)["h"] == 90
     open_cell(page, "t", 4)
-    page.keyboard.press("End")
+    # The first click of the double click opens the cell now: WebKit sets the caret where the
+    # second one lands.
+    page.keyboard.press("Control+End")
     page.keyboard.type("x")
     assert props(page, client)["cells"][1][1].endswith("x")
     assert block(page, client)["h"] == 90
