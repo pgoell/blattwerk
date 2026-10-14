@@ -60,9 +60,9 @@
 // `g.ticks` (its `line`s), `text.number` per number (`data-n` the number), `line.hour` and `line.minute` (where the
 // hands are drawn, in #222 or in the key #c0392b), `circle.hub`, and under the face `text.task` (the written time
 // of "draw", or `__:__ Uhr`), `line.answer` for a writing line, and in the key `text.answer` (#c0392b). Numbers and
-// text in Andika. The dock adds a block of 180 by 58.5 mm under "Mathe-Blöcke". The block keeps its size when
-// `count` or `cols` change so the clocks keep the default block's size, to the page's foot at most, and it never
-// shrinks by itself; the teacher resizes the block.
+// text in Andika. The dock adds a block of 180 by 58.5 mm under "Mathe-Blöcke". The block grows downward when
+// `count` or `cols` change, so the clocks keep the default block's size (`heightFor`), to the page's foot at most;
+// it never shrinks by itself, and the teacher resizes the block.
 //
 // The panel (pages/Uhr.tsx), by aria-label: "Zahlen" (select: "all" 1 bis 12, "quarters" 12, 3, 6, 9, "none"
 // Keine), "Minutenstriche" (checkbox), "13 bis 24" (checkbox, disabled with "none"), "Aufgabe" (select: "read"
@@ -117,7 +117,6 @@ export const RED = "#c0392b";
 export const INK = "#222";
 // The hours' words, index 1 to 12.
 export const HOURS = ["", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"];
-
 
 const isWhole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
 const whole = (v: unknown, lo: number, hi: number, dflt: number): number => (isWhole(v) && v >= lo && v <= hi ? v : dflt);
