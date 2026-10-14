@@ -153,6 +153,31 @@ describe("edgesSpliced", () => {
     expect(out.v.every((list) => list[2] === null)).toBe(true);
   });
 
+  // Whether every line round the cells of the rect is drawn with `pen`.
+  const closed = (e: Edges, [r0, c0, r1, c1]: [number, number, number, number]) => {
+    const lines: Edge[] = [];
+    for (let c = c0; c <= c1; c++) lines.push(e.h[r0][c], e.h[r1 + 1][c]);
+    for (let r = r0; r <= r1; r++) lines.push(e.v[r][c0], e.v[r][c1 + 1]);
+    return lines.every((line) => JSON.stringify(line) === JSON.stringify(pen));
+  };
+  // Review of #574: a box on either side of the new row or column stays closed, whichever cell is the anchor, and
+  // the new row or column gets no line of the box.
+  it.each([
+    ["a box above, the row added after it", "row", [1, 1, 1, 1], 2, true, [1, 1, 1, 1]],
+    ["a box below, the row added after the row above it", "row", [1, 1, 1, 1], 1, true, [2, 1, 2, 1]],
+    ["a box above, the row added before the row under it", "row", [0, 1, 0, 1], 1, false, [0, 1, 0, 1]],
+    ["a box round two cells below, the row added after the row above it", "row", [1, 1, 1, 2], 1, true, [2, 1, 2, 2]],
+    ["a box round two cells above, the row added before the row under it", "row", [0, 0, 0, 2], 1, false, [0, 0, 0, 2]],
+    ["a box left, the column added after it", "col", [1, 1, 1, 1], 2, true, [1, 1, 1, 1]],
+    ["a box right, the column added after the column left of it", "col", [1, 2, 1, 2], 2, true, [1, 3, 1, 3]],
+    ["a box right, the column added before it", "col", [1, 2, 2, 2], 2, false, [1, 3, 2, 3]],
+  ] as const)("keeps %s closed", (_, axis, rect, i, after, moved) => {
+    const out = edgesSpliced({ ...grid, edges: drawn(bordered(grid, [...rect], "outer", pen)) } as Table, axis, i, true, after)!;
+    expect(closed(out, [...moved])).toBe(true);
+    const lines = axis === "row" ? [...out.h[i], ...out.h[i + 1], ...out.v[i]] : [...out.v.map((l) => l[i]), ...out.v.map((l) => l[i + 1]), ...out.h.map((l) => l[i])];
+    expect(lines.filter((line) => line !== null).length).toBe(axis === "row" ? (moved[0] === i + 1 ? moved[3] - moved[1] + 1 : rect[0] === i - 1 ? rect[3] - rect[1] + 1 : 0) : moved[1] === i + 1 ? moved[2] - moved[0] + 1 : rect[1] === i - 1 ? rect[2] - rect[0] + 1 : 0);
+  });
+
   // The first column framed alone: its right line is thick inside the table.
   const column = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 0], "outer", pen)) } as Table;
 

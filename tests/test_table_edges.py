@@ -543,3 +543,31 @@ def test_issue_574_a_row_above_then_undo_restores_the_box(editor):
     assert thick_between(at(page, "t"), 3, ("h", 3), 1.25) == {0}
     assert thick_between(at(page, "t"), 3, ("v", 0), 1.25) == {2}
     assert thick_between(at(page, "t"), 3, ("v", 1), 1.25) == {2}
+
+
+@pytest.mark.parametrize(
+    ("cell", "button", "boxed"), [(3, "Zeile darunter", 3), (9, "Zeile darüber", 2)]
+)
+def test_review_574_a_box_beside_the_new_row_stays_closed(
+    editor, browser, server, cell, button, boxed
+):
+    """Review of #574: the box round row 2, column 0 stays closed when the new row comes in on its
+    other side: below the row above it, or above the row under it. On screen and in print."""
+    client = user()
+    four = {**THREE, "cells": [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"], ["j", "k", "l"]]}
+    edges = {
+        "h": [[None] * 3, [None] * 3, [FRAME, None, None], [FRAME, None, None], [None] * 3],
+        "v": [[None] * 4, [None] * 4, [FRAME, FRAME, None, None], [None] * 4],
+    }
+    page = editor(box("t", "table", {**four, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(cell).dblclick()
+    page.get_by_role("button", name=button, exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(15)
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    for where in (at(page, "t"), paper):
+        assert thick_between(where, 3, ("h", boxed), 1.25) == {0}
+        assert thick_between(where, 3, ("h", boxed + 1), 1.25) == {0}
+        assert thick_between(where, 3, ("v", 1), 1.25) == {boxed}
+    paper.context.close()

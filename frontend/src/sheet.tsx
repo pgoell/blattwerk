@@ -1958,7 +1958,8 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   const tickX = (v: number) => xOf((v - p.start) / p.minor, ticks.length, w);
   const cut = p.cut && p.start > 0;
   const axs = arrowXs(arrows.length, ticks.length, w);
-  // An arrow's number stands on the baseline y - 7.6, raised when its digits would pass the block's top.
+  // An arrow's number stands on the baseline y - 7.6, raised when its digits would pass the block's top; its stub
+  // runs from under the digits to y - 5, and is left out where a short block leaves no room for it.
   const base = Math.max(y - 7.6, 0.75 * FS);
   return (
     <div className={`zahlenstrahl${solved ? " solved" : ""}`}>
@@ -2015,7 +2016,7 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           return (
             <g key={v} className="arrow" data-value={v}>
               <text className="given" x={ax} y={base} fontSize={FS} textAnchor="middle" fill="#222">{v}</text>
-              <line x1={ax} y1={Math.min(base + 0.4, y - 5.5)} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />
+              {base + 0.4 < y - 5 && <line x1={ax} y1={Math.max(base + 0.4, y - 7)} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />}
               {solved && <path className="answer" d={`M ${ax} ${y - 5} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
             </g>
           );

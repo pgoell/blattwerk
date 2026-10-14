@@ -4,6 +4,8 @@ The docstrings name what each test proves. The numbers are read from the page, n
 tasks of a random block may change with the model.
 """
 
+from itertools import pairwise
+
 import pytest
 from pixels import LIMITS, measures, over, screen_and_print
 from playwright.sync_api import expect
@@ -365,6 +367,36 @@ def test_an_arrow_number_is_not_cut_off_at_the_top_of_the_dock_block(editor, bro
     paper = printed(browser, server, sheet_id(page))
     assert min(paper.locator(".zahlenstrahl").evaluate(band)) >= 0
     assert_clear(paper)
+    paper.context.close()
+
+
+@pytest.mark.parametrize(("size", "h"), [(12, 26), (24, 28)])
+def test_review_576_in_a_short_block_no_stub_runs_through_its_number(
+    editor, browser, server, size, h
+):
+    """Review of #576: a block lower than the dock's 30 mm raises the number to the top; its stub
+    then has no room and is left out, so no line crosses the digits, on screen and in print."""
+    client = user()
+    props = {**PROPS, "tasks": "free", "boxes": 0, "size": size, "marks": [[13, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=h), client=client)
+    assert line_of(page).evaluate(CROSSES)["crossings"] == 0
+    paper = printed(browser, server, sheet_id(page))
+    assert_clear(paper)
+    paper.context.close()
+
+
+def test_review_577_arrows_on_every_tick_stand_apart(editor, browser, server):
+    """Review of #577: 0 to 2 with an arrow on each of the three ticks has more arrows than gaps;
+    the numbers keep the even spots, so no two stand on one place, on screen and in print."""
+    client = user()
+    marks = [[0, "arrow"], [1, "arrow"], [2, "arrow"]]
+    props = {**PROPS, "end": 2, "tasks": "free", "boxes": 0, "marks": marks}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=40), client=client)
+    xs = "el => [...el.querySelectorAll('text.given')].map(t => +t.getAttribute('x'))"
+    paper = printed(browser, server, sheet_id(page))
+    for where in (line_of(page), paper.locator(".zahlenstrahl")):
+        got = sorted(where.evaluate(xs))
+        assert len(got) == 3 and all(b - a > 10 for a, b in pairwise(got)), got
     paper.context.close()
 
 
