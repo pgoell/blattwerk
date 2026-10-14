@@ -42,7 +42,7 @@ function Whole({
 
 export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBlock; apply: (props: Partial<ZahlenstrahlProps>, key?: string) => void }) {
   const p = sane(block.props);
-  const m = made(p);
+  const m = made(p, block.w);
   // Whether `sane` takes the number as it is, so the stored value is the typed one.
   const takes = (name: keyof ZahlenstrahlProps) => (v: number) => sane({ ...p, [name]: v, ...(name === "start" && { end: MAX }) })[name] === v;
   // A start at or past the end takes the end along to start + 20, as `sane` does: 340 typed into 0 to 20 gives 340 to 360.
@@ -97,6 +97,12 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
               ＋
             </button>
           </div>
+          {/* Two boxes never overlap, so a close line can take fewer than asked (#593): the panel says how many. */}
+          {m.ticks.length > 0 && m.ticks.filter((t) => t.task === "box").length < p.boxes && (
+            <p className="hint warn" role="status" data-hint="boxes">
+              {`Nur ${m.ticks.filter((t) => t.task === "box").length} Kästchen passen, ohne sich zu überdecken. Größerer Schritt oder breiterer Block.`}
+            </p>
+          )}
           <div className="seg">
             <button aria-label="Ein Pfeil weniger" disabled={p.arrows === 0} onClick={() => apply({ arrows: p.arrows - 1 })}>
               −
@@ -106,7 +112,7 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
               ＋
             </button>
           </div>
-          <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }).ticks.map((t) => t.task)) }]) })}>
+          <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }, block.w).ticks.map((t) => t.task)) }]) })}>
             Neu würfeln
           </button>
         </>

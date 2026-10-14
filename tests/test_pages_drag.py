@@ -164,6 +164,11 @@ def test_i1_a_drag_resting_near_the_lower_edge_scrolls_the_panel_to_the_last_thu
     expect_order(page, NAMES[1:] + "a")
 
 
+# Not strict, as the lower edge below: in CI's WebKit shard 6 of PR #596 three runs of three, here
+# 20 of 20 pass in WebKit and in Chromium, on master and on that branch (#597).
+@pytest.mark.xfail(
+    BROWSER == "webkit", strict=False, reason="#512, #597: the panel does not scroll in CI"
+)
 def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(editor):
     """I1"""
     page = blatt(editor, NAMES)
