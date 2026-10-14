@@ -161,6 +161,24 @@ def test_the_answer_key_writes_the_hidden_numbers_in_red(editor, browser, server
     paper.context.close()
 
 
+def test_the_key_fills_the_ausschnitt_in_red_and_keeps_its_given_number(editor, browser, server):
+    """An Ausschnitt shows its given 45 alone on the pupil's sheet; the key writes the other four
+    in red and 45 stays black."""
+    client = user()
+    cross = {**PROPS, "show": "random", "cut": True, "shape": [34, 43, 44, 45, 54], "given": 44}
+    page = editor(box("h", "hunderterfeld", cross, w=100, h=100), client=client)
+    mine = sheet_id(page)
+    paper = printed(browser, server, mine)
+    expect(paper.locator(".hunderterfeld text.given")).to_have_text(["45"])
+    expect(paper.locator(".hunderterfeld text.answer")).to_have_count(0)
+    paper.context.close()
+    paper = key_print(browser, server, mine)
+    expect(paper.locator(".hunderterfeld text.answer")).to_have_text(["35", "44", "46", "55"])
+    assert paper.locator(".hunderterfeld text.answer").evaluate_all(FILLS) == [RED] * 4
+    expect(paper.locator(".hunderterfeld text.given")).to_have_text(["45"])
+    paper.context.close()
+
+
 def test_the_dots_stand_ten_to_a_row_with_a_wider_gap_after_the_fifth(editor):
     """Dots 0 to 9 share one row; the gap between column 4 and 5 is wider than between 3 and 4."""
     page = editor(
