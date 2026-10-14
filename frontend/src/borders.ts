@@ -1,6 +1,6 @@
 // The writers of a table's lines: a border button, the line style and width, Schneidelinien, and a row or column
 // that comes or goes. Each returns new props and never changes the ones it gets. `edges.ts` holds the reader.
-import { edgesOf, THIN, type Edge, type Edges, type LineStyle, type Lines, type Pen } from "./edges";
+import { edgesOf, linesOf as pens, THIN, type Edge, type Edges, type LineStyle, type Lines, type Pen } from "./edges";
 import type { Rect } from "./cells";
 
 // The borders a button puts its pen on: all, the inner ones, the outer ones, or one side, or the inner lines across or down.
@@ -90,18 +90,31 @@ export function cutLines<T extends Table>(p: T, on: boolean): T {
 
 // The `edges` of the table after a row or a column is added before the one at `i`, or the one at `i` is taken away.
 // `p` is the table before the change. Undefined when it has no valid `edges`. A new row's top rim stays the rim.
-// A new row or column takes the lines that cross its neighbour (the one before it, or the first at the top or
-// left), as Word does: a closed frame stays closed and a thick line inside runs on (#562, #567). The line between
-// the new one and its neighbour is null: the table's style.
-export function edgesSpliced(p: Table, axis: "row" | "col", i: number, add: boolean): Edges | undefined {
+// A new row or column takes a line that crosses it where its neighbours on both sides draw that same line (the one
+// neighbour at the rim): a closed frame stays closed and a thick line inside runs on (#562, #567), and a box round
+// one cell does not grow. A line hidden inside a merged cell is not taken. Its other new lines are null: the
+// table's style.
+export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col", i: number, add: boolean): Edges | undefined {
   const e = edgesOf(p);
   if (!e) return undefined;
   const [rows, cols] = [p.cells.length, p.cols.length];
-  const neighbour = i > 0 ? i - 1 : 0;
+  const pen = pens(p);
+  // The line at `c` that crosses row (or column) `at`, or undefined where there is none to take.
+  const crossing = (cross: "h" | "v", at: number, c: number) => {
+    if (at < 0 || at >= (axis === "row" ? rows : cols)) return undefined;
+    const [r, k] = cross === "v" ? [at, c] : [c, at];
+    return pen(cross, r, k).style === "none" ? null : e[cross][r][k];
+  };
+  const taken = (cross: "h" | "v", c: number): Edge => {
+    const [before, after] = [crossing(cross, i - 1, c), crossing(cross, i, c)];
+    if (before === null || after === null) return null;
+    if (before === undefined || after === undefined) return before ?? after ?? null;
+    return JSON.stringify(before) === JSON.stringify(after) ? before : null;
+  };
   if (axis === "row") {
-    if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, [...e.v[neighbour]]) };
+    if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     return { h: remove(e.h, i === rows - 1 ? i : i + 1), v: remove(e.v, i) };
   }
-  if (add) return { h: e.h.map((list) => insert(list, i, list[neighbour])), v: e.v.map((list) => insert(list, i === 0 ? 1 : i, null)) };
+  if (add) return { h: e.h.map((list, r) => insert(list, i, taken("h", r))), v: e.v.map((list) => insert(list, i === 0 ? 1 : i, null)) };
   return { h: e.h.map((list) => remove(list, i)), v: e.v.map((list) => remove(list, i === cols - 1 ? i : i + 1)) };
 }

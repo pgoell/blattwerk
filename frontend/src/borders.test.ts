@@ -10,6 +10,7 @@ const pen = { style: "dotted" as const, width: 1 };
 // A 3 by 4 table, with no lines written yet.
 const grid = { cells: Array.from({ length: 3 }, () => ["", "", "", ""]), cols: [1, 1, 1, 1] } as unknown as Table;
 const drawn = (p: Lines & Partial<Table>): Edges => edgesOf(p as never)!;
+const nulls = (n: number) => Array<Edge>(n).fill(null);
 
 // The lines a border writes in the 3 by 4 table, for the rect [0, 1, 1, 2] (rows 0 to 1, columns 1 to 2).
 const want: Record<Border, string[]> = {
@@ -147,6 +148,22 @@ describe("edgesSpliced", () => {
       expect(out.v[i]).toStrictEqual([pen, pen, null, null, null]);
       expect(out.h[i === 0 ? 1 : i].every((edge) => edge === null)).toBe(true);
     }
+  });
+
+  // Found by the review of #568: a line hidden inside a merged cell is not taken into the new row or column.
+  it("does not take a line hidden inside a merged cell", () => {
+    const all = { ...grid, edges: drawn(bordered(grid, [0, 0, 2, 3], "all", pen)) } as Table;
+    const row = edgesSpliced({ ...all, spans: [[0, 0, 1, 2]] } as Table, "row", 1, true)!;
+    expect(row.v[1]).toStrictEqual([pen, null, pen, pen, pen]);
+    const col = edgesSpliced({ ...all, spans: [[0, 0, 2, 1]] } as Table, "col", 1, true)!;
+    expect(col.h.map((list) => list[1])).toStrictEqual([pen, null, pen, pen]);
+  });
+
+  // Found by the review of #568: a box round one cell keeps its height when a row comes in below or above it.
+  it("takes a line only where the neighbours on both sides draw it, so a box round one cell does not grow", () => {
+    const one = { ...grid, edges: drawn(bordered(grid, [1, 1, 1, 1], "outer", pen)) } as Table;
+    for (const i of [1, 2]) expect(edgesSpliced(one, "row", i, true)!.v[i]).toStrictEqual(nulls(5));
+    for (const i of [1, 2]) expect(edgesSpliced(one, "col", i, true)!.h.map((list) => list[i])).toStrictEqual(nulls(4));
   });
 
   it("runs a thick line across the table on through a new column", () => {
