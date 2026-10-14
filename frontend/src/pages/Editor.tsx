@@ -1219,7 +1219,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     update((doc) => {
       const next = { ...doc, words: value === "" ? undefined : value.split("\n") };
       const words = wordsIn(next);
-      return { ...next, pages: doc.pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(doc, n)[0], sizeOf(doc, n)[1]) })) };
+      const all = doc.pages.flatMap((p) => p.blocks);
+      return { ...next, pages: doc.pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(doc, n)[0], sizeOf(doc, n)[1], all) })) };
     }, "words");
   }
   // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
@@ -2654,7 +2655,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     update((cur) => {
       const next = { ...doc, words: doc.words ?? cur.words };
       const words = wordsIn(next);
-      return { ...next, pages: pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(next, n)[0], sizeOf(next, n)[1]) })) };
+      const all = pages.flatMap((p) => p.blocks);
+      return { ...next, pages: pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(next, n)[0], sizeOf(next, n)[1], all) })) };
     });
     setIds([]);
   }

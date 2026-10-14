@@ -34,9 +34,10 @@ export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock
 }
 
 // A linked ruling grows by a row for each word the list has past its rows, as far as the page margin and the top of
-// a block below it that it overlaps. It never shrinks, and a locked ruling or one a run-on block goes on from keeps its height.
-export function follow(blocks: Block[], words: string[], W: number, H: number): Block[] {
-  const rulings = blocks.filter((o): o is RulingBlock => o.type === "ruling");
+// a block below it that it overlaps. It never shrinks, and a locked ruling or one a run-on block among `all` (the
+// rulings of every page) goes on from keeps its height.
+export function follow(blocks: Block[], words: string[], W: number, H: number, all: Block[] = blocks): Block[] {
+  const rulings = all.filter((o): o is RulingBlock => o.type === "ruling");
   return blocks.map((b) => {
     if (b.type !== "ruling" || !listOf(b) || b.locked || runsOn(b, rulings)) return b;
     const need = words.length - startOf(b);

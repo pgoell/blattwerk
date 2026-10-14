@@ -374,4 +374,11 @@ describe("follow", () => {
     const out = follow([first, runOn], words(14), 210, 297);
     expect(out[0].h).toBe(120);
   });
+
+  it("keeps the height of a ruling whose run-on ruling lies on the next page", () => {
+    const first = lernwoerter();
+    const runOn = block("l1", 60, { list: "copy", from: 6 }, { id: "next", y: 15 });
+    const out = follow([first], words(14), 210, 297, [first, runOn]);
+    expect(out[0].h).toBe(120);
+  });
 });
