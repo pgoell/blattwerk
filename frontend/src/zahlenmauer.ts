@@ -45,6 +45,28 @@ export function sane(p: ZahlenmauerProps): ZahlenmauerProps {
   };
 }
 
+// The drawing in svg units: a stone is twice as wide as high, and a row sits half a stone right of the one under it.
+// `vbW` and `vbH` are the viewBox of the whole drawing, with the half unit of room around the walls.
+export function layout(p: Pick<ZahlenmauerProps, "base" | "count" | "columns">) {
+  const S = 10;
+  const [wallW, wallH, gap] = [p.base * 2 * S, p.base * S, 2 * S];
+  const rows = Math.max(1, Math.ceil(p.count / p.columns));
+  const vbW = p.columns * wallW + (p.columns - 1) * gap + 1;
+  const vbH = rows * wallH + (rows - 1) * gap + 1;
+  return { S, wallW, wallH, gap, rows, vbW, vbH };
+}
+
+// The default block (4 walls in 2 columns, 180 by 60 mm) draws its stones at the scale s0. A block of width w draws
+// them at the same scale, and its height grows with the rows, so that they keep the size of the default block.
+const DEFAULT_LAYOUT = layout({ base: 3, count: 4, columns: 2 });
+const S0 = Math.min(180 / DEFAULT_LAYOUT.vbW, 60 / DEFAULT_LAYOUT.vbH);
+
+// The height in mm of a block of width w with the props p, at which its stones draw at least at the default scale.
+export function heightFor(p: ZahlenmauerProps, w: number): number {
+  const L = layout(sane(p));
+  return L.vbH * Math.min(w / L.vbW, S0);
+}
+
 // A fraction, as [numerator, denominator] with the denominator above 0 and no common factor.
 type Fr = [number, number];
 const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : Math.abs(a));
