@@ -74,6 +74,21 @@ def test_a1_a_line_width_is_in_mm(editor):
     assert all(abs(w - scale(page)) < 0.5 for w in widths)
 
 
+def test_a_solid_line_among_dashed_ones_has_no_dashes(editor):
+    """A1: a solid line stays whole when the dashes of the lines around it are fitted."""
+    solid = {"style": "solid", "width": 2}
+    edges = {"h": [[None, None], [solid, None], [None, None]], "v": [[None] * 3, [None] * 3]}
+    look = {"lineStyle": "dashed", "lineWidth": 1, "edges": edges}
+    page = editor(box("t", "table", {**TABLE, "line": INK, **look}))
+    whole = page.locator('.table svg.edge line[data-style="solid"]')
+    expect(whole).to_have_count(1)
+    # The fit has run by now: it has given the dashed lines the lengths of their edges.
+    dashed = page.locator('.table svg.edge line[data-style="dashed"]').first
+    expect(dashed).not_to_have_attribute("stroke-dasharray", f"{3 * scale(page)} {4 * scale(page)}")
+    assert whole.get_attribute("stroke-dasharray") is None
+    assert whole.get_attribute("data-period") is None
+
+
 def test_layout_is_the_same_with_the_new_keys(editor):
     """Layout rule: the cells lie where they lie without the keys, to 0.01 px, at 3 mm dashed.
     The edges take no room in the grid."""
@@ -123,7 +138,9 @@ def test_a_merged_edge_svg_is_as_wide_as_the_column_below(editor):
 PERIODS = """els => els.map((line) => {
     const svg = line.closest('svg.edge');
     const across = ['top', 'bottom'].includes(line.dataset.side);
-    const length = across ? svg.clientWidth : svg.clientHeight;
+    const table = svg.parentElement, box = svg.getBoundingClientRect();
+    const zoom = table.getBoundingClientRect().width / table.offsetWidth;
+    const length = (across ? box.width : box.height) / zoom;
     const [dash, gap] = line.getAttribute('stroke-dasharray').split(' ').map(Number);
     return length / (dash + gap);
 })"""

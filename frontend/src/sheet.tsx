@@ -1535,7 +1535,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     const pieces = pen.style === "solid" ? [[a, b]] : [[a, mid], [b, mid]];
     const dashes = pen.style === "dashed" ? { strokeDasharray: `${3 * w} ${4 * w}`, strokeDashoffset: 1.5 * w } : pen.style === "dotted" ? { strokeDasharray: `0 ${2.5 * w}` } : {};
     // The period of the dashes, which `fit` changes so that a whole number of them lies on the edge.
-    const period = pen.style === "dashed" ? 7 * w : 2.5 * w;
+    const period = pen.style === "dashed" ? 7 * w : pen.style === "dotted" ? 2.5 * w : undefined;
     return pieces.map(([p, q], i) => (
       <line key={i} data-side={side} data-style={pen.style} data-period={period} data-w={w} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={line} strokeWidth={w} strokeLinecap={pen.style === "dotted" ? "round" : "square"} {...dashes} />
     ));
@@ -1546,15 +1546,19 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   const fit = (el: HTMLElement) => {
     const zoom = el.getBoundingClientRect().width / el.offsetWidth || 1;
     for (const svg of el.querySelectorAll<SVGSVGElement>(":scope > svg.edge")) {
-      const across = svg.clientWidth || svg.getBoundingClientRect().width / zoom;
-      const down = svg.clientHeight || svg.getBoundingClientRect().height / zoom;
+      // Not clientWidth: that is whole pixels, and a column is seldom a whole number of them wide.
+      const { width, height } = svg.getBoundingClientRect();
+      const [across, down] = [width / zoom, height / zoom];
       for (const line of svg.querySelectorAll<SVGLineElement>("line[data-period]")) {
         const side = line.dataset.side;
         const length = side === "top" || side === "bottom" ? across : down;
         if (!(length > 0)) continue;
         const period = Number(line.dataset.period);
         const w = Number(line.dataset.w);
-        const f = length / (Math.max(1, Math.round(length / period)) * period);
+        // A dot right at the end of its half is not drawn, by either half: so the dots are an odd number of
+        // periods, and the middle of the edge lies between two of them.
+        const n = length / period;
+        const f = n / Math.max(1, line.dataset.style === "dotted" ? 2 * Math.round((n - 1) / 2) + 1 : Math.round(n));
         if (line.dataset.style === "dashed") {
           line.setAttribute("stroke-dasharray", `${4 * w * f - w} ${3 * w * f + w}`);
           line.setAttribute("stroke-dashoffset", String((4 * w * f - w) / 2));
@@ -1627,7 +1631,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
             {r === cells.length - 1 && rim("bottom", lineAt("h", r + 1, c), BOTTOM)}
             {c === cols.length - 1 && rim("right", lineAt("v", r, c + 1), RIGHT)}
             {r === 0 && c === 0 && block.props.cut === true && (
-              <g className="scissors" transform={`rotate(-45 ${-2.5 * k} 0)`}>
+              <g className="scissors">
                 <Scissors size={4 * k} x={-4.5 * k} y={-2 * k} color={line} />
               </g>
             )}
