@@ -96,7 +96,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput,
 import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
-import { EDGE, anchorOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Rect } from "../cells";
+import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 
@@ -769,6 +769,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Outside a field, words copied in another app make a text block; the editor's own bring the copied blocks.
   onPaste.current = (e) => {
     if (document.querySelector("dialog:modal")) return;
+    // Words with tabs, or the cells copied, spread over the table's cells from the open one on: one step of undo.
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    if ((e.target as HTMLElement).closest(".sheet .table textarea") && table && (text.includes("\t") || (text.includes("\n") && text === cellsCopied.current))) {
+      e.preventDefault();
+      e.stopPropagation();
+      mergeKey.current = "";
+      tight.current = true;
+      change((bs) => bs.map((o) => (o.id === table.id ? { ...table, props: putTsv(table.props,[Math.floor(slot / table.props.cols.length), slot % table.props.cols.length], text) } : o)));
+      return;
+    }
     const field = (e.target as HTMLElement).closest(".ProseMirror, textarea, input, select");
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
@@ -1708,6 +1718,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // They go out in a copy of the browser's own, which needs no leave and is done before the next paste. A copy with
   // no words waiting, as a field's, stays the browser's.
   const pending = useRef<string | null>(null);
+  // The text of the last cells copied: a paste of exactly that, with line breaks, spreads over the cells.
+  const cellsCopied = useRef("");
   useEffect(() => {
     const copied = (e: ClipboardEvent) => {
       if (pending.current === null) return;
@@ -2048,11 +2060,45 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   };
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
+  // The text of cells on the system's clipboard, as copy() does for blocks: the browser's copy first, then the fallback.
+  function copyCells(tsv: string) {
+    cellsCopied.current = tsv;
+    pending.current = tsv;
+    document.execCommand("copy");
+    if (pending.current === null) return;
+    pending.current = null;
+    navigator.clipboard?.writeText(tsv).catch(() => {});
+  }
   function hop(e: Key<HTMLTextAreaElement>, b: TableBlock) {
     // Escape and F2 end the writing themselves: after a press in the panel a blur would not.
     if (e.key === "Escape" || e.key === "F2") {
       setEditing("");
       setReach(undefined);
+    }
+    // With two or more cells picked, the keys work on all of them: Entf and Backspace empty them, Ctrl+C copies them as
+    // text, Ctrl+X copies and empties them. The cells stay picked. Ctrl+V is the paste, see onPaste.
+    if (reach !== undefined && slotsIn(b.props, rectOf(b.props, slot, reach)).length > 1) {
+      const rect = rectOf(b.props, slot, reach);
+      const ctrl = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (ctrl && (key === "c" || key === "x")) {
+        e.preventDefault();
+        copyCells(tsvOf(b.props, rect));
+        if (key === "x") {
+          mergeKey.current = "";
+          tight.current = true;
+          change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
+        }
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        // Not through the field's change, which would drop the pick.
+        mergeKey.current = "";
+        tight.current = true;
+        change((bs) => bs.map((o) => (o.id === b.id ? { ...b, props: emptied(b.props, rect) } : o)));
+        return;
+      }
     }
     // An arrow at the edge of the text goes on to the next cell, when there is one in that way.
     const plain = !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
