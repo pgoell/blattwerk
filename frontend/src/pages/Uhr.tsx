@@ -115,7 +115,8 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
         value={p.fill}
         onChange={(e) => {
           const fill = e.target.value as UhrProps["fill"];
-          apply(fill === "free" ? { fill, times } : { fill });
+          // Times typed before come back; the other clocks keep the times they show.
+          apply(fill === "free" ? { fill, times: times.map((t, i) => ((p.times?.[i] ?? -1) >= 0 ? p.times![i] : t)) } : { fill });
         }}
       >
         <option value="random">Zufällig</option>

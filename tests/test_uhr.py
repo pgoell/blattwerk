@@ -126,6 +126,22 @@ def test_switching_to_free_keeps_the_times_the_clocks_show(editor):
         expect(field(page, f"Uhr {i + 1}")).to_have_value(f"{t // 60}:{t % 60:02d}")
 
 
+def test_review_a_typed_time_comes_back_after_zufaellig_and_selbst_waehlen(editor):
+    """Review: a time typed in Selbst wählen stays stored through Zufällig and comes back, and the
+    other clocks keep the times they showed."""
+    client = user()
+    page = editor(uhr("u", {**UHR, "fill": "random", "times": None}), client=client)
+    pick(page, "u")
+    step(page, lambda: field(page, "Zeiten").select_option("free"))
+    shown = props_of(doc(page, client))["times"]
+    field(page, "Uhr 1").fill("7:05")
+    field(page, "Uhr 1").blur()
+    step(page, lambda: field(page, "Zeiten").select_option("random"))
+    step(page, lambda: field(page, "Zeiten").select_option("free"))
+    expect(field(page, "Uhr 1")).to_have_value("7:05")
+    assert props_of(doc(page, client))["times"] == [425, *shown[1:]]
+
+
 def test_neu_wuerfeln_stores_a_new_seed_and_keeps_the_rest(editor):
     """Neu würfeln changes the seed only; the other settings stay."""
     client = user()

@@ -68,7 +68,8 @@
 // Zufällig, "free" Selbst wählen), for "random" "Schritte" (select: "60" Volle Stunden, "30" Halbe Stunden, "15"
 // Viertelstunden, "5" 5 Minuten, "1" 1 Minute) and "Neu würfeln"; for "free" a text input per clock, "Uhr <i>" from
 // 1, holding `h:mm` (hours 0 to 23); a time that does not parse is not stored and the input shows it red
-// (`aria-invalid`). Switching to "free" stores the times the clocks show into `times`. Each change is one undo
+// (`aria-invalid`). Switching to "free" stores into `times` the times typed before where a clock has one, and the
+// time it shows for the others. Each change is one undo
 // step; typing into one field is one step.
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
