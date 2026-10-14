@@ -120,6 +120,34 @@ def test_a_merged_edge_svg_is_as_wide_as_the_column_below(editor):
     assert svg["width"] == pytest.approx(below["width"], abs=1.01)
 
 
+PERIODS = """els => els.map((line) => {
+    const svg = line.closest('svg.edge');
+    const across = ['top', 'bottom'].includes(line.dataset.side);
+    const length = across ? svg.clientWidth : svg.clientHeight;
+    const [dash, gap] = line.getAttribute('stroke-dasharray').split(' ').map(Number);
+    return length / (dash + gap);
+})"""
+
+
+def test_dashes_fit_a_whole_number_of_periods_on_every_edge(editor):
+    """Fit: each dashed edge is a whole number of dash periods, to 0.01, also when narrower."""
+    for width, mm in ((None, 0.25), (143, 0.75)):
+        more = {} if width is None else {"w": width}
+        page = editor(
+            box(
+                "t",
+                "table",
+                {**THREE, "line": INK, "lineStyle": "dashed", "lineWidth": 2 * mm},
+                **more,
+            )
+        )
+        expect(page.locator(".table line[data-period]")).to_have_count(48)
+        counts = page.locator(".table line[data-period]").evaluate_all(PERIODS)
+        for v in counts:
+            assert v == pytest.approx(round(v), abs=0.01), counts
+        page.close()
+
+
 def test_a7_dashes_meet_at_every_corner_and_crossing(editor):
     """A7: a dashed 3 x 3 table at 1 mm has ink at its 16 corners and crossings, on screen."""
     page = editor(
