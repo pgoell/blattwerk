@@ -399,6 +399,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useEffect(() => {
     if (idKey) setTab((now) => (now === "Lernwörter" ? "Format" : now));
   }, [idKey]);
+  // So does a click on a block that is picked already: the pick does not change then.
+  useEffect(() => {
+    if (tab !== "Lernwörter") return;
+    const down = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest(".block") && sheet.current?.contains(e.target)) setTab("Format");
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [tab]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   // The panel's lock: a new width sets the height to match, in its fields and on the handles.
@@ -550,7 +559,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The sheet's Lernwörter, the same list until the sheet's own changes.
   const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
   // How many of them the most crowded Lineatur of the sheet cannot show.
-  const crowded = unshown(pages.flatMap((p) => p.blocks).filter((b): b is RulingBlock => b.type === "ruling"), learnt);
+  const lineaturen = useMemo(() => pages.flatMap((p) => p.blocks).filter((b): b is RulingBlock => b.type === "ruling"), [pages]);
+  const crowded = unshown(lineaturen, learnt);
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -1201,7 +1211,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // One undo step for every page of the Blatt: the first fills the empty page or comes after the page in use, the rest follow it.
     const [first, ...rest] = blatt(learnt, w, h).map((page) => page.map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block));
     if (empty) {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n), { blocks: first }, ...rest.map((blocks) => ({ blocks })), ...doc.pages.slice(n + 1)] }), "", n);
+      // The empty page keeps what is its own, and the run-on pages lie as it does.
+      const { landscape } = live.current.doc.pages[n];
+      const lie = landscape === undefined ? {} : { landscape };
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n), { ...doc.pages[n], blocks: first }, ...rest.map((blocks) => ({ ...lie, blocks })), ...doc.pages.slice(n + 1)] }), "", n);
       setIds([]);
       return;
     }
@@ -3630,6 +3643,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 size={[W, H]}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
                 words={learnt}
+                lineaturen={lineaturen}
                 list={takeList}
                 link={takeText}
                 feed={feed}
@@ -3787,11 +3801,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               <button
                 disabled={!learnt.length}
                 onClick={addBlatt}
-                title="Eine neue Seite mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren."
+                title="Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter."
               >
                 Lernwörter-Blatt
               </button>
-              <p className="hint">Eine neue Seite mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren.</p>
+              <p className="hint">Ein Blatt mit Überschrift, Namenszeile und drei Lineaturen: abschreiben, nachspuren, ganze Zeile nachspuren. Viele Wörter gehen auf weiteren Seiten weiter.</p>
               {/* A Lineatur as wide as the page between the margins, a row for each word, at most as many as a page holds. */}
               <button
                 disabled={!learnt.length}

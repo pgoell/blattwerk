@@ -24,19 +24,11 @@ export function filled(b: RulingBlock, W: number, H: number): Partial<Box> {
 // The words a linked block does not show: a row holds one word, so the rest are cut off. A run-on block shows from its `from`.
 export const short = (b: RulingBlock, words: string[]): number => (listOf(b) ? Math.max(0, words.length - startOf(b) - rowsOf(b)) : 0);
 
-// The most words of the list that no block of one mode on the sheet shows. A run-on page's block covers the words
-// its earlier page's block cannot, so only words that every block of a mode misses count as cut off.
-export function unshown(blocks: RulingBlock[], words: string[]): number {
-  let most = 0;
-  for (const mode of new Set(blocks.map(listOf))) {
-    if (!mode) continue;
-    const seen = new Set<number>();
-    for (const b of blocks.filter((o) => listOf(o) === mode)) {
-      for (let i = startOf(b); i < Math.min(words.length, startOf(b) + rowsOf(b)); i++) seen.add(i);
-    }
-    most = Math.max(most, words.length - seen.size);
-  }
-  return most;
+// The most words of the list that one of the `blocks` cuts off. A block that a run-on block of its mode among `all`
+// goes on from, at the word after its last row, cuts off none.
+export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock[] = blocks): number {
+  const goesOn = (b: RulingBlock) => all.some((o) => o.props.from !== undefined && listOf(o) === listOf(b) && startOf(o) === startOf(b) + rowsOf(b));
+  return Math.max(0, ...blocks.map((b) => (goesOn(b) ? 0 : short(b, words))));
 }
 
 // A block takes the list in `mode`. An unlinked block that is free to grow gets a row for each word, up to the

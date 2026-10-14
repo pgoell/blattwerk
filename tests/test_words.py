@@ -241,6 +241,25 @@ def test_a_long_blatt_runs_on_to_more_pages(editor):
     assert len(doc(page, client)["pages"]) == 1
 
 
+def test_a_long_blatt_on_an_empty_page_keeps_how_that_page_lies(editor):
+    """Review of #571: the Blatt fills an empty landscape page; its run-on pages lie the same."""
+    client = user()
+    empty = {"blocks": [], "landscape": True, "grid": 5}
+    words = [f"Wort{i}" for i in range(25)]
+    page = editor(box("a", "text", TEXT), pages=[empty], client=client, words=words)
+    page.locator('.sheet[data-page="1"]').click(position={"x": 40, "y": 40})
+    expect(page.locator('.sheet[data-page="1"]')).to_have_class(re.compile(r"\bon\b"))
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    expect(page.locator(".sheet[data-page]")).not_to_have_count(2)
+    pages = doc(page, client)["pages"]
+    assert len(pages) > 2
+    assert pages[1]["grid"] == 5
+    for p in pages[1:]:
+        assert p["landscape"] is True
+        assert all(b["w"] == 297 - 2 * 15 for b in p["blocks"] if b["type"] == "ruling")
+
+
 def test_a_short_blatt_is_one_page_as_before(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
@@ -576,6 +595,10 @@ def test_lernwoerter_bearbeiten_brings_the_list_back(editor):
     expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
     page.get_by_role("button", name="Lernwörter bearbeiten").click()
     expect(field(page)).to_be_visible()
+    # Review of #571: a click on the block that is picked still shows its settings.
+    at(page, "r").click()
+    expect(page.get_by_role("tab", name="Format")).to_have_attribute("aria-selected", "true")
+    expect(field(page)).to_have_count(0)
 
 
 def test_an_undo_in_the_list_stays_on_the_list(editor):
@@ -603,9 +626,9 @@ def test_the_two_buttons_under_the_list_say_what_they_make(editor):
     list_tab(page)
     blatt = page.get_by_role("button", name="Lernwörter-Blatt")
     knick = page.get_by_role("button", name="Knickblatt", exact=True)
-    expect(blatt).to_have_attribute("title", re.compile("neue Seite"))
+    expect(blatt).to_have_attribute("title", re.compile("Überschrift"))
     expect(knick).to_have_attribute("title", re.compile("Falten"))
-    expect(page.locator(".panel .hint", has_text="neue Seite")).to_be_visible()
+    expect(page.locator(".panel .hint", has_text="Überschrift")).to_be_visible()
     expect(page.locator(".panel .hint", has_text="Falten")).to_be_visible()
 
 
@@ -669,6 +692,18 @@ def test_a_list_too_long_for_one_page_of_the_blatt_runs_on_with_no_warning(edito
     stored = doc(page, client)
     assert len(stored["pages"]) == 3
     assert [b["h"] for b in rulings(stored, 1)] == [72, 72, 72]
+
+
+def test_a_short_lineatur_is_said_though_another_shows_every_word(editor):
+    """Review of #571: only a run-on Lineatur covers the words another cannot show."""
+    page = editor(
+        box("a", "ruling", LINKED, h=40),
+        box("b", "ruling", LINKED, y=120, h=10, z=2),
+        words=["Hund", "Katze", "Igel"],
+    )
+    list_tab(page)
+    status = page.locator(".panel [role=status]")
+    expect(status).to_have_text("In einer Lineatur passen 2 Wörter nicht in die Zeilen.")
 
 
 def test_a_lineatur_in_a_group_with_a_locked_block_takes_the_list_and_does_not_grow(editor):

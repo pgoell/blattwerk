@@ -68,6 +68,8 @@ type Props = {
   crop?: () => void;
   // The sheet's Lernwörter, and the mode each picked Lineatur takes them in: none cuts it loose with its words.
   words: string[];
+  // Every Lineatur of the sheet: a picked one that a run-on Lineatur goes on from cuts off no word.
+  lineaturen: RulingBlock[];
   list: (mode?: ListMode) => void;
   // Shows the list of the Lernwörter in the panel.
   toList: () => void;
@@ -207,7 +209,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -227,7 +229,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // The mode the Lineaturen take the Lernwörter in, when every picked one takes them; else none.
   const mode = rulings.length > 0 && rulings.every((b) => listOf(b)) ? listOf(rulings[0]) : undefined;
   // How many words of the list the most crowded Lineatur cannot show.
-  const n = unshown(rulings, words);
+  const n = unshown(rulings, words, lineaturen);
   const tables = of("table");
   // The pen starts at the first table's lines each time a cell opens.
   const open = cell !== undefined;

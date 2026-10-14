@@ -63,11 +63,20 @@ describe("unshown", () => {
   const run = (from: number | undefined, h = 30) => block("l4", h, { list: "copy", ...(from !== undefined && { from }) });
 
   it("counts nothing when a run-on page shows the words the first page cannot", () => {
-    expect(unshown([run(0), run(2, 30)], words(5))).toBe(0);
+    expect(unshown([run(undefined), run(3)], words(5))).toBe(0);
   });
 
-  it("counts the words no block of the mode shows", () => {
-    expect(unshown([run(0), run(2)], words(9))).toBe(4);
+  it("counts the words the last block of a run cannot show", () => {
+    expect(unshown([run(undefined), run(3)], words(9))).toBe(3);
+  });
+
+  it("counts a short block though another block of its mode shows every word (review of #571)", () => {
+    expect(unshown([block("l4", 60, { list: "copy" }), block("l4", 10, { list: "copy" })], words(3))).toBe(2);
+  });
+
+  it("counts a picked block that goes on as showing all, when the run-on block is on the sheet", () => {
+    expect(unshown([run(undefined)], words(5), [run(undefined), run(3)])).toBe(0);
+    expect(unshown([run(undefined)], words(5))).toBe(2);
   });
 
   it("counts nothing for a sheet with no linked block", () => {
