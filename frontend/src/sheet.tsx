@@ -1945,7 +1945,7 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   // keeps inside by itself). A block too short for both, saved so or held at the page's foot, draws the whole line a
   // little smaller, so nothing leaves it.
   const room = below(p, w);
-  const h = Math.max(block.h, room + Math.max(3.5, ...arcs.map((a) => rise(a) + 2.5 + 1.25 * FS)));
+  const h = Math.max(block.h, room + Math.max(3.5, ...arcs.map((a) => rise(a) + 2 + 0.8 * FS)));
   const y = h - room;
   const cut = p.cut && p.start > 0;
   const axs = arrowXs(arrows.length, ticks.length, w);

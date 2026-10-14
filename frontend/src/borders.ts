@@ -138,7 +138,9 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
     // table does.
     if (add && i === rows && rows > 0 && !e.h[rows].every((edge) => same(edge, e.h[rows][0]))) {
       const full = (c: number) => e.v.every((list) => same(list[c], e.v[rows - 1][c]));
+      // In a table of one row every side runs its full height: a box there is round its cell.
       const framed = (c: number) => {
+        if (rows === 1) return false;
         let [l, r] = [c, c + 1];
         while (l > 0 && !e.v[rows - 1][l]) l--;
         while (r < cols && !e.v[rows - 1][r]) r++;
@@ -147,7 +149,7 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
       const bottom = e.h[rows];
       return {
         h: [...e.h.slice(0, rows), bottom.map((edge, c) => (framed(c) ? null : edge)), bottom.map((edge, c) => (framed(c) ? edge : null))],
-        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (full(c) ? taken("v", c) : null))),
+        v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => (rows > 1 && full(c) ? taken("v", c) : null))),
       };
     }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };

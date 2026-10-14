@@ -28,10 +28,22 @@ PROPS = {
     "marks": [[362, "box"]],
     "seed": 7,
 }
-# The union of the screen rectangles of the drawn parts, next to the block's own.
+# The union of the screen rectangles of the drawn parts, next to the block's own. A text's rectangle
+# is its font's box, which reaches above the digits' ink; its top is taken down to the ink, as the
+# font itself measures it (canvas measureText), in the share of the box that lies above the ink.
 EDGES = """block => {
     const parts = [...block.querySelectorAll('.zahlenstrahl svg :is(rect, line, text, path)')];
-    const rects = parts.map(e => e.getBoundingClientRect());
+    const ink = document.createElement('canvas').getContext('2d');
+    const rects = parts.map(e => {
+        const r = e.getBoundingClientRect();
+        if (e.tagName !== 'text') return r;
+        const s = getComputedStyle(e);
+        ink.font = `100px ${s.fontFamily}`;
+        const m = ink.measureText(e.textContent);
+        const box = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+        const above = (m.fontBoundingBoxAscent - m.actualBoundingBoxAscent) / box;
+        return { left: r.left, right: r.right, bottom: r.bottom, top: r.top + above * r.height };
+    });
     const b = block.getBoundingClientRect();
     return {
         drawn: {
@@ -74,6 +86,24 @@ def test_the_drawing_of_a_lowered_box_stays_inside_the_block(editor, size, width
     assert drawn["top"] >= block["top"] - 0.5, edges
     assert drawn["right"] <= block["right"] + 0.5, edges
     assert drawn["bottom"] <= block["bottom"] + 0.5, edges
+
+
+def test_jumps_leave_a_default_line_its_full_width(editor):
+    """#585 second review: Sprungbögen on a default 180 by 30 mm block at 12 pt draw the line as
+    wide as without them: nothing scales down where nothing hung out."""
+    props = {**PROPS, "size": 12, "marks": []}
+    page = editor(
+        box("z", "zahlenstrahl", props, w=180, h=30),
+        box("j", "zahlenstrahl", {**props, "jumps": True}, w=180, h=30, y=60),
+        client=user(),
+    )
+
+    def width(name):
+        axis = at(page, name).locator(".zahlenstrahl line.axis")
+        return axis.evaluate("e => e.getBoundingClientRect().width")
+
+    expect(at(page, "j").locator(".zahlenstrahl g.arc").first).to_be_visible()
+    assert width("j") == width("z")
 
 
 def line_y(page):

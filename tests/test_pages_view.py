@@ -80,6 +80,21 @@ def test_typing_goes_on_while_the_wheel_scrolls_to_another_page(editor):
     expect(page.locator(COUNTER)).to_have_text("Seite 1 von 2")
 
 
+def test_a_text_after_an_edit_lands_on_the_page_scrolled_to_during_it(editor):
+    """#579 second review: the wheel brings page 2 into view while a text on page 1 is open; once
+    it closes, page 2 is in use and the next text lands there."""
+    client = user()
+    rest = [{"blocks": [box("b", "text", TEXT)]}]
+    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf", client=client)
+    add_text(page, "Erst")
+    wheel(page, 5000)
+    page.keyboard.press("Escape")
+    expect(page.locator(COUNTER)).to_have_text("Seite 2 von 2")
+    add_text(page, "Wort")
+    saved_doc = doc(page, client)
+    assert texts(saved_doc, 1) == ["Hallo", "Wort"]
+
+
 def test_a_maths_block_from_the_dock_lands_on_the_page_in_view(editor):
     """#579: an item of "Mathe-Blöcke" lands on page 2 with page 2 in view, as a text does."""
     client = user()

@@ -191,6 +191,16 @@ describe("edgesSpliced", () => {
     expect(edgesSpliced(column, "row", 3, true)!.h[4]).toStrictEqual([pen, null, null, null]);
   });
 
+  // In a table of one row a box round one cell stays round it, though its sides run the table's full height.
+  it("keeps a box round one cell of a one-row table at that cell when a row is added below", () => {
+    const row = { cells: [["", "", "", ""]], cols: [1, 1, 1, 1] } as unknown as Table;
+    const one = { ...row, edges: drawn(bordered(row, [0, 1, 0, 1], "outer", pen)) } as Table;
+    const out = edgesSpliced(one, "row", 1, true)!;
+    expect(out.h[1]).toStrictEqual([null, pen, null, null]);
+    expect(out.h[2]).toStrictEqual(nulls(4));
+    expect(out.v[1]).toStrictEqual(nulls(5));
+  });
+
   // A box round the two middle cells of the last row keeps its bottom and takes no side into the new row.
   it("keeps a box round two cells of the last row at those cells when a row is added below", () => {
     const two = { ...grid, edges: drawn(bordered(grid, [2, 1, 2, 2], "outer", pen)) } as Table;

@@ -1492,7 +1492,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // On another page than before nothing is selected, and a crop ends with the picture as it was.
   function show(n: number, step: (h: typeof hist) => typeof hist) {
     mergeKey.current = "";
-    steered.current = 0;
+    [steered.current, scrollHeld.current, lagged.current] = [0, false, false];
     flushSync(() => {
       setHist(step);
       setAt(n);
@@ -1527,7 +1527,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function visit(n: number) {
     done();
-    steered.current = 0;
+    [steered.current, scrollHeld.current, lagged.current] = [0, false, false];
     flushSync(() => {
       setAt(n);
       setIds([]);
@@ -1670,12 +1670,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // a finger, its scroll bar), so a new block lands where the teacher looks. A scroll the editor makes itself, to
   // show a page or a block, or a zoom with Ctrl and the wheel, leaves the page in use as it is.
   // `steered` is the time until which a scroll counts as the teacher's; `scrollHeld` holds while the scroll bar is held.
-  // A text being typed keeps its page.
+  // A text being typed keeps its page; `lagged` says the view moved meanwhile, and the page in view is in use once the
+  // text closes.
   const steered = useRef(0);
   const scrollHeld = useRef(false);
+  const lagged = useRef(false);
   const steer = (ms = 500) => (steered.current = performance.now() + ms);
   function follow() {
-    if ((performance.now() > steered.current && !scrollHeld.current) || editing) return;
+    if (performance.now() > steered.current && !scrollHeld.current) return;
+    if (editing) lagged.current = true;
+    else inView();
+  }
+  useEffect(() => {
+    if (editing || !lagged.current) return;
+    lagged.current = false;
+    inView();
+  }, [editing]);
+  function inView() {
     const view = desk.current!.getBoundingClientRect();
     let [best, most] = [page, 0];
     for (const el of desk.current!.querySelectorAll<HTMLElement>("[data-page]")) {
@@ -3282,7 +3293,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
               scrollHeld.current = true;
-              window.addEventListener("pointerup", () => (scrollHeld.current = false), { once: true });
+              const let_go = () => {
+                scrollHeld.current = false;
+                window.removeEventListener("pointerup", let_go);
+                window.removeEventListener("pointercancel", let_go);
+              };
+              window.addEventListener("pointerup", let_go);
+              window.addEventListener("pointercancel", let_go);
             }
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
