@@ -81,6 +81,18 @@ ZAHLENSTRAHL = {
                 "fill": "random",
             },
         ),
+        (
+            "Selbstkontrolle",
+            "selbstkontrolle",
+            {
+                "form": "mixed",
+                "links": [],
+                "word": "",
+                "title": "Selbstkontrolle",
+                "size": 14,
+                "turn": "none",
+            },
+        ),
     ],
 )
 def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, kind, defaults):
