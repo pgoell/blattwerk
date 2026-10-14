@@ -377,6 +377,26 @@ def test_issue_562_a_new_row_takes_the_frame_at_its_ends(editor):
     assert len(rim) == 12 and len(solid) == 12
 
 
+def test_issue_562_a_new_column_takes_the_frame_at_its_ends(editor):
+    """Issue #562 (PR #546): the same frame stays closed when a column is added to the right of its
+    last column. The new column's top and bottom are the frame's pen, and no solid line is drawn
+    inside the frame."""
+    frame = [FRAME] * 3
+    edges = {
+        "h": [frame, [None] * 3, [None] * 3, frame],
+        "v": [[FRAME, None, None, FRAME]] * 3,
+    }
+    page = editor(box("t", "table", {**THREE, "line": INK, "lineStyle": "dotted", "edges": edges}))
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(2).dblclick()
+    page.get_by_role("button", name="Spalte rechts", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    rim, solid = frame_lines(page, 3, 4)
+    assert [line for line in rim if line["style"] != "solid"] == []
+    assert len(rim) == 14 and len(solid) == 14
+    assert len({line["w"] for line in rim}) == 1
+
+
 def test_beyond_broken_edges_are_ignored_and_the_width_holds(editor):
     """Beyond the brief: edges of the wrong shape are left out whole; every line then takes the
     table's style and width."""
