@@ -15,6 +15,7 @@ SELECTS = [
     ("ruling", "Art der Lineatur"),
     ("ruling", "Schriftart auf den Zeilen"),
     ("table", "Schriftart der Tabelle"),
+    ("table", "Linienart"),
     ("text", "Nachspurtext"),
     ("shape", "Nachspurtext"),
     ("ruling", "Nachspurtext"),

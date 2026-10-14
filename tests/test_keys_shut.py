@@ -203,8 +203,9 @@ def test_a_control_reached_by_the_keys_alone_keeps_them(editor, name, label):
     control.focus()
     was = control.input_value()
     # No option of the trace select starts with an l: its letter is a g, of Grau.
-    # The house's is a z, of Zimmer.
-    page.keyboard.type({"Nachspurtext": "g", "Häuschen einfärben": "z"}.get(label, "l"))
+    # The house's is a z, of Zimmer, and the line style's a g, of Gestrichelt.
+    letters = {"Nachspurtext": "g", "Häuschen einfärben": "z", "Linienart": "g"}
+    page.keyboard.type(letters.get(label, "l"))
     expect(control).to_be_focused()
     if (name, label) in SELECTS:
         expect(control).not_to_have_value(was)
