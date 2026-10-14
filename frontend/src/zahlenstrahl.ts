@@ -122,7 +122,12 @@ export function arrowXs(k: number, n: number, w: number): number[] {
   const span = w - LEFT - RIGHT;
   const even = Array.from({ length: k }, (_, i) => ((i + 1) * (n - 1)) / (k + 1));
   if (n < 2) return Array.from({ length: k }, (_, i) => LEFT + ((i + 1) * span) / (k + 1));
-  const gap = even.map((t) => Math.min(n - 2, Math.max(0, Math.round(t - 0.5))));
+  // The nearest gap; a tie (the spot on a tick) takes the lower gap.
+  const gap = even.map((t) => {
+    const u = t - 0.5;
+    const g = u - Math.floor(u) === 0.5 ? Math.floor(u) : Math.round(u);
+    return Math.min(n - 2, Math.max(0, g));
+  });
   if (k <= n - 1) {
     for (let i = 1; i < k; i++) gap[i] = Math.max(gap[i], gap[i - 1] + 1);
     gap[k - 1] = Math.min(gap[k - 1], n - 2);

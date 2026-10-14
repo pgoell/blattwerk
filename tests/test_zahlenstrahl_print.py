@@ -349,6 +349,25 @@ def test_six_arrows_keep_distinct_gaps_and_no_number_overlaps(editor):
             assert apart, (a, b)
 
 
+@pytest.mark.parametrize("size", [20, 24])
+def test_an_arrow_number_is_not_cut_off_at_the_top_of_the_dock_block(editor, browser, server, size):
+    """Own: on the dock's 180 by 30 mm block the line is at 12 mm, and a number of 20 or 24 pt
+    keeps its digits inside the svg, on screen and in print, and clear of its stub."""
+    client = user()
+    props = {**PROPS, "tasks": "free", "boxes": 0, "size": size, "marks": [[13, "arrow"]]}
+    page = editor(box("z", "zahlenstrahl", props, w=180, h=30), client=client)
+    band = """el => [...el.querySelectorAll('text.given')].map(t => {
+        const fs = +t.getAttribute('font-size');
+        return +t.getAttribute('y') - 0.75 * fs;
+    })"""
+    assert line_of(page).evaluate(band) and min(line_of(page).evaluate(band)) >= 0
+    assert line_of(page).evaluate(CROSSES)["crossings"] == 0
+    paper = printed(browser, server, sheet_id(page))
+    assert min(paper.locator(".zahlenstrahl").evaluate(band)) >= 0
+    assert_clear(paper)
+    paper.context.close()
+
+
 def test_size_24_arrow_number_stays_clear_of_its_stub(editor):
     """Own: at 24 pt the arrow's number still ends above its stub."""
     props = {**PROPS, "tasks": "free", "boxes": 0, "size": 24, "marks": [[5, "arrow"]]}

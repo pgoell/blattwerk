@@ -254,4 +254,10 @@ describe("arrowXs puts the arrow numbers over the gaps", () => {
     expect(arrowXs(2, 1, 120)).toEqual([LEFT + (120 - LEFT - RIGHT) / 3, LEFT + (2 * (120 - LEFT - RIGHT)) / 3]);
     expect(arrowXs(1, 0, 120)).toEqual([LEFT + (120 - LEFT - RIGHT) / 2]);
   });
+
+  it("a tie between two gaps snaps to the lower one", () => {
+    // One arrow on 0 to 20 at 180 mm: the even spot is tick 10, equally near gaps 9 and 10.
+    const [x] = arrowXs(1, 21, 180);
+    expect(x).toBeCloseTo((xOf(9, 21, 180) + xOf(10, 21, 180)) / 2, 9);
+  });
 });
