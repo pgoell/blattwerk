@@ -508,6 +508,10 @@ body:has(.print) { background: #fff; }
    are, so its left line reaches the last of them. A line is the one pixel that Chromium prints: it rounds the
    quarter millimetre of --edge up to that, and Safari on a sharp screen would round it down to half a pixel. */
 .block .table { display: grid; min-height: min-content; border: 0 solid; border-width: 1px 0 0 1px; }
+/* A table with the new line keys draws its lines in svgs over the cells: the borders keep their pixel and lose their ink. */
+.block .table.edged { position: relative; border-color: transparent; }
+.table.edged > div, .table.edged > .bank { border-color: transparent; }
+.table > svg.edge { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .table > div { display: flex; min-width: 0; min-height: calc(1lh + .3em + var(--edge)); overflow: hidden; padding: .15em .3em; border: 0 solid; border-color: inherit; border-width: 0 1px 1px 0; }
 .block .table p { position: relative; flex: 1; min-width: 0; margin: auto 0; line-height: inherit; white-space: pre-wrap; overflow-wrap: break-word; overflow: visible; }
 /* The field lies over the text of its cell, which keeps the room. */

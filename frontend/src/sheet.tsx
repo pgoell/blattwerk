@@ -2,12 +2,13 @@
 import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
-import { type Lines } from "./edges";
+import { edged, linesOf, type Lines, type Pen } from "./edges";
 import { cellEntries, entries, shuffled } from "./bank";
 import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { decimal, GAP } from "./decimal";
+import { Scissors } from "lucide-react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -1519,9 +1520,29 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
   const heights = heightsOf(block.props);
+  // A table with one of the new keys draws its lines in svgs laid over the cells, so the borders of the cells go
+  // transparent: they keep their pixel in the layout and only the ink goes. An old table gets none of this.
+  const styled = edged(block.props);
+  const lineAt = linesOf(block.props);
+  const plain = linesOf({ ...block.props, edges: undefined })("v", 0, 0);
+  // One line of the grid, from one end to the other. A dashed or dotted line is drawn from each end to its middle,
+  // so that the dashes start fresh at both ends and every corner gets a piece of dash from each side.
+  const rim = (side: string, pen: Pen, [a, b, mid]: string[][]) => {
+    if (pen.style === "none") return null;
+    const w = pen.width * k;
+    const pieces = pen.style === "solid" ? [[a, b]] : [[a, mid], [b, mid]];
+    const dashes = pen.style === "dashed" ? { strokeDasharray: `${3 * w} ${4 * w}`, strokeDashoffset: 1.5 * w } : pen.style === "dotted" ? { strokeDasharray: `0 ${2.5 * w}` } : {};
+    return pieces.map(([p, q], i) => (
+      <line key={i} data-side={side} data-style={pen.style} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={line} strokeWidth={w} strokeLinecap={pen.style === "dotted" ? "round" : "square"} {...dashes} />
+    ));
+  };
+  const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
+  const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
+  const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
+  const RIGHT = [["100%", "0"], ["100%", "100%"], ["100%", "50%"]];
   const style = {
     ...textStyle({ text: "", ...block.props }, k),
-    borderColor: line,
+    borderColor: styled ? "transparent" : line,
     gridTemplateColumns: cols.map((c) => `minmax(0, ${c}fr)`).join(" "),
     ...(heights && { gridTemplateRows: heights.map((h) => `minmax(${h * k}px, auto)`).join(" ") }),
     "--edge": `${0.25 * k}px`,
@@ -1547,7 +1568,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     return r >= area[0] && r <= area[2] && c >= area[1] && c <= area[3];
   };
   return (
-    <div className={classes("table", tints && "tinted", solved && "solved", width && "even")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
+    <div className={classes("table", tints && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
       {cells.flat().map((text, i) => {
         const span = anchors.get(i);
         if (covered.has(i)) return null;
@@ -1559,6 +1580,26 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       })}
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
+      {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
+      {styled && cells.flatMap((_, r) => cols.map((_c, c) => (
+        <svg key={`e${r}-${c}`} className="edge" data-edge={r * cols.length + c} style={{ gridRow: r + 1, gridColumn: c + 1 }}>
+          <g transform="translate(-0.5 -0.5)">
+            {rim("top", lineAt("h", r, c), TOP)}
+            {rim("left", lineAt("v", r, c), LEFT)}
+            {r === cells.length - 1 && rim("bottom", lineAt("h", r + 1, c), BOTTOM)}
+            {c === cols.length - 1 && rim("right", lineAt("v", r, c + 1), RIGHT)}
+            {r === 0 && c === 0 && block.props.cut === true && <Scissors size={4 * k} x={-4.5 * k} y={-2 * k} color={line} className="scissors" />}
+          </g>
+        </svg>
+      )))}
+      {/* The box of solution words takes the table's style on its left, right and bottom: its top is the table's bottom. */}
+      {styled && words.length > 0 && (
+        <svg className="edge" data-edge="bank" style={{ gridRow: cells.length + 1, gridColumn: "1 / -1" }}>
+          {rim("left", plain, LEFT)}
+          {rim("right", plain, RIGHT)}
+          {rim("bottom", plain, BOTTOM)}
+        </svg>
+      )}
     </div>
   );
 }
