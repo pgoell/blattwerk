@@ -3,6 +3,8 @@
 The docstrings name what each test proves. The drawing is tested with the model.
 """
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
@@ -193,11 +195,37 @@ def test_arc_labels_are_stored_and_empty_text_stores_null(editor):
     assert props_of(doc(page, client))["arcs"][1] is None
 
 
+def test_a_label_of_an_arc_a_shorter_line_hides_stays(editor):
+    """Found by the review of #570: on 0 to 25 two of five arcs show; typing into "Bogen 1" kept
+    only the labels of the arcs shown, so the fifth was lost when the line grew back."""
+    client = user()
+    labels = ["a", None, None, None, "fünf"]
+    short = {**STRAHL, "end": 25, "jumps": True, "jump": 10, "arcs": labels}
+    page = editor(zs("z", short), client=client)
+    pick(page, "z")
+    step(page, lambda: field(page, "Bogen 1").fill("b"))
+    assert props_of(doc(page, client))["arcs"] == ["b", None, None, None, "fünf"]
+
+
+def test_a_small_step_that_breaks_the_long_step_stores_the_long_step_shown(editor):
+    """Found by the review of #570: small step 10 under a long step 5 showed 50 long in the panel
+    but kept 5 stored."""
+    client = user()
+    page = editor(zs("z", {**STRAHL, "end": 100}), client=client)
+    pick(page, "z")
+    number = field(page, "Schritt kleine Striche")
+    step(page, lambda: (number.press("Control+a"), number.press_sequentially("10")))
+    stored = props_of(doc(page, client))
+    assert (stored["minor"], stored["major"]) == (10, 50)
+    expect(field(page, "Schritt lange Striche")).to_have_value("50")
+
+
 def test_more_than_200_ticks_show_a_hint_instead_of_the_buttons(editor):
     """Own case: 300 ticks in "Selbst wählen" give a hint and no "Strich" buttons."""
     page = editor(zs("z", {**STRAHL, "tasks": "free", "end": 300}))
     pick(page, "z")
-    expect(hint(page)).to_have_count(1)
+    # The review of #570: this counted the 1 mm warning, not the hint of its own.
+    expect(page.locator(".panel p.hint[data-hint=many]")).to_have_text(re.compile("Mehr als 200"))
     expect(page.locator(".panel").get_by_role("button", name="Strich 1", exact=True)).to_have_count(
         0
     )

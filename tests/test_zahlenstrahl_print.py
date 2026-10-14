@@ -207,6 +207,24 @@ def test_a_large_first_number_is_not_cut_off(editor):
     assert line_of(page).locator("svg").evaluate("s => getComputedStyle(s).overflow") == "visible"
 
 
+def test_the_keys_number_fits_its_box_at_24_pt(editor, browser, server):
+    """Found by the review of #570: the box was 6 mm high at any font size, so a number of 24 pt
+    spilled out of it in the answer key."""
+    client = user()
+    big = {**PROPS, "start": 340, "end": 360, "size": 24, "boxes": 2}
+    page = editor(box("z", "zahlenstrahl", big, w=180, h=40), client=client)
+    paper = key_print(browser, server, sheet_id(page))
+    fits = paper.locator(".zahlenstrahl g.box").evaluate_all(
+        """gs => gs.map(g => {
+            const r = g.querySelector('rect').getBBox(), t = g.querySelector('text').getBBox();
+            return t.x >= r.x && t.x + t.width <= r.x + r.width
+                && t.y >= r.y - 0.5 && t.y + t.height <= r.y + r.height + 0.5;
+        })"""
+    )
+    paper.context.close()
+    assert fits == [True, True]
+
+
 def test_labels_ends_shows_only_the_first_and_the_last_number(editor):
     """Own: labels "ends" with no tasks shows the numbers 0 and 20 and no other."""
     page = editor(

@@ -38,7 +38,9 @@ describe("xOf spreads the ticks", () => {
         expect(xOf(0, n, w)).toBe(LEFT);
         expect(xOf(n - 1, n, w)).toBeCloseTo(w - RIGHT, 9);
         const gap = (w - LEFT - RIGHT) / (n - 1);
-        for (let i = 0; i < n; i++) expect(xOf(i, n, w)).toBeCloseTo(LEFT + i * gap, 9);
+        // One expect per run, not per tick: 50000 of them passed the 5 s limit on a loaded runner.
+        const off = Math.max(...Array.from({ length: n }, (_, i) => Math.abs(xOf(i, n, w) - (LEFT + i * gap))));
+        expect(off).toBeLessThan(1e-9);
       }),
     );
   });

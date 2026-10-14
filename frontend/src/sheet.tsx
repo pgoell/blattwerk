@@ -1963,9 +1963,12 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
         {ticks.map((t, i) => {
           const x = xOf(i, ticks.length, w);
           const reach = t.long ? 3 : 1.5;
-          const bw = Math.max(8, 4 + 2.5 * String(t.value).length);
-          // A box that would cover a number shown beside it goes one row lower: Andika's digits are about 0.55 em.
-          const covers = ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+          // Room for the number at the numbers' size: Andika's digits are about 0.55 em.
+          const bw = Math.max(8, 3 + String(t.value).length * 0.6 * FS);
+          // Andika's line box is about 1.55 em high.
+          const bh = Math.max(6, 1.6 * FS);
+          // A box that would cover a number shown beside it goes one row lower.
+          const covers = t.task === "box" && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
           // A number's line box is about 1.35 em high.
           const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
           return (
@@ -1977,9 +1980,9 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
               {t.task === "box" && (
                 <g className="box">
                   {covers && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
-                  <rect x={x - bw / 2} y={top} width={bw} height={6} fill="none" stroke="#222" strokeWidth={0.3} />
+                  <rect x={x - bw / 2} y={top} width={bw} height={bh} fill="none" stroke="#222" strokeWidth={0.3} />
                   {solved && (
-                    <text className="answer" x={x} y={top + 3} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
+                    <text className="answer" x={x} y={top + bh / 2} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
                   )}
                 </g>
               )}

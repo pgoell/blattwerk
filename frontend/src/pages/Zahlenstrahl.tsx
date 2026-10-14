@@ -46,7 +46,12 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
   // Whether `sane` takes the number as it is, so the stored value is the typed one.
   const takes = (name: keyof ZahlenstrahlProps) => (v: number) => sane({ ...p, [name]: v, ...(name === "start" && { end: MAX }) })[name] === v;
   // A start at or past the end takes the end along to start + 20, as `sane` does: 340 typed into 0 to 20 gives 340 to 360.
-  const moveStart = (props: Partial<ZahlenstrahlProps>, key?: string) => {
+  // A small step the long step is no multiple of stores the long step the line then draws, so the field shows what is stored.
+  const moveMinor = (props: Partial<ZahlenstrahlProps>, key?: string) => {
+    const minor = props.minor!;
+    apply(p.major % minor === 0 ? { minor } : { minor, major: sane({ ...p, minor }).major }, key);
+  };
+  const moveStart =(props: Partial<ZahlenstrahlProps>, key?: string) => {
     const start = props.start!;
     apply(start < p.end ? { start } : { start, end: Math.min(start + 20, MAX) }, key);
   };
@@ -63,7 +68,7 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
       <h2>Zahlenstrahl</h2>
       <Whole label="Anfang" name="start" value={p.start} ok={takes("start")} apply={moveStart} />
       <Whole label="Ende" name="end" value={p.end} ok={takes("end")} apply={apply} />
-      <Whole label="Schritt kleine Striche" name="minor" value={p.minor} ok={takes("minor")} apply={apply} />
+      <Whole label="Schritt kleine Striche" name="minor" value={p.minor} ok={takes("minor")} apply={moveMinor} />
       <Whole label="Schritt lange Striche" name="major" value={p.major} ok={takes("major")} apply={apply} />
       <select aria-label="Zahlen" value={p.labels} onChange={(e) => apply({ labels: e.target.value as ZahlenstrahlProps["labels"] })}>
         {Object.entries(LABELS).map(([labels, text]) => (
@@ -108,7 +113,7 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
       )}
       {p.tasks === "free" &&
         (count(p) > 200 ? (
-          <p className="hint">Mehr als 200 Striche: Größeren Schritt wählen, dann lassen sich die Aufgaben setzen.</p>
+          <p className="hint" data-hint="many">Mehr als 200 Striche: Größeren Schritt wählen, dann lassen sich die Aufgaben setzen.</p>
         ) : (
           <div className="strahl">
             {m.ticks.map((t) => (
@@ -144,7 +149,8 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
               placeholder={`+${p.jump ?? p.major}`}
               value={p.arcs?.[i] ?? ""}
               onChange={(e) => {
-                const arcs = Array.from({ length: Math.max(m.arcs.length, i + 1) }, (_, j) => (j === i ? e.target.value || null : (p.arcs?.[j] ?? null)));
+                // As long as the stored labels at least: those of arcs a shorter line hides now come back with it.
+                const arcs = Array.from({ length: Math.max(p.arcs?.length ?? 0, i + 1) },(_, j) => (j === i ? e.target.value || null : (p.arcs?.[j] ?? null)));
                 apply({ arcs }, `arc:${i}`);
               }}
             />
