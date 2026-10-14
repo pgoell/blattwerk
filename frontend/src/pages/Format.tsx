@@ -12,7 +12,7 @@ import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
-import { filled, room, short } from "../words";
+import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
 import { rectOf, spanAt, widthsOf, type Rect } from "../cells";
@@ -227,7 +227,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // The mode the Lineaturen take the Lernwörter in, when every picked one takes them; else none.
   const mode = rulings.length > 0 && rulings.every((b) => listOf(b)) ? listOf(rulings[0]) : undefined;
   // How many words of the list the most crowded Lineatur cannot show.
-  const n = Math.max(0, ...rulings.map((b) => short(b, words)));
+  const n = unshown(rulings, words);
   const tables = of("table");
   // The pen starts at the first table's lines each time a cell opens.
   const open = cell !== undefined;

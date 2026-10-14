@@ -1,6 +1,6 @@
 // The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
 // Lernwörter page. Pure functions, so the editor and the tests share them.
-import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
+import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, startOf, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -21,8 +21,23 @@ export function filled(b: RulingBlock, W: number, H: number): Partial<Box> {
   return tall(b, round(Math.max(1, Math.floor(most / RULINGS[kindOf(b.props.kind)].row + 0.05)) * RULINGS[kindOf(b.props.kind)].row));
 }
 
-// The words a linked block does not show: a row holds one word, so the rest are cut off.
-export const short = (b: RulingBlock, words: string[]): number => (listOf(b) ? Math.max(0, words.length - rowsOf(b)) : 0);
+// The words a linked block does not show: a row holds one word, so the rest are cut off. A run-on block shows from its `from`.
+export const short = (b: RulingBlock, words: string[]): number => (listOf(b) ? Math.max(0, words.length - startOf(b) - rowsOf(b)) : 0);
+
+// The most words of the list that no block of one mode on the sheet shows. A run-on page's block covers the words
+// its earlier page's block cannot, so only words that every block of a mode misses count as cut off.
+export function unshown(blocks: RulingBlock[], words: string[]): number {
+  let most = 0;
+  for (const mode of new Set(blocks.map(listOf))) {
+    if (!mode) continue;
+    const seen = new Set<number>();
+    for (const b of blocks.filter((o) => listOf(o) === mode)) {
+      for (let i = startOf(b); i < Math.min(words.length, startOf(b) + rowsOf(b)); i++) seen.add(i);
+    }
+    most = Math.max(most, words.length - seen.size);
+  }
+  return most;
+}
 
 // A block takes the list in `mode`. An unlinked block that is free to grow gets a row for each word, up to the
 // most the page leaves it when filled, and never fewer rows than it has. A linked block only changes its mode.
@@ -41,10 +56,13 @@ export function linked(b: RulingBlock, mode: ListMode, words: string[], W: numbe
 export function loose(b: RulingBlock, words: string[]): RulingBlock {
   const mode = listOf(b);
   if (!mode) return b;
-  const props: RulingBlock["props"] = { ...b.props, text: words.join("\n") };
+  // A run-on block keeps only the words it shows.
+  const own = b.props.from === undefined ? words : words.slice(startOf(b), startOf(b) + rowsOf(b));
+  const props: RulingBlock["props"] = { ...b.props, text: own.join("\n") };
   delete props.list;
   delete props.trace;
   delete props.folds;
+  delete props.from;
   if (mode !== "copy" && mode !== "fold") props.trace = true;
   return { ...b, props };
 }
@@ -86,7 +104,9 @@ export function landed(blocks: Block[], from: unknown, doc: Doc): { blocks: Bloc
 // The blocks of a ready Lernwörter sheet: a heading, a name line, and three rulings that take the list in copy,
 // trace and row. Each ruling is as tall as the room of a third of the page, or as many rows as there are words.
 type Fresh = Omit<Block, "id" | "z" | "locked">;
-export function blatt(words: string[], W: number, H: number): Fresh[] {
+// A list longer than one page's rows runs on: each further page holds the three rulings again, each from the word
+// after the last one shown, and no heading. A short list gives one page, as before.
+export function blatt(words: string[], W: number, H: number): Fresh[][] {
   const x = MARGIN;
   const w = W - 2 * MARGIN;
   // The room for the three rulings, with a gap of 6 mm between them.
@@ -94,16 +114,23 @@ export function blatt(words: string[], W: number, H: number): Fresh[] {
   // The first Lineatur that gives every word its own row in a third, else the lines.
   const kind: Ruling = (["l2", "l3", "l4", "lines"] as Ruling[]).find((k) => Math.floor(third / RULINGS[k].row) >= words.length) ?? "lines";
   const { row } = RULINGS[kind];
-  const rows = Math.max(1, Math.min(words.length, Math.floor(third / row)));
-  let y = MARGIN + 32;
-  const rulings = (["copy", "trace", "row"] as ListMode[]).map((list) => {
-    const block = { type: "ruling" as const, x, y, w, h: rows * row, props: { kind, color: "#222222", list } };
-    y += rows * row + 6;
-    return block;
+  const perPage = Math.max(1, Math.floor(third / row));
+  const pages = Math.max(1, Math.ceil(words.length / perPage));
+  return Array.from({ length: pages }, (_, p): Fresh[] => {
+    const first = p * perPage;
+    const rows = Math.max(1, Math.min(perPage, words.length - first));
+    const from = p > 0 ? { from: first } : {};
+    let y = p === 0 ? MARGIN + 32 : MARGIN;
+    const rulings = (["copy", "trace", "row"] as ListMode[]).map((list): Fresh => {
+      const block = { type: "ruling" as const, x, y, w, h: rows * row, props: { kind, color: "#222222", list, ...from } };
+      y += rows * row + 6;
+      return block;
+    });
+    if (p > 0) return rulings;
+    return [
+      { type: "text", x, y: MARGIN, w, h: 12, props: { text: "Lernwörter", size: 20, align: "left", bold: true } },
+      { type: "name", x, y: MARGIN + 16, w, h: 10, props: {} },
+      ...rulings,
+    ];
   });
-  return [
-    { type: "text", x, y: MARGIN, w, h: 12, props: { text: "Lernwörter", size: 20, align: "left", bold: true } },
-    { type: "name", x, y: MARGIN + 16, w, h: 10, props: {} },
-    ...rulings,
-  ];
 }

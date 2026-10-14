@@ -72,7 +72,13 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // again and again to the row's end. "fold" is the Knickblatt: each word at its row's start, cut at the first column,
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string } };
+// `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string } };
+// The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
+export const startOf = (b: RulingBlock): number => {
+  const from = b.props.from ?? 0;
+  return Number.isInteger(from) && from >= 0 ? from : 0;
+};
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
@@ -1440,7 +1446,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const folds = foldsOf(block);
   const first = at ? block.w / (folds + 1) : Math.max(1, Math.floor(cols / (folds + 1))) * row;
   const plain = mode === "copy" || fold;
-  const shown = words.slice(0, rows);
+  const shown = words.slice(startOf(block), startOf(block) + rows);
   const cut = (word: string) => [...word].slice(0, fold ? Math.round(first / row) : cols).join("");
   // On Karo a row of the list is its word, cut to the squares, and in "row" as often as whole words fit.
   const karo = mode === "row"

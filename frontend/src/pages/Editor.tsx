@@ -96,8 +96,8 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, short } from "../words";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PT, Paper, RULINGS, ScoreInput, Words, bandOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -550,7 +550,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The sheet's Lernwörter, the same list until the sheet's own changes.
   const learnt = useMemo(() => wordsIn(hist.doc), [hist.doc.words]);
   // How many of them the most crowded Lineatur of the sheet cannot show.
-  const crowded = Math.max(0, ...pages.flatMap((p) => p.blocks.map((b) => (b.type === "ruling" ? short(b, learnt) : 0))));
+  const crowded = unshown(pages.flatMap((p) => p.blocks).filter((b): b is RulingBlock => b.type === "ruling"), learnt);
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
   const { blocks } = pages[page];
@@ -1196,17 +1196,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // that page instead. Its size is the sheet's, or the empty page's own.
   function addBlatt() {
     const n = page;
-    if (live.current.doc.pages[n].blocks.length === 0) {
-      const [w, h] = sizeOf(live.current.doc, n);
-      const fill = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
-      turn((p) => ({ ...p, blocks: fill }), "", n);
+    const empty = live.current.doc.pages[n].blocks.length === 0;
+    const [w, h] = empty ? sizeOf(live.current.doc, n) : live.current.doc.landscape ? [297, 210] : [210, 297];
+    // One undo step for every page of the Blatt: the first fills the empty page or comes after the page in use, the rest follow it.
+    const [first, ...rest] = blatt(learnt, w, h).map((page) => page.map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block));
+    if (empty) {
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n), { blocks: first }, ...rest.map((blocks) => ({ blocks })), ...doc.pages.slice(n + 1)] }), "", n);
       setIds([]);
       return;
     }
-    const [w, h] = live.current.doc.landscape ? [297, 210] : [210, 297];
-    const sheetBlocks = blatt(learnt, w, h).map((b, i) => ({ ...b, id: crypto.randomUUID(), z: i + 1, locked: false }) as Block);
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: sheetBlocks }, ...doc.pages.slice(n + 1)] }), "", n + 1);
+      update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: first }, ...rest.map((blocks) => ({ blocks })), ...doc.pages.slice(n + 1)] }), "", n + 1);
       setAt(n + 1);
       setIds([]);
     });
