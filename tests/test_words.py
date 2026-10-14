@@ -846,3 +846,16 @@ def test_a_bad_from_counts_as_none(editor, server):
     store_words(page, client, LONG[:5])
     texts = pdf_pages(server, client, sheet_id(page))
     assert "Wort00" in " ".join(texts)
+
+
+@pytest.mark.parametrize("typed", ["", "Haus\nMaus\nKuh\nEi\nZebra"])
+def test_the_list_draws_no_spelling_lines(editor, typed):
+    """#580: the browser checks no spelling in the list, empty or with words and the focus on it."""
+    page = editor()
+    list_tab(page)
+    words = field(page)
+    words.click()
+    if typed:
+        page.keyboard.type(typed)
+    expect(words).to_have_attribute("spellcheck", "false")
+    assert words.evaluate("e => e.spellcheck") is False

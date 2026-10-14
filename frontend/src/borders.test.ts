@@ -187,6 +187,27 @@ describe("edgesSpliced", () => {
       expect(out.v[i]).toStrictEqual([pen, pen, null, null, null]);
       expect(out.h[i === 0 ? 1 : i].every((edge) => edge === null)).toBe(true);
     }
+    // Below the last row the box round the whole column stays closed: its bottom moves to the new rim (#584 review).
+    expect(edgesSpliced(column, "row", 3, true)!.h[4]).toStrictEqual([pen, null, null, null]);
+  });
+
+  // In a table of one row a box round one cell stays round it, though its sides run the table's full height.
+  it("keeps a box round one cell of a one-row table at that cell when a row is added below", () => {
+    const row = { cells: [["", "", "", ""]], cols: [1, 1, 1, 1] } as unknown as Table;
+    const one = { ...row, edges: drawn(bordered(row, [0, 1, 0, 1], "outer", pen)) } as Table;
+    const out = edgesSpliced(one, "row", 1, true)!;
+    expect(out.h[1]).toStrictEqual([null, pen, null, null]);
+    expect(out.h[2]).toStrictEqual(nulls(4));
+    expect(out.v[1]).toStrictEqual(nulls(5));
+  });
+
+  // A box round the two middle cells of the last row keeps its bottom and takes no side into the new row.
+  it("keeps a box round two cells of the last row at those cells when a row is added below", () => {
+    const two = { ...grid, edges: drawn(bordered(grid, [2, 1, 2, 2], "outer", pen)) } as Table;
+    const out = edgesSpliced(two, "row", 3, true)!;
+    expect(out.h[3]).toStrictEqual([null, pen, pen, null]);
+    expect(out.h[4]).toStrictEqual(nulls(4));
+    expect(out.v[3]).toStrictEqual(nulls(5));
   });
 
   // Found by the review of #568: a line hidden inside a merged cell is not taken into the new row or column.
@@ -203,6 +224,16 @@ describe("edgesSpliced", () => {
     const one = { ...grid, edges: drawn(bordered(grid, [1, 1, 1, 1], "outer", pen)) } as Table;
     for (const i of [1, 2]) expect(edgesSpliced(one, "row", i, true)!.v[i]).toStrictEqual(nulls(5));
     for (const i of [1, 2]) expect(edgesSpliced(one, "col", i, true)!.h.map((list) => list[i])).toStrictEqual(nulls(4));
+  });
+
+  // Issue #584: a box round one cell of the last row stays round that cell. The new row below takes no side of it, and
+  // its bottom is plain; the box's bottom stays under the cell.
+  it("keeps a box round one cell of the last row at that cell when a row is added below", () => {
+    const boxed = { ...grid, edges: drawn(bordered(grid, [2, 1, 2, 1], "outer", pen)) } as Table;
+    const out = edgesSpliced(boxed, "row", 3, true)!;
+    expect(out.h[3]).toStrictEqual([null, pen, null, null]);
+    expect(out.h[4]).toStrictEqual(nulls(4));
+    expect(out.v[3]).toStrictEqual(nulls(5));
   });
 
   it("runs a thick line across the table on through a new column", () => {

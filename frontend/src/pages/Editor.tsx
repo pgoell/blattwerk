@@ -107,8 +107,8 @@ import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
-import { DEFAULTS as DREIECK } from "../rechendreieck";
-import { DEFAULTS as STRAHL } from "../zahlenstrahl";
+import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
+import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
 
@@ -1063,7 +1063,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const on = e.target as Element;
       if (!e.ctrlKey && !e.metaKey) {
         // The hand lies over the desk, so a wheel on it scrolls the desk from here.
-        if (on.closest(".hand")) desk.current!.scrollBy(e.deltaX, e.deltaY);
+        if (on.closest(".hand")) {
+          steer();
+          desk.current!.scrollBy(e.deltaX, e.deltaY);
+        }
         return;
       }
       e.preventDefault();
@@ -1293,7 +1296,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function style(type: Block["type"], props: object, key?: string) {
     if (type === "table" || key === "words") tight.current = true;
-    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === type ? ({ ...b, props: { ...b.props, ...fresh(b, props) } } as Block) : b)), key);
+    change(
+      (bs) =>
+        bs.map((b) => {
+          if (!ids.includes(b.id) || b.type !== type) return b;
+          const next = { ...b, props: { ...b.props, ...fresh(b, props) } } as Block;
+          return { ...next, ...grown(b, next) } as Block;
+        }),
+      key,
+    );
+  }
+  // A maths block grows downward when a change in its panel needs more room, to the page's foot at most, in the same
+  // undo step; it never shrinks by itself. A Zahlenstrahl grows by what its line rises, so the line keeps its place.
+  function grown(b: Block, next: Block): Partial<Box> {
+    const foot = Math.max(b.h, H - b.y);
+    if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
+      const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
+      if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
+    }
+    // A Rechendreieck grows so that its triangles keep the size of the default block's.
+    if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
+      const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
+      if (need > b.h) return tall(b, need);
+    }
+    return {};
   }
   // The text typed into a ruling is set, and in the same change the block grows by whole rows when the text needs more
   // rows than it has. A Karo needs the rows of its squares. A Lineatur's field scrolls past its last row, so its
@@ -1466,6 +1492,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // On another page than before nothing is selected, and a crop ends with the picture as it was.
   function show(n: number, step: (h: typeof hist) => typeof hist) {
     mergeKey.current = "";
+    [steered.current, scrollHeld.current, lagged.current] = [0, false, false];
     flushSync(() => {
       setHist(step);
       setAt(n);
@@ -1500,6 +1527,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function visit(n: number) {
     done();
+    [steered.current, scrollHeld.current, lagged.current] = [0, false, false];
     flushSync(() => {
       setAt(n);
       setIds([]);
@@ -1638,6 +1666,36 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const on = n === undefined ? sheet.current! : desk.current!.querySelector(`[data-page="${n}"]`)!;
     return (desk.current!.getBoundingClientRect().top + down - on.getBoundingClientRect().top) / k;
   };
+  // The page that fills most of the desk's view becomes the page in use when the teacher scrolls the desk (the wheel,
+  // a finger, its scroll bar), so a new block lands where the teacher looks. A scroll the editor makes itself, to
+  // show a page or a block, or a zoom with Ctrl and the wheel, leaves the page in use as it is.
+  // `steered` is the time until which a scroll counts as the teacher's; `scrollHeld` holds while the scroll bar is held.
+  // A text being typed keeps its page; `lagged` says the view moved meanwhile, and the page in view is in use once the
+  // text closes.
+  const steered = useRef(0);
+  const scrollHeld = useRef(false);
+  const lagged = useRef(false);
+  const steer = (ms = 500) => (steered.current = performance.now() + ms);
+  function follow() {
+    if (performance.now() > steered.current && !scrollHeld.current) return;
+    if (editing) lagged.current = true;
+    else inView();
+  }
+  useEffect(() => {
+    if (editing || !lagged.current) return;
+    lagged.current = false;
+    inView();
+  }, [editing]);
+  function inView() {
+    const view = desk.current!.getBoundingClientRect();
+    let [best, most] = [page, 0];
+    for (const el of desk.current!.querySelectorAll<HTMLElement>("[data-page]")) {
+      const r = el.getBoundingClientRect();
+      const shown = (Math.min(r.right, view.right) - Math.max(r.left, view.left)) * (Math.min(r.bottom, view.bottom) - Math.max(r.top, view.top));
+      if (shown > most) [best, most] = [+el.dataset.page!, shown];
+    }
+    setAt(best);
+  }
 
   // Notes page `was` for what the server sends later, and gives a way to look it up then. The pages may have changed
   // by that time: the page is found where it is now; one changed since is known by a block it still holds, or keeps
@@ -2707,6 +2765,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }, 500);
   }
   function onTouchMove(e: TouchEvent) {
+    // One finger scrolls the desk, and its fling goes on after the lift; two pinch, which keeps the page in use.
+    if (e.touches.length === 1) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
@@ -3228,7 +3288,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         <div
           className="desk"
           ref={desk}
+          onScroll={follow}
+          onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
           onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              scrollHeld.current = true;
+              const let_go = () => {
+                scrollHeld.current = false;
+                window.removeEventListener("pointerup", let_go);
+                window.removeEventListener("pointercancel", let_go);
+              };
+              window.addEventListener("pointerup", let_go);
+              window.addEventListener("pointercancel", let_go);
+            }
             touch.current = e.pointerType === "touch";
             cover.current = moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
@@ -3576,6 +3648,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               if (!panning) return;
               // The button came up where the hand could not see it.
               if (!e.buttons) return setPanning(false);
+              steer();
               desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
               desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
             }}
@@ -3800,6 +3873,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 aria-label="Lernwörter"
                 className="wordlist"
                 rows={10}
+                // The browser's check knows no German on most machines and marks every word (#580).
+                spellCheck={false}
                 placeholder="Ein Wort pro Zeile"
                 ref={listField}
                 value={Array.isArray(hist.doc.words) ? hist.doc.words.filter((w) => typeof w === "string").join("\n") : ""}
