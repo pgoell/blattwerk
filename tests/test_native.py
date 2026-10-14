@@ -103,6 +103,39 @@ ORDER = {
     ),
     # The given fields are the inner ones, so the free choice's buttons are not there. The inputs
     # run in the drawing's order: the top, then the outer left, the outer right, and so on.
+    "zahlenstrahl": (
+        {
+            "start": 2,
+            "end": 20,
+            "minor": 1,
+            "major": 5,
+            "labels": "major",
+            "size": 12,
+            "cut": False,
+            "tasks": "random",
+            "boxes": 3,
+            "arrows": 0,
+            "jumps": False,
+            "seed": 7,
+        },
+        [
+            *START,
+            "Anfang",
+            "Ende",
+            "Schritt kleine Striche",
+            "Schritt lange Striche",
+            "Zahlen",
+            "Schriftgröße",
+            "Bruchstelle",
+            "Aufgaben",
+            "Ein Kästchen weniger",
+            "Ein Kästchen mehr",
+            "Ein Pfeil weniger",
+            "Ein Pfeil mehr",
+            "Neu würfeln",
+            "Sprungbögen",
+        ],
+    ),
     "rechendreieck": (
         {"count": 3, "columns": 2, "max": 20, "given": "inner", "empty": False, "seed": 7},
         [
