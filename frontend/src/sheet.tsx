@@ -1994,7 +1994,8 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
         {arcs.map((a) => {
           const [x1, x2] = [tickX(a.from), tickX(a.to)];
           const rx = (x2 - x1) / 2;
-          const ry = rx * 0.7;
+          // A wide jump stays a flat arc, its label inside the block's room above the line.
+          const ry = Math.min(rx * 0.7, 6);
           return (
             <g key={`${a.from}-${a.to}`} className="arc" data-from={a.from} data-to={a.to}>
               <path d={`M ${x1} ${y - 0.5} A ${rx} ${ry} 0 0 1 ${x2} ${y - 0.5}`} fill="none" stroke="#222" strokeWidth={0.3} />
