@@ -1,7 +1,7 @@
 // The Rechendreieck generator: the triangles hold the rules, the given fields alone fix each one, and the typed numbers come out right.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { FIELDS, SIDES, fixes, made, type RechendreieckProps, type Typed } from "./rechendreieck";
+import { FIELDS, SIDES, fixes, heightFor, made, type RechendreieckProps, type Typed } from "./rechendreieck";
 
 const P = (over: Partial<RechendreieckProps> = {}): RechendreieckProps => ({ count: 4, columns: 4, max: 20, given: "inner", empty: false, seed: 1, ...over });
 
@@ -263,5 +263,26 @@ describe("typed numbers", () => {
     const t = made(P({ seed: 5, count: 1, typed: [[0, 0, 0]] })).triangles[0];
     expect(t.wrong).toBe(false);
     expect(t.numbers[0]).toBe(0);
+  });
+});
+
+describe("the height of a block", () => {
+  it("the default block of 4 in a row fits its 50 mm", () => {
+    expect(heightFor(P({ count: 4, columns: 4 }), 180)).toBeLessThanOrEqual(50);
+  });
+
+  it("12 triangles in the same 4 columns ask about three times the height of 4, the row gaps adding a little", () => {
+    const ratio = heightFor(P({ count: 12, columns: 4 }), 180) / heightFor(P({ count: 4, columns: 4 }), 180);
+    expect(ratio).toBeGreaterThan(2.8);
+    expect(ratio).toBeLessThan(3.4);
+  });
+
+  it("more triangles in the same columns never ask less", () => {
+    const heights = [1, 2, 3, 4, 5, 8, 12].map((count) => heightFor(P({ count, columns: 2 }), 180));
+    expect(heights).toEqual([...heights].sort((a, b) => a - b));
+  });
+
+  it("fewer columns for the same triangles ask more height", () => {
+    expect(heightFor(P({ count: 4, columns: 2 }), 180)).toBeGreaterThan(heightFor(P({ count: 4, columns: 4 }), 180));
   });
 });
