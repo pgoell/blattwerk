@@ -1534,10 +1534,46 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     const w = pen.width * k;
     const pieces = pen.style === "solid" ? [[a, b]] : [[a, mid], [b, mid]];
     const dashes = pen.style === "dashed" ? { strokeDasharray: `${3 * w} ${4 * w}`, strokeDashoffset: 1.5 * w } : pen.style === "dotted" ? { strokeDasharray: `0 ${2.5 * w}` } : {};
+    // The period of the dashes, which `fit` changes so that a whole number of them lies on the edge.
+    const period = pen.style === "dashed" ? 7 * w : 2.5 * w;
     return pieces.map(([p, q], i) => (
-      <line key={i} data-side={side} data-style={pen.style} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={line} strokeWidth={w} strokeLinecap={pen.style === "dotted" ? "round" : "square"} {...dashes} />
+      <line key={i} data-side={side} data-style={pen.style} data-period={period} data-w={w} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke={line} strokeWidth={w} strokeLinecap={pen.style === "dotted" ? "round" : "square"} {...dashes} />
     ));
   };
+  // Each dashed or dotted line gets a whole number of periods along its edge, so that the two halves meet in the
+  // middle of a dash or a gap and no dash is doubled. It reads the sizes the layout already has, and does not change them.
+  const host = useRef<HTMLDivElement>(null);
+  const fit = (el: HTMLElement) => {
+    const zoom = el.getBoundingClientRect().width / el.offsetWidth || 1;
+    for (const svg of el.querySelectorAll<SVGSVGElement>(":scope > svg.edge")) {
+      const across = svg.clientWidth || svg.getBoundingClientRect().width / zoom;
+      const down = svg.clientHeight || svg.getBoundingClientRect().height / zoom;
+      for (const line of svg.querySelectorAll<SVGLineElement>("line[data-period]")) {
+        const side = line.dataset.side;
+        const length = side === "top" || side === "bottom" ? across : down;
+        if (!(length > 0)) continue;
+        const period = Number(line.dataset.period);
+        const w = Number(line.dataset.w);
+        const f = length / (Math.max(1, Math.round(length / period)) * period);
+        if (line.dataset.style === "dashed") {
+          line.setAttribute("stroke-dasharray", `${4 * w * f - w} ${3 * w * f + w}`);
+          line.setAttribute("stroke-dashoffset", String((4 * w * f - w) / 2));
+        } else line.setAttribute("stroke-dasharray", `0 ${2.5 * w * f}`);
+      }
+    }
+  };
+  useLayoutEffect(() => {
+    if (styled && host.current) fit(host.current);
+  });
+  // The sizes change when a font comes in or a row grows, and the fit follows them.
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!styled || !el) return;
+    const watch = new ResizeObserver(() => fit(el));
+    watch.observe(el);
+    el.querySelectorAll(":scope > svg.edge").forEach((svg) => watch.observe(svg));
+    return () => watch.disconnect();
+  }, [styled, cells.length, cols.length]);
   const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
   const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
   const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
@@ -1570,7 +1606,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     return r >= area[0] && r <= area[2] && c >= area[1] && c <= area[3];
   };
   return (
-    <div className={classes("table", tints && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
+    <div ref={host} className={classes("table", tints && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
       {cells.flat().map((text, i) => {
         const span = anchors.get(i);
         if (covered.has(i)) return null;

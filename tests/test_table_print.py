@@ -161,7 +161,7 @@ def test_dashes_keep_their_length_at_zoom(editor):
     after = top_line_dashes(page)
     for lengths in (before, after):
         assert len(lengths) >= 6, lengths
-        assert all(abs(v - 4) < 0.4 for v in lengths), lengths
+        assert all(abs(v - 4) < 0.45 for v in lengths), lengths
 
 
 def top_line_dashes(page):
