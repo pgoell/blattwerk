@@ -132,6 +132,12 @@ export function edgesSpliced(p: Table & { spans?: unknown }, axis: "row" | "col"
       const [a, b] = split(e.h[i], (k) => e.v[i - 1][k], (k) => e.v[i][k]);
       return { h: [...e.h.slice(0, i), a, b, ...e.h.slice(i + 1)], v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     }
+    // Under the last row, a box round some of its cells stays round them: the bottom stays under its row, and a side
+    // comes only where the line runs the table's full height (#584).
+    if (add && i === rows && rows > 0 && !e.h[rows].every((edge) => same(edge, e.h[rows][0]))) {
+      const side = (c: number) => (e.v.every((list) => same(list[c], e.v[rows - 1][c])) ? taken("v", c) : null);
+      return { h: [...e.h, nulls(cols)], v: insert(e.v, rows, Array.from({ length: cols + 1 }, (_, c) => side(c))) };
+    }
     if (add) return { h: insert(e.h, i === 0 ? 1 : i, nulls(cols)), v: insert(e.v, i, Array.from({ length: cols + 1 }, (_, c) => taken("v", c))) };
     return { h: remove(e.h, i === rows - 1 ? i : i + 1), v: remove(e.v, i) };
   }
