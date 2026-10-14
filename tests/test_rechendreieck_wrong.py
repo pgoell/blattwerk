@@ -60,6 +60,22 @@ def test_a_number_above_the_zahlenraum_gives_the_hint(editor):
     expect(hint(page)).to_have_text("Dreieck 1 geht über den Zahlenraum bis 20 hinaus.")
 
 
+def test_one_undo_brings_back_the_inner_numbers_after_a_typed_outer_one(editor):
+    """#560 (PR #565): 159 in an outer box changes the inner numbers the pupils see; one Ctrl+Z
+    after leaving the field brings them back."""
+    page = editor(dz("d", DREIECK))
+    pick(page, "d")
+    names = ["Zahl im Feld innen oben", "Zahl im Feld innen links", "Zahl im Feld innen rechts"]
+    inner = [field(page, n).input_value() for n in names]
+    step(page, lambda: field(page, "Zahl im Feld außen links").fill("159"))
+    expect(hint(page)).to_have_text("Dreieck 1 geht über den Zahlenraum bis 20 hinaus.")
+    assert [field(page, n).input_value() for n in names] != inner
+    page.locator(".panel").get_by_role("heading", name="Rechendreieck", exact=True).click()
+    page.keyboard.press("Control+z")
+    expect(hint(page)).to_have_count(0)
+    assert [field(page, n).input_value() for n in names] == inner
+
+
 def test_a_click_into_a_field_selects_its_whole_number(editor):
     """#560 (PR #565): 19 in a field, a click into it and 5 typed give 5, not 195."""
     client = user()
