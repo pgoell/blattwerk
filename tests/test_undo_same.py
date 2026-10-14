@@ -28,14 +28,10 @@ from ui import (
 # each of the presses below asks for what the block has.
 PLAIN = {"size": 8, "fill": "#ffff00", "stroke": "#222222"}
 CORNER = {"x": 0, "y": 0}
-# The fields for a place and a size, the buttons that put a block in front or behind, and what
-# lines up with the page's left and upper edge: `nth` tells a button from one of the same name
-# before it in the panel.
+# The fields for a place and a size, and what lines up with the page's left and upper edge: `nth`
+# tells a button from one of the same name before it in the panel. The buttons of the order are
+# grey where they would change nothing (test_order.py).
 GEO = [("type", name, 0) for name in ("X", "Y", "Breite", "Höhe", "Drehung")]
-ORDER = [
-    ("press", name, 0)
-    for name in ("Nach vorn", "Nach hinten", "Eine nach vorn", "Eine nach hinten")
-]
 FRAME = [("same", name, 0) for name in ("Füllung", "Transparenz", "Rand", "Randstärke")]
 WORDS = [
     ("same", "Schriftart", 0),
@@ -60,7 +56,7 @@ BAR = [
 # Every control of the panel that can ask for what a block has already, by the block's kind:
 # how it is worked, its name, and which of the buttons of that name it is.
 CONTROLS = {
-    "text": [*GEO, LOCK, *WORDS, ("press", "Links", 0), ("press", "Oben", 0), *FRAME, *ORDER],
+    "text": [*GEO, LOCK, *WORDS, ("press", "Links", 0), ("press", "Oben", 0), *FRAME],
     "shape": [
         *GEO,
         LOCK,
@@ -72,7 +68,6 @@ CONTROLS = {
         ("press", "Horizontal spiegeln", 0),
         ("press", "Vertikal spiegeln", 0),
         *FRAME,
-        *ORDER,
     ],
     "line": [
         *GEO[:2],
@@ -86,7 +81,6 @@ CONTROLS = {
         ("press", "Keine", 1),
         ("press", "Links", 0),
         ("press", "Oben", 0),
-        *ORDER,
     ],
     "picture": [
         *GEO,
@@ -95,7 +89,6 @@ CONTROLS = {
         ("press", "Oben", 0),
         # Crop mode entered and left with the frame as it was.
         ("twice", "Zuschneiden", 0),
-        *ORDER,
     ],
     "table": [
         *GEO[:4],
@@ -111,7 +104,6 @@ CONTROLS = {
         # line, as the border button "Oben" does.
         ("press", "Links", 2),
         ("press", "Oben", 1),
-        *ORDER,
     ],
     "ruling": [
         *GEO,
@@ -121,7 +113,6 @@ CONTROLS = {
         ("press", "Seitenbreite", 0),
         ("press", "Bis Seitenende", 0),
         ("press", "Keine", 0),
-        *ORDER,
     ],
     "maths": [
         *GEO,
@@ -134,7 +125,6 @@ CONTROLS = {
         ("press", "Keine", 1),
         ("press", "Links", 0),
         ("press", "Oben", 0),
-        *ORDER,
     ],
     "group": [
         *GEO[:2],
@@ -143,7 +133,6 @@ CONTROLS = {
         ("press", "Oben", 0),
         ("same", "Füllung", 0),
         ("same", "Rand", 0),
-        *ORDER,
     ],
 }
 CASES = [(kind, *control) for kind, controls in CONTROLS.items() for control in [*controls, *BAR]]
@@ -409,9 +398,8 @@ def test_a_press_that_changes_nothing_keeps_redo(editor):
     page.keyboard.press("Control+z")
     page.keyboard.press("Control+z")
     expect(field(page, "Y")).to_have_value("50")
-    # Nothing to change: the only block is in front, has no number, and lies where it lies.
-    for name in ("Nach vorn", "Keine"):
-        page.get_by_role("button", name=name, exact=True).click()
+    # Nothing to change: the block has no number, and lies where it lies.
+    page.get_by_role("button", name="Keine", exact=True).click()
     work(page, "same", "Art der Lineatur")
     work(page, "type", "X")
     expect(page.get_by_label("Wiederholen", exact=True)).to_be_enabled()
@@ -482,7 +470,6 @@ def test_a_nudge_after_a_press_that_changes_nothing_is_its_own_step(editor):
 GUARDED = [
     # The nudges go down, so the block stays at the left edge.
     ("text", "press", "Links", 1),
-    *(("text", *control) for control in ORDER),
     ("text", "type", "X", 0),
     ("text", "type", "Drehung", 0),
     ("table", "press", "Eine Zeile weniger", 0),
@@ -592,7 +579,6 @@ def test_several_blocks_changed_in_part_are_one_step_and_none_changed_is_none(ed
         ("press", "Oben", 0),
         ("press", "Eckig", 0),
         ("press", "Keine", 0),
-        ("press", "Nach vorn", 0),
     ],
 )
 def test_a_press_that_changes_nothing_while_a_text_is_written_keeps_the_caret(
@@ -650,7 +636,7 @@ def test_a_press_that_changes_nothing_sends_no_save(editor):
         expect(status).to_have_text("Speichert …")
     expect(status).to_have_text("Gespeichert")
     assert len(sent) == 1
-    for name in ("Seitenbreite", "Nach vorn", "Keine"):
+    for name in ("Seitenbreite", "Keine"):
         page.get_by_role("button", name=name, exact=True).click()
         # At once, with no wait: the sheet was never anything else.
         assert status.inner_text() == "Gespeichert"
