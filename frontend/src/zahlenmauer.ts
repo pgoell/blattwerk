@@ -419,6 +419,10 @@ function lay(p: ZahlenmauerProps): Made {
       const j = Math.floor(next() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
+    // Where a 0 may stand (5 base stones bis 10), the rows with at most two come first, in the shuffled order, so a
+    // wall is not mostly 0 and a new seed still gives a new wall.
+    const many = (row: number[]) => (row.filter((v) => v === 0).length > 2 ? 1 : 0);
+    if (lo === 0) list.sort((a, b) => many(a) - many(b));
     rows = list.slice(0, p.count);
   } else {
     rows = [];

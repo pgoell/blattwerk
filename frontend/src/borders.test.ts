@@ -111,6 +111,32 @@ describe("edgesSpliced", () => {
     expect(out.h[2]).toStrictEqual(valid.h[2]);
     expect(out.v.length).toBe(2);
   });
+
+  // Issue #562 (PR #546): a new row or column takes the rim of its neighbour at both ends, so a closed frame stays
+  // closed. Its other new lines are null, as I5 has it.
+  it("gives a row added below the frame's pen at both ends, and null inside", () => {
+    const out = edgesSpliced(sized, "row", 1, true)!;
+    expect(out.v[1]).toStrictEqual([pen, null, null, null, pen]);
+    expect(out.h[1].every((edge) => edge === null)).toBe(true);
+  });
+
+  it("gives a row added at the top the first row's ends, and leaves the line under it null", () => {
+    const out = edgesSpliced(sized, "row", 0, true)!;
+    expect(out.v[0]).toStrictEqual([pen, null, null, null, pen]);
+    expect(out.h[1].every((edge) => edge === null)).toBe(true);
+  });
+
+  it("gives a column added to the right the last column's ends, and null inside", () => {
+    const out = edgesSpliced(sized, "col", 4, true)!;
+    expect(out.h.map((list) => list[4])).toStrictEqual([pen, null, null, pen]);
+    expect(out.v.every((list) => list[4] === null)).toBe(true);
+  });
+
+  it("gives a column added at the left the first column's ends, and leaves the line beside it null", () => {
+    const out = edgesSpliced(sized, "col", 0, true)!;
+    expect(out.h.map((list) => list[0])).toStrictEqual([pen, null, null, pen]);
+    expect(out.v.every((list) => list[1] === null)).toBe(true);
+  });
 });
 
 describe("splices keep the lines", () => {
