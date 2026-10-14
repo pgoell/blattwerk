@@ -110,13 +110,12 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
   const rows = k.v.length;
   const cols = k.h[0].length;
   if (i === 0) return flip(rowAdded(flip(e), flip(k), rows, after));
-  // The grid pen: the raw edge of an inner line whose key more than half of the inner lines have, else null.
-  const inner: [string | null, Edge][] = [
-    ...span(1, rows).flatMap((r) => span(0, cols).map((c): [string | null, Edge] => [k.h[r][c], e.h[r][c]])),
-    ...span(0, rows).flatMap((r) => span(1, cols).map((c): [string | null, Edge] => [k.v[r][c], e.v[r][c]])),
-  ];
-  const hit = inner.find(([key]) => key !== null && inner.filter(([x]) => x === key).length * 2 > inner.length);
-  const G: Edge = hit ? hit[1] : null;
+  // The grid pen: a key that more than half of the inner h lines, and more than half of the inner v lines, have.
+  const majority = (lines: [string | null, Edge][]) => lines.find(([key]) => key !== null && lines.filter(([x]) => x === key).length * 2 > lines.length);
+  const innerH: [string | null, Edge][] = span(1, rows).flatMap((r) => span(0, cols).map((c): [string | null, Edge] => [k.h[r][c], e.h[r][c]]));
+  const innerV: [string | null, Edge][] = span(0, rows).flatMap((r) => span(1, cols).map((c): [string | null, Edge] => [k.v[r][c], e.v[r][c]]));
+  const [hh, vv] = [majority(innerH), majority(innerV)];
+  const G: Edge = hh && vv && hh[0] === vv[0] ? hh[1] : null;
 
   if (i < rows) {
     // The join splits in two. A run goes with the side whose lines across meet its ends in its key, or with the
@@ -156,24 +155,35 @@ function rowAdded(e: Grid<Edge>, k: Grid<string | null>, i: number, after: boole
   const boxed = (c: number) => boxes.some((b) => b.l <= c && c < b.r);
   // A frame of whole columns: full-height sides in the top line's key, on either side of the column.
   const full = (j: number) => k.v.every((list) => list[j] !== null);
-  const framed = (c: number) => {
+  // The frame of column c, as the span [L, R) of columns between its two sides, if the bottom rim shows its key there.
+  const frameOf = (c: number): [number, number] | undefined => {
     const f = k.h[0][c];
-    if (f === null) return false;
+    if (f === null) return undefined;
     const side = (j: number) => full(j) && k.v[0][j] === f;
-    if (rows === 1) return side(0) && side(cols);
-    return span(0, c + 1).reverse().some(side) && span(c + 1, cols + 1).some(side);
+    const L = rows === 1 ? 0 : span(0, c + 1).reverse().find(side);
+    const R = rows === 1 ? cols : span(c + 1, cols + 1).find(side);
+    if (L === undefined || R === undefined || !side(L) || !side(R) || !span(L, R).some((x) => bottom[x] === f)) return undefined;
+    return [L, R];
   };
+  const framed = (c: number) => frameOf(c) !== undefined;
   const uniform = bottom[0] !== null && bottom.every((x) => x === bottom[0]) && boxes.length === 0;
   const moves = (c: number) => !boxed(c) && ((framed(c) && bottom[c] === k.h[0][c]) || uniform);
   const between = Array.from({ length: cols }, (_, c): Edge => (moves(c) ? G : e.h[rows][c]));
   const rim = Array.from({ length: cols }, (_, c): Edge => (moves(c) ? e.h[rows][c] : framed(c) ? e.h[0][c] : null));
-  // The new row's side at j: the sides above it, leaving out a box's sides. Not drawn on any, or no side, G.
+  // The new row's side at j. Beside a frame's side: the key most rows above have, a box's sides left out. Else the one
+  // pen all rows have. Else G, or null where no row is left to ask.
+  const frameAt = (c: number) => (c >= 0 && c < cols ? frameOf(c) : undefined);
   const sides = Array.from({ length: cols + 1 }, (_, j): Edge => {
     const rowsOf = span(0, rows).filter((row) => !boxes.some((b) => (j === b.l || j === b.r) && b.top <= row));
     const keys = rowsOf.map((row) => k.v[row][j]);
-    if (keys.length === 0 || keys.includes(null)) return G;
-    const most = keys.reduce((best, key) => (keys.filter((x) => x === key).length > keys.filter((x) => x === best).length ? key : best));
-    return e.v[rowsOf[keys.indexOf(most)]][j];
+    if ([frameAt(j - 1), frameAt(j)].some((f) => f && (f[0] === j || f[1] === j))) {
+      if (keys.length === 0) return null;
+      const most = keys.reduce((best, key) => (keys.filter((x) => x === key).length > keys.filter((x) => x === best).length ? key : best));
+      return e.v[rowsOf[keys.indexOf(most)]][j];
+    }
+    const all = k.v.map((list) => list[j]);
+    if (all[0] !== null && all.every((x) => x === all[0])) return e.v[0][j];
+    return keys.length === 0 ? null : G;
   });
   return { h: [...e.h.slice(0, rows), between, rim], v: [...e.v, sides] };
 }
