@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_menu import right, run
 from test_order import KINDS, boxes, expect_stack, member, step
-from ui import RECT, at, box, expect_picked, pick, user
+from ui import FIELD, RECT, at, box, expect_picked, pick, unpick, user
 
 
 def key(page, name):
@@ -25,8 +25,6 @@ def test_a_bracket_steps_every_kind(editor, kind):
         return
     # The block "a" alone, with three blocks above it to step past.
     a = {k: v for k, v in member(kind, client).items() if k != "group"}
-    # A line of no height has no box to click: give it one.
-    a = {**a, "h": 20} if kind == "line" else a
     page = editor(
         a,
         box("b", "shape", RECT, z=2, x=110, y=20, w=80),
@@ -34,7 +32,10 @@ def test_a_bracket_steps_every_kind(editor, kind):
         box("d", "shape", RECT, z=4, x=110, y=110, w=80),
         client=client,
     )
-    pick(page, "a")
+    # A flat line has no box to click: Tab with nothing picked picks the block at the back.
+    unpick(page)
+    key(page, "Tab")
+    expect_picked(page, "a")
     key(page, "Control+BracketRight")
     expect_stack(page, "bacd")
     key(page, "Control+BracketLeft")
@@ -93,6 +94,9 @@ def test_the_keys_do_nothing_while_writing(editor):
     pick(page, "a")
     page.keyboard.press("Enter")
     key(page, "Control+BracketRight")
+    # A letter after it shows the key has been through, and the text is still open.
+    page.keyboard.type("x")
+    expect(page.locator(FIELD)).to_have_text("x")
     expect_stack(page, "abc")
 
 
