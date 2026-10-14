@@ -107,7 +107,7 @@ import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
-import { DEFAULTS as DREIECK } from "../rechendreieck";
+import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
@@ -1310,6 +1310,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
       const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
+    }
+    // A Rechendreieck grows so that its triangles keep the size of the default block's.
+    if (b.type === "rechendreieck" && next.type === "rechendreieck") {
+      const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
+      if (need > b.h) return tall(b, need);
     }
     return {};
   }
