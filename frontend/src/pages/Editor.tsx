@@ -399,7 +399,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useEffect(() => {
     if (idKey) setTab((now) => (now === "Lernwörter" ? "Format" : now));
   }, [idKey]);
-  // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
   // The panel's lock: a new width sets the height to match, in its fields and on the handles.
