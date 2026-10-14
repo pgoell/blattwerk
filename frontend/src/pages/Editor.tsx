@@ -3800,6 +3800,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 aria-label="Lernwörter"
                 className="wordlist"
                 rows={10}
+                // The browser's check knows no German on most machines and marks every word (#580).
+                spellCheck={false}
                 placeholder="Ein Wort pro Zeile"
                 ref={listField}
                 value={Array.isArray(hist.doc.words) ? hist.doc.words.filter((w) => typeof w === "string").join("\n") : ""}
