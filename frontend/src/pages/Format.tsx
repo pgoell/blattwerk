@@ -788,7 +788,7 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
 const solutions = (b: Block) => (b.type === "table" ? cellEntries(b.props.cells, b.props.gaps) : entries(parasOf(boxed(b)!)));
 
 // The sheet's Lernwörter for a text or a shape: as its own text or as the list, in 1 to 4 columns, with letters hidden as
-// gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew.
+// gaps in one of three ways. Each switch is on only when all the picked ones have it. "Neu wählen" picks the hidden letters anew, in "one" only: the other two modes do not depend on the seed.
 function Fed({ sel, words, toList, look, link, feed }: Pick<Props, "sel" | "words" | "toList" | "look" | "link" | "feed">) {
   const held = sel.flatMap((b) => {
     const p = boxed(b);
@@ -827,16 +827,18 @@ function Fed({ sel, words, toList, look, link, feed }: Pick<Props, "sel" | "word
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => {
-                  const seed = seedOf(held[0].holeSeed);
-                  const shown = words.map((w) => ({ seed, show: (s: number) => holed(w, mode, s).map((run) => (run.gap ? "_" : run.text)).join("") }));
-                  const next = draw(shown);
-                  if (moves(shown, next)) feed({ holeSeed: next }, "holesPick");
-                }}
-              >
-                Neu wählen
-              </button>
+              {mode === "one" && (
+                <button
+                  onClick={() => {
+                    const seed = seedOf(held[0].holeSeed);
+                    const shown = words.map((w) => ({ seed, show: (s: number) => holed(w, mode, s).map((run) => (run.gap ? "_" : run.text)).join("") }));
+                    const next = draw(shown);
+                    if (moves(shown, next)) feed({ holeSeed: next }, "holesPick");
+                  }}
+                >
+                  Neu wählen
+                </button>
+              )}
             </>
           )}
         </>
