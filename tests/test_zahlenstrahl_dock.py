@@ -45,6 +45,25 @@ ZAHLENSTRAHL = {
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},
         ),
         ("Zahlenstrahl", "zahlenstrahl", ZAHLENSTRAHL),
+        (
+            "Hunderterfeld",
+            "hunderterfeld",
+            {
+                "look": "tafel",
+                "from": 1,
+                "show": "all",
+                "hide": 20,
+                "tint": "none",
+                "times": 2,
+                "line": 1,
+                "color": 1,
+                "cut": False,
+                "shape": [34, 43, 44, 45, 54],
+                "given": 44,
+                "fill": "count",
+                "dots": 0,
+            },
+        ),
     ],
 )
 def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, kind, defaults):
