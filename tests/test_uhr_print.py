@@ -7,8 +7,9 @@ words; the tests read the svg's lines and texts, on the screen and in the print.
 import pytest
 from pixels import LIMITS, measures, over, screen_and_print
 from test_feed_print import printed, sheet_id
+from test_gaps import step
 from test_suchsel_print import key_print
-from ui import at, box, sheet, user
+from ui import at, box, pick, sheet, user
 
 PROPS = {
     "numbers": "all",
@@ -234,3 +235,44 @@ def test_with_the_ring_the_hour_hand_ends_short_of_its_numbers(editor, browser, 
             )
             assert length + width / 2 < inner, (length, width, inner)
     paper.context.close()
+
+
+NACH = ["viertel nach drei", "viertel vor vier", "viertel vor vier"]
+VIERTEL = ["viertel vier", "dreiviertel vier", "dreiviertel vier"]
+
+
+def test_the_time_words_follow_the_form_on_the_sheet_and_in_the_key(editor, browser, server):
+    """Form nach says viertel nach drei and viertel vor vier; Form viertel says viertel vier and
+    dreiviertel vier. The screen, the pupils' print and the key (task read) all follow the form."""
+    props = {
+        **PROPS,
+        "format": "words",
+        "task": "draw",
+        "count": 3,
+        "cols": 3,
+        "times": [195, 225, 945],
+    }
+    page = editor(box("u", "uhr", props, w=200, h=60), client=user())
+    mine = sheet_id(page)
+    assert clocks(page).locator("text.task").all_text_contents() == NACH
+    paper = printed(browser, server, mine)
+    assert paper.locator(".uhr text.task").all_text_contents() == NACH
+    paper.context.close()
+
+    pick(page, "u")
+    step(
+        page,
+        lambda: page.locator(".panel").get_by_label("Form", exact=True).select_option("viertel"),
+    )
+    assert clocks(page).locator("text.task").all_text_contents() == VIERTEL
+    paper = printed(browser, server, mine)
+    assert paper.locator(".uhr text.task").all_text_contents() == VIERTEL
+    paper.context.close()
+
+    step(
+        page,
+        lambda: page.locator(".panel").get_by_label("Aufgabe", exact=True).select_option("read"),
+    )
+    key = key_print(browser, server, mine)
+    assert key.locator(".uhr text.answer").all_text_contents() == VIERTEL
+    key.context.close()

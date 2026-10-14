@@ -5,9 +5,10 @@ The docstrings name what each test proves. The drawing is tested with the model.
 
 import pytest
 from playwright.sync_api import expect
+from test_feed_print import printed, sheet_id
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import box, doc, pick, user
+from ui import at, box, doc, pick, user
 
 UHR = {
     "numbers": "all",
@@ -167,3 +168,26 @@ def test_antwort_shows_only_for_read(editor):
     expect(field(page, "Antwort")).to_have_count(1)
     field(page, "Aufgabe").select_option("draw")
     expect(field(page, "Antwort")).to_have_count(0)
+
+
+def test_13_bis_24_is_disabled_while_zahlen_is_keine(editor):
+    """Zahlen Keine disables 13 bis 24; back to 1 bis 12 enables it again."""
+    page = editor(uhr("u", dict(UHR)), client=user())
+    pick(page, "u")
+    field(page, "Zahlen").select_option("none")
+    expect(field(page, "13 bis 24")).to_be_disabled()
+    field(page, "Zahlen").select_option("all")
+    expect(field(page, "13 bis 24")).to_be_enabled()
+
+
+def test_zahlen_keine_leaves_the_face_without_numbers_on_screen_and_in_print(
+    editor, browser, server
+):
+    """Own: Zahlen Keine draws no numbers, on the screen and in the pupils' print."""
+    page = editor(uhr("u", dict(UHR)), client=user())
+    pick(page, "u")
+    step(page, lambda: field(page, "Zahlen").select_option("none"))
+    assert at(page, "u").locator("text.number").count() == 0
+    paper = printed(browser, server, sheet_id(page))
+    assert paper.locator(".uhr text.number").count() == 0
+    paper.context.close()
