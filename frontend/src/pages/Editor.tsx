@@ -1937,7 +1937,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // To the front or the back, as in PowerPoint: a part of a group moves within that group, a whole group as one thing.
   // With `one` a single step instead: over the next thing that does not move, a block or a whole group.
-  function raise(front: boolean, one = false) {
+  // The new stack from back to front, or nothing where all already lies there.
+  function stacked(front: boolean, one = false) {
     const whole = (g: string) => blocks.every((b) => !b.group?.includes(g) || ids.includes(b.id));
     // What a block moves in: its innermost group that is not picked whole, or the page.
     const level = (b: Block) => b.group?.filter((g) => !whole(g)).at(-1);
@@ -1966,8 +1967,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       stack = stack.map((b) => (part.includes(b) ? next.shift()! : b));
     }
-    // What already lies there leaves nothing to undo.
-    if (stack.every((b, i) => b === order[i])) return;
+    if (!stack.every((b, i) => b === order[i])) return stack;
+  }
+  // What already lies there leaves nothing to undo.
+  function raise(front: boolean, one = false) {
+    const stack = stacked(front, one);
+    if (!stack) return;
     const z = new Map(stack.map((b, i) => [b.id, i + 1]));
     place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
   }
