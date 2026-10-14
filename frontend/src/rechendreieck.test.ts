@@ -194,6 +194,37 @@ describe("typed numbers", () => {
     );
   });
 
+  it("one or two typed numbers take the nearest triangle, as the brute force says", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.array(fc.tuple(fc.integer({ min: 0, max: 5 }), fc.integer({ min: 0, max: 20 })), { minLength: 1, maxLength: 2 }),
+        (seed, raw) => {
+          fc.pre(new Set(raw.map(([f]) => f)).size === raw.length);
+          const typed: Typed[] = raw.map(([f, v]) => [0, f, v]);
+          const gen = made(P({ seed, max: 20, count: 1 })).triangles[0].numbers.slice(0, 3);
+          // Brute force over whole numbers 0 to 25 for the inner triple holding the typed numbers, nearest to gen, ties to the smallest.
+          const sum = (t: number[], f: number) => (f < 3 ? t[f] : t[SIDES[f - 3][0]] + t[SIDES[f - 3][1]]);
+          let best: number[] | undefined;
+          for (let i = 0; i <= 25; i++) for (let j = 0; j <= 25; j++) for (let k = 0; k <= 25; k++) {
+            const t = [i, j, k];
+            if (!raw.every(([f, v]) => sum(t, f) === v)) continue;
+            const d = (q: number[]) => q.reduce((acc, w, n) => acc + Math.abs(w - gen[n]), 0);
+            const before = (a: number[], b: number[]) => {
+              const n = a.findIndex((w, q) => w !== b[q]);
+              return n >= 0 && a[n] < b[n];
+            };
+            if (!best || d(t) < d(best) || (d(t) === d(best) && before(t, best))) best = t;
+          }
+          const out = made(P({ seed, max: 20, count: 1, typed })).triangles[0];
+          expect(out.wrong).toBe(best === undefined);
+          if (best) expect(out.numbers.slice(0, 3)).toEqual(best);
+        },
+      ),
+      { numRuns: 300 },
+    );
+  });
+
   it("contradicting typed numbers give a wrong triangle that shows the typed values", () => {
     const typed: Typed[] = [
       [0, 0, 5],

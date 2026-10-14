@@ -117,48 +117,64 @@ const lexLess = (x: number[], y: number[]): boolean => {
   return false;
 };
 
-// The inner numbers nearest to `gen` that hold the typed numbers `typed` (field to value) and are not `taken`. The
-// typed inner fields fix their numbers. The others come from the typed sums, enumerating one free inner number from
-// 0 up to 9999 (or up to a typed sum it sits in). An outer typed with both ends free takes the generated end as near as
-// it may. Undecided inner numbers keep their generated value. Undefined when no inner triple holds the typed numbers.
-function fill(typed: Map<number, number>, gen: number[], taken: Set<string>): number[] | undefined {
-  const fixed = [0, 1, 2].map((i) => typed.get(i));
-  const free = [0, 1, 2].find((i) => fixed[i] === undefined);
-  const hi = (e: number): number => {
-    let b = 9999;
-    for (const [f, v] of typed) if (f >= 3 && SIDES[f - 3].includes(e)) b = Math.min(b, v);
-    return b;
+type Eq = { row: number[]; rhs: number };
+const cross = (a: number[], b: number[]): number[] => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+// The inner numbers nearest to `gen` that hold the typed numbers, by the rank of their rows over the inner numbers.
+// Rank 3 gives one point, rank 2 a line (one number enumerated from 0 to 9999), rank 1 one constraint with the other
+// numbers kept at `gen`. The nearest is by the sum of the differences, on a tie the smallest in index order. Undefined
+// when no whole triple from 0 to 9999 holds them.
+function fill(typed: Map<number, number>, gen: number[]): number[] | undefined {
+  const eqs: Eq[] = [...typed].map(([f, v]) => ({ row: row(f), rhs: v }));
+  const cands: number[][] = [];
+  const add = (x: number[]): void => {
+    const ok = x.every((v) => Number.isInteger(v) && v >= 0 && v <= 9999) && eqs.every((e) => e.row[0] * x[0] + e.row[1] * x[1] + e.row[2] * x[2] === e.rhs);
+    if (ok) cands.push(x.map((v) => v + 0));
   };
-  const holds = (x: number[]): boolean =>
-    x.every((v) => v >= 0 && v <= 9999) && [...typed].every(([f, v]) => (f < 3 ? x[f] : x[SIDES[f - 3][0]] + x[SIDES[f - 3][1]]) === v);
-  const propagate = (k: (number | undefined)[]): void => {
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const [f, v] of typed) {
-        if (f < 3) continue;
-        const [a, b] = SIDES[f - 3];
-        if (k[a] !== undefined && k[b] === undefined) [k[b], changed] = [v - k[a], true];
-        else if (k[b] !== undefined && k[a] === undefined) [k[a], changed] = [v - k[b], true];
-        else if (k[a] === undefined && k[b] === undefined) {
-          k[a] = Math.min(Math.max(gen[a], 0), v);
-          k[b] = v - k[a];
-          changed = true;
-        }
-      }
+  let tri: Eq[] | undefined;
+  for (let i = 0; i < eqs.length && !tri; i++)
+    for (let j = i + 1; j < eqs.length && !tri; j++)
+      for (let k = j + 1; k < eqs.length && !tri; k++) if (det3(eqs[i].row, eqs[j].row, eqs[k].row) !== 0) tri = [eqs[i], eqs[j], eqs[k]];
+  let pair: [Eq, Eq] | undefined;
+  for (let i = 0; i < eqs.length && !pair; i++)
+    for (let j = i + 1; j < eqs.length && !pair; j++) if (cross(eqs[i].row, eqs[j].row).some((v) => v !== 0)) pair = [eqs[i], eqs[j]];
+  if (tri) {
+    // Cramer's rule over the three rows.
+    const A = tri.map((e) => e.row);
+    const D = det3(A[0], A[1], A[2]);
+    add(
+      [0, 1, 2].map((c) => {
+        const m = A.map((r, n) => r.map((v, col) => (col === c ? tri[n].rhs : v)));
+        return det3(m[0], m[1], m[2]) / D;
+      }),
+    );
+  } else if (pair) {
+    // The coordinate i with a nonzero cross product: the other two are solved from the two rows, i enumerated.
+    const [e1, e2] = pair;
+    const i = cross(e1.row, e2.row).findIndex((v) => v !== 0);
+    const [j, k] = [0, 1, 2].filter((q) => q !== i);
+    const D = e1.row[j] * e2.row[k] - e1.row[k] * e2.row[j];
+    for (let xi = 0; xi <= 9999; xi++) {
+      const b1 = e1.rhs - e1.row[i] * xi;
+      const b2 = e2.rhs - e2.row[i] * xi;
+      const x = [0, 0, 0];
+      x[i] = xi;
+      x[j] = (b1 * e2.row[k] - e1.row[k] * b2) / D;
+      x[k] = (e1.row[j] * b2 - e2.row[j] * b1) / D;
+      add(x);
     }
-  };
-  let best: number[] | undefined;
-  const starts: (number | undefined)[][] = [];
-  if (free === undefined) starts.push([...fixed]);
-  else for (let x = 0; x <= hi(free); x++) starts.push(fixed.map((v, i) => (i === free ? x : v)));
-  for (const s of starts) {
-    const k = [...s];
-    propagate(k);
-    const x = k.map((v, i) => v ?? gen[i]);
-    if (!holds(x) || taken.has(key(x))) continue;
-    if (!best || dist(x, gen) < dist(best, gen) || (dist(x, gen) === dist(best, gen) && lexLess(x, best))) best = x;
+  } else if (eqs.length) {
+    // One constraint: a unit row fixes its number, a sum row enumerates its first end.
+    const { row: r, rhs } = eqs[0];
+    const sup = [0, 1, 2].filter((q) => r[q] !== 0);
+    if (sup.length === 1) add(gen.map((g, q) => (q === sup[0] ? rhs / r[q] : g)));
+    else {
+      const [i, j] = sup;
+      for (let xi = 0; xi <= 9999; xi++) add(gen.map((g, q) => (q === i ? xi : q === j ? (rhs - r[i] * xi) / r[j] : g)));
+    }
   }
+  let best: number[] | undefined;
+  for (const c of cands) if (!best || dist(c, gen) < dist(best, gen) || (dist(c, gen) === dist(best, gen) && lexLess(c, best))) best = c;
   return best;
 }
 
@@ -196,8 +212,7 @@ export function made(props: RechendreieckProps): Made {
   for (let t = 0; t < p.count; t++) {
     const T = typedOf(t);
     if (T.size === 0) continue;
-    const taken = new Set(finals.filter((_, u) => u !== t).map(key));
-    const best = fill(T, gen[t], taken);
+    const best = fill(T, gen[t]);
     if (best) finals[t] = best;
     else wrong[t] = true;
   }
