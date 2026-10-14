@@ -30,7 +30,8 @@
 // pupil draws the arrow to the right tick. The answer key draws that arrow, from the stub to the tick.
 //
 // Random tasks: never on the first tick, never two on one tick; boxes first, on ticks that show no number where
-// there are enough, then arrows on the ticks left. Fewer ticks than tasks: as many as there are ticks to take.
+// there are enough, then arrows on the ticks left. Two boxes never overlap: a tick whose box would clash with one
+// already chosen is passed over, so a close line gets fewer boxes. Fewer ticks than tasks: as many as there are ticks to take.
 //
 // The geometry, in mm from the block's top left; the svg's units are mm, so the drawing on screen and in print is
 // the same to the tenth of a mm at any zoom:
@@ -147,12 +148,17 @@ export function crowded(p: ZahlenstrahlProps, w: number): boolean {
   return n > 1 && (w - LEFT - RIGHT) / (n - 1) < 1;
 }
 
+// The width in mm of a box for the number `value` at `size` pt.
+export function boxWidth(value: number, size: number): number {
+  return Math.max(8, 3 + String(value).length * 0.6 * ((size * 25.4) / 72));
+}
+
 // The box under tick i of a line in a block w mm wide with numbers `size` pt: its x, its width and height, its top
 // `dy` mm below the line, and whether it is lowered over a number shown beside it. The drawing and `below` share it.
 export function boxUnder(ticks: Tick[], i: number, w: number, size: number) {
   const FS = (size * 25.4) / 72;
   const x = xOf(i, ticks.length, w);
-  const bw = Math.max(8, 3 + String(ticks[i].value).length * 0.6 * FS);
+  const bw = boxWidth(ticks[i].value, size);
   const bh = Math.max(6, 1.6 * FS);
   const covers = ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
   return { x, bw, bh, covers, dy: covers ? 5 + 1.35 * FS + 0.5 : 3.5 };
@@ -161,7 +167,7 @@ export function boxUnder(ticks: Tick[], i: number, w: number, size: number) {
 // The mm the line lies above the block's bottom: `BELOW`, or lower when a box or a number under the line reaches
 // further down, with half a mm to spare. `p` is already sane.
 export function below(p: ZahlenstrahlProps, w: number): number {
-  const { ticks } = made(p);
+  const { ticks } = made(p, w);
   const FS = (p.size * 25.4) / 72;
   let low = BELOW;
   if (ticks.some((t) => t.label && !t.task)) low = Math.max(low, 5 + 1.55 * FS + 0.5);
@@ -226,7 +232,7 @@ function shuffle<T>(xs: T[], rnd: () => number): T[] {
 
 // The random boxes first, on ticks that show no number where there are enough, then the arrows, on the ticks left.
 // Never the first tick.
-function placeRandom(ticks: Tick[], boxes: number, arrows: number, rnd: () => number): void {
+function placeRandom(ticks: Tick[], boxes: number, arrows: number, rnd: () => number, w: number, size: number): void {
   const open = ticks.map((_, i) => i).filter((i) => i > 0);
   const quiet = shuffle(
     open.filter((i) => !ticks[i].label),
@@ -236,7 +242,16 @@ function placeRandom(ticks: Tick[], boxes: number, arrows: number, rnd: () => nu
     open.filter((i) => ticks[i].label),
     rnd,
   );
-  for (const i of [...quiet, ...loud].slice(0, boxes)) ticks[i].task = "box";
+  // A box clashes with another when their x ranges meet: the centres lie nearer than half their widths together.
+  const n = ticks.length;
+  const clear = (i: number, j: number) =>
+    Math.abs(xOf(i, n, w) - xOf(j, n, w)) >= (boxWidth(ticks[i].value, size) + boxWidth(ticks[j].value, size)) / 2;
+  const chosen: number[] = [];
+  for (const i of [...quiet, ...loud]) {
+    if (chosen.length === boxes) break;
+    if (chosen.every((j) => clear(i, j))) chosen.push(i);
+  }
+  for (const i of chosen) ticks[i].task = "box";
   const rest = shuffle(
     open.filter((i) => !ticks[i].task),
     rnd,
@@ -244,9 +259,9 @@ function placeRandom(ticks: Tick[], boxes: number, arrows: number, rnd: () => nu
   for (const i of rest.slice(0, arrows)) ticks[i].task = "arrow";
 }
 
-// The ticks with their tasks, the arrow numbers in their order, and the arcs. No ticks above LIMIT.
-// `p` is already sane.
-export function made(p: ZahlenstrahlProps): Made {
+// The ticks with their tasks, the arrow numbers in their order, and the arcs, in a block w mm wide. No ticks above
+// LIMIT. `p` is already sane.
+export function made(p: ZahlenstrahlProps, w: number): Made {
   const n = count(p);
   if (n > LIMIT) return { ticks: [], arrows: [], arcs: [] };
   const rnd = rng(p.seed);
@@ -263,7 +278,7 @@ export function made(p: ZahlenstrahlProps): Made {
       if (task) t.task = task;
     }
   } else {
-    placeRandom(ticks, p.boxes, p.arrows, rnd);
+    placeRandom(ticks, p.boxes, p.arrows, rnd, w, p.size);
   }
   const arrows = shuffle(
     ticks.filter((t) => t.task === "arrow").map((t) => t.value),

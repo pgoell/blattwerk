@@ -1,8 +1,10 @@
 // The Zahlenstrahl model: the ticks, the labels, the random and the free tasks, the arcs, and the sanitising of stored props.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { arrowXs, DEFAULTS, LEFT, LIMIT, RIGHT, count, crowded, made, sane, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
+import { arrowXs, boxUnder, DEFAULTS, LEFT, LIMIT, RIGHT, count, crowded, made as madeAt, sane, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 
+// The tests draw on a block 180 mm wide unless they say otherwise.
+const made = (p: ZahlenstrahlProps) => madeAt(p, 180);
 const P = (over: Partial<ZahlenstrahlProps> = {}): ZahlenstrahlProps => ({ ...DEFAULTS, seed: 1, ...over });
 const values = (p: ZahlenstrahlProps) => made(p).ticks.map((t) => t.value);
 const labelled = (p: ZahlenstrahlProps) => made(p).ticks.filter((t) => t.label).map((t) => t.value);
@@ -110,15 +112,18 @@ describe("random tasks", () => {
     );
   });
 
-  it("boxes go on ticks that show no number when there are enough of them", () => {
+  it("boxes go on ticks that show no number, unless the quiet ticks would clash with a box", () => {
     fc.assert(
       fc.property(SETTINGS, (s) => {
         const p = settingsProps({ ...s, labels: s.labels === "all" ? "major" : s.labels });
         const { ticks } = made(p);
-        const unlabelled = ticks.filter((t, i) => i > 0 && !t.label).length;
-        const boxes = ticks.filter((t) => t.task === "box");
-        if (unlabelled >= p.boxes!) expect(boxes.every((t) => !t.label)).toBe(true);
-        expect(boxes).toHaveLength(Math.min(p.boxes!, ticks.length - 1));
+        const idx = ticks.flatMap((t, i) => (t.task === "box" ? [i] : []));
+        const B = (i: number) => boxUnder(ticks, i, 180, p.size);
+        const clash = (i: number, j: number) => Math.abs(B(i).x - B(j).x) < (B(i).bw + B(j).bw) / 2;
+        expect(idx.length).toBeLessThanOrEqual(Math.min(p.boxes!, ticks.length - 1));
+        // A quiet tick clear of every box would have taken a box before any numbered tick did.
+        const freeQuiet = ticks.flatMap((t, i) => (i > 0 && !t.label && t.task !== "box" && idx.every((j) => !clash(i, j)) ? [i] : []));
+        if (idx.some((j) => ticks[j].label)) expect(freeQuiet).toEqual([]);
       }),
     );
   });
@@ -259,5 +264,55 @@ describe("arrowXs puts the arrow numbers over the gaps", () => {
     // One arrow on 0 to 20 at 180 mm: the even spot is tick 10, equally near gaps 9 and 10.
     const [x] = arrowXs(1, 21, 180);
     expect(x).toBeCloseTo((xOf(9, 21, 180) + xOf(10, 21, 180)) / 2, 9);
+  });
+});
+
+describe("the boxes under the line do not overlap (#593)", () => {
+  // The x ranges of the boxes of a block w mm wide, sorted: each starts at or after the one before ends.
+  const apart = (p: ZahlenstrahlProps, w: number): boolean => {
+    const { ticks } = madeAt(p, w);
+    const xs = ticks
+      .flatMap((t, i) => {
+        if (t.task !== "box") return [];
+        const b = boxUnder(ticks, i, w, p.size);
+        return [[b.x - b.bw / 2, b.x + b.bw / 2] as const];
+      })
+      .sort((a, b) => a[0] - b[0]);
+    return xs.every((r, i) => i === 0 || r[0] >= xs[i - 1][1]);
+  };
+
+  it("the issue's block: 180 mm, 0 to 1000 step 10, major 100, labels major, seed 123", () => {
+    expect(apart(P({ start: 0, end: 1000, minor: 10, major: 100, labels: "major", seed: 123 }), 180)).toBe(true);
+  });
+
+  it("twelve boxes on 0 to 20 at 180 mm: all twelve fit, none overlap", () => {
+    const p = P({ end: 20, boxes: 12, seed: 5 });
+    expect(madeAt(p, 180).ticks.filter((t) => t.task === "box")).toHaveLength(12);
+    expect(apart(p, 180)).toBe(true);
+  });
+
+  it("a 60 mm block, 0 to 100 step 1 with twelve boxes: fewer boxes, none overlap", () => {
+    const p = P({ end: 100, boxes: 12, seed: 5 });
+    expect(madeAt(p, 60).ticks.filter((t) => t.task === "box").length).toBeLessThan(12);
+    expect(apart(p, 60)).toBe(true);
+  });
+
+  it("no two boxes overlap, for any seed, labels, count and range", () => {
+    const RANGES = [
+      { end: 100, minor: 1, major: 5 },
+      { end: 1000, minor: 10, major: 100 },
+      { end: 20, minor: 1, major: 5 },
+    ];
+    fc.assert(
+      fc.property(
+        fc.integer(),
+        fc.constantFrom(...RANGES),
+        fc.constantFrom(...LABELS),
+        fc.integer({ min: 1, max: 12 }),
+        (seed, range, labels, boxes) => {
+          expect(apart(P({ ...range, labels, boxes, seed }), 180)).toBe(true);
+        },
+      ),
+    );
   });
 });
