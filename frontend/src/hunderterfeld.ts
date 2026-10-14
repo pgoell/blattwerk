@@ -30,8 +30,10 @@
 // with the squares. The editor and the panel keep the block square on resize (as a picture or a symbol).
 // - Tafel: cell i is the square of side 10 at (10·col, 10·row); its number centred in it at 4 units (40 % of a
 //   square). The lines: 0.3 units, the outer frame 0.6.
-// - Ausschnitt: the viewBox is the square around the bounding box of `shape`, side 10·max(cols, rows), centred on
+// - Ausschnitt: the frame is the square around the bounding box of `shape`, side 10·max(cols, rows), centred on
 //   it, so the cut-out fills the block; the lines and the numbers keep their size relative to a square.
+// - The svg's viewBox is the frame grown by one line width (0.3 of a 100 field) on each side, so no line lies on
+//   the svg's edge.
 // - Punkte: dot (row, col) has its centre at `dotAt(col)`, `dotAt(row)`: 8 + 9·k, plus 3 from the sixth on (the gap
 //   after five each way), radius 3.6. A filled dot is #222, an empty one a circle of 0.4 in #222.
 // - Tint colours (`TINT`): 1 a yellow and 2 a blue whose greys differ by at least 40 of 255 from each other and from

@@ -2031,9 +2031,12 @@ function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k: number
   const p = saneFeld(block.props);
   const { cells, frame, filled } = drawnFeld(p);
   const line = (0.3 * frame[2]) / 100;
+  // The frame grows by a line on each side, so no line lies on the svg's edge, where it would be cut in half and
+  // fall on other pixels in print than on screen.
+  const [fx, fy, side] = frame;
   return (
     <div className={`hunderterfeld${solved ? " solved" : ""}`}>
-      <svg viewBox={frame.join(" ")}>
+      <svg viewBox={[fx - line, fy - line, side + 2 * line, side + 2 * line].join(" ")}>
         {p.look === "punkte"
           ? filled.map((on, i) => (
               <circle

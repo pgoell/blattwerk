@@ -79,6 +79,33 @@ def test_the_pupils_and_the_key_print_as_the_screen_shows_them(browser, server, 
 
 
 @pytest.mark.parametrize("solved", [False, True])
+def test_a_small_field_and_a_cut_out_print_as_the_screen_shows_them(browser, server, solved):
+    """A 60 mm Tafel near the foot and an Ausschnitt with tints: no line lies on the svg's edge,
+    where it falls on other pixels in print than on screen, and the cut-out's edges are whole."""
+    client = user()
+    cross = {
+        **PROPS,
+        "tint": "free",
+        "tints": [[44, 1], [45, 2]],
+        "cut": True,
+        "shape": [34, 43, 44, 45, 54],
+        "given": 44,
+    }
+    small = {**PROPS, "tint": "column", "line": 7, "color": 2}
+    blocks = [
+        {**box("d", "hunderterfeld", cross, z=1, w=85, h=85), "x": 110, "y": 120},
+        {**box("e", "hunderterfeld", small, z=2, w=60, h=60), "x": 15, "y": 215},
+        {**box("t", "text", GAP, z=3, h=20), "x": 15, "y": 20},
+    ]
+    mine = sheet(client, blocks)["id"]
+    screen, printed_png = screen_and_print(
+        browser, server, client, mine, hide_gaps=not solved, solved=solved
+    )
+    found, _ = measures(screen, printed_png)
+    assert not over(screen, printed_png), {name: found[name] for name in LIMITS}
+
+
+@pytest.mark.parametrize("solved", [False, True])
 def test_the_punkte_print_as_the_screen_shows_them(browser, server, solved):
     """The screen and the PDF of a field of 37 filled dots, the pupil's sheet and the key."""
     client = user()
