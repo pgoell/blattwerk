@@ -1983,8 +1983,9 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           const covers = t.task === "box" && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
           // A number's line box is about 1.35 em high.
           const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
-          // The leader stops short of a shown number's digits where one stands on it.
-          const through = covers && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) <= (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+          // The leader stops short of a shown number's digits where one stands on it. A digit is taken as 0.65 em wide,
+          // more than Andika's, so a line that only grazes a number breaks too.
+          const through = covers && ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) <= (String(o.value).length * 0.65 * FS) / 2 + 0.5);
           const gapTop = y + 4.5;
           const gapBottom = y + 5 + 0.75 * FS + 0.5;
           return (
