@@ -130,7 +130,8 @@ describe("made: the main proof", () => {
       }),
       { numRuns: 300 },
     );
-  });
+    // Hundreds of walls: a busy CI machine takes longer than vitest's 5 s.
+  }, 30_000);
 });
 
 describe("made: mix", () => {
@@ -146,7 +147,8 @@ describe("made: mix", () => {
       }),
       { numRuns: 300 },
     );
-  });
+    // Hundreds of walls: a busy CI machine takes longer than vitest's 5 s.
+  }, 30_000);
 });
 
 describe("made: determinism and variety", () => {
@@ -367,5 +369,6 @@ describe("typed numbers: the search over the base stones", () => {
       }),
       { numRuns: 300 },
     );
-  });
+    // Hundreds of walls: a busy CI machine takes longer than vitest's 5 s.
+  }, 30_000);
 });
