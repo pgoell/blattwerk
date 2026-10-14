@@ -11,6 +11,7 @@ import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
 import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
+import { sane as saneUhr, type UhrProps } from "./uhr";
 import { BELOW, LEFT as STRAHL_LEFT, RIGHT as STRAHL_RIGHT, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
@@ -184,7 +185,9 @@ export type RechendreieckBlock = Box & { type: "rechendreieck"; props: Rechendre
 export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
 // A Hunderterfeld: its stored shape is the contract at the top of hunderterfeld.ts.
 export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock;
+// An Uhr: its stored shape is the contract at the top of uhr.ts.
+export type UhrBlock = Box & { type: "uhr"; props: UhrProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -2025,6 +2028,13 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
   );
 }
 
+// An Uhr, drawn as the contract at the top of uhr.ts says.
+// STUB: the drawing's subagent writes it.
+function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean }) {
+  const p = saneUhr(block.props);
+  return <div className={`uhr${solved ? " solved" : ""}`} data-count={p.count} />;
+}
+
 // A Hunderterfeld, drawn as the contract at the top of hunderterfeld.ts says. Its lines are 0.3 and its outer frame
 // 0.6 of a 100 field, so they keep that share when a cut-out makes the field smaller.
 function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k: number; solved: boolean }) {
@@ -2087,6 +2097,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
+  if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

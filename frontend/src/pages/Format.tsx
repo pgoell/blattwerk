@@ -13,6 +13,7 @@ import Zahlenmauer from "./Zahlenmauer";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
+import Uhr from "./Uhr";
 import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -266,6 +267,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
+  const uhr = sel.length === 1 && sel[0].type === "uhr" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -622,6 +624,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
+      {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key) => style("uhr", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>
