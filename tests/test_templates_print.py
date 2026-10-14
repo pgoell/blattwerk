@@ -47,16 +47,43 @@ def test_wochenplan_prints_its_days(server):
     assert "Montag" in text and "Freitag" in text
 
 
-@pytest.mark.parametrize(
-    ("name", "limit"),
-    [("Rechenblatt Klasse 1", 20), ("Rechenblatt Klasse 2", 100), ("Rechenblatt Klasse 3", 1000)],
-)
-def test_rechenblatt_numbers_stay_in_their_zahlenraum(name, limit):
-    maths = [b for b in template(name)["doc"]["pages"][0]["blocks"] if b["type"] == "maths"]
-    assert len(maths) == 1
-    props = maths[0]["props"]
-    assert props["max"] == limit
-    assert props["exercises"]
-    for exercise in props["exercises"]:
-        numbers = [v for k, v in exercise.items() if isinstance(v, int) and not isinstance(v, bool)]
-        assert all(0 <= n <= limit for n in numbers), exercise
+def blocks_of(name, kind):
+    return [
+        b for page in template(name)["doc"]["pages"] for b in page["blocks"] if b["type"] == kind
+    ]
+
+
+@pytest.mark.parametrize("name", [f"Rechenblatt Klasse {n}" for n in range(1, 5)])
+def test_rechenblatt_numbers_stay_in_their_zahlenraum(name):
+    maths = blocks_of(name, "maths")
+    assert maths
+    for block in maths:
+        props = block["props"]
+        assert props["exercises"]
+        for exercise in props["exercises"]:
+            numbers = [
+                v for v in exercise.values() if isinstance(v, int) and not isinstance(v, bool)
+            ]
+            assert all(0 <= n <= props["max"] for n in numbers), exercise
+            # The 1x1 to 100 has factors up to 10; the written multiplication of Klasse 4 has more.
+            if exercise["op"] == "*" and props["max"] == 100:
+                assert exercise["a"] <= 10 and exercise["b"] <= 10, exercise
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_no_two_blocks_of_a_page_overlap(name):
+    # Boxes that touch along an edge, or a line with no height, do not count.
+    for page in template(name)["doc"]["pages"]:
+        boxes = page["blocks"]
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1 :]:
+                across = min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"])
+                down = min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"])
+                assert not (across > 0 and down > 0), (name, a["id"], b["id"])
+
+
+def test_wochenplan_day_is_one_word(server):
+    client = user()
+    made = sheet(client, *template("Wochenplan")["doc"]["pages"])
+    _, text = printed(server, client, made)
+    assert "Donnerstag" in text.split()

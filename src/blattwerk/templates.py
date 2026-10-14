@@ -74,14 +74,14 @@ def maths_height(props: dict) -> float:
     return max(10, round(lines * props["size"] * MM_PER_PT * 2.4))
 
 
-def maths_page(title: str, limits: dict) -> list[dict]:
-    """A page with a title and maths exercises made from the limits, with a fixed seed."""
+def maths_block(y: float, limits: dict) -> dict:
+    """A maths block at height y, with exercises made from the limits, with a fixed seed."""
     props = {**limits, **generate(Settings.model_validate(limits)), "columns": 3, "size": 14}
-    return [
-        block("name", 15, 15, 180, 10, {}),
-        heading(32, title),
-        block("maths", 15, 55, 180, maths_height(props), props),
-    ]
+    return block("maths", 15, y, 180, maths_height(props), props)
+
+
+def maths_page(title: str, *blocks: dict) -> list[dict]:
+    return [block("name", 15, 15, 180, 10, {}), heading(32, title), *blocks]
 
 
 def ruled_page(title: str, props: dict) -> list[dict]:
@@ -183,7 +183,12 @@ BUILT_IN = [
                 block("name", 15, 15, 180, 10, {}),
                 heading(30, "Grundschule am Wald"),
                 block(
-                    "text", 15, 55, 180, 8, {"text": "Datum: ____", "size": 12, "align": "right"}
+                    "text",
+                    15,
+                    55,
+                    180,
+                    8,
+                    {"text": "Datum: ______________", "size": 12, "align": "right"},
                 ),
                 block(
                     "text",
@@ -227,15 +232,50 @@ BUILT_IN = [
         "doc": doc(
             maths_page(
                 "Rechenblatt Klasse 1",
-                {
-                    "ops": ["+", "-"],
-                    "max": 20,
-                    "carry": "either",
-                    "rest": False,
-                    "format": "row",
-                    "count": 12,
-                    "seed": 101,
-                },
+                maths_block(
+                    55,
+                    {
+                        "ops": ["+", "-"],
+                        "max": 20,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "row",
+                        "count": 12,
+                        "seed": 101,
+                    },
+                ),
+                block(
+                    "zahlenmauer",
+                    15,
+                    110,
+                    180,
+                    60,
+                    {
+                        "base": 3,
+                        "count": 4,
+                        "columns": 2,
+                        "max": 20,
+                        "op": "+",
+                        "given": "base",
+                        "empty": False,
+                        "seed": 111,
+                    },
+                ),
+                block(
+                    "rechendreieck",
+                    15,
+                    180,
+                    180,
+                    50,
+                    {
+                        "count": 4,
+                        "columns": 4,
+                        "max": 20,
+                        "given": "inner",
+                        "empty": False,
+                        "seed": 121,
+                    },
+                ),
             )
         ),
     },
@@ -246,15 +286,48 @@ BUILT_IN = [
         "doc": doc(
             maths_page(
                 "Rechenblatt Klasse 2",
-                {
-                    "ops": ["+", "-", "*"],
-                    "max": 100,
-                    "carry": "either",
-                    "rest": False,
-                    "format": "row",
-                    "count": 12,
-                    "seed": 102,
-                },
+                maths_block(
+                    55,
+                    {
+                        "ops": ["+", "-"],
+                        "max": 100,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "row",
+                        "count": 12,
+                        "seed": 102,
+                    },
+                ),
+                maths_block(
+                    110,
+                    {
+                        "ops": ["*"],
+                        "max": 100,
+                        "small": True,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "row",
+                        "count": 12,
+                        "seed": 122,
+                    },
+                ),
+                block(
+                    "zahlenmauer",
+                    15,
+                    165,
+                    180,
+                    60,
+                    {
+                        "base": 3,
+                        "count": 4,
+                        "columns": 2,
+                        "max": 100,
+                        "op": "+",
+                        "given": "base",
+                        "empty": False,
+                        "seed": 112,
+                    },
+                ),
             )
         ),
     },
@@ -265,15 +338,51 @@ BUILT_IN = [
         "doc": doc(
             maths_page(
                 "Rechenblatt Klasse 3",
-                {
-                    "ops": ["+", "-"],
-                    "max": 1000,
-                    "carry": "either",
-                    "rest": False,
-                    "format": "row",
-                    "count": 12,
-                    "seed": 103,
-                },
+                maths_block(
+                    55,
+                    {
+                        "ops": ["+", "-"],
+                        "max": 1000,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "row",
+                        "count": 12,
+                        "seed": 103,
+                    },
+                ),
+                block(
+                    "zahlenmauer",
+                    15,
+                    110,
+                    180,
+                    60,
+                    {
+                        "base": 3,
+                        "count": 4,
+                        "columns": 2,
+                        "max": 1000,
+                        "op": "+",
+                        "given": "base",
+                        "empty": False,
+                        "seed": 113,
+                    },
+                ),
+                block(
+                    "zahlenstrahl",
+                    15,
+                    180,
+                    180,
+                    40,
+                    {
+                        "start": 0,
+                        "end": 1000,
+                        "minor": 10,
+                        "major": 100,
+                        "labels": "major",
+                        "size": 12,
+                        "seed": 123,
+                    },
+                ),
             )
         ),
     },
@@ -284,15 +393,30 @@ BUILT_IN = [
         "doc": doc(
             maths_page(
                 "Rechenblatt Klasse 4",
-                {
-                    "ops": ["+", "-"],
-                    "max": 10000,
-                    "carry": "either",
-                    "rest": False,
-                    "format": "written",
-                    "count": 6,
-                    "seed": 104,
-                },
+                maths_block(
+                    55,
+                    {
+                        "ops": ["+", "-"],
+                        "max": 10000,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "written",
+                        "count": 9,
+                        "seed": 104,
+                    },
+                ),
+                maths_block(
+                    150,
+                    {
+                        "ops": ["*"],
+                        "max": 10000,
+                        "carry": "either",
+                        "rest": False,
+                        "format": "written",
+                        "count": 6,
+                        "seed": 124,
+                    },
+                ),
             )
         ),
     },
