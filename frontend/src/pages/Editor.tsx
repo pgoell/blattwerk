@@ -2615,7 +2615,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
   // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
   // Lernwörter unless the template brings some.
+  // The last click wins: an apply still waiting for its exercises gives way to one started after it.
+  const applied = useRef(0);
   async function apply(t: Template) {
+    const turn = ++applied.current;
     const doc = read(t.doc);
     const pages = t.id > 0 ? doc.pages : await Promise.all(doc.pages.map(async (p) => ({
       ...p,
@@ -2625,9 +2628,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const limits = { ...props, seed: newSeed() };
         if (b.type !== "maths") return { ...b, props: limits } as Block;
         const made = await generate(limits as Parameters<typeof generate>[0]).catch(() => undefined);
-        return made ? ({ ...b, props: { ...limits, ...made } } as Block) : b;
+        if (!made) return b;
+        // New exercises may need more room than the template's block: it grows, to the page's foot at most.
+        const fresh = { ...limits, ...made };
+        const h = Math.min(Math.max(b.h, mathsHeight(fresh as Parameters<typeof mathsHeight>[0])), 297 - b.y);
+        return { ...b, h, props: fresh } as Block;
       })),
     })));
+    if (turn !== applied.current) return;
     update((cur) => ({ ...doc, pages, words: doc.words ?? cur.words }));
     setIds([]);
   }
