@@ -151,6 +151,8 @@ def test_undo_and_redo_walk_every_new_control(editor):
         lambda: panel(page, "2 Spalten").click(),
         lambda: panel(page, "Lückenwörter").click(),
         lambda: panel(page, "Jeder zweite").click(),
+        # Neu wählen shows in Ein Buchstabe alone (#428).
+        lambda: panel(page, "Ein Buchstabe").click(),
         lambda: panel(page, "Neu wählen").click(),
         lambda: choice.select_option(label="Eigener Text"),
     ]
