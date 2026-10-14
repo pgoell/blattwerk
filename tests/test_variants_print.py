@@ -604,6 +604,34 @@ def test_a_hunderterfeld_gets_another_seed_and_keeps_its_settings():
     assert doc["pages"][0]["blocks"][0]["props"] == field
 
 
+def test_an_uhr_gets_another_seed_and_keeps_its_settings():
+    """B to D give an Uhr a seed of its own; its times, faces and task stay."""
+    clock = {
+        "numbers": "quarters",
+        "minutes": False,
+        "ring": True,
+        "task": "draw",
+        "answer": "line",
+        "format": "words",
+        "region": "viertel",
+        "count": 4,
+        "cols": 2,
+        "step": 5,
+        "fill": "free",
+        "times": [210, 585, 720, 370],
+        "seed": 7,
+    }
+    doc = {"pages": [{"blocks": [{"id": "u", "type": "uhr", "props": clock}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**clock, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == clock
+
+
 def test_a_rechendreieck_gets_another_seed_and_loses_its_typed_numbers():
     """I2 of #83: B to D give a triangle block a seed of its own, drop `typed`; A is as stored."""
     triangle = {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "seed": 7}
