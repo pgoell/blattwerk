@@ -2,7 +2,7 @@
 import { useState } from "react";
 import type { ZahlenstrahlBlock } from "../sheet";
 import { draw } from "../bank";
-import { count, crowded, made, sane, type Task, type ZahlenstrahlProps } from "../zahlenstrahl";
+import { count, crowded, made, MAX, sane, type Task, type ZahlenstrahlProps } from "../zahlenstrahl";
 
 const LABELS = { all: "Bei jedem Strich", major: "Bei langen Strichen", ends: "Anfang und Ende", none: "Keine" } as const;
 
@@ -22,18 +22,21 @@ function Whole({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
-    <input
-      type="number"
-      inputMode="numeric"
-      aria-label={label}
-      value={draft ?? String(value)}
-      onChange={(e) => {
-        const text = e.target.value;
-        setDraft(text);
-        if (/^\d+$/.test(text) && ok(Number(text))) apply({ [name]: Number(text) }, name);
-      }}
-      onBlur={() => setDraft(null)}
-    />
+    <label>
+      {label}
+      <input
+        type="number"
+        inputMode="numeric"
+        aria-label={label}
+        value={draft ?? String(value)}
+        onChange={(e) => {
+          const text = e.target.value;
+          setDraft(text);
+          if (/^\d+$/.test(text) && ok(Number(text))) apply({ [name]: Number(text) }, name);
+        }}
+        onBlur={() => setDraft(null)}
+      />
+    </label>
   );
 }
 
@@ -41,7 +44,12 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
   const p = sane(block.props);
   const m = made(p);
   // Whether `sane` takes the number as it is, so the stored value is the typed one.
-  const takes = (name: keyof ZahlenstrahlProps) => (v: number) => sane({ ...p, [name]: v })[name] === v && (name !== "start" || v < p.end);
+  const takes = (name: keyof ZahlenstrahlProps) => (v: number) => sane({ ...p, [name]: v, ...(name === "start" && { end: MAX }) })[name] === v;
+  // A start at or past the end takes the end along to start + 20, as `sane` does: 340 typed into 0 to 20 gives 340 to 360.
+  const moveStart = (props: Partial<ZahlenstrahlProps>, key?: string) => {
+    const start = props.start!;
+    apply(start < p.end ? { start } : { start, end: Math.min(start + 20, MAX) }, key);
+  };
   const marks = p.marks ?? [];
   const cycle = (value: number) => {
     const task: Task | undefined = marks.find((mk) => mk[0] === value)?.[1];
@@ -53,7 +61,7 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
   return (
     <>
       <h2>Zahlenstrahl</h2>
-      <Whole label="Anfang" name="start" value={p.start} ok={takes("start")} apply={apply} />
+      <Whole label="Anfang" name="start" value={p.start} ok={takes("start")} apply={moveStart} />
       <Whole label="Ende" name="end" value={p.end} ok={takes("end")} apply={apply} />
       <Whole label="Schritt kleine Striche" name="minor" value={p.minor} ok={takes("minor")} apply={apply} />
       <Whole label="Schritt lange Striche" name="major" value={p.major} ok={takes("major")} apply={apply} />

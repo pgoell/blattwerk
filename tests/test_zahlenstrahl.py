@@ -96,6 +96,22 @@ def test_typing_340_into_anfang_is_one_undo_step(editor):
     assert props_of(doc(page, client))["start"] == 0
 
 
+def test_an_anfang_past_the_ende_takes_the_ende_along(editor):
+    """A2: 340 typed into the Anfang of a line 0 to 20 gives 340 to 360, one undo step; the field
+    has its name beside it."""
+    client = user()
+    page = editor(zs("z", STRAHL), client=client)
+    pick(page, "z")
+    expect(page.locator(".panel label", has_text="Anfang")).to_have_count(1)
+    number = field(page, "Anfang")
+    step(page, lambda: (number.press("Control+a"), number.press_sequentially("340")))
+    stored = props_of(doc(page, client))
+    assert (stored["start"], stored["end"]) == (340, 360)
+    undo(page)
+    stored = props_of(doc(page, client))
+    assert (stored["start"], stored["end"]) == (0, 20)
+
+
 def test_bruchstelle_is_disabled_at_start_zero(editor):
     """A3: with Anfang at 0 the Bruchstelle box cannot be ticked."""
     page = editor(zs("z", STRAHL))
