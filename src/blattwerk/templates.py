@@ -164,8 +164,9 @@ BUILT_IN = [
                                 )
                             ),
                         ],
-                        "cols": [1.2, 1, 1, 1, 1, 1],
-                        "size": 14,
+                        # Donnerstag and Sachunterricht each fit their column on one line.
+                        "cols": [1.4, 1, 1, 1, 1, 1],
+                        "size": 12,
                         "align": "center",
                         "line": "#222222",
                         "head": True,
@@ -414,6 +415,8 @@ BUILT_IN = [
                         "rest": False,
                         "format": "written",
                         "count": 6,
+                        # No factor 1: times 1 is nothing to work out in writing.
+                        "one": False,
                         "seed": 124,
                     },
                 ),
