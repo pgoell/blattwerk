@@ -19,6 +19,20 @@ def folio(page, n):
     return page.locator(f'.sheet[data-page="{n}"] .scaled .folio')
 
 
+def switch(page, name):
+    """The button Aus or An of the numbers: the Raster has an Aus of its own."""
+    return page.get_by_role("group", name="Seitenzahlen").get_by_role("button", name=name)
+
+
+def click_on(page, n):
+    """Clicks the middle of page n's number, scrolled into the window first."""
+    folio(page, n).scroll_into_view_if_needed()
+    x, y = centre(folio(page, n))
+    # The number lies under nothing of the editor's own: a click there reaches the page.
+    assert page.evaluate(f"document.elementsFromPoint({x}, {y}).length") > 0
+    page.mouse.click(x, y)
+
+
 def numbers(page, at_=None, form=None):
     """Turns the numbers on in the Ansicht tab, then picks a place and a form if asked."""
     page.get_by_role("tab", name="Ansicht").click()
@@ -38,9 +52,7 @@ def test_a_sheet_without_page_numbers_shows_none_on_screen_or_in_the_pdf(editor,
     page = three(editor, client=client)
     page.get_by_role("tab", name="Ansicht").click()
     expect(page.get_by_role("heading", name="Seitenzahlen", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Aus", exact=True)).to_have_attribute(
-        "aria-pressed", "true"
-    )
+    expect(switch(page, "Aus")).to_have_attribute("aria-pressed", "true")
     expect(page.locator(FOLIO)).to_have_count(0)
     sheet_id = page.url.rsplit("/", 1)[1]
     cookie = {"Cookie": f"session={client.cookies['session']}"}
@@ -150,7 +162,7 @@ def test_a_block_over_a_number_is_picked_by_a_click_on_the_number(editor):
     page = editor(cover)
     numbers(page)
     expect(folio(page, 0)).to_have_text("1")
-    page.mouse.click(*centre(folio(page, 0)))
+    click_on(page, 0)
     expect(page.locator(".block.sel")).to_have_count(1)
     expect(at(page, "cover")).to_have_class("block sel")
 
@@ -160,7 +172,9 @@ def test_a_click_on_a_bare_number_picks_no_block(editor):
     page = editor()
     numbers(page)
     expect(folio(page, 0)).to_have_text("1")
-    page.mouse.click(*centre(folio(page, 0)))
+    # Nothing takes hold of it: the click goes through to the page.
+    expect(folio(page, 0)).to_have_css("pointer-events", "none")
+    click_on(page, 0)
     expect(page.locator(".block.sel")).to_have_count(0)
 
 
@@ -222,10 +236,62 @@ def test_aus_and_an_again_keep_the_place_and_the_form(editor):
     """Switching off and on again keeps the chosen place and form."""
     page = three(editor)
     numbers(page, at_="Oben rechts", form="Seite 2 von 5")
-    page.get_by_role("button", name="Aus", exact=True).click()
+    switch(page, "Aus").click()
     expect(page.locator(FOLIO)).to_have_count(0)
     page.get_by_role("button", name="An", exact=True).click()
     expect(page.get_by_role("button", name="Oben rechts", exact=True)).to_have_attribute(
         "aria-pressed", "true"
     )
     expect(page.locator(FOLIO)).to_have_text(["Seite 1 von 3", "Seite 2 von 3", "Seite 3 von 3"])
+
+
+def pdf(server, client, page, **params):
+    """The sheet's PDF, as PdfReader pages."""
+    sheet_id = page.url.rsplit("/", 1)[1]
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(
+        f"{server}/api/sheets/{sheet_id}/pdf", params=params, headers=cookie, timeout=60
+    )
+    assert res.status_code == 200
+    return PdfReader(io.BytesIO(res.content)).pages
+
+
+def test_the_number_is_9_pt_andika_grey_or_black_and_the_thumbnails_show_it(editor):
+    """Grey by default, black by the Farbe switch; the thumbnails draw the same number."""
+    page = three(editor)
+    numbers(page)
+    mark = folio(page, 1)
+    expect(mark).to_have_css("font-family", "Andika")
+    expect(mark).to_have_css("font-size", "12px")
+    expect(mark).to_have_css("color", "rgb(112, 112, 112)")
+    page.get_by_role("button", name="Schwarz", exact=True).click()
+    expect(mark).to_have_css("color", "rgb(0, 0, 0)")
+    expect(page.locator(".pages .paper .folio")).to_have_text(["1", "2", "3"])
+
+
+def test_oben_rechts_moves_the_answer_keys_heading_to_the_left(editor, server):
+    """On the key, the heading Lösungen and a number at the top right do not meet."""
+    client = user()
+    page = three(editor, client=client)
+    numbers(page, at_="Oben rechts")
+    doc(page, client)
+    found = {}
+
+    def seen(text, cm, tm, font, size):
+        if text.strip():
+            found[text.strip()] = tm[4] * cm[0] + cm[4]
+
+    pdf(server, client, page, solved=True)[1].extract_text(visitor_text=seen)
+    half = 105 * 72 / 25.4
+    assert found["Lösungen"] < half < found["2"], found
+
+
+def test_each_variant_prints_its_pages_numbered(editor, server):
+    """Varianten: every variant's pages read 1, 2, 3."""
+    client = user()
+    page = three(editor, client=client)
+    numbers(page, form="2 / 5")
+    doc(page, client)
+    pages = pdf(server, client, page, varianten=2)
+    assert len(pages) == 6
+    assert ["2 / 3" in p.extract_text() for p in pages] == [False, True, False] * 2

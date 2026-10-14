@@ -4027,7 +4027,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </button>
               <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               <h2>Seitenzahlen</h2>
-              <div className="seg">
+              <div className="seg" role="group" aria-label="Seitenzahlen">
                 <button className={folio.on ? "" : "on"} aria-pressed={!folio.on} onClick={() => numbering({}, false)}>Aus</button>
                 <button className={folio.on ? "on" : ""} aria-pressed={folio.on} onClick={() => numbering({})}>An</button>
               </div>
