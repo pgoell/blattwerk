@@ -3308,7 +3308,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       <span className="tpl-thumb" aria-hidden>
                         <Thumb doc={t.shown} k={48 / 210} page={0} />
                       </span>
-                      {t.name}
+                      <span className="tpl-name">{t.name}</span>
                     </button>
                     <small>eingebaut</small>
                   </div>
@@ -3321,7 +3321,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             <div key={t.id} className="tpl">
               <button onClick={() => apply(t)}>
                 <LayoutTemplate size={14} aria-hidden />
-                {t.name}
+                <span className="tpl-name">{t.name}</span>
               </button>
               <Tool icon={X} label={`Vorlage ${t.name} löschen`} title="Löschen" onClick={() => forget(t)} />
             </div>
