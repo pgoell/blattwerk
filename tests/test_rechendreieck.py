@@ -151,7 +151,6 @@ def test_each_field_is_its_own_undo_step(editor):
     assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
 
 
-@pytest.mark.xfail(reason="needs the real generator", strict=False)
 def test_typed_numbers_that_allow_no_triangle_give_the_hint(editor):
     """A10: typed numbers that contradict (an outer not the sum of its inner ones) give the hint."""
     page = editor(dz("d", {**DREIECK, "typed": TYPED}))

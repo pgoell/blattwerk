@@ -384,7 +384,8 @@ body:has(.print) { background: #fff; }
   position: absolute; bottom: 16px; left: 50%; translate: -50%; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 2px;
   padding: 5px; background: var(--bg); border: 1px solid var(--edge); border-radius: 12px; box-shadow: var(--shadow);
 }
-.dock .ib { width: calc(var(--ctl) + 6px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
+/* Each tool 2px narrower than it is high, so that the dock holds all of them in one row between the panels. */
+.dock .ib { width: calc(var(--ctl) + 4px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
 .dock .ib svg { width: 17px; height: 17px; }
 .dock .sep { height: 20px; }
 /* For a finger the tools need more room than the desk has between the panels: the dock scrolls, as for all that is no mouse. For a mouse it wraps,
