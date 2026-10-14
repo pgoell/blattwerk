@@ -9,7 +9,7 @@ import io
 import pytest
 from PIL import Image
 from playwright.sync_api import expect
-from ui import TABLE, box
+from ui import TABLE, at, box, pick
 
 INK = "#222222"
 THREE = {
@@ -328,6 +328,53 @@ def test_a_wide_dashed_line_on_a_short_edge_keeps_a_dash(editor):
     )
     assert all(dash >= 0 and gap > 0 for dash, gap in arrays), arrays
     assert any(dash == 0 for dash, _ in arrays)
+
+
+FRAME = {"style": "solid", "width": 1.25}
+# The lines of each cell's svg, with the cell's place in the grid and the side of the cell it is on.
+LINES = """(svgs) => svgs.flatMap((s) => [...s.querySelectorAll('line')].map((l) => ({
+    edge: +s.dataset.edge, side: l.dataset.side, style: l.dataset.style,
+    w: +l.getAttribute('stroke-width') })))"""
+
+
+def frame_lines(page, rows, cols):
+    """The lines on the rim of a rows by cols table, and every solid line drawn."""
+    lines = page.locator('.table svg.edge[data-edge]:not([data-edge="bank"])').evaluate_all(LINES)
+    rim = []
+    for line in lines:
+        r, c = divmod(line["edge"], cols)
+        sides = {"top": r == 0, "bottom": r == rows - 1, "left": c == 0, "right": c == cols - 1}
+        on_rim = sides[line["side"]]
+        if on_rim:
+            rim.append(line)
+    return rim, [line for line in lines if line["style"] == "solid"]
+
+
+def test_issue_562_a_new_row_takes_the_frame_at_its_ends(editor):
+    """Issue #562 (PR #546): a frame of 1.25 mm solid lines round a dotted grid stays closed when a
+    row is added below one of its rows. The new row's ends take the frame's pen, and no solid line
+    is drawn inside the frame."""
+    frame = [FRAME] * 3
+    edges = {
+        "h": [frame, [None] * 3, [None] * 3, frame],
+        "v": [[FRAME, None, None, FRAME]] * 3,
+    }
+    page = editor(box("t", "table", {**THREE, "line": INK, "lineStyle": "dotted", "edges": edges}))
+    expect(page.locator(".table svg.edge line")).not_to_have_count(0)
+    rim, solid = frame_lines(page, 3, 3)
+    assert len(rim) == 12 and len(solid) == 12
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(3).dblclick()
+    page.get_by_role("button", name="Zeile darunter", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    rim, solid = frame_lines(page, 4, 3)
+    assert [line for line in rim if line["style"] != "solid"] == []
+    assert len(rim) == 14 and len(solid) == 14
+    assert all(abs(line["w"] - 1.25 * scale(page)) < 0.5 for line in rim)
+    page.keyboard.press("Control+z")
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(9)
+    rim, solid = frame_lines(page, 3, 3)
+    assert len(rim) == 12 and len(solid) == 12
 
 
 def test_beyond_broken_edges_are_ignored_and_the_width_holds(editor):
