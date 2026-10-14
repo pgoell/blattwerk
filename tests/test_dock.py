@@ -64,8 +64,10 @@ def test_a_tools_name_stays_in_the_window_and_over_its_tool_where_it_has_room(ed
     page = narrow(editor, width, theme=theme)
     tools = page.locator(TOOLS).all()
     assert len(tools) > 10
-    # At 701 the first row ends with "Stern", a name short enough to stand centred there.
-    last = {360: "Namenszeile"}.get(width)
+    # At 701 the first row ends with "Stern", a name short enough to stand centred there. Since
+    # the dock's tools are 2 px narrower (#83), "Namenszeile" at the end of the first row at 360
+    # has room too, so no width here shifts a name; the check of each name's place still holds.
+    last = None
     shifted = []
     for button in tools:
         button.hover()
