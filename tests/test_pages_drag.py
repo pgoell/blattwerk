@@ -167,14 +167,13 @@ def test_i1_a_drag_resting_near_the_lower_edge_scrolls_the_panel_to_the_last_thu
 def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(editor):
     """I1"""
     page = blatt(editor, NAMES)
-    page.evaluate(f"() => {{ {PANEL}.scrollTop = {PANEL}.scrollHeight; }}")
+    # The last page in view low in the panel; the templates lie below it.
+    thumb(page, 15).evaluate("el => el.scrollIntoView({ block: 'center' })")
+    start = page.evaluate(f"() => {PANEL}.scrollTop")
     page.mouse.move(*centre(thumb(page, 15)))
     page.mouse.down()
     page.mouse.move(*top_edge(page), steps=10)
-    page.wait_for_function(
-        f"() => {PANEL}.scrollTop < {PANEL}.scrollHeight - {PANEL}.clientHeight",
-        timeout=5000,
-    )
+    page.wait_for_function(f"() => {PANEL}.scrollTop < {start}", timeout=5000)
     page.wait_for_function(
         f"() => {FIRST}.getBoundingClientRect().top >= {PANEL}.getBoundingClientRect().top",
         timeout=5000,

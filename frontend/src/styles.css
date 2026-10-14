@@ -372,6 +372,8 @@ body:has(.print) { background: #fff; }
 .tpl-thumb { flex: none; width: 48px; }
 .tpl-thumb svg { display: block; width: 100%; height: auto; }
 .foot { display: grid; gap: 8px; margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--line); }
+/* The field to store a template stays in view under a long list of templates. */
+.left .foot { position: sticky; bottom: 0; background: var(--panel); }
 
 /* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
 .stage { grid-area: 2 / 2; position: relative; display: grid; min-width: 0; min-height: 0; }
