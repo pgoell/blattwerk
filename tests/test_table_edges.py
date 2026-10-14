@@ -87,6 +87,39 @@ def test_layout_is_the_same_with_the_new_keys(editor):
     assert keyed == pytest.approx(plain, abs=0.01)
 
 
+def test_each_edge_svg_lies_over_its_own_cell(editor):
+    """Grid: each position's svg is the box of its cell, to 1.01 px, with no merged cell. Without an
+    end line the svg runs on to the table's edge, over the cells below it."""
+    page = editor(box("t", "table", {**THREE, "line": INK, "lineStyle": "dashed"}))
+    expect(page.locator(".table svg.edge")).to_have_count(9)
+    for i in range(9):
+        svg = page.locator(f'.table svg.edge[data-edge="{i}"]').bounding_box()
+        cell = page.locator(f'[data-cell="{i}"]').bounding_box()
+        for key in ("x", "y", "width", "height"):
+            assert svg[key] == pytest.approx(cell[key], abs=1.01), (i, key)
+
+
+def test_a_merged_edge_svg_is_as_wide_as_the_column_below(editor):
+    """Grid: the svg of a merged-over cell is as wide as the cell under it, not the table."""
+    page = editor(
+        box(
+            "t",
+            "table",
+            {
+                **THREE,
+                "cells": [["a", "", "c"], ["d", "e", "f"], ["g", "h", "i"]],
+                "line": INK,
+                "lineStyle": "dashed",
+                "spans": [[0, 0, 1, 2]],
+            },
+        )
+    )
+    expect(page.locator(".table svg.edge")).to_have_count(9)
+    svg = page.locator('.table svg.edge[data-edge="1"]').bounding_box()
+    below = page.locator('[data-cell="4"]').bounding_box()
+    assert svg["width"] == pytest.approx(below["width"], abs=1.01)
+
+
 def test_a7_dashes_meet_at_every_corner_and_crossing(editor):
     """A7: a dashed 3 x 3 table at 1 mm has ink at its 16 corners and crossings, on screen."""
     page = editor(
@@ -118,7 +151,7 @@ def test_a8_the_line_colour_colours_every_style_and_the_scissors(editor):
             "els => els.map((e) => e.getAttribute('stroke'))"
         )
         assert strokes and set(strokes) == {red}
-        assert page.locator(".scissors").get_attribute("stroke") == red
+        assert page.locator(".scissors svg").get_attribute("stroke") == red
         page.close()
 
 

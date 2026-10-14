@@ -1582,22 +1582,28 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
       {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
       {styled && cells.flatMap((_, r) => cols.map((_c, c) => (
-        <svg key={`e${r}-${c}`} className="edge" data-edge={r * cols.length + c} style={{ gridRow: r + 1, gridColumn: c + 1 }}>
+        <svg key={`e${r}-${c}`} className="edge" data-edge={r * cols.length + c} style={{ gridRow: `${r + 1} / ${r + 2}`, gridColumn: `${c + 1} / ${c + 2}` }}>
           <g transform="translate(-0.5 -0.5)">
             {rim("top", lineAt("h", r, c), TOP)}
             {rim("left", lineAt("v", r, c), LEFT)}
             {r === cells.length - 1 && rim("bottom", lineAt("h", r + 1, c), BOTTOM)}
             {c === cols.length - 1 && rim("right", lineAt("v", r, c + 1), RIGHT)}
-            {r === 0 && c === 0 && block.props.cut === true && <Scissors size={4 * k} x={-4.5 * k} y={-2 * k} color={line} className="scissors" />}
+            {r === 0 && c === 0 && block.props.cut === true && (
+              <g className="scissors" transform={`rotate(-45 ${-2.5 * k} 0)`}>
+                <Scissors size={4 * k} x={-4.5 * k} y={-2 * k} color={line} />
+              </g>
+            )}
           </g>
         </svg>
       )))}
       {/* The box of solution words takes the table's style on its left, right and bottom: its top is the table's bottom. */}
       {styled && words.length > 0 && (
-        <svg className="edge" data-edge="bank" style={{ gridRow: cells.length + 1, gridColumn: "1 / -1" }}>
-          {rim("left", plain, LEFT)}
-          {rim("right", plain, RIGHT)}
-          {rim("bottom", plain, BOTTOM)}
+        <svg className="edge" data-edge="bank" style={{ gridRow: `${cells.length + 1} / ${cells.length + 2}`, gridColumn: "1 / -1" }}>
+          <g transform="translate(-0.5 -0.5)">
+            {rim("left", plain, LEFT)}
+            {rim("right", plain, RIGHT)}
+            {rim("bottom", plain, BOTTOM)}
+          </g>
         </svg>
       )}
     </div>
