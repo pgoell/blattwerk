@@ -9,7 +9,8 @@ import io
 import pytest
 from PIL import Image
 from playwright.sync_api import expect
-from ui import TABLE, at, box, pick
+from test_feed_print import printed, sheet_id
+from ui import TABLE, at, box, pick, saved, user
 
 INK = "#222222"
 THREE = {
@@ -409,3 +410,69 @@ def test_beyond_broken_edges_are_ignored_and_the_width_holds(editor):
         "els => els.map((e) => +e.getAttribute('stroke-width'))"
     )
     assert all(abs(w - scale(page)) < 0.5 for w in widths)
+
+
+def thick_between(locator, cols, line, mm):
+    """The rows (or columns) in which a line `mm` wide stands on line `line` between two columns
+    (or across, between two rows), as the cells' svgs draw it."""
+    table = locator.locator(".table").first
+    # The svgs draw in the table's own pixels: `--edge` is 0.25 mm of them.
+    per_mm = table.evaluate("t => parseFloat(getComputedStyle(t).getPropertyValue('--edge')) * 4")
+    svgs = locator.locator('.table svg.edge[data-edge]:not([data-edge="bank"])')
+    lines = svgs.evaluate_all(LINES)
+    found = set()
+    for one in lines:
+        r, c = divmod(one["edge"], cols)
+        if abs(one["w"] - mm * per_mm) > 0.5:
+            continue
+        if line[0] == "v" and (one["side"], c) in (("right", line[1] - 1), ("left", line[1])):
+            found.add(r)
+        if line[0] == "h" and (one["side"], r) in (("bottom", line[1] - 1), ("top", line[1])):
+            found.add(c)
+    return found
+
+
+@pytest.mark.parametrize("button", ["Zeile darunter", "Zeile darüber"])
+def test_issue_567_a_thick_line_inside_runs_on_through_a_new_row(editor, browser, server, button):
+    """Issue #567 (PR #546): the first column framed in 1.25 mm, so the line between column 1 and 2
+    is thick inside the table. A row added below or above the middle row carries that line, on the
+    screen and on the print page; Ctrl+Z takes the row away."""
+    client = user()
+    edges = {
+        "h": [[FRAME, None, None], [None] * 3, [None] * 3, [FRAME, None, None]],
+        "v": [[FRAME, FRAME, None, None]] * 3,
+    }
+    page = editor(box("t", "table", {**THREE, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(4).dblclick()
+    page.get_by_role("button", name=button, exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    assert thick_between(at(page, "t"), 3, ("v", 1), 1.25) == {0, 1, 2, 3}
+    assert thick_between(at(page, "t"), 3, ("v", 0), 1.25) == {0, 1, 2, 3}
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    assert thick_between(paper, 3, ("v", 1), 1.25) == {0, 1, 2, 3}
+    paper.context.close()
+    page.keyboard.press("Control+z")
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(9)
+    assert thick_between(at(page, "t"), 3, ("v", 1), 1.25) == {0, 1, 2}
+
+
+def test_issue_567_a_thick_line_across_runs_on_through_a_new_column(editor, browser, server):
+    """Issue #567: the first row framed in 1.25 mm, so the line under it is thick inside the table.
+    A column added to the right of the middle one carries that line, on the screen and in print."""
+    client = user()
+    edges = {
+        "h": [[FRAME] * 3, [FRAME] * 3, [None] * 3, [None] * 3],
+        "v": [[FRAME, None, None, FRAME], [None] * 4, [None] * 4],
+    }
+    page = editor(box("t", "table", {**THREE, "line": INK, "edges": edges}), client=client)
+    pick(page, "t")
+    at(page, "t").locator(".table > div[data-cell]").nth(4).dblclick()
+    page.get_by_role("button", name="Spalte rechts", exact=True).click()
+    expect(at(page, "t").locator(".table > div[data-cell]")).to_have_count(12)
+    assert thick_between(at(page, "t"), 4, ("h", 1), 1.25) == {0, 1, 2, 3}
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    assert thick_between(paper, 4, ("h", 1), 1.25) == {0, 1, 2, 3}
+    paper.context.close()
