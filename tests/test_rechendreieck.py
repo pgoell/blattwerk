@@ -134,7 +134,8 @@ def test_typing_a_number_stores_it_and_one_undo_takes_both_digits_back(editor):
     page = editor(dz("d", DREIECK), client=client)
     pick(page, "d")
     number = field(page, INNER_TOP)
-    step(page, lambda: number.fill("15"))
+    # The field shows the generated number: select it, so that the two keys replace it.
+    step(page, lambda: (number.press("Control+a"), number.press_sequentially("15")))
     assert props_of(doc(page, client))["typed"] == [[0, 0, 15]]
     undo(page)
     assert "typed" not in props_of(doc(page, client))
@@ -149,6 +150,13 @@ def test_each_field_is_its_own_undo_step(editor):
     step(page, lambda: field(page, "Zahl im Feld innen links").fill("8"))
     undo(page)
     assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
+
+
+def test_a_wrong_triangle_gives_its_hint_whichever_is_picked(editor):
+    """A10: Dreieck 2 holds contradicting numbers; with Dreieck 1 picked its hint still shows."""
+    page = editor(dz("d", {**DREIECK, "typed": [[1, 0, 1], [1, 1, 1], [1, 2, 1], [1, 5, 5]]}))
+    pick(page, "d")
+    expect(hint(page)).to_have_text("Dreieck 2 geht mit diesen Zahlen nicht auf.")
 
 
 def test_typed_numbers_that_allow_no_triangle_give_the_hint(editor):
@@ -173,6 +181,46 @@ def test_new_dice_store_another_seed_and_keep_the_settings_and_typed(editor):
     assert after["typed"] == [[0, 0, 15]]
     undo(page)
     assert props_of(doc(page, client))["seed"] == DREIECK["seed"]
+
+
+@pytest.mark.parametrize(
+    "start, act, key",
+    [
+        (
+            {**DREIECK, "given": "free", "free": FREE},
+            lambda p: panel(p, "Feld innen oben").click(),
+            "free",
+        ),
+        (
+            DREIECK,
+            lambda p: (
+                field(p, INNER_TOP).press("Control+a"),
+                field(p, INNER_TOP).press_sequentially("15"),
+            ),
+            "typed",
+        ),
+        ({**DREIECK, "typed": [[0, 0, 15]]}, lambda p: panel(p, "Neu würfeln").click(), "seed"),
+        (
+            {**DREIECK, "typed": TYPED},
+            lambda p: panel(p, "Eigene Zahlen entfernen").click(),
+            "typed",
+        ),
+    ],
+    ids=["frei", "tippen", "neu", "entfernen"],
+)
+def test_undo_and_redo_bring_back_each_change(editor, start, act, key):
+    """A14: a free field, a typed number, Neu würfeln and Eigene Zahlen entfernen undo and redo."""
+    client = user()
+    page = editor(dz("d", start), client=client)
+    pick(page, "d")
+    before = props_of(doc(page, client)).get(key)
+    step(page, lambda: act(page))
+    after = props_of(doc(page, client)).get(key)
+    assert after != before
+    undo(page)
+    assert props_of(doc(page, client)).get(key) == before
+    redo(page)
+    assert props_of(doc(page, client)).get(key) == after
 
 
 def test_numbers_of_a_hidden_triangle_stay_when_the_count_goes_back(editor):

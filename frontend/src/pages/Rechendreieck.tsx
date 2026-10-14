@@ -124,7 +124,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           </div>
         ))}
       </div>
-      {m.triangles[w].wrong && <p className="hint" role="status">{`Dreieck ${w + 1} geht mit diesen Zahlen nicht auf.`}</p>}
+      {m.triangles.map((t, i) => t.wrong && <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht mit diesen Zahlen nicht auf.`}</p>)}
       {p.typed && <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>}
       <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }).triangles) }]) })}>
         Neu würfeln
