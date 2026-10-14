@@ -405,8 +405,9 @@ def test_the_arrows_walk_the_enabled_entries_and_enter_runs_one(editor):
     page = editor(*texts(*"ab"))
     right(page, "a")
     expect(item(page, "Ausschneiden")).to_be_focused()
+    # "a" lies at the back, so the two backward entries are grey.
     page.keyboard.press("ArrowUp")
-    expect(item(page, "In den Hintergrund")).to_be_focused()
+    expect(item(page, "Eine Ebene nach vorn")).to_be_focused()
     page.keyboard.press("ArrowDown")
     expect(item(page, "Ausschneiden")).to_be_focused()
     for name in ("Kopieren", "Einfügen", "Duplizieren", "Löschen", "Sperren"):
@@ -555,10 +556,11 @@ def test_undo_works_after_a_page_entry_though_the_title_had_the_focus(editor):
 
 def test_a_menu_higher_than_the_window_scrolls(editor):
     """I7"""
-    page = editor(*texts("a"))
+    # "b" lies over "a", so the last entry can take it to the back.
+    page = editor(*texts(*"ab"))
     # Wide enough for Blattform's layout: in a narrower window the dock lies over the block.
     page.set_viewport_size({"width": 1100, "height": 320})
-    right(page, "a")
+    right(page, "b")
     box = menu(page).bounding_box()
     assert box["y"] >= 0 and box["y"] + box["height"] <= 320
     item(page, "In den Hintergrund").click()

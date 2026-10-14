@@ -10,6 +10,7 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type KeyboardEvent as Key,
+  type MouseEvent as Click,
   type PointerEvent,
   type ReactNode,
   type TouchEvent,
@@ -959,10 +960,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A button that has the focus keeps Enter and Tab. With nothing selected Tab picks the block at the back and
     // Shift+Tab the one in front.
     const plain = !target.closest("button, a");
+    // Ctrl+] and Ctrl+[ step the picked blocks in the stack, with Shift to the front or the back, as in PowerPoint.
+    // With Alt or AltGr the key types a character, so it is no order key.
+    const order = (front: boolean) => sel.length > 0 && !e.altKey && !e.getModifierState("AltGraph") && (() => raise(front, !e.shiftKey));
     // Ctrl+V alone is not here: a key stopped on its way down brings no paste.
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline") }
+        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false) }
         : {
             delete: remove,
             backspace: remove,
@@ -1937,7 +1941,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // To the front or the back, as in PowerPoint: a part of a group moves within that group, a whole group as one thing.
   // With `one` a single step instead: over the next thing that does not move, a block or a whole group.
-  function raise(front: boolean, one = false) {
+  // The new stack from back to front, or nothing where all already lies there.
+  function stacked(front: boolean, one = false) {
     const whole = (g: string) => blocks.every((b) => !b.group?.includes(g) || ids.includes(b.id));
     // What a block moves in: its innermost group that is not picked whole, or the page.
     const level = (b: Block) => b.group?.filter((g) => !whole(g)).at(-1);
@@ -1966,10 +1971,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       stack = stack.map((b) => (part.includes(b) ? next.shift()! : b));
     }
-    // What already lies there leaves nothing to undo.
-    if (stack.every((b, i) => b === order[i])) return;
+    if (!stack.every((b, i) => b === order[i])) return stack;
+  }
+  // What already lies there leaves nothing to undo.
+  function raise(front: boolean, one = false) {
+    const stack = stacked(front, one);
+    if (!stack) return;
     const z = new Map(stack.map((b, i) => [b.id, i + 1]));
     place(blocks.map((b) => [b.id, { z: z.get(b.id)! }]));
+  }
+  // A button of the order that greys with its press gives the focus to its pair, which the press made live, so who
+  // works the panel with the keys stays where they were.
+  function layer(e: Click<HTMLButtonElement>, front: boolean, one = false) {
+    const el = e.currentTarget;
+    const had = document.activeElement === el;
+    flushSync(() => raise(front, one));
+    if (had && el.disabled) ((el.nextElementSibling ?? el.previousElementSibling) as HTMLElement | null)?.focus();
   }
 
   // Puts the blocks where they belong, rounded. What already lies there leaves nothing to undo.
@@ -2008,9 +2025,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
     const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
-    const end = row.at(-1)!.box[axis] + row.at(-1)!.box[size];
-    const gap = (end - row[0].box[axis] - row.reduce((sum, r) => sum + r.box[size], 0)) / (row.length - 1);
-    let next = row[0].box[axis];
+    // Between the outer things, or between the page's edges. One thing goes to the middle of the frame.
+    const lo = among ? Math.min(...row.map((r) => r.box[axis])) : 0;
+    const hi = among ? Math.max(...row.map((r) => r.box[axis] + r.box[size])) : axis === "x" ? W : H;
+    const sum = row.reduce((total, r) => total + r.box[size], 0);
+    const gap = row.length > 1 ? (hi - lo - sum) / (row.length - 1) : 0;
+    let next = row.length > 1 ? lo : (lo + hi - sum) / 2;
     bring(
       row.flatMap(({ t, box }) => {
         const by = next - box[axis];
@@ -2774,10 +2794,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           "sep",
           ...groups,
           "sep",
-          { label: "In den Vordergrund", disabled: none, run: () => raise(true) },
-          { label: "Eine Ebene nach vorn", disabled: none, run: () => raise(true, true) },
-          { label: "Eine Ebene nach hinten", disabled: none, run: () => raise(false, true) },
-          { label: "In den Hintergrund", disabled: none, run: () => raise(false) },
+          { label: "In den Vordergrund", disabled: none || !stacked(true), run: () => raise(true) },
+          { label: "Eine Ebene nach vorn", disabled: none || !stacked(true, true), run: () => raise(true, true) },
+          { label: "Eine Ebene nach hinten", disabled: none || !stacked(false, true), run: () => raise(false, true) },
+          { label: "In den Hintergrund", disabled: none || !stacked(false), run: () => raise(false) },
         ];
   const mode = side ? "Vorlagen" : tab === "Ansicht" ? "Ansicht" : "Start";
   const brand = (
@@ -3750,8 +3770,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
               <h2>Verteilen</h2>
               <div className="acts">
-                <button disabled={things.length < 3} onClick={() => distribute("x")}>Waagerecht</button>
-                <button disabled={things.length < 3} onClick={() => distribute("y")}>Senkrecht</button>
+                <button disabled={among ? things.length < 3 : !things.length} onClick={() => distribute("x")}>Waagerecht</button>
+                <button disabled={among ? things.length < 3 : !things.length} onClick={() => distribute("y")}>Senkrecht</button>
               </div>
               <h2>Größe angleichen</h2>
               <div className="acts">
@@ -3760,12 +3780,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               </div>
               <h2>Ebene</h2>
               <div className="acts">
-                <button onClick={() => raise(true)}>Nach vorn</button>
-                <button onClick={() => raise(false)}>Nach hinten</button>
+                <button disabled={!stacked(true)} onClick={(e) => layer(e, true)}>Nach vorn</button>
+                <button disabled={!stacked(false)} onClick={(e) => layer(e, false)}>Nach hinten</button>
               </div>
               <div className="acts">
-                <button onClick={() => raise(true, true)}>Eine nach vorn</button>
-                <button onClick={() => raise(false, true)}>Eine nach hinten</button>
+                <button disabled={!stacked(true, true)} onClick={(e) => layer(e, true, true)}>Eine nach vorn</button>
+                <button disabled={!stacked(false, true)} onClick={(e) => layer(e, false, true)}>Eine nach hinten</button>
               </div>
             </>
           )}
