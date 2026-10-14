@@ -389,15 +389,17 @@ def test_a_typed_height_holds_on_a_table_with_solution_words_after_typing_and_de
     open_cell(page, "t", 4)
     page.keyboard.type(LONG)
     page.keyboard.press("Escape")
-    typed_height(page, 90)
-    assert block(page, client)["h"] == 90
+    # The long text alone needs some 96 mm: 120 is a height above that.
+    typed_height(page, 120)
+    assert block(page, client)["h"] == 120
     open_cell(page, "t", 4)
     page.keyboard.type(LONG)
+    assert block(page, client)["h"] > 130
     page.keyboard.press("Control+a")
     page.keyboard.press("Delete")
-    assert abs(block(page, client)["h"] - 90) <= 0.1
+    assert abs(block(page, client)["h"] - 120) <= 0.1
     pick(page, "t")
-    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - 90) <= 0.1
+    assert abs(float(num(page, "Höhe").input_value().replace(",", ".")) - 120) <= 0.1
 
 
 def test_undo_brings_back_the_height_and_rows_before_a_typed_height(editor):

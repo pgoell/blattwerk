@@ -1162,6 +1162,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const px = getComputedStyle(grid).gridTemplateRows.split(" ").slice(0, b.props.cells.length).map((p) => parseFloat(p) / K);
     return px.length === b.props.cells.length && !px.some(Number.isNaN) ? px : undefined;
   }
+  // The height in mm that a table's box of solution words needs: the grid's rows after the table's own, read with the
+  // grid's height free. In a table with spare room the box is stretched as the rows are, and that share is the rows'.
+  function boxOf(grid: HTMLElement, rows: number): number {
+    const own = grid.style.height;
+    grid.style.height = "auto";
+    const box = getComputedStyle(grid).gridTemplateRows.split(" ").slice(rows).reduce((all, p) => all + (parseFloat(p) || 0) / K, 0);
+    grid.style.height = own;
+    return box;
+  }
   function place(boxes: [string, Partial<Box>][], key?: string) {
     const byId = new Map(boxes);
     change(
@@ -1172,9 +1181,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           // holds up is taller than its saved height.
           const rows = b.type === "table" && patch?.h !== undefined && b.h > EDGE && patch.h !== b.h ? heightsOf(b.props) : undefined;
           if (!rows) return { ...b, ...patch };
-          const screen = screenRows(b);
+          // A row as high as it is saved is taken as saved: the screen lays rows out on parts of a pixel.
+          const screen = screenRows(b)?.map((h, i) => (Math.abs(h - rows[i]) <= 0.05 ? rows[i] : h));
           if (screen && sum(screen) > 0) {
-            const to = patch!.h! - (b.h - sum(screen));
+            // The rows fill the height without the table's line and the box of solution words.
+            const to = patch!.h! - EDGE - boxOf(sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`)!, screen.length);
+            if (to <= 0) return { ...b, ...patch };
             return { ...b, ...patch, props: { ...b.props, rows: screen.map((h) => (h * to) / sum(screen)) } } as Block;
           }
           const f = (patch!.h! - EDGE) / (b.h - EDGE);
@@ -3161,11 +3173,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             setReach(undefined);
                             // A table without row heights gets, with the first text typed in it, the heights its rows have
                             // now: from then on a row grows alone, as in PowerPoint, and comes back when its text goes. A
-                            // table saved lower than its texts need, or with a box of solution words, has no such heights.
+                            // table saved lower than its texts need has no such heights.
                             const grid = e.currentTarget.closest<HTMLElement>(".table")!;
                             // The box of solution words is the grid's rows after the table's own, so the rows fill b.h less that.
+                            // What the box is stretched by goes to the rows, so they and the box as it needs to be fill b.h.
                             const boxMm = getComputedStyle(grid).gridTemplateRows.split(" ").slice(b.props.cells.length).reduce((all, p) => all + parseFloat(p) / K, 0);
-                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE - boxMm)) <= 0.05 ? { rows: laidMm.map(round) } : {};
+                            const fill = boxMm > 0 ? b.h - EDGE - boxOf(grid, b.props.cells.length) : sum(laidMm);
+                            const rows = !heightsOf(b.props) && laidMm.length && Math.abs(sum(laidMm) - (b.h - EDGE - boxMm)) <= 0.05 ? { rows: laidMm.map((h) => round((h * fill) / sum(laidMm))) } : {};
                             // The table may come down with its text when it has no spare room now: a table made taller
                             // than its rows need keeps that height.
                             const own = grid.style.height;
