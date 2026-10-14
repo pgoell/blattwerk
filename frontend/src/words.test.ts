@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { MARGIN, RULINGS, rowsOf, type Block, type Doc, type Ruling, type RulingBlock, type TextBlock, type TextProps } from "./sheet";
-import { blatt, filled, landed, linked, loose, looseText, pasted, short, unshown } from "./words";
+import { blatt, filled, follow, landed, linked, loose, looseText, pasted, short, unshown } from "./words";
 
 const block = (kind: Ruling, h: number, props: Partial<RulingBlock["props"]> = {}, extra: Partial<RulingBlock> = {}): RulingBlock => ({
   id: "r",
@@ -336,5 +336,60 @@ describe("filled", () => {
   it("fills a block to the bottom margin in whole rows", () => {
     const out = filled(plain, 210, 297);
     expect(out.h).toBe(260);
+  });
+});
+
+describe("follow", () => {
+  const lernwoerter = (props: Partial<RulingBlock["props"]> = {}, extra: Partial<RulingBlock> = {}) => block("l1", 120, { list: "copy", ...props }, { y: 55, ...extra });
+  const below = block("l4", 20, {}, { id: "below", y: 200 });
+
+  it("grows a linked ruling by a row for each word it lacks", () => {
+    const out = follow([lernwoerter()], words(7), 210, 297);
+    expect(out[0].h).toBe(140);
+  });
+
+  it("stops the ruling at the bottom margin", () => {
+    const out = follow([lernwoerter()], words(14), 210, 297);
+    expect(out[0].h).toBe(220);
+    expect(out[0].y + out[0].h).toBeLessThanOrEqual(297 - MARGIN);
+  });
+
+  it("stops the ruling at the top of a block below it that it overlaps", () => {
+    const out = follow([lernwoerter(), below], words(14), 210, 297);
+    expect(out[0].h).toBe(140);
+    expect(out[1]).toBe(below);
+  });
+
+  it("never shrinks a ruling with more rows than words", () => {
+    expect(follow([lernwoerter()], words(2), 210, 297)[0].h).toBe(120);
+  });
+
+  it("keeps a locked ruling as it is", () => {
+    expect(follow([lernwoerter({}, { locked: true })], words(14), 210, 297)[0].h).toBe(120);
+  });
+
+  it("keeps the height of a ruling that a run-on ruling goes on from", () => {
+    const first = lernwoerter();
+    const runOn = block("l1", 60, { list: "copy", from: 6 }, { id: "next", y: 175 });
+    const out = follow([first, runOn], words(14), 210, 297);
+    expect(out[0].h).toBe(120);
+  });
+
+  it("keeps a turned ruling as it is", () => {
+    expect(follow([lernwoerter({}, { angle: 180 })], words(14), 210, 297)[0].h).toBe(120);
+  });
+
+  it("stops at a block that lies over the ruling's foot or round it", () => {
+    const over = block("l4", 40, {}, { id: "over", y: 150 });
+    expect(follow([lernwoerter(), over], words(14), 210, 297)[0].h).toBe(120);
+    const frame = block("l4", 150, {}, { id: "frame", y: 50 });
+    expect(follow([lernwoerter(), frame], words(14), 210, 297)[0].h).toBe(120);
+  });
+
+  it("keeps the height of a ruling whose run-on ruling lies on the next page", () => {
+    const first = lernwoerter();
+    const runOn = block("l1", 60, { list: "copy", from: 6 }, { id: "next", y: 15 });
+    const out = follow([first], words(14), 210, 297, [first, runOn]);
+    expect(out[0].h).toBe(120);
   });
 });

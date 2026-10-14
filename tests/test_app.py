@@ -713,7 +713,7 @@ def test_built_in_templates_are_everyones_and_stay():
 
     for t in built_in:
         assert t["group"] in {"Allgemein", "Mathe", "Deutsch", "Organisation"}
-        if t["id"] < -3:
+        if t["id"] < -3 and t["name"] != "Elternbrief":
             assert t["doc"]["pages"][0]["blocks"][0]["type"] == "name"
         blocks = [b for page in t["doc"]["pages"] for b in page["blocks"]]
         # A start point: every block can move, and each has its own id.

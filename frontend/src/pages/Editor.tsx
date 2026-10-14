@@ -99,7 +99,7 @@ import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
-import { blatt, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
+import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -110,7 +110,7 @@ import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
-import { DEFAULTS as UHR } from "../uhr";
+import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
@@ -1212,10 +1212,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     );
   }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
-  // A changed list changes every linked text on the page, which the grow effect measures.
+  // A changed list changes every linked text on the page, which the grow effect measures. A linked ruling grows by a
+  // row for each new word, in the same step.
   function listWords(value: string) {
     tight.current = true;
-    update((doc) => ({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
+    update((doc) => {
+      const next = { ...doc, words: value === "" ? undefined : value.split("\n") };
+      const words = wordsIn(next);
+      const all = doc.pages.flatMap((p) => p.blocks);
+      return { ...next, pages: doc.pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(doc, n)[0], sizeOf(doc, n)[1], all) })) };
+    }, "words");
   }
   // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
   const listField = useRef<HTMLTextAreaElement>(null);
@@ -1319,20 +1325,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // A maths block grows downward when a change in its panel needs more room, to the page's foot at most, in the same
   // undo step; it never shrinks by itself. A Zahlenstrahl grows by what its line rises, so the line keeps its place.
+  // The blocks that grow so that their drawing keeps the size of the default block's: the height their props need at
+  // width w, and the props that change it (#588, #598).
+  const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, string[]]>> = {
+    rechendreieck: [(p, w) => heightFor(saneDreieck(p), w), ["count", "columns"]],
+    zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
+    uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
+  };
   function grown(b: Block, next: Block): Partial<Box> {
-    const foot = Math.max(b.h, H - b.y);
+    const foot = Math.max(b.h, H - MARGIN - b.y);
     if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
       const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
     }
-    // A Rechendreieck grows so that its triangles keep the size of the default block's.
-    if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
-      const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
-      if (need > b.h) return tall(b, need);
-    }
-    // A Zahlenmauer grows so that its stones keep the size of the default block's, as a Rechendreieck does (#588).
-    if (b.type === "zahlenmauer" && next.type === "zahlenmauer" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns || next.props.base !== b.props.base)) {
-      const need = round(Math.min(heightForMauer(saneMauer(next.props), b.w), foot));
+    const grow = GROWS[b.type];
+    if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
+      const need = round(Math.min(grow[0](next.props, b.w), foot));
       if (need > b.h) return tall(b, need);
     }
     return {};
@@ -2445,7 +2453,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const dh = axis === "col" ? 0 : add ? b.props.size * PT * 1.6 + 0.25 : -gone;
     // A column that comes or goes takes its average width or its own width from the block, so the others keep theirs.
     const widths = widthsOf(b.props.cols, b.w);
-    const dw = axis === "row" ? 0 : add ? sum(widths) / widths.length : -widths[i];
+    // A new column widens the table only to the right margin; there the columns narrow (#602).
+    const dw = axis === "row" ? 0 : add ? Math.min(sum(widths) / widths.length, Math.max(0, W - MARGIN - b.x - b.w)) : -widths[i];
     const to = (at: number) => (add ? at + +(i <= at) : Math.min(at - +(i < at), n - 2));
     const [r, c] = [Math.floor(slot / cols), slot % cols];
     const target = axis === "row" ? to(r) * cols + c : r * (cols + (add ? 1 : -1)) + to(c);
@@ -2644,7 +2653,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       })),
     })));
     if (turn !== applied.current) return;
-    update((cur) => ({ ...doc, pages, words: doc.words ?? cur.words }));
+    update((cur) => {
+      const next = { ...doc, words: doc.words ?? cur.words };
+      const words = wordsIn(next);
+      const all = pages.flatMap((p) => p.blocks);
+      return { ...next, pages: pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(next, n)[0], sizeOf(next, n)[1], all) })) };
+    });
     setIds([]);
   }
   async function forget(t: Template) {
@@ -3306,7 +3320,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       <span className="tpl-thumb" aria-hidden>
                         <Thumb doc={t.shown} k={48 / 210} page={0} />
                       </span>
-                      {t.name}
+                      <span className="tpl-name">{t.name}</span>
                     </button>
                     <small>eingebaut</small>
                   </div>
@@ -3319,7 +3333,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             <div key={t.id} className="tpl">
               <button onClick={() => apply(t)}>
                 <LayoutTemplate size={14} aria-hidden />
-                {t.name}
+                <span className="tpl-name">{t.name}</span>
               </button>
               <Tool icon={X} label={`Vorlage ${t.name} löschen`} title="Löschen" onClick={() => forget(t)} />
             </div>

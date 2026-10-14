@@ -24,11 +24,33 @@ export function filled(b: RulingBlock, W: number, H: number): Partial<Box> {
 // The words a linked block does not show: a row holds one word, so the rest are cut off. A run-on block shows from its `from`.
 export const short = (b: RulingBlock, words: string[]): number => (listOf(b) ? Math.max(0, words.length - startOf(b) - rowsOf(b)) : 0);
 
+// Whether a run-on block of the same mode among `all` goes on from the word after the last row of `b`.
+const runsOn = (b: RulingBlock, all: RulingBlock[]) => all.some((o) => o.props.from !== undefined && listOf(o) === listOf(b) && startOf(o) === startOf(b) + rowsOf(b));
+
 // The most words of the list that one of the `blocks` cuts off. A block that a run-on block of its mode among `all`
 // goes on from, at the word after its last row, cuts off none.
 export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock[] = blocks): number {
-  const goesOn = (b: RulingBlock) => all.some((o) => o.props.from !== undefined && listOf(o) === listOf(b) && startOf(o) === startOf(b) + rowsOf(b));
-  return Math.max(0, ...blocks.map((b) => (goesOn(b) ? 0 : short(b, words))));
+  return Math.max(0, ...blocks.map((b) => (runsOn(b, all) ? 0 : short(b, words))));
+}
+
+// A linked ruling grows by a row for each word the list has past its rows, as far as the page margin and the top of
+// a block below it that it overlaps. A block that reaches past its foot, over it or round it, leaves it no room. It
+// never shrinks, and a turned or locked ruling, or one a run-on block among `all` (the rulings of every page) goes on
+// from, keeps its height.
+export function follow(blocks: Block[], words: string[], W: number, H: number, all: Block[] = blocks): Block[] {
+  const rulings = all.filter((o): o is RulingBlock => o.type === "ruling");
+  return blocks.map((b) => {
+    if (b.type !== "ruling" || !listOf(b) || b.locked || b.angle || runsOn(b, rulings)) return b;
+    const need = words.length - startOf(b);
+    if (need <= rowsOf(b)) return b;
+    const { row } = RULINGS[kindOf(b.props.kind)];
+    const foot = b.y + b.h;
+    const edge = Math.min(...blocks.filter((o) => o !== b && o.y + o.h > foot && o.x < b.x + b.w && o.x + o.w > b.x).map((o) => Math.max(o.y, foot)));
+    const room = Math.min(filled(b, W, H).h ?? b.h, edge - b.y);
+    const rows = Math.min(need, Math.floor(room / row + 0.05));
+    if (rows <= rowsOf(b)) return b;
+    return { ...b, ...tall(b, round(rows * row)) } as Block;
+  });
 }
 
 // A block takes the list in `mode`. An unlinked block that is free to grow gets a row for each word, up to the

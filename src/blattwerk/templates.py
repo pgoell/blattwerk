@@ -181,7 +181,6 @@ BUILT_IN = [
         "group": "Organisation",
         "doc": doc(
             [
-                block("name", 15, 15, 180, 10, {}),
                 heading(30, "Grundschule am Wald"),
                 block(
                     "text",
@@ -466,7 +465,7 @@ BUILT_IN = [
         "group": "Organisation",
         "doc": doc(
             [
-                block("name", 15, 15, 180, 10, {}),
+                block("name", 15, 15, 180, 10, {"fields": ["Name", "Klasse"]}),
                 heading(32, "Klassenarbeit"),
                 block(
                     "text",

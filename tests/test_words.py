@@ -169,8 +169,12 @@ def test_a_block_that_cannot_grow_says_how_many_words_do_not_fit(editor, case):
 
 
 def test_a_list_that_grows_later_warns_and_moves_no_block(editor):
+    """A linked ruling grows by a row for a new word only into free room (#600): with a block right
+    under it, it keeps its rows, warns, and the block stays."""
     client = user()
-    page = editor(box("r", "ruling", LINKED, h=20), client=client)
+    # The linked ruling lies at y 50 to 70; this one right under it.
+    under = box("u", "ruling", RULING, z=2, y=70, h=20)
+    page = editor(box("r", "ruling", LINKED, h=20), under, client=client)
     store_words(page, client, ["Hund", "Katze"])
     list_tab(page)
     field(page).focus()
@@ -179,6 +183,7 @@ def test_a_list_that_grows_later_warns_and_moves_no_block(editor):
     page.keyboard.type("Maus")
     expect(field(page)).to_have_value("Hund\nKatze\nMaus")
     assert rulings(doc(page, client))[0]["h"] == 20
+    assert rulings(doc(page, client))[1]["y"] == 70
     page.get_by_role("tab", name="Format").click()
     pick(page, "r")
     expect(page.locator(".panel [role=status]")).to_have_text("1 Wort passt nicht in die Zeilen.")

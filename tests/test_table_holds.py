@@ -12,9 +12,9 @@ LONG = " ".join(f"wort{n}" for n in range(25))
 
 def test_a_set_column_width_holds_when_a_column_is_added_right(editor):
     """Issue 517: a column set to 40 mm stays 40 mm when a column comes to its right, and the block
-    grows by the average width."""
+    grows by the average width, while it has room before the right margin (#602)."""
     client = user()
-    page = editor(box("t", "table", GRID, w=W), client=client)
+    page = editor(box("t", "table", GRID, x=15, w=120 + EDGE), client=client)
     open_cell(page, "t", 0)
     typed(page, "Spaltenbreite", "40")
     before = block(page, client)
@@ -30,9 +30,9 @@ def test_a_set_column_width_holds_when_a_column_is_added_right(editor):
 
 def test_a_set_column_width_holds_when_a_column_is_added_left(editor):
     """Issue 517: a column set to 40 mm stays 40 mm when a column comes to its left, and the block
-    grows by the average width."""
+    grows by the average width, while it has room before the right margin (#602)."""
     client = user()
-    page = editor(box("t", "table", GRID, w=W), client=client)
+    page = editor(box("t", "table", GRID, x=15, w=120 + EDGE), client=client)
     open_cell(page, "t", 0)
     typed(page, "Spaltenbreite", "40")
     before = block(page, client)
@@ -82,17 +82,18 @@ def test_a_set_column_width_holds_when_another_column_is_deleted_in_six_columns(
 
 
 def test_every_column_keeps_its_width_when_a_column_comes_or_goes(editor):
-    """Issue 517: columns of 30, 60 and 90 mm keep their widths when one comes and when one goes."""
+    """Issue 517: columns of 20, 40 and 60 mm keep their widths when one comes and when one goes,
+    in a table with room before the right margin (#602)."""
     client = user()
-    page = editor(box("t", "table", {**GRID, "cols": [1, 2, 3]}, w=W), client=client)
+    page = editor(box("t", "table", {**GRID, "cols": [1, 2, 3]}, x=15, w=120 + EDGE), client=client)
     open_cell(page, "t", 0)
     page.get_by_role("button", name="Spalte rechts", exact=True).click()
-    # The new column takes the average of 30, 60 and 90.
-    for got, want in zip(widths_mm(block(page, client)), [30, 60, 60, 90], strict=True):
+    # The new column takes the average of 20, 40 and 60.
+    for got, want in zip(widths_mm(block(page, client)), [20, 40, 40, 60], strict=True):
         assert abs(got - want) <= 0.05
     open_cell(page, "t", 2)
     page.get_by_role("button", name="Spalte löschen", exact=True).click()
-    for got, want in zip(widths_mm(block(page, client)), [30, 60, 90], strict=True):
+    for got, want in zip(widths_mm(block(page, client)), [20, 40, 60], strict=True):
         assert abs(got - want) <= 0.05
 
 
@@ -275,17 +276,19 @@ def test_a_height_set_on_a_table_grown_by_its_text_holds(editor):
 
 
 def test_a_table_past_the_right_edge_is_warned_of(editor):
-    """Issue 537: a column more makes a table from margin to margin wider than the page, and the
-    panel says that what lies past the edge is not printed. Without the column it says nothing."""
+    """Issue 537: a table that reaches past the page's edge, and the panel says that what lies past
+    the edge is not printed. A table from margin to margin says nothing, nor after a column more,
+    which keeps it inside the margin (#602)."""
     client = user()
     page = editor(box("t", "table", GRID, x=15, w=180), client=client)
     open_cell(page, "t", 0)
     expect(page.locator('[data-edge="over"]')).to_be_hidden()
     page.get_by_role("button", name="Spalte rechts", exact=True).click()
-    assert block(page, client)["w"] > 195
-    expect(page.locator('[data-edge="over"]')).to_be_visible()
-    page.get_by_role("button", name="Spalte löschen", exact=True).click()
+    assert block(page, client)["w"] <= 180.05
     expect(page.locator('[data-edge="over"]')).to_be_hidden()
+    page = editor(box("t", "table", GRID, x=40, w=180), client=client)
+    open_cell(page, "t", 0)
+    expect(page.locator('[data-edge="over"]')).to_be_visible()
 
 
 def test_a_shrunk_table_agrees_on_screen_thumb_and_pdf(editor, browser, server):
