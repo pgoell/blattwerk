@@ -21,8 +21,11 @@
 // - `fill`: "random" takes every time from the seed; "free" takes clock i's time from `times[i]` and from the seed
 //   where that entry is missing or no time (default "random"). `times`: minutes per clock, kept when `fill` changes.
 // - `seed`: with the other props alone it gives the random times, so every draw gives the same ones. Random times
-//   are multiples of `step` in 0 to 1439 (in 60 to 779, 1:00 to 12:59, with format "12" and "words"), different
-//   from each other while there are enough.
+//   are multiples of `step` from 1:00 to 12:59 (60 to 779) whatever the format, different from each other while
+//   there are enough. With format "24" and task "draw" a random time gets 12 hours added (modulo 24 hours) where a
+//   coin from the same seed says so, so the 24-hour clock may show 13:00 to 23:59 or 0:00 to 0:59. The coin is drawn
+//   for every clock whatever the format and task, so no other time moves with them. With format "24" and task
+//   "read" the times stay 1:00 to 12:59, as the face shows.
 // Wrong kinds and values out of range give their default in `sane`, which never throws on any stored value.
 //
 // The time words (`inWords`), `h` the hour 1 to 12 and `n` the next one, as the words of `HOURS`:
@@ -144,19 +147,24 @@ export function sane(p: UhrProps): UhrProps {
 // The time each clock shows, `count` of them. `p` is already sane. Random times come from the seed; with "free" a
 // clock keeps its own time from `times` where that is a whole minute of the day.
 export function timesOf(p: UhrProps): number[] {
-  const twelve = p.format !== "24";
-  const lo = twelve ? 60 : 0;
-  const hi = twelve ? 779 : 1439;
   const own = (i: number) => (p.fill === "free" && isTime(p.times?.[i]) ? (p.times as number[])[i] : undefined);
   const taken = new Set(Array.from({ length: p.count }, (_, i) => own(i)).filter((t): t is number => t !== undefined));
   const pool: number[] = [];
-  for (let t = Math.ceil(lo / p.step) * p.step; t <= hi; t += p.step) if (!taken.has(t)) pool.push(t);
+  for (let t = Math.ceil(60 / p.step) * p.step; t <= 779; t += p.step) if (!taken.has(t)) pool.push(t);
   const rnd = rng(p.seed);
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  return Array.from({ length: p.count }, (_, i) => own(i) ?? pool[i % pool.length]);
+  // One coin per clock, drawn whatever the format and task, so the rest of the sequence does not depend on them.
+  const coins = Array.from({ length: p.count }, () => rnd() < 0.5);
+  const half = p.format === "24" && p.task === "draw";
+  return Array.from({ length: p.count }, (_, i) => {
+    const t = own(i);
+    if (t !== undefined) return t;
+    const r = pool[i % pool.length];
+    return half && coins[i] ? (r + 720) % 1440 : r;
+  });
 }
 
 // The angles of the hands in degrees, clockwise from 12: [hour, minute].

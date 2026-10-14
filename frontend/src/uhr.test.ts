@@ -174,6 +174,42 @@ describe("timesOf", () => {
   });
 });
 
+describe("random times and the format", () => {
+  const clocks = (over: Partial<UhrProps>) => timesOf(P({ count: 12, step: 1, ...over }));
+
+  it("the same seed gives the same times in format 12, 24 and words when reading", () => {
+    fc.assert(
+      fc.property(fc.integer(), (seed) => {
+        const a = clocks({ seed, format: "12", task: "read" });
+        expect(clocks({ seed, format: "24", task: "read" })).toEqual(a);
+        expect(clocks({ seed, format: "words", task: "read" })).toEqual(a);
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("format 24 and task draw: each time is the format-12 time or that time 12 hours later", () => {
+    for (const seed of [1, 2, 3, 42]) {
+      const twelve = clocks({ seed, format: "12", task: "draw" });
+      const day = clocks({ seed, format: "24", task: "draw" });
+      day.forEach((t, i) => expect(t === twelve[i] || t === (twelve[i] + 720) % 1440).toBe(true));
+    }
+  });
+
+  it("format 24 and task draw give some times past 12:59 for seed 1", () => {
+    expect(clocks({ seed: 1, format: "24", task: "draw" }).some((t) => t >= 780 || t < 60)).toBe(true);
+  });
+
+  it("format 24 and task read give times in 1:00 to 12:59, as the face shows", () => {
+    fc.assert(
+      fc.property(fc.integer(), (seed) => {
+        for (const t of clocks({ seed, format: "24", task: "read" })) expect(t >= 60 && t <= 779).toBe(true);
+      }),
+      { numRuns: 100 },
+    );
+  });
+});
+
 describe("hands", () => {
   it("15:30 puts the hour hand at 105 and the minute hand at 180", () => {
     expect(hands(15 * 60 + 30)).toEqual([105, 180]);
