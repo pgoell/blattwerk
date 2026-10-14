@@ -22,7 +22,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
   function setTyped(stone: number, text: string) {
     // The stored entries as they are, so that the walls beyond `count` keep their numbers.
     const raw = block.props.typed;
-    const others = (Array.isArray(raw) ? raw : []).filter(([tw, ts]) => tw !== w || ts !== stone);
+    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== w || t[1] !== stone));
     const key = `typed:${w}:${stone}`;
     if (text === "") return apply({ typed: others.length ? others : undefined }, key);
     apply({ typed: [...others, [w, stone, Number(text)]] }, key);
