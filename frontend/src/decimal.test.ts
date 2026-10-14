@@ -31,8 +31,8 @@ describe("decimal", () => {
         const groups = whole.split(GAP);
         expect(groups.join("")).toBe(String(Math.floor(n / 10 ** places)));
         expect(groups.slice(1).every((g) => /^\d{3}$/.test(g))).toBe(true);
-        // A whole part of four digits stands alone (9999, #549); a grouped one leads with one to three.
-        expect(/^\d{1,3}$/.test(groups[0])).toBe(groups.length > 1 || groups[0].length < 4);
+        // A whole part of four digits stands alone (1000,00 in #549); a grouped one leads with one to three.
+        expect(groups[0]).toMatch(groups.length > 1 ? /^\d{1,3}$/ : /^\d{1,4}$/);
         expect(groups.length > 1).toBe(whole.split(GAP).join("").length >= 5);
         if (fraction !== undefined) expect(fraction).not.toContain(GAP);
       }),
