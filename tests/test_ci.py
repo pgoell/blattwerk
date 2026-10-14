@@ -67,7 +67,7 @@ def test_a_chromium_shard_ends_well_before_its_limit():
     (limit,) = map(int, re.findall(r"^    timeout-minutes: (\d+)$", shards, re.M))
     slowest = 504 * 6 / n
     assert limit * 60 >= 1.5 * slowest + 60
-    # A hung run still ends: the hang guard after three silent minutes, the limit after that.
+    # A run that hangs before the hang guard is armed holds its runner until the limit.
     assert limit <= 15
 
 

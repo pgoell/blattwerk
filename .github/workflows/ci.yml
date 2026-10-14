@@ -26,7 +26,8 @@ jobs:
     name: Test shard ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     # With six shards a job took 5 to 8.5 minutes and the limit of 8 cancelled shards whose tests
-    # had all passed (#541, #550); eight shards take three quarters of that. A run that hangs ends
+    # had all passed (#541, #550), once 73 s after its last step had ended; eight shards take three
+    # quarters of that, and the limit leaves room for such a stall. A run that hangs ends
     # itself after three silent minutes (tests/conftest.py), so the limit is only the last net.
     timeout-minutes: 12
     strategy:
