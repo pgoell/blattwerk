@@ -106,9 +106,11 @@ CONTROLS = {
         ("press", "Schrift kleiner", 0),
         ("press", "Mitte", 0),
         ("press", "Keine", 0),
-        # The table's own "Links" comes first.
-        ("press", "Links", 1),
-        ("press", "Oben", 0),
+        ("same", "Linienart", 0),
+        # The table's own "Links" comes first, then the border button "Links", which draws a
+        # line, as the border button "Oben" does.
+        ("press", "Links", 2),
+        ("press", "Oben", 1),
         *ORDER,
     ],
     "ruling": [

@@ -64,6 +64,17 @@ describe("lined", () => {
     expect(edgesOf(out)!.h[0][0]).toStrictEqual({ width: 2 });
   });
 
+  it("keeps the width when the style is set, and the style when the width is", () => {
+    const wide = lined(lined(grid, { style: "dashed" }), { width: 2 });
+    expect(wide).toMatchObject({ lineStyle: "dashed", lineWidth: 2 });
+    expect(lined(wide, { style: "dotted" })).toMatchObject({ lineStyle: "dotted", lineWidth: 2 });
+  });
+
+  it("writes nothing into a plain table asked for what it has", () => {
+    expect(lined(grid, { style: "solid" })).toStrictEqual(grid);
+    expect(lined(grid, { width: 0.25 })).toStrictEqual(grid);
+  });
+
   it("removes edges when no line keeps a key", () => {
     const p = { ...grid, edges: drawn(bordered(grid, [0, 0, 0, 0], "top", pen)) } as Table;
     expect("edges" in lined(p, { style: "solid", width: 0.25 })).toBe(false);

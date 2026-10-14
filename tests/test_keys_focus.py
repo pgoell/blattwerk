@@ -37,7 +37,7 @@ CONTROLS = {
         "Schriftart auf den Zeilen",
         "Nachspurtext",
     ],
-    "table": ["Schriftart der Tabelle", "Farbe", "Linien", "Nachspurtext"],
+    "table": ["Schriftart der Tabelle", "Farbe", "Linien", "Linienart", "Nachspurtext"],
 }
 KINDS = {
     "text": ("text", TEXT),

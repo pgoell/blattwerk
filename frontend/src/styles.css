@@ -715,6 +715,8 @@ body:has(.print) { background: #fff; }
 /* Buttons that act at once, in equal shares of a row. */
 .acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .acts .ib { width: auto; }
+/* The nine border buttons of a table, three in a row. */
+.borders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 8px; }
 .panel label { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; min-height: var(--ctl); font-weight: 400; color: var(--muted); }
 .panel input[type=color] { width: 100%; height: var(--ctl); padding: 4px 6px; border: 0; border-radius: 6px; background: var(--field); cursor: pointer; }
 .panel input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }

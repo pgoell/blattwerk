@@ -561,6 +561,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           <label>
             Linienart
             <select
+              aria-label="Linienart"
               value={lineShown.style}
               onChange={(e) => (open ? setPen({ ...pen, style: e.target.value as LineStyle }) : lines({ style: e.target.value as LineStyle }))}
             >
@@ -583,9 +584,9 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           </label>
           <output>{lineShown.width.toFixed(2).replace(".", ",")} mm</output>
           {tables.length === 1 && (
-            <div role="group" aria-label="Rahmen" className="acts" style={{ gridAutoFlow: "row", gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <div role="group" aria-label="Rahmen" className="borders">
               {BORDERS.map(([which, label]) => (
-                <button key={which} disabled={off(which)} onClick={() => border(which, lineShown)}>
+                <button key={which} aria-disabled={off(which)} onClick={() => !off(which) && border(which, lineShown)}>
                   {label}
                 </button>
               ))}

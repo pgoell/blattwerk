@@ -56,14 +56,19 @@ export function lined<T extends Table>(p: T, patch: { style?: LineStyle; width?:
     for (const k of keys) delete kept[k];
     return Object.keys(kept).length ? (kept as Edge) : null;
   };
-  const { edges, lineStyle, lineWidth, ...rest } = p;
-  const set = { ...(patch.style !== undefined && { lineStyle: patch.style }), ...(patch.width !== undefined && { lineWidth: patch.width }) };
+  // What a table without the key has anyway is not written: a plain table asked for solid lines stays plain.
+  const set = {
+    ...(patch.style !== undefined && !(patch.style === "solid" && p.lineStyle === undefined) && { lineStyle: patch.style }),
+    ...(patch.width !== undefined && !(patch.width === THIN && p.lineWidth === undefined) && { lineWidth: patch.width }),
+  };
+  const out = { ...p, ...set };
   const e = edgesOf(p);
-  if (!e) return { ...rest, ...set } as T;
+  if (!e) return out;
   const h = e.h.map((list) => list.map(drop));
   const v = e.v.map((list) => list.map(drop));
-  const any = [...h.flat(), ...v.flat()].some((edge) => edge !== null);
-  return { ...rest, ...set, ...(any && { edges: { h, v } }) } as T;
+  if ([...h.flat(), ...v.flat()].some((edge) => edge !== null)) return { ...out, edges: { h, v } };
+  delete out.edges;
+  return out;
 }
 
 // The table with Schneidelinien on or off. On: every line dashed and thin, `edges` gone, the scissors shown. Off: the

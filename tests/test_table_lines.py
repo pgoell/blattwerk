@@ -100,6 +100,39 @@ def test_a3_border_buttons_write_their_lines_only(editor, label, lines):
         assert p["edges"][axis][r][c] == {"style": "dotted", "width": 0.25}
 
 
+def test_a_style_keeps_the_width_and_a_width_keeps_the_style(editor):
+    """A1, A4: the style and the width of a table are set one after the other and both hold."""
+    client = user()
+    page = editor(box("t", "table", GRID), client=client)
+    pick(page, "t")
+    style(page).select_option("dashed")
+    slider = page.get_by_label("Linienstärke")
+    slider.focus()
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("output", has_text="0,50 mm")).to_be_visible()
+    now = props(page, client)
+    assert (now["lineStyle"], now["lineWidth"]) == ("dashed", 0.5)
+    style(page).select_option("dotted")
+    expect(style(page)).to_have_value("dotted")
+    now = props(page, client)
+    assert (now["lineStyle"], now["lineWidth"]) == ("dotted", 0.5)
+
+
+def test_a9_solid_asked_of_a_plain_table_writes_no_key(editor):
+    """A9: Durchgezogen chosen on a table that has no key leaves it an old table."""
+    client = user()
+    page = editor(box("t", "table", GRID), client=client)
+    pick(page, "t")
+    before = props(page, client)
+    style(page).select_option("dashed")
+    expect(page.locator(".table.edged")).to_have_count(1)
+    page.keyboard.press("Control+z")
+    expect(page.locator(".table.edged")).to_have_count(0)
+    style(page).select_option("solid")
+    assert props(page, client) == before
+    expect(page.locator(".table.edged")).to_have_count(0)
+
+
 def test_a4_slider_sets_the_width_in_steps(editor):
     """A4: the slider Linienstärke goes from 0,25 to 3 mm in steps; the table gets the width."""
     client = user()
