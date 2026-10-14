@@ -88,6 +88,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
+                "selbstkontrolle",
             ) and whole(props.get("seed")):
                 props["seed"] = derived(props["seed"], letter)
                 # The numbers a teacher typed into stones or fields belong to the stored ones.

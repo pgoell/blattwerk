@@ -39,6 +39,7 @@ import {
   Group,
   Grid3x3,
   Clock3,
+  ListChecks,
   FileCheck,
   FileDown,
   FilePlus,
@@ -98,7 +99,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -111,6 +112,7 @@ import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendr
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
+import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
@@ -175,6 +177,7 @@ const NAMES: Record<Block["type"], string> = {
   zahlenstrahl: "Zahlenstrahl",
   hunderterfeld: "Hunderterfeld",
   uhr: "Uhr",
+  selbstkontrolle: "Selbstkontrolle",
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
@@ -1337,6 +1340,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
       const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
+    }
+    // A Selbstkontrolle grows with its form, its links or its word, as its content needs, and needs the sheet to count its tasks.
+    if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (next.props.form !== b.props.form || next.props.links !== b.props.links || next.props.word !== b.props.word)) {
+      const need = round(Math.min(heightForSelbst(saneSelbst(next.props), hist.doc, b.w), foot));
+      if (need > b.h) return tall(b, need);
     }
     const grow = GROWS[b.type];
     if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
@@ -2980,6 +2988,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Zahlenstrahl", icon: MoveRight, run: () => add(180, 30, { type: "zahlenstrahl", props: { ...STRAHL, seed: newSeed() } }) },
     { label: "Hunderterfeld", icon: Grid3x3, run: () => add(100, 100, { type: "hunderterfeld", props: { ...FELD, seed: newSeed() } }) },
     { label: "Uhr", icon: Clock3, run: () => add(180, 58.5, { type: "uhr", props: { ...UHR, seed: newSeed() } }) },
+    { label: "Selbstkontrolle", icon: ListChecks, run: () => add(180, 30, { type: "selbstkontrolle", props: { ...SELBST, seed: newSeed() } }) },
   ];
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
@@ -3049,6 +3058,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   return (
     // The Lernwörter reach every Lineatur that draws them, on the pages and on their thumbnails.
     <Words.Provider value={learnt}>
+    <Whole.Provider value={hist.doc}>
     <main
       className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
       data-ready="1"
@@ -4153,6 +4163,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         />
       )}
     </main>
+    </Whole.Provider>
     </Words.Provider>
   );
 }

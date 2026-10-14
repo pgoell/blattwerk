@@ -12,6 +12,7 @@ import { at, layout as wallLayout, made as walled, sane as saneWall } from "./za
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
+import { checked, lettersOf, sane as saneSelbst, type SelbstkontrolleProps } from "./selbstkontrolle";
 import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, decimalsOf, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
@@ -183,7 +184,9 @@ export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: Zahlenstrah
 export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
 // An Uhr: its stored shape is the contract at the top of uhr.ts.
 export type UhrBlock = Box & { type: "uhr"; props: UhrProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock;
+// A Selbstkontrolle: its stored shape is the contract at the top of selbstkontrolle.ts.
+export type SelbstkontrolleBlock = Box & { type: "selbstkontrolle"; props: SelbstkontrolleProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -392,6 +395,19 @@ export const lineOf = (p: { mixLine?: unknown; list?: unknown }): "after" | "und
   p.mixLine === "after" || p.mixLine === "under" ? p.mixLine : p.list === true ? "after" : undefined;
 // The Lernwörter of the sheet a block is drawn on. `Paper` sets them; the editor sets its own.
 export const Words = createContext<string[]>([]);
+// The whole sheet, for a Selbstkontrolle that checks the blocks of it. `Paper` and the Editor set it.
+export const Whole = createContext<Doc>(EMPTY);
+// The letter boxes of this block, one per task, when a "word" Selbstkontrolle of the sheet links it.
+const useLetters = (id: string) => lettersOf(useContext(Whole)).get(id);
+// A letter box in the drawing's own units: a square at (x, y), the letter in its middle in the answer key.
+function LetterBox({ x, y, side, task, letter, solved }: { x: number; y: number; side: number; task: number; letter: string; solved: boolean }) {
+  return (
+    <g className="letter" data-task={task}>
+      <rect x={x} y={y} width={side} height={side} fill="white" stroke="#222" strokeWidth={0.4} />
+      {solved && <text x={x + side / 2} y={y + side / 2} fontSize={0.6 * side} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{letter}</text>}
+    </g>
+  );
+}
 export const isLine = (b: Block): b is ShapeBlock => b.type === "shape" && (b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double");
 // Whether a line's start, or its end, sits at the bottom (axis 0) or the right (axis 1) of its box.
 export const far = (b: ShapeBlock, axis: 0 | 1, end: boolean) => ((b.props.from ?? "nw")[axis] === "se"[axis]) !== end;
@@ -1737,6 +1753,7 @@ export const scaleOf = (id: string) => scales.get(id) ?? 1;
 
 function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boolean }) {
   const p = block.props;
+  const letters = useLetters(block.id);
   const cols = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.cols ?? 0)));
   const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
   const d = decimalsOf(p);
@@ -1799,6 +1816,7 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
           {e.rest > 0 && <> R <Part e={e} part="rest" {...num} /></>}
         </span>
       )}
+      {letters && <span className="letter" data-task={i}>{solved ? letters[i] ?? "" : ""}</span>}
     </div>
   );
   // Consecutive exercises of one family share a group; a task with no family is a group of its own.
@@ -1869,6 +1887,10 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   const p = saneWall(block.props);
   const { walls } = walled(p);
   const { S, wallW, wallH, gap, vbW, vbH } = wallLayout(p);
+  const letters = useLetters(block.id);
+  // A wrong wall gives no task, and a block with `empty` none: the letter boxes number the walls that have one.
+  let next = 0;
+  const task = walls.map((w) => (w.wrong || p.empty ? -1 : next++));
   return (
     <div className={`zahlenmauer${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the walls, so the lines at the edge show whole. */}
@@ -1889,7 +1911,14 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
               </g>
             );
           }));
-          return <g key={i} className={`wall${w.wrong ? " wrong" : ""}`} data-wall={i}>{stones.flat()}</g>;
+          // The box stands at the right end of the top row, in the empty corner above the stones beside it.
+          const t = task[i];
+          return (
+            <g key={i} className={`wall${w.wrong ? " wrong" : ""}`} data-wall={i}>
+              {stones.flat()}
+              {letters && t >= 0 && <LetterBox x={x0 + (p.base + 1) * S} y={y0} side={S} task={t} letter={letters[t] ?? ""} solved={solved} />}
+            </g>
+          );
         })}
       </svg>
     </div>
@@ -1903,6 +1932,10 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
   const p = saneRechen(block.props);
   const { triangles } = drawnRechen(p);
   const { GAP, RING, BOX, corner, inner, outer, minX, cellW, cellH, cols, vbW, vbH } = layout(p);
+  const letters = useLetters(block.id);
+  // A wrong triangle gives no task, and a block with `empty` none: the letter boxes number the triangles that have one.
+  let next = 0;
+  const task = triangles.map((tri) => (tri.wrong || p.empty ? -1 : next++));
   return (
     <div className={`rechendreieck${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the triangles, so the lines at the edge show whole. */}
@@ -1912,6 +1945,8 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
           return (
             <g key={t} className={`triangle${tri.wrong ? " wrong" : ""}`} data-triangle={t} transform={`translate(${x} ${y})`}>
               <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
+              {/* The box stands at the top left of the triangle's cell, its side the height of an outer field. */}
+              {letters && task[t] >= 0 && <LetterBox x={minX} y={0} side={BOX[1]} task={task[t]} letter={letters[task[t]] ?? ""} solved={solved} />}
               {Array.from({ length: RECHEN_FIELDS }, (_, j) => {
                 const [cx, cy] = j < 3 ? inner[j] : outer[j - 3];
                 const shows = !p.empty && (tri.given[j] || (solved && !tri.wrong));
@@ -2029,6 +2064,7 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
 // An Uhr, drawn as the contract at the top of uhr.ts says: one svg, a cell of 100 by 130 per clock.
 function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean }) {
   const p = saneUhr(block.props);
+  const letters = useLetters(block.id);
   const times = timesOf(p);
   const cols = Math.min(p.cols, times.length);
   const rows = Math.ceil(times.length / cols);
@@ -2088,6 +2124,7 @@ function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean })
                 </>
               )}
               <circle className="hub" cx={50} cy={50} r={2.5} fill={UHR_INK} />
+              {letters && p.task === "read" && <LetterBox x={84} y={2} side={14} task={i} letter={letters[i] ?? ""} solved={solved} />}
               {p.task === "draw" && (
                 <text className="task" x={50} y={120} fontSize={size} textAnchor="middle" fill={UHR_INK}>
                   {text}
@@ -2115,6 +2152,55 @@ function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boolean })
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+// A Selbstkontrolle, drawn as the contract at the top of selbstkontrolle.ts says. Its text is in Andika at its size,
+// and a content taller than the block shrinks it, as Maths does. Its hint shows in the editor only: Paper hides it.
+function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k: number; solved: boolean }) {
+  const p = saneSelbst(block.props);
+  const doc = useContext(Whole);
+  const check = checked(p, doc);
+  const root = useRef<HTMLDivElement>(null);
+  function fit() {
+    const el = root.current;
+    if (!el) return;
+    el.style.removeProperty("--fit");
+    // A block with no height to speak of has no scale: it would come out below nothing.
+    const over = el.clientHeight > 2 && el.scrollHeight > el.clientHeight + 1;
+    if (over) el.style.setProperty("--fit", String((el.clientHeight - 2) / el.scrollHeight));
+  }
+  useLayoutEffect(() => {
+    fit();
+  });
+  useLayoutEffect(() => {
+    document.fonts.ready.then(fit);
+    document.fonts.addEventListener("loadingdone", fit);
+    return () => document.fonts.removeEventListener("loadingdone", fit);
+  }, []);
+  const whole = check.lost.length === 0;
+  const hint = check.lost.length ? "Die Selbstkontrolle hat ihre Quelle verloren." : check.empty ? "Wähle rechts die Blöcke, die die Selbstkontrolle prüft." : check.fault;
+  return (
+    <div ref={root} className={`selbstkontrolle${solved ? " solved" : ""}${p.turn === "none" ? "" : ` ${p.turn}`}`} style={{ fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }}>
+      {p.turn === "fold" && <div className="fold">Hier umknicken</div>}
+      <div className="inner">
+        {whole && p.title && <h3 className="title">{p.title}</h3>}
+        {whole && p.form === "mixed" && <ul className="mixed">{check.mixed.map((text, i) => <li key={i}><span className="tick" />{text}</li>)}</ul>}
+        {whole && p.form === "sum" && <ul className="sums">{check.sums.map(([label, text], i) => <li key={i}>{`${label}: ${text}`}</li>)}</ul>}
+        {whole && p.form === "word" && !check.fault && (
+          <>
+            <table className="word">
+              <tbody>
+                <tr className="results">{check.table.map(([text], i) => <td key={i}>{text}</td>)}</tr>
+                <tr className="letters">{check.table.map(([, letter], i) => <td key={i}>{letter}</td>)}</tr>
+              </tbody>
+            </table>
+            {solved && <p className="answer">{p.word}</p>}
+          </>
+        )}
+        {hint && <p className="hint">{hint}</p>}
+      </div>
     </div>
   );
 }
@@ -2182,6 +2268,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
   if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
+  if (block.type === "selbstkontrolle") return <Selbstkontrolle block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;
@@ -2374,6 +2461,7 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
   const moved = solved && folioOf(all, page)?.at === "top";
   return (
     <Words.Provider value={wordsIn(all)}>
+    <Whole.Provider value={all}>
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         <PageNumber doc={all} page={page} />
@@ -2388,6 +2476,7 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
         {letter && <b className="variant" style={{ position: "absolute", bottom: 5 * K, right: 8 * K, fontSize: 8 * PT * K }}>{letter}</b>}
       </div>
     </div>
+    </Whole.Provider>
     </Words.Provider>
   );
 }
