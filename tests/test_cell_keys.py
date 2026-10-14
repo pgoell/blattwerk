@@ -132,6 +132,20 @@ def test_entf_and_paste_on_cells_are_one_step_of_undo_each(editor):
     assert cells(page, client) == SQUARE["cells"]
     page.keyboard.press("Control+y")
     assert cells(page, client)[1][:2] == ["", ""]
+    # The paste: all four cells come in one step and go in one.
+    page.keyboard.press("Control+z")
+    cell(page, "t", 0).click()
+    cell(page, "t", 5).click(modifiers=["Shift"])
+    expect(picked(page, "t")).to_have_count(4)
+    page.keyboard.press("Control+c")
+    cell(page, "t", 10).dblclick()
+    expect(at(page, "t").locator("textarea")).to_be_focused()
+    page.keyboard.press("Control+v")
+    assert cells(page, client)[2:] == [["", "", "a", "b"], ["", "", "c", "d"]]
+    page.keyboard.press("Control+z")
+    assert cells(page, client) == SQUARE["cells"]
+    page.keyboard.press("Control+y")
+    assert cells(page, client)[2:] == [["", "", "a", "b"], ["", "", "c", "d"]]
 
 
 def test_ctrl_x_with_cells_picked_copies_and_empties_them(editor):
