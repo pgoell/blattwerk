@@ -113,15 +113,99 @@ export function dotAt(k: number): number {
   return 8 + 9 * k + (k >= 5 ? 3 : 0);
 }
 
-// The props as they draw: any stored value gives whole props in range. Stub: the model task fills it in.
+// The props as they draw: any stored value gives whole props in range.
 export function sane(p: HunderterfeldProps): HunderterfeldProps {
-  return { ...DEFAULTS, ...(p ?? {}), seed: typeof p?.seed === "number" ? p.seed : 0 };
+  const r = (p ?? {}) as unknown as Record<string, unknown>;
+  return {
+    look: pick(r.look, ["tafel", "punkte"] as const, DEFAULTS.look),
+    from: r.from === 0 ? 0 : 1,
+    show: pick(r.show, ["all", "none", "random", "free"] as const, DEFAULTS.show),
+    hide: whole(r.hide, 0, 100, DEFAULTS.hide),
+    hidden: cellList(r.hidden),
+    tint: pick(r.tint, ["none", "even", "times", "row", "column", "free"] as const, DEFAULTS.tint),
+    times: whole(r.times, 1, 10, DEFAULTS.times),
+    line: whole(r.line, 1, 10, DEFAULTS.line),
+    color: whole(r.color, 1, 2, DEFAULTS.color) as Tint,
+    tints: tintList(r.tints),
+    cut: typeof r.cut === "boolean" ? r.cut : DEFAULTS.cut,
+    shape: cellList(r.shape) ?? DEFAULTS.shape,
+    given: whole(r.given, 0, 99, DEFAULTS.given as number),
+    fill: pick(r.fill, ["count", "free"] as const, DEFAULTS.fill),
+    dots: whole(r.dots, 0, 100, DEFAULTS.dots),
+    filled: cellList(r.filled),
+    seed: isWhole(r.seed) ? r.seed : 0,
+  };
 }
 
-// The cells, the viewBox and the dots of the field. Stub: the model task fills it in.
+// The cells, the viewBox and the dots of the field. `p` is any stored value.
 export function made(p: HunderterfeldProps): Made {
   const q = sane(p);
-  void rng;
-  const cells: Cell[] = Array.from({ length: 100 }, (_, i) => ({ i, value: q.from + i, drawn: true, shown: q.show !== "none", tint: 0 }));
-  return { cells, frame: [0, 0, SIDE, SIDE], filled: cells.map((c) => c.i < q.dots) };
+  const shape = q.shape ?? [];
+  const inShape = new Set(shape);
+  const given = shape.length === 0 ? -1 : inShape.has(q.given as number) ? (q.given as number) : Math.min(...shape);
+  const rnd = rng(q.seed);
+  const order = Array.from({ length: 100 }, (_, i) => i);
+  for (let i = 99; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const randomHidden = new Set(order.slice(0, q.hide));
+  const hidden = new Set(q.hidden ?? []);
+  const tints = new Map(q.tints ?? []);
+  const cells: Cell[] = Array.from({ length: 100 }, (_, i) => {
+    const value = q.from + i;
+    const drawn = !q.cut || inShape.has(i);
+    const shows = q.cut ? drawn && i === given : q.show === "all" || (q.show === "random" ? !randomHidden.has(i) : q.show === "free" && !hidden.has(i));
+    return { i, value, drawn, shown: shows, tint: drawn ? tintOf(q, i, value, tints) : 0 };
+  });
+  const filledFree = new Set(q.filled ?? []);
+  const filled = Array.from({ length: 100 }, (_, i) => (q.fill === "free" ? filledFree.has(i) : i < q.dots));
+  return { cells, frame: frameOf(q, shape), filled };
+}
+
+// The tint of a drawn cell i with number `value`.
+function tintOf(q: HunderterfeldProps, i: number, value: number, tints: Map<number, Tint>): 0 | Tint {
+  const row = Math.floor(i / 10) + 1;
+  const col = (i % 10) + 1;
+  switch (q.tint) {
+    case "even":
+      return value % 2 === 0 ? q.color : 0;
+    case "times":
+      return value > 0 && value % q.times === 0 && value <= 10 * q.times ? q.color : 0;
+    case "row":
+      return row === q.line ? q.color : 0;
+    case "column":
+      return col === q.line ? q.color : 0;
+    case "free":
+      return tints.get(i) ?? 0;
+    default:
+      return 0;
+  }
+}
+
+// The viewBox: the whole field, or with a cut-out the square around the bounding box of the shape, centred on it.
+function frameOf(q: HunderterfeldProps, shape: number[]): Made["frame"] {
+  if (!q.cut || shape.length === 0) return [0, 0, SIDE, SIDE];
+  const rows = shape.map((i) => Math.floor(i / 10));
+  const cols = shape.map((i) => i % 10);
+  const r0 = Math.min(...rows);
+  const c0 = Math.min(...cols);
+  const nr = Math.max(...rows) - r0 + 1;
+  const nc = Math.max(...cols) - c0 + 1;
+  const side = CELL * Math.max(nr, nc);
+  return [CELL * c0 - (side - CELL * nc) / 2, CELL * r0 - (side - CELL * nr) / 2, side, side];
+}
+
+const isWhole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+const whole = (v: unknown, lo: number, hi: number, dflt: number): number => (isWhole(v) && v >= lo && v <= hi ? v : dflt);
+const pick = <T extends string>(v: unknown, list: readonly T[], dflt: T): T => list.find((x) => x === v) ?? dflt;
+const isCell = (v: unknown): v is number => isWhole(v) && v >= 0 && v <= 99;
+// The cells of a list, in order, each once; undefined when the stored value is no list.
+const cellList = (v: unknown): number[] | undefined => (Array.isArray(v) ? [...new Set(v.filter(isCell))] : undefined);
+// The free tints, the first entry for a cell wins; undefined when the stored value is no list.
+function tintList(v: unknown): [number, Tint][] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const seen = new Map<number, Tint>();
+  for (const e of v) if (Array.isArray(e) && isCell(e[0]) && (e[1] === 1 || e[1] === 2) && !seen.has(e[0])) seen.set(e[0], e[1]);
+  return [...seen];
 }
