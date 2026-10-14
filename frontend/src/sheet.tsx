@@ -1964,6 +1964,10 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           const x = xOf(i, ticks.length, w);
           const reach = t.long ? 3 : 1.5;
           const bw = Math.max(8, 4 + 2.5 * String(t.value).length);
+          // A box that would cover a number shown beside it goes one row lower: Andika's digits are about 0.55 em.
+          const covers = ticks.some((o, j) => o.label && !o.task && j !== i && Math.abs(xOf(j, ticks.length, w) - x) < bw / 2 + (String(o.value).length * 0.55 * FS) / 2 + 0.5);
+          // A number's line box is about 1.35 em high.
+          const top = covers ? y + 5 + 1.35 * FS + 0.5 : y + 3.5;
           return (
             <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
               <line x1={x} y1={y - reach} x2={x} y2={y + reach} stroke="#222" strokeWidth={0.4} />
@@ -1972,9 +1976,10 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
               )}
               {t.task === "box" && (
                 <g className="box">
-                  <rect x={x - bw / 2} y={y + 3.5} width={bw} height={6} fill="none" stroke="#222" strokeWidth={0.3} />
+                  {covers && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
+                  <rect x={x - bw / 2} y={top} width={bw} height={6} fill="none" stroke="#222" strokeWidth={0.3} />
                   {solved && (
-                    <text className="answer" x={x} y={y + 6.5} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
+                    <text className="answer" x={x} y={top + 3} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#c0392b">{t.value}</text>
                   )}
                 </g>
               )}
@@ -1986,8 +1991,8 @@ function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: number; 
           return (
             <g key={v} className="arrow" data-value={v}>
               <text className="given" x={ax} y={y - 9} fontSize={FS} textAnchor="middle" dominantBaseline="central" fill="#222">{v}</text>
-              <line x1={ax} y1={y - 6.5} x2={ax} y2={y - 2} stroke="#222" strokeWidth={0.4} />
-              {solved && <path className="answer" d={`M ${ax} ${y - 2} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
+              <line x1={ax} y1={y - 7} x2={ax} y2={y - 5} stroke="#222" strokeWidth={0.4} />
+              {solved && <path className="answer" d={`M ${ax} ${y - 5} L ${tickX(v)} ${y - 0.5}`} fill="none" stroke="#c0392b" strokeWidth={0.4} />}
             </g>
           );
         })}

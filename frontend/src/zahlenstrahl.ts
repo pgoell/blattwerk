@@ -36,7 +36,8 @@
 // - The ticks spread exactly over the block's width less `LEFT` and `RIGHT`: tick i of n stands at `xOf(i, n, w)`.
 //   The arrow head ends at `w - 1`. Widening the block widens the gaps; the numbers keep their size.
 // - The line lies `BELOW` mm above the block's bottom. A long tick reaches 3 mm above and below it, a small one 1.5.
-//   Numbers and boxes stand under it, arrows' numbers and arcs above it.
+//   Numbers and boxes stand under it, arrows' numbers and arcs above it. A box that would cover a number shown
+//   beside it stands one row lower, a thin line from its tick down to it. An arrow's stub ends 2 mm above the ticks.
 //
 // The drawing, on screen and in print alike (`Draw` in sheet.tsx): `div.zahlenstrahl` (with `.solved` in the
 // answer key) holds one `svg` with `viewBox="0 0 w h"`, w and h the block's mm. In it: `line.axis`, `path.head`,
@@ -106,7 +107,7 @@ export const LIMIT = 2000;
 export const LEFT = 6;
 export const RIGHT = 10;
 // mm from the line to the block's bottom.
-export const BELOW = 14;
+export const BELOW = 18;
 
 // The x of tick i of n in a block w mm wide. One tick stands at LEFT.
 export function xOf(i: number, n: number, w: number): number {

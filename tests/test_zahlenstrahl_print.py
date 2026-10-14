@@ -92,7 +92,7 @@ def test_the_pupils_and_the_key_print_as_the_screen_shows_them(browser, server, 
     line = box(
         "z",
         "zahlenstrahl",
-        {**PROPS, "cut": True, "start": 5, "end": 25, "jumps": True},
+        {**PROPS, "cut": True, "start": 5, "end": 25, "jumps": True, "arrows": 2},
         z=3,
         w=180,
         h=40,
@@ -159,6 +159,39 @@ def test_a_block_with_a_mark_shows_its_numbering(editor, browser, server):
     paper = printed(browser, server, sheet_id(page))
     expect(paper.locator(".mark")).to_have_text("1.")
     paper.context.close()
+
+
+# Each box's and each number's box in the svg's mm, and each arrow stub's lower end and x.
+CLASH = """el => {
+    const boxes = [...el.querySelectorAll('g.box rect')].map(r => r.getBBox());
+    const labels = [...el.querySelectorAll('text.label')].map(t => t.getBBox());
+    const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width
+        && a.y < b.y + b.height && b.y < a.y + a.height;
+    const ends = (sel, y) => [...el.querySelectorAll(sel)].map(
+        l => [+l.getAttribute('x1'), +l.getAttribute(y)]);
+    const ticks = ends('g.tick > line', 'y1');
+    const stubs = ends('g.arrow > line', 'y2');
+    const over = ([x, y]) => ticks.map(([tx, ty]) => Math.abs(tx - x) < 0.5 ? ty - y : 99);
+    return {
+        clashes: boxes.flatMap(b => labels.filter(l => hit(b, l))).length,
+        boxes: boxes.length,
+        gap: Math.min(...stubs.flatMap(over)),
+    };
+}"""
+
+
+def test_no_box_covers_a_number_and_no_arrow_touches_a_tick(editor):
+    """Seen in the shot: on 340 to 420 in steps of 2, boxes 11 mm wide covered the numbers beside
+    them, and an arrow's stub over a long tick read as an arrow to it. A box that would cover a
+    number stands a row lower; a stub ends 2 mm above the ticks."""
+    crowded = {**PROPS, "start": 340, "end": 420, "minor": 2, "major": 10, "boxes": 6, "seed": 9}
+    page = editor(box("z", "zahlenstrahl", crowded, w=180, h=30), client=user())
+    found = line_of(page).evaluate(CLASH)
+    assert found["boxes"] == 6 and found["clashes"] == 0, found
+    # One arrow on 13 of 0 to 20, at 120 mm: its stub stands right over the long tick 10.
+    free = {**PROPS, "tasks": "free", "marks": [[13, "arrow"]], "boxes": 0}
+    page = editor(box("z", "zahlenstrahl", free, w=120, h=30), client=user())
+    assert line_of(page).evaluate(CLASH)["gap"] >= 1.9
 
 
 def test_labels_ends_shows_only_the_first_and_the_last_number(editor):
