@@ -543,3 +543,19 @@ def test_a_zahlenmauer_gets_another_seed_and_loses_its_typed_numbers():
         seeds.add(props["seed"])
     assert len(seeds) == 4
     assert doc["pages"][0]["blocks"][0]["props"] == wall
+
+
+def test_a_rechendreieck_gets_another_seed_and_loses_its_typed_numbers():
+    """I2 of #83: B to D give a triangle block a seed of its own, drop `typed`; A is as stored."""
+    triangle = {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "seed": 7}
+    triangle = {**triangle, "typed": [[0, 0, 5]]}
+    doc = {"pages": [{"blocks": [{"id": "r", "type": "rechendreieck", "props": triangle}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in triangle.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == triangle

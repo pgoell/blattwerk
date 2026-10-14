@@ -9,6 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, made as walled, sane as saneWall } from "./zahlenmauer";
+import { FIELDS as RECHEN_FIELDS, SIDES, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { decimal, GAP } from "./decimal";
 import { Scissors } from "lucide-react";
 
@@ -169,7 +170,9 @@ export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
 export type Typed = [number, number, number];
 export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number; max: number; op: "+" | "*"; given: "base" | "mix" | "free"; free?: boolean[]; empty: boolean; seed: number; typed?: Typed[] };
 export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock;
+// A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
+export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = Record<Axis, number[]>;
@@ -1875,12 +1878,71 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   );
 }
 
+// A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
+// are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
+// with the block.
+function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
+  const p = saneRechen(block.props);
+  const { triangles } = drawnRechen(p);
+  const SIDE = 60;
+  const H = (SIDE * Math.sqrt(3)) / 2;
+  const [GAP, RING, BOX] = [10, 7, [16, 10]];
+  const corner: [number, number][] = [[SIDE / 2, 0], [0, H], [SIDE, H]];
+  const centre: [number, number] = [SIDE / 2, (2 * H) / 3];
+  const inner = corner.map(([x, y]): [number, number] => [x + (centre[0] - x) / 2, y + (centre[1] - y) / 2]);
+  // Outside the middle of each side, pushed out until the box clears the side.
+  const outer = SIDES.map(([a, b]): [number, number] => {
+    const [mx, my] = [(corner[a][0] + corner[b][0]) / 2, (corner[a][1] + corner[b][1]) / 2];
+    const [dx, dy] = [mx - centre[0], my - centre[1]];
+    const len = Math.hypot(dx, dy);
+    const [nx, ny] = [dx / len, dy / len];
+    const reach = (BOX[0] / 2) * Math.abs(nx) + (BOX[1] / 2) * Math.abs(ny) + 2;
+    return [mx + nx * reach, my + ny * reach];
+  });
+  const [minX, maxX] = [Math.min(0, ...outer.map(([x]) => x - BOX[0] / 2)), Math.max(SIDE, ...outer.map(([x]) => x + BOX[0] / 2))];
+  const maxY = Math.max(H, ...outer.map(([, y]) => y + BOX[1] / 2));
+  const [cellW, cellH] = [maxX - minX, maxY];
+  const cols = p.columns;
+  const rows = Math.max(1, Math.ceil(triangles.length / cols));
+  return (
+    <div className={`rechendreieck${solved ? " solved" : ""}`}>
+      {/* Half a unit of room around the triangles, so the lines at the edge show whole. */}
+      <svg viewBox={`-0.5 -0.5 ${cols * cellW + (cols - 1) * GAP + 1} ${rows * cellH + (rows - 1) * GAP + 1}`} preserveAspectRatio="xMidYMin meet">
+        {triangles.map((tri, t) => {
+          const [x, y] = [(t % cols) * (cellW + GAP) - minX, Math.floor(t / cols) * (cellH + GAP)];
+          return (
+            <g key={t} className={`triangle${tri.wrong ? " wrong" : ""}`} data-triangle={t} transform={`translate(${x} ${y})`}>
+              <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
+              {Array.from({ length: RECHEN_FIELDS }, (_, j) => {
+                const [cx, cy] = j < 3 ? inner[j] : outer[j - 3];
+                const shows = !p.empty && (tri.given[j] || solved);
+                return (
+                  <g key={j} className="field" data-field={j}>
+                    {j < 3
+                      ? <circle cx={cx} cy={cy} r={RING} fill="white" stroke="#222" strokeWidth={0.4} />
+                      : <rect x={cx - BOX[0] / 2} y={cy - BOX[1] / 2} width={BOX[0]} height={BOX[1]} fill="white" stroke="#222" strokeWidth={0.4} />}
+                    {shows && (
+                      <text x={cx} y={cy} fontSize={5.5} textAnchor="middle" dominantBaseline="central"
+                        fill={tri.given[j] ? "#222" : "#c0392b"} className={tri.given[j] ? "given" : "answer"}>{tri.numbers[j]}</text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
+  if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;
   if (block.type === "text" || (block.type === "shape" && !isLine(block))) return <Frame block={block} k={k} solved={solved}>{children}</Frame>;
   if (block.type === "shape") return <Line block={block} k={k} solved={solved} />;

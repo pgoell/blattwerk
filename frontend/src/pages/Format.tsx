@@ -10,6 +10,7 @@ import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
+import Rechendreieck from "./Rechendreieck";
 import { filled, room, short } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -258,6 +259,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
+  const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -611,6 +613,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => style("zahlenmauer", props, key)} />}
+      {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>
