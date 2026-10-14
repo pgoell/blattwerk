@@ -40,12 +40,21 @@ def stub(page, *extra):
     page.route("**/api/templates", answer)
 
 
-def seed(page, client, kind):
-    """The seed of the page's first block of that kind, as the server holds the sheet now."""
-    blocks = client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]["pages"][0][
+def saved_blocks(page, client):
+    """The first page's blocks as the server holds the sheet now."""
+    return client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]["pages"][0][
         "blocks"
     ]
-    return next((b["props"]["seed"] for b in blocks if b["type"] == kind), None)
+
+
+def seed(page, client, kind):
+    """The seed of the page's first block of that kind, as the server holds the sheet now."""
+    return next((b["props"]["seed"] for b in saved_blocks(page, client) if b["type"] == kind), None)
+
+
+def height(page, client, kind):
+    """The height of the page's first block of that kind, as the server holds the sheet now."""
+    return next((b["h"] for b in saved_blocks(page, client) if b["type"] == kind), None)
 
 
 def until_not(read, old, seconds=5):
@@ -188,3 +197,54 @@ def test_saving_an_own_template_keeps_the_groups(editor):
     expect(page.locator(".tpl button", has_text="Meine Neue")).to_be_visible()
     expect(page.get_by_role("heading", name="Allgemein", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Meine Vorlagen", exact=True)).to_be_visible()
+
+
+def test_a_maths_block_grows_to_fit_its_fresh_exercises(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    tall = {
+        "id": -99,
+        "name": "Mathe-Hoch",
+        "group": "Mathe",
+        "doc": {
+            "pages": [{"blocks": [box("m", "maths", maths(client, count=12), h=10)]}],
+            "guides": {"x": [], "y": []},
+            "grid": 0,
+        },
+    }
+    stub(page, tall)
+    reload(page, page.url)
+    open_panel(page)
+    apply(page, "Mathe-Hoch")
+    until_not(lambda: height(page, client, "maths"), None)
+    grown = until_not(lambda: height(page, client, "maths"), 10)
+    assert grown > 10
+    # Every exercise's grid lies inside the block: the written part is not cut off.
+    grid = at(page, "m").locator(".maths")
+    expect(grid).to_be_visible()
+    fits = grid.evaluate("e => e.scrollHeight <= e.clientHeight + 1")
+    assert fits
+
+
+def test_the_last_click_wins_over_a_template_still_waiting_for_its_exercises(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    stub(page, stub_template(client))
+    reload(page, page.url)
+    held = []
+    page.route("**/api/maths", lambda route: held.append(route))
+    open_panel(page)
+    apply(page, "Mathe-Stub")
+    # The old Arbeitsblatt, which brings no exercises, is clicked while the maths answer is held.
+    apply(page, "Arbeitsblatt")
+    arbeit = next(t for t in client.get("/api/templates").json() if t["name"] == "Arbeitsblatt")
+    wanted = [b["type"] for b in arbeit["doc"]["pages"][0]["blocks"]]
+    until_not(lambda: [b["type"] for b in saved_blocks(page, client)], ["text"])
+    with page.expect_response("**/api/maths"):
+        held[0].continue_()
+    # The held answer comes back after the Arbeitsblatt is in place: the page must keep it.
+    page.evaluate("() => new Promise((ok) => setTimeout(ok, 300))")
+    assert [b["type"] for b in saved_blocks(page, client)] == wanted
+    page.keyboard.press("Control+z")
+    expect(at(page, "a")).to_be_visible()
+    expect(at(page, "z")).to_have_count(0)
