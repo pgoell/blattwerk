@@ -244,6 +244,7 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .paper p { margin: 0; line-height: 1.3; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
 /* The answer key's mark stands in the top margin, in the colour of the answers. */
 .paper .key { position: absolute; z-index: 3000; font-family: Andika; line-height: 1; color: #c0392b; }
+.folio { position: absolute; z-index: 0; pointer-events: none; font-family: Andika; line-height: 1; white-space: nowrap; }
 /* What Chromium prints into the PDF: the pages alone, each one a sheet of A4. */
 body:has(.print) { background: #fff; }
 #root:has(.print) { display: block; min-height: 0; }
