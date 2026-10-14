@@ -2,9 +2,34 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ZahlenmauerProps } from "./sheet";
-import { at, fixes, made, sane, stones } from "./zahlenmauer";
+import { at, fixes, heightFor, made, sane, stones } from "./zahlenmauer";
 
 const P = (over: Partial<ZahlenmauerProps> = {}): ZahlenmauerProps => ({ base: 3, count: 1, columns: 1, max: 20, op: "+", given: "base", empty: false, seed: 1, ...over });
+
+describe("the height of a block", () => {
+  it("the default block of 4 walls in 2 columns fits its 60 mm", () => {
+    expect(heightFor(P({ count: 4, columns: 2 }), 180)).toBeLessThanOrEqual(60);
+  });
+
+  it("12 walls in the same 2 columns ask about three times the height of 4, the row gaps adding a little", () => {
+    const ratio = heightFor(P({ count: 12, columns: 2 }), 180) / heightFor(P({ count: 4, columns: 2 }), 180);
+    expect(ratio).toBeGreaterThan(3.2);
+    expect(ratio).toBeLessThan(3.6);
+  });
+
+  it("more walls in the same columns never ask less", () => {
+    const heights = [1, 2, 3, 4, 5, 8, 12].map((count) => heightFor(P({ count, columns: 2 }), 180));
+    expect(heights).toEqual([...heights].sort((a, b) => a - b));
+  });
+
+  it("fewer columns for the same walls ask more height", () => {
+    expect(heightFor(P({ count: 4, columns: 1 }), 180)).toBeGreaterThan(heightFor(P({ count: 4, columns: 2 }), 180));
+  });
+
+  it("a larger base asks more height", () => {
+    expect(heightFor(P({ base: 5, count: 4, columns: 2 }), 180)).toBeGreaterThan(heightFor(P({ base: 3, count: 4, columns: 2 }), 180));
+  });
+});
 
 // Independent checks, not the code under test. Stone (r, c) is the sum (or product) of the two below it.
 const cellsOf = (base: number): [number, number][] => {

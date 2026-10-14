@@ -111,6 +111,7 @@ import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendr
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
 import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR } from "../uhr";
+import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 
 type Template = { id: number; name: string; doc: Doc };
 // A new block's type and settings; `add` gives it its place.
@@ -1317,6 +1318,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A Rechendreieck grows so that its triangles keep the size of the default block's.
     if (b.type === "rechendreieck" && next.type === "rechendreieck" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns)) {
       const need = round(Math.min(heightFor(saneDreieck(next.props), b.w), foot));
+      if (need > b.h) return tall(b, need);
+    }
+    // A Zahlenmauer grows so that its stones keep the size of the default block's, as a Rechendreieck does (#588).
+    if (b.type === "zahlenmauer" && next.type === "zahlenmauer" && (next.props.count !== b.props.count || next.props.columns !== b.props.columns || next.props.base !== b.props.base)) {
+      const need = round(Math.min(heightForMauer(saneMauer(next.props), b.w), foot));
       if (need > b.h) return tall(b, need);
     }
     return {};
