@@ -3291,7 +3291,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               Neue Seite
             </button>
           </div>
-          <label className="numbers">
+          <label className="tick numbers">
             <input type="checkbox" checked={folio.on} onChange={(e) => numbering({}, e.target.checked)} /> Seitenzahlen
           </label>
           <h2>Vorlagen</h2>
@@ -4059,7 +4059,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       </button>
                     ))}
                   </div>
-                  <label>
+                  <label className="tick">
                     <input type="checkbox" checked={folio.notFirst} onChange={(e) => numbering({ notFirst: e.target.checked })} /> Nicht auf der ersten Seite
                   </label>
                   <h2>Farbe</h2>

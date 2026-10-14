@@ -350,6 +350,9 @@ body:has(.print) { background: #fff; }
 .left { grid-area: 2 / 1; width: 236px; display: flex; flex-direction: column; border-right: 1px solid var(--split); }
 .left > * { flex: none; }
 .left h2, .left > .hint { padding-inline: 14px; }
+/* A checkbox with its words beside it, in the panels: the page numbers' switches. */
+.panel label.tick, label.tick { display: flex; gap: 8px; align-items: center; min-height: var(--ctl); }
+.left label.tick { padding-inline: 14px; }
 .head { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); font-weight: 500; }
 /* Every page drawn small; a ring marks the one in use. Ctrl and the wheel set their width, and with it how many
    stand in a row. */
