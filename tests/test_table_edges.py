@@ -98,11 +98,14 @@ def test_a7_dashes_meet_at_every_corner_and_crossing(editor):
     cells = [page.locator(f'[data-cell="{i}"]').bounding_box() for i in range(9)]
     xs = [cells[c]["x"] for c in range(3)] + [cells[2]["x"] + cells[2]["width"]]
     ys = [cells[r * 3]["y"] for r in range(3)] + [cells[6]["y"] + cells[6]["height"]]
+    lost = []
     for x in xs:
         for y in ys:
             px, py = round(x * factor), round(y * factor)
             # Some pixel in the 5 x 5 square around the point is dark (under 128).
-            assert any(shot.crop((px - 2, py - 2, px + 3, py + 3)).histogram()[:128]), (x, y)
+            if not any(shot.crop((px - 2, py - 2, px + 3, py + 3)).histogram()[:128]):
+                lost.append((round(x, 1), round(y, 1)))
+    assert not lost, (factor, lost)
 
 
 def test_a8_the_line_colour_colours_every_style_and_the_scissors(editor):
