@@ -2,8 +2,7 @@
 
 The table keeps its place on the page: its right edge stays at the margin of 15 mm from the right
 edge of an A4 page (195 mm), and the columns narrow instead. A table already past it keeps its
-width. A column that goes from a table at the margin leaves its width to the others; from any other
-table it takes its width along.
+width. A column that goes takes its width along, so the others keep theirs (#517).
 """
 
 import pytest
@@ -91,16 +90,16 @@ def test_a_table_already_past_the_margin_does_not_grow(editor):
     assert len(got["props"]["cols"]) == 4
 
 
-def test_a_column_more_and_one_less_give_back_the_table_at_the_margin(editor):
-    """#602, review: at the margin a new column narrows the others, and "Eine Spalte weniger" then
-    gives back the 180 mm table of three equal columns, as it did before the new rule."""
+def test_a_column_more_and_one_less_keep_the_columns_at_the_margin(editor):
+    """#602, review: at the margin a new column narrows the others to 45 mm, and "Eine Spalte
+    weniger" then takes its 45 mm along, so the other columns keep theirs (#517)."""
     client = user()
     page = editor(table("t", ROW, 180), client=client)
     pick(page, "t")
     step(page, lambda: panel(page, "Eine Spalte mehr").click())
     step(page, lambda: panel(page, "Eine Spalte weniger").click())
     got = stored(page, client)
-    assert got["w"] == 180
+    assert got["w"] == pytest.approx(135, abs=0.2)
     assert got["props"]["cols"] == [1, 1, 1]
 
 
