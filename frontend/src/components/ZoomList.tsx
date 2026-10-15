@@ -30,12 +30,16 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
     d.style.top = `${Math.max(0, Math.min(up ? y - box.height : y, innerHeight - box.height))}px`;
     field.current!.select();
   }, [x, y]);
+  // Shuts the list at once: the browser's `close` comes a task later, and until then the list's button keeps the focus.
+  const shut = () => {
+    ref.current!.close();
+    onClose();
+  };
   // In a window of another size the list's place is no longer right: it shuts.
   useLayoutEffect(() => {
-    const shut = () => ref.current!.close();
     addEventListener("resize", shut);
     return () => removeEventListener("resize", shut);
-  }, []);
+  }, [onClose]);
 
   // Beside the list is the dialog's backdrop: a press there has the dialog as its target and lies outside its box.
   const beside = (e: MouseEvent) => {
@@ -43,6 +47,13 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
     return e.target === ref.current && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
   };
   function key(e: KeyboardEvent) {
+    // An Escape after the list has shut is the sheet's.
+    if (e.key === "Escape" && ref.current!.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      shut();
+      return;
+    }
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
@@ -60,12 +71,12 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
       field.current!.select();
       return;
     }
-    ref.current!.close();
+    shut();
     onPercent(p);
   }
   // A pick shuts the list first, so the focus goes back where it was.
   const pick = (run: () => void) => () => {
-    ref.current!.close();
+    shut();
     run();
   };
   return (
@@ -75,7 +86,7 @@ export default function ZoomList({ x, y, up, current, onPercent, onWidth, onFit,
       role="menu"
       onClose={onClose}
       onKeyDown={key}
-      onMouseDown={(e) => e.button !== 2 && beside(e) && ref.current!.close()}
+      onMouseDown={(e) => e.button !== 2 && beside(e) && shut()}
     >
       {PERCENTS.map((p) => (
         <button key={p} role="menuitem" onClick={pick(() => onPercent(p))}>
