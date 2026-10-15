@@ -3,6 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_clipboard import no_picture
+from test_delete_page_zoom import quer
 from test_words import list_tab, rulings
 from test_zoom import wheel
 from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, user
@@ -24,7 +25,7 @@ def new_block(page, client, before):
     count = len(before) + 1
     drawn = "document.querySelectorAll('.sheet .block[data-id]').length"
     page.wait_for_function(f"{drawn} === {count}")
-    blocks = doc(page, client)["pages"][0]["blocks"]
+    blocks = [b for p in doc(page, client)["pages"] for b in p["blocks"]]
     fresh = [b for b in blocks if b["id"] not in before]
     assert len(fresh) == 1, blocks
     return fresh[0]
@@ -77,13 +78,14 @@ def test_an_insert_goes_under_the_lowest_block_at_its_left_edge(editor, what):
     assert (block["x"], block["y"]) == (15, 51)
 
 
-def test_an_insert_with_no_room_below_lands_as_before(editor):
-    """#293: a Punkte block (12 mm) under a block ending at 270 mm would pass the margin at 282."""
+def test_an_insert_with_no_room_below_takes_the_first_free_spot(editor):
+    """#630: a Punkte block (12 mm) under a block ending at 270 mm would pass the margin at 282,
+    so it takes the first free spot of the page, the top-left margin."""
     client = user()
     page = editor(box("low", "text", TEXT, y=260, h=10, w=180), client=client)
     add_by_button(page, "Punkte")
     block = new_block(page, client, {"low"})
-    assert (block["x"], block["y"]) == (85, 15)
+    assert (block["x"], block["y"]) == (15, 15)
 
 
 def test_pasted_words_land_as_before(editor):
@@ -168,3 +170,86 @@ def test_a_block_under_the_view_is_brought_into_it(editor):
     block = new_block(page, client, {"low"})
     assert (block["x"], block["y"]) == (15, 219)
     expect(at(page, block["id"])).to_be_in_viewport()
+
+
+def drawn_overlaps(page, id):
+    """The ids of the blocks whose drawn boxes on the page cross the block's, in the browser."""
+    return page.evaluate(
+        """(id) => {
+          const box = (el) => {
+            const r = el.getBoundingClientRect();
+            return [r.left, r.top, r.right, r.bottom];
+          };
+          const me = document.querySelector(`.sheet .block[data-id="${id}"]`);
+          const [a, b, c, d] = box(me);
+          return [...me.closest('.sheet').querySelectorAll('.block[data-id]')]
+            .filter((el) => el !== me)
+            .filter((el) => {
+              const [l, t, r, u] = box(el);
+              return a < r - 1 && l < c - 1 && b < u - 1 && t < d - 1;
+            })
+            .map((el) => el.dataset.id);
+        }""",
+        id,
+    )
+
+
+def page_of(client, page, id):
+    """The number of the page that holds the block, counted from 0."""
+    pages = doc(page, client)["pages"]
+    return next(i for i, p in enumerate(pages) if any(b["id"] == id for b in p["blocks"]))
+
+
+# A block from 50 mm to the margin, under the name and heading: no room for a 100 mm square.
+FULL = box("full", "text", TEXT, x=15, y=50, h=200, w=180)
+
+
+def test_a_full_page_puts_the_block_on_the_next_page_not_over_the_top(editor):
+    """#630: no spot on page 1 for a Hunderterfeld, so it lands on page 2 at the top-left margin."""
+    client = user()
+    page = editor(*TOP, FULL, client=client)
+    add_by_menu(page, "Hunderterfeld")
+    block = new_block(page, client, {"name", "heading", "full"})
+    assert page_of(client, page, block["id"]) == 1
+    assert (block["x"], block["y"]) == (15, 15)
+    assert drawn_overlaps(page, block["id"]) == []
+
+
+def test_a_quer_page_puts_a_kreis_in_its_free_third(editor):
+    """#630: on a Quer page the blocks fill the left, so a Kreis lands in the free right part."""
+    client = user()
+    # 150 mm wide, so that Quer does not stretch them over the page.
+    head = box("head", "text", HEAD, x=15, y=15, h=14, w=150)
+    body = box("body", "text", TEXT, x=15, y=40, h=150, w=150)
+    page = editor(head, body, client=client, theme="")
+    quer(page, 0)
+    dock(page, "Kreis").click()
+    block = new_block(page, client, {"head", "body"})
+    assert page_of(client, page, block["id"]) == 0
+    assert block["x"] >= 170
+    assert drawn_overlaps(page, block["id"]) == []
+
+
+def test_every_page_full_takes_a_new_page_and_one_undo_takes_both(editor):
+    """#630: every page full: the block comes on a new page 3, and one Ctrl+Z takes both."""
+    client = user()
+    full2 = box("full2", "text", TEXT, x=15, y=50, h=200, w=180)
+    page = editor(FULL, pages=[{"blocks": [full2]}], client=client)
+    add_by_menu(page, "Hunderterfeld")
+    block = new_block(page, client, {"full", "full2"})
+    assert page_of(client, page, block["id"]) == 2
+    assert (block["x"], block["y"]) == (15, 15)
+    page.keyboard.press("Control+z")
+    pages = doc(page, client)["pages"]
+    assert len(pages) == 2
+    assert all(b["id"] != block["id"] for p in pages for b in p["blocks"])
+
+
+def test_a_turned_block_counts_by_the_box_it_fills(editor):
+    """#630: a text turned upright fills 100 to 110 mm across: a Punkte goes under it."""
+    client = user()
+    page = editor(box("up", "text", TEXT, x=15, y=100, w=180, h=10, angle=90), client=client)
+    add_by_button(page, "Punkte")
+    block = new_block(page, client, {"up"})
+    assert (block["x"], block["y"]) == (100, 200)
+    assert drawn_overlaps(page, block["id"]) == []

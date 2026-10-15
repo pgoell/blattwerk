@@ -1917,26 +1917,51 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
   // margin there. Words and pictures pasted from another app keep the place at the top of the view.
-  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
-    const { doc } = latest.current;
-    const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
-    const id = crypto.randomUUID();
-    // A turned block counts with the box it fills on the page, turned about its middle.
-    const outer = held.map((b) => {
+  // The boxes the blocks fill on a page: a turned block counts with the box it fills, turned about its middle.
+  const filled = (blocks: Block[]) =>
+    blocks.map((b) => {
       const [c, s] = dir(b).map(Math.abs);
       const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
       return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
     });
+  // The first spot of page `p` where a w x h box keeps 5 mm from every block, scanned in rows from the top, in steps of 5 mm.
+  function freeSpot(doc: Doc, p: number, w: number, h: number) {
+    const [W, H] = sizeOf(doc, p);
+    const boxes = filled(doc.pages[p].blocks);
+    for (let y = MARGIN; y <= H - MARGIN - h; y += 5)
+      for (let x = MARGIN; x <= W - MARGIN - w; x += 5)
+        if (boxes.every((b) => x + w + 5 <= b.x || x >= b.x + b.w + 5 || y + h + 5 <= b.y || y >= b.y + b.h + 5)) return { p, x, y };
+    return undefined;
+  }
+  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
+    const { doc } = latest.current;
+    const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
+    const id = crypto.randomUUID();
+    const outer = filled(held);
     const low = pasted || !outer.length ? undefined : outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
     const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
-    const [x, y] =
-      low && under
-        ? [Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), round(low.y + low.h + 5)]
-        : [(size[0] - w) / 2, round(Math.max(0, seen(0, n))) + MARGIN];
-    const z = Math.max(0, ...held.map((b) => b.z)) + 1;
-    const [block] = land([{ id, x, y, w, h, z, locked: false, ...rest }], held, size);
-    turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
-    setAt(n);
+    // Under the lowest block, else the first free spot of page n and of the later pages, else a new page after the last.
+    const free = () => {
+      for (let p = n; p < doc.pages.length; p++) {
+        const spot = freeSpot(doc, p, w, h);
+        if (spot) return spot;
+      }
+      return { p: doc.pages.length, x: MARGIN, y: MARGIN };
+    };
+    const spot =
+      pasted || !outer.length
+        ? { p: n, x: (size[0] - w) / 2, y: round(Math.max(0, seen(0, n))) + MARGIN }
+        : low && under
+          ? { p: n, x: Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), y: round(low.y + low.h + 5) }
+          : free();
+    const { p } = spot;
+    const onPage = p < doc.pages.length;
+    const z = Math.max(0, ...(onPage ? doc.pages[p].blocks : []).map((b) => b.z)) + 1;
+    const [block] = land([{ id, x: spot.x, y: spot.y, w, h, z, locked: false, ...rest }], onPage ? doc.pages[p].blocks : [], onPage ? sizeOf(doc, p) : size);
+    // A new page is one step with the block, and takes the format of page n.
+    if (onPage) turn((q) => ({ ...q, blocks: [...q.blocks, block] }), undefined, p);
+    else update((d) => ({ ...d, pages: [...d.pages, { blocks: [block], landscape: d.pages[n].landscape }] }), "", p);
+    setAt(p);
     setIds([id]);
     // A block under the view is brought into it, once it is drawn.
     requestAnimationFrame(() => document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
