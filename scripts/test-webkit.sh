@@ -5,8 +5,10 @@ cd "$(dirname "$0")/.."
 export BLATTWERK_BROWSER=webkit
 
 # WebKit needs GTK 4 and more. CI and a laptop have them once
-# `uv run playwright install --with-deps webkit` has run.
-if ldconfig -p | grep -q libgtk-4.so.1; then
+# `uv run playwright install --with-deps webkit` has run. No pipe into `grep -q`: it stops at the
+# first match, ldconfig's next write then gets SIGPIPE, and pipefail took that for "no GTK", so 5
+# of 133 WebKit shards in CI looked for docker (exit 127). A host without docker has no other way.
+if ! command -v docker >/dev/null || [[ "$(ldconfig -p)" == *libgtk-4.so.1* ]]; then
   exec uv run pytest "$@"
 fi
 

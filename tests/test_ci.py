@@ -5,6 +5,7 @@ for, and what the merge waits for. The tests read the files; nothing here runs a
 import importlib.util
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -223,3 +224,42 @@ def test_the_shard_times_script_reads_the_durations_of_a_log():
     assert shard_times.read(log) == pytest.approx(
         {"tests/t.py::t_x[a b]": 1.92, "tests/t.py::t_y": 2.0}
     )
+
+
+# ldconfig as a host with GTK 4 prints it: the line WebKit needs, and after a pause the rest. A
+# reader that stops at the first match has left by then, so the rest meets a closed pipe.
+GTK = "echo 'libgtk-4.so.1 => /lib/libgtk-4.so.1'; /usr/bin/sleep 0.3; /usr/bin/seq 20000"
+
+
+@pytest.mark.parametrize(
+    "ldconfig, docker, runs",
+    [
+        (GTK, True, "pytest"),
+        ("echo 'libc.so.6 (libc6,x86-64) => /lib/libc.so.6'", True, "docker"),
+        # CI's job runs in Playwright's image, which has no docker: never look for one there.
+        ("echo 'libc.so.6 (libc6,x86-64) => /lib/libc.so.6'", False, "pytest"),
+    ],
+)
+def test_the_webkit_script_runs_in_docker_only_without_gtk_and_with_docker(
+    tmp_path, ldconfig, docker, runs
+):
+    """5 of 133 WebKit shards in 40 CI runs failed with `docker: not found` (exit 127): GTK was
+    there, but `ldconfig -p | grep -q` under pipefail took SIGPIPE for "no GTK"."""
+    tools = {
+        "ldconfig": ldconfig,
+        "uv": "echo pytest",
+        **({"docker": "echo docker"} if docker else {}),
+    }
+    for name, body in tools.items():
+        (tmp_path / name).write_text(f"#!/bin/sh\n{body}\n")
+        (tmp_path / name).chmod(0o755)
+    for name in ("dirname", "mkdir", "id"):
+        (tmp_path / name).symlink_to(f"/usr/bin/{name}")
+    out = subprocess.run(
+        ["/usr/bin/bash", REPO / "scripts/test-webkit.sh"],
+        env={"PATH": str(tmp_path), "HOME": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert out.stdout.split() == [runs]
