@@ -738,6 +738,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
+  const [fitTop, fitRight, fitBottom, fitLeft] = fitOf(p.kind, block.w, block.h, block.flipY);
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
   // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
@@ -845,7 +846,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
         clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
-        padding: `${(down - room) * k}px ${(across - room) * k}px`,
+        padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
           : { justifyContent: UP[p.valign ?? "top"] }),
@@ -948,6 +949,22 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
     return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
   },
 };
+// The rectangle inside a shape's outline where its text lies, as the mm the box keeps from it: top, right, bottom and
+// left. A circle keeps the square inscribed in it, a triangle the half that holds its base, a star the box of its inner
+// points. Flipped top to bottom, the top and the bottom swap.
+function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
+  let fit: [number, number, number, number] = [0, 0, 0, 0];
+  if (kind === "circle") {
+    const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
+    fit = [down, across, down, across];
+  } else if (kind === "triangle") fit = [h / 2, w / 4, 0, w / 4];
+  else if (kind === "star") {
+    const inner = POINTS.star!(w, h, 0).filter((_, i) => i % 2 === 1);
+    const [xs, ys] = [inner.map(([x]) => x), inner.map(([, y]) => y)];
+    fit = [Math.min(...ys), w - Math.max(...xs), h - Math.max(...ys), Math.min(...xs)];
+  }
+  return flipY ? [fit[2], fit[1], fit[0], fit[3]] : fit;
+}
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
 
