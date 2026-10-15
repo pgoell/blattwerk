@@ -576,6 +576,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const grab = useRef([0, 0]);
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
+  // The middle a turn went about, by the blocks of the thing as each turn left them; and the middles of the drag now.
+  const pivots = useRef(new Map<string, [number, number]>());
+  const dragFrom = useRef<Block[]>(undefined);
+  const dragAt = useRef(new Map<string, [number, number] | undefined>());
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { pages, guides, grid } = hist.doc;
@@ -905,6 +909,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Ctrl and + or - never zoom the browser's window, which would take the bar and the panels with it: in a field
     // or a dialog, where they zoom nothing, they type nothing either. With AltGr they type a character.
     if ((e.ctrlKey || e.metaKey) && !e.getModifierState("AltGraph") && ["+", "=", "-"].includes(e.key)) e.preventDefault();
+    // Alt+Left and Alt+Right never take the browser back or forward out of the sheet, also in a text or a dialog. A
+    // Mac's Option with an arrow goes by words in a text, and is no way back, so it stays.
+    const turnKey = e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight");
+    if (turnKey && !APPLE) e.preventDefault();
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
@@ -964,6 +972,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. A locked
+    // block, a table and a line on its own do not turn, as the buttons of the panel do not.
+    if (turnKey) {
+      e.preventDefault();
+      if (sel.length && free.length === sel.length && !cropping && !sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id))) spin(e.key === "ArrowRight" ? 15 : -15);
+      return;
+    }
     // Shift+F10 and the Menu key open the menu of the selection, as in PowerPoint: at the middle of the picked blocks, or
     // with nothing picked near the corner of the page in use. A focused button keeps the key for itself.
     if (((e.key === "F10" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === "ContextMenu") && !target.closest("button, a, summary, .panel, header, .dock")) {
@@ -2341,15 +2356,51 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         "drag",
       ),
     );
+  // The middle a thing turns about is the one a turn used that left its blocks as they lie now, also one undone
+  // since or called off by Escape: so a turn and its back come to the same place. Else it is the middle of the
+  // level box around the thing (undefined here), and a quarter turn of it stays on the hundredths, so none is kept.
+  const keyOf = (part: Block[]) => part.map((b) => b.id).join();
+  const keptOf = (part: Block[]) => pivots.current.get(JSON.stringify(part));
+  const turnThing = (part: Block[], by: number, at = keptOf(part)) => {
+    const to = swung(part, by, at);
+    if (at || by % 90) {
+      const all = hull(part);
+      if (pivots.current.size > 1000) pivots.current.clear();
+      pivots.current.set(JSON.stringify(to), at ?? [all.x + all.w / 2, all.y + all.h / 2]);
+    }
+    return to;
+  };
   // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
-  // block stops at every 15 degrees. Several blocks turn as one about the middle of the box around them, in steps
-  // of 15 degrees with Shift.
+  // block stops at every 15 degrees. A group picked whole turns as one about the middle of the box around it, in
+  // steps of 15 degrees with Shift; each loose block turns about its own centre.
   const twist = (by: number, shift: boolean) => {
     const from = start.current;
     const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
-    const first = from[0].angle ?? 0;
-    const a = from.length > 1 ? stop(by) : stop(first + by) - first;
-    flushSync(() => place(swung(from, a).map(({ id, x, y, angle }) => [id, { x, y, angle }]), "drag"));
+    const parts = [...new Set(from.map(thing))].map((t) => from.filter((b) => thing(b) === t));
+    // The middle of each thing is looked up once, when the drag begins, and then kept for the whole drag.
+    if (dragFrom.current !== from) {
+      dragFrom.current = from;
+      dragAt.current = new Map(parts.map((part) => [keyOf(part), keptOf(part)]));
+    }
+    const to = new Map(
+      parts
+        .flatMap((part) => {
+          const first = part[0].angle ?? 0;
+          return turnThing(part, part.length > 1 ? stop(by) : stop(first + by) - first, dragAt.current.get(keyOf(part)));
+        })
+        .map((b) => [b.id, b]),
+    );
+    flushSync(() =>
+      change(
+        (bs) =>
+          bs.map((b) => {
+            const t = to.get(b.id);
+            if (!t) return b;
+            return (isLine(t) ? { ...b, x: t.x, y: t.y, w: t.w, h: t.h, props: { ...b.props, from: t.props.from } } : { ...b, x: t.x, y: t.y, angle: t.angle }) as Block;
+          }),
+        "drag",
+      ),
+    );
   };
   // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
   // block may: a hand moves the mouse a pixel or two, and that turns nothing.
@@ -2369,7 +2420,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = new Map(things.flatMap(go).map((b) => [b.id, b]));
     change((bs) => bs.map((b) => to.get(b.id) ?? b));
   };
-  const spin = (by: number) => each((t) => swung(t, by));
+  const spin = (by: number) => each((t) => turnThing(t, by));
   const mirror = (axis: Axis) => each((t) => mirrored(t, axis));
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
   // So does a text the resize left higher than its box.
@@ -3860,7 +3911,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     onResizeStart={(e) => begin([e.target])}
                     onResizeGroupStart={(e) => begin(e.targets)}
                     // A table stays level, and a line turns by its ends.
-                    rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some(isLine)}
+                    rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some((b) => isLine(b) && thing(b) === b.id)}
                     rotationPosition="top"
                     onRotateStart={(e) => {
                       spot.current = [e.clientX, e.clientY];

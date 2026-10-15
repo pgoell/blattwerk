@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -134,15 +134,27 @@ const quarter = (bs: Block[]): Block[] => {
     return { ...to, x: round(x - to.w / 2 + lean(to)), y: round(y - to.h / 2 - lean(to)) };
   });
 };
+// A line's start and end on the page.
+const endsOf = (b: ShapeBlock) => [
+  [b.x + (far(b, 1, false) ? b.w : 0), b.y + (far(b, 0, false) ? b.h : 0)],
+  [b.x + (far(b, 1, true) ? b.w : 0), b.y + (far(b, 0, true) ? b.h : 0)],
+];
 // The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
 // selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
-// spot. Quarters are exact, and a line goes by them only.
-export const swung = (bs: Block[], by: number): Block[] => {
-  if (by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
-  const all = bounds(bs.map(outline));
-  const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
+// spot. Quarters are exact, and a line goes by them only. `about` is the point to turn about, when the caller
+// remembers one; without it, and for quarters, the middle of the level box around the blocks.
+export const swung = (bs: Block[], by: number, about?: [number, number]): Block[] => {
+  if (!about && by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
+  const [cx, cy] = about ?? ((all) => [all.x + all.w / 2, all.y + all.h / 2])(hull(bs));
   const [c, s] = dir({ angle: by });
+  const turnAbout = ([x, y]: number[]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
   return bs.map((b) => {
+    if (isLine(b)) {
+      // A line has no angle: its two ends go round, and its box and start follow them.
+      const [[px, py], [qx, qy]] = endsOf(b).map(turnAbout);
+      const from = ((py <= qy ? "n" : "s") + (px <= qx ? "w" : "e")) as Corner;
+      return { ...b, x: round(Math.min(px, qx)), y: round(Math.min(py, qy)), w: round(Math.abs(px - qx)), h: round(Math.abs(py - qy)), props: { ...b.props, from } };
+    }
     const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
     return { ...b, x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + by) };
   });

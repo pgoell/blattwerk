@@ -295,16 +295,26 @@ def test_a_group_turns_as_one(editor, group):
         (ax, ay), (bx, by) = centre(at(page, "a")), centre(at(page, "b"))
         return (ax + bx) / 2, (ay + by) / 2
 
-    about = middle()
-    turn(page, about, 90)
-    for name in ("a", "b"):
-        assert abs(angle(page, name) - 90) <= 3
-    assert middle() == pytest.approx(about, abs=2)
-    # Each block went a quarter of the way round the common centre: the left one is now above it,
-    # and the right one below.
-    x, y = centre(at(page, "a"))
-    assert abs(x - about[0]) < 8
-    assert about[1] - y == pytest.approx(20 * k, abs=5)
+    if group:
+        about = middle()
+        turn(page, about, 90)
+        for name in ("a", "b"):
+            assert abs(angle(page, name) - 90) <= 3
+        assert middle() == pytest.approx(about, abs=2)
+        # Each block went a quarter of the way round the common centre: the left one is now
+        # above it, and the right one below.
+        x, y = centre(at(page, "a"))
+        assert abs(x - about[0]) < 8
+        assert about[1] - y == pytest.approx(20 * k, abs=5)
+    else:
+        # Loose blocks each turn about their own centre, and stay on their spots.
+        before = {n: centre(at(page, n)) for n in ("a", "b")}
+        turn(page, middle(), 90)
+        for name in ("a", "b"):
+            assert abs(angle(page, name) - 90) <= 3
+            x, y = centre(at(page, name))
+            assert x == pytest.approx(before[name][0], abs=2)
+            assert y == pytest.approx(before[name][1], abs=2)
 
 
 def test_a_turned_text_takes_typing(editor):
