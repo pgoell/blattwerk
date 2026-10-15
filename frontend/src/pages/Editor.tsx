@@ -932,6 +932,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
+    if (!sel.length && /^(PageUp|PageDown|Home|End|Arrow(Up|Down|Left|Right))$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) steer();
     // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
     if (ours && target.matches("input[type=number]")) {
       target.blur();
@@ -1583,8 +1585,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
-  // Lays the sheet on its side or upright, or with `n` that page alone: `undefined` gives it the sheet's format
-  // again. Set for the sheet, every page follows. Blocks the page no longer holds move back onto it.
+  // Lays the sheet on its side or upright, or with `n` that page alone (`undefined` gives the sheet's format again).
+  // A block spanning the page stretches with it, one centred across stays centred, the rest keep their place.
+  // Blocks the page no longer holds move back onto it.
   function lay(landscape: boolean | undefined, n?: number) {
     update((doc) => {
       // A sheet that says nothing stands upright: "Hoch" leaves it so.
@@ -1596,11 +1599,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         // turned block counts by its outline. Left and top win where it is larger than the page. What lies on the
         // page stays as it is: `hull` knows the half hundredth by which a block on its side may lie off.
         const unit = (b: Block) => b.group?.[0] ?? b.id;
-        const back = (at: number, size: number, max: number) => Math.round((Math.max(0, Math.min(at, max - size)) - at) * 100) / 100;
+        const round = (v: number) => Math.round(v * 100) / 100;
+        const back = (at: number, size: number, max: number) => round(Math.max(0, Math.min(at, max - size)) - at);
+        // One axis of a unit: how far it moves and how much it grows. Spanning the page, it stretches if it may,
+        // else it moves to the middle. A centred one moves to the middle too. Down the page nothing is centred: a
+        // block that lands in the middle of the turned page by chance would move on the way back.
+        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean): [number, number] => {
+          const spans = at <= MARGIN + 1 && at + size >= old - MARGIN - 1;
+          if (spans && stretch) return [0, now - old];
+          if (middle && (spans || Math.abs(at - (old - at - size)) <= 1)) return [(now - old) / 2, 0];
+          return [0, 0];
+        };
+        const across = new Set(["text", "shape", "ruling", "table", "name", "maths"]);
+        const down = new Set(["text", "shape", "ruling"]);
+        const [ow, oh] = sizeOf(doc, i);
         const blocks = p.blocks.map((b) => {
           const all = hull(p.blocks.filter((o) => unit(o) === unit(b)));
-          const [dx, dy] = [back(all.x, all.w, w), back(all.y, all.h, h)];
-          return dx || dy ? { ...b, x: Math.round((b.x + dx) * 100) / 100, y: Math.round((b.y + dy) * 100) / 100 } : b;
+          // Only a single block that is not turned stretches.
+          // A circle, a triangle and a star keep their shape.
+          const single = !b.group && (b.angle ?? 0) % 180 === 0 && !(b.type === "shape" && ["circle", "triangle", "star"].includes(b.props.kind));
+          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true);
+          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false);
+          const [dx, dy] = [back(all.x + mx, all.w + sw, w), back(all.y + my, all.h + sh, h)];
+          if (!mx && !my && !sw && !sh && !dx && !dy) return b;
+          return { ...b, x: round(b.x + mx + dx), y: round(b.y + my + dy), w: round(b.w + sw), h: round(b.h + sh) };
         });
         return { ...p, blocks };
       });
@@ -1608,7 +1630,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     });
   }
   function removePage(n = page) {
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", Math.min(page, pages.length - 2));
+    // The page in use stays, one place back when a page before it goes; a page gone itself hands it to the one in its place.
+    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
     setIds([]);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
@@ -1695,6 +1718,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // On a thumbnail Ctrl with an arrow moves its page by one place, with Shift to the start or the end, and Ctrl+D
   // copies it. The focus follows the page.
   function pageKey(e: Key, n: number) {
+    // Delete and Backspace take the thumbnail's page away, never the picked blocks, and the last page stays.
+    if (/^(Delete|Backspace)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      // A page being dragged stays: the drop would look for it.
+      if (pages.length < 2 || tug.current) return;
+      flushSync(() => removePage(n));
+      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
+      return;
+    }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     const last = pages.length - 1;
     const copy = /^d$/i.test(e.key) && !e.shiftKey;

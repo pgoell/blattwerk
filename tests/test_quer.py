@@ -74,7 +74,9 @@ def places(blocks, names):
     return [(blocks[n]["x"], blocks[n]["y"]) for n in names]
 
 
-def text(name, y, x=15, **more):
+# From 10 to 190 mm: a block that neither spans the page nor sits in its middle, so a turn only
+# brings it back onto the page (#294 moves the others; see test_turn_page.py).
+def text(name, y, x=10, **more):
     return {**box(name, "text", TEXT), "x": x, "y": y, **more}
 
 
@@ -86,7 +88,7 @@ def test_quer_brings_a_group_back_as_one(editor):
     fmt(page, "Quer")
     expect(undo(page)).to_be_enabled()
     quer = doc(page, client)
-    assert places(named(quer), "ab") == [(15, 155), (15, 190)]
+    assert places(named(quer), "ab") == [(10, 155), (10, 190)]
     undo(page).click()
     expect(undo(page)).to_be_disabled()
     assert doc(page, client) == before
@@ -99,15 +101,15 @@ def test_quer_judges_a_turned_block_by_its_outline(editor):
     """A10, I2, #328: a text on its side whose outline hangs below the page comes back, and one
     whose outline fits stays at exactly its place, though its box as unturned would not fit."""
     client = user()
-    # 20 wide and 190 high, on its side: 190 wide and 20 high, from x=15 and y=145.
-    fits = {**text("fits", 60, x=100, angle=90), "w": 20, "h": 190}
+    # 20 wide and 190 high, on its side: 190 wide and 20 high, from x=20 and y=145.
+    fits = {**text("fits", 60, x=105, angle=90), "w": 20, "h": 190}
     page = editor(text("low", 140, angle=90), fits, client=client)
     before = named(doc(page, client))
     fmt(page, "Quer")
     expect(undo(page)).to_be_enabled()
     now = named(doc(page, client))
     # Its outline spans y 60 to 240: 30 mm up.
-    assert places(now, ["low"]) == [(15, 110)]
+    assert places(now, ["low"]) == [(10, 110)]
     assert now["fits"] == before["fits"]
 
 
@@ -131,7 +133,7 @@ def test_a_group_larger_than_the_page_lands_at_its_left_and_top_edge(editor):
     page = editor(*high, client=client, pages=[{"blocks": wide, "landscape": True}])
     fmt(page, "Quer")
     expect(undo(page)).to_be_enabled()
-    assert places(named(doc(page, client)), "ab") == [(15, 0), (15, 250)]
+    assert places(named(doc(page, client)), "ab") == [(10, 0), (10, 250)]
     fmt(page, "Hoch")
     expect(page.locator(".panel").get_by_role("button", name="Hoch", exact=True)).to_have_attribute(
         "aria-pressed", "true"
@@ -153,7 +155,7 @@ def test_a_page_with_a_format_of_its_own_brings_its_blocks_back(editor):
     expect(undo(page)).to_be_enabled()
     quer = doc(page, client)
     assert quer["pages"][1]["landscape"] is True
-    assert places(named(quer, 1), "abc") == [(15, 155), (15, 190), (15, 110)]
+    assert places(named(quer, 1), "abc") == [(10, 155), (10, 190), (10, 110)]
     # The first page stands upright as before.
     assert quer["pages"][0] == before["pages"][0]
     undo(page).click()
@@ -169,9 +171,9 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
         text("a", 20, x=30, group=["g"]),
         text("b", 50, x=110, group=["g"]),
         # On its side its outline spans x 190 to 210: it fits the upright page too.
-        text("c", 95, x=110, angle=90),
+        text("c", 90, x=110, angle=90),
         # And this one's spans x 270 to 290.
-        text("d", 95, x=190, angle=90),
+        text("d", 90, x=190, angle=90),
     ]
     rest = [{"blocks": far, "landscape": True}]
     page = editor(text("z", 20), client=client, pages=rest, theme="")
@@ -189,7 +191,7 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
     after = doc(page, client)
     now = named(after, 1)
     # The group is 260 wide: its left edge wins, and 80 mm stay between its blocks.
-    assert places(now, "abd") == [(0, 20), (80, 50), (110, 95)]
+    assert places(now, "abd") == [(0, 20), (80, 50), (110, 90)]
     assert now["c"] == named(before, 1)["c"]
     assert after["pages"][0] == before["pages"][0]
     undo(page).click()
@@ -211,11 +213,11 @@ def some(client, kind, locked, far=False):
 
     shift = 90 if far else 0
     return [
-        made("allein", 15 + shift, 100 if far else 265, angle=30, z=1),
-        made("a", 15 + shift, 95 if far else 230, angle=90, z=2, group=["g"]),
-        made("b", 15 + shift, 150 if far else 265, z=3, group=["g", "h"]),
-        text("c", 120 if far else 250, x=15 + shift, z=4, group=["g", "h"]),
-        made("bleibt", 15, 95, angle=90, z=5),
+        made("allein", 10 + shift, 100 if far else 265, angle=30, z=1),
+        made("a", 10 + shift, 90 if far else 230, angle=90, z=2, group=["g"]),
+        made("b", 10 + shift, 150 if far else 265, z=3, group=["g", "h"]),
+        text("c", 120 if far else 250, x=10 + shift, z=4, group=["g", "h"]),
+        made("bleibt", 10, 90, angle=90, z=5),
     ]
 
 

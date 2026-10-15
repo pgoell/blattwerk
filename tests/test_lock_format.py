@@ -239,11 +239,14 @@ def test_quer_and_hoch_bring_a_locked_block_back_onto_the_page(editor, kind):
     panel.get_by_role("button", name="Hoch", exact=True).click()
     hoch = doc(page, client)
     assert all(on_page(b, 210, 297) for b in hoch["pages"][1]["blocks"])
-    assert hoch["pages"][0]["blocks"] == quer["pages"][0]["blocks"]
+    # Turned back, the first page's blocks are as they were across, spanning or centred again.
+    assert [(b["x"], b["w"]) for b in hoch["pages"][0]["blocks"]] == [
+        (b["x"], b["w"]) for b in before["pages"][0]["blocks"]
+    ]
     # As any other block: no farther than onto the page, and along the one side only.
     down, right = named(quer)["fest"], named(hoch, 1)["fest"]
     assert down["locked"] and right["locked"]
-    assert (down["x"], down["y"]) == (15, 190)
+    assert down["y"] == 190
     assert (right["x"], right["y"]) == (130, 100)
     # Undo puts each back where it lay.
     undo(page).click()
