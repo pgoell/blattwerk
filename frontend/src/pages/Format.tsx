@@ -159,6 +159,18 @@ export const swung = (bs: Block[], by: number, about?: [number, number]): Block[
     return { ...b, x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + by) };
   });
 };
+// The blocks scaled about the point (ox, oy): each one's place and size go with the factors. A turned block keeps its
+// centre's way from the point and its own axes: its width takes the factor of the axis it lies along.
+export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, number]): Block[] =>
+  bs.map((b) => {
+    if (isLine(b) || !b.angle) return { ...b, x: round(ox + (b.x - ox) * sx), y: round(oy + (b.y - oy) * sy), w: round(b.w * sx), h: round(b.h * sy) };
+    const [c, s] = dir(b).map(Math.abs);
+    const [w, h] = c >= s ? [b.w * sx, b.h * sy] : [b.w * sy, b.h * sx];
+    const [cx, cy] = [ox + (b.x + b.w / 2 - ox) * sx, oy + (b.y + b.h / 2 - oy) * sy];
+    return { ...b, x: round(cx - w / 2), y: round(cy - h / 2), w: round(w), h: round(h) };
+  });
+// A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
+const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
 // to the other side, and the box stays. A picture, a symbol, a shape and a text in an outline are mirrored in
 // themselves too, as the page shows them, and their angle with them. A line's start changes corners instead. A
@@ -337,13 +349,46 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = lock || shaped;
   const move = (axis: Axis, to: number) => place(sel.map((b) => [b.id, { [axis]: whole ? round(b[axis] + to - box[axis]) : to }]));
-  // The corner stays. With the lock each block keeps its own shape.
+  // The corner stays. A group scales about its top left corner, and with the lock all of it keeps its shape.
+  // Loose blocks each keep their own shape.
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
-    if (to > 0) place(sel.map((b) => [b.id, { [side]: to, ...(keep && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
+    // A group of flat lines has no height to scale from.
+    if (to <= 0 || (whole && box[side] <= 0)) return;
+    if (whole) {
+      const f = to / box[side];
+      const both = lock || sel.some(kept);
+      const [sx, sy] = side === "w" ? [f, both ? f : 1] : [both ? f : 1, f];
+      place(scaled(sel, sx, sy, [box.x, box.y]).map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
+      return;
+    }
+    place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
   };
-  const angle = shared((b) => b.angle ?? 0);
-  const turn = (to: number) => norm(to) !== angle && place(sel.map((b) => [b.id, { angle: norm(to) }]));
+  // A percent scales the box from its top left corner, or about the group's; a loose block keeps its own shape when it is kept.
+  const percent = (side: "w" | "h", p: number) => {
+    if (!(p > 0)) return;
+    const f = p / 100;
+    // The side named scales; the other too when the shape is kept.
+    const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
+    const out = whole
+      ? (([sx, sy]) => scaled(sel, sx, sy, [box.x, box.y]))(factors(lock || sel.some(kept)))
+      : // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
+        sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
+    place(out.map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
+  };
+  // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut
+  // shares taken off, its place kept.
+  const [only] = sel;
+  const pic = sel.length === 1 && only.type === "image" ? only : undefined;
+  const original = () => {
+    if (!pic) return;
+    const { ratio, cut } = pic.props;
+    const w0 = Math.min(100, 100 * ratio);
+    place([[pic.id, { w: round(w0 * (1 - cut[0] - cut[2])), h: round((w0 / ratio) * (1 - cut[1] - cut[3])) }]]);
+  };
+  const turned = sel.find((b) => !isLine(b));
+  const angle = whole ? turned?.angle ?? 0 : shared((b) => b.angle ?? 0);
+  const turn = (to: number) => norm(to) !== angle && (whole ? spin(norm(to) - (angle ?? 0)) : place(sel.map((b) => [b.id, { angle: norm(to) }])));
 
   return (
     <>
@@ -363,15 +408,23 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
         <h2>Position und Größe in mm</h2>
         <Num label="X" value={whole ? round(box.x) : shared((b) => b.x)} disabled={fixed} onCommit={(n) => move("x", n)} />
         <Num label="Y" value={whole ? round(box.y) : shared((b) => b.y)} disabled={fixed} onCommit={(n) => move("y", n)} />
-        <Num label="Breite" value={whole ? round(box.w) : shared((b) => b.w)} disabled={fixed || whole || sel.some(isLine)} onCommit={(n) => resize("w", n)} />
-        <Num label="Höhe" value={whole ? round(box.h) : shared((b) => b.h)} disabled={fixed || whole || sel.some(isLine)} onCommit={(n) => resize("h", n)} />
-        <Num label="Drehung" value={angle} disabled={level || whole} onCommit={turn} />
+        <Num label="Breite" value={whole ? round(box.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
+        <Num label="Höhe" value={whole ? round(box.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
+        <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
         <span>
           °
-          <button className={keep ? "ib on" : "ib"} aria-label="Seitenverhältnis sperren" title="Seitenverhältnis sperren" aria-pressed={keep} disabled={fixed || whole || shaped} onClick={() => setLock(!lock)}>
+          <button className={keep ? "ib on" : "ib"} aria-label="Seitenverhältnis sperren" title="Seitenverhältnis sperren" aria-pressed={keep} disabled={fixed || shaped} onClick={() => setLock(!lock)}>
             {keep ? <Lock size={14} aria-hidden /> : <LockOpen size={14} aria-hidden />}
           </button>
         </span>
+        {/* A percent always reads 100: it scales the selection once and shows 100 again. */}
+        <Num label="Breite %" value={100} disabled={fixed} onCommit={(p) => percent("w", p)} />
+        <Num label="Höhe %" value={100} disabled={fixed} onCommit={(p) => percent("h", p)} />
+        {pic && (
+          <button aria-label="Originalgröße" title="Originalgröße" disabled={fixed} onClick={original}>
+            Originalgröße
+          </button>
+        )}
       </div>
       {text && (
         <>

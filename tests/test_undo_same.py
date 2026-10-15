@@ -45,8 +45,6 @@ WORDS = [
     ("press", "Links", 1),
     ("press", "Oben", 1),
 ]
-# The lock is no part of the sheet.
-LOCK = ("press", "Seitenverhältnis sperren", 0)
 # What the bar holds that changes no block: a copy, the brush picked up and put down, the
 # answers, and the zoom.
 BAR = [
@@ -56,10 +54,9 @@ BAR = [
 # Every control of the panel that can ask for what a block has already, by the block's kind:
 # how it is worked, its name, and which of the buttons of that name it is.
 CONTROLS = {
-    "text": [*GEO, LOCK, *WORDS, ("press", "Links", 0), ("press", "Oben", 0), *FRAME],
+    "text": [*GEO, *WORDS, ("press", "Links", 0), ("press", "Oben", 0), *FRAME],
     "shape": [
         *GEO,
-        LOCK,
         *WORDS,
         # A shape's words stand in its middle, across and down, where it names no place.
         ("press", "Mitte", 0),

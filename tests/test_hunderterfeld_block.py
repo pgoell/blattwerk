@@ -355,7 +355,8 @@ def test_a_corner_resize_keeps_the_stored_props_seed_and_hidden_cells(editor):
 
 
 def test_a_field_picked_with_a_text_and_resized_by_breite_keeps_each_shape(editor):
-    """Beyond: a field picked with a text, resized by Breite, stays square; the text keeps shape."""
+    """Beyond: a field picked with a text, resized by Breite, stays square; the text, with no lock
+    of its own, keeps its height (#122)."""
     client = user()
     page = editor(feld(), text(w=120, h=40), client=client)
     pick(page, "f", "t")
@@ -366,7 +367,7 @@ def test_a_field_picked_with_a_text_and_resized_by_breite_keeps_each_shape(edito
     expect(page.locator(".block.sel")).to_have_count(2)
     fields = stored(client, page)
     assert fields["f"]["w"] == fields["f"]["h"]
-    assert fields["t"]["w"] / fields["t"]["h"] == 120 / 40
+    assert (fields["t"]["w"], fields["t"]["h"]) == (150, 40)
 
 
 def test_a_field_with_its_stored_hidden_and_tints_survives_a_corner_drag_and_a_reload(editor):
