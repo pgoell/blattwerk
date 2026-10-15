@@ -3,14 +3,21 @@ import { useImperativeHandle, useRef, useState, type ButtonHTMLAttributes, type 
 import { api } from "../api";
 import { signed } from "../saves";
 import PhotoPicker, { shrink } from "./PhotoPicker";
-import VoiceNotes from "./VoiceNotes";
+import VoiceNotes, { lost } from "./VoiceNotes";
 
 // What is typed outlives the form: a send that finds the session gone brings the login, which takes the form away,
 // and the text, the voice notes and the pictures stand in the form opened after it. The app empties it when the
-// account is another.
+// account is another, and a clip that ends after that does not come into the new account's draft.
 const NONE = { text: "", clips: [] as Blob[], photos: [] as File[] };
 let draft = NONE;
-export const forgetDraft = () => void (draft = NONE);
+let generation = 0;
+export const forgetDraft = () => {
+  draft = NONE;
+  generation++;
+};
+
+const KEPT = "Deine Aufnahme lief noch, als das Formular zuging. Sie ist unten gespeichert.";
+const STOPPED = "Aufnahme beendet. Hör sie dir an und drück dann nochmal auf Abschicken.";
 
 // With `opener` the form has no button of its own: the editor's bar has folded it into a menu, whose item opens the
 // form through it. The form and what is written in it stay while the button comes and goes.
@@ -21,6 +28,8 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const shot = useRef<Promise<Blob | null>>(Promise.resolve(null));
+  const stopper = useRef<() => boolean>(null);
+  const gen = generation;
 
   // The screen as it is when the form is asked for, without the form, goes along with what is sent. The library
   // that draws it loads only now.
@@ -37,13 +46,19 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
         }),
       )
       .catch(() => null);
-    setStatus("");
+    // A clip kept from a form that shut while recording is told once; the draft empty after a logout tells nothing.
+    // The draft is read anew: the other form (the editor's or the list's) may have changed it since.
+    write(draft);
+    setStatus(lost.recording && draft.clips.length ? KEPT : "");
+    lost.recording = false;
     setOpen(true);
   }
   useImperativeHandle(opener, () => show);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    // A recording goes on until the teacher has heard it: this send only stops it.
+    if (stopper.current?.()) return setStatus(STOPPED);
     if (!text.trim() && !clips.length && !photos.length) return setStatus("Schreib etwas, nimm eine Sprachnotiz auf oder füg ein Bild hinzu.");
     const data = new FormData();
     data.append("art", "feedback");
@@ -90,7 +105,13 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
             <label htmlFor="feedback-text">Schreiben</label>
             <textarea id="feedback-text" value={text} onChange={(e) => keep({ text: e.target.value })} />
             <label>Sprechen</label>
-            <VoiceNotes clips={clips} onChange={(clips) => keep({ clips })} />
+            <VoiceNotes
+              clips={clips}
+              onChange={(clips) => {
+                if (gen === generation) keep({ clips });
+              }}
+              stopper={stopper}
+            />
             <label>Bilder</label>
             <PhotoPicker photos={photos} onChange={(photos) => keep({ photos })} name="Bild" />
             <div className="row">

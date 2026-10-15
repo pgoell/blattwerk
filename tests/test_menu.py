@@ -1,5 +1,7 @@
 """The right click's menu: on a block, on the empty page and on a page's thumbnail."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_clipboard import REFUSE, STAR
@@ -264,7 +266,14 @@ def test_a_right_click_on_a_thumbnail_opens_the_pages_menu(editor):
     right_thumb(page, 1)
     assert kept(page)
     expect(page.get_by_role("menuitem")).to_have_text(
-        ["Neue Seite", "Seite duplizieren", "Seite löschen"]
+        [
+            "Neue Seite",
+            "Seite duplizieren",
+            "Seite löschen",
+            re.compile("^Ausschneiden"),
+            re.compile("^Kopieren"),
+            re.compile("^Einfügen"),
+        ]
     )
 
 

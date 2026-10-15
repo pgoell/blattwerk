@@ -219,6 +219,8 @@ const grouped = (ids: string[], bs: Block[]) => {
   const tops = new Set(bs.filter((b) => b.group && ids.includes(b.id)).map((b) => b.group![0]));
   return bs.filter((b) => ids.includes(b.id) || (b.group && tops.has(b.group[0]))).map((b) => b.id);
 };
+// A block the clipboards read as whole. A type this script does not know (a newer Blattomat's) is kept whole, as the sheet keeps it.
+const wholeBlock = (b?: Block) => b?.id && typeof b.type === "string" && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
 // Copies with ids of their own. A group copied whole stays one, as a group of its own; part of a group leaves it.
 // A Selbstkontrolle copied with a block it links links the copy; alone it keeps its links.
 const cloned = (from: Block[], all: Block[]) => {
@@ -322,6 +324,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
+  // The pages chosen in the panel Seiten, with the page in use among them.
+  const [chosen, setChosen] = useState<number[]>([]);
   // A thumbnail being dragged: the page it shows, the gap between the thumbnails it would drop into, and whether
   // the line stands after the thumbnail before that gap.
   const [haul, setHaul] = useState<{ from: number; slot: number; after: boolean }>();
@@ -595,6 +599,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const crowded = unshown(lineaturen, learnt);
   // One page is in use: it holds the selection, and new and pasted blocks land on it. Undo can take it away.
   const page = Math.min(at, pages.length - 1);
+  // The choice: the pages chosen when the page in use is among them, else that page alone.
+  const chosenNow = chosen.includes(page) ? chosen : [page];
+  const choiceOf = (n: number) => (chosenNow.includes(n) ? chosenNow : [n]);
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
@@ -1648,6 +1655,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     flushSync(() => {
       setHist(step);
       setAt(n);
+      // The step may have added or taken pages before the choice: the page of the step alone is chosen.
+      setChosen([]);
       if (n === page) return;
       setIds([]);
       setDraft(undefined);
@@ -1673,6 +1682,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     flushSync(() => {
       update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: [] }, ...doc.pages.slice(n + 1)] }), "", n + 1);
       setAt(n + 1);
+      setChosen([n + 1]);
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -1682,6 +1692,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     [steered.current, scrollHeld.current, lagged.current] = [0, false, false];
     flushSync(() => {
       setAt(n);
+      setChosen([n]);
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -1734,37 +1745,50 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       return { ...next, pages };
     });
   }
-  function removePage(n = page) {
-    // The page in use stays, one place back when a page before it goes; a page gone itself hands it to the one in its place.
-    // It stays on the desk where it was too: the zoom may change with the widest page, so its top is measured before and after.
+  // Takes the chosen pages away, all in one step. The last page stays. The page in use stays, one place back when a
+  // page before it goes; a page gone itself hands it to the one in its place.
+  // It stays on the desk where it was too: the zoom may change with the widest page, so its top is measured before and after.
+  function removePages(ns: number[] = chosenNow) {
+    if (ns.length >= pages.length) return;
     const was = sheet.current!.getBoundingClientRect().top;
+    const at = ns.includes(page) ? Math.min(Math.min(...ns), pages.length - ns.length - 1) : page - ns.filter((i) => i < page).length;
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
+      update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => !ns.includes(i)) }), "", at);
+      setAt(at);
+      setChosen([at]);
       setIds([]);
     });
     desk.current!.scrollBy(0, sheet.current!.getBoundingClientRect().top - was);
   }
-  // Puts a page at another place among the pages. It is the page in use from then on.
-  function movePage(from: number, to: number) {
-    if (from === to) return;
+  // Puts the pages at another place among the pages, from `start` on, in their order. The first of them is the page in use.
+  function movePages(ns: number[], start: number) {
+    const moved = [...ns].sort((a, b) => a - b);
+    if (moved.every((i, j) => i === start + j)) return;
     done();
     flushSync(() => {
       update((doc) => {
-        const rest = doc.pages.filter((_, i) => i !== from);
-        return { ...doc, pages: [...rest.slice(0, to), doc.pages[from], ...rest.slice(to)] };
-      }, "", to);
-      setAt(to);
+        const rest = doc.pages.filter((_, i) => !moved.includes(i));
+        return { ...doc, pages: [...rest.slice(0, start), ...moved.map((i) => doc.pages[i]), ...rest.slice(start)] };
+      }, "", start);
+      setAt(start);
+      setChosen(moved.map((_, j) => start + j));
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
-  // The copy comes after its page and takes its place. It has the page's guide lines, grid and format, and blocks
-  // of its own.
-  function copyPage(n = page) {
+  // The copies come after the last of their pages and take its place, in order. Each has its page's guide lines, grid
+  // and format, and blocks of its own.
+  function copyPages(ns: number[] = chosenNow) {
+    const sorted = [...ns].sort((a, b) => a - b);
+    const last = sorted[sorted.length - 1];
     done();
     flushSync(() => {
-      update((doc) => ({ ...doc, pages: doc.pages.flatMap((p, i) => (i === n ? [p, { ...p, blocks: cloned(p.blocks, p.blocks) }] : [p])) }), "", n + 1);
-      setAt(n + 1);
+      update((doc) => ({
+        ...doc,
+        pages: doc.pages.flatMap((p, i) => (i === last ? [p, ...sorted.map((j) => ({ ...doc.pages[j], blocks: cloned(doc.pages[j].blocks, doc.pages[j].blocks) }))] : [p])),
+      }), "", last + 1);
+      setAt(last + 1);
+      setChosen(sorted.map((_, j) => last + 1 + j));
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -1834,9 +1858,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const { from, slot } = tug.current ?? {};
     quit();
     if (slot === undefined) return;
-    const to = landing(from!, slot);
-    movePage(from!, to);
-    strip.current!.querySelector(`[data-thumb="${to}"]`)?.scrollIntoView({ block: "nearest" });
+    // The chosen pages go together; the dragged one alone when it is not chosen.
+    const ns = choiceOf(from!);
+    const start = slot - ns.filter((i) => i < slot).length;
+    movePages(ns, start);
+    strip.current!.querySelector(`[data-thumb="${start}"]`)?.scrollIntoView({ block: "nearest" });
   }
   // On a thumbnail Ctrl with an arrow moves its page by one place, with Shift to the start or the end, and Ctrl+D
   // copies it. The focus follows the page.
@@ -1846,21 +1872,49 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       e.preventDefault();
       e.stopPropagation();
       // A page being dragged stays: the drop would look for it.
-      if (pages.length < 2 || tug.current) return;
-      removePage(n);
-      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
+      const ns = choiceOf(n);
+      if (ns.length >= pages.length || tug.current) return;
+      removePages(ns);
+      // The thumbnail in the place of the first page gone, or the last one left.
+      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(Math.min(...ns), pages.length - ns.length - 1)}"]`)!.focus();
       return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-    const last = pages.length - 1;
+    // Copy, cut and paste of pages: the block ones of the sheet must not also run.
+    // Ctrl+V pastes pages only when they are the newest copy; else the sheet's paste takes it, as before.
+    if (/^[cxv]$/i.test(e.key) && !e.shiftKey && !(/^v$/i.test(e.key) && !clippedPages().pages.length)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const ns = choiceOf(n);
+      if (/^c$/i.test(e.key)) storePages(ns);
+      else if (/^x$/i.test(e.key)) {
+        if (ns.length >= pages.length) return;
+        cutPages(ns);
+        // As after Delete: the thumbnail in the place of the first page gone keeps the keys.
+        strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(Math.min(...ns), pages.length - ns.length - 1)}"]`)!.focus();
+      } else {
+        pastePages(n);
+        strip.current!.querySelector<HTMLElement>(`[data-thumb="${n + 1}"]`)?.focus();
+      }
+      return;
+    }
+    const ns = choiceOf(n);
+    const first = ns[0];
+    const count = ns.length;
     const copy = /^d$/i.test(e.key) && !e.shiftKey;
-    const to = copy ? n + 1 : e.key === "ArrowUp" ? (e.shiftKey ? 0 : Math.max(0, n - 1)) : e.key === "ArrowDown" ? (e.shiftKey ? last : Math.min(last, n + 1)) : -1;
+    const to = copy
+      ? Math.max(...ns) + 1
+      : e.key === "ArrowUp"
+        ? (e.shiftKey ? 0 : Math.max(0, first - 1))
+        : e.key === "ArrowDown"
+          ? (e.shiftKey ? pages.length - count : Math.min(pages.length - count, first + 1))
+          : -1;
     if (to < 0) return;
     // The window's own Ctrl+D copies blocks, and Chrome's sets a bookmark.
     e.preventDefault();
     e.stopPropagation();
-    if (copy) copyPage(n);
-    else movePage(n, to);
+    if (copy) copyPages(ns);
+    else movePages(ns, to);
     strip.current!.querySelector<HTMLElement>(`[data-thumb="${to}"]`)!.focus();
   }
 
@@ -2133,6 +2187,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    // The newest copy wins: pages copied before are no longer what a paste on a thumbnail brings.
+    localStorage.removeItem("pages");
     const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;
@@ -2158,12 +2214,53 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     } catch {
       return { blocks: [] };
     }
-    // A type this script does not know (a newer Blattomat's) is kept whole, as the sheet keeps it.
-    const whole = (b?: Block) => b?.id && typeof b.type === "string" && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
+    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(wholeBlock) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
   }
   function clip(): Block[] {
     return clipped().blocks;
+  }
+  // The pages copied in the panel Seiten, read the same way: this account's, each page with whole blocks.
+  function clippedPages(): { pages: Page[]; words?: unknown } {
+    let held: { owner?: number; pages?: Page[]; words?: unknown } | null = null;
+    try {
+      held = JSON.parse(localStorage.getItem("pages") ?? "null");
+    } catch {
+      return { pages: [] };
+    }
+    const fits = (p: Page) => !!p && typeof p === "object" && Array.isArray(p.blocks) && p.blocks.every(wholeBlock);
+    return held?.owner === user.id && Array.isArray(held.pages) && held.pages.every(fits) ? { pages: held.pages, words: held.words } : { pages: [] };
+  }
+  // Stores the pages chosen, in their order, with the words of a linked Lineatur as the block copy does.
+  function storePages(ns: number[]) {
+    const held = [...ns].sort((a, b) => a - b).map((i) => live.current.doc.pages[i]);
+    const linkedAny = held.some((p) => p.blocks.some(tied));
+    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held, ...(linkedAny && { words: live.current.doc.words }) }));
+  }
+  // The pasted pages come after page `after`, with blocks of their own, and are the choice from then on. One step of undo.
+  function pastePages(after: number) {
+    const { pages: held, words } = clippedPages();
+    if (!held.length) return;
+    const copies = held.map((p) => ({ ...p, blocks: cloned(p.blocks, p.blocks) }));
+    const got = carried(copies.flatMap((p) => p.blocks), words, live.current.doc);
+    let taken = 0;
+    const fresh = copies.map((p) => {
+      const blocks = got.blocks.slice(taken, (taken += p.blocks.length));
+      return { ...p, blocks };
+    });
+    done();
+    flushSync(() => {
+      update((doc) => ({ ...doc, ...(got.words && { words: got.words }), pages: [...doc.pages.slice(0, after + 1), ...fresh, ...doc.pages.slice(after + 1)] }), "", after + 1);
+      setAt(after + 1);
+      setChosen(fresh.map((_, j) => after + 1 + j));
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  // Cut: the pages are stored, then taken away. Not when they are every page.
+  function cutPages(ns: number[]) {
+    if (ns.length >= live.current.doc.pages.length) return;
+    storePages(ns);
+    removePages(ns);
   }
   function paste() {
     const { blocks: held, words } = clipped();
@@ -3124,7 +3221,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function thumbMenu(n: number, x: number, y: number) {
     // The menu hands the focus back when it closes: to a field, that would keep the sheet's keys.
     (document.activeElement as HTMLElement | null)?.blur();
-    visit(n);
+    // A page in the choice keeps it; any other is chosen alone.
+    if (!chosenNow.includes(n)) visit(n);
     setMenu({ x, y, thumb: n });
   }
   const none = !sel.length;
@@ -3170,8 +3268,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       : thumbed !== undefined
       ? [
           { label: "Neue Seite", icon: FilePlus, run: () => addPage(thumbed) },
-          { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPage(thumbed) },
-          { label: "Seite löschen", icon: FileX, disabled: pages.length < 2, run: () => removePage(thumbed) },
+          { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPages(choiceOf(thumbed)) },
+          { label: "Seite löschen", icon: FileX, disabled: choiceOf(thumbed).length >= pages.length, run: () => removePages(choiceOf(thumbed)) },
+          { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: choiceOf(thumbed).length >= pages.length, run: () => cutPages(choiceOf(thumbed)) },
+          { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, run: () => storePages(choiceOf(thumbed)) },
+          { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, disabled: !clippedPages().pages.length, run: () => pastePages(thumbed) },
         ]
       : [
           ...(table && editing === table.id
@@ -3550,8 +3651,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             {tools}
             <i className="sep" data-name="Seite" />
             <Tool icon={FilePlus} label="Neue Seite" onClick={() => addPage()} />
-            <Tool icon={CopyPlus} label="Seite duplizieren" onClick={() => copyPage()} />
-            <Tool icon={FileX} label="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
+            <Tool icon={CopyPlus} label="Seite duplizieren" onClick={() => copyPages()} />
+            <Tool icon={FileX} label="Seite löschen" disabled={chosenNow.length >= pages.length} onClick={() => removePages()} />
           </div>
         </aside>
       )}
@@ -3561,8 +3662,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           <div className="head">
             Seiten
             <span>
-              <Tool icon={CopyPlus} label="Seite duplizieren" title="Seite duplizieren" onClick={() => copyPage()} />
-              <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={pages.length < 2} onClick={() => removePage()} />
+              <Tool icon={CopyPlus} label="Seite duplizieren" title="Seite duplizieren" onClick={() => copyPages()} />
+              <Tool icon={FileX} label="Seite löschen" title="Seite löschen" disabled={chosenNow.length >= pages.length} onClick={() => removePages()} />
             </span>
           </div>
           {/* As many thumbnails in a row as fit, 12 px apart, in the 206 px that two take at first. */}
@@ -3572,12 +3673,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 key={n}
                 data-thumb={n}
                 title="Ziehen verschiebt die Seite"
-                className={[n === page && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
-                aria-pressed={n === page}
+                className={[chosenNow.includes(n) && "on", n === haul?.from && "drag"].filter(Boolean).join(" ")}
+                aria-pressed={chosenNow.includes(n)}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
                 onClick={(e) => {
                   if (!dragged.current) {
-                    visit(n);
+                    if (e.shiftKey) {
+                      // From the page in use to this one; the page in use stays.
+                      setChosen(Array.from({ length: Math.abs(n - page) + 1 }, (_, j) => Math.min(n, page) + j));
+                    } else if (e.ctrlKey || e.metaKey) {
+                      // Adds this page to the choice, or drops it; the last one stays.
+                      const next = chosenNow.includes(n) ? (chosenNow.length > 1 ? chosenNow.filter((i) => i !== n) : chosenNow) : [...chosenNow, n].sort((a, b) => a - b);
+                      if (next.includes(page)) setChosen(next);
+                      else {
+                        visit(next[0]);
+                        setChosen(next);
+                      }
+                    } else {
+                      visit(n);
+                    }
                     // The keys of a thumbnail need its focus, and a click leaves it with the page.
                     e.currentTarget.focus({ preventScroll: true });
                   }
