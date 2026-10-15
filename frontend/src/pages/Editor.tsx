@@ -409,7 +409,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; cell?: number; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
@@ -964,6 +964,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // Shift+F10 and the Menu key open the menu of the selection, as in PowerPoint: at the middle of the picked blocks, or
+    // with nothing picked near the corner of the page in use. A focused button keeps the key for itself.
+    if (((e.key === "F10" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === "ContextMenu") && !target.closest("button, a, summary, .panel, header, .dock")) {
+      e.preventDefault();
+      const rects = sel.map((b) => sheet.current!.querySelector(`[data-id="${b.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+      const paper = document.querySelector(".sheet.on")?.getBoundingClientRect();
+      const x = rects.length ? (Math.min(...rects.map((r) => r.left)) + Math.max(...rects.map((r) => r.right))) / 2 : (paper?.left ?? 0) + 20;
+      const y = rects.length ? (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2 : (paper?.top ?? 0) + 20;
+      setMenu({ x: Math.max(0, Math.min(x, innerWidth)), y: Math.max(0, Math.min(y, innerHeight)) });
+      return;
+    }
     // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
     if (!sel.length && /^(PageUp|PageDown|Home|End|Arrow(Up|Down|Left|Right))$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) steer();
     // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
@@ -2860,7 +2871,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
-  function edit(id?: string, el?: Element, all = false) {
+  function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
     // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
     if (tied(free[0])) return;
@@ -2875,7 +2886,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       setEditing(id);
     }
-    setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
+    setSlot(cell ?? +(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -2993,7 +3004,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       setAt(to);
       setIds(id ? grouped([id], pages[to].blocks) : []);
     }
-    setMenu({ x, y });
+    // The cell under the click, for Text bearbeiten: the menu runs after the click has closed it, so it is kept here.
+    const cell = el.closest<HTMLElement>("[data-cell]")?.dataset.cell;
+    setMenu({ x, y, cell: cell === undefined ? undefined : +cell });
     return true;
   }
   function thumbMenu(n: number, x: number, y: number) {
@@ -3007,7 +3020,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const shift = APPLE ? "⇧" : "Umschalt+";
   const thumbed = menu?.thumb;
   const ruled = menu?.rule;
+  const menuCell = menu?.cell;
   type Command = Exclude<Item, "sep">;
+  // One block with words of its own, or a score or a name, opens for writing from its menu, as F2 does. Not a linked one.
+  // It opens a moment later: the menu's dialog gives the focus back as it shuts, and in WebKit after the text took it.
+  const [only] = sel;
+  const writeIn: Item[] =
+    sel.length === 1 && (writable(only) || only.type === "points" || only.type === "name") && !tied(only) && editing !== only.id
+      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => setTimeout(() => edit(only.id, undefined, true, menuCell)) }, "sep"]
+      : [];
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
     { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
@@ -3041,6 +3062,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               ] as Item[])
             : []),
           ...clips,
+          ...writeIn,
           ...copies,
           "sep",
           lockIt,
@@ -3112,7 +3134,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ? []
       : [
           { label: "Kleiner", icon: ZoomOut, run: () => zoomBy(-1) },
-          { label: "Seitenbreite", run: () => zoomTo(1) },
+          // The bar's zoom button, which opens the list below "Mehr" as the button does in the bar.
+          {
+            label: "Zoom",
+            run: () => {
+              // The list gives the focus back to what has it when it opens: that is "Mehr", not the item just picked.
+              const more = bar.current!.querySelector<HTMLElement>(".more")!;
+              more.focus();
+              const box = more.getBoundingClientRect();
+              setLens({ x: box.left, y: box.bottom, up: false });
+            },
+          },
           { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
         ]),

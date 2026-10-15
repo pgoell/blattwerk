@@ -410,7 +410,7 @@ def test_the_arrows_walk_the_enabled_entries_and_enter_runs_one(editor):
     expect(item(page, "Eine Ebene nach vorn")).to_be_focused()
     page.keyboard.press("ArrowDown")
     expect(item(page, "Ausschneiden")).to_be_focused()
-    for name in ("Kopieren", "Einfügen", "Duplizieren", "Löschen", "Sperren"):
+    for name in ("Kopieren", "Einfügen", "Text bearbeiten", "Duplizieren", "Löschen", "Sperren"):
         page.keyboard.press("ArrowDown")
         expect(item(page, name)).to_be_focused()
     # Neither Gruppieren nor Gruppierung aufheben can do anything for one block.
@@ -425,7 +425,10 @@ def test_the_arrows_walk_the_enabled_entries_and_enter_runs_one(editor):
     assert order(page) == [["b"]]
 
 
-@pytest.mark.parametrize("keys", ["Delete", "Backspace", "Control+x", "Control+d", "ArrowRight"])
+@pytest.mark.parametrize(
+    "keys",
+    ["Delete", "Backspace", "Control+x", "Control+d", "ArrowRight", "Shift+F10", "ContextMenu"],
+)
 def test_the_sheets_keys_do_not_reach_it_while_the_menu_is_open(editor, keys):
     """I3"""
     page = editor(*texts(*"ab"))

@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_bar import resize
+from test_bar import expect_fitted, item, menu, more, resize, sized
 from test_zoom import expect_percent, expect_width, fit, page_width, percent, wheel, width
 from ui import TEXT, box, pick
 
@@ -189,3 +189,107 @@ def test_blattform_opens_the_list_upward_from_the_dock(editor):
     assert lens["y"] + lens["height"] <= button.bounding_box()["y"] + 1
     page.locator(LIST).get_by_role("menuitem", name="50 %", exact=True).click()
     expect(page.locator(".dock button.zoom").first).to_have_text("50 %")
+
+
+# The bar has no room for the zoom button on an iPad upright or in a narrow window: "Mehr" holds
+# "Zoom", which opens the same list below "Mehr" (#624).
+PERCENTS = ["50 %", "75 %", "100 %", "150 %", "200 %"]
+ON_PAPER = (
+    "() => document.querySelector('.sheet.on').getBoundingClientRect().width / 210 * 2540 / 96"
+)
+
+
+def expect_on_paper(page, want):
+    """Waits until the page is `want` percent of its size on paper."""
+    page.wait_for_function(f"(want) => Math.abs(({ON_PAPER})() - want) < 1", arg=want, timeout=5000)
+
+
+def open_from_mehr(page):
+    more(page).tap()
+    item(page, "Zoom").tap()
+    expect(page.locator(LIST)).to_be_visible()
+
+
+def test_ipad_mehr_opens_the_zoom_list(editor):
+    """Mehr has "Zoom"; a tap opens the list: the percents, Seitenbreite, Ganze Seite, the field."""
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    more(page).tap()
+    expect(item(page, "Zoom")).to_have_count(1)
+    item(page, "Zoom").tap()
+    lst = page.locator(LIST)
+    expect(lst).to_be_visible()
+    for name in PERCENTS:
+        expect(lst.get_by_role("menuitem", name=name, exact=True)).to_be_visible()
+    expect(lst.get_by_role("menuitem", name="Seitenbreite", exact=True)).to_be_visible()
+    expect(lst.get_by_role("menuitem", name="Ganze Seite", exact=True)).to_be_visible()
+    expect(field(page)).to_be_visible()
+
+
+def test_ipad_a_percent_and_a_typed_percent_set_the_zoom(editor):
+    """A tap on "150 %" sets it; "120" and Enter in the field set 120 %."""
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    open_from_mehr(page)
+    page.locator(LIST).get_by_role("menuitem", name="150 %", exact=True).tap()
+    expect(page.locator(LIST)).to_have_count(0)
+    expect_on_paper(page, 150)
+    open_from_mehr(page)
+    field(page).tap()
+    type_percent(page, "120")
+    expect(page.locator(LIST)).to_have_count(0)
+    expect_on_paper(page, 120)
+
+
+def test_the_list_opens_by_mehr_and_escape_gives_the_focus_back(editor):
+    """The list opens by Mehr inside the window; Escape shuts it, Mehr has the focus again."""
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    open_from_mehr(page)
+    lst = page.locator(LIST).bounding_box()
+    button = more(page).bounding_box()
+    assert lst["x"] >= 0 and lst["x"] + lst["width"] <= 834
+    assert lst["y"] >= 0 and lst["y"] + lst["height"] <= 1194
+    assert abs(lst["x"] - button["x"]) < 40
+    page.keyboard.press("Escape")
+    expect(page.locator(LIST)).to_have_count(0)
+    expect(more(page)).to_be_focused()
+
+
+def test_a_mouse_in_a_narrow_window_opens_the_list_from_mehr(editor):
+    """The same in a narrow desktop window with a mouse."""
+    page = sized(editor, box("a", "text", TEXT), width=701, height=1000, touch=False, theme="")
+    expect_fitted(page)
+    more(page).click()
+    item(page, "Zoom").click()
+    lst = page.locator(LIST)
+    expect(lst).to_be_visible()
+    for name in PERCENTS:
+        expect(lst.get_by_role("menuitem", name=name, exact=True)).to_be_visible()
+    lst.get_by_role("menuitem", name="150 %", exact=True).click()
+    expect(lst).to_have_count(0)
+    expect_on_paper(page, 150)
+
+
+def test_ganze_seite_from_the_list_opened_by_mehr_fits_the_page(editor):
+    """Extra case: "Ganze Seite" in the list shuts it and fits the whole page in the window."""
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    open_from_mehr(page)
+    page.locator(LIST).get_by_role("menuitem", name="Ganze Seite", exact=True).tap()
+    expect(page.locator(LIST)).to_have_count(0)
+    expect(menu(page)).to_have_count(0)
+    inside = """() => {
+        const r = document.querySelector('.sheet.on').getBoundingClientRect();
+        return r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1;
+    }"""
+    page.wait_for_function(inside, timeout=5000)
+
+
+def test_a_turn_of_the_ipad_shuts_the_list(editor):
+    """Extra case: the iPad turned on its side while the list is open shuts it."""
+    page = sized(editor, box("a", "text", TEXT), width=834, height=1194, touch=True, theme="")
+    expect_fitted(page)
+    open_from_mehr(page)
+    resize(page, 1194, 834)
+    expect(page.locator(LIST)).to_have_count(0)
