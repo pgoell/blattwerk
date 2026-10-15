@@ -206,6 +206,26 @@ def test_i1_the_panel_scrolls_to_the_top_in_time_when_frames_are_slow(editor):
     expect_order(page, "p" + NAMES[:15])
 
 
+def test_i1_the_outer_edge_of_the_zone_scrolls_slowly_on_a_fast_screen_and_does_not_stall(editor):
+    """I1: at 120 frames a second and 2 px inside the zone a frame's step is a third of a pixel,
+    which the browser rounds away."""
+    page = blatt(editor, NAMES)
+    page.evaluate(
+        "() => { window.requestAnimationFrame ="
+        " (cb) => setTimeout(() => cb(performance.now()), 8);"
+        " window.cancelAnimationFrame = (id) => clearTimeout(id); }"
+    )
+    thumb(page, 15).evaluate("el => el.scrollIntoView({ block: 'center' })")
+    start = page.evaluate(f"() => {PANEL}.scrollTop")
+    page.mouse.move(*centre(thumb(page, 15)))
+    page.mouse.down()
+    x, y = top_edge(page)
+    # top_edge is 5 px below the panel's top; the zone ends 40 px below it.
+    page.mouse.move(x, y + 33, steps=10)
+    page.wait_for_function(f"() => {PANEL}.scrollTop <= {start} - 10", timeout=5000)
+    page.mouse.up()
+
+
 def test_i1_a_held_finger_near_the_lower_edge_scrolls_the_panel(editor):
     """I1"""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in NAMES[1:]]

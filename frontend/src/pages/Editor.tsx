@@ -563,7 +563,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
   const press = useRef(0);
   // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
-  const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0 });
+  const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
   const grab = useRef([0, 0]);
@@ -1690,6 +1690,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       cancelAnimationFrame(a.frame);
       a.frame = 0;
       a.last = 0;
+      a.rest = 0;
     } else if (!a.frame) a.frame = requestAnimationFrame(scrollStep);
   }
   // The speed is px per 1/60 s, so the scroll keeps its pace in time on a slow machine: a busy CI runner gave 10 to
@@ -1700,7 +1701,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!tug.current || !a.speed) return;
     const dt = a.last ? Math.min(now - a.last, 100) : 1000 / 60;
     a.last = now;
-    strip.current!.closest<HTMLElement>(".left")!.scrollTop += (a.speed * dt) / (1000 / 60);
+    // Whole pixels only, the rest kept for the next frame: the browser rounds a part of a pixel away, and at the outer
+    // edge of the zone or on a 120 Hz screen each frame's step is less than one.
+    a.rest += (a.speed * dt) / (1000 / 60);
+    const px = Math.trunc(a.rest);
+    a.rest -= px;
+    strip.current!.closest<HTMLElement>(".left")!.scrollTop += px;
     aim(a.x, a.y);
     a.frame = requestAnimationFrame(scrollStep);
   }
@@ -1710,6 +1716,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     auto.current.frame = 0;
     auto.current.speed = 0;
     auto.current.last = 0;
+    auto.current.rest = 0;
     tug.current = undefined;
     setHaul(undefined);
   }
