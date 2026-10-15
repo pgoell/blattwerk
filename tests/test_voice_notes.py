@@ -1,12 +1,15 @@
 """The feedback form's voice notes stop the mic when the form shuts while recording (#656)."""
 
+from uuid import uuid4
+
 from playwright.sync_api import expect
-from ui import TEXT, box
+from ui import BROWSER, PASSWORD, TEXT, box, user
 
 FORM = "dialog.feedback"
 CLIPS = "ul.clips li"
 KEPT = "Deine Aufnahme lief noch, als das Formular zuging. Sie ist unten gespeichert."
 DONE = "Aufnahme beendet. Hör sie dir an und drück dann nochmal auf Abschicken."
+LOGOUT = "Abmelden"
 REFUSED = "Kein Zugriff aufs Mikrofon. Bitte in den Browser-Einstellungen erlauben."
 
 # A microphone that counts its tracks in window.__tracks, and a recorder that stops like the
@@ -42,7 +45,7 @@ FAKE = """
 
 
 def button(page):
-    return page.get_by_label("Feedback", exact=True)
+    return page.get_by_role("button", name="Feedback", exact=True)
 
 
 def form(page):
@@ -151,3 +154,47 @@ def test_refused_mic_shows_the_hint_and_records_nothing(editor):
     page.keyboard.press("Escape")
     expect(form(page)).to_have_count(0)
     assert stopped(page) == []
+
+
+def test_leaving_the_editor_while_recording_stops_the_mic(editor):
+    page = editor(box("a", "text", TEXT))
+    open_form(page)
+    record(page)
+    # A click on the editor's own link to the sheets: a route change inside the app, no full load.
+    page.evaluate("document.querySelector('a[aria-label=\"Meine Blätter\"]').click()")
+    expect(page.locator("main.editor")).to_have_count(0)
+    mic_off(page)
+    assert page.evaluate("Array.isArray(window.__tracks)")
+
+
+def test_logout_while_recording_stops_the_mic_and_drops_the_clip(browser, server):
+    other = f"{uuid4().hex}@example.com"
+    user(other)
+    context = browser.new_context(viewport={"width": 1400, "height": 1000})
+    context.add_init_script("localStorage.setItem('tour', '1')")
+    client = user()
+    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
+    page = context.new_page()
+    page.goto(f"{server}/")
+    open_form(page)
+    record(page)
+    # The modal form blocks the mouse, so the logout goes by clicks in the page itself.
+    page.evaluate("document.querySelector('a[href=\"/konto\"]').click()")
+    find = f"(b) => b.textContent === '{LOGOUT}'"
+    page.wait_for_function(f"[...document.querySelectorAll('button')].some({find})")
+    page.evaluate(f"[...document.querySelectorAll('button')].find({find}).click()")
+    expect(page.locator("#email")).to_be_visible()
+    mic_off(page)
+    page.fill("#email", other)
+    page.fill("#password", PASSWORD)
+    with page.expect_response("**/api/login") as answer:
+        page.get_by_role("button", name="Anmelden").click()
+    expect(page.locator("#email")).to_have_count(0)
+    if BROWSER == "webkit":
+        value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
+        context.add_cookies([{"name": "session", "value": value, "url": server}])
+        page.goto(f"{server}/")
+    button(page).click()
+    expect(form(page)).to_be_visible()
+    expect(page.locator(CLIPS)).to_have_count(0)
+    context.close()
