@@ -129,7 +129,7 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // gives and takes its houses, `house` and `houseTint`, and its middle band, `band` and `bandColor`. Every block
 // gives and takes the numbering before it, `mark`. The Silbenbögen and the Silbenfarbe go along, `syllables`, `tints`
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
-const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeOpacity", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
 const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
@@ -137,7 +137,7 @@ type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
   const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
-  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  return [...(isLine(b) ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
@@ -1494,6 +1494,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         }),
       key,
     );
+  }
+  // A picture's see-through, on every picked picture, in one step.
+  function fadePicture(opacity: number) {
+    tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "image" ? { ...b, props: { ...b.props, opacity } } : b)), "opacity");
   }
   // Sets the trace text's look on every picked block that carries text, in one step: a text, a shape, a table and a
   // Lineatur each have it. A Lineatur that shows the Lernwörter has a look of its own and takes none.
@@ -4105,6 +4110,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 feed={feed}
                 toList={() => setTab("Lernwörter")}
               />
+              {free.length === 1 && free[0]!.type === "image" && (
+                <>
+                  <h2>Bild</h2>
+                  <label>
+                    Transparenz
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((1 - ((free[0] as ImageBlock).props.opacity ?? 1)) * 100)}
+                      onChange={(e) => fadePicture(Math.round(100 - +e.target.value) / 100)}
+                    />
+                  </label>
+                </>
+              )}
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
@@ -4123,7 +4144,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     <input type="color" value={fill === "none" ? "#ffffff" : fill} onChange={(e) => look({ fill: e.target.value }, "fill")} />
                   </label>
                   {/* How far the fill lets through what lies behind it: the text and the border stay solid. */}
-                  <label>
+                  {!isLine(boxes[0]) && <label>
                     Transparenz
                     <input
                       type="range"
@@ -4134,7 +4155,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       disabled={fill === "none"}
                       onChange={(e) => look({ opacity: Math.round(100 - +e.target.value) / 100 }, "opacity")}
                     />
-                  </label>
+                  </label>}
                   {/* The next fill is solid again, as in PowerPoint. */}
                   <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none", opacity: undefined })}>Keine Füllung</button>
                   <label>
@@ -4151,6 +4172,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       step={0.25}
                       value={boxes[0].props.strokeWidth ?? 0.5}
                       onChange={(e) => look({ strokeWidth: +e.target.value }, "strokeWidth")}
+                    />
+                  </label>
+                  {/* How far the border lets through what lies behind it. A line has only this slider. */}
+                  <label>
+                    {isLine(boxes[0]) ? "Transparenz" : "Transparenz Linie"}
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((1 - (boxes[0].props.strokeOpacity ?? 1)) * 100)}
+                      disabled={stroke === "none"}
+                      onChange={(e) => look({ strokeOpacity: Math.round(100 - +e.target.value) / 100 }, "strokeOpacity")}
                     />
                   </label>
                   {/* No style is lit while there is no border to show it. */}
