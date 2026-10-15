@@ -270,13 +270,15 @@ def test_the_bar_and_mehr_hold_every_command_once(editor, theme, width, height, 
     leaf = page.locator("main.editor.leaf").count() == 1
     assert leaf == (theme is None and width > height)
     want = [*EDITS, *([] if leaf else ZOOM), *LAST]
-    in_bar = page.evaluate(BAR)["names"]
+    # The bar's zoom button is titled "Zoom": it holds the command "Mehr" lists as "Seitenbreite".
+    in_bar = ["Seitenbreite" if name == "Zoom" else name for name in page.evaluate(BAR)["names"]]
     in_menu = listed(page)
     assert in_bar + in_menu == want
     assert all(name in in_bar for name in ZOOM) or not any(name in in_bar for name in ZOOM)
     # No command is in the page twice, by any name.
     for name in want:
-        named = f'button:is([aria-label="{name}"], .zoom[title="{name}"]):not(.dock *)'
+        title = "Zoom" if name == "Seitenbreite" else name
+        named = f'button:is([aria-label="{name}"], .zoom[title="{title}"]):not(.dock *)'
         assert page.locator(named).count() == (name in in_bar)
 
 

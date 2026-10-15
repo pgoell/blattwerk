@@ -93,6 +93,7 @@ import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
+import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
 import Variants from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
@@ -410,6 +411,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
+  const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
   // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
   const idKey = ids.join();
@@ -3060,7 +3062,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
       {/* The page's size on the screen against its size on paper. */}
-      <button className="zoom" title="Seitenbreite" onClick={() => zoomTo(1)}>
+      {/* The list opens over the button: upward from the dock, downward from the bar. */}
+      <button
+        className="zoom"
+        title="Zoom"
+        aria-haspopup="dialog"
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          const up = !!e.currentTarget.closest(".dock");
+          setLens({ x: box.left, y: up ? box.top : box.bottom, up });
+        }}
+      >
         {Math.round((k * 2540) / 96)} %
       </button>
       <Tool icon={Fullscreen} label="Ganze Seite" onClick={fitPage} />
@@ -4236,6 +4248,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             localStorage.setItem("tour", "1");
             setTour(false);
           }}
+        />
+      )}
+      {lens && (
+        <ZoomList
+          x={lens.x}
+          y={lens.y}
+          up={lens.up}
+          current={Math.round((k * 2540) / 96)}
+          onPercent={(p) => zoomTo((p * 96) / 2540 / fit)}
+          onWidth={() => zoomTo(1)}
+          onFit={fitPage}
+          onClose={() => setLens(undefined)}
         />
       )}
       {mathMenu && (
