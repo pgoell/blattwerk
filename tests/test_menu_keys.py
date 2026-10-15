@@ -2,7 +2,7 @@
 
 from playwright.sync_api import expect
 from test_menu import item, menu, right, texts
-from ui import TEXT, at, box, expect_picked, pick
+from ui import TEXT, at, box, expect_picked, hold_close, pick
 
 
 def watch(page):
@@ -230,3 +230,31 @@ def test_an_item_run_by_enter_then_the_key_at_once_opens_the_menu(editor):
     page.keyboard.press("ContextMenu")
     expect(menu(page)).to_be_visible()
     expect(at(page, "b")).to_have_count(0)
+
+
+def test_a_press_beside_the_menu_then_the_menu_key_at_once_opens_it(editor):
+    """#643: the press beside shuts the menu, and the Menu key at once opens it again."""
+    page = editor(*texts(*"ab"))
+    pick(page, "a")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
+    hold_close(page)
+    page.mouse.click(5, 5)
+    page.keyboard.press("ContextMenu")
+    expect(menu(page)).to_be_visible()
+    expect(menu(page).locator("button:enabled").first).to_be_focused()
+
+
+def test_a_resize_then_shift_f10_at_once_opens_the_menu(editor):
+    """#643: the resize shuts the menu; Shift+F10 right after it opens one again."""
+    page = editor(*texts(*"ab"))
+    pick(page, "a")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
+    hold_close(page)
+    # The resize's shut has run once this promise is done, and nothing waits for the menu to vanish.
+    page.evaluate("addEventListener('resize', () => (window.resized = true), { once: true })")
+    page.set_viewport_size({"width": 900, "height": 700})
+    page.wait_for_function("window.resized === true")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()

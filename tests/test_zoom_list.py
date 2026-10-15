@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_bar import expect_fitted, item, menu, more, resize, sized
 from test_zoom import expect_percent, expect_width, fit, page_width, percent, wheel, width
-from ui import TEXT, box, pick
+from ui import TEXT, box, hold_close, pick
 
 LIST = "dialog:modal"
 FIELD = "Zoom in Prozent"
@@ -139,6 +139,18 @@ def test_a_block_is_deleted_after_the_list_shuts(editor):
     expect(page.locator(LIST)).to_have_count(0)
     page.keyboard.press("Delete")
     expect(page.locator(".block[data-id]")).to_have_count(0)
+
+
+def test_escape_then_delete_at_once_deletes_the_block_with_the_close_held(editor):
+    """#641: with no close heard, Escape must shut the list, or Delete falls on its button."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    open_list(page)
+    hold_close(page)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Delete")
+    expect(page.locator(".block[data-id]")).to_have_count(0)
+    expect(page.locator(LIST)).to_have_count(0)
 
 
 def test_undo_does_not_take_back_a_pick(editor):

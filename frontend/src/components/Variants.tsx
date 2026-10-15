@@ -169,8 +169,21 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
     }
   }
 
+  // Escape shuts the dialog at once: the browser's `close` comes a task later, and until then the focus stays inside it.
+  function key(e: KeyboardEvent<HTMLDialogElement>) {
+    if (e.key === "Escape" && ref.current!.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      ref.current!.close();
+      opener.current?.focus();
+      onClose();
+      return;
+    }
+    round(e);
+  }
+
   return (
-    <dialog className="variants" ref={ref} onKeyDown={round} onClose={() => { opener.current?.focus(); onClose(); }}>
+    <dialog className="variants" ref={ref} onKeyDown={key} onClose={() => { opener.current?.focus(); onClose(); }}>
       <h1>Varianten drucken</h1>
       <fieldset>
         <legend>Varianten</legend>
