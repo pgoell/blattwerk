@@ -82,6 +82,12 @@ describe("totals", () => {
     expect(totals(before, after)).toBe(after);
   });
 
+  it("keeps a total typed by hand in the same step as a task, as the panel does with a total and a task picked", () => {
+    const before = klassenarbeit();
+    const after = set(before, { t1: 7, a1: 7 });
+    expect(totals(before, after)).toBe(after);
+  });
+
   it("leaves a sheet with no tasks left as it is", () => {
     const before = klassenarbeit();
     const noTasks = { ...before, pages: before.pages.map((p) => ({ blocks: p.blocks.filter((b) => (b as Block & { props: { total?: boolean } }).props.total === true) })) };

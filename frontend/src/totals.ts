@@ -15,6 +15,9 @@ export function totals(before: Doc, after: Doc): Doc {
   const old = tasksOf(before);
   const now = tasksOf(after);
   if (old.length === now.length && old.every((t, i) => t === now[i])) return after;
+  // A total typed by hand in the same step wins, as when the panel sets a total and a task picked together.
+  const was = new Map(pointsOf(before).filter(isTotal).map((b) => [b.id, b.props.max]));
+  if (pointsOf(after).some((b) => isTotal(b) && was.has(b.id) && was.get(b.id) !== b.props.max)) return after;
   const tasks = pointsOf(after).filter((b) => !isTotal(b));
   if (tasks.length === 0) return after;
   const sum = Math.min(999, Math.max(1, tasks.reduce((n, b) => n + b.props.max, 0)));
