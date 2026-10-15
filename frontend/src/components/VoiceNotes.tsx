@@ -1,15 +1,40 @@
-import { useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useObjectUrl } from "./useObjectUrl";
 
-type Props = { clips: Blob[]; onChange: (clips: Blob[]) => void };
+type Props = { clips: Blob[]; onChange: (clips: Blob[]) => void; stopper?: Ref<() => boolean> };
 
-export default function VoiceNotes({ clips, onChange }: Props) {
+// Set when the form shut while a clip was recording: the next opening of the form says the clip was kept.
+export const lost = { recording: false };
+
+export default function VoiceNotes({ clips, onChange, stopper }: Props) {
   const recorder = useRef<MediaRecorder | null>(null);
+  const mic = useRef<MediaStream | null>(null);
+  const gone = useRef(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState("");
   // The stop handler runs long after the click, so it reads the latest clips from here.
   const latest = useRef(clips);
   latest.current = clips;
+
+  // Shut in the middle of a recording, the mic goes off at once and the clip still comes through onChange.
+  useEffect(() => {
+    gone.current = false;
+    return () => {
+      gone.current = true;
+      if (recorder.current?.state === "recording") {
+        lost.recording = true;
+        recorder.current.stop();
+      }
+      mic.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  // Stops a recording, if there is one, and says whether there was.
+  useImperativeHandle(stopper, () => () => {
+    if (recorder.current?.state !== "recording") return false;
+    recorder.current.stop();
+    return true;
+  });
 
   async function toggle() {
     if (recorder.current) return recorder.current.stop();
@@ -20,6 +45,9 @@ export default function VoiceNotes({ clips, onChange }: Props) {
       setError("Kein Zugriff aufs Mikrofon. Bitte in den Browser-Einstellungen erlauben.");
       return;
     }
+    // The form shut while the browser asked: no mic for a form that is gone.
+    if (gone.current) return stream.getTracks().forEach((t) => t.stop());
+    mic.current = stream;
     setError("");
     // Safari records mp4, the others webm.
     const type = ["audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported(t));
