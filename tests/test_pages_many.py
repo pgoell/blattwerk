@@ -108,6 +108,18 @@ def test_delete_key_takes_all_chosen_pages(editor):
     expect_order(page, "b")
 
 
+def test_delete_key_on_the_last_pages_leaves_the_focus_on_a_thumbnail(editor):
+    """The focus goes to the thumbnail in the place of the pages gone, so Delete again works on."""
+    page = three(editor)
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    pick_many(page, 1, 2)
+    page.keyboard.press("Delete")
+    expect_order(page, "a")
+    expect(thumb(page, 0)).to_be_focused()
+    assert not errors
+
+
 def test_the_last_page_never_goes_when_every_page_is_chosen(editor):
     """With every page chosen, delete is refused: the panel button and menu item are disabled."""
     page = three(editor)

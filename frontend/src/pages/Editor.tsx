@@ -1867,9 +1867,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       e.preventDefault();
       e.stopPropagation();
       // A page being dragged stays: the drop would look for it.
-      if (choiceOf(n).length >= pages.length || tug.current) return;
-      removePages(choiceOf(n));
-      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
+      const ns = choiceOf(n);
+      if (ns.length >= pages.length || tug.current) return;
+      removePages(ns);
+      // The thumbnail in the place of the first page gone, or the last one left.
+      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(Math.min(...ns), pages.length - ns.length - 1)}"]`)!.focus();
       return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
