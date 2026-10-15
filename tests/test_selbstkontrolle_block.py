@@ -4,6 +4,7 @@ copy and the letter boxes hold as the contract of #89 says (frontend/src/selbstk
 The expected numbers are written here by hand. Nothing reads them from the code under test.
 """
 
+import pytest
 from playwright.sync_api import expect
 from ui import at, box, doc, maths, pick, reload, sheet, user
 
@@ -268,3 +269,49 @@ def test_a_grown_block_shows_its_type_at_its_own_size(editor):
         at(page, "s").locator(".selbstkontrolle").evaluate("e => e.style.getPropertyValue('--fit')")
     )
     assert fit == "" or float(fit) > 0.97, fit
+
+
+SIXTEEN = [{"op": "+", "a": n, "b": 10, "result": n + 10, "rest": 0} for n in range(16)]
+
+
+@pytest.mark.parametrize("turn", ["upside", "fold"])
+def test_a_long_word_table_in_a_turned_block_is_not_cut(editor, turn):
+    """Second review A: turned, the long table spills to the left; it still shrinks to fit."""
+    client = user()
+    page = editor(
+        box("m", "maths", maths(client, exercises=SIXTEEN, count=16), z=1, h=40),
+        sk(
+            {**SK, "form": "word", "word": "ABCDEFGHIJKLMNOP", "size": 20, "turn": turn},
+            h=40,
+            y=150,
+        ),
+        client=client,
+    )
+    block = at(page, "s").locator(".selbstkontrolle")
+    expect(block.locator("table.word tr.letters td")).to_have_count(16)
+    edges = block.evaluate(
+        "e => [e.getBoundingClientRect(), e.querySelector('table').getBoundingClientRect()]"
+        ".map(r => [r.left, r.right])"
+    )
+    [[left, right], [table_left, table_right]] = edges
+    assert table_left >= left - 1 and table_right <= right + 1, edges
+
+
+def test_the_key_prints_the_word_block_at_the_sheets_type_size(editor):
+    """Second review B: a grown word block has room for the key's word; the key keeps the type."""
+    client = user()
+    four = SIXTEEN[:4]
+    page = editor(
+        box("m", "maths", maths(client, exercises=four, count=4), z=1, h=20),
+        sk({**SK, "form": "word", "word": "ABCD", "links": []}, h=12, y=150),
+        client=client,
+    )
+    pick(page, "s")
+    panel_tick(page, "Rechnen").check()
+    page.evaluate("document.activeElement.blur()")
+    block = at(page, "s").locator(".selbstkontrolle")
+    expect(block.locator("table.word")).to_be_visible()
+    size = block.evaluate("e => getComputedStyle(e).fontSize")
+    page.get_by_label("Lösungen zeigen", exact=True).click()
+    expect(block.locator("p.answer")).to_have_text("ABCD")
+    assert block.evaluate("e => getComputedStyle(e).fontSize") == size

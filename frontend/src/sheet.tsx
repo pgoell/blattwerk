@@ -2173,7 +2173,10 @@ function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k:
     let fit = 1;
     for (let round = 0; round < 3; round++) {
       const tall = el.clientHeight > 2 && el.scrollHeight > el.clientHeight + 1 ? (el.clientHeight - 2) / el.scrollHeight : 1;
-      const wide = el.clientWidth > 2 && el.scrollWidth > el.clientWidth + 1 ? (el.clientWidth - 2) / el.scrollWidth : 1;
+      // The content's own width: turned, a table too wide spills to the left, where the block's scrollWidth misses it.
+      const inner = (el.querySelector(".inner") as HTMLElement | null)?.scrollWidth ?? 0;
+      const spill = Math.max(el.scrollWidth, inner);
+      const wide = el.clientWidth > 2 && spill > el.clientWidth + 1 ? (el.clientWidth - 2) / spill : 1;
       if (Math.min(tall, wide) >= 1) break;
       fit *= Math.min(tall, wide);
       el.style.setProperty("--fit", String(fit));

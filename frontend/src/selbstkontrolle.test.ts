@@ -175,15 +175,26 @@ describe("links and labels", () => {
 });
 
 describe("heightFor", () => {
+  // Results 7, 9 and 7: "ABA" works, "AB" is too short.
+  const a = maths("a", [sum(3, 4, 7), sum(4, 5, 9)], {}, 0);
+  const b = maths("b", [sum(2, 5, 7)], {}, 50);
+
   it("is the heading and the empty box, plus 2 mm, with no link", () => {
     // Heading 1.2 em on a line of 1.3 and .3 em under it; the empty box .8 em of padding; 14 pt is 4.939 mm.
     const h = heightFor(P({ links: [] }), sheet([]), 180);
     expect(h).toBeCloseTo((1.56 + 0.3 + 0.8) * 14 * (25.4 / 72) + 2, 6);
   });
 
-  it("counts the fold line's words and two table rows for a word", () => {
+  it("counts the fold line's words, two table rows and the key's word for a word that works", () => {
     const em = 14 * (25.4 / 72);
-    expect(heightFor(P({ form: "word", turn: "fold", title: "" }), sheet([]), 180)).toBeCloseTo((1.04 + 3.2) * em + 2, 6);
+    const doc = sheet([a, b]);
+    expect(heightFor(P({ form: "word", turn: "fold", title: "", links: ["a", "b"], word: "ABA" }), doc, 180)).toBeCloseTo((1.04 + 3.2 + 1.82 + 0.3) * em + 2, 6);
+  });
+
+  it("a faulty word grows for the heading alone, a lost link for nothing", () => {
+    const em = 14 * (25.4 / 72);
+    expect(heightFor(P({ form: "word", word: "AB", links: ["a", "b"] }), sheet([a, b]), 180)).toBeCloseTo(1.86 * em + 2, 6);
+    expect(heightFor(P({ links: ["gone"] }), sheet([]), 180)).toBe(2);
   });
 });
 
@@ -208,6 +219,11 @@ describe("odd props of a linked block", () => {
 
   it("a maths block with no exercises gives no task and one with an odd entry skips it", () => {
     expect(tasksOf(odd("maths", { ops: ["+"] }))).toEqual([]);
-    expect(tasksOf(odd("maths", { ops: ["+"], exercises: [null, 5, { op: "+", a: 1, b: 2, result: 3, rest: 0 }] }))).toEqual([[{ text: "3", value: 3 }]]);
+    expect(tasksOf(odd("maths", { ops: ["+"], exercises: [null, 5, { op: "+", a: 1 }, { op: "+", a: 1, b: 2, result: 3, rest: 0 }] }))).toEqual([[{ text: "3", value: 3 }]]);
+  });
+
+  it("a maths block with no ops does not throw and counts whole numbers", () => {
+    expect(tasksOf(odd("maths", { exercises: [{ op: "+", a: 1, b: 2, result: 3, rest: 0 }] }))).toEqual([[{ text: "3", value: 3 }]]);
+    expect(checked(P({ form: "sum", links: ["x"] }), sheet([odd("maths", { exercises: [{ op: "+", a: 1, b: 2, result: 3, rest: 0 }] })])).sums).toEqual([["Rechnen", "3"]]);
   });
 });

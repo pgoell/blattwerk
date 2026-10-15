@@ -31,7 +31,9 @@
 //   gives no task (the key prints no answers there either), nor does a wall with no empty stone.
 // - "rechendreieck": one task per triangle, its fields the child fills in index order (0 to 5). A `wrong` triangle,
 //   `empty` or a triangle with no empty field gives none.
-// Each block's props pass its own `sane` first, as its drawing does, so odd stored props give what the block draws.
+// Each block's props but Rechnen's pass its own `sane` first, as its drawing does, so odd stored props give what the
+// block draws. Rechnen has no `sane`: an exercise with neither a number in its gap nor a sign gives no task, and limits
+// with no `ops` count as whole numbers.
 // - "zahlenstrahl": one task per box (in `Made.ticks` order), the tick's number. An arrow is drawn, not written: no
 //   result.
 // - "hunderterfeld": one task per cell the child fills (Tafel: hidden cells; Ausschnitt: the cells of the shape but
@@ -157,14 +159,14 @@ export function tasksOf(b: Block): Result[][] | undefined {
   switch (b.type) {
     case "maths": {
       const p = b.props;
-      const d = decimalsOf(p);
-      const money = d > 0 && !!p.money;
+      const [d, money] = moneyOf(b);
       const euro = money ? " €" : "";
-      // A client wrote the exercises: what is not a task of numbers gives no result, as it draws none.
-      const tasks = (Array.isArray(p.exercises) ? p.exercises : []).filter((e) => !!e && typeof e === "object");
+      // A client wrote the exercises: what is not a task with a number or a sign to find gives no result.
+      const tasks = (Array.isArray(p.exercises) ? p.exercises : []).filter(
+        (e) => !!e && typeof e === "object" && ("sign" in e || typeof e[e.hide ?? "result"] === "number"),
+      );
       return tasks.map((e): Result[] => {
         if ("sign" in e) return [{ text: String(e.sign) }];
-        if (typeof e[e.hide ?? "result"] !== "number") return [{ text: "" }];
         if (e.rest > 0) return [{ text: `${decimal(e.result, d, money)}${euro} R ${decimal(e.rest, 0)}`, value: e.result }];
         const v = e[e.hide ?? "result"] as number;
         return [{ text: decimal(v, d, money) + euro, value: v }];
@@ -251,7 +253,12 @@ function shuffle<T>(xs: T[], seed: number): T[] {
 }
 
 // Decimals and " €" of a block's results, as its answer key prints them.
-const moneyOf = (b: Block): [number, boolean] => (b.type === "maths" ? [decimalsOf(b.props), decimalsOf(b.props) > 0 && !!b.props.money] : [0, false]);
+// Stored limits without `ops` (a client wrote them) count as whole numbers.
+const moneyOf = (b: Block): [number, boolean] => {
+  if (b.type !== "maths" || !Array.isArray(b.props.ops)) return [0, false];
+  const d = decimalsOf(b.props);
+  return [d, d > 0 && !!b.props.money];
+};
 
 export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
   const q = sane(p);
@@ -339,9 +346,13 @@ export function heightFor(p: SelbstkontrolleProps, doc: Doc, w: number): number 
   // words at .8 em, a table cell of a line with .3 em padding, the box of the mixed list .4 em inside and .3 em between
   // its rows.
   const em = q.size * PT;
+  // A lost link draws nothing, a faulty word only its heading: the block grows for what it draws.
+  if (c.lost.length) return 2;
   let h = (q.title ? 1.2 * 1.3 + 0.3 : 0) + (q.turn === "fold" ? 0.8 * 1.3 : 0);
   if (q.form === "sum") h += c.sums.length * 1.3;
-  else if (q.form === "word") h += 2 * 1.6;
+  // Two table rows, and room for the key's word under them (1.4 em on a line of 1.3, .3 em above), so the key
+  // keeps the sheet's type size.
+  else if (q.form === "word") h += c.fault ? 0 : 2 * 1.6 + 1.4 * 1.3 + 0.3;
   else {
     // Items in rows: each as wide as its tick box, its text and the gap to the next, a row filled left to right.
     let rows = 0;
