@@ -6,7 +6,9 @@ from test_fields import ROOM, by_id, enter, expect_fields, field, number
 from test_hunderterfeld_block import FELD
 from test_panel_undo import UHR, ZAHLENSTRAHL
 from test_rechendreieck import DREIECK
+from test_selbstkontrolle_block import SK
 from test_variants import SUCHSEL
+from test_zahlenmauer_block import WALL
 from ui import LINE, RECT, RULING, TABLE, TEXT, at, box, maths, pick, picture, saved, upload, user
 
 STAR = {"code": "2B50"}
@@ -221,6 +223,14 @@ def school_block(client, kind):
         return box("k", "hunderterfeld", FELD)
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
+    if kind == "zahlenmauer":
+        return box("k", "zahlenmauer", WALL, w=180, h=60)
+    if kind == "selbstkontrolle":
+        return box("k", "selbstkontrolle", SK, w=180, h=30)
+    if kind == "name":
+        return box("k", "name", {}, y=15, h=10, w=180)
+    if kind == "points":
+        return box("k", "points", {"max": 10})
     props = {"text": TEXT, "shape": RECT, "table": TABLE, "ruling": RULING, "symbol": STAR}[kind]
     return box("k", kind, props)
 
@@ -240,6 +250,10 @@ def school_block(client, kind):
         "zahlenstrahl",
         "hunderterfeld",
         "rechendreieck",
+        "zahlenmauer",
+        "selbstkontrolle",
+        "name",
+        "points",
     ],
 )
 def test_every_kind_halves_its_width_on_a_percent(editor, kind):
