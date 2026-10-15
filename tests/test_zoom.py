@@ -66,6 +66,12 @@ def percent(page):
     return int(page.locator("button.zoom").first.inner_text().split()[0])
 
 
+def page_width(page):
+    """Picks "Seitenbreite" in the zoom list: the page is as wide as on paper."""
+    page.locator("button.zoom").first.click()
+    page.locator("dialog:modal").get_by_role("menuitem", name="Seitenbreite", exact=True).click()
+
+
 def expect_percent(page):
     """The percent button shows the page's size on the screen against its size on paper."""
     assert percent(page) == pytest.approx(width(page) / 210 * 2540 / 96, abs=1)
@@ -255,8 +261,8 @@ def test_fit_shows_the_whole_page(editor):
     fit(page).click()
     expect_fitted(page, 0, 210, 297)
     expect_percent(page)
-    # The percent button still sets the width. The fit works from a zoom that overflows both ways.
-    page.locator("button.zoom").first.click()
+    # The list still sets the width. The fit works from a zoom that overflows both ways.
+    page_width(page)
     expect_width(page, wide)
     assert not page.evaluate(INSIDE, 0)
     roomy(page)
@@ -413,7 +419,7 @@ def test_ctrl_wheel_stops_at_the_limits(editor):
     wheel(page, 100)
     expect_width(page, wide * 4 / 1.25)
     expect_percent(page)
-    page.locator("button.zoom").first.click()
+    page_width(page)
     expect_width(page, wide)
     for step in range(1, 8):
         wheel(page, 100)
@@ -424,7 +430,7 @@ def test_ctrl_wheel_stops_at_the_limits(editor):
     expect_width(page, wide * 0.25 * 1.25)
     expect_percent(page)
     # The buttons go on from where the wheel left the zoom.
-    page.locator("button.zoom").first.click()
+    page_width(page)
     expect_width(page, wide)
     wheel(page, -100)
     expect_width(page, wide * 1.25)
@@ -564,7 +570,7 @@ def test_the_buttons_stop_where_the_wheel_stops(editor):
     wide = width(page)
     ends = (("Größer", "Kleiner", -100, 4, 1.25**6), ("Kleiner", "Größer", 100, 0.25, 1.25**-6))
     for on, back, delta, stop, step in ends:
-        page.locator("button.zoom").first.click()
+        page_width(page)
         expect_width(page, wide)
         for notch in range(1, 8):
             wheel(page, delta)
