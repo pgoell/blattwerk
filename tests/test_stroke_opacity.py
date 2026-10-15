@@ -86,6 +86,20 @@ def test_the_slider_makes_a_picture_see_through(editor):
     assert a["props"]["opacity"] == 0.5
 
 
+def test_the_picture_slider_goes_to_both_pictures_picked(editor):
+    client = user()
+    one = picture(upload(client))
+    page = editor(
+        {**one, "id": "p1", "y": 20},
+        {**one, "id": "p2", "y": 120, "z": 2},
+        client=client,
+    )
+    pick(page, "p1", "p2")
+    page.get_by_label("Transparenz", exact=True).fill("50")
+    for name in ("p1", "p2"):
+        expect(at(page, name).locator("img")).to_have_css("opacity", "0.5")
+
+
 def test_a_saved_border_without_stroke_opacity_stays_solid(editor):
     client = user()
     page = editor(

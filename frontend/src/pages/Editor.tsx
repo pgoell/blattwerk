@@ -4133,7 +4133,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 feed={feed}
                 toList={() => setTab("Lernwörter")}
               />
-              {free.length === 1 && free[0]!.type === "image" && (
+              {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
                   <h2>Bild</h2>
                   <label>
