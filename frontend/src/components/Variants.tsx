@@ -170,13 +170,17 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   }
 
   // Escape shuts the dialog at once: the browser's `close` comes a task later, and until then the focus stays inside it.
+  // Schließen does the same.
+  function shut() {
+    ref.current!.close();
+    opener.current?.focus();
+    onClose();
+  }
   function key(e: KeyboardEvent<HTMLDialogElement>) {
     if (e.key === "Escape" && ref.current!.open) {
       e.preventDefault();
       e.stopPropagation();
-      ref.current!.close();
-      opener.current?.focus();
-      onClose();
+      shut();
       return;
     }
     round(e);
@@ -217,7 +221,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
         <div className="clash" role="alert">{blocked ? message(blocked) : failed}</div>
       )}
       <div className="row">
-        <button type="button" onClick={() => ref.current?.close()}>Schließen</button>
+        <button type="button" onClick={shut}>Schließen</button>
         <button type="button" disabled={busy} onClick={() => { setBusy(true); print(true); }}>
           <FileCheck size={14} aria-hidden />
           Lösungen

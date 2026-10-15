@@ -3,9 +3,10 @@
 import io
 
 import httpx
+import pytest
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import FIELD, RECT, at, box, pick, user
+from ui import FIELD, RECT, at, box, pick, saved, user
 
 # Three lines, as a pupil types them after Enter.
 LINES = {
@@ -19,7 +20,7 @@ ROOT = 2**-0.5
 
 def shape(kind, **more):
     """A shape of the kind with its three lines; `more` replaces any of its props."""
-    return {**RECT, **LINES, "kind": kind, **more}
+    return {**RECT, **LINES, "kind": kind, "inside": True, **more}
 
 
 def lines(page, name):
@@ -254,3 +255,78 @@ def test_pdf_triangle_text_lands_in_the_bottom_half(editor, server):
     words = [mm[w] for w in ("Eins", "Zwei", "Drei") if w in mm]
     assert len(words) == 3, spots
     assert min(words) > 30 + 30, (spots, top, first.mediabox)
+
+
+# Six words, one to a line: they fill a 40 mm shape at 14 pt from top to bottom.
+FULL = {
+    "rich": [{"runs": [{"text": w}]} for w in ("Eins", "Zwei", "Drei", "Vier", "Fuenf", "Sechs")],
+    "size": 14,
+    "align": "center",
+}
+
+
+def printed(page, client, server):
+    """Each word of the sheet's PDF and how far down the page it stands, in mm."""
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    sheet_id = page.url.rsplit("/", 1)[1]
+    res = httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    first = PdfReader(io.BytesIO(res.content)).pages[0]
+    top = float(first.mediabox.top)
+    spots = {}
+
+    def visit(text, cm, tm, font, size):
+        if text.strip():
+            spots[text.strip()] = (top - (cm[5] + tm[5] * cm[3] + tm[4] * cm[1])) * 25.4 / 72
+
+    first.extract_text(visitor_text=visit)
+    return spots
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle", "star"])
+def test_a_saved_shape_full_of_text_prints_all_of_it_where_it_did(editor, server, kind):
+    """A shape saved before #128 has no `inside`: its text keeps the whole box, on screen and in
+    the PDF, so no line that printed before is lost below the outline."""
+    client = user()
+    props = {**RECT, **FULL, "kind": kind, "valign": "top"}
+    page = editor(box("a", "shape", props, x=20, y=30, w=40, h=40), client=client)
+    b = frame(page, "a")
+    rects = lines(page, "a")
+    assert len({round(r["top"]) for r in rects}) == 6, rects
+    # The first line starts at the box's top, not in its middle or lower half.
+    assert min(r["top"] for r in rects) < b["top"] + 0.15 * (b["bottom"] - b["top"]), (rects[0], b)
+    spots = printed(page, client, server)
+    words = ("Eins", "Zwei", "Drei", "Vier", "Fuenf", "Sechs")
+    assert all(w in spots for w in words), spots
+    # The box is 30 to 70 mm down the page: the first word's foot prints in its top quarter, the
+    # last in the box.
+    assert spots["Eins"] < 30 + 40 / 4, spots
+    assert spots["Sechs"] < 70, spots
+
+
+@pytest.mark.parametrize("label", ["Kreis", "Dreieck", "Stern"])
+def test_a_shape_made_now_keeps_its_text_inside(editor, label):
+    """A shape from the insert bar is made with the inside rule: its text starts below the top."""
+    client = user()
+    page = editor(client=client)
+    page.locator(".insert").get_by_label(label, exact=True).click()
+    page.keyboard.press("Enter")
+    page.keyboard.type("Hallo")
+    page.keyboard.press("Escape")
+    (a,) = saved(page, client)
+    assert a["props"]["inside"] is True
+
+
+def test_a_text_turned_into_a_triangle_in_the_panel_keeps_its_text_inside(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**LINES, "text": "Eins"}, x=20, y=30, w=60, h=60), client=client
+    )
+    pick(page, "a")
+    page.locator(".panel").get_by_role("button", name="Dreieck", exact=True).click()
+    b = frame(page, "a")
+    expect(at(page, "a").locator(".frame svg.outline")).to_have_count(1)
+    # Far below the top, where a text with no outline starts.
+    assert min(r["top"] for r in lines(page, "a")) >= b["top"] + 0.4 * (b["bottom"] - b["top"])
+    (a,) = saved(page, client)
+    assert a["props"]["inside"] is True

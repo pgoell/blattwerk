@@ -3347,7 +3347,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             onClick={() =>
               add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
                 type: "shape",
-                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
+                // A shape that holds text keeps it inside its outline (#128).
+                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true }) },
               })
             }
           />
@@ -4156,7 +4157,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   {!rulers.length && (
                     <div className="seg">
                       {FRAMES.map(([kind, label]) => (
-                        <button key={kind} className={(boxes[0].props.kind ?? "rect") === kind ? "on" : ""} onClick={() => look({ kind })}>
+                        <button key={kind} className={(boxes[0].props.kind ?? "rect") === kind ? "on" : ""} onClick={() => look((boxes[0].props.kind ?? "rect") === kind ? { kind } : { kind, inside: true })}>
                           {label}
                         </button>
                       ))}
@@ -4185,7 +4186,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     Rand
                     <input type="color" value={stroke === "none" ? "#222222" : stroke} onChange={(e) => look({ stroke: e.target.value }, "stroke")} />
                   </label>
-                  {!rulers.length && <button className="wide" disabled={stroke === "none"} onClick={() => look({ stroke: "none" })}>Kein Rand</button>}
+                  {!rulers.length && <button className="wide" disabled={stroke === "none"} onClick={() => look({ stroke: "none", strokeOpacity: undefined })}>Kein Rand</button>}
                   <label>
                     Randstärke
                     <input

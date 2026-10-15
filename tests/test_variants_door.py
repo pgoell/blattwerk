@@ -113,6 +113,18 @@ def test_escape_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
     expect(bar_button(page)).to_be_focused()
 
 
+def test_schliessen_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
+    """The button Schließen shuts the dialog itself, as Escape does, with no close from the page."""
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    expect_fitted(page)
+    bar_button(page).click()
+    expect(dialog(page)).to_be_visible()
+    hold_close(page)
+    dialog(page).get_by_role("button", name="Schließen").click()
+    expect(dialog(page)).to_have_count(0)
+    expect(bar_button(page)).to_be_focused()
+
+
 def test_escape_gives_the_focus_back_to_the_panel_button(editor):
     """I5: Escape shuts the dialog and the focus goes to the panel's button that opened it."""
     client = user()

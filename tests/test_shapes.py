@@ -542,9 +542,10 @@ def test_an_arrow_with_two_heads_is_a_line(editor):
     expect(drawing).to_have_attribute("stroke", "#0000ff")
     expect(drawing).to_have_attribute("stroke-width", "2")
     expect(drawing.locator("line[stroke-dasharray]")).to_have_count(1)
-    # A line has no frame to change and no fill to see through.
+    # A line has no frame to change and no fill: its one Transparenz is the line's own (#129).
     expect(frame(page, "Dreieck")).to_have_count(0)
-    expect(slider(page)).to_be_disabled()
+    expect(slider(page)).to_have_count(1)
+    expect(slider(page)).to_be_enabled()
 
 
 @pytest.mark.parametrize("kind", ["shape", "text"])
@@ -573,7 +574,8 @@ def test_the_frame_switch_offers_the_new_shapes(editor, kind):
         expect(shape).to_have_attribute("stroke-dasharray", re.compile(r"\d"))
         expect(at(page, "a").locator(".frame")).to_have_text("Hallo")
         (a,) = saved(page, client)
-        assert a["props"] == {**props, "kind": name}
+        # A kind picked now takes the inside rule of #128.
+        assert a["props"] == {**props, "kind": name, "inside": True}
     # And back to a box.
     frame(page, "Eckig").click()
     expect(at(page, "a").locator("svg.outline")).to_have_count(0)
