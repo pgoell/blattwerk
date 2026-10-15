@@ -37,6 +37,41 @@ def test_shift_turns_loose_blocks_in_15_degree_steps(editor):
         assert angle(page, name) != 0
 
 
+@pytest.mark.parametrize("second", ["arrow", "triangle"])
+def test_a_group_with_a_line_turned_and_back(editor, second):
+    client = user()
+    rect = box("a", "shape", RECT, x=60, y=80, w=40, h=20, group=["g"])
+    if second == "arrow":
+        other = box(
+            "b", "shape", {**LINE, "kind": "arrow"}, z=2, x=110, y=80, w=30, h=20, group=["g"]
+        )
+    else:
+        other = box(
+            "b", "shape", {**RECT, "kind": "triangle"}, z=2, x=110, y=80, w=20, h=30, group=["g"]
+        )
+    page = editor(rect, other, client=client)
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    expect(page.locator(HANDLE)).to_have_count(1)
+    (ax, ay, aw, ah), (bx, by, bw, bh) = (
+        (r["x"], r["y"], r["width"], r["height"])
+        for r in (at(page, "a").bounding_box(), at(page, "b").bounding_box())
+    )
+    about = (min(ax, bx) + max(ax + aw, bx + bw)) / 2, (min(ay, by) + max(ay + ah, by + bh)) / 2
+    start = {b["id"]: b for b in saved(page, client)}
+    # With Shift each turn stops at 15 degrees, so the way back is exact.
+    turn(page, about, 15, keys=("Shift",))
+    turn(page, about, -15, keys=("Shift",))
+    back = {b["id"]: b for b in saved(page, client)}
+    for name in ("a", "b"):
+        for key in ("x", "y", "w", "h"):
+            assert back[name][key] == pytest.approx(start[name][key], abs=0.02)
+    if second == "arrow":
+        for got, want in zip(ends(back["b"]), ends(start["b"]), strict=True):
+            assert got == pytest.approx(want, abs=0.02)
+        assert math.dist(*ends(back["b"])) == pytest.approx(math.dist(*ends(start["b"])), abs=0.02)
+
+
 def ends(arrow):
     """The two ends of a line in mm, from its box and the corner it starts at."""
     f = arrow.get("props", {}).get("from", "nw")
