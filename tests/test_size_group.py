@@ -181,6 +181,27 @@ def test_a_picture_keeps_its_ratio_when_a_shape_does_not(editor):
     assert (blocks["bild"]["w"], blocks["bild"]["h"]) == (30, 20)
 
 
+def test_a_group_with_a_picture_and_a_symbol_scales_on_both_axes(editor):
+    client = user()
+    bild = {**picture(upload(client)), "id": "bild", "z": 2, "x": 50, "y": 50, "w": 40, "h": 20}
+    page = editor(
+        box("r", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
+        {**bild, "group": ["g"]},
+        box("s", "symbol", STAR, z=3, x=95, y=50, w=10, h=10, group=["g"]),
+        client=client,
+    )
+    at(page, "r").click()
+    expect(field(page, "Breite")).to_have_value("90")
+    # A picture and a symbol keep their shape, so the whole group does.
+    enter(page, "Breite", "180")
+    expect(field(page, "Höhe")).to_have_value("40")
+    blocks = by_id(saved(page, client))
+    r = blocks["r"]
+    assert (r["x"], r["y"], r["w"], r["h"]) == (15, 50, 60, 40)
+    assert (blocks["bild"]["x"], blocks["bild"]["w"], blocks["bild"]["h"]) == (85, 80, 40)
+    assert (blocks["s"]["x"], blocks["s"]["w"], blocks["s"]["h"]) == (175, 20, 20)
+
+
 def test_originalgrosse_gives_a_picture_its_first_size(editor):
     client = user()
     bild = {**picture(upload(client)), "id": "bild", "x": 20, "y": 150, "w": 60, "h": 40}
