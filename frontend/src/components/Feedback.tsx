@@ -71,7 +71,19 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
     <>
       {!opener && <button type="button" {...props} onClick={show} />}
       {open && (
-        <dialog className="feedback" ref={(el) => void (el && !el.open && el.showModal())} onClose={() => setOpen(false)}>
+        <dialog
+          className="feedback"
+          ref={(el) => void (el && !el.open && el.showModal())}
+          onClose={() => setOpen(false)}
+          // Escape shuts the form at once: the browser's `close` comes a task later. It is the form's, not the sheet's.
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || !e.currentTarget.open) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.close();
+            setOpen(false);
+          }}
+        >
           <form onSubmit={submit}>
             <h1>Feedback</h1>
             <p className="lead">Was fällt dir auf, was fehlt, was nervt? Ein Bild von dieser Seite, so wie du sie gerade siehst, geht von selbst mit.</p>

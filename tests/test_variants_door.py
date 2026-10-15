@@ -8,7 +8,7 @@ dialog. Wait with `expect`, never for a fixed time.
 import pytest
 from playwright.sync_api import expect
 from test_bar import expect_fitted, item, listed, more, sized, text, tool
-from ui import box, maths, user
+from ui import box, hold_close, maths, user
 
 
 def bar_button(page):
@@ -97,6 +97,30 @@ def test_escape_gives_the_focus_back_to_the_bar_button(editor):
     bar_button(page).click()
     expect(dialog(page)).to_be_visible()
     page.keyboard.press("Escape")
+    expect(dialog(page)).to_have_count(0)
+    expect(bar_button(page)).to_be_focused()
+
+
+def test_escape_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
+    """#641 for the variants: the page hears of no close, so Escape must shut the dialog itself."""
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    expect_fitted(page)
+    bar_button(page).click()
+    expect(dialog(page)).to_be_visible()
+    hold_close(page)
+    page.keyboard.press("Escape")
+    expect(dialog(page)).to_have_count(0)
+    expect(bar_button(page)).to_be_focused()
+
+
+def test_schliessen_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
+    """The button Schließen shuts the dialog itself, as Escape does, with no close from the page."""
+    page = sized(editor, text("a"), width=1400, height=1000, touch=False, theme="")
+    expect_fitted(page)
+    bar_button(page).click()
+    expect(dialog(page)).to_be_visible()
+    hold_close(page)
+    dialog(page).get_by_role("button", name="Schließen").click()
     expect(dialog(page)).to_have_count(0)
     expect(bar_button(page)).to_be_focused()
 

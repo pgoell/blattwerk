@@ -64,7 +64,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -90,7 +90,7 @@ export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
 export type PointsBlock = Box & { type: "points"; props: { max: number; total?: boolean } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
-export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[] } };
+export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[]; opacity?: number } };
 export type Op = keyof typeof SIGNS;
 // The lowest and the highest digit a place may hold.
 export type Range = [number, number];
@@ -670,13 +670,14 @@ export function Count({ mark, n }: { mark: string; n: number }) {
 // The dashes or dots of a stroke so many mm wide. Dots need round ends to show.
 const dashes = (dash: TextProps["dash"], width: number) => (dash === "dashed" ? `${width * 4} ${width * 3}` : dash === "dotted" ? `0 ${width * 2.5}` : undefined);
 // A fill as CSS: its colour, see-through by its opacity.
-const clear = ({ fill, opacity = 1 }: TextProps) =>
-  fill?.length === 7 && opacity < 1 ? `rgb(${[1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16)).join(" ")} / ${opacity})` : fill;
+const tint = (colour: string | undefined, opacity = 1) =>
+  colour?.length === 7 && opacity < 1 ? `rgb(${[1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16)).join(" ")} / ${opacity})` : colour;
+const clear = ({ fill, opacity }: TextProps) => tint(fill, opacity);
 
 // Drawn from the start corner along its own axis; a wide unseen stroke is what a finger grabs. The length stands
 // over the middle, turned so it never reads upside down.
 function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: boolean }) {
-  const { kind, stroke, strokeWidth, dash, ticks, label } = block.props;
+  const { kind, stroke, strokeOpacity, strokeWidth, dash, ticks, label } = block.props;
   const [x, y] = [far(block, 1, false) ? block.w : 0, far(block, 0, false) ? block.h : 0];
   const angle = (Math.atan2(block.h - 2 * y, block.w - 2 * x) * 180) / Math.PI;
   const length = Math.hypot(block.w, block.h);
@@ -685,11 +686,12 @@ function Line({ block, k, solved }: { block: ShapeBlock; k: number; solved: bool
   const tail = kind === "double" ? head : 0;
   return (
     <svg>
-      <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeWidth={strokeWidth} fill={stroke}>
+      <g transform={`scale(${k}) translate(${x} ${y}) rotate(${angle})`} stroke={stroke} strokeOpacity={strokeOpacity} strokeWidth={strokeWidth} fill={stroke}>
         <line x2={length} stroke="transparent" strokeWidth={10} />
         <line x1={tail || undefined} x2={length - head} strokeDasharray={dashes(dash, strokeWidth)} strokeLinecap={dash === "dotted" ? "round" : undefined} />
-        {head > 0 && <polygon stroke="none" points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
-        {tail > 0 && <polygon stroke="none" points={`0,0 ${tail},${-tail / 2} ${tail},${tail / 2}`} />}
+        {/* The heads fade with the line; its length above it stays solid. */}
+        {head > 0 && <polygon stroke="none" fillOpacity={strokeOpacity} points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
+        {tail > 0 && <polygon stroke="none" fillOpacity={strokeOpacity} points={`0,0 ${tail},${-tail / 2} ${tail},${tail / 2}`} />}
         {ticks && [...(tail ? [] : [0]), ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
         {(label === "show" || (label === "key" && solved)) && (
           <text x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
@@ -738,6 +740,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const scramble = typeof p.mix === "number" && Number.isFinite(p.mix) && !holes;
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
+  // Only a shape made since #128 keeps its text inside its outline: one saved before prints all its text as it did.
+  const [fitTop, fitRight, fitBottom, fitLeft] = p.inside === true ? fitOf(p.kind, block.w, block.h, block.flipY) : [0, 0, 0, 0];
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
   // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
@@ -838,14 +842,14 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A linked text grows to hold its words, past the height it is stored with.
         ...(linked && { height: "auto", minHeight: "100%" }),
         background: d ? undefined : clear(p),
-        border: own ? `${edge * k}px ${p.dash} ${p.stroke}` : undefined,
-        boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${p.stroke}` : undefined,
+        border: own ? `${edge * k}px ${p.dash} ${tint(p.stroke, p.strokeOpacity)}` : undefined,
+        boxShadow: solid ? `inset 0 0 0 ${edge * k}px ${tint(p.stroke, p.strokeOpacity)}` : undefined,
         borderRadius: radius,
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
         clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
-        padding: `${(down - room) * k}px ${(across - room) * k}px`,
+        padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
           : { justifyContent: UP[p.valign ?? "top"] }),
@@ -858,7 +862,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
           {p.dash && edge > 0 ? (
             <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
           ) : (
-            <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
+            <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeOpacity={p.strokeOpacity} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
           )}
         </svg>
       )}
@@ -914,7 +918,7 @@ function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: number; p: T
   const fit = length / Math.max(1, Math.round(length / each)) / each;
   // A dash that starts right where the way does has the end of the last one before it, a hair long: a doubled dot
   // in print, and on the screen a join that fills a box's corner. So the way starts a hair inside the last gap.
-  const all = { stroke: p.stroke, strokeWidth: edge, strokeDasharray: dashes(p.dash, edge * fit), strokeDashoffset: -edge / 100, strokeLinecap: p.dash === "dotted" ? ("round" as const) : undefined, ...look };
+  const all = { stroke: p.stroke, strokeOpacity: p.strokeOpacity, strokeWidth: edge, strokeDasharray: dashes(p.dash, edge * fit), strokeDashoffset: -edge / 100, strokeLinecap: p.dash === "dotted" ? ("round" as const) : undefined, ...look };
   if (way.length !== 4) return <path d={`M${[way.at(-1), ...way.slice(0, -1)].join(" L")} Z`} strokeLinejoin="round" {...all} />;
   // Four points are a box's own corners: no outline has four.
   const [[right], [, low], , [left, top]] = way;
@@ -948,6 +952,22 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
     return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
   },
 };
+// The rectangle inside a shape's outline where its text lies, as the mm the box keeps from it: top, right, bottom and
+// left. A circle keeps the square inscribed in it, a triangle the half that holds its base, a star the box of its inner
+// points. Flipped top to bottom, the top and the bottom swap.
+function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
+  let fit: [number, number, number, number] = [0, 0, 0, 0];
+  if (kind === "circle") {
+    const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
+    fit = [down, across, down, across];
+  } else if (kind === "triangle") fit = [h / 2, w / 4, 0, w / 4];
+  else if (kind === "star") {
+    const inner = POINTS.star!(w, h, 0).filter((_, i) => i % 2 === 1);
+    const [xs, ys] = [inner.map(([x]) => x), inner.map(([, y]) => y)];
+    fit = [Math.min(...ys), w - Math.max(...xs), h - Math.max(...ys), Math.min(...xs)];
+  }
+  return flipY ? [fit[2], fit[1], fit[0], fit[3]] : fit;
+}
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
 
@@ -2324,7 +2344,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
           src={`/api/uploads/${block.props.upload}`}
           alt=""
           draggable={false}
-          style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath }}
+          style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath, opacity: block.props.opacity }}
         />
       </div>
     );

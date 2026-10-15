@@ -171,3 +171,51 @@ def test_a_right_click_on_another_text_offers_the_entry_for_that_text(editor):
     expect(page.locator(FIELD)).to_have_text("Welt")
     page.keyboard.type("x")
     expect(page.locator(FIELD)).to_have_text("x")
+
+
+# Each block that Text bearbeiten opens, where its text is typed, and the key typed (#640).
+AT_ONCE = {
+    "text": (box("a", "text", TEXT), lambda page: page.locator(FIELD), "x"),
+    "shape": (box("a", "shape", {**RECT, "text": "Hallo"}), lambda page: page.locator(FIELD), "x"),
+    "first cell": (box("a", "table", TABLE), lambda page: at(page, "a").locator("textarea"), "x"),
+    "second cell": (box("a", "table", TABLE), lambda page: at(page, "a").locator("textarea"), "x"),
+    "ruling": (
+        box("a", "ruling", {**RULING, "text": "abc"}),
+        lambda page: at(page, "a").locator("textarea.written"),
+        "x",
+    ),
+    "points": (box("a", "points", {"max": 10}), lambda page: at(page, "a").locator("input"), "7"),
+    "name": (box("a", "name", {}), lambda page: at(page, "a").locator("input").first, "x"),
+}
+
+
+@pytest.mark.parametrize("kind", list(AT_ONCE))
+def test_a_key_typed_at_once_after_text_bearbeiten_lands_in_the_block(editor, kind):
+    """The entry opens its block a moment later. A key typed in that moment goes there all the
+    same, over the picked text, and into the cell the right click named. The clock stands still
+    between the click and the key, so the key always comes first."""
+    made, field, key = AT_ONCE[kind]
+    page = editor(made)
+    if kind == "second cell":
+        page.mouse.click(*centre(at(page, "a").locator('[data-cell="1"]')), button="right")
+    else:
+        right(page, "a")
+    expect(item(page, "Text bearbeiten")).to_be_enabled()
+    page.clock.install()
+    page.clock.pause_at(page.evaluate("Date.now()") + 1000)
+    item(page, "Text bearbeiten").click()
+    page.keyboard.type(key)
+    page.clock.run_for(100)
+    page.clock.resume()
+    page.keyboard.type(key)
+    if kind in ("text", "shape"):
+        expect(field(page)).to_have_text(key * 2)
+    else:
+        expect(field(page)).to_have_value(key * 2)
+    page.keyboard.press("Escape")
+    if kind == "first cell":
+        expect(at(page, "a").locator('[data-cell="0"]')).to_have_text("xx")
+        expect(at(page, "a").locator('[data-cell="1"]')).to_have_text("Z")
+    if kind == "second cell":
+        expect(at(page, "a").locator('[data-cell="0"]')).to_have_text("H")
+        expect(at(page, "a").locator('[data-cell="1"]')).to_have_text("xx")

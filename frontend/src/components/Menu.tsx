@@ -19,12 +19,16 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
     d.style.top = `${Math.max(0, Math.min(up ? y - box.height : y, innerHeight - box.height))}px`;
     d.querySelector<HTMLElement>("button:enabled")?.focus();
   }, [x, y]);
+  // Shuts the menu at once: the browser's `close` comes a task later, and until then the menu's button keeps the focus.
+  const shut = () => {
+    ref.current!.close();
+    onClose();
+  };
   // In a window of another size, as after a turn of the iPad, the menu's place is no longer right: it shuts.
   useLayoutEffect(() => {
-    const shut = () => ref.current!.close();
     addEventListener("resize", shut);
     return () => removeEventListener("resize", shut);
-  }, []);
+  }, [onClose]);
 
   // Beside the menu is the dialog's backdrop: a press there has the dialog as its target and lies outside its box.
   const beside = (e: MouseEvent) => {
@@ -32,14 +36,11 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
     return e.target === ref.current && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
   };
   function key(e: KeyboardEvent) {
-    // Escape shuts the menu at once, as a pick does. The browser's own `close` comes a task later: until then the menu
-    // stayed and its button kept the focus, so a Menu key or Shift+F10 pressed at once fell on that button.
     // An Escape after the menu has shut is the sheet's.
     if (e.key === "Escape" && ref.current!.open) {
       e.preventDefault();
       e.stopPropagation();
-      ref.current!.close();
-      onClose();
+      shut();
       return;
     }
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
@@ -56,7 +57,7 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
       onClose={onClose}
       onKeyDown={key}
       // The right button is the next line's: where it opens the menu on the press, both would run.
-      onMouseDown={(e) => e.button !== 2 && beside(e) && ref.current!.close()}
+      onMouseDown={(e) => e.button !== 2 && beside(e) && shut()}
       onContextMenu={(e) => {
         e.preventDefault();
         if (beside(e)) onElsewhere(e.clientX, e.clientY);

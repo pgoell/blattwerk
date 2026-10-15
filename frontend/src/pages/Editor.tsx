@@ -129,7 +129,7 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 // gives and takes its houses, `house` and `houseTint`, and its middle band, `band` and `bandColor`. Every block
 // gives and takes the numbering before it, `mark`. The Silbenbögen and the Silbenfarbe go along, `syllables`, `tints`
 // and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
-const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeWidth", "dash"] as const;
+const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeOpacity", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
 const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
@@ -137,7 +137,7 @@ type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 const takes = (b: Block): readonly (keyof Coat)[] => {
   const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
-  return [...(isLine(b) ? (["stroke", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  return [...(isLine(b) ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
@@ -542,6 +542,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const hand = useRef([0, 0, 0, 0]);
   // Space pressed on a picked text, shape, table or Lineatur: opens it at the keyup, unless the hand dragged meanwhile.
   const spaced = useRef<(() => void) | null>(null);
+  // The block, and the cell, that Text bearbeiten opens a moment later. A key typed before opens it at once (#640).
+  const asked = useRef<{ id: string; cell?: number }>(undefined);
+  useEffect(() => {
+    if (editing) asked.current = undefined;
+  }, [editing]);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -1022,6 +1027,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // keyboard sends 229 or "Process" for a letter, and the text comes after it as input: it opens too.
     const typed = (e.key.length === 1 || e.key === "Dead" || e.keyCode === 229 || e.key === "Process") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
     const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
+    // A key that comes before Text bearbeiten has opened its block opens it now, in its cell and all picked, so the
+    // key replaces the text there. It went to the first cell before, after the text (#640).
+    const ask = asked.current;
+    if (typed && ask) {
+      asked.current = undefined;
+      if (!editing && free.length === 1 && free[0].id === ask.id) {
+        flushSync(() => edit(ask.id, undefined, true, ask.cell));
+        return;
+      }
+    }
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       const id = free[0].id;
       if (space) {
@@ -1494,6 +1509,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         }),
       key,
     );
+  }
+  // A picture's see-through, on every picked picture, in one step.
+  function fadePicture(opacity: number) {
+    tight.current = true;
+    change((bs) => bs.map((b) => (ids.includes(b.id) && b.type === "image" ? { ...b, props: { ...b.props, opacity } } : b)), "opacity");
   }
   // Sets the trace text's look on every picked block that carries text, in one step: a text, a shape, a table and a
   // Lineatur each have it. A Lineatur that shows the Lernwörter has a look of its own and takes none.
@@ -3119,7 +3139,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [only] = sel;
   const writeIn: Item[] =
     sel.length === 1 && (writable(only) || only.type === "points" || only.type === "name") && !tied(only) && editing !== only.id
-      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => setTimeout(() => edit(only.id, undefined, true, menuCell)) }, "sep"]
+      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => {
+            asked.current = { id: only.id, cell: menuCell };
+            setTimeout(() => {
+              // A key typed in the meantime has opened it already. The request stays until the sheet's keys know the
+              // block is open: a key in between opens it again in its cell, not the first cell after its text.
+              if (asked.current?.id !== only.id) return;
+              flushSync(() => edit(only.id, undefined, true, menuCell));
+            });
+          } }, "sep"]
       : [];
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
@@ -3319,7 +3347,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             onClick={() =>
               add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
                 type: "shape",
-                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5 },
+                // A shape that holds text keeps it inside its outline (#128).
+                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true }) },
               })
             }
           />
@@ -4105,6 +4134,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 feed={feed}
                 toList={() => setTab("Lernwörter")}
               />
+              {free.length > 0 && free.every((b) => b.type === "image") && (
+                <>
+                  <h2>Bild</h2>
+                  <label>
+                    Transparenz
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((1 - ((free[0] as ImageBlock).props.opacity ?? 1)) * 100)}
+                      onChange={(e) => fadePicture(Math.round(100 - +e.target.value) / 100)}
+                    />
+                  </label>
+                </>
+              )}
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
@@ -4112,7 +4157,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                   {!rulers.length && (
                     <div className="seg">
                       {FRAMES.map(([kind, label]) => (
-                        <button key={kind} className={(boxes[0].props.kind ?? "rect") === kind ? "on" : ""} onClick={() => look({ kind })}>
+                        <button key={kind} className={(boxes[0].props.kind ?? "rect") === kind ? "on" : ""} onClick={() => look((boxes[0].props.kind ?? "rect") === kind ? { kind } : { kind, inside: true })}>
                           {label}
                         </button>
                       ))}
@@ -4123,7 +4168,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     <input type="color" value={fill === "none" ? "#ffffff" : fill} onChange={(e) => look({ fill: e.target.value }, "fill")} />
                   </label>
                   {/* How far the fill lets through what lies behind it: the text and the border stay solid. */}
-                  <label>
+                  {!isLine(boxes[0]) && <label>
                     Transparenz
                     <input
                       type="range"
@@ -4134,14 +4179,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       disabled={fill === "none"}
                       onChange={(e) => look({ opacity: Math.round(100 - +e.target.value) / 100 }, "opacity")}
                     />
-                  </label>
+                  </label>}
                   {/* The next fill is solid again, as in PowerPoint. */}
                   <button className="wide" disabled={fill === "none"} onClick={() => look({ fill: "none", opacity: undefined })}>Keine Füllung</button>
                   <label>
                     Rand
                     <input type="color" value={stroke === "none" ? "#222222" : stroke} onChange={(e) => look({ stroke: e.target.value }, "stroke")} />
                   </label>
-                  {!rulers.length && <button className="wide" disabled={stroke === "none"} onClick={() => look({ stroke: "none" })}>Kein Rand</button>}
+                  {!rulers.length && <button className="wide" disabled={stroke === "none"} onClick={() => look({ stroke: "none", strokeOpacity: undefined })}>Kein Rand</button>}
                   <label>
                     Randstärke
                     <input
@@ -4151,6 +4196,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       step={0.25}
                       value={boxes[0].props.strokeWidth ?? 0.5}
                       onChange={(e) => look({ strokeWidth: +e.target.value }, "strokeWidth")}
+                    />
+                  </label>
+                  {/* How far the border lets through what lies behind it. A line has only this slider. */}
+                  <label>
+                    {isLine(boxes[0]) ? "Transparenz" : "Transparenz Linie"}
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((1 - (boxes[0].props.strokeOpacity ?? 1)) * 100)}
+                      disabled={stroke === "none"}
+                      onChange={(e) => look({ strokeOpacity: Math.round(100 - +e.target.value) / 100 }, "strokeOpacity")}
                     />
                   </label>
                   {/* No style is lit while there is no border to show it. */}

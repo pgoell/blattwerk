@@ -195,6 +195,14 @@ def picked(page):
     return page.eval_on_selector_all(".block.sel", "els => els.map((el) => el.dataset.id)")
 
 
+def hold_close(page):
+    """Holds back the browser's `close` event of every dialog: the page never hears of a shut.
+
+    Only the app's own shut then tells it: the race of #641 and #643.
+    """
+    page.evaluate("addEventListener('close', (e) => e.stopImmediatePropagation(), true)")
+
+
 def expect_picked(page, *names):
     """Waits until just these blocks are selected."""
     expect(page.locator(".block.sel")).to_have_count(len(names))
