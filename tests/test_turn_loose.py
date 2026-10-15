@@ -5,7 +5,7 @@ import math
 import pytest
 from playwright.sync_api import expect
 from test_rotate import HANDLE, turn
-from ui import LINE, RECT, angle, at, box, centre, expect_picked, pick, saved, user
+from ui import LINE, RECT, angle, arc, at, box, centre, expect_picked, pick, saved, user
 
 
 def test_the_handle_turns_loose_blocks_each_on_its_spot(editor):
@@ -70,6 +70,87 @@ def test_a_group_with_a_line_turned_and_back(editor, second):
         for got, want in zip(ends(back["b"]), ends(start["b"]), strict=True):
             assert got == pytest.approx(want, abs=0.02)
         assert math.dist(*ends(back["b"])) == pytest.approx(math.dist(*ends(start["b"])), abs=0.02)
+
+
+def test_undo_and_redo_of_a_loose_turn(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=30, h=20),
+        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20),
+        client=client,
+    )
+    pick(page, "a", "b")
+    start = {b["id"]: b for b in saved(page, client)}
+    (ax, ay), (bx, by) = centre(at(page, "a")), centre(at(page, "b"))
+    turn(page, ((ax + bx) / 2, (ay + by) / 2), 40)
+    turned = {b["id"]: b for b in saved(page, client)}
+    assert turned["a"]["angle"] == pytest.approx(40, abs=1)
+    page.keyboard.press("Control+z")
+    back = {b["id"]: b for b in saved(page, client)}
+    for n in "ab":
+        assert {k: back[n].get(k) for k in KEYS} == {k: start[n].get(k) for k in KEYS}
+    page.keyboard.press("Control+y")
+    again = {b["id"]: b for b in saved(page, client)}
+    for n in "ab":
+        assert {k: again[n].get(k) for k in KEYS} == {k: turned[n].get(k) for k in KEYS}
+
+
+KEYS = ("x", "y", "w", "h", "angle")
+
+
+def test_a_group_and_a_loose_block_turn_their_own_ways(editor):
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=30, h=20, group=["g"]),
+        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20, group=["g"]),
+        box("c", "shape", RECT, z=3, x=200, y=80, w=30, h=20),
+    )
+    at(page, "a").click()
+    at(page, "c").click(modifiers=["Shift"])
+    expect_picked(page, "a", "b", "c")
+    (ax, ay), (bx, by), (cx, cy) = (centre(at(page, n)) for n in "abc")
+    # The handle sits over the box around all three, so that is the point it turns about.
+    boxes = [at(page, n).bounding_box() for n in "abc"]
+    left, top = min(r["x"] for r in boxes), min(r["y"] for r in boxes)
+    right, bottom = (
+        max(r["x"] + r["width"] for r in boxes),
+        max(r["y"] + r["height"] for r in boxes),
+    )
+    turn(page, ((left + right) / 2, (top + bottom) / 2), 90)
+    # The group goes a quarter round its own middle, between its two blocks.
+    about = ((ax + bx) / 2, (ay + by) / 2)
+    (ax2, ay2), (bx2, by2) = centre(at(page, "a")), centre(at(page, "b"))
+    for (px, py), (qx, qy) in (((ax, ay), (ax2, ay2)), ((bx, by), (bx2, by2))):
+        dx, dy = px - about[0], py - about[1]
+        assert qx - about[0] == pytest.approx(-dy, abs=3)
+        assert qy - about[1] == pytest.approx(dx, abs=3)
+    for name in ("a", "b", "c"):
+        assert abs(angle(page, name) - 90) <= 3
+    # The loose block stays on its spot.
+    assert centre(at(page, "c")) == pytest.approx((cx, cy), abs=2)
+
+
+def test_escape_puts_loose_blocks_back(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=30, h=20),
+        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20),
+        client=client,
+    )
+    pick(page, "a", "b")
+    start = {b["id"]: b for b in saved(page, client)}
+    (ax, ay), (bx, by) = centre(at(page, "a")), centre(at(page, "b"))
+    about = ((ax + bx) / 2, (ay + by) / 2)
+    points = arc(centre(page.locator(HANDLE)), about, 60)
+    page.mouse.move(*points[0])
+    page.mouse.down()
+    for point in points[1:]:
+        page.mouse.move(*point, steps=5)
+    assert angle(page, "a") != pytest.approx(0, abs=3)
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    back = {b["id"]: b for b in saved(page, client)}
+    for n in "ab":
+        assert {k: back[n].get(k) for k in KEYS} == {k: start[n].get(k) for k in KEYS}
 
 
 def ends(arrow):
