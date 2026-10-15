@@ -5,7 +5,7 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, pick, picked
+from ui import BROWSER, FIELD, RECT, RULING, TABLE, TEXT, at, box, pick, picked
 
 KINDS = [("text", TEXT), ("shape", RECT), ("table", TABLE), ("ruling", RULING)]
 
@@ -85,3 +85,17 @@ def test_an_ime_key_in_an_open_text_types_the_letter_once(editor):
     page.keyboard.insert_text("Ü")
     page.keyboard.type("bung")
     expect(page.locator(FIELD)).to_have_text("HalloÜbung")
+
+
+@pytest.mark.skipif(BROWSER != "chromium", reason="WebKit has no CDP to drive a composition")
+@pytest.mark.parametrize("kind, props", KINDS)
+def test_an_ime_composition_on_a_picked_block_keeps_its_letter(editor, kind, props):
+    page = editor(box("a", kind, props))
+    pick(page, "a")
+    ime_keydown(page, "Process")
+    cdp = page.context.new_cdp_session(page)
+    cdp.send("Input.imeSetComposition", {"text": "U", "selectionStart": 1, "selectionEnd": 1})
+    cdp.send("Input.imeSetComposition", {"text": "Ü", "selectionStart": 1, "selectionEnd": 1})
+    cdp.send("Input.insertText", {"text": "Ü"})
+    page.keyboard.type("bung")
+    expect_ends(page, kind, "Übung")
