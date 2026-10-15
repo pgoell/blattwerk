@@ -1586,7 +1586,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     sheet.current!.scrollIntoView({ behavior: "smooth" });
   }
   // Lays the sheet on its side or upright, or with `n` that page alone (`undefined` gives the sheet's format again).
-  // A block spanning the page stretches with it, a centred one stays centred, the rest keep their place.
+  // A block spanning the page stretches with it, one centred across stays centred, the rest keep their place.
   // Blocks the page no longer holds move back onto it.
   function lay(landscape: boolean | undefined, n?: number) {
     update((doc) => {
@@ -1602,11 +1602,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const round = (v: number) => Math.round(v * 100) / 100;
         const back = (at: number, size: number, max: number) => round(Math.max(0, Math.min(at, max - size)) - at);
         // One axis of a unit: how far it moves and how much it grows. Spanning the page, it stretches if it may,
-        // else it moves to the middle. A centred one moves to the middle too.
-        const along = (at: number, size: number, old: number, now: number, stretch: boolean): [number, number] => {
+        // else it moves to the middle. A centred one moves to the middle too. Down the page nothing is centred: a
+        // block that lands in the middle of the turned page by chance would move on the way back.
+        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean): [number, number] => {
           const spans = at <= MARGIN + 1 && at + size >= old - MARGIN - 1;
           if (spans && stretch) return [0, now - old];
-          if (spans || Math.abs(at - (old - at - size)) <= 1) return [(now - old) / 2, 0];
+          if (middle && (spans || Math.abs(at - (old - at - size)) <= 1)) return [(now - old) / 2, 0];
           return [0, 0];
         };
         const across = new Set(["text", "shape", "ruling", "table", "name", "maths"]);
@@ -1616,8 +1617,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           const all = hull(p.blocks.filter((o) => unit(o) === unit(b)));
           // Only a single block that is not turned stretches.
           const single = !b.group && (b.angle ?? 0) % 180 === 0;
-          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type));
-          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type));
+          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true);
+          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false);
           const [dx, dy] = [back(all.x + mx, all.w + sw, w), back(all.y + my, all.h + sh, h)];
           if (!mx && !my && !sw && !sh && !dx && !dy) return b;
           return { ...b, x: round(b.x + mx + dx), y: round(b.y + my + dy), w: round(b.w + sw), h: round(b.h + sh) };

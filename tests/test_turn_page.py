@@ -14,7 +14,7 @@ from test_rechendreieck import DREIECK
 from test_selbstkontrolle_block import SK
 from test_suchsel import SUCHSEL
 from test_zahlenmauer_size import MAUER
-from ui import TEXT, box, doc, user
+from ui import RULING, TABLE, TEXT, box, doc, user
 
 # The types that stretch across when the page turns: a block spanning the width gets the new width.
 STRETCH = {"text", "shape", "line", "ruling", "table", "name", "maths"}
@@ -166,3 +166,44 @@ def test_a_block_spanning_the_height_stretches_down_on_hoch_to_quer(editor):
     turn(page, scope="Nur diese Seite")
     t = named(doc(page, client))["t"]
     assert (t["y"], t["y"] + t["h"]) == (15, 195)
+
+
+def test_a_saved_quer_page_keeps_its_blocks_until_it_is_turned_again(editor):
+    """Implied 7: a sheet saved with a Quer page and a block at 15 to 195 on it, as master left it,
+    keeps that block where it lies while the teacher works on another page."""
+    client = user()
+    old = box("alt", "text", TEXT, w=180)
+    page = editor(
+        box("a", "text", TEXT), client=client, pages=[{"blocks": [old], "landscape": True}]
+    )
+    page.locator(".dock, .insert").get_by_label("Text", exact=True).click()
+    saved = doc(page, client)
+    assert saved["pages"][1] == {"blocks": [old], "landscape": True}
+    assert len(saved["pages"][0]["blocks"]) == 2
+
+
+def test_a_page_of_margin_wide_blocks_comes_back_as_it_was_after_quer_and_hoch(
+    editor,
+):
+    """The orchestrator's case: most new blocks start as wide as the space between the margins, so
+    Quer widens them all. Turned back, each has its place and size again."""
+    client = user()
+    long = {**TEXT, "text": "Ein Satz, der auf der schmalen Seite bricht. " * 3}
+    page = editor(
+        box("t", "text", long, w=180, y=20, h=20),
+        box("l", "ruling", RULING, z=2, w=180, y=50, h=40),
+        box("n", "name", {}, z=3, w=180, y=100, h=10),
+        box("k", "table", TABLE, z=4, w=180, y=120, h=20),
+        client=client,
+    )
+    before = doc(page, client)
+    turn(page, scope="Nur diese Seite")
+    quer = named(doc(page, client))
+    assert all((b["x"], b["w"]) == (15, 267) for b in quer.values())
+    turn(page, to="Hoch")
+    hoch = doc(page, client)
+    assert places(hoch) == places(before)
+
+
+def places(sheet):
+    return [(b["id"], b["x"], b["y"], b["w"], b["h"]) for b in sheet["pages"][0]["blocks"]]
