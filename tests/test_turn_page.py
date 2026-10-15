@@ -14,7 +14,7 @@ from test_rechendreieck import DREIECK
 from test_selbstkontrolle_block import SK
 from test_suchsel import SUCHSEL
 from test_zahlenmauer_size import MAUER
-from ui import RULING, TABLE, TEXT, box, doc, user
+from ui import RULING, TABLE, TEXT, box, doc, pick, user
 
 # The types that stretch across when the page turns: a block spanning the width gets the new width.
 STRETCH = {"text", "shape", "line", "ruling", "table", "name", "maths"}
@@ -150,12 +150,12 @@ def test_a_group_of_two_centred_together_moves_as_one_and_keeps_its_size(editor)
 
 
 def test_a_block_that_starts_on_the_margin_plus_one_still_spans(editor):
-    """Extra: the start at 16 mm is within the 1 mm the rule allows, so the block stretches."""
+    """Extra: 179 mm is the page less both margins and 1 mm, so from 16 it spans and stretches."""
     client = user()
-    page = editor(box("s", "text", TEXT, x=16, w=178), client=client)
+    page = editor(box("s", "text", TEXT, x=16, w=179), client=client)
     turn(page, scope="Nur diese Seite")
     s = named(doc(page, client))["s"]
-    assert (s["x"], s["x"] + s["w"]) == (16, RIGHT - 1)
+    assert (s["x"], s["x"] + s["w"]) == (16, RIGHT)
 
 
 def test_a_block_spanning_the_height_stretches_down_on_hoch_to_quer(editor):
@@ -217,3 +217,70 @@ def test_a_margin_wide_circle_keeps_its_shape_and_stays_centred(editor):
     turn(page, scope="Nur diese Seite")
     c = named(doc(page, client))["c"]
     assert (c["x"], c["w"], c["h"]) == (58.5, 180, 180)
+
+
+def fields(page, name):
+    """The block's X and Breite in the right panel, as a teacher reads them."""
+    pick(page, name)
+    page.locator(".modes").get_by_role("tab", name="Start").click()
+    geo = page.locator(".geo")
+    expect(geo).to_be_visible()
+    return {
+        label: float(geo.get_by_label(label, exact=True).input_value().replace(",", "."))
+        for label in ("X", "Breite")
+    }
+
+
+@pytest.mark.parametrize("x", [20, 25, 30])
+def test_issue_613_a_block_that_lands_off_the_margin_spans_the_turned_page(editor, x):
+    """#613: a new block lands 5 mm on from the one under it, so 180 wide it starts at 20, 25 or 30.
+    It still spans the width: it keeps its start and grows by 87."""
+    client = user()
+    page = editor(box("t", "text", TEXT, x=x, w=180, y=55), client=client)
+    turn(page)
+    assert fields(page, "t") == {"X": x, "Breite": 267}
+
+
+@pytest.mark.parametrize(
+    "kind, props, h",
+    [("uhr", UHR, 110), ("rechendreieck", DREIECK, 60), ("selbstkontrolle", SK, 30)],
+)
+def test_issue_613_a_block_one_step_off_the_middle_stays_one_step_off(editor, kind, props, h):
+    """#613: a centred block lands 5 mm off the middle. It keeps that 5 mm when the page turns."""
+    client = user()
+    page = editor(box("b", kind, props, x=20, w=180, h=h, y=55), client=client)
+    turn(page)
+    assert fields(page, "b") == {"X": 63.5, "Breite": 180}
+
+
+def test_issue_613_a_heading_one_step_off_the_middle_keeps_its_offset(editor):
+    client = user()
+    page = editor(box("h", "text", TEXT, x=50, w=120, y=35), client=client)
+    turn(page)
+    f = fields(page, "h")
+    assert f["X"] + f["Breite"] / 2 == 148.5 + 5
+
+
+@pytest.mark.parametrize("w", [150, 160])
+def test_issue_613_a_block_off_centre_by_more_than_9_5_mm_stays_at_the_left(editor, w):
+    """Edge: a block at X 15 is aligned to the margin, not centred. At 160 its middle is 10 mm off
+    the page's middle, two paste steps. The bound is 9.5, so it counts as left, not centred."""
+    client = user()
+    page = editor(box("l", "text", TEXT, x=15, w=w, y=55), client=client)
+    turn(page)
+    assert fields(page, "l") == {"X": 15, "Breite": w}
+
+
+@pytest.mark.parametrize(
+    "kind, props, h, x, w",
+    [("text", TEXT, 20, 20, 180), ("text", TEXT, 20, 50, 120), ("uhr", UHR, 110, 20, 180)],
+)
+def test_issue_613_turned_back_upright_the_offset_blocks_have_their_start_places(
+    editor, kind, props, h, x, w
+):
+    """Edge: Quer, then Hoch: a block that was pushed off the middle comes back to its start."""
+    client = user()
+    page = editor(box("b", kind, props, x=x, w=w, h=h, y=55), client=client)
+    turn(page)
+    turn(page, to="Hoch")
+    assert fields(page, "b") == {"X": x, "Breite": w}

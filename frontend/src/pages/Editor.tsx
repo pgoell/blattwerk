@@ -1602,13 +1602,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const unit = (b: Block) => b.group?.[0] ?? b.id;
         const round = (v: number) => Math.round(v * 100) / 100;
         const back = (at: number, size: number, max: number) => round(Math.max(0, Math.min(at, max - size)) - at);
-        // One axis of a unit: how far it moves and how much it grows. Spanning the page, it stretches if it may,
-        // else it moves to the middle. A centred one moves to the middle too. Down the page nothing is centred: a
-        // block that lands in the middle of the turned page by chance would move on the way back.
+        // One axis of a unit, in plain words: a block at least as wide as the page less both margins and 1 mm spans
+        // the page, wherever it starts. It keeps its start and grows with the page if it may stretch, else it moves
+        // by half the growth. A block whose middle is within 9.5 mm of the page's middle is centred and moves by half
+        // the growth too, so it keeps its distance from the middle. The bound is under two paste steps (10 mm), so a
+        // block at the left margin that is two steps short of the middle stays at the left. Down the page nothing is
+        // centred: a block that lands in the middle of the turned page by chance would move on the way back.
         const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean): [number, number] => {
-          const spans = at <= MARGIN + 1 && at + size >= old - MARGIN - 1;
+          const spans = size >= old - 2 * MARGIN - 1;
           if (spans && stretch) return [0, now - old];
-          if (middle && (spans || Math.abs(at - (old - at - size)) <= 1)) return [(now - old) / 2, 0];
+          const centred = Math.abs(at + size / 2 - old / 2) <= 9.5;
+          if (middle && (spans || centred)) return [(now - old) / 2, 0];
           return [0, 0];
         };
         const across = new Set(["text", "shape", "ruling", "table", "name", "maths"]);
