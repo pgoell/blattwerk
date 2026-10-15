@@ -3,7 +3,18 @@
 import pytest
 from playwright.sync_api import expect
 from test_pages import expect_in_use
-from test_zoom import INSIDE, PLACE, RECT, TEXT, expect_percent, expect_width, fit, width
+from test_zoom import (
+    INSIDE,
+    PLACE,
+    RECT,
+    TEXT,
+    expect_percent,
+    expect_width,
+    fit,
+    percent,
+    wheel,
+    width,
+)
 from ui import FIELD, at, box, pick, thumb
 
 # The page n, of w by h mm, lies whole in the desk and as large as the desk's padding lets it.
@@ -40,6 +51,53 @@ def test_the_fit_follows_a_window_change(editor, size):
     refit = width(page)
     fit(page).click()
     expect_width(page, refit)
+
+
+def lower(page):
+    """The window gets lower, the width as it was: only the desk's height changes."""
+    before = page.locator(".desk").evaluate("el => el.clientHeight")
+    page.set_viewport_size({"width": 1400, "height": 650})
+    page.wait_for_function("(h) => document.querySelector('.desk').clientHeight !== h", arg=before)
+    # The observer and its effect run a few frames later: a fit follows by then.
+    page.evaluate(
+        "() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame("
+        "() => setTimeout(done, 100))))"
+    )
+
+
+def test_without_a_zoom_by_hand_a_lower_window_shrinks_the_fit(editor):
+    """Sanity for the next test: the fit alone follows the desk's height."""
+    page = editor(box("a", "text", TEXT))
+    fit(page).click()
+    expect_whole(page, 0, 210, 297)
+    tall = width(page)
+    lower(page)
+    expect_whole(page, 0, 210, 297)
+    assert width(page) < tall - 20
+
+
+@pytest.mark.parametrize(
+    "by_hand", ["Größer", "Kleiner", "wheel"], ids=["bigger", "smaller", "wheel"]
+)
+def test_a_zoom_by_hand_ends_the_fit_for_a_lower_window(editor, by_hand):
+    """After Ganze Seite and a zoom by hand, a lower window leaves the page as large as it was."""
+    page = editor(box("a", "text", TEXT))
+    fit(page).click()
+    expect_whole(page, 0, 210, 297)
+    shown = width(page)
+    if by_hand == "wheel":
+        wheel(page, -100)
+    else:
+        page.get_by_label(by_hand, exact=True).first.click()
+    page.wait_for_function(
+        "(w) => Math.abs(document.querySelector('.sheet.on').getBoundingClientRect().width"
+        " - w) > 2",
+        arg=shown,
+    )
+    zoomed, percent_before = width(page), percent(page)
+    lower(page)
+    assert width(page) == pytest.approx(zoomed, abs=1)
+    assert percent(page) == percent_before
 
 
 def test_the_fit_follows_the_panel_beside_the_desk(editor):
