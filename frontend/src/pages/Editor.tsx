@@ -2732,7 +2732,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // click on a picked text, shape with words, table or Lineatur writes in it too, as in PowerPoint: a press that
       // drags the block is no click, and Shift took the branch above. A text's caret goes where the click landed;
       // a cell's and a Lineatur's to the end, as a textarea tells no letter for a point.
-      else if (touch.current || (!press && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
+      else if (touch.current || (!press && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
         clicked.current = point;
         edit(id, el);
       }

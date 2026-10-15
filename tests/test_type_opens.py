@@ -481,6 +481,13 @@ def test_a_second_click_opens_a_picked_block_and_the_first_letter_lands(
         expect(page.locator(field)).to_have_value(re.compile("äb$"))
 
 
+def test_a_second_click_opens_no_text_picked_beside_a_locked_block(editor):
+    page = editor(box("fest", "text", TEXT, locked=True), box("a", "text", TEXT, z=2))
+    pick(page, "fest", "a")
+    click_after(page, "a", 2)
+    expect(page.locator(FIELD)).to_have_count(0)
+
+
 def test_undo_takes_back_what_a_second_click_let_type(editor):
     page = editor(box("a", "text", TEXT))
     pick(page, "a")
