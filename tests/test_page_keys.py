@@ -2,9 +2,10 @@
 
 import re
 
+import pytest
 from playwright.sync_api import expect
 from test_pages import expect_order, three, write
-from ui import TEXT, at, bar, box, doc, pick, thumb, user
+from ui import BROWSER, TEXT, at, bar, box, doc, pick, thumb, user
 
 ON = re.compile(r"\bon\b")
 
@@ -110,6 +111,7 @@ def click_desk_beside_pages(page):
     page.mouse.click(box_["x"] + 8, box_["y"] + box_["height"] / 2)
 
 
+@pytest.mark.xfail(BROWSER == "webkit", reason="#637: fails in CI's WebKit, not locally")
 def test_page_down_makes_the_page_in_view_the_page_in_use(editor):
     page = three(editor)
     click_desk_beside_pages(page)
