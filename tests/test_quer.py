@@ -88,7 +88,8 @@ def test_quer_brings_a_group_back_as_one(editor):
     fmt(page, "Quer")
     expect(undo(page)).to_be_enabled()
     quer = doc(page, client)
-    assert places(named(quer), "ab") == [(10, 155), (10, 190)]
+    # #613: 180 wide, it spans the page wherever it starts, so it moves by half the growth.
+    assert places(named(quer), "ab") == [(53.5, 155), (53.5, 190)]
     undo(page).click()
     expect(undo(page)).to_be_disabled()
     assert doc(page, client) == before
