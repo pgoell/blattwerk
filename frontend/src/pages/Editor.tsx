@@ -348,12 +348,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const clicked = useRef<[number, number]>(undefined);
   // Whether the field that opens next has all its text picked.
   const entire = useRef(false);
-  // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
+  // A name line's words while it is written in, and the words it was opened with.
   const [words, setWords] = useState<string[]>([]);
   const wordsKept = useRef("");
   // The name line being written in, and the page it stands on.
   const nameWriting = useRef<{ id: string; n: number } | undefined>(undefined);
-  const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -780,7 +779,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (editing || !line) return;
     nameWriting.current = undefined;
     const fields = words.map((w) => w.trim()).filter(Boolean);
-    if (escaped.current || !fields.length || fields.join("\n") === wordsKept.current) return;
+    if (!fields.length || fields.join("\n") === wordsKept.current) return;
     if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
     turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
   });
@@ -2933,7 +2932,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         setWords(free[0].props.fields ?? FIELDS);
         wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
         nameWriting.current = { id, n: page };
-        escaped.current = false;
       }
       setEditing(id);
     }
@@ -3775,10 +3773,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             value={word}
                             onChange={(e) => setWords((ws) => ws.map((w, j) => (j === i ? e.target.value : w)))}
                             onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                escaped.current = true;
-                                setEditing("");
-                              }
+                              if (e.key === "Escape") setEditing("");
                               if (e.key === "Enter" || e.key === "F2") e.currentTarget.blur();
                             }}
                             onBlur={(e) => {
