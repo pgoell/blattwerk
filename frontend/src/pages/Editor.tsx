@@ -858,7 +858,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     e.preventDefault();
     // The field does not take it too.
     e.stopPropagation();
-    upload(picture);
+    upload(picture, true);
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
@@ -1862,16 +1862,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     };
   }, []);
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
-  function add(w: number, h: number, rest: Fresh, n = page) {
+  // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
+  // margin there. Words and pictures pasted from another app keep the place at the top of the view.
+  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
-    const y = round(Math.max(0, seen(0, n))) + MARGIN;
+    const low = pasted || !held.length ? undefined : held.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
+    const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
+    const [x, y] =
+      low && under
+        ? [Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), round(low.y + low.h + 5)]
+        : [(size[0] - w) / 2, round(Math.max(0, seen(0, n))) + MARGIN];
     const z = Math.max(0, ...held.map((b) => b.z)) + 1;
-    const [block] = land([{ id, x: (size[0] - w) / 2, y, w, h, z, locked: false, ...rest }], held, size);
+    const [block] = land([{ id, x, y, w, h, z, locked: false, ...rest }], held, size);
     turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
     setAt(n);
     setIds([id]);
+    // A block under the view is brought into it, once it is drawn.
+    requestAnimationFrame(() => document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
     // An empty text opens for typing; a pasted one comes with its words.
     if (rest.type === "text" && !rest.props.text) setEditing(id);
   }
@@ -1892,14 +1901,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // one the server does not take, or one the browser cannot read.
   const NO_PICTURE = "Das Bild konnte nicht hochgeladen werden.";
   const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
-  async function upload(file?: File) {
+  async function upload(file?: File, pasted = false) {
     if (!file) return;
     await attempt(
       NO_PICTURE,
       async () => {
         const where = mark();
         const { w, h, ...rest } = await sent(file);
-        calm(() => add(w, h, rest, where()));
+        calm(() => add(w, h, rest, where(), pasted));
       },
       unfit,
     );
@@ -2052,7 +2061,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!words.trim() || own) return false;
     tight.current = true;
     // Word ends a whole line with a break, which would make an empty last paragraph.
-    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } });
+    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } }, page, true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
@@ -2067,7 +2076,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
-        if (type) return upload(new File([await item.getType(type)], "bild", { type }));
+        if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
         if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
       }
     } catch {
