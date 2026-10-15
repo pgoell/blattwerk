@@ -253,7 +253,8 @@ def test_the_webkit_script_runs_in_docker_only_without_gtk_and_with_docker(
     for name, body in tools.items():
         (tmp_path / name).write_text(f"#!/bin/sh\n{body}\n")
         (tmp_path / name).chmod(0o755)
-    for name in ("dirname", "mkdir", "id"):
+    # grep too: the script of before piped into it, and must fail by the pipe, not by its absence.
+    for name in ("dirname", "mkdir", "id", "grep"):
         (tmp_path / name).symlink_to(f"/usr/bin/{name}")
     out = subprocess.run(
         ["/usr/bin/bash", REPO / "scripts/test-webkit.sh"],
