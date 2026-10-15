@@ -1,5 +1,5 @@
 // The format panel's settings for a Zahlenstrahl block: its numbers, its ticks and its tasks.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ZahlenstrahlBlock } from "../sheet";
 import { draw } from "../bank";
 import { count, crowded, made, MAX, sane, type Task, type ZahlenstrahlProps } from "../zahlenstrahl";
@@ -21,6 +21,8 @@ function Whole({
   apply: (props: Partial<ZahlenstrahlProps>, key?: string) => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // An undo or a redo changes the number under the field: the field shows that number, not the draft.
+  useEffect(() => setDraft(null), [value]);
   return (
     <label>
       {label}

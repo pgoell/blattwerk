@@ -34,6 +34,9 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   // The limits as last set, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<MathsProps>();
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
+  // What is typed in the own Zahlenraum, until an undo or a redo changes the number under the field.
+  const [typed, setTyped] = useState<string>();
+  useEffect(() => setTyped(undefined), [block.props.max]);
   // The props of the last change the page had no room for. The line shows while they would still grow the block past the foot.
   const [denied, setDenied] = useState<MathsProps>();
   const refused = !!denied && overFoot(block, denied, foot);
@@ -161,8 +164,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
           aria-label="Größte Zahl"
           min={1}
           max={1000000}
-          defaultValue={p.max}
-          onChange={(e) => e.target.validity.valid && e.target.value && room(Math.floor(+e.target.value))}
+          value={typed ?? p.max}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            if (e.target.validity.valid && e.target.value) room(Math.floor(+e.target.value));
+          }}
         />
       )}
       <h2>Nachkommastellen</h2>

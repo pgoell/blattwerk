@@ -37,8 +37,12 @@ def minutes_box(page):
     return field(page, "Minutenstriche")
 
 
+def stored_u_of(page, client, name):
+    return {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}[name]
+
+
 def stored_u(page, client):
-    return {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}["u"]
+    return stored_u_of(page, client, "u")
 
 
 def ticks(page):
@@ -88,18 +92,52 @@ def test_redo_from_a_focused_checkbox_brings_the_untick_back(editor, keys):
     assert stored_u(page, client)["props"]["minutes"] is False
 
 
-def test_ctrl_z_from_a_number_field_undoes_the_typed_number_and_shows_it(editor):
-    """#607: Ctrl+Z in the Uhren field takes the typed 12 back: the field shows 4 again."""
+def test_ctrl_z_from_a_number_field_undoes_the_app_steps_and_shows_the_number(editor):
+    """#607: after a typed 12 and an untick, two Ctrl+Z from the Uhren field undo both: the box is
+    ticked again and the field shows 4. The browser's input undo knows only the typed 12."""
     client = user()
     page = editor(uhr(), client=client)
     pick(page, "u")
     count = field(page, "Uhren")
     step(page, lambda: count.fill("12"))
     expect(at(page, "u").locator("circle.face")).to_have_count(12)
+    step(page, lambda: minutes_box(page).click())
+    expect(minutes_box(page)).not_to_be_checked()
+    count.click()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    expect(minutes_box(page)).to_be_checked()
     step(page, lambda: page.keyboard.press("Control+z"))
     expect(count).to_have_value("4")
     expect(at(page, "u").locator("circle.face")).to_have_count(4)
     assert stored_u(page, client)["props"]["count"] == 4
+    assert stored_u(page, client)["props"]["minutes"] is True
+
+
+ZAHLENSTRAHL = {
+    "start": 0,
+    "end": 20,
+    "minor": 1,
+    "major": 5,
+    "labels": "major",
+    "size": 12,
+    "cut": False,
+    "tasks": "random",
+    "boxes": 3,
+    "arrows": 0,
+    "jumps": False,
+}
+
+
+def test_ctrl_z_from_a_zahlenstrahl_number_field_shows_the_old_number(editor):
+    """#607: Ctrl+Z in the Ende field takes a typed 15 back: the field and the store show 20."""
+    client = user()
+    page = editor(box("z", "zahlenstrahl", ZAHLENSTRAHL, w=180, h=40), client=client)
+    pick(page, "z")
+    end = field(page, "Ende")
+    step(page, lambda: end.fill("15"))
+    step(page, lambda: page.keyboard.press("Control+z"))
+    expect(end).to_have_value("20")
+    assert stored_u_of(page, client, "z")["props"]["end"] == 20
 
 
 def test_ctrl_z_from_selbstkontrolle_schriftgroesse_shows_the_old_size(editor):

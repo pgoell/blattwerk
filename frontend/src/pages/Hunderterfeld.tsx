@@ -1,5 +1,5 @@
 // The format panel's settings for a Hunderterfeld block: its look, its numbers, its tints and its cut-out.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { HunderterfeldBlock } from "../sheet";
 import { sane, type HunderterfeldProps } from "../hunderterfeld";
 import { newSeed } from "./Maths";
@@ -24,6 +24,8 @@ function Whole({
   apply: Apply;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // An undo or a redo changes the number under the field: the field shows that number, not the draft.
+  useEffect(() => setDraft(null), [value]);
   return (
     <label>
       {label}
