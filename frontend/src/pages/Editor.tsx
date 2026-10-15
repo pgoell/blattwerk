@@ -1881,9 +1881,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (/^[cxv]$/i.test(e.key) && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
-      if (/^c$/i.test(e.key)) storePages(choiceOf(n));
-      else if (/^x$/i.test(e.key)) cutPages(choiceOf(n));
-      else {
+      const ns = choiceOf(n);
+      if (/^c$/i.test(e.key)) storePages(ns);
+      else if (/^x$/i.test(e.key)) {
+        if (ns.length >= pages.length) return;
+        cutPages(ns);
+        // As after Delete: the thumbnail in the place of the first page gone keeps the keys.
+        strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(Math.min(...ns), pages.length - ns.length - 1)}"]`)!.focus();
+      } else {
         pastePages(n);
         strip.current!.querySelector<HTMLElement>(`[data-thumb="${n + 1}"]`)?.focus();
       }

@@ -5,9 +5,10 @@ import re
 from playwright.sync_api import expect
 from test_clipboard import button
 from test_clipboard_account import logout, origin, someone
-from test_pages import three
+from test_pages import OWN, three
 from test_pages_many import expect_chosen, pick_many
-from ui import BROWSER, PASSWORD, RECT, TEXT, box, sheet, thumb
+from test_words import LINKED, go, rulings, store_words
+from ui import BROWSER, PASSWORD, RECT, TEXT, box, doc, sheet, thumb, user
 
 
 def lettered(editor, **more):
@@ -112,6 +113,18 @@ def test_ctrl_c_x_v_on_a_thumbnail_copy_cut_and_paste_pages(editor):
     assert words(page) == ["A", "C", "A"]
 
 
+def test_ctrl_x_then_ctrl_v_on_the_thumbnails_moves_the_page(editor):
+    """After Ctrl+X the focus stays on a thumbnail, so Ctrl+V pastes after the one in focus."""
+    page = lettered(editor)
+    thumb(page, 2).click()
+    page.keyboard.press("Control+x")
+    expect(thumb(page, 1)).to_be_focused()
+    thumb(page, 0).focus()
+    page.keyboard.press("Control+v")
+    expect(page.locator(".sheet[data-page]")).to_have_count(3)
+    assert words(page) == ["A", "C", "B"]
+
+
 def test_ctrl_v_on_a_thumbnail_adds_a_page_and_no_block_lands_on_the_page_in_use(editor):
     """Ctrl+V adds one page; the page in use keeps its own block."""
     page = lettered(editor)
@@ -171,3 +184,36 @@ def test_another_account_pastes_no_pages(editor):
     expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
     expect(page.locator(".sheet[data-page]")).to_have_count(1)
     assert page.evaluate("localStorage.getItem('pages')") is None
+
+
+def test_a_pasted_page_keeps_its_guide_lines_grid_and_format(editor):
+    """Einfügen brings the page's own guide lines, grid and format, as Seite duplizieren does."""
+    client = user()
+    rest = [{"blocks": [box("b", "text", TEXT)], **OWN}]
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    thumb(page, 1).click()
+    page.keyboard.press("Control+c")
+    thumb(page, 0).focus()
+    page.keyboard.press("Control+v")
+    expect(page.locator(".sheet[data-page]")).to_have_count(3)
+    first, second, third = doc(page, client)["pages"]
+    assert {key: second[key] for key in OWN} == OWN
+    assert {key: third[key] for key in OWN} == OWN
+    assert not OWN.keys() & first.keys()
+
+
+def test_a_pasted_page_with_a_linked_lineatur_takes_the_list_to_a_sheet_without_one(editor):
+    """The page's linked Lineatur brings the word list along, as a copied linked block does."""
+    client = user()
+    page = editor(box("r", "ruling", LINKED), client=client, theme="")
+    store_words(page, client, ["Hund", "Katze"])
+    other = sheet(client, [box("t", "text", TEXT, z=3)])
+    thumb(page, 0).click()
+    page.keyboard.press("Control+c")
+    go(page, other)
+    thumb(page, 0).click()
+    page.keyboard.press("Control+v")
+    expect(page.locator(".sheet[data-page]")).to_have_count(2)
+    stored = doc(page, client)
+    assert stored["words"] == ["Hund", "Katze"]
+    assert rulings(stored, 1)[0]["props"]["list"] == "copy"
