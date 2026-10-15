@@ -612,6 +612,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const dirty = !saver || saver.unsaved || hist.doc !== saver.saved.doc || title !== saver.saved.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
+  // A zoom by hand: the buttons, the wheel, a pinch. It stays between a quarter and four times the page's width.
+  const zoomTo = (z: number) => setZoom(Math.min(4, Math.max(0.25, z)));
   const sel = blocks.filter((b) => ids.includes(b.id));
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
@@ -1123,7 +1125,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
       let page = under.getBoundingClientRect();
       const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
-      flushSync(() => setZoom(next));
+      flushSync(() => zoomTo(next));
       // Scroll the page point that was under the pointer back under it.
       page = under.getBoundingClientRect();
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
@@ -2937,7 +2939,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
     if (e.touches.length !== 2) return;
     const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
-    flushSync(() => setZoom(next));
+    flushSync(() => zoomTo(next));
     // Scroll the page point the pinch began on back under the fingers.
     const page = sheet.current!.getBoundingClientRect();
     const [x, y] = centre(e);
@@ -3037,7 +3039,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function zoomBy(by: number) {
     const n = Math.log(zoom) / Math.log(1.25);
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
-    setZoom(Math.min(4, Math.max(0.25, 1.25 ** to)));
+    zoomTo(1.25 ** to);
   }
   // The whole page in use, width and height, once: it does not follow the window.
   function fitPage() {
@@ -3053,7 +3055,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
       {/* The page's size on the screen against its size on paper. */}
-      <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
+      <button className="zoom" title="Seitenbreite" onClick={() => zoomTo(1)}>
         {Math.round((k * 2540) / 96)} %
       </button>
       <Tool icon={Fullscreen} label="Ganze Seite" onClick={fitPage} />
@@ -3074,7 +3076,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ? []
       : [
           { label: "Kleiner", icon: ZoomOut, run: () => zoomBy(-1) },
-          { label: "Seitenbreite", run: () => setZoom(1) },
+          { label: "Seitenbreite", run: () => zoomTo(1) },
           { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
         ]),
