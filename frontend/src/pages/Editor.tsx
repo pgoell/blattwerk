@@ -1611,16 +1611,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const unit = (b: Block) => b.group?.[0] ?? b.id;
         const round = (v: number) => Math.round(v * 100) / 100;
         const back = (at: number, size: number, max: number) => round(Math.max(0, Math.min(at, max - size)) - at);
-        // One axis of a unit: how far it moves and how much it grows. A block as wide as the page less its margins
-        // and 1 mm spans it wherever it starts, as one that a paste step put 5 to 15 mm right does: it keeps its start
-        // and stretches if it may, else it moves to the middle. A block whose middle is within 9.5 mm of the page's
-        // middle is centred, also one paste step off, and moves by half the growth, keeping its distance from the
-        // middle. A block at the margin 10 mm short of the middle stays. Down the page nothing is centred: a block
-        // that lands in the middle of the turned page by chance would move on the way back.
-        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean): [number, number] => {
-          const spans = size >= old - 2 * MARGIN - 1;
+        // One axis of a unit, in plain words: a block that starts at the margin, or up to 15 mm right of it, and
+        // reaches the right margin spans the page. It keeps its start and grows with the page if it may stretch, else
+        // it moves by half the growth. A block whose middle is 0, 5, 10 or 15 mm right of the page's middle is centred
+        // and moves by half the growth too, so it keeps its distance from the middle. Down the page no slack, no
+        // centring: a block that lands in the middle of the turned page by chance would move on the way back.
+        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean, slack: number): [number, number] => {
+          const spans = at <= MARGIN + 1 + slack && at + size >= old - MARGIN - 1;
           if (spans && stretch) return [0, now - old];
-          const centred = Math.abs(at + size / 2 - old / 2) <= 9.5;
+          const off = at + size / 2 - old / 2;
+          const centred = [0, 5, 10, 15].some((s) => Math.abs(off - s) <= 0.5);
           if (middle && (spans || centred)) return [(now - old) / 2, 0];
           return [0, 0];
         };
@@ -1632,8 +1632,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           // Only a single block that is not turned stretches.
           // A circle, a triangle and a star keep their shape.
           const single = !b.group && (b.angle ?? 0) % 180 === 0 && !(b.type === "shape" && ["circle", "triangle", "star"].includes(b.props.kind));
-          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true);
-          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false);
+          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true, 15);
+          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false, 0);
           const [dx, dy] = [back(all.x + mx, all.w + sw, w), back(all.y + my, all.h + sh, h)];
           if (!mx && !my && !sw && !sh && !dx && !dy) return b;
           return { ...b, x: round(b.x + mx + dx), y: round(b.y + my + dy), w: round(b.w + sw), h: round(b.h + sh) };

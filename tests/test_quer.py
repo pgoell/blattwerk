@@ -102,9 +102,9 @@ def test_quer_judges_a_turned_block_by_its_outline(editor):
     """A10, I2, #328: a text on its side whose outline hangs below the page comes back, and one
     whose outline fits stays at exactly its place, though its box as unturned would not fit."""
     client = user()
-    # 20 wide and 178 high, on its side: 178 wide and 20 high, from x=26 and y=139. 190 wide it
-    # would span the page and move to the middle (#613).
-    fits = {**text("fits", 60, x=105, angle=90), "w": 20, "h": 178}
+    # 20 wide and 150 high, on its side: 150 wide and 20 high, from x=27 to 177. Its middle is 3 mm
+    # left of the page's middle, not a paste step, so it stays (#613).
+    fits = {**text("fits", 60, x=92, angle=90), "w": 20, "h": 150}
     page = editor(text("low", 140, angle=90), fits, client=client)
     before = named(doc(page, client))
     fmt(page, "Quer")
