@@ -282,12 +282,12 @@ def test_a_group_moves_as_one_thing(editor):
     at(page, "a").click()
     expect_picked(page, "a", "b")
     # The fields show the box around the group. It moves, and that is all.
-    expect_fields(page, "15", "50", "75", "20", "")
+    expect_fields(page, "15", "50", "75", "20", "0")
     for label in ("X", "Y"):
         expect(field(page, label)).to_be_enabled()
     for label in ("Breite", "Höhe", "Drehung"):
-        expect(field(page, label)).to_be_disabled()
-    expect(lock(page)).to_be_disabled()
+        expect(field(page, label)).to_be_enabled()
+    expect(lock(page)).to_be_enabled()
     enter(page, "X", "25")
     expect(field(page, "X")).to_have_value("25")
     blocks = by_id(saved(page, client))
