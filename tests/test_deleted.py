@@ -38,7 +38,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import login
 from test_stale import STATUS, TURNS
-from ui import at, user
+from ui import at, unpick, user
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da."
@@ -321,6 +321,7 @@ def test_a_change_made_while_the_new_sheet_is_made_goes_into_it(run):
     with page.expect_request(makes) as made:
         page.locator(".clash").get_by_role("button", name=KEEP).click()
     assert made.value.post_data_json["doc"]["pages"][0]["blocks"][0]["x"] == 16
+    unpick(page)
     nudge(run)
     held.pop().continue_()
     expect_new(run, page, x=17)
@@ -368,6 +369,7 @@ def test_the_editor_works_on_under_the_banner_and_the_page_is_kept_as_it_stands_
     page, _, _ = deleted(run)
     a = run.ids["a"]
     banner = page.locator(".clash")
+    unpick(page)
     nudge(run)
     page.clock.run_for(1000)
     page.evaluate(TURNS)

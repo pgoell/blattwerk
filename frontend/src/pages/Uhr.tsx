@@ -1,5 +1,5 @@
 // The format panel's settings for an Uhr block: its face, its task, how a time is written, and the times.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { UhrBlock } from "../sheet";
 import { parsed, sane, timesOf, type UhrProps } from "../uhr";
 import { newSeed } from "./Maths";
@@ -25,6 +25,8 @@ function Whole({
   apply: Apply;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // An undo or a redo changes the number under the field: the field shows that number, not the draft.
+  useEffect(() => setDraft(null), [value]);
   return (
     <label>
       {label}

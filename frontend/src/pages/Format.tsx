@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -261,6 +261,9 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const texts = of("text");
   // The line numbers are on unless all the texts have them, as bold: a step of 1 to 100 counts as having them.
   const numbered = texts.length > 0 && texts.every((b) => stepOf(b.props.lines) > 0);
+  // The number of the first line, or none where the picked texts differ.
+  const starts = texts.map((b) => fromOf(b.props.linesFrom));
+  const start = starts.every((s) => s === starts[0]) ? starts[0] : undefined;
   const [points] = of("points");
   const [sign] = of("symbol");
   // The generator's limits belong to one block.
@@ -422,6 +425,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
                   <button className={stepOf(texts[0].props.lines) === 5 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 5} onClick={() => style("text", { lines: 5 }, "lines")}>
                     Jede 5. Zeile
                   </button>
+                  <Num label="Beginnt bei" value={start} disabled={false} onCommit={(n) => Number.isInteger(n) && n >= 1 && n <= 9999 && style("text", { linesFrom: n === 1 ? undefined : n }, "linesFrom")} />
                 </div>
               )}
             </>
@@ -773,7 +777,8 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
       {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
       {!linked && (
         <div className="seg">
-          <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
+          {/* The number stays in the panel until a button uses it: Ctrl+Z is the field's own. */}
+          <input type="number" aria-label="n" className="own" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
           <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
         </div>
       )}

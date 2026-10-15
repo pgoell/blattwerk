@@ -342,6 +342,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [laid, setLaid] = useState("");
   // Where the caret stood in a cell that a new row or column moves to another place.
   const caret = useRef<number>(undefined);
+  // Where the click that opened a text's field landed, on the screen: its caret goes there.
+  const clicked = useRef<[number, number]>(undefined);
   // Whether the field that opens next has all its text picked.
   const entire = useRef(false);
   // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
@@ -734,6 +736,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const end = caret.current ?? area?.value.length ?? 0;
     area?.setSelectionRange(entire.current ? 0 : end, end);
     caret.current = undefined;
+    // A text's field has read its click by now: its effect runs before this one.
+    clicked.current = undefined;
     entire.current = false;
   }, [editing, slot]);
   // A name line's words are kept once its field ends, however it ends: a press on the sheet can end it with no blur.
@@ -884,6 +888,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (e.key === "Escape" && haul) return quit();
     // Escape puts the brush down from anywhere, also from a field that keeps the key to itself, and does no more.
     if (e.key === "Escape" && brush) return setBrush(0);
+    // Escape during a press makes its release no click: the block stays picked and closed.
+    if (e.key === "Escape") spot.current = undefined;
     // Escape calls a move, a resize or a turn off while the pointer is still down, as in PowerPoint: the blocks are
     // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
     // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
@@ -921,15 +927,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
-    // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
-    // only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select, textarea.wordlist");
+    // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders, its checkboxes
+    // and its number fields, and on its lists only undo and redo are the sheet's. A number field that holds a number
+    // for the panel alone keeps them.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
+    if (ours && target.matches("input[type=number]")) {
+      target.blur();
+      target.focus();
+    }
     // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
     // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space is also
     // the hand's key: on a picked block it opens it at the keyup and types the space, unless the hand dragged first.
-    const typed = e.key.length === 1 && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    // A dead key, as ^ on a German keyboard, opens it too: the letter that follows makes ê there.
+    const typed = (e.key.length === 1 || e.key === "Dead") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
     const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       const id = free[0].id;
@@ -2683,7 +2696,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
 
   // `press` is the mouse press that selects, so the same press can drag.
-  function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent) {
+  // `point` is where a click landed, if it was one: a text's caret opens there.
+  function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent, point?: [number, number]) {
     if (el.closest(".end, .rule, .crop, .bar")) return;
     // A press beside the picture ends its crop.
     done();
@@ -2721,9 +2735,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // A click on a block of a picked group picks the block alone. A press drags the group instead.
       else if (!press && ids.length > 1 && unit(id).length > 1) setIds([id]);
       // On touch a second tap on a text block edits it and on a picture crops it; a mouse double-clicks. A second
-      // click on a picked Lineatur writes in it too: a press that drags the block is no click, and Shift took the
-      // branch above.
-      else if (touch.current || (!press && sel.length === 1 && free[0]?.type === "ruling")) edit(id, el);
+      // click on a picked text, shape with words, table or Lineatur writes in it too, as in PowerPoint: a press that
+      // drags the block is no click, and Shift took the branch above. A text's caret goes where the click landed;
+      // a cell's and a Lineatur's to the end, as a textarea tells no letter for a point.
+      else if (touch.current || (!press && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
+        clicked.current = point;
+        edit(id, el);
+      }
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
     } else {
@@ -3407,7 +3425,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             // The right button drags nothing: its menu picks the block.
             if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
-            spot.current = !e.shiftKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
+            spot.current = !e.shiftKey && !e.ctrlKey && !e.metaKey && ids.includes((e.target as Element).closest<HTMLElement>(".block")?.dataset.id ?? "") ? [e.clientX, e.clientY] : undefined;
             pick(e.target as Element, e.shiftKey, e.nativeEvent);
           }}
           // Moveable keeps a click on a selection it cannot drag to itself, so the block under its area is looked up on the way down.
@@ -3421,7 +3439,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             // Moveable took the focus from the field with a press on a cell: it goes back to the cell that is open now.
             if (table && editing === table.id && (e.target as Element).closest(`[data-id="${table.id}"]`)) return void written()?.focus();
             const still = spot.current && Math.hypot(e.clientX - spot.current[0], e.clientY - spot.current[1]) < 3;
-            if (touch.current || still) pick(e.target as Element, false);
+            // The second click of a double click does not open the field: the double click does, with no word picked.
+            if (touch.current || (still && e.detail < 2)) pick(e.target as Element, false, undefined, [e.clientX, e.clientY]);
           }}
           // A drag over the cells of the table being edited picks the cells between its start and the pointer.
           onMouseMove={(e) => {
@@ -3475,6 +3494,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           props={boxed(b)!}
                           hint={b.type === "text"}
                           all={entire.current}
+                          at={clicked.current}
                           change={look}
                           pick={(next) => setPart((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))}
                           blur={(e) => stays(e) || setEditing("")}

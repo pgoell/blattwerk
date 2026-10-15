@@ -53,7 +53,8 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `gapWidth` makes every gap of the text at least so many mm wide, and `bank` adds a box with the hidden words under
 // the text (Lösungswörter): it is the seed their order is shuffled by.
 // `lines` numbers the lines of the text as they break, left of the box (Zeilennummern): every line with 1, every fifth
-// with 5. Absent is off.
+// with 5. Absent is off. `linesFrom` is the number of the first line (Beginnt bei): absent is 1, and an integer 1 to
+// 9999 is the other numbers, anything else counts as 1. The numbers stand on the lines whose number is a multiple of `lines`.
 // `mix` is the seed of the scrambled words (Schüttelwörter): each word shows its letters in another order, the same
 // on every draw. `mixFirst` keeps each word's first letter in place, `mixCaps` sets the letters in capitals. `mixLine`
 // puts a line after each mixed word ("after") or under it ("under"), which the pupil writes the word on. The answer
@@ -62,7 +63,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -878,6 +879,8 @@ const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(B
 const gapWidth = (mm: unknown) => (typeof mm === "number" && Number.isFinite(mm) && mm > 0 ? Math.min(mm, 200) : 0);
 // The step of a text's line numbers: a whole number from 1 to 100. A sheet may come from anywhere: else none.
 export const stepOf = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : 0);
+// The number of a text's first line: 1 unless it is a whole number from 1 to 9999.
+export const fromOf = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 9999 ? n : 1);
 // The width in px of a block's gaps, for the CSS of `.even .gap`.
 const gapVar = (mm: number, k: number) => (mm ? ({ "--gap": `${mm * k}px` } as CSSProperties) : {});
 // The box of the solution words under a text: each word once, in the seeded order of its block. Where another order
@@ -1229,7 +1232,7 @@ function numbering(svg: SVGSVGElement, block: TextBlock) {
   const near = (parseFloat(getComputedStyle(host).lineHeight) * scale) / 2;
   const base = FONTS[fontOf(block.props.font)][2];
   const shown: SVGTextElement[] = [];
-  let count = 0;
+  let count = fromOf(block.props.linesFrom) - 1;
   // The rows not yet numbered. In columns the words of all paragraphs make one grid, so their rows are numbered
   // together, top to bottom; otherwise each paragraph is numbered as it comes.
   let rows: { top: number; bottom: number }[] = [];

@@ -14,7 +14,9 @@ from ui import (
     centre,
     expect_picked,
     maths,
+    pick,
     picture,
+    unpick,
     upload,
     user,
 )
@@ -130,7 +132,8 @@ def test_escape_in_a_drag_keeps_undo_and_redo(editor, way):
     expect_look(page, first, same=False)
     second = look(page)
     # A run of arrows is one undo step, and a press of the mouse ends the run.
-    at(page, "a").click()
+    unpick(page)
+    pick(page, "a")
     page.keyboard.press("ArrowDown")
     expect_look(page, second, same=False)
     third = look(page)
@@ -308,6 +311,7 @@ def test_escape_in_the_drag_of_a_line_or_a_frame_keeps_undo_and_redo(editor, thi
     expect_look(page, first, same=False)
     second = look(page)
     # A run of arrows is one undo step, and a press of the mouse ends the run.
+    unpick(page)
     click(page)
     page.keyboard.press("ArrowDown")
     expect_look(page, second, same=False)

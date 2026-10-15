@@ -1,6 +1,6 @@
 // The format panel's settings for a Selbstkontrolle block: its heading, form, Lösungswort, size and turn, and the
 // maths blocks of the sheet that it checks.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Block, Doc, SelbstkontrolleBlock } from "../sheet";
 import { checked, labelOf, ordered, sane, tasksOf, worded, type SelbstkontrolleProps } from "../selbstkontrolle";
 import { newSeed } from "./Maths";
@@ -10,6 +10,8 @@ type Apply = (props: Partial<SelbstkontrolleProps>, key?: string) => void;
 // A whole number in a field. The field keeps its draft while the number is one `ok` would not take.
 function Size({ value, apply }: { value: number; apply: Apply }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // An undo or a redo changes the number under the field: the field shows that number, not the draft.
+  useEffect(() => setDraft(null), [value]);
   return (
     <label>
       Schriftgröße
