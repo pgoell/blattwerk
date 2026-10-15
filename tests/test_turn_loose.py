@@ -188,6 +188,67 @@ def test_escape_puts_loose_blocks_back(editor):
         assert {k: back[n].get(k) for k in KEYS} == {k: start[n].get(k) for k in KEYS}
 
 
+ODD = (
+    box("a", "shape", RECT, x=60, y=80, w=60, h=10.01, group=["g"]),
+    box("b", "shape", RECT, z=2, x=60, y=100, w=10, h=30.03, group=["g"]),
+)
+
+
+def close(page, client, start, tolerance):
+    """The saved blocks lie where they started, within the tolerance in mm."""
+    back = {b["id"]: b for b in saved(page, client)}
+    for n in "ab":
+        for key in ("x", "y", "w", "h"):
+            assert back[n][key] == pytest.approx(start[n][key], abs=tolerance)
+
+
+def test_undo_then_back_comes_to_the_start(editor):
+    client = user()
+    page = editor(*ODD, client=client)
+    group(page, "a", "b")
+    start = {b["id"]: b for b in saved(page, client)}
+    page.keyboard.press("Alt+ArrowRight")
+    page.keyboard.press("Alt+ArrowRight")
+    page.keyboard.press("Control+z")
+    page.keyboard.press("Alt+ArrowLeft")
+    close(page, client, start, 0.005)
+
+
+def test_escape_keeps_the_middle_for_the_way_back(editor):
+    client = user()
+    page = editor(*ODD, client=client)
+    group(page, "a", "b")
+    start = {b["id"]: b for b in saved(page, client)}
+    boxes = [at(page, n).bounding_box() for n in "ab"]
+    left, top = min(r["x"] for r in boxes), min(r["y"] for r in boxes)
+    right, bottom = (
+        max(r["x"] + r["width"] for r in boxes),
+        max(r["y"] + r["height"] for r in boxes),
+    )
+    about = ((left + right) / 2, (top + bottom) / 2)
+    page.keyboard.press("Alt+ArrowRight")
+    points = arc(centre(page.locator(HANDLE)), about, 33)
+    page.mouse.move(*points[0])
+    page.mouse.down()
+    for point in points[1:]:
+        page.mouse.move(*point, steps=5)
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    page.keyboard.press("Alt+ArrowLeft")
+    close(page, client, start, 0.005)
+
+
+def test_four_quarter_buttons_give_the_first_sheet_exactly(editor):
+    client = user()
+    page = editor(*ODD, client=client)
+    group(page, "a", "b")
+    start = {b["id"]: b for b in saved(page, client)}
+    for _ in range(4):
+        page.get_by_label("Rechtsdrehung 90°", exact=True).click()
+        saved(page, client)
+    close(page, client, start, 0.001)
+
+
 def same(page, client, before, names=("l", "m")):
     """The saved blocks are as they were: box and a line's start, within 0.02 mm."""
     after = {b["id"]: b for b in saved(page, client)}
