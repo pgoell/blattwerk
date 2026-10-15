@@ -219,6 +219,8 @@ const grouped = (ids: string[], bs: Block[]) => {
   const tops = new Set(bs.filter((b) => b.group && ids.includes(b.id)).map((b) => b.group![0]));
   return bs.filter((b) => ids.includes(b.id) || (b.group && tops.has(b.group[0]))).map((b) => b.id);
 };
+// A block the clipboards read as whole. A type this script does not know (a newer Blattomat's) is kept whole, as the sheet keeps it.
+const wholeBlock = (b?: Block) => b?.id && typeof b.type === "string" && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
 // Copies with ids of their own. A group copied whole stays one, as a group of its own; part of a group leaves it.
 // A Selbstkontrolle copied with a block it links links the copy; alone it keeps its links.
 const cloned = (from: Block[], all: Block[]) => {
@@ -1875,6 +1877,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    // Copy, cut and paste of pages: the block ones of the sheet must not also run.
+    if (/^[cxv]$/i.test(e.key) && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (/^c$/i.test(e.key)) storePages(choiceOf(n));
+      else if (/^x$/i.test(e.key)) cutPages(choiceOf(n));
+      else {
+        pastePages(n);
+        strip.current!.querySelector<HTMLElement>(`[data-thumb="${n + 1}"]`)?.focus();
+      }
+      return;
+    }
     const ns = choiceOf(n);
     const first = ns[0];
     const count = ns.length;
@@ -2189,12 +2203,53 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     } catch {
       return { blocks: [] };
     }
-    // A type this script does not know (a newer Blattomat's) is kept whole, as the sheet keeps it.
-    const whole = (b?: Block) => b?.id && typeof b.type === "string" && b.props && [b.x, b.y, b.w, b.h, b.z].every(Number.isFinite);
-    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(whole) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
+    return held?.owner === user.id && Array.isArray(held.blocks) && held.blocks.every(wholeBlock) ? { blocks: held.blocks, words: held.words } : { blocks: [] };
   }
   function clip(): Block[] {
     return clipped().blocks;
+  }
+  // The pages copied in the panel Seiten, read the same way: this account's, each page with whole blocks.
+  function clippedPages(): { pages: Page[]; words?: unknown } {
+    let held: { owner?: number; pages?: Page[]; words?: unknown } | null = null;
+    try {
+      held = JSON.parse(localStorage.getItem("pages") ?? "null");
+    } catch {
+      return { pages: [] };
+    }
+    const fits = (p: Page) => !!p && typeof p === "object" && Array.isArray(p.blocks) && p.blocks.every(wholeBlock);
+    return held?.owner === user.id && Array.isArray(held.pages) && held.pages.every(fits) ? { pages: held.pages, words: held.words } : { pages: [] };
+  }
+  // Stores the pages chosen, in their order, with the words of a linked Lineatur as the block copy does.
+  function storePages(ns: number[]) {
+    const held = [...ns].sort((a, b) => a - b).map((i) => live.current.doc.pages[i]);
+    const linkedAny = held.some((p) => p.blocks.some(tied));
+    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held, ...(linkedAny && { words: live.current.doc.words }) }));
+  }
+  // The pasted pages come after page `after`, with blocks of their own, and are the choice from then on. One step of undo.
+  function pastePages(after: number) {
+    const { pages: held, words } = clippedPages();
+    if (!held.length) return;
+    const copies = held.map((p) => ({ ...p, blocks: cloned(p.blocks, p.blocks) }));
+    const got = carried(copies.flatMap((p) => p.blocks), words, live.current.doc);
+    let taken = 0;
+    const fresh = copies.map((p) => {
+      const blocks = got.blocks.slice(taken, (taken += p.blocks.length));
+      return { ...p, blocks };
+    });
+    done();
+    flushSync(() => {
+      update((doc) => ({ ...doc, ...(got.words && { words: got.words }), pages: [...doc.pages.slice(0, after + 1), ...fresh, ...doc.pages.slice(after + 1)] }), "", after + 1);
+      setAt(after + 1);
+      setChosen(fresh.map((_, j) => after + 1 + j));
+      setIds([]);
+    });
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  // Cut: the pages are stored, then taken away. Not when they are every page.
+  function cutPages(ns: number[]) {
+    if (ns.length >= live.current.doc.pages.length) return;
+    storePages(ns);
+    removePages(ns);
   }
   function paste() {
     const { blocks: held, words } = clipped();
@@ -3204,6 +3259,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           { label: "Neue Seite", icon: FilePlus, run: () => addPage(thumbed) },
           { label: "Seite duplizieren", icon: CopyPlus, run: () => copyPages(choiceOf(thumbed)) },
           { label: "Seite löschen", icon: FileX, disabled: choiceOf(thumbed).length >= pages.length, run: () => removePages(choiceOf(thumbed)) },
+          { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: choiceOf(thumbed).length >= pages.length, run: () => cutPages(choiceOf(thumbed)) },
+          { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, run: () => storePages(choiceOf(thumbed)) },
+          { label: "Einfügen", icon: ClipboardPaste, keys: `${ctrl}V`, disabled: !clippedPages().pages.length, run: () => pastePages(thumbed) },
         ]
       : [
           ...(table && editing === table.id

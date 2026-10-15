@@ -82,6 +82,7 @@ export default function App() {
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
     localStorage.removeItem("clip");
+    localStorage.removeItem("pages");
     // Feedback and photos entered when the session ran out wait for the teacher who entered them, and nobody else.
     // So does a line of an action that failed.
     if (to?.id !== was.current) (forgetDraft(), forgetPhotos(), clear());
