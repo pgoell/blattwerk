@@ -3023,6 +3023,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const menuCell = menu?.cell;
   type Command = Exclude<Item, "sep">;
   // One block with words of its own, or a score or a name, opens for writing from its menu, as F2 does. Not a linked one.
+  // It opens a moment later: the menu's dialog gives the focus back as it shuts, and in WebKit after the text took it.
   const [only] = sel;
   const writeIn: Item[] =
     sel.length === 1 && (writable(only) || only.type === "points" || only.type === "name") && !tied(only) && editing !== only.id
