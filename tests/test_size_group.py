@@ -141,6 +141,30 @@ def test_originalgrosse_gives_a_picture_its_first_size(editor):
     assert b["h"] == pytest.approx(66.67, abs=0.01)
 
 
+def test_a_percent_on_loose_blocks_scales_each_about_its_own_left_edge(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20),
+        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20),
+        client=client,
+    )
+    pick(page, "a", "b")
+    enter(page, "Breite %", "50")
+    blocks = by_id(saved(page, client))
+    assert (blocks["a"]["x"], blocks["a"]["w"]) == (15, 15)
+    assert (blocks["b"]["x"], blocks["b"]["w"]) == (60, 15)
+
+
+def test_a_picture_halves_both_sides_on_a_percent(editor):
+    client = user()
+    bild = {**picture(upload(client)), "id": "bild", "x": 20, "y": 150, "w": 60, "h": 40}
+    page = editor(bild, client=client)
+    pick(page, "bild")
+    enter(page, "Breite %", "50")
+    (b,) = saved(page, client)
+    assert (b["x"], b["w"], b["h"]) == (20, 30, 20)
+
+
 def test_a_percent_on_a_group_scales_about_its_left_edge(editor):
     client = user()
     page = pair_group(editor, client)
