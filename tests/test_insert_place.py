@@ -107,6 +107,15 @@ def test_a_pasted_picture_lands_as_before(editor):
     assert block["y"] == 15
 
 
+def test_an_insert_goes_under_a_turned_block_as_it_stands(editor):
+    """#293: a text turned upright fills 15 to 195 mm down the page: the table goes under that."""
+    client = user()
+    page = editor(box("up", "text", TEXT, x=15, y=100, w=180, h=10, angle=90), client=client)
+    add_by_button(page, "Tabelle")
+    block = new_block(page, client, {"up"})
+    assert (block["x"], block["y"]) == (15, 200)
+
+
 def test_an_insert_on_an_empty_page_lands_as_before(editor):
     """#293: with no block to go under, the block comes centred to the top of the view."""
     client = user()

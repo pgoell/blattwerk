@@ -1868,7 +1868,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
-    const low = pasted || !held.length ? undefined : held.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
+    // A turned block counts with the box it fills on the page, turned about its middle.
+    const outer = held.map((b) => {
+      const [c, s] = dir(b).map(Math.abs);
+      const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
+      return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+    });
+    const low = pasted || !outer.length ? undefined : outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
     const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
     const [x, y] =
       low && under
