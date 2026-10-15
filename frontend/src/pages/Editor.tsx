@@ -544,6 +544,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const spaced = useRef<(() => void) | null>(null);
   // The block, and the cell, that Text bearbeiten opens a moment later. A key typed before opens it at once (#640).
   const asked = useRef<{ id: string; cell?: number }>(undefined);
+  useEffect(() => {
+    if (editing) asked.current = undefined;
+  }, [editing]);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -3134,10 +3137,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => {
             asked.current = { id: only.id, cell: menuCell };
             setTimeout(() => {
-              // A key typed in the meantime has opened it already.
+              // A key typed in the meantime has opened it already. The request stays until the sheet's keys know the
+              // block is open: a key in between opens it again in its cell, not the first cell after its text.
               if (asked.current?.id !== only.id) return;
-              asked.current = undefined;
-              edit(only.id, undefined, true, menuCell);
+              flushSync(() => edit(only.id, undefined, true, menuCell));
             });
           } }, "sep"]
       : [];
