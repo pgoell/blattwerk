@@ -188,6 +188,30 @@ def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(edit
     expect_order(page, "p" + NAMES[:15])
 
 
+def test_i1_the_panel_scrolls_to_the_top_in_time_when_frames_are_slow(editor):
+    """I1"""
+    page = blatt(editor, NAMES)
+    # A loaded runner in CI gave 10 frames a second (#597): the scroll keeps its pace in time.
+    page.evaluate(
+        "() => { window.requestAnimationFrame ="
+        " (cb) => setTimeout(() => cb(performance.now()), 100);"
+        " window.cancelAnimationFrame = (id) => clearTimeout(id); }"
+    )
+    thumb(page, 15).evaluate("el => el.scrollIntoView({ block: 'center' })")
+    start = page.evaluate(f"() => {PANEL}.scrollTop")
+    page.mouse.move(*centre(thumb(page, 15)))
+    page.mouse.down()
+    page.mouse.move(*top_edge(page), steps=10)
+    page.wait_for_function(f"() => {PANEL}.scrollTop < {start}", timeout=5000)
+    page.wait_for_function(
+        f"() => {FIRST}.getBoundingClientRect().top >= {PANEL}.getBoundingClientRect().top",
+        timeout=5000,
+    )
+    page.mouse.move(*half(page, 0, "left"), steps=5)
+    page.mouse.up()
+    expect_order(page, "p" + NAMES[:15])
+
+
 # Not strict: in CI's WebKit the panel does not scroll within 5 s in some shards (PR #510 one run
 # of two, PR #513 three of three), and here 20 of 20 pass in WebKit and in Chromium, on master and
 # on those branches.
