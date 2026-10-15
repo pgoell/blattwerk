@@ -8,26 +8,65 @@ import re
 
 from playwright.sync_api import expect
 from test_feed_print import pdf_text, sheet_id
-from ui import at, box, doc, pick, user
+from ui import TEXT, at, box, doc, pick, reload, user
 
 PANEL_SCORE = '.panel input[aria-label="Punkte"]'
 PLUS = "Ein Punkt mehr"
 
 
-def page_of(n):
-    """A page with its total (60) and two tasks (10 each), numbered n."""
+def page_of(n, marked=True):
+    """A page with its total (60) and two tasks (10 each), numbered n. The total is marked."""
+    total = {"max": 60, "total": True} if marked else {"max": 60}
     return [
-        box(f"t{n}", "points", {"max": 60}),
+        box(f"t{n}", "points", total),
         box(f"a{n}", "points", {"max": 10}, z=2),
         box(f"b{n}", "points", {"max": 10}, z=3),
     ]
 
 
-def klassenarbeit(editor, client=None):
+def klassenarbeit(editor, client=None, marked=True):
     """Three pages of the Klassenarbeit shape."""
     return editor(
-        *page_of(1), pages=[{"blocks": page_of(2)}, {"blocks": page_of(3)}], client=client
+        *page_of(1, marked),
+        pages=[{"blocks": page_of(2, marked)}, {"blocks": page_of(3, marked)}],
+        client=client,
     )
+
+
+def test_an_ordinary_sheet_that_looks_like_a_klassenarbeit_keeps_its_total(editor, server):
+    client = user()
+    page = klassenarbeit(editor, client, marked=False)
+    at(page, "a1").dblclick()
+    page.keyboard.type("15")
+    page.keyboard.press("Enter")
+    expect(at(page, "a1").locator(".points")).to_have_text("/ 15 Punkte")
+    assert maxes(doc(page, client)) == [[60, 15, 10], [60, 10, 10], [60, 10, 10]]
+    assert "/60Punkte" in re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
+
+
+def test_a_klassenarbeit_from_the_vorlage_follows(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    reload(page, page.url)
+    page.get_by_role("tab", name="Vorlagen").click()
+    page.get_by_role("button", name="Klassenarbeit", exact=True).click()
+    expect(page.get_by_text("/ 60 Punkte").first).to_be_visible()
+    blocks = doc(page, client)["pages"]
+    total_ids = [
+        b["id"]
+        for p in blocks
+        for b in p["blocks"]
+        if b["type"] == "points" and b["props"]["max"] == 60
+    ]
+    task = next(b for b in blocks[0]["blocks"] if b["type"] == "points" and b["props"]["max"] == 10)
+    at(page, task["id"]).dblclick()
+    page.keyboard.type("15")
+    page.keyboard.press("Enter")
+    expect(at(page, total_ids[0]).locator(".points")).to_have_text("/ 65 Punkte")
+    assert [
+        [b["props"]["max"] for b in p["blocks"] if b["type"] == "points"]
+        for p in doc(page, client)["pages"]
+    ] == [[65, 15, 10], [65, 10, 10], [65, 10, 10]]
 
 
 def maxes(saved_doc):

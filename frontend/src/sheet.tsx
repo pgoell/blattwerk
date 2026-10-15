@@ -86,7 +86,7 @@ export const startOf = (b: RulingBlock): number => {
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
-export type PointsBlock = Box & { type: "points"; props: { max: number } };
+export type PointsBlock = Box & { type: "points"; props: { max: number; total?: boolean } };
 export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
 export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[] } };
