@@ -3112,7 +3112,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ? []
       : [
           { label: "Kleiner", icon: ZoomOut, run: () => zoomBy(-1) },
-          { label: "Seitenbreite", run: () => zoomTo(1) },
+          // The bar's zoom button, which opens the list below "Mehr" as the button does in the bar.
+          {
+            label: "Zoom",
+            run: () => {
+              // The list gives the focus back to what has it when it opens: that is "Mehr", not the item just picked.
+              const more = bar.current!.querySelector<HTMLElement>(".more")!;
+              more.focus();
+              const box = more.getBoundingClientRect();
+              setLens({ x: box.left, y: box.bottom, up: false });
+            },
+          },
           { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
         ]),
