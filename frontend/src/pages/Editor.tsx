@@ -93,6 +93,7 @@ import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
+import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
 import Variants from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
@@ -410,6 +411,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
   const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
+  const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
   // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
   const idKey = ids.join();
@@ -526,7 +528,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
+  // The desk's height in pixels, which a fit follows too.
+  const [high, setHigh] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
+  const fitted = useRef(false);
   // A thumbnail's width in px.
   const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
@@ -612,6 +618,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const dirty = !saver || saver.unsaved || hist.doc !== saver.saved.doc || title !== saver.saved.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
+  // A zoom by hand: the buttons, the wheel, a pinch. It stays between a quarter and four times the page's width.
+  const zoomTo = (z: number) => {
+    fitted.current = false;
+    setZoom(Math.min(4, Math.max(0.25, z)));
+  };
   const sel = blocks.filter((b) => ids.includes(b.id));
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
@@ -669,10 +680,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const look = getComputedStyle(desk.current!);
     const width = desk.current!.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
     if (width > 0) setRoom(width);
-    const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
+    const observer = new ResizeObserver(([entry]) => {
+      setRoom(entry.contentRect.width);
+      setHigh(entry.target.clientHeight);
+    });
     observer.observe(desk.current!);
     return () => observer.disconnect();
   }, []);
+  // A fit lasts until a zoom by hand: a new size of the desk fits the page again, as Ganze Seite would. A passive
+  // effect, not a layout one, so that the zoom it sets may flush.
+  useEffect(() => {
+    if (fitted.current) fitPage();
+  }, [room, high]);
   // For a mouse the dock wraps to more rows in a narrow window: the styles keep as much room free as it is high.
   useLayoutEffect(() => {
     // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
@@ -883,6 +902,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const shut = first || (select && e.key === "Enter");
     // Who walks a select of the panel with the keys keeps the focus there.
     if (real) inPanel.current = false;
+    // Ctrl and + or - never zoom the browser's window, which would take the bar and the panels with it: in a field
+    // or a dialog, where they zoom nothing, they type nothing either. With AltGr they type a character.
+    if ((e.ctrlKey || e.metaKey) && !e.getModifierState("AltGraph") && ["+", "=", "-"].includes(e.key)) e.preventDefault();
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
@@ -1010,10 +1032,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Ctrl+] and Ctrl+[ step the picked blocks in the stack, with Shift to the front or the back, as in PowerPoint.
     // With Alt or AltGr the key types a character, so it is no order key.
     const order = (front: boolean) => sel.length > 0 && !e.altKey && !e.getModifierState("AltGraph") && (() => raise(front, !e.shiftKey));
+    // Ctrl and + or - zoom the sheet a step, as the buttons do, and Ctrl+Alt+O fits the page, not the browser's zoom.
+    // With AltGr the keys type characters, so they are no zoom keys.
+    const zoomStep = (by: number) => !e.getModifierState("AltGraph") && (() => zoomBy(by));
+    const fitKey = e.altKey && !e.getModifierState("AltGraph") && (() => fitPage());
     // Ctrl+V alone is not here: a key stopped on its way down brings no paste.
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false) }
+        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false), "+": zoomStep(1), "=": zoomStep(1), "-": zoomStep(-1), o: fitKey }
         : {
             delete: remove,
             backspace: remove,
@@ -1034,7 +1060,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             f2: write,
             tab: plain && blocks.length > 0 && next,
           };
-    const run = keys[e.key.toLowerCase()];
+    // A Mac's Option+O types ø, so the key is read by its place on the keyboard.
+    const run = keys[e.code === "KeyO" && e.altKey ? "o" : e.key.toLowerCase()];
     // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
     if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
     e.preventDefault();
@@ -1123,7 +1150,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
       let page = under.getBoundingClientRect();
       const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
-      flushSync(() => setZoom(next));
+      flushSync(() => zoomTo(next));
       // Scroll the page point that was under the pointer back under it.
       page = under.getBoundingClientRect();
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
@@ -2937,7 +2964,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
     if (e.touches.length !== 2) return;
     const next = Math.min(4, Math.max(0.25, (pinch.current.zoom * spread(e)) / pinch.current.spread));
-    flushSync(() => setZoom(next));
+    flushSync(() => zoomTo(next));
     // Scroll the page point the pinch began on back under the fingers.
     const page = sheet.current!.getBoundingClientRect();
     const [x, y] = centre(e);
@@ -3037,11 +3064,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function zoomBy(by: number) {
     const n = Math.log(zoom) / Math.log(1.25);
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
-    setZoom(Math.min(4, Math.max(0.25, 1.25 ** to)));
+    zoomTo(1.25 ** to);
   }
-  // The whole page in use, width and height, once: it does not follow the window.
+  // The whole page in use, width and height, until a zoom by hand: it follows the desk when the window changes.
   function fitPage() {
     const el = desk.current!;
+    fitted.current = true;
     // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
     // bottom, which goes once the page fits, and the desk has no border to take off.
     flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
@@ -3053,7 +3081,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
       {/* The page's size on the screen against its size on paper. */}
-      <button className="zoom" title="Seitenbreite" onClick={() => setZoom(1)}>
+      {/* The list opens over the button: upward from the dock, downward from the bar. */}
+      <button
+        className="zoom"
+        title="Zoom"
+        aria-haspopup="dialog"
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          const up = !!e.currentTarget.closest(".dock");
+          setLens({ x: box.left, y: up ? box.top : box.bottom, up });
+        }}
+      >
         {Math.round((k * 2540) / 96)} %
       </button>
       <Tool icon={Fullscreen} label="Ganze Seite" onClick={fitPage} />
@@ -3074,7 +3112,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ? []
       : [
           { label: "Kleiner", icon: ZoomOut, run: () => zoomBy(-1) },
-          { label: "Seitenbreite", run: () => setZoom(1) },
+          { label: "Seitenbreite", run: () => zoomTo(1) },
           { label: "Ganze Seite", icon: Fullscreen, run: fitPage },
           { label: "Größer", icon: ZoomIn, run: () => zoomBy(1) },
         ]),
@@ -4229,6 +4267,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             localStorage.setItem("tour", "1");
             setTour(false);
           }}
+        />
+      )}
+      {lens && (
+        <ZoomList
+          x={lens.x}
+          y={lens.y}
+          up={lens.up}
+          current={Math.round((k * 2540) / 96)}
+          onPercent={(p) => zoomTo((p * 96) / 2540 / fit)}
+          onWidth={() => zoomTo(1)}
+          onFit={fitPage}
+          onClose={() => setLens(undefined)}
         />
       )}
       {mathMenu && (
