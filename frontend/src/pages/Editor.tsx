@@ -542,6 +542,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const hand = useRef([0, 0, 0, 0]);
   // Space pressed on a picked text, shape, table or Lineatur: opens it at the keyup, unless the hand dragged meanwhile.
   const spaced = useRef<(() => void) | null>(null);
+  // The block, and the cell, that Text bearbeiten opens a moment later. A key typed before opens it at once (#640).
+  const asked = useRef<{ id: string; cell?: number }>(undefined);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -1022,6 +1024,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // keyboard sends 229 or "Process" for a letter, and the text comes after it as input: it opens too.
     const typed = (e.key.length === 1 || e.key === "Dead" || e.keyCode === 229 || e.key === "Process") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
     const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
+    // A key that comes before Text bearbeiten has opened its block opens it now, in its cell and all picked, so the
+    // key replaces the text there. It went to the first cell before, after the text (#640).
+    const ask = asked.current;
+    if (typed && ask) {
+      asked.current = undefined;
+      if (!editing && free.length === 1 && free[0].id === ask.id) {
+        flushSync(() => edit(ask.id, undefined, true, ask.cell));
+        return;
+      }
+    }
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       const id = free[0].id;
       if (space) {
@@ -3119,7 +3131,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [only] = sel;
   const writeIn: Item[] =
     sel.length === 1 && (writable(only) || only.type === "points" || only.type === "name") && !tied(only) && editing !== only.id
-      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => setTimeout(() => edit(only.id, undefined, true, menuCell)) }, "sep"]
+      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => {
+            asked.current = { id: only.id, cell: menuCell };
+            setTimeout(() => {
+              // A key typed in the meantime has opened it already.
+              if (asked.current?.id !== only.id) return;
+              asked.current = undefined;
+              edit(only.id, undefined, true, menuCell);
+            });
+          } }, "sep"]
       : [];
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
