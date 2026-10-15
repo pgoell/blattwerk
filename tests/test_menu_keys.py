@@ -178,6 +178,7 @@ def test_the_menu_opens_again_after_escape(editor):
     page = editor(*texts(*"ab"))
     pick(page, "a")
     page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
     page.keyboard.press("Escape")
     expect(menu(page)).to_have_count(0)
     page.keyboard.press("ContextMenu")
