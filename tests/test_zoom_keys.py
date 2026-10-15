@@ -10,8 +10,9 @@ PREVENTED = (
     "addEventListener('keydown', (e) => setTimeout(() => "
     "(window.prevented = e.defaultPrevented)), true)"
 )
-# Fields that keep the zoom keys: an open text, a table cell, the title and a panel's number field.
-FIELDS = ["text", "cell", "title", "number"]
+# Where the zoom keys zoom nothing: an open text, a table cell, the title, a panel's number
+# field, the zoom's list.
+FIELDS = ["text", "cell", "title", "number", "list"]
 
 
 def prevented(page):
@@ -104,7 +105,7 @@ def test_the_browsers_zoom_is_called_off(editor):
 
 @pytest.mark.parametrize("where", FIELDS)
 def test_a_field_keeps_the_zoom_keys(editor, where):
-    """In a field the keys are the field's: no zoom, and the browser keeps its key too."""
+    """In a field or the zoom's list the keys zoom nothing, and never the browser's window."""
     page = editor(box("a", "text", TEXT), box("t", "table", TABLE, z=2, x=60, y=120, w=60, h=40))
     if where == "text":
         pick(page, "a")
@@ -116,6 +117,9 @@ def test_a_field_keeps_the_zoom_keys(editor, where):
         field = at(page, "t").locator("textarea")
     elif where == "title":
         field = page.get_by_label("Titel", exact=True)
+    elif where == "list":
+        page.locator("button.zoom").first.click()
+        field = page.get_by_label("Zoom in Prozent")
     else:
         pick(page, "a")
         field = page.locator("input.mm").first
@@ -123,9 +127,12 @@ def test_a_field_keeps_the_zoom_keys(editor, where):
     expect(field).to_be_focused()
     wide = width(page)
     page.evaluate(f"window.{PREVENTED}")
-    for keys in ("Control+Equal", "Control+Minus", "Control+Alt+O"):
+    for keys in ("Control+Equal", "Control+Minus"):
         page.keyboard.press(keys)
-        assert not prevented(page), keys
+        assert prevented(page), keys
+    # Ctrl+Alt+O has no meaning for the browser: the field keeps it.
+    page.keyboard.press("Control+Alt+O")
+    assert not prevented(page)
     settled(page)
     assert width(page) == pytest.approx(wide, abs=1)
     expect(field).to_be_focused()

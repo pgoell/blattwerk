@@ -902,6 +902,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const shut = first || (select && e.key === "Enter");
     // Who walks a select of the panel with the keys keeps the focus there.
     if (real) inPanel.current = false;
+    // Ctrl and + or - never zoom the browser's window, which would take the bar and the panels with it: in a field
+    // or a dialog, where they zoom nothing, they type nothing either. With AltGr they type a character.
+    if ((e.ctrlKey || e.metaKey) && !e.getModifierState("AltGraph") && ["+", "=", "-"].includes(e.key)) e.preventDefault();
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
