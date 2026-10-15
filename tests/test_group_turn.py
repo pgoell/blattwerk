@@ -109,8 +109,8 @@ def test_a_button_turns_a_group_as_the_handle_does(editor, label):
     client = user()
     page = editor(*pair(), client=client)
     group(page, "a", "b")
-    # A group has no angle of its own to type.
-    expect(page.get_by_label("Drehung", exact=True)).to_be_disabled()
+    # A group shows the angle of its first block, and takes a new one (#121).
+    expect(page.get_by_label("Drehung", exact=True)).to_have_value("0")
     button(page, label).click()
     by_button = {b["id"]: b for b in saved(page, client)}
     # The blocks went round the middle of the group, at 95 by 90 mm: clockwise the left one is
@@ -120,7 +120,8 @@ def test_a_button_turns_a_group_as_the_handle_does(editor, label):
         over: (80, 60, 30, 20, 90 if label == RIGHT else 270, False, False, None),
         under: (80, 100, 30, 20, 90 if label == RIGHT else 270, False, False, None),
     }
-    expect(page.get_by_label("Drehung", exact=True)).to_be_disabled()
+    turned = "90" if label == RIGHT else "270"
+    expect(page.get_by_label("Drehung", exact=True)).to_have_value(turned)
     page.keyboard.press("Control+z")
     assert lie(saved(page, client)) == lie(pair())
     # The handle, dragged a quarter of the way round, gives the same sheet within a drag's reach.
