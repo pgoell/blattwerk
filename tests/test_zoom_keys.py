@@ -5,9 +5,10 @@ from playwright.sync_api import expect
 from test_zoom import expect_fitted, expect_percent, expect_width, places, settled, width
 from ui import FIELD, TABLE, TEXT, at, box, expect_picked, pick
 
-# After the app's own listeners: whether the last keydown was called off by the page.
+# After the app's own listeners: whether the last keydown was called off by the page. Ctrl and
+# Alt come down first with a keydown of their own, which says nothing.
 PREVENTED = (
-    "addEventListener('keydown', (e) => setTimeout(() => "
+    "addEventListener('keydown', (e) => ['Control', 'Alt'].includes(e.key) || setTimeout(() => "
     "(window.prevented = e.defaultPrevented)), true)"
 )
 # Where the zoom keys zoom nothing: an open text, a table cell, the title, a panel's number

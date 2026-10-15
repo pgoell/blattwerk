@@ -135,6 +135,8 @@ def test_a_block_is_deleted_after_the_list_shuts(editor):
     pick(page, "a")
     open_list(page)
     page.keyboard.press("Escape")
+    # WebKit shuts the dialog a moment after the key.
+    expect(page.locator(LIST)).to_have_count(0)
     page.keyboard.press("Delete")
     expect(page.locator(".block[data-id]")).to_have_count(0)
 
