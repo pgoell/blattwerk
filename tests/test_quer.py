@@ -74,10 +74,11 @@ def places(blocks, names):
     return [(blocks[n]["x"], blocks[n]["y"]) for n in names]
 
 
-# From 10 to 190 mm: a block that neither spans the page nor sits in its middle, so a turn only
-# brings it back onto the page (#294 moves the others; see test_turn_page.py).
+# From 10 to 180 mm, its middle 10 mm left of the page's: a block that neither spans the page nor
+# sits in its middle, so a turn only brings it back onto the page (#294 and #613 move the others;
+# see test_turn_page.py). 180 wide it would span, wherever it starts.
 def text(name, y, x=10, **more):
-    return {**box(name, "text", TEXT), "x": x, "y": y, **more}
+    return {**box(name, "text", TEXT), "x": x, "y": y, "w": 170, **more}
 
 
 def test_quer_brings_a_group_back_as_one(editor):
@@ -101,15 +102,16 @@ def test_quer_judges_a_turned_block_by_its_outline(editor):
     """A10, I2, #328: a text on its side whose outline hangs below the page comes back, and one
     whose outline fits stays at exactly its place, though its box as unturned would not fit."""
     client = user()
-    # 20 wide and 190 high, on its side: 190 wide and 20 high, from x=20 and y=145.
-    fits = {**text("fits", 60, x=105, angle=90), "w": 20, "h": 190}
+    # 20 wide and 150 high, on its side: 150 wide and 20 high, from x=27 to 177. Its middle is 3 mm
+    # left of the page's middle, not a paste step, so it stays (#613).
+    fits = {**text("fits", 60, x=92, angle=90), "w": 20, "h": 150}
     page = editor(text("low", 140, angle=90), fits, client=client)
     before = named(doc(page, client))
     fmt(page, "Quer")
     expect(undo(page)).to_be_enabled()
     now = named(doc(page, client))
-    # Its outline spans y 60 to 240: 30 mm up.
-    assert places(now, ["low"]) == [(10, 110)]
+    # Its outline spans y 65 to 235: 25 mm up.
+    assert places(now, ["low"]) == [(10, 115)]
     assert now["fits"] == before["fits"]
 
 
@@ -117,7 +119,8 @@ def test_a_block_on_its_side_half_a_hundredth_off_the_edge_stays(editor):
     """I2: width and height differ by an odd count of hundredths, so the outline's left edge lies
     half a hundredth off the page's, where a quarter turn stores it. It is meant to lie at 0."""
     client = user()
-    a = {**text("a", 50), "x": 84.99, "w": 20.01, "h": 190, "angle": 90}
+    # 178 high, so its outline does not span the page (#613), which would move it to the middle.
+    a = {**text("a", 50), "x": 78.99, "w": 20.01, "h": 178, "angle": 90}
     page = editor(a, text("z", 265), client=client)
     before = named(doc(page, client))
     fmt(page, "Quer")
@@ -155,7 +158,7 @@ def test_a_page_with_a_format_of_its_own_brings_its_blocks_back(editor):
     expect(undo(page)).to_be_enabled()
     quer = doc(page, client)
     assert quer["pages"][1]["landscape"] is True
-    assert places(named(quer, 1), "abc") == [(10, 155), (10, 190), (10, 110)]
+    assert places(named(quer, 1), "abc") == [(10, 155), (10, 190), (10, 115)]
     # The first page stands upright as before.
     assert quer["pages"][0] == before["pages"][0]
     undo(page).click()
@@ -170,9 +173,9 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
     far = [
         text("a", 20, x=30, group=["g"]),
         text("b", 50, x=110, group=["g"]),
-        # On its side its outline spans x 190 to 210: it fits the upright page too.
+        # On its side its outline spans x 185 to 205: it fits the upright page too.
         text("c", 90, x=110, angle=90),
-        # And this one's spans x 270 to 290.
+        # And this one's spans x 265 to 285.
         text("d", 90, x=190, angle=90),
     ]
     rest = [{"blocks": far, "landscape": True}]
@@ -191,7 +194,7 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
     after = doc(page, client)
     now = named(after, 1)
     # The group is 260 wide: its left edge wins, and 80 mm stay between its blocks.
-    assert places(now, "abd") == [(0, 20), (80, 50), (110, 90)]
+    assert places(now, "abd") == [(0, 20), (80, 50), (115, 90)]
     assert now["c"] == named(before, 1)["c"]
     assert after["pages"][0] == before["pages"][0]
     undo(page).click()
@@ -200,16 +203,18 @@ def test_a_page_that_lies_on_its_side_by_itself_brings_its_blocks_back_upright(e
 
 
 def some(client, kind, locked, far=False):
-    """Blocks of the kind as `box` makes them, 180 by 20 mm: "allein" turned by 30 degrees, a group
-    in a group with "a" on its side, and "bleibt" on its side in the page's middle. They hang below
-    an upright page laid on its side, or with `far` right of one that lay so and stands upright.
+    """Blocks of the kind as `box` makes them, but 170 by 20 mm: "allein" turned by 30 degrees, a
+    group in a group with "a" on its side, and "bleibt" on its side in the page's middle. They hang
+    below an upright page laid on its side, or with `far` right of one that lay so and stands
+    upright.
     A line has no angle: a quarter turn swaps its width and height."""
 
     def made(name, x, y, **more):
         (b,) = every(client, kind)
         if kind == "line":
             more.pop("angle", None)
-        return {**b, **more, "id": name, "x": x, "y": y, "locked": locked and name != "b"}
+        # 170 wide, as `text` gives: 180 wide a block spans the page and moves to the middle (#613).
+        return {**b, "w": 170, **more, "id": name, "x": x, "y": y, "locked": locked and name != "b"}
 
     shift = 90 if far else 0
     return [

@@ -592,7 +592,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   };
   const [W, H] = sizes[page];
   // Pixels per mm when the widest page fills the desk's width.
-  const fit = room / Math.max(...sizes.map(([w]) => w));
+  const widest = Math.max(...sizes.map(([w]) => w));
+  const fit = room / widest;
+  // The page count and the widest width as they were last. A page that goes or comes along with a new widest width
+  // scales the zoom by the ratio, so the shown size stays. A page turned Quer keeps the zoom.
+  const last = useRef({ count: pages.length, widest });
+  useLayoutEffect(() => {
+    const before = last.current;
+    last.current = { count: pages.length, widest };
+    if (before.count !== pages.length && before.widest !== widest) setZoom((z) => Math.min(4, Math.max(0.25, z * (widest / before.widest))));
+  }, [pages.length, widest]);
   // The thumbnails draw after the desk, so a drag stays quick.
   const small = useDeferredValue(hist.doc);
   const cellOf = (p: Page) => p.grid ?? grid;
@@ -943,8 +952,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
     // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space is also
     // the hand's key: on a picked block it opens it at the keyup and types the space, unless the hand dragged first.
-    // A dead key, as ^ on a German keyboard, opens it too: the letter that follows makes ê there.
-    const typed = (e.key.length === 1 || e.key === "Dead") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    // A dead key, as ^ on a German keyboard, opens it too: the letter that follows makes ê there. An IME or an on-screen
+    // keyboard sends 229 or "Process" for a letter, and the text comes after it as input: it opens too.
+    const typed = (e.key.length === 1 || e.key === "Dead" || e.keyCode === 229 || e.key === "Process") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
     const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       const id = free[0].id;
@@ -1601,13 +1611,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         const unit = (b: Block) => b.group?.[0] ?? b.id;
         const round = (v: number) => Math.round(v * 100) / 100;
         const back = (at: number, size: number, max: number) => round(Math.max(0, Math.min(at, max - size)) - at);
-        // One axis of a unit: how far it moves and how much it grows. Spanning the page, it stretches if it may,
-        // else it moves to the middle. A centred one moves to the middle too. Down the page nothing is centred: a
-        // block that lands in the middle of the turned page by chance would move on the way back.
-        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean): [number, number] => {
-          const spans = at <= MARGIN + 1 && at + size >= old - MARGIN - 1;
+        // One axis of a unit, in plain words: a block that starts at the margin, or up to 15 mm right of it, and
+        // reaches the right margin spans the page. It keeps its start and grows with the page if it may stretch, else
+        // it moves by half the growth. A block whose middle is 0, 5, 10 or 15 mm right of the page's middle is centred
+        // and moves by half the growth too, so it keeps its distance from the middle. Down the page no slack, no
+        // centring: a block that lands in the middle of the turned page by chance would move on the way back.
+        const along = (at: number, size: number, old: number, now: number, stretch: boolean, middle: boolean, slack: number): [number, number] => {
+          const spans = at <= MARGIN + 1 + slack && at + size >= old - MARGIN - 1;
           if (spans && stretch) return [0, now - old];
-          if (middle && (spans || Math.abs(at - (old - at - size)) <= 1)) return [(now - old) / 2, 0];
+          const off = at + size / 2 - old / 2;
+          const centred = [0, 5, 10, 15].some((s) => Math.abs(off - s) <= 0.5);
+          if (middle && (spans || centred)) return [(now - old) / 2, 0];
           return [0, 0];
         };
         const across = new Set(["text", "shape", "ruling", "table", "name", "maths"]);
@@ -1618,8 +1632,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           // Only a single block that is not turned stretches.
           // A circle, a triangle and a star keep their shape.
           const single = !b.group && (b.angle ?? 0) % 180 === 0 && !(b.type === "shape" && ["circle", "triangle", "star"].includes(b.props.kind));
-          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true);
-          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false);
+          const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true, 15);
+          const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false, 0);
           const [dx, dy] = [back(all.x + mx, all.w + sw, w), back(all.y + my, all.h + sh, h)];
           if (!mx && !my && !sw && !sh && !dx && !dy) return b;
           return { ...b, x: round(b.x + mx + dx), y: round(b.y + my + dy), w: round(b.w + sw), h: round(b.h + sh) };
@@ -1631,8 +1645,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function removePage(n = page) {
     // The page in use stays, one place back when a page before it goes; a page gone itself hands it to the one in its place.
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
-    setIds([]);
+    // It stays on the desk where it was too: the zoom may change with the widest page, so its top is measured before and after.
+    const was = sheet.current!.getBoundingClientRect().top;
+    flushSync(() => {
+      update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
+      setIds([]);
+    });
+    desk.current!.scrollBy(0, sheet.current!.getBoundingClientRect().top - was);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
   function movePage(from: number, to: number) {
@@ -1737,7 +1756,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       e.stopPropagation();
       // A page being dragged stays: the drop would look for it.
       if (pages.length < 2 || tug.current) return;
-      flushSync(() => removePage(n));
+      removePage(n);
       strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
       return;
     }

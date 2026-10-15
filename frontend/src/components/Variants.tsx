@@ -9,8 +9,18 @@ import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
 
 const LETTERS = ["A", "B", "C", "D"];
-// A page is about 60 mm wide on the screen.
+// A page is about 60 mm wide on the screen, until the preview has measured its room.
 const WIDTH = 227;
+// The space between the pages in the preview (styles.css).
+const GAP = 12;
+
+// Each page is as large as fits its share of the row, and as its own shape allows: an upright page and a Quer one
+// keep their proportions and both stay whole. Never narrower than 120 px: past that the row scrolls sideways.
+function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number }) {
+  const [w, h] = sizeOf(read(doc), n);
+  if (!room.w) return WIDTH / w;
+  return Math.max(120 / w, Math.min((room.w - GAP * (pages - 1)) / pages / w, room.h / h));
+}
 
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
@@ -109,6 +119,15 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
     load().then(setGot, () => setFailed("Die Varianten konnten nicht geladen werden."));
   }, []);
 
+  // The room the preview's pages share, measured as the dialog allows it.
+  const box = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const watch = new ResizeObserver(([entry]) => setRoom({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    if (box.current) watch.observe(box.current);
+    return () => watch.disconnect();
+  }, []);
+
   // A preview of a letter the count has put away shows the last one left.
   const letter = LETTERS[Math.min(LETTERS.indexOf(shown), count - 1)];
   const variant = letter === "A" ? doc : got[letter]?.doc;
@@ -176,9 +195,9 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
           </label>
         ))}
       </fieldset>
-      <div className="preview" data-variant={letter}>
+      <div className="preview" data-variant={letter} ref={box}>
         {variant
-          ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={WIDTH / sizeOf(read(variant), n)[0]} page={n} />)
+          ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} />)
           : "Lädt …"}
       </div>
       {(blocked ? message(blocked) : failed) && (
