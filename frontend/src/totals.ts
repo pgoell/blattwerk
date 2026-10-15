@@ -1,24 +1,27 @@
-// A sheet's marked total score boxes follow its task boxes: when the tasks' points change, each total moves by the same sum.
+// A sheet's marked total score boxes show the sum of its task boxes: every unmarked points box of the sheet.
 import type { Block, Doc, PointsBlock } from "./sheet";
 
 const isPoints = (b: Block): b is PointsBlock => b.type === "points";
 const pointsOf = (doc: Doc) => doc.pages.flatMap((p) => p.blocks.filter(isPoints));
+const isTotal = (b: PointsBlock) => b.props.total === true;
 
-// The change of the task boxes moves every marked total, as long as the set of boxes stays and no total was set by hand.
-// A sheet with no marked total stays as it is.
+// The task boxes as id and max, so that an added, removed or changed task shows as a change.
+const tasksOf = (doc: Doc) => pointsOf(doc).filter((b) => !isTotal(b)).map((b) => `${b.id}:${b.props.max}`).sort();
+
+// Recomputes every marked total when the task boxes change. A sheet with no marked total stays as it is.
 export function totals(before: Doc, after: Doc): Doc {
-  const boxes = pointsOf(before);
-  const totalIds = new Set(boxes.filter((b) => b.props.total === true).map((b) => b.id));
-  if (totalIds.size === 0) return after;
-  const was = new Map(boxes.map((b) => [b.id, b.props.max]));
-  const now = pointsOf(after);
-  if (now.length !== boxes.length || now.some((b) => !was.has(b.id))) return after;
-  if (now.some((b) => totalIds.has(b.id) && b.props.max !== was.get(b.id))) return after;
-  const delta = now.reduce((sum, b) => (totalIds.has(b.id) ? sum : sum + b.props.max - (was.get(b.id) ?? 0)), 0);
-  if (delta === 0) return after;
+  const marked = [...pointsOf(before), ...pointsOf(after)].some(isTotal);
+  if (!marked) return after;
+  const old = tasksOf(before);
+  const now = tasksOf(after);
+  if (old.length === now.length && old.every((t, i) => t === now[i])) return after;
+  const tasks = pointsOf(after).filter((b) => !isTotal(b));
+  if (tasks.length === 0) return after;
+  const sum = Math.min(999, Math.max(1, tasks.reduce((n, b) => n + b.props.max, 0)));
+  if (pointsOf(after).every((b) => !isTotal(b) || b.props.max === sum)) return after;
   const pages = after.pages.map((p) =>
-    p.blocks.some((b) => isPoints(b) && totalIds.has(b.id))
-      ? { ...p, blocks: p.blocks.map((b) => (isPoints(b) && totalIds.has(b.id) ? ({ ...b, props: { ...b.props, max: Math.min(999, Math.max(1, (was.get(b.id) ?? 0) + delta)) } } as Block) : b)) }
+    p.blocks.some((b) => isPoints(b) && isTotal(b))
+      ? { ...p, blocks: p.blocks.map((b) => (isPoints(b) && isTotal(b) ? ({ ...b, props: { ...b.props, max: sum } } as Block) : b)) }
       : p,
   );
   return { ...after, pages };
