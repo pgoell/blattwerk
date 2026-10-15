@@ -326,11 +326,10 @@ def test_a_finger_inserts_a_shape_and_moves_the_slider(editor, size):
         insert(page, "Stern").tap()
     expect(page.locator(".block")).to_have_count(2)
     expect(page.locator(f".block.sel {OUTLINE}")).to_have_count(1)
-    # Low on the block: on the narrow window the star lies right above it, and the finger's area of
-    # the star's lower handle reaches to 2 px above the block's middle. WebKit gives a tap that
-    # near to the handle.
-    low = at(page, "a").bounding_box()
-    at(page, "a").tap(position={"x": low["width"] / 2, "y": low["height"] - 6})
+    # High on the block: the star lands under it (#293), and the finger's area of the star's upper
+    # handles reaches into the block's lower part. WebKit gives a tap that near to the handle.
+    high = at(page, "a").bounding_box()
+    at(page, "a").tap(position={"x": high["width"] / 2, "y": 6})
     expect_picked(page, "a")
     if upright:
         drawer(page, "right")

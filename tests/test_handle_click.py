@@ -97,6 +97,10 @@ def test_a_click_on_a_heading_under_the_handle_picks_it(editor):
     bar.get_by_label("Text", exact=True).click()
     page.keyboard.type("Hallo")
     page.keyboard.press("Escape")
+    # The text in the middle, under the heading's middle: a new block lands at the left edge (#293).
+    x = page.get_by_label("X", exact=True)
+    x.fill("65")
+    x.press("Enter")
     y = page.get_by_label("Y", exact=True)
     y.fill("35")
     y.press("Enter")

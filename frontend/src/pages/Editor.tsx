@@ -103,6 +103,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS,
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
@@ -857,7 +858,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     e.preventDefault();
     // The field does not take it too.
     e.stopPropagation();
-    upload(picture);
+    upload(picture, true);
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
@@ -1175,7 +1176,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
   // step, redo stays, and the sheet stays saved. So it is with a gesture that ends where it began.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
-    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, fn(live.current.doc), key, from, to);
+    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, totals(live.current.doc, fn(live.current.doc)), key, from, to);
     if (!next) {
       // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
       if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
@@ -1861,16 +1862,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     };
   }, []);
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
-  function add(w: number, h: number, rest: Fresh, n = page) {
+  // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
+  // margin there. Words and pictures pasted from another app keep the place at the top of the view.
+  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
-    const y = round(Math.max(0, seen(0, n))) + MARGIN;
+    // A turned block counts with the box it fills on the page, turned about its middle.
+    const outer = held.map((b) => {
+      const [c, s] = dir(b).map(Math.abs);
+      const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
+      return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+    });
+    const low = pasted || !outer.length ? undefined : outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
+    const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
+    const [x, y] =
+      low && under
+        ? [Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), round(low.y + low.h + 5)]
+        : [(size[0] - w) / 2, round(Math.max(0, seen(0, n))) + MARGIN];
     const z = Math.max(0, ...held.map((b) => b.z)) + 1;
-    const [block] = land([{ id, x: (size[0] - w) / 2, y, w, h, z, locked: false, ...rest }], held, size);
+    const [block] = land([{ id, x, y, w, h, z, locked: false, ...rest }], held, size);
     turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
     setAt(n);
     setIds([id]);
+    // A block under the view is brought into it, once it is drawn.
+    requestAnimationFrame(() => document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
     // An empty text opens for typing; a pasted one comes with its words.
     if (rest.type === "text" && !rest.props.text) setEditing(id);
   }
@@ -1891,14 +1907,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // one the server does not take, or one the browser cannot read.
   const NO_PICTURE = "Das Bild konnte nicht hochgeladen werden.";
   const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
-  async function upload(file?: File) {
+  async function upload(file?: File, pasted = false) {
     if (!file) return;
     await attempt(
       NO_PICTURE,
       async () => {
         const where = mark();
         const { w, h, ...rest } = await sent(file);
-        calm(() => add(w, h, rest, where()));
+        calm(() => add(w, h, rest, where(), pasted));
       },
       unfit,
     );
@@ -2051,7 +2067,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!words.trim() || own) return false;
     tight.current = true;
     // Word ends a whole line with a break, which would make an empty last paragraph.
-    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } });
+    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } }, page, true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
@@ -2066,7 +2082,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
-        if (type) return upload(new File([await item.getType(type)], "bild", { type }));
+        if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
         if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
       }
     } catch {
@@ -3222,6 +3238,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             title={title}
             onChange={(e) => setTitle(e.target.value)}
             onFocus={refit}
+            // A press that takes the focus from the stand-in title picks it whole, as PowerPoint does, so that typing replaces it.
+            // The press then does not place the caret, and a second press, with the focus already here, does.
+            onMouseDown={(e) => {
+              if (document.activeElement === e.currentTarget || e.currentTarget.value.trim() !== "Unbenanntes Blatt") return;
+              e.preventDefault();
+              e.currentTarget.focus();
+              e.currentTarget.select();
+            }}
             // A press that took the focus has its click still to come: the bar waits until the mouse button is up and
             // the click is through, or the button pressed would move from under the pointer. A key ends it at once.
             onBlur={() => (document.querySelector(":active") ? addEventListener("mouseup", () => setTimeout(refit), { once: true, capture: true }) : refit())}

@@ -135,6 +135,118 @@ def test_a_bar_button_pressed_while_a_long_title_is_edited_still_gets_its_click(
     page.wait_for_function(UNFOLDED, timeout=2000)
 
 
+STAND_IN = "Unbenanntes Blatt"
+# Where a click lands inside the text: a share of the way along it, by the field's own font.
+AT_SHARE = """(share) => {
+    const el = document.querySelector("header input[aria-label=Titel]");
+    const style = getComputedStyle(el);
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = style.font;
+    const width = ctx.measureText(el.value).width;
+    const left = el.getBoundingClientRect().left + parseFloat(style.paddingLeft);
+    return { x: left + share * width, y: el.getBoundingClientRect().top + el.offsetHeight / 2 };
+}"""
+SELECTED = """() => {
+    const el = document.querySelector("header input[aria-label=Titel]");
+    return [el.selectionStart, el.selectionEnd, el.value.length, el.value];
+}"""
+
+
+def with_stand_in(editor, value=STAND_IN):
+    """The editor with a sheet whose title is the stand-in, the field left with no focus."""
+    page = sized(editor, text("a"), width=1280, height=1024, touch=False)
+    field = page.get_by_label("Titel")
+    field.fill(value)
+    expect(field).to_be_focused()
+    leave(page, "click")
+    expect(field).not_to_have_value("")
+    return page, field
+
+
+def click_inside(page):
+    """A click at 40% of the field's text, the place a teacher's click lands in a title."""
+    at = page.evaluate(AT_SHARE, 0.4)
+    page.mouse.click(at["x"], at["y"])
+
+
+def test_a_click_on_the_stand_in_title_picks_it_whole_and_typing_replaces_it(editor):
+    """#364: the stand-in is picked whole, so typing replaces it and the typed title is saved."""
+    page, field = with_stand_in(editor)
+    click_inside(page)
+    expect(field).to_be_focused()
+    start, end, length, _ = page.evaluate(SELECTED)
+    assert (start, end) == (0, length) == (0, len(STAND_IN)), (start, end, length)
+    page.keyboard.type("Mein Titel")
+    page.keyboard.press("Enter")
+    expect(field).to_have_value("Mein Titel")
+    expect(page.locator("header .hint")).to_have_text("Gespeichert")
+    sheet_id = page.url.rsplit("/", 1)[1]
+    saved = page.request.get(f"{page.url.split('/blatt/')[0]}/api/sheets/{sheet_id}").json()
+    assert saved["title"] == "Mein Titel"
+
+
+def test_a_click_on_a_real_title_puts_the_caret_where_it_fell(editor):
+    """#364: any other title keeps the caret where the click fell."""
+    page = sized(editor, text("a"), width=1280, height=1024, touch=False)
+    field = page.get_by_label("Titel")
+    expect(field).to_have_value("Plus bis 20")
+    click_inside(page)
+    expect(field).to_be_focused()
+    start, end, length, _ = page.evaluate(SELECTED)
+    assert start == end and 0 < start < length, (start, end, length)
+
+
+def test_tab_into_the_stand_in_title_picks_it_whole(editor):
+    """#364, implied: keyboard focus picks the stand-in whole too."""
+    page, field = with_stand_in(editor)
+    page.get_by_label("Titel").focus()
+    page.keyboard.press("Tab")
+    page.keyboard.press("Shift+Tab")
+    expect(field).to_be_focused()
+    start, end, length, _ = page.evaluate(SELECTED)
+    assert (start, end) == (0, length) == (0, len(STAND_IN)), (start, end, length)
+
+
+def test_a_second_click_on_the_focused_stand_in_title_places_the_caret(editor):
+    """#364, implied: once the field has the focus, a click places the caret where it fell."""
+    page, field = with_stand_in(editor)
+    click_inside(page)
+    expect(field).to_be_focused()
+    click_inside(page)
+    start, end, length, _ = page.evaluate(SELECTED)
+    assert start == end and 0 < start < length, (start, end, length)
+
+
+def test_a_stand_in_with_spaces_around_it_is_picked_whole(editor):
+    """#364: the stand-in counts with spaces around it, as the field keeps them."""
+    page, field = with_stand_in(editor, value=f"  {STAND_IN} ")
+    click_inside(page)
+    expect(field).to_be_focused()
+    start, end, length, _ = page.evaluate(SELECTED)
+    assert (start, end) == (0, length), (start, end, length)
+
+
+def test_escape_after_the_pick_keeps_the_stand_in(editor):
+    """#364: a pick that is given up with Escape leaves the stand-in as it was."""
+    page, field = with_stand_in(editor)
+    click_inside(page)
+    expect(field).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(field).not_to_be_focused()
+    expect(field).to_have_value(STAND_IN)
+
+
+def test_a_double_click_on_a_real_title_selects_a_word(editor):
+    """#364: a double click on a real title still selects the word under it."""
+    page = sized(editor, text("a"), width=1280, height=1024, touch=False)
+    field = page.get_by_label("Titel")
+    at = page.evaluate(AT_SHARE, 0.6)
+    page.mouse.dblclick(at["x"], at["y"])
+    expect(field).to_be_focused()
+    start, end, _, value = page.evaluate(SELECTED)
+    assert start < end and value[start:end] in {"Plus", "bis", "20"}, (start, end, value)
+
+
 def test_a_press_that_ends_the_edit_finds_its_button_still_under_the_pointer(editor):
     """I8: Rückgängig lies right after the title and moves with its end. A press there takes the
     focus from the title when the mouse button goes down, and the bar waits until it is up."""
