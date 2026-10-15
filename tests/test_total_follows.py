@@ -105,12 +105,30 @@ def test_the_minus_button_takes_a_task_down_to_1_and_the_total_follows(editor):
     assert maxes(doc(page, client)) == [[51, 10, 1], [51, 10, 10], [51, 10, 10]]
 
 
-def test_a_saved_klassenarbeit_keeps_its_maxes_on_an_unrelated_edit(editor):
+def test_a_saved_klassenarbeit_keeps_its_maxes_on_an_unrelated_edit(editor, server):
     client = user()
     page = klassenarbeit(editor, client)
+    doc(page, client)
+    before = re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
+    assert "/60Punkte" in before
     pick(page, "b1")
     page.keyboard.press("ArrowDown")
     assert maxes(doc(page, client)) == [[60, 10, 10], [60, 10, 10], [60, 10, 10]]
+    after = re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
+    assert after == before
+    assert "/60Punkte" in after
+
+
+def test_a_task_typed_in_its_own_box_moves_every_total_to_65(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    at(page, "a1").dblclick()
+    page.keyboard.type("15")
+    page.keyboard.press("Enter")
+    expect(at(page, "t1").locator(".points")).to_have_text("/ 65 Punkte")
+    expect(at(page, "t2").locator(".points")).to_have_text("/ 65 Punkte")
+    expect(at(page, "t3").locator(".points")).to_have_text("/ 65 Punkte")
+    assert maxes(doc(page, client)) == [[65, 15, 10], [65, 10, 10], [65, 10, 10]]
 
 
 def test_the_pdf_says_65_once_a_task_is_15(editor, server):
