@@ -260,11 +260,11 @@ def test_a_held_space_with_a_picked_text_pans_and_types_nothing(editor):
     expect(at(page, "a")).to_have_text("Hallo")
 
 
-def click_at(page, name, x_share=0.02):
-    """A second click on the block at that share of its width, half way down, on whatever
+def click_at(page, name, x_share=0.02, y_share=0.5):
+    """A second click on the block at those shares of its width and height, on whatever
     lies on top there."""
     box = at(page, name).bounding_box()
-    page.mouse.click(box["x"] + box["width"] * x_share, box["y"] + box["height"] / 2)
+    page.mouse.click(box["x"] + box["width"] * x_share, box["y"] + box["height"] * y_share)
 
 
 def click_after(page, name, n, below=False):
@@ -319,7 +319,7 @@ def test_a_second_click_opens_the_cell_clicked_in_a_picked_table(editor):
     page = editor(box("t", "table", TABLE))
     pick(page, "t")
     # The cell at the bottom right, "7": the caret goes to its end.
-    click_at(page, "t", 0.9)
+    click_at(page, "t", 0.9, 0.8)
     expect(page.locator(CELL)).to_be_focused()
     page.keyboard.type("x")
     expect(page.locator(CELL)).to_have_value("7x")
