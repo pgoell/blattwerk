@@ -97,7 +97,7 @@ def test_neu_wuerfeln_on_the_linked_block_changes_the_list_to_its_new_results(ed
     assert texts(at(page, "s").locator("ul.mixed li")) == results(stored, "m")
 
 
-def test_a_new_max_on_the_linked_block_changes_the_list_too(editor):
+def test_one_task_more_on_the_linked_block_changes_the_list_too(editor):
     """One task more on the maths block: the list shows the results of the new exercises."""
     client = user()
     page = editor(
