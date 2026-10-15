@@ -170,7 +170,7 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
     return { ...b, x: round(cx - w / 2), y: round(cy - h / 2), w: round(w), h: round(h) };
   });
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
-const kept = (b: Block) => !!(b as { keep?: boolean }).keep || b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
+const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
 // to the other side, and the box stays. A picture, a symbol, a shape and a text in an outline are mirrored in
 // themselves too, as the page shows them, and their angle with them. A line's start changes corners instead. A

@@ -2,8 +2,14 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_fields import ROOM, by_id, enter, expect_fields, field
-from ui import RECT, TABLE, TEXT, at, box, pick, picture, saved, upload, user
+from test_fields import ROOM, by_id, enter, expect_fields, field, number
+from test_hunderterfeld_block import FELD
+from test_panel_undo import UHR, ZAHLENSTRAHL
+from test_rechendreieck import DREIECK
+from test_variants import SUCHSEL
+from ui import LINE, RECT, RULING, TABLE, TEXT, at, box, maths, pick, picture, saved, upload, user
+
+STAR = {"code": "2B50"}
 
 # Two blocks side by side in one group: the box around them is 75 wide, 20 high, from (15, 50).
 PAIR = [
@@ -139,6 +145,142 @@ def test_originalgrosse_gives_a_picture_its_first_size(editor):
     # The picture is 1.5 to 1 as sent: 100 wide, 66.67 high, and its place stays.
     assert (b["x"], b["y"], b["w"]) == (20, 150, 100)
     assert b["h"] == pytest.approx(66.67, abs=0.01)
+
+
+def test_a_group_of_shapes_and_a_line_turns_about_its_centre(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
+        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
+        box("l", "shape", LINE, z=3, x=60, y=80, w=30, h=0, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    enter(page, "Drehung", "90")
+    expect(field(page, "Drehung")).to_have_value("90")
+    blocks = by_id(saved(page, client))
+    # The group's centre is (52.5, 65). The shape's centre turns about it.
+    assert blocks["a"]["angle"] == blocks["b"]["angle"] == 90
+    assert centre(blocks["a"]) == pytest.approx((57.5, 42.5), abs=0.05)
+    # The line has no angle: its box goes on its side.
+    assert (blocks["l"]["w"], blocks["l"]["h"]) == pytest.approx((0, 30), abs=0.05)
+
+
+def test_a_line_alone_halves_its_width_on_a_percent(editor):
+    client = user()
+    page = editor(box("l", "shape", LINE, x=15, y=50, w=60, h=10), client=client)
+    pick(page, "l")
+    enter(page, "Breite %", "50")
+    expect(field(page, "Breite %")).to_have_value("100")
+    (line,) = saved(page, client)
+    assert (line["x"], line["w"]) == (15, 30)
+
+
+def test_the_lock_on_a_group_scales_both_sides_alike(editor):
+    client = user()
+    page = pair_group(editor, client)
+    at(page, "a").click()
+    page.get_by_label("Seitenverhältnis sperren", exact=True).click()
+    blocks = by_id(saved(page, client))
+    assert blocks["a"]["keep"] is True and blocks["b"]["keep"] is True
+    enter(page, "Breite", "150")
+    expect(field(page, "Breite")).to_have_value("150")
+    blocks = by_id(saved(page, client))
+    assert (blocks["a"]["w"], blocks["a"]["h"]) == (60, 40)
+    assert (blocks["b"]["w"], blocks["b"]["h"]) == (60, 40)
+
+
+def test_a_group_turns_by_the_difference_of_its_first_angle(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"], angle=30),
+        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    expect(field(page, "Drehung")).to_have_value("30")
+    enter(page, "Drehung", "40")
+    expect(field(page, "Drehung")).to_have_value("40")
+    blocks = by_id(saved(page, client))
+    assert (blocks["a"]["angle"], blocks["b"]["angle"]) == (40, 10)
+
+
+def school_block(client, kind):
+    """A block of each kind the rule covers, named k."""
+    if kind == "picture":
+        return {**picture(upload(client)), "id": "k", "x": 20, "y": 150, "w": 60, "h": 40}
+    if kind == "maths":
+        return box("k", "maths", maths(client))
+    if kind == "uhr":
+        return box("k", "uhr", UHR, w=180, h=58.5, y=15)
+    if kind == "suchsel":
+        return box("k", "suchsel", SUCHSEL, y=290, h=20)
+    if kind == "zahlenstrahl":
+        return box("k", "zahlenstrahl", ZAHLENSTRAHL)
+    if kind == "hunderterfeld":
+        return box("k", "hunderterfeld", FELD)
+    if kind == "rechendreieck":
+        return box("k", "rechendreieck", DREIECK)
+    props = {"text": TEXT, "shape": RECT, "table": TABLE, "ruling": RULING, "symbol": STAR}[kind]
+    return box("k", kind, props)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "text",
+        "shape",
+        "picture",
+        "table",
+        "ruling",
+        "maths",
+        "symbol",
+        "uhr",
+        "suchsel",
+        "zahlenstrahl",
+        "hunderterfeld",
+        "rechendreieck",
+    ],
+)
+def test_every_kind_halves_its_width_on_a_percent(editor, kind):
+    client = user()
+    before = by_id([{**school_block(client, kind)}])["k"]
+    page = editor(school_block(client, kind), client=client)
+    pick(page, "k")
+    enter(page, "Breite %", "50")
+    expect(field(page, "Breite %")).to_have_value("100")
+    (b,) = saved(page, client)
+    assert b["w"] == pytest.approx(before["w"] / 2, abs=0.05)
+
+
+def test_a_turned_shape_in_a_group_takes_the_factor_of_its_own_axis(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"], angle=90),
+        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    wide = number(page, "Breite")
+    enter(page, "Breite", f"{2 * wide:g}")
+    expect(field(page, "Breite")).not_to_have_value(f"{wide:g}".replace(".", ","))
+    blocks = by_id(saved(page, client))
+    # A shape on its side: its height takes the factor 2, its width stays.
+    assert (blocks["a"]["w"], blocks["a"]["h"]) == (30, 40)
+
+
+def test_a_group_of_a_ruling_and_maths_scales_by_height_percent(editor):
+    client = user()
+    page = editor(
+        box("r", "ruling", RULING, x=15, y=50, w=60, h=20, group=["g"]),
+        box("m", "maths", maths(client), z=2, x=15, y=90, group=["g"]),
+        client=client,
+    )
+    at(page, "r").click()
+    enter(page, "Höhe %", "50")
+    expect(field(page, "Höhe %")).to_have_value("100")
+    blocks = by_id(saved(page, client))
+    assert blocks["r"]["h"] == pytest.approx(10, abs=0.05)
 
 
 def test_a_percent_on_loose_blocks_scales_each_about_its_own_left_edge(editor):
