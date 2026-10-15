@@ -1,9 +1,8 @@
 """The thumbnails in Blattform: the drag, its hint, and the panel that scrolls under a drag."""
 
-import pytest
 from playwright.sync_api import expect
 from test_pages import DRAG, expect_in_use, expect_no_drag, expect_order, half, lift, pull
-from ui import BROWSER, TEXT, box, centre, doc, drawer, finger, pick, thumb, user
+from ui import TEXT, box, centre, doc, drawer, finger, pick, thumb, user
 
 NAMES = "abcdefghijklmnop"
 # The panel that holds the thumbnails. A drag at its lower or upper edge scrolls it.
@@ -164,11 +163,6 @@ def test_i1_a_drag_resting_near_the_lower_edge_scrolls_the_panel_to_the_last_thu
     expect_order(page, NAMES[1:] + "a")
 
 
-# Not strict, as the lower edge below: in CI's WebKit shard 6 of PR #596 three runs of three, here
-# 20 of 20 pass in WebKit and in Chromium, on master and on that branch (#597).
-@pytest.mark.xfail(
-    BROWSER == "webkit", strict=False, reason="#512, #597: the panel does not scroll in CI"
-)
 def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(editor):
     """I1"""
     page = blatt(editor, NAMES)
@@ -188,12 +182,50 @@ def test_i1_a_drag_resting_near_the_upper_edge_scrolls_the_panel_to_the_top(edit
     expect_order(page, "p" + NAMES[:15])
 
 
-# Not strict: in CI's WebKit the panel does not scroll within 5 s in some shards (PR #510 one run
-# of two, PR #513 three of three), and here 20 of 20 pass in WebKit and in Chromium, on master and
-# on those branches.
-@pytest.mark.xfail(
-    BROWSER == "webkit", strict=False, reason="#512: the panel does not scroll in CI, now and then"
-)
+def test_i1_the_panel_scrolls_to_the_top_in_time_when_frames_are_slow(editor):
+    """I1"""
+    page = blatt(editor, NAMES)
+    # A loaded runner in CI gave 10 frames a second (#597): the scroll keeps its pace in time.
+    page.evaluate(
+        "() => { window.requestAnimationFrame ="
+        " (cb) => setTimeout(() => cb(performance.now()), 100);"
+        " window.cancelAnimationFrame = (id) => clearTimeout(id); }"
+    )
+    thumb(page, 15).evaluate("el => el.scrollIntoView({ block: 'center' })")
+    start = page.evaluate(f"() => {PANEL}.scrollTop")
+    page.mouse.move(*centre(thumb(page, 15)))
+    page.mouse.down()
+    page.mouse.move(*top_edge(page), steps=10)
+    page.wait_for_function(f"() => {PANEL}.scrollTop < {start}", timeout=5000)
+    page.wait_for_function(
+        f"() => {FIRST}.getBoundingClientRect().top >= {PANEL}.getBoundingClientRect().top",
+        timeout=5000,
+    )
+    page.mouse.move(*half(page, 0, "left"), steps=5)
+    page.mouse.up()
+    expect_order(page, "p" + NAMES[:15])
+
+
+def test_i1_the_outer_edge_of_the_zone_scrolls_slowly_on_a_fast_screen_and_does_not_stall(editor):
+    """I1: at 120 frames a second and 2 px inside the zone a frame's step is a third of a pixel,
+    which the browser rounds away."""
+    page = blatt(editor, NAMES)
+    page.evaluate(
+        "() => { window.requestAnimationFrame ="
+        " (cb) => setTimeout(() => cb(performance.now()), 8);"
+        " window.cancelAnimationFrame = (id) => clearTimeout(id); }"
+    )
+    thumb(page, 15).evaluate("el => el.scrollIntoView({ block: 'center' })")
+    start = page.evaluate(f"() => {PANEL}.scrollTop")
+    page.mouse.move(*centre(thumb(page, 15)))
+    page.mouse.down()
+    x, y = top_edge(page)
+    # top_edge is 5 px below the panel's top; the zone ends 40 px below it.
+    page.mouse.move(x, y + 33, steps=10)
+    page.wait_for_function(f"() => {PANEL}.scrollTop <= {start} - 10", timeout=5000)
+    page.mouse.up()
+
+
 def test_i1_a_held_finger_near_the_lower_edge_scrolls_the_panel(editor):
     """I1"""
     rest = [{"blocks": [box(name, "text", TEXT)]} for name in NAMES[1:]]
