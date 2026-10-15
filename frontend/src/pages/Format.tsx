@@ -777,7 +777,8 @@ function Gaps({ sel, part, cell, look, style, gap, every }: Pick<Props, "sel" | 
       {same && <Num label="Breite der Lücken" value={worded(held[0])!.gapWidth} disabled={false} onCommit={(to) => set({ gapWidth: Math.max(5, to) }, "gapWidthTo")} />}
       {!linked && (
         <div className="seg">
-          <input type="number" aria-label="n" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
+          {/* The number stays in the panel until a button uses it: Ctrl+Z is the field's own. */}
+          <input type="number" aria-label="n" className="own" min={2} step={1} value={n} onChange={(e) => setN(e.target.value)} />
           <button onClick={() => every(Math.max(2, Math.round(+n) || 2))}>Jedes n-te Wort</button>
         </div>
       )}

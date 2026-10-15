@@ -229,3 +229,40 @@ def test_ctrl_z_from_a_checkbox_focused_without_a_click_undoes(editor):
     step(page, lambda: page.keyboard.press("Control+z"))
     expect(minutes_box(page)).to_be_checked()
     assert stored_u(page, client)["props"]["minutes"] is True
+
+
+def test_ctrl_z_from_a_number_field_with_a_refused_number_shows_the_sheets_number(editor):
+    """Review: 9 columns are refused (1 to 6). Ctrl+Z from the field undoes the untick before,
+    and the field shows the 4 the sheet holds, not the 9."""
+    client = user()
+    page = editor(uhr(), client=client)
+    pick(page, "u")
+    step(page, lambda: minutes_box(page).click())
+    cols = field(page, "Spalten")
+    cols.click()
+    page.keyboard.press("Control+a")
+    page.keyboard.type("9")
+    expect(cols).to_have_value("9")
+    step(page, lambda: page.keyboard.press("Control+z"))
+    expect(minutes_box(page)).to_be_checked()
+    expect(cols).to_have_value("4")
+    assert stored_u(page, client)["props"]["cols"] == 4
+
+
+def test_ctrl_z_in_the_n_field_is_the_fields_own(editor):
+    """Review: the n of "Jedes n-te Wort" stays in the panel. Ctrl+Z there takes the typed
+    digit back and leaves the sheet's last step (a nudge) alone."""
+    page = editor(box("a", "text", {**TEXT, "text": "eins zwei drei vier"}))
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    moved = at(page, "a").bounding_box()["x"]
+    n = page.get_by_label("n", exact=True)
+    was = n.input_value()
+    n.click()
+    page.keyboard.press("End")
+    page.keyboard.type("4")
+    expect(n).to_have_value(was + "4")
+    page.keyboard.press("Control+z")
+    expect(n).to_have_value(was)
+    page.wait_for_timeout(300)
+    assert at(page, "a").bounding_box()["x"] == moved

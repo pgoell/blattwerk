@@ -928,9 +928,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
     // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders, its checkboxes
-    // and its number fields, and on its lists only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number], select, textarea.wordlist");
+    // and its number fields, and on its lists only undo and redo are the sheet's. A number field that holds a number
+    // for the panel alone keeps them.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
+    if (ours && target.matches("input[type=number]")) {
+      target.blur();
+      target.focus();
+    }
     // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
     // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space is also

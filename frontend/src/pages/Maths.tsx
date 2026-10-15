@@ -169,6 +169,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
             setTyped(e.target.value);
             if (e.target.validity.valid && e.target.value) room(Math.floor(+e.target.value));
           }}
+          onBlur={() => setTyped(undefined)}
         />
       )}
       <h2>Nachkommastellen</h2>
