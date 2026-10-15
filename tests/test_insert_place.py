@@ -2,6 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
+from test_clipboard import no_picture
 from test_words import list_tab, rulings
 from test_zoom import wheel
 from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, user
@@ -96,6 +97,7 @@ def test_pasted_words_land_as_before(editor):
     assert (block["x"], block["y"]) == (65, 15)
 
 
+@no_picture
 def test_a_pasted_picture_lands_as_before(editor):
     """#293: a picture pasted from another app keeps the place at the top of the view too."""
     client = user()
