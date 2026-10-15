@@ -993,11 +993,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       return;
     }
     // With the focus on a button or on nothing, as after Ganze Seite, a page key scrolls the desk: the browser would
-    // scroll the window instead.
-    if (!sel.length && !target.closest(".desk, .ProseMirror, input, textarea, select, .panel, .menu, dialog, [role=menu]") && /^(PageUp|PageDown|Home|End)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) {
+    // scroll the window instead. The left strip keeps them for its own long list of pages.
+    if (!target.closest(".desk, .left, .ProseMirror, input, textarea, select, .panel, .menu, dialog, [role=menu]") && /^(PageUp|PageDown|Home|End)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) {
       e.preventDefault();
       const d = desk.current!;
-      steer();
+      if (!sel.length) steer();
       d.scrollTop = e.key === "End" ? d.scrollHeight : e.key === "Home" ? 0 : d.scrollTop + d.clientHeight * (e.key === "PageDown" ? 0.9 : -0.9);
       return;
     }
@@ -1948,23 +1948,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
-    const outer = filled(held);
-    const low = pasted || !outer.length ? undefined : outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
-    const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
-    // Under the lowest block, else the first free spot of page n and of the later pages, else a new page after the last.
+    // Under the lowest block of page p, at its left edge, when it fits above the margin there.
+    const below = (p: number) => {
+      const outer = filled(doc.pages[p].blocks);
+      if (!outer.length) return undefined;
+      const [W, H] = sizeOf(doc, p);
+      const low = outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
+      return low.y + low.h + 5 + h <= H - MARGIN ? { p, x: Math.max(0, Math.min(low.x, W - MARGIN - w)), y: round(low.y + low.h + 5) } : undefined;
+    };
+    // Under the lowest block, else the first free spot, on page n and then on each later page; else a new page after the last.
     const free = () => {
       for (let p = n; p < doc.pages.length; p++) {
-        const spot = freeSpot(doc, p, w, h);
+        const spot = below(p) ?? freeSpot(doc, p, w, h);
         if (spot) return spot;
       }
       return { p: doc.pages.length, x: MARGIN, y: MARGIN };
     };
-    const spot =
-      pasted || !outer.length
-        ? { p: n, x: (size[0] - w) / 2, y: round(Math.max(0, seen(0, n))) + MARGIN }
-        : low && under
-          ? { p: n, x: Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), y: round(low.y + low.h + 5) }
-          : free();
+    const spot = pasted || !held.length ? { p: n, x: (size[0] - w) / 2, y: round(Math.max(0, seen(0, n))) + MARGIN } : free();
     const { p } = spot;
     const onPage = p < doc.pages.length;
     const z = Math.max(0, ...(onPage ? doc.pages[p].blocks : []).map((b) => b.z)) + 1;
