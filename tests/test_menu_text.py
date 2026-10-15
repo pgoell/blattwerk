@@ -111,15 +111,16 @@ def test_text_bearbeiten_on_the_second_cell_puts_the_caret_there(editor):
 def test_text_bearbeiten_from_the_keys_puts_the_caret_in_the_first_cell(editor):
     """Shift+F10 knows no cell: the first gets the caret, also after a right click on another."""
     page = editor(box("t", "table", TABLE))
-    right(page, "t")
     page.mouse.click(*centre(at(page, "t").locator('[data-cell="1"]')), button="right")
-    expect(menu(page)).to_be_visible()
+    expect(item(page, "Text bearbeiten")).to_be_visible()
     page.keyboard.press("Escape")
     expect(menu(page)).to_have_count(0)
     page.keyboard.press("Shift+F10")
+    expect(item(page, "Text bearbeiten")).to_be_visible()
     item(page, "Text bearbeiten").focus()
     page.keyboard.press("Enter")
     expect(menu(page)).to_have_count(0)
+    expect(at(page, "t").locator("textarea")).to_be_focused()
     page.keyboard.type("x")
     page.keyboard.press("Escape")
     expect(at(page, "t").locator('[data-cell="0"]')).to_have_text("x")
