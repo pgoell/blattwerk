@@ -1003,6 +1003,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const d = desk.current!;
       if (!sel.length) steer();
       d.scrollTop = e.key === "End" ? d.scrollHeight : e.key === "Home" ? 0 : d.scrollTop + d.clientHeight * (e.key === "PageDown" ? 0.9 : -0.9);
+      // The view has moved now: the page in view is in use at once, the scroll events that follow keep it.
+      if (!sel.length) inView();
       return;
     }
     // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
