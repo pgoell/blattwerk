@@ -428,8 +428,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }, [tab]);
   // Whether several blocks line up with the page, not with each other.
   const [onPage, setOnPage] = useState(false);
-  // The panel's lock: a new width sets the height to match, in its fields and on the handles.
-  const [lock, setLock] = useState(false);
   const [pane, setPane] = useState(true);
   // Blattform lays the editor out anew on a wide window: the left panel holds what can be inserted, and Start,
   // Ansicht and Vorlagen in the bar pick what the panels show. `side` then means that Vorlagen is open. `opening`
@@ -630,6 +628,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setZoom(Math.min(4, Math.max(0.25, z)));
   };
   const sel = blocks.filter((b) => ids.includes(b.id));
+  // The panel's lock, kept by each block: on when every picked block keeps its ratio. A new width then sets the height
+  // to match, in the fields and on the handles. Switching it is one step.
+  const lock = sel.length > 0 && sel.every((b) => b.keep);
+  function setLock(on: boolean) {
+    place(sel.map((b): [string, Partial<Box>] => [b.id, { keep: on || undefined }]));
+  }
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
   // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
@@ -666,7 +670,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
-  const keep = (mod & KEEP) > 0 || shaped || lock;
+  const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
   // The selection's size in px. An edge has a handle too, as in PowerPoint, once the 14 px handles of its corners
   // leave room for a third. The edges come last, so they lie on top where the areas a finger can hit overlap.
   const [across, down] = [bounds(sel).w * k, bounds(sel).h * k];
