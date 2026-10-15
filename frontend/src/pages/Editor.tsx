@@ -528,7 +528,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
+  // The desk's height in pixels, which a fit follows too.
+  const [high, setHigh] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
+  const fitted = useRef(false);
   // A thumbnail's width in px.
   const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
@@ -615,7 +619,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
   // A zoom by hand: the buttons, the wheel, a pinch. It stays between a quarter and four times the page's width.
-  const zoomTo = (z: number) => setZoom(Math.min(4, Math.max(0.25, z)));
+  const zoomTo = (z: number) => {
+    fitted.current = false;
+    setZoom(Math.min(4, Math.max(0.25, z)));
+  };
   const sel = blocks.filter((b) => ids.includes(b.id));
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
@@ -673,10 +680,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const look = getComputedStyle(desk.current!);
     const width = desk.current!.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
     if (width > 0) setRoom(width);
-    const observer = new ResizeObserver(([entry]) => setRoom(entry.contentRect.width));
+    const observer = new ResizeObserver(([entry]) => {
+      setRoom(entry.contentRect.width);
+      setHigh(entry.target.clientHeight);
+    });
     observer.observe(desk.current!);
     return () => observer.disconnect();
   }, []);
+  // A fit lasts until a zoom by hand: a new size of the desk fits the page again, as Ganze Seite would. A passive
+  // effect, not a layout one, so that the zoom it sets may flush.
+  useEffect(() => {
+    if (fitted.current) fitPage();
+  }, [room, high]);
   // For a mouse the dock wraps to more rows in a narrow window: the styles keep as much room free as it is high.
   useLayoutEffect(() => {
     // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
@@ -3048,9 +3063,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = by > 0 ? Math.floor(n + 1e-6) + 1 : Math.ceil(n - 1e-6) - 1;
     zoomTo(1.25 ** to);
   }
-  // The whole page in use, width and height, once: it does not follow the window.
+  // The whole page in use, width and height, until a zoom by hand: it follows the desk when the window changes.
   function fitPage() {
     const el = desk.current!;
+    fitted.current = true;
     // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
     // bottom, which goes once the page fits, and the desk has no border to take off.
     flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
