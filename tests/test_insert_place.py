@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_words import list_tab, rulings
 from test_zoom import wheel
-from ui import TEXT, at, box, copy_text, doc, insert, pick, png, user
+from ui import TEXT, at, box, copy_picture, copy_text, doc, insert, pick, png, user
 
 # A name line at the top, and a heading under it: the new block goes under the heading, 5 mm lower.
 NAME = box("name", "name", {}, y=15, h=10, w=180)
@@ -94,6 +94,26 @@ def test_pasted_words_land_as_before(editor):
     blocks = doc(page, client)["pages"][0]["blocks"]
     block = next(b for b in blocks if b.get("props", {}).get("text") == "Aus einer anderen App")
     assert (block["x"], block["y"]) == (65, 15)
+
+
+def test_a_pasted_picture_lands_as_before(editor):
+    """#293: a picture pasted from another app keeps the place at the top of the view too."""
+    client = user()
+    page = editor(*TOP, client=client)
+    copy_picture(page)
+    page.keyboard.press("Control+v")
+    block = new_block(page, client, {"name", "heading"})
+    assert block["type"] == "image"
+    assert block["y"] == 15
+
+
+def test_an_insert_on_an_empty_page_lands_as_before(editor):
+    """#293: with no block to go under, the block comes centred to the top of the view."""
+    client = user()
+    page = editor(client=client)
+    add_by_button(page, "Punkte")
+    block = new_block(page, client, set())
+    assert (block["x"], block["y"]) == (85, 15)
 
 
 def test_an_insert_while_a_block_is_picked_takes_the_same_spot(editor):
