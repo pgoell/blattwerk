@@ -167,6 +167,44 @@ def test_leaving_the_editor_while_recording_stops_the_mic(editor):
     assert page.evaluate("Array.isArray(window.__tracks)")
 
 
+def test_a_double_click_on_record_leaves_no_track_on_after_escape(editor):
+    """A second click while the browser still asks for the mic starts no second microphone."""
+    page = editor(box("a", "text", TEXT))
+    open_form(page)
+    # The browser takes its time to answer, as it does while it asks the teacher.
+    page.evaluate(
+        """() => {
+        const real = navigator.mediaDevices.getUserMedia;
+        window.__asked = window.__answered = 0;
+        navigator.mediaDevices.getUserMedia = () => {
+            window.__asked++;
+            const late = new Promise((done) => setTimeout(() => done(real()), 300));
+            return late.finally(() => window.__answered++);
+        };
+    }"""
+    )
+    form(page).get_by_role("button", name="● Aufnahme starten").dblclick()
+    page.wait_for_function("window.__asked && window.__answered === window.__asked")
+    expect(form(page).get_by_role("button", name="■ Aufnahme beenden")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(form(page)).to_have_count(0)
+    mic_off(page, page.evaluate("window.__asked"))
+
+
+def test_a_clip_kept_in_the_editor_shows_in_the_form_of_the_sheets_list(editor):
+    """The list's form says the clip was kept and shows it, as the editor's would."""
+    page = editor(box("a", "text", TEXT))
+    open_form(page)
+    record(page)
+    page.evaluate("document.querySelector('a[aria-label=\"Meine Blätter\"]').click()")
+    expect(page.locator("main.editor")).to_have_count(0)
+    mic_off(page)
+    button(page).click()
+    expect(form(page)).to_be_visible()
+    expect(form(page).get_by_role("status")).to_have_text(KEPT)
+    expect(page.locator(CLIPS)).to_have_count(1)
+
+
 def test_logout_while_recording_stops_the_mic_and_drops_the_clip(browser, server):
     other = f"{uuid4().hex}@example.com"
     user(other)

@@ -1655,6 +1655,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     flushSync(() => {
       setHist(step);
       setAt(n);
+      // The step may have added or taken pages before the choice: the page of the step alone is chosen.
+      setChosen([]);
       if (n === page) return;
       setIds([]);
       setDraft(undefined);
@@ -1680,6 +1682,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     flushSync(() => {
       update((doc) => ({ ...doc, pages: [...doc.pages.slice(0, n + 1), { blocks: [] }, ...doc.pages.slice(n + 1)] }), "", n + 1);
       setAt(n + 1);
+      setChosen([n + 1]);
       setIds([]);
     });
     sheet.current!.scrollIntoView({ behavior: "smooth" });
@@ -1878,7 +1881,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     // Copy, cut and paste of pages: the block ones of the sheet must not also run.
-    if (/^[cxv]$/i.test(e.key) && !e.shiftKey) {
+    // Ctrl+V pastes pages only when they are the newest copy; else the sheet's paste takes it, as before.
+    if (/^[cxv]$/i.test(e.key) && !e.shiftKey && !(/^v$/i.test(e.key) && !clippedPages().pages.length)) {
       e.preventDefault();
       e.stopPropagation();
       const ns = choiceOf(n);
@@ -2183,6 +2187,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    // The newest copy wins: pages copied before are no longer what a paste on a thumbnail brings.
+    localStorage.removeItem("pages");
     const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;

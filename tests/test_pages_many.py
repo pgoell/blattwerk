@@ -120,6 +120,30 @@ def test_delete_key_on_the_last_pages_leaves_the_focus_on_a_thumbnail(editor):
     assert not errors
 
 
+def test_neue_seite_leaves_the_new_page_alone_chosen(editor):
+    """The new page alone is chosen: Seite löschen then takes just the blank page."""
+    page = three(editor)
+    pick_many(page, 0, 1)
+    thumb(page, 0).click(button="right")
+    menu_item(page, "Neue Seite").click()
+    expect(page.locator(".pages [data-thumb]")).to_have_count(4)
+    expect_chosen(page, 1)
+
+
+def test_redo_leaves_the_page_of_its_step_alone_chosen(editor):
+    """Redo puts a page back in front of a choice: the choice does not slide onto other pages."""
+    page = three(editor)
+    thumb(page, 0).click(button="right")
+    menu_item(page, "Neue Seite").click()
+    expect(page.locator(".pages [data-thumb]")).to_have_count(4)
+    page.keyboard.press("ControlOrMeta+z")
+    expect(page.locator(".pages [data-thumb]")).to_have_count(3)
+    pick_many(page, 1, 2)
+    page.keyboard.press("ControlOrMeta+y")
+    expect(page.locator(".pages [data-thumb]")).to_have_count(4)
+    expect_chosen(page, 1)
+
+
 def test_the_last_page_never_goes_when_every_page_is_chosen(editor):
     """With every page chosen, delete is refused: the panel button and menu item are disabled."""
     page = three(editor)

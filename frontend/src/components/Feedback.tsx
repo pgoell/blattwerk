@@ -47,7 +47,9 @@ export default function Feedback({ opener, ...props }: ButtonHTMLAttributes<HTML
       )
       .catch(() => null);
     // A clip kept from a form that shut while recording is told once; the draft empty after a logout tells nothing.
-    setStatus(lost.recording && clips.length ? KEPT : "");
+    // The draft is read anew: the other form (the editor's or the list's) may have changed it since.
+    write(draft);
+    setStatus(lost.recording && draft.clips.length ? KEPT : "");
     lost.recording = false;
     setOpen(true);
   }

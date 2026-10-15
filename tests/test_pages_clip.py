@@ -8,7 +8,7 @@ from test_clipboard_account import logout, origin, someone
 from test_pages import OWN, three
 from test_pages_many import expect_chosen, pick_many
 from test_words import LINKED, go, rulings, store_words
-from ui import BROWSER, PASSWORD, RECT, TEXT, box, doc, sheet, thumb, user
+from ui import BROWSER, PASSWORD, RECT, TEXT, box, doc, pick, sheet, thumb, user
 
 
 def lettered(editor, **more):
@@ -123,6 +123,19 @@ def test_ctrl_x_then_ctrl_v_on_the_thumbnails_moves_the_page(editor):
     page.keyboard.press("Control+v")
     expect(page.locator(".sheet[data-page]")).to_have_count(3)
     assert words(page) == ["A", "C", "B"]
+
+
+def test_blocks_copied_after_a_page_paste_as_blocks_from_a_thumbnail(editor):
+    """The newest copy wins, as in PowerPoint: blocks copied after a page land as blocks."""
+    page = lettered(editor)
+    thumb(page, 0).click()
+    page.keyboard.press("Control+c")
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    thumb(page, 2).click()
+    page.keyboard.press("Control+v")
+    expect(page.locator('.sheet[data-page="2"] .block')).to_have_count(2)
+    expect(page.locator(".sheet[data-page]")).to_have_count(3)
 
 
 def test_ctrl_v_on_a_thumbnail_adds_a_page_and_no_block_lands_on_the_page_in_use(editor):

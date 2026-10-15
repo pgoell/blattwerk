@@ -10,6 +10,7 @@ export default function VoiceNotes({ clips, onChange, stopper }: Props) {
   const recorder = useRef<MediaRecorder | null>(null);
   const mic = useRef<MediaStream | null>(null);
   const gone = useRef(false);
+  const asking = useRef(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState("");
   // The stop handler runs long after the click, so it reads the latest clips from here.
@@ -38,12 +39,17 @@ export default function VoiceNotes({ clips, onChange, stopper }: Props) {
 
   async function toggle() {
     if (recorder.current) return recorder.current.stop();
+    // A second click while the browser asks would open a second mic, which no stop reaches.
+    if (asking.current) return;
+    asking.current = true;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setError("Kein Zugriff aufs Mikrofon. Bitte in den Browser-Einstellungen erlauben.");
       return;
+    } finally {
+      asking.current = false;
     }
     // The form shut while the browser asked: no mic for a form that is gone.
     if (gone.current) return stream.getTracks().forEach((t) => t.stop());
