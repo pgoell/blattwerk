@@ -533,6 +533,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [zoom, setZoom] = useState(1);
   // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
   const fitted = useRef(false);
+  // The page in use when Ganze Seite was pressed, and a count that makes each press a change to draw.
+  const fitOn = useRef(0);
+  const [fitTick, setFitTick] = useState(0);
   // A thumbnail's width in px.
   const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
@@ -988,6 +991,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const x = rects.length ? (Math.min(...rects.map((r) => r.left)) + Math.max(...rects.map((r) => r.right))) / 2 : (paper?.left ?? 0) + 20;
       const y = rects.length ? (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2 : (paper?.top ?? 0) + 20;
       setMenu({ x: Math.max(0, Math.min(x, innerWidth)), y: Math.max(0, Math.min(y, innerHeight)) });
+      return;
+    }
+    // With the focus on a button or on nothing, as after Ganze Seite, a page key scrolls the desk: the browser would
+    // scroll the window instead.
+    if (!sel.length && !target.closest(".desk, .ProseMirror, input, textarea, select, .panel, .menu, dialog, [role=menu]") && /^(PageUp|PageDown|Home|End)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) {
+      e.preventDefault();
+      const d = desk.current!;
+      steer();
+      d.scrollTop = e.key === "End" ? d.scrollHeight : e.key === "Home" ? 0 : d.scrollTop + d.clientHeight * (e.key === "PageDown" ? 0.9 : -0.9);
       return;
     }
     // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
@@ -3141,15 +3153,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // The whole page in use, width and height, until a zoom by hand: it follows the desk when the window changes.
   function fitPage() {
-    const el = desk.current!;
     fitted.current = true;
+    fitOn.current = page;
     // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
     // bottom, which goes once the page fits, and the desk has no border to take off.
-    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
-    const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
-    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
-    el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
+    setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (desk.current!.offsetHeight - 120) / H) / fit)));
+    setFitTick((n) => n + 1);
   }
+  // The scroll follows the zoom once it is drawn: the rects read before that are the old size's. The page is the one
+  // in use when the fit was made.
+  useLayoutEffect(() => {
+    if (!fitted.current) return;
+    const el = desk.current!;
+    const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
+    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+    el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+  }, [fitTick]);
   const zoomer = (
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
