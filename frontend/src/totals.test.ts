@@ -49,12 +49,51 @@ describe("totals", () => {
     expect(totals(before, after)).toBe(after);
   });
 
-  it("does nothing when a box is added or deleted", () => {
+  it("counts a new task box in the total", () => {
     const before = klassenarbeit();
     const added = { ...before, pages: [{ blocks: [...before.pages[0].blocks, points("new", 5)] }, ...before.pages.slice(1)] };
-    expect(totals(before, added)).toBe(added);
-    const deleted = { ...before, pages: [{ blocks: before.pages[0].blocks.slice(1) }, ...before.pages.slice(1)] };
-    expect(totals(before, deleted)).toBe(deleted);
+    expect(maxes(totals(before, added))).toStrictEqual([
+      [65, 10, 10, 5],
+      [65, 10, 10],
+      [65, 10, 10],
+    ]);
+  });
+
+  it("takes a deleted task box out of the total", () => {
+    const before = klassenarbeit();
+    const deleted = { ...before, pages: [{ blocks: before.pages[0].blocks.filter((b) => b.id !== "a1") }, ...before.pages.slice(1)] };
+    expect(maxes(totals(before, deleted))).toStrictEqual([
+      [50, 10],
+      [50, 10, 10],
+      [50, 10, 10],
+    ]);
+  });
+
+  it("sums a pasted marked total with the changed task", () => {
+    const before = doc(page(["a1", 10], ["b1", 10]));
+    const after = set(before, { a1: 15 });
+    const pasted = { ...after, pages: [{ blocks: [...after.pages[0].blocks, points("tp", 5, true)] }] };
+    expect(maxes(totals(before, pasted))).toStrictEqual([[15, 10, 25]]);
+  });
+
+  it("leaves the totals as they are when no task changed", () => {
+    const before = klassenarbeit();
+    const after = set(before, { t1: 70, t2: 70 });
+    expect(totals(before, after)).toBe(after);
+  });
+
+  it("leaves a sheet with no tasks left as it is", () => {
+    const before = klassenarbeit();
+    const noTasks = { ...before, pages: before.pages.map((p) => ({ blocks: p.blocks.filter((b) => (b as Block & { props: { total?: boolean } }).props.total === true) })) };
+    expect(totals(before, noTasks)).toBe(noTasks);
+  });
+
+  it("clamps the total to 999", () => {
+    const before = klassenarbeit();
+    const big = set(before, { a1: 999 });
+    expect(maxes(totals(before, big))[0][0]).toBe(999);
+    const huge = set(before, { a1: 999, b1: 999 });
+    expect(maxes(totals(before, huge))[0][0]).toBe(999);
   });
 
   it("returns the same object when nothing changed", () => {
