@@ -576,6 +576,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const grab = useRef([0, 0]);
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
+  // The middle each thing last turned about, with the blocks as that turn left them; and the middles of the drag now.
+  const pivots = useRef(new Map<string, { blocks: string; at: [number, number] }>());
+  const dragFrom = useRef<Block[]>(undefined);
+  const dragAt = useRef(new Map<string, [number, number]>());
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { pages, guides, grid } = hist.doc;
@@ -967,7 +971,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. The browser's
     // back and forward give way while anything is picked, also where nothing can turn. A locked block, a table and a
     // line on its own do not turn, as the buttons of the panel do not.
-    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.getModifierState("AltGraph") && (e.key === "ArrowLeft" || e.key === "ArrowRight") && sel.length) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight") && sel.length) {
       e.preventDefault();
       if (free.length === sel.length && !cropping && !sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id))) spin(e.key === "ArrowRight" ? 15 : -15);
       return;
@@ -2349,6 +2353,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         "drag",
       ),
     );
+  // The middle a thing turns about is the one its last turn used, if the blocks still lie as that turn left them:
+  // so a turn and its back come to the same place. Else it is the middle of the level box around the thing.
+  const keyOf = (part: Block[]) => part.map((b) => b.id).join();
+  const pivotOf = (part: Block[]): [number, number] => {
+    const kept = pivots.current.get(keyOf(part));
+    if (kept && kept.blocks === JSON.stringify(part)) return kept.at;
+    const all = hull(part);
+    return [all.x + all.w / 2, all.y + all.h / 2];
+  };
+  const turnThing = (part: Block[], by: number) => {
+    const at = pivotOf(part);
+    const to = swung(part, by, at);
+    pivots.current.set(keyOf(part), { blocks: JSON.stringify(to), at });
+    return to;
+  };
   // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
   // block stops at every 15 degrees. A group picked whole turns as one about the middle of the box around it, in
   // steps of 15 degrees with Shift; each loose block turns about its own centre.
@@ -2356,14 +2375,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const from = start.current;
     const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
     const parts = [...new Set(from.map(thing))].map((t) => from.filter((b) => thing(b) === t));
+    // The middle of each thing is looked up once, when the drag begins, and then kept for the whole drag.
+    if (dragFrom.current !== from) {
+      dragFrom.current = from;
+      dragAt.current = new Map(parts.map((part) => [keyOf(part), pivotOf(part)]));
+    }
     const to = new Map(
       parts.flatMap((part) => {
-        if (part.length > 1) return swung(part, stop(by));
-        const first = part[0].angle ?? 0;
-        return swung(part, stop(first + by) - first);
+        const key = keyOf(part);
+        const at = dragAt.current.get(key)!;
+        const result = part.length > 1 ? swung(part, stop(by), at) : (([first]) => swung(part, stop((first.angle ?? 0) + by) - (first.angle ?? 0), at))(part);
+        pivots.current.set(key, { blocks: JSON.stringify(result), at });
+        return result;
       }).map((b) => [b.id, b]),
     );
-    flushSync(() => change((bs) => bs.map((b) => to.get(b.id) ?? b), "drag"));
+    flushSync(() =>
+      change(
+        (bs) =>
+          bs.map((b) => {
+            const t = to.get(b.id);
+            if (!t) return b;
+            return (isLine(t) ? { ...b, x: t.x, y: t.y, w: t.w, h: t.h, props: { ...b.props, from: t.props.from } } : { ...b, x: t.x, y: t.y, angle: t.angle }) as Block;
+          }),
+        "drag",
+      ),
+    );
   };
   // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
   // block may: a hand moves the mouse a pixel or two, and that turns nothing.
@@ -2383,7 +2419,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = new Map(things.flatMap(go).map((b) => [b.id, b]));
     change((bs) => bs.map((b) => to.get(b.id) ?? b));
   };
-  const spin = (by: number) => each((t) => swung(t, by));
+  const spin = (by: number) => each((t) => turnThing(t, by));
   const mirror = (axis: Axis) => each((t) => mirrored(t, axis));
   // Moveable measures a block again after each step of a resize, so a pull would throw it off: the edges settle when it ends.
   // So does a text the resize left higher than its box.

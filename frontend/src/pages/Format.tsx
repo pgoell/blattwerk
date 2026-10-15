@@ -141,27 +141,11 @@ const endsOf = (b: ShapeBlock) => [
 ];
 // The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
 // selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
-// spot. Quarters are exact, and a line goes by them only.
-export const swung = (bs: Block[], by: number): Block[] => {
-  if (by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
-  // The middle is that of the box around the blocks in the frame of the first block that is no line, so it stays
-  // put while the group turns: turned back and forth, the blocks come back to where they were.
-  const a0 = bs.find((b) => !isLine(b))?.angle ?? 0;
-  const [c0, s0] = dir({ angle: -a0 });
-  const frame = ([x, y]: number[]) => [x * c0 - y * s0, x * s0 + y * c0];
-  const boxes = bs.map((b) => {
-    if (isLine(b)) {
-      const ends = endsOf(b).map(frame);
-      const [xs, ys] = [ends.map((p) => p[0]), ends.map((p) => p[1])];
-      return { ...b, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-    }
-    const [mx, my] = frame([b.x + b.w / 2, b.y + b.h / 2]);
-    return outline({ ...b, x: mx - b.w / 2, y: my - b.h / 2, angle: (b.angle ?? 0) - a0 });
-  });
-  const mid = bounds(boxes);
-  const [c1, s1] = dir({ angle: a0 });
-  const [mx, my] = [mid.x + mid.w / 2, mid.y + mid.h / 2];
-  const [cx, cy] = [mx * c1 - my * s1, mx * s1 + my * c1];
+// spot. Quarters are exact, and a line goes by them only. `about` is the point to turn about, when the caller
+// remembers one; without it, and for quarters, the middle of the level box around the blocks.
+export const swung = (bs: Block[], by: number, about?: [number, number]): Block[] => {
+  if (!about && by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
+  const [cx, cy] = about ?? ((all) => [all.x + all.w / 2, all.y + all.h / 2])(hull(bs));
   const [c, s] = dir({ angle: by });
   const turnAbout = ([x, y]: number[]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
   return bs.map((b) => {

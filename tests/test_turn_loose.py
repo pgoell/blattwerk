@@ -5,6 +5,8 @@ import math
 import pytest
 from pixels import over, screen_and_print
 from playwright.sync_api import expect
+from test_alt_turn import turned_about
+from test_group_turn import group, hull
 from test_rotate import HANDLE, turn
 from ui import LINE, RECT, angle, arc, at, box, centre, expect_picked, pick, saved, user
 
@@ -184,6 +186,68 @@ def test_escape_puts_loose_blocks_back(editor):
     back = {b["id"]: b for b in saved(page, client)}
     for n in "ab":
         assert {k: back[n].get(k) for k in KEYS} == {k: start[n].get(k) for k in KEYS}
+
+
+def same(page, client, before, names=("l", "m")):
+    """The saved blocks are as they were: box and a line's start, within 0.02 mm."""
+    after = {b["id"]: b for b in saved(page, client)}
+    for n in names:
+        for key in ("x", "y", "w", "h"):
+            assert after[n][key] == pytest.approx(before[n][key], abs=0.02)
+        assert after[n]["props"].get("from") == before[n]["props"].get("from")
+
+
+def test_a_group_of_only_lines_turns_back_to_where_it_was(editor):
+    client = user()
+    page = editor(
+        box("l", "shape", {**LINE, "from": "nw"}, x=40, y=60, w=50, h=30, group=["g"]),
+        box("m", "shape", {**LINE, "from": "ne"}, z=2, x=100, y=60, w=40, h=20, group=["g"]),
+        client=client,
+    )
+    group(page, "l", "m")
+    before = {b["id"]: b for b in saved(page, client)}
+    page.keyboard.press("Alt+ArrowRight")
+    page.keyboard.press("Alt+ArrowLeft")
+    same(page, client, before)
+
+
+def test_alt_turns_and_buttons_share_the_centre(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=60, h=10, group=["g"]),
+        box("b", "shape", RECT, z=2, x=60, y=100, w=10, h=30, group=["g"]),
+        client=client,
+    )
+    group(page, "a", "b")
+    before = {b["id"]: b for b in saved(page, client)}
+    page.keyboard.press("Alt+ArrowRight")
+    page.get_by_label("Rechtsdrehung 90°", exact=True).click()
+    page.keyboard.press("Alt+ArrowLeft")
+    page.get_by_label("Linksdrehung 90°", exact=True).click()
+    same(page, client, before, names=("a", "b"))
+
+
+@pytest.mark.parametrize("swap", [False, True])
+def test_a_group_turns_about_the_middle_of_its_frame(editor, swap):
+    client = user()
+    blocks = [
+        box("a", "shape", RECT, x=60, y=80, w=60, h=10, angle=45, group=["g"]),
+        box("b", "shape", RECT, z=2, x=60, y=120, w=60, h=10, group=["g"]),
+    ]
+    page = editor(*(blocks[::-1] if swap else blocks), client=client)
+    group(page, "a", "b")
+    before = {b["id"]: b for b in saved(page, client)}
+    page.keyboard.press("Alt+ArrowRight")
+    after = {b["id"]: b for b in saved(page, client)}
+    left, top, right, bottom = hull(list(before.values()))
+    middle = ((left + right) / 2, (top + bottom) / 2)
+    for n in ("a", "b"):
+        b0, b1 = before[n], after[n]
+        centre0 = (b0["x"] + b0["w"] / 2, b0["y"] + b0["h"] / 2)
+        centre1 = (b1["x"] + b1["w"] / 2, b1["y"] + b1["h"] / 2)
+        expected = turned_about(centre0, middle, 15)
+        assert centre1[0] == pytest.approx(expected[0], abs=0.02)
+        assert centre1[1] == pytest.approx(expected[1], abs=0.02)
 
 
 def ends(arrow):
