@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 
 import { FileDown, FileCheck } from "lucide-react";
 import { api } from "../api";
 import { ask, flush, signed } from "../saves";
-import { Paper, read, sizeOf, type Doc, type SuchselBlock } from "../sheet";
+import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
+import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -15,7 +16,7 @@ type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
 
 function message({ letter, page, type }: Short) {
-  const kind = type === "maths" ? "Rechnen" : "Suchsel";
+  const kind = type === "maths" ? "Rechnen" : type === "selbstkontrolle" ? "Selbstkontrolle" : "Suchsel";
   return `Variante ${letter}: Der ${kind}-Block auf Seite ${page} lässt sich nicht neu füllen. Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten.`;
 }
 
@@ -50,10 +51,23 @@ function suchselShort(letter: string, variant: Doc, stored: Doc): Short[] {
   return found;
 }
 
+// The Selbstkontrollen the variant cannot fill: their word has a fault there and not on the stored sheet.
+function selbstkontrolleShort(letter: string, variant: Doc, stored: Doc): Short[] {
+  const found: Short[] = [];
+  for (const { block, page } of blocks(variant)) {
+    if (block.type !== "selbstkontrolle") continue;
+    const was = blocks(stored).find((s) => s.block.id === block.id)?.block as SelbstkontrolleBlock | undefined;
+    if (was && !checked(saneSelbst(was.props), stored).fault && checked(saneSelbst(block.props), variant).fault) found.push({ letter, page, id: block.id, type: block.type });
+  }
+  return found;
+}
+
 // What the variants of the count cannot fill, the first one named. Nothing until they have loaded.
 function shorts(count: number, doc: Doc, got: Record<string, Variant>): Short[] {
   return LETTERS.slice(1, count).flatMap((letter) =>
-    got[letter] ? [...got[letter].short.map((s) => ({ ...s, letter })), ...suchselShort(letter, got[letter].doc, doc)] : [],
+    got[letter]
+      ? [...got[letter].short.map((s) => ({ ...s, letter })), ...suchselShort(letter, got[letter].doc, doc), ...selbstkontrolleShort(letter, got[letter].doc, doc)]
+      : [],
   );
 }
 

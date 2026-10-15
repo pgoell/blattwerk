@@ -5,9 +5,10 @@
 
 pages.json holds the pages of the sheet, each a list of blocks, or a whole sheet as a corpus file
 has it, {"title": ..., "doc": {...}}, whose doc is posted as it is. `--page N` shoots page N (from
-0), `--loesungen` the answer key. Writes screen.png, pdf.png and
-diff.png, the screen in pale with the pixels that differ in red, and prints each measure of
-tests/pixels.py against its limit. BLATTWERK_BROWSER names the browser, as in the tests.
+0), `--loesungen` the answer key, `--variante B` the variant B as the server makes it. Writes
+screen.png, pdf.png and diff.png, the screen in pale with the pixels that differ in red, and
+prints each measure of tests/pixels.py against its limit. BLATTWERK_BROWSER names the browser,
+as in the tests.
 """
 
 import json
@@ -26,6 +27,7 @@ import ui  # ty: ignore[unresolved-import]
 args = sys.argv[1:]
 page = int(args[args.index("--page") + 1]) if "--page" in args else 0
 solved = "--loesungen" in args
+letter = args[args.index("--variante") + 1] if "--variante" in args else None
 pages = json.loads(Path(args[0]).read_text())
 # A corpus file holds the whole doc (#543), with what the sheet has beside its pages.
 whole = pages.get("doc") if isinstance(pages, dict) else None
@@ -46,6 +48,12 @@ with ui.serving() as base, sync_playwright() as p:
         sheet_id = made.json()["id"]
     else:
         sheet_id = ui.sheet(client, *pages, words=words)["id"]
+    if letter:
+        # The variant as the server makes it, posted as a sheet of its own.
+        varied = client.get(f"/api/sheets/{sheet_id}/variante/{letter}").json()["doc"]
+        sheet_id = client.post(
+            "/api/sheets", json={"title": f"Shot {letter}", "doc": varied}
+        ).json()["id"]
     screen, printed = pixels.screen_and_print(
         browser, base, client, sheet_id, page=page, solved=solved
     )

@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -14,6 +14,7 @@ import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
 import Uhr from "./Uhr";
+import Selbstkontrolle from "./Selbstkontrolle";
 import { filled, room, unshown } from "../words";
 import { SYMBOLS } from "../symbols";
 import { holed } from "../holes";
@@ -87,6 +88,8 @@ type Props = {
   setLock: (on: boolean) => void;
   // The width and height in mm of the page in use.
   size: number[];
+  // The whole sheet, for the maths blocks a Selbstkontrolle can check.
+  doc: Doc;
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
@@ -211,7 +214,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -268,6 +271,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
   const uhr = sel.length === 1 && sel[0].type === "uhr" ? sel[0] : undefined;
+  const skb = sel.length === 1 && sel[0].type === "selbstkontrolle" ? sel[0] : undefined;
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
@@ -625,6 +629,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
       {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key) => style("uhr", props, key)} />}
+      {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
       {points && (
         <>
           <h2>Punkte</h2>
