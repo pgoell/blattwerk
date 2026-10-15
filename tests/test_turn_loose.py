@@ -24,6 +24,19 @@ def test_the_handle_turns_loose_blocks_each_on_its_spot(editor):
         assert y == pytest.approx(before[name][1], abs=2)
 
 
+def test_shift_turns_loose_blocks_in_15_degree_steps(editor):
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=30, h=20),
+        box("b", "shape", RECT, z=2, x=100, y=80, w=30, h=20),
+    )
+    pick(page, "a", "b")
+    (ax, ay), (bx, by) = centre(at(page, "a")), centre(at(page, "b"))
+    turn(page, ((ax + bx) / 2, (ay + by) / 2), 50, keys=("Shift",))
+    for name in ("a", "b"):
+        assert angle(page, name) % 15 == 0
+        assert angle(page, name) != 0
+
+
 def ends(arrow):
     """The two ends of a line in mm, from its box and the corner it starts at."""
     f = arrow.get("props", {}).get("from", "nw")
