@@ -425,7 +425,10 @@ def test_the_arrows_walk_the_enabled_entries_and_enter_runs_one(editor):
     assert order(page) == [["b"]]
 
 
-@pytest.mark.parametrize("keys", ["Delete", "Backspace", "Control+x", "Control+d", "ArrowRight"])
+@pytest.mark.parametrize(
+    "keys",
+    ["Delete", "Backspace", "Control+x", "Control+d", "ArrowRight", "Shift+F10", "ContextMenu"],
+)
 def test_the_sheets_keys_do_not_reach_it_while_the_menu_is_open(editor, keys):
     """I3"""
     page = editor(*texts(*"ab"))

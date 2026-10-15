@@ -964,6 +964,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // Shift+F10 and the Menu key open the menu of the selection, as in PowerPoint: at the middle of the picked blocks, or
+    // with nothing picked near the corner of the page in use. A focused button keeps the key for itself.
+    if (((e.key === "F10" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === "ContextMenu") && !target.closest("button, a, summary, .panel, header, .dock")) {
+      e.preventDefault();
+      const rects = sel.map((b) => sheet.current!.querySelector(`[data-id="${b.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+      const paper = document.querySelector(".sheet.on")?.getBoundingClientRect();
+      const x = rects.length ? (Math.min(...rects.map((r) => r.left)) + Math.max(...rects.map((r) => r.right))) / 2 : (paper?.left ?? 0) + 20;
+      const y = rects.length ? (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2 : (paper?.top ?? 0) + 20;
+      setMenu({ x: Math.max(0, Math.min(x, innerWidth)), y: Math.max(0, Math.min(y, innerHeight)) });
+      return;
+    }
     // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
     if (!sel.length && /^(PageUp|PageDown|Home|End|Arrow(Up|Down|Left|Right))$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) steer();
     // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
