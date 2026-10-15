@@ -353,7 +353,8 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // Loose blocks each keep their own shape.
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
-    if (to <= 0) return;
+    // A group of flat lines has no height to scale from.
+    if (to <= 0 || (whole && box[side] <= 0)) return;
     if (whole) {
       const f = to / box[side];
       const both = lock || sel.some(kept);
@@ -371,7 +372,8 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
     const out = whole
       ? (([sx, sy]) => scaled(sel, sx, sy, [box.x, box.y]))(factors(lock || sel.some(kept)))
-      : sel.flatMap((b) => (([sx, sy]) => scaled([b], sx, sy, [b.x, b.y]))(factors(kept(b))));
+      : // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
+        sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
     place(out.map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
   };
   // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut

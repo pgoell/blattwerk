@@ -62,6 +62,34 @@ def test_a_group_with_a_line_and_a_table_scales_all_of_it(editor):
     assert blocks["t"]["props"]["cols"] == [1, 1]
 
 
+def test_a_group_of_flat_lines_keeps_its_place_on_a_height(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", LINE, x=15, y=50, w=30, h=0, group=["g"]),
+        box("b", "shape", LINE, z=2, x=60, y=50, w=30, h=0, group=["g"]),
+        client=client,
+    )
+    page.keyboard.press("Control+a")
+    expect(field(page, "Höhe")).to_have_value("0")
+    # It has no height to scale from: the field takes nothing, and the lines stay where they are.
+    enter(page, "Höhe", "10")
+    expect(field(page, "Höhe")).to_have_value("0")
+    enter(page, "X", "20")
+    blocks = by_id(saved(page, client))
+    places = [(b["x"], b["y"], b["w"], b["h"]) for b in (blocks["a"], blocks["b"])]
+    assert places == [(20, 50, 30, 0), (65, 50, 30, 0)]
+
+
+def test_a_turned_block_alone_halves_its_own_width_on_a_percent(editor):
+    client = user()
+    page = editor(box("a", "shape", RECT, x=40, y=60, w=30, h=20, angle=90), client=client)
+    pick(page, "a")
+    enter(page, "Breite %", "50")
+    expect(field(page, "Breite")).to_have_value("15")
+    (a,) = saved(page, client)
+    assert (a["x"], a["y"], a["w"], a["h"], a["angle"]) == (40, 60, 15, 20, 90)
+
+
 def test_a_group_height_scales_about_its_top_edge(editor):
     client = user()
     page = pair_group(editor, client)
