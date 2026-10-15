@@ -20,7 +20,7 @@ from fastapi import HTTPException
 from playwright.sync_api import Error, expect
 from test_loading import READY, expect_loading, expect_ready, window  # noqa: F401
 from test_stale import KEPT, STATUS, TURNS, Gate, Run, blocks, named
-from ui import PASSWORD, TEXT, at, box, reload, user
+from ui import PASSWORD, TEXT, at, box, reload, unpick, user
 
 from blattwerk import sheets
 
@@ -50,7 +50,9 @@ def start(run, name="a"):
 
 
 def nudge(run):
-    """An unsaved change, which the saver has heard of."""
+    """An unsaved change, which the saver has heard of. Unpicks first: a click on a block that is
+    already picked alone opens it for writing, and the arrow must reach the block."""
+    unpick(run.page)
     run.nudge()
     run.page.evaluate(TURNS)
 
