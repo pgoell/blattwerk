@@ -77,7 +77,9 @@ def test_without_a_zoom_by_hand_a_lower_window_shrinks_the_fit(editor):
 
 
 @pytest.mark.parametrize(
-    "by_hand", ["Größer", "Kleiner", "wheel"], ids=["bigger", "smaller", "wheel"]
+    "by_hand",
+    ["Größer", "Kleiner", "wheel", "key", "list"],
+    ids=["bigger", "smaller", "wheel", "key", "list"],
 )
 def test_a_zoom_by_hand_ends_the_fit_for_a_lower_window(editor, by_hand):
     """After Ganze Seite and a zoom by hand, a lower window leaves the page as large as it was."""
@@ -87,6 +89,11 @@ def test_a_zoom_by_hand_ends_the_fit_for_a_lower_window(editor, by_hand):
     shown = width(page)
     if by_hand == "wheel":
         wheel(page, -100)
+    elif by_hand == "key":
+        page.keyboard.press("Control+Equal")
+    elif by_hand == "list":
+        page.locator("button.zoom").first.click()
+        page.get_by_role("menuitem", name="150 %").click()
     else:
         page.get_by_label(by_hand, exact=True).first.click()
     page.wait_for_function(
