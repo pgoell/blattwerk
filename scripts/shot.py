@@ -5,7 +5,8 @@
 
 pages.json holds the pages of the sheet, each a list of blocks, or a whole sheet as a corpus file
 has it, {"title": ..., "doc": {...}}, whose doc is posted as it is. `--page N` shoots page N (from
-0), `--loesungen` the answer key, `--variante B` the variant B as the server makes it. Writes
+0), `--loesungen` the answer key, `--variante B` the variant B as the server makes it. A
+picture whose upload is "png" shows a red test picture. Writes
 screen.png, pdf.png and diff.png, the screen in pale with the pixels that differ in red, and
 prints each measure of tests/pixels.py against its limit. BLATTWERK_BROWSER names the browser,
 as in the tests.
@@ -41,6 +42,11 @@ db.DATA_DIR = Path(tempfile.mkdtemp())
 
 with ui.serving() as base, sync_playwright() as p:
     client = ui.user()
+    # A picture whose upload is "png" gets the tests' red picture, uploaded for this user.
+    for blocks in [p["blocks"] for p in whole["pages"]] if whole else pages:
+        for b in blocks:
+            if b.get("type") == "image" and b["props"].get("upload") == "png":
+                b["props"]["upload"] = ui.upload(client)
     # The browser whose limits pixels.py holds.
     browser = getattr(p, ui.BROWSER).launch()
     if whole:
