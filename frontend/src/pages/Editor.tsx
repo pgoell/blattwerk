@@ -972,9 +972,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (free.length === sel.length && !cropping && !sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id))) spin(e.key === "ArrowRight" ? 15 : -15);
       return;
     }
-    // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. The browser's
-    // back and forward give way while anything is picked, also where nothing can turn. A locked block, a table and a
-    // line on its own do not turn, as the buttons of the panel do not.
     // Shift+F10 and the Menu key open the menu of the selection, as in PowerPoint: at the middle of the picked blocks, or
     // with nothing picked near the corner of the page in use. A focused button keeps the key for itself.
     if (((e.key === "F10" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) || e.key === "ContextMenu") && !target.closest("button, a, summary, .panel, header, .dock")) {

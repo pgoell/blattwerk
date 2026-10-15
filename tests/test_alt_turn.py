@@ -189,8 +189,16 @@ def test_a_group_with_a_line_turns_the_line_too(editor):
     group(page, "l", "r")
     page.keyboard.press("Alt+ArrowRight")
     got = {b["id"]: b for b in saved(page, client)}
-    assert (got["l"]["x"], got["l"]["y"], got["l"]["w"], got["l"]["h"]) != (30, 60, 60, 40)
     assert got["r"]["angle"] == 15
+    # A line has no angle: its two ends went 15 degrees round the middle of the group's box.
+    assert "angle" not in got["l"]
+    middle = (90, 80)
+    x, y, w, h = (got["l"][side] for side in "xywh")
+    across = got["l"]["props"]["from"] in ("ne", "sw")
+    ends = [(x, y + h), (x + w, y)] if across else [(x, y), (x + w, y + h)]
+    wanted = [turned_about(p, middle, 15) for p in ((30, 60), (90, 100))]
+    for got_end, want in zip(sorted(ends), sorted(wanted), strict=True):
+        assert got_end == pytest.approx(want, abs=0.02)
 
 
 def test_a_turn_past_360_degrees_wraps_to_small_angles(editor):
