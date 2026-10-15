@@ -579,7 +579,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The middle each thing last turned about, with the blocks as that turn left them; and the middles of the drag now.
   const pivots = useRef(new Map<string, { blocks: string; at: [number, number] }>());
   const dragFrom = useRef<Block[]>(undefined);
-  const dragAt = useRef(new Map<string, [number, number]>());
+  const dragAt = useRef(new Map<string, [number, number] | undefined>());
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
 
   const { pages, guides, grid } = hist.doc;
@@ -2356,16 +2356,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The middle a thing turns about is the one its last turn used, if the blocks still lie as that turn left them:
   // so a turn and its back come to the same place. Else it is the middle of the level box around the thing.
   const keyOf = (part: Block[]) => part.map((b) => b.id).join();
-  const pivotOf = (part: Block[]): [number, number] => {
+  // Undefined where none is kept: then `swung` takes the middle, and a quarter turn stays on the hundredths.
+  const keptOf = (part: Block[]) => {
     const kept = pivots.current.get(keyOf(part));
-    if (kept && kept.blocks === JSON.stringify(part)) return kept.at;
+    return kept && kept.blocks === JSON.stringify(part) ? kept.at : undefined;
+  };
+  const middleOf = (part: Block[]): [number, number] => {
     const all = hull(part);
     return [all.x + all.w / 2, all.y + all.h / 2];
   };
-  const turnThing = (part: Block[], by: number) => {
-    const at = pivotOf(part);
+  const turnThing = (part: Block[], by: number, at = keptOf(part)) => {
     const to = swung(part, by, at);
-    pivots.current.set(keyOf(part), { blocks: JSON.stringify(to), at });
+    pivots.current.set(keyOf(part), { blocks: JSON.stringify(to), at: at ?? middleOf(part) });
     return to;
   };
   // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
@@ -2378,16 +2380,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // The middle of each thing is looked up once, when the drag begins, and then kept for the whole drag.
     if (dragFrom.current !== from) {
       dragFrom.current = from;
-      dragAt.current = new Map(parts.map((part) => [keyOf(part), pivotOf(part)]));
+      dragAt.current = new Map(parts.map((part) => [keyOf(part), keptOf(part)]));
     }
     const to = new Map(
-      parts.flatMap((part) => {
-        const key = keyOf(part);
-        const at = dragAt.current.get(key)!;
-        const result = part.length > 1 ? swung(part, stop(by), at) : (([first]) => swung(part, stop((first.angle ?? 0) + by) - (first.angle ?? 0), at))(part);
-        pivots.current.set(key, { blocks: JSON.stringify(result), at });
-        return result;
-      }).map((b) => [b.id, b]),
+      parts
+        .flatMap((part) => {
+          const first = part[0].angle ?? 0;
+          return turnThing(part, part.length > 1 ? stop(by) : stop(first + by) - first, dragAt.current.get(keyOf(part)));
+        })
+        .map((b) => [b.id, b]),
     );
     flushSync(() =>
       change(
