@@ -98,6 +98,38 @@ def test_undo_and_redo_of_a_loose_turn(editor):
 KEYS = ("x", "y", "w", "h", "angle")
 
 
+def test_a_saved_sheet_keeps_its_blocks(editor):
+    client = user()
+    seeded = {
+        "rect": box("rect", "shape", RECT, x=20, y=40, w=40, h=20, angle=30, group=["g"]),
+        "pfeil": box(
+            "pfeil",
+            "shape",
+            {**LINE, "kind": "arrow", "from": "sw"},
+            z=2,
+            x=70,
+            y=40,
+            w=30,
+            h=20,
+            angle=0,
+            group=["g"],
+        ),
+        "links": box("links", "shape", RECT, z=3, x=20, y=120, w=30, h=20, angle=20),
+        "rechts": box("rechts", "shape", RECT, z=4, x=120, y=120, w=30, h=20, angle=45),
+        "rand": box("rand", "shape", RECT, z=5, x=20, y=200, w=30, h=20),
+    }
+    page = editor(*seeded.values(), client=client)
+    page.keyboard.press("Escape")
+    pick(page, "rand")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowLeft")
+    saved_now = {b["id"]: b for b in saved(page, client)}
+    for name, want in seeded.items():
+        for key in ("x", "y", "w", "h", "angle"):
+            assert saved_now[name].get(key, 0) == pytest.approx(want.get(key, 0), abs=0.02)
+        assert saved_now[name].get("props", {}).get("from") == want.get("props", {}).get("from")
+
+
 def test_a_group_and_a_loose_block_turn_their_own_ways(editor):
     page = editor(
         box("a", "shape", RECT, x=60, y=80, w=30, h=20, group=["g"]),
