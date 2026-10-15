@@ -374,6 +374,16 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       : sel.flatMap((b) => (([sx, sy]) => scaled([b], sx, sy, [b.x, b.y]))(factors(kept(b))));
     place(out.map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
   };
+  // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut
+  // shares taken off, its place kept.
+  const [only] = sel;
+  const pic = sel.length === 1 && only.type === "image" ? only : undefined;
+  const original = () => {
+    if (!pic) return;
+    const { ratio, cut } = pic.props;
+    const w0 = Math.min(100, 100 * ratio);
+    place([[pic.id, { w: round(w0 * (1 - cut[0] - cut[2])), h: round((w0 / ratio) * (1 - cut[1] - cut[3])) }]]);
+  };
   const turned = sel.find((b) => !isLine(b));
   const angle = whole ? turned?.angle ?? 0 : shared((b) => b.angle ?? 0);
   const turn = (to: number) => norm(to) !== angle && (whole ? spin(norm(to) - (angle ?? 0)) : place(sel.map((b) => [b.id, { angle: norm(to) }])));
@@ -408,6 +418,11 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
         {/* A percent always reads 100: it scales the selection once and shows 100 again. */}
         <Num label="Breite %" value={100} disabled={fixed} onCommit={(p) => percent("w", p)} />
         <Num label="Höhe %" value={100} disabled={fixed} onCommit={(p) => percent("h", p)} />
+        {pic && (
+          <button aria-label="Originalgröße" title="Originalgröße" disabled={fixed} onClick={original}>
+            Originalgröße
+          </button>
+        )}
       </div>
       {text && (
         <>

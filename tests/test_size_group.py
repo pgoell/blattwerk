@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_fields import ROOM, by_id, enter, expect_fields, field
-from ui import RECT, TABLE, TEXT, at, box, pick, saved, user
+from ui import RECT, TABLE, TEXT, at, box, pick, picture, saved, upload, user
 
 # Two blocks side by side in one group: the box around them is 75 wide, 20 high, from (15, 50).
 PAIR = [
@@ -99,6 +99,34 @@ def test_a_percent_halves_one_shape_and_then_its_height(editor):
     expect(field(page, "Höhe %")).to_have_value("100")
     (a,) = saved(page, client)
     assert (a["x"], a["w"], a["h"]) == (40, 40, 20)
+
+
+def test_a_picture_keeps_its_ratio_when_a_shape_does_not(editor):
+    client = user()
+    bild = {**picture(upload(client)), "id": "bild", "z": 4, "x": 20, "y": 150, "w": 60, "h": 40}
+    page = editor(box("r", "shape", RECT, **ROOM), bild, client=client)
+    pick(page, "r", "bild")
+    enter(page, "Breite", "30")
+    expect(field(page, "Breite")).to_have_value("30")
+    blocks = by_id(saved(page, client))
+    # The rect takes the new width and keeps its height. The picture keeps its ratio.
+    assert (blocks["r"]["w"], blocks["r"]["h"]) == (30, 40)
+    assert (blocks["bild"]["w"], blocks["bild"]["h"]) == (30, 20)
+
+
+def test_originalgrosse_gives_a_picture_its_first_size(editor):
+    client = user()
+    bild = {**picture(upload(client)), "id": "bild", "x": 20, "y": 150, "w": 60, "h": 40}
+    page = editor(bild, client=client)
+    pick(page, "bild")
+    enter(page, "Breite", "30")
+    expect(field(page, "Breite")).to_have_value("30")
+    page.get_by_label("Originalgröße", exact=True).click()
+    expect(field(page, "Breite")).to_have_value("100")
+    (b,) = saved(page, client)
+    # The picture is 1.5 to 1 as sent: 100 wide, 66.67 high, and its place stays.
+    assert (b["x"], b["y"], b["w"]) == (20, 150, 100)
+    assert b["h"] == pytest.approx(66.67, abs=0.01)
 
 
 def test_a_percent_on_a_group_scales_about_its_left_edge(editor):
