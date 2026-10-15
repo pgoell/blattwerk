@@ -576,8 +576,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const grab = useRef([0, 0]);
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
-  // The middle each thing last turned about, with the blocks as that turn left them; and the middles of the drag now.
-  const pivots = useRef(new Map<string, { blocks: string; at: [number, number] }>());
+  // The middle a turn went about, by the blocks of the thing as each turn left them; and the middles of the drag now.
+  const pivots = useRef(new Map<string, [number, number]>());
   const dragFrom = useRef<Block[]>(undefined);
   const dragAt = useRef(new Map<string, [number, number] | undefined>());
   const pinch = useRef({ spread: 1, zoom: 1, x: 0, y: 0 });
@@ -2353,21 +2353,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         "drag",
       ),
     );
-  // The middle a thing turns about is the one its last turn used, if the blocks still lie as that turn left them:
-  // so a turn and its back come to the same place. Else it is the middle of the level box around the thing.
+  // The middle a thing turns about is the one a turn used that left its blocks as they lie now, also one undone
+  // since or called off by Escape: so a turn and its back come to the same place. Else it is the middle of the
+  // level box around the thing (undefined here), and a quarter turn of it stays on the hundredths, so none is kept.
   const keyOf = (part: Block[]) => part.map((b) => b.id).join();
-  // Undefined where none is kept: then `swung` takes the middle, and a quarter turn stays on the hundredths.
-  const keptOf = (part: Block[]) => {
-    const kept = pivots.current.get(keyOf(part));
-    return kept && kept.blocks === JSON.stringify(part) ? kept.at : undefined;
-  };
-  const middleOf = (part: Block[]): [number, number] => {
-    const all = hull(part);
-    return [all.x + all.w / 2, all.y + all.h / 2];
-  };
+  const keptOf = (part: Block[]) => pivots.current.get(JSON.stringify(part));
   const turnThing = (part: Block[], by: number, at = keptOf(part)) => {
     const to = swung(part, by, at);
-    pivots.current.set(keyOf(part), { blocks: JSON.stringify(to), at: at ?? middleOf(part) });
+    if (at || by % 90) {
+      const all = hull(part);
+      if (pivots.current.size > 1000) pivots.current.clear();
+      pivots.current.set(JSON.stringify(to), at ?? [all.x + all.w / 2, all.y + all.h / 2]);
+    }
     return to;
   };
   // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
