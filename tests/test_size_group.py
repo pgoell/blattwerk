@@ -88,6 +88,18 @@ def test_a_group_with_a_table_does_not_turn(editor):
     expect(field(page, "Breite")).to_be_enabled()
 
 
+def test_a_locked_block_in_a_group_takes_no_size_percent_or_angle(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"], locked=True),
+        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    for label in ("Breite", "Höhe", "Drehung", "Breite %", "Höhe %"):
+        expect(field(page, label)).to_be_disabled()
+
+
 def test_a_percent_halves_one_shape_and_then_its_height(editor):
     client = user()
     page = editor(box("a", "shape", RECT, **ROOM), client=client)
