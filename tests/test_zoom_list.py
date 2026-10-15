@@ -153,6 +153,17 @@ def test_escape_then_delete_at_once_deletes_the_block_with_the_close_held(editor
     expect(page.locator(LIST)).to_have_count(0)
 
 
+def test_escape_on_the_list_then_shift_f10_at_once_opens_the_menu(editor):
+    """#641: the list shuts at once, so the key at once opens the block's menu."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    open_list(page)
+    hold_close(page)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Shift+F10")
+    expect(page.locator(LIST).get_by_label("Löschen", exact=True)).to_be_visible()
+
+
 def test_undo_does_not_take_back_a_pick(editor):
     """Z9"""
     page = editor(box("a", "text", TEXT))
