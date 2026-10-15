@@ -2,7 +2,9 @@
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, box, copy_text, doc, insert, pick, png, user
+from test_words import list_tab, rulings
+from test_zoom import wheel
+from ui import TEXT, at, box, copy_text, doc, insert, pick, png, user
 
 # A name line at the top, and a heading under it: the new block goes under the heading, 5 mm lower.
 NAME = box("name", "name", {}, y=15, h=10, w=180)
@@ -57,6 +59,7 @@ INSERTS = {
     "Hunderterfeld": (add_by_menu, "Hunderterfeld"),
     "Uhr": (add_by_menu, "Uhr"),
     "Selbstkontrolle": (add_by_menu, "Selbstkontrolle"),
+    "Rechteck": (add_by_button, "Rechteck"),
     "Rechnen": (add_by_button, "Rechnen"),
     "Bild": (add_by_file, "Bild"),
 }
@@ -111,3 +114,26 @@ def test_an_insert_under_a_block_at_the_right_stays_on_the_page(editor):
     add_by_button(page, "Tabelle")
     block = new_block(page, client, {"right"})
     assert (block["x"], block["y"]) == (15, 115)
+
+
+def test_the_knickblatt_button_goes_under_the_lowest_block(editor):
+    """#293: the Knickblatt is 180 mm wide and six rows high, and lands 5 mm under the heading."""
+    client = user()
+    page = editor(*TOP, client=client, theme="", words=["Hund", "Katze", "Maus"])
+    list_tab(page)
+    page.get_by_role("button", name="Knickblatt", exact=True).click()
+    [blatt] = rulings(doc(page, client))
+    assert (blatt["x"], blatt["y"]) == (15, 51)
+
+
+def test_a_block_under_the_view_is_brought_into_it(editor):
+    """#293: a block that lands below the visible part of the desk is scrolled into view."""
+    client = user()
+    page = editor(box("low", "text", TEXT, x=15, y=200, h=14, w=180), client=client)
+    wheel(page, -300)
+    page.locator(".desk").evaluate("d => (d.scrollTop = 0)")
+    expect(at(page, "low")).not_to_be_in_viewport()
+    add_by_button(page, "Punkte")
+    block = new_block(page, client, {"low"})
+    assert (block["x"], block["y"]) == (15, 219)
+    expect(at(page, block["id"])).to_be_in_viewport()
