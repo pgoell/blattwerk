@@ -943,8 +943,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
     // Keys that are commands, and a field, a button or the panel that keep their own, stay as they are. Space is also
     // the hand's key: on a picked block it opens it at the keyup and types the space, unless the hand dragged first.
-    // A dead key, as ^ on a German keyboard, opens it too: the letter that follows makes ê there.
-    const typed = (e.key.length === 1 || e.key === "Dead") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
+    // A dead key, as ^ on a German keyboard, opens it too: the letter that follows makes ê there. An IME or an on-screen
+    // keyboard sends 229 or "Process" for a letter, and the text comes after it as input: it opens too.
+    const typed = (e.key.length === 1 || e.key === "Dead" || e.keyCode === 229 || e.key === "Process") && (e.getModifierState("AltGraph") || !(e.ctrlKey || e.metaKey || e.altKey));
     const space = e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey;
     if (typed && !editing && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]) && !target.closest("button, a, summary, .panel")) {
       const id = free[0].id;
