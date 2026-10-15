@@ -1,5 +1,7 @@
 """A new block goes under the page's lowest block, at its left edge, if there is room (#293)."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_clipboard import no_picture
@@ -213,6 +215,10 @@ def test_a_full_page_puts_the_block_on_the_next_page_not_over_the_top(editor):
     assert page_of(client, page, block["id"]) == 1
     assert (block["x"], block["y"]) == (15, 15)
     assert drawn_overlaps(page, block["id"]) == []
+    # It is picked, its page is the page in use, and it is in view.
+    expect(at(page, block["id"])).to_have_class(re.compile(r"\bsel\b"))
+    expect(page.locator('.sheet[data-page="1"]')).to_have_class(re.compile(r"\bon\b"))
+    expect(at(page, block["id"])).to_be_in_viewport()
 
 
 def test_a_quer_page_puts_a_kreis_in_its_free_third(editor):

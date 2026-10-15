@@ -1,9 +1,10 @@
 """Escape keeps what was typed, as in PowerPoint: on a name line and in a score box on the sheet
 (issue #631). The panel's score field still drops what was typed on Escape."""
 
+import pytest
 from playwright.sync_api import expect
 from test_menu import item, menu
-from ui import at, box, doc, pick, user
+from ui import RECT, RULING, TABLE, TEXT, at, box, doc, pick, user
 
 WORD = '.block.sel input[aria-label^="Feld"]'
 PANEL_SCORE = '.panel input[aria-label="Punkte"]'
@@ -95,3 +96,23 @@ def test_escape_in_the_panel_score_field_still_drops_the_typed_score(editor):
     page.locator(PANEL_SCORE).press("Escape")
     expect(at(page, "a").locator(".points")).to_have_text("/ 10 Punkte")
     expect(page.locator(PANEL_SCORE)).to_have_value("10")
+
+
+@pytest.mark.parametrize(
+    "kind,props",
+    [("text", TEXT), ("shape", RECT), ("ruling", RULING), ("table", TABLE)],
+)
+def test_escape_after_f2_keeps_the_typing_on_every_block_that_takes_text(editor, kind, props):
+    """Rule 13, issue #631: as on the name line, Escape keeps what F2 and typing put into a text, a
+    shape, a Lineatur and a table cell, and one Ctrl+Z takes it back."""
+    page = editor(box("a", kind, props))
+    pick(page, "a")
+    page.keyboard.press("F2")
+    page.keyboard.press("Control+a")
+    page.keyboard.type("Oma")
+    page.keyboard.press("Escape")
+    expect(at(page, "a")).to_contain_text("Oma")
+    open_fields = ".block.sel [contenteditable=true], .block.sel textarea:not([readonly])"
+    expect(page.locator(f"{open_fields}, .block.sel input")).to_have_count(0)
+    page.keyboard.press("Control+z")
+    expect(at(page, "a")).not_to_contain_text("Oma")
