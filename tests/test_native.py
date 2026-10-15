@@ -56,7 +56,23 @@ ORDER = {
         [*START, *FONT, *PLACE, *TURN[:-2], "Zeilennummern", *TURN[-2:], *OUTLINE, *FILL, *DASH],
     ),
     # A shape can be mirrored, and its border, which it has, can be taken away.
-    "shape": (RECT, [*START, *FONT, *PLACE, *TURN, *FLIP, *OUTLINE, *FILL, "Kein Rand", *DASH]),
+    # The border's transparency (#129) comes after its width; a text has no border, so it is off.
+    "shape": (
+        RECT,
+        [
+            *START,
+            *FONT,
+            *PLACE,
+            *TURN,
+            *FLIP,
+            *OUTLINE,
+            *FILL,
+            "Kein Rand",
+            DASH[0],
+            "Transparenz Linie",
+            *DASH[1:],
+        ],
+    ),
     # "Lernwörter übernehmen" is off in this sheet, which has no Lernwörter, so Tab skips it.
     "suchsel": (
         SUCHSEL,
