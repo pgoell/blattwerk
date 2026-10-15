@@ -28,6 +28,7 @@ from ui import (
     pick,
     saved,
     sheet,
+    unpick,
     user,
 )
 
@@ -97,6 +98,7 @@ def paste_both(page):
 def own(page, client, count):
     """Copies and pastes the shape "x" and gives the sheet as saved: a paste still on its way
     from before would show in it."""
+    unpick(page)
     pick(page, "x")
     page.keyboard.press("Control+c")
     page.keyboard.press("Control+v")

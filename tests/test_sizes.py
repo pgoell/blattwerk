@@ -7,7 +7,7 @@ A table's line at its left and top is 1 px wide (EDGE mm). It is no column or ro
 
 from playwright.sync_api import expect
 from test_cells import GRID, MERGED, cell, open_cell, print_page
-from ui import at, box, doc, drag, pick, thumb, user
+from ui import at, box, doc, drag, pick, thumb, unpick, user
 
 EDGE = 25.4 / 96
 # Block sizes that give columns of exactly 60 mm (cols 1:1:1) and rows of exactly 10 mm.
@@ -359,6 +359,7 @@ def test_rows_and_copies_keep_the_set_heights(editor):
     assert abs(rows[2] - 10) <= 0.01
 
     page.keyboard.press("Escape")
+    unpick(page)
     pick(page, "t")
     page.keyboard.press("Control+d")
     expect(page.locator(".block")).to_have_count(2)

@@ -6,7 +6,7 @@ import pytest
 from pixels import LIMITS, measures, over, screen_and_print
 from playwright.sync_api import expect
 from test_unknown_values import watch
-from ui import at, box, centre, doc, drag, pick, reload, sheet, thumb, user
+from ui import at, box, centre, doc, drag, pick, reload, sheet, thumb, unpick, user
 
 from blattwerk import pdf
 
@@ -37,7 +37,7 @@ def field(page, name):
 
 def open_cell(page, name, n):
     """Picks the table, then opens its cell n."""
-    pick(page, name)
+    unpick(page)
     cell(page, name, n).dblclick()
     expect(cell(page, name, n).locator("textarea")).to_be_focused()
 
