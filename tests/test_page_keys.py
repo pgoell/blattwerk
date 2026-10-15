@@ -2,10 +2,9 @@
 
 import re
 
-import pytest
 from playwright.sync_api import expect
 from test_pages import expect_order, three, write
-from ui import BROWSER, TEXT, at, bar, box, doc, pick, thumb, user
+from ui import TEXT, at, bar, box, doc, pick, thumb, user
 
 ON = re.compile(r"\bon\b")
 
@@ -111,7 +110,6 @@ def click_desk_beside_pages(page):
     page.mouse.click(box_["x"] + 8, box_["y"] + box_["height"] / 2)
 
 
-@pytest.mark.xfail(BROWSER == "webkit", reason="#637: fails in CI's WebKit, not locally")
 def test_page_down_makes_the_page_in_view_the_page_in_use(editor):
     page = three(editor)
     click_desk_beside_pages(page)
@@ -129,6 +127,19 @@ def test_end_and_home_make_the_page_in_view_the_page_in_use(editor):
     page.keyboard.press("Home")
     page.wait_for_timeout(800)
     expect(thumb(page, 0)).to_have_class(ON)
+
+
+def test_end_and_home_steer_without_the_scroll_event(editor):
+    """#622, #637: a slow runner may bring the scroll event late. The key alone steers."""
+    page = three(editor)
+    click_desk_beside_pages(page)
+    page.evaluate("addEventListener('scroll', (e) => e.stopPropagation(), true)")
+    page.keyboard.press("End")
+    expect(thumb(page, 2)).to_have_class(ON)
+    page.keyboard.press("Home")
+    expect(thumb(page, 0)).to_have_class(ON)
+    page.keyboard.press("PageDown")
+    expect(thumb(page, 1)).to_have_class(ON)
 
 
 def test_the_arrows_make_the_page_in_view_the_page_in_use(editor):
