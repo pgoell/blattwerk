@@ -3222,6 +3222,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             title={title}
             onChange={(e) => setTitle(e.target.value)}
             onFocus={refit}
+            // A press that takes the focus from the stand-in title picks it whole, as PowerPoint does, so that typing replaces it.
+            // The press then does not place the caret, and a second press, with the focus already here, does.
+            onMouseDown={(e) => {
+              if (document.activeElement === e.currentTarget || e.currentTarget.value.trim() !== "Unbenanntes Blatt") return;
+              e.preventDefault();
+              e.currentTarget.focus();
+              e.currentTarget.select();
+            }}
             // A press that took the focus has its click still to come: the bar waits until the mouse button is up and
             // the click is through, or the button pressed would move from under the pointer. A key ends it at once.
             onBlur={() => (document.querySelector(":active") ? addEventListener("mouseup", () => setTimeout(refit), { once: true, capture: true }) : refit())}
