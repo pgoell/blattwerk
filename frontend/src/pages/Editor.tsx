@@ -103,6 +103,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS,
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
@@ -1175,7 +1176,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A change that leaves the sheet as it is, as a second press on "Seitenbreite", is none, as in PowerPoint: no undo
   // step, redo stays, and the sheet stays saved. So it is with a gesture that ends where it began.
   function update(fn: (doc: Doc) => Doc, key = "", to = page, from = latest.current.page) {
-    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, fn(live.current.doc), key, from, to);
+    const next = changed(live.current, { key: mergeKey.current, ahead: ahead.current }, totals(live.current.doc, fn(live.current.doc)), key, from, to);
     if (!next) {
       // A gesture under way goes on, and what it has changed is measured where its end asks for that, as a resize's.
       if (key !== "" && key === mergeKey.current) return void (tight.current && setHist((h) => ({ ...h })));
