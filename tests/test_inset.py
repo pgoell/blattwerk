@@ -192,7 +192,13 @@ def test_typing_in_a_triangle_stays_in_its_inner_box(editor):
 def test_small_circle_keeps_one_word_inside_its_inscribed_square(editor):
     page = editor(
         box(
-            "a", "shape", shape("circle", rich=[{"runs": [{"text": "Ja"}]}]), x=20, y=30, w=12, h=12
+            "a",
+            "shape",
+            shape("circle", size=8, rich=[{"runs": [{"text": "Ja"}]}]),
+            x=20,
+            y=30,
+            w=12,
+            h=12,
         )
     )
     pick(page, "a")
