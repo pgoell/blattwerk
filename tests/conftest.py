@@ -92,6 +92,8 @@ SLOW = {
     # try (#447), and a runner is three times slower.
     "test_every_comparison_keeps_every_limit",
     "test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right",
+    # 22 s alone in WebKit, past 60 s at the end of a loaded shard (#608).
+    "test_a_shrunk_table_agrees_on_screen_thumb_and_pdf",
 }
 # Whether the widest page fills the desk's width, as it does at a zoom of 100 % once the editor
 # has measured the desk.
