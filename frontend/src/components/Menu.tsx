@@ -34,7 +34,8 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
   function key(e: KeyboardEvent) {
     // Escape shuts the menu at once, as a pick does. The browser's own `close` comes a task later: until then the menu
     // stayed and its button kept the focus, so a Menu key or Shift+F10 pressed at once fell on that button.
-    if (e.key === "Escape") {
+    // An Escape after the menu has shut is the sheet's.
+    if (e.key === "Escape" && ref.current!.open) {
       e.preventDefault();
       e.stopPropagation();
       ref.current!.close();
