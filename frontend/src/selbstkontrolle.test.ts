@@ -175,9 +175,39 @@ describe("links and labels", () => {
 });
 
 describe("heightFor", () => {
-  it("is 4 mm of padding and the heading alone with no link", () => {
-    // Heading 1.2 times 14 pt, plus 4 mm, with no line of content.
+  it("is the heading and the empty box, plus 2 mm, with no link", () => {
+    // Heading 1.2 em on a line of 1.3 and .3 em under it; the empty box .8 em of padding; 14 pt is 4.939 mm.
     const h = heightFor(P({ links: [] }), sheet([]), 180);
-    expect(h).toBeCloseTo(1.2 * 14 * (25.4 / 72) + 4, 6);
+    expect(h).toBeCloseTo((1.56 + 0.3 + 0.8) * 14 * (25.4 / 72) + 2, 6);
+  });
+
+  it("counts the fold line's words and two table rows for a word", () => {
+    const em = 14 * (25.4 / 72);
+    expect(heightFor(P({ form: "word", turn: "fold", title: "" }), sheet([]), 180)).toBeCloseTo((1.04 + 3.2) * em + 2, 6);
+  });
+});
+
+describe("odd props of a linked block", () => {
+  const odd = (type: string, props: unknown): Block => ({ id: "x", type, x: 0, y: 0, w: 180, h: 30, z: 0, locked: false, props }) as unknown as Block;
+
+  it("a Zahlenstrahl whose end lies before its start gives what it draws and does not throw", () => {
+    expect(() => tasksOf(odd("zahlenstrahl", { start: 50, end: 20, jumps: true, seed: 1 }))).not.toThrow();
+  });
+
+  it("a Zahlenstrahl with jumps and a major step of 0 ends", () => {
+    expect(Array.isArray(tasksOf(odd("zahlenstrahl", { start: 0, end: 20, minor: 1, major: 0, jumps: true, tasks: "random", boxes: 2, seed: 1 })))).toBe(true);
+  }, 2000);
+
+  it("an Uhr with a step of -5 ends and has as many tasks as clocks drawn", () => {
+    expect(tasksOf(odd("uhr", { task: "read", step: -5, count: 3, seed: 1 }))).toHaveLength(3);
+  }, 2000);
+
+  it("an Uhr of 20 clocks gives the 4 tasks of the 4 clocks it draws (count out of range: the default)", () => {
+    expect(tasksOf(odd("uhr", { task: "read", count: 20, seed: 1 }))).toHaveLength(4);
+  });
+
+  it("a maths block with no exercises gives no task and one with an odd entry skips it", () => {
+    expect(tasksOf(odd("maths", { ops: ["+"] }))).toEqual([]);
+    expect(tasksOf(odd("maths", { ops: ["+"], exercises: [null, 5, { op: "+", a: 1, b: 2, result: 3, rest: 0 }] }))).toEqual([[{ text: "3", value: 3 }]]);
   });
 });

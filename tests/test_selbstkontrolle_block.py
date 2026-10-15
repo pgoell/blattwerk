@@ -202,3 +202,69 @@ def test_the_drucken_choice_turns_the_block_and_the_store_keeps_it(editor):
     page.locator(".panel").get_by_label("Drucken", exact=True).select_option("upside")
     expect(at(page, "s").locator(".selbstkontrolle")).to_have_class("selbstkontrolle upside")
     assert stored(page, client)["s"]["props"]["turn"] == "upside"
+
+
+def test_seite_duplizieren_links_the_copied_selbstkontrolle_to_the_copied_block(editor):
+    """Review B: on the copied page the Selbstkontrolle links the copied Rechnen, not page 1's."""
+    from test_menu import right_thumb, run
+
+    client = user()
+    page = editor(
+        maths_block(client), sk({**SK, "form": "word", "word": "A" * 12}), client=client, theme=""
+    )
+    right_thumb(page, 0)
+    run(page, "Seite duplizieren")
+    expect(page.locator(".sheet[data-page]")).to_have_count(2)
+    second = doc(page, client)["pages"][1]["blocks"]
+    [copy] = [b for b in second if b["type"] == "selbstkontrolle"]
+    [rechnen] = [b for b in second if b["type"] == "maths"]
+    assert copy["props"]["links"] == [rechnen["id"]]
+    expect(page.locator('.sheet[data-page="1"] .maths .letter')).to_have_count(12)
+
+
+def test_copy_and_paste_of_both_links_the_pasted_block(editor):
+    """Review B: both copied and pasted: the pasted Selbstkontrolle links the pasted Rechnen."""
+    client = user()
+    page = editor(maths_block(client), sk(), client=client)
+    pick(page, "m")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block[data-id]")).to_have_count(4)
+    blocks = stored(page, client)
+    [new] = [b for b in blocks.values() if b["type"] == "selbstkontrolle" and b["id"] != "s"]
+    [pasted] = [b for b in blocks.values() if b["type"] == "maths" and b["id"] != "m"]
+    assert new["props"]["links"] == [pasted["id"]]
+    assert blocks["s"]["props"]["links"] == ["m"]
+
+
+def test_a_long_word_table_shrinks_to_the_width_and_is_not_cut(editor):
+    """Review B: 16 different results and a 16 letter word at 20 pt fit the block's width."""
+    client = user()
+    sixteen = [{"op": "+", "a": n, "b": 10, "result": n + 10, "rest": 0} for n in range(16)]
+    page = editor(
+        box("m", "maths", maths(client, exercises=sixteen, count=16), z=1, h=40),
+        sk({**SK, "form": "word", "word": "ABCDEFGHIJKLMNOP", "size": 20}, h=40, y=150),
+        client=client,
+    )
+    table = at(page, "s").locator("table.word")
+    expect(table.locator("tr.letters td")).to_have_count(16)
+    inner = at(page, "s").locator(".selbstkontrolle")
+    assert inner.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+    right = table.evaluate("t => t.getBoundingClientRect().right")
+    assert right <= inner.evaluate("e => e.getBoundingClientRect().right") + 1
+
+
+def test_a_grown_block_shows_its_type_at_its_own_size(editor):
+    """Review A: linking 12 results grows the block so far that the type needs no shrinking."""
+    client = user()
+    page = editor(maths_block(client), sk(SK | {"links": []}, h=12, y=150), client=client)
+    pick(page, "s")
+    panel_tick(page, "Rechnen").check()
+    assert stored(page, client)["s"]["h"] > 12
+    page.evaluate("document.activeElement.blur()")
+    expect(at(page, "s").locator("ul.mixed li")).to_have_count(12)
+    fit = (
+        at(page, "s").locator(".selbstkontrolle").evaluate("e => e.style.getPropertyValue('--fit')")
+    )
+    assert fit == "" or float(fit) > 0.97, fit

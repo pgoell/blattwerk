@@ -28,9 +28,10 @@
 //   `decimal(n, decimalsOf(p), money)` prints them, with " €" for Geld, the value the number.
 // - "zahlenmauer": one task per wall, its stones the child fills (not `given`), from the top row down and each row
 //   left to right; so the key result is the highest empty stone. A wall that is `wrong`, or a block with `empty`,
-//   gives no task (the key prints no answers there either).
-// - "rechendreieck": one task per triangle, its fields the child fills in index order (0 to 5). A `wrong` triangle
-//   or `empty` gives none.
+//   gives no task (the key prints no answers there either), nor does a wall with no empty stone.
+// - "rechendreieck": one task per triangle, its fields the child fills in index order (0 to 5). A `wrong` triangle,
+//   `empty` or a triangle with no empty field gives none.
+// Each block's props pass its own `sane` first, as its drawing does, so odd stored props give what the block draws.
 // - "zahlenstrahl": one task per box (in `Made.ticks` order), the tick's number. An arrow is drawn, not written: no
 //   result.
 // - "hunderterfeld": one task per cell the child fills (Tafel: hidden cells; Ausschnitt: the cells of the shape but
@@ -70,13 +71,14 @@
 //   letter; in the answer key a `p.answer` with the word in #c0392b under it.
 // - "sum": `ul.sums` with one `li` per line, "<label>: <text>".
 // - A fault, `lost` or `empty`: `p.hint` with its line in the editor only (print and the answer key leave it out).
-// Text in Andika, at `size` pt; a content taller than the block shrinks its type to fit, as Rechnen does (`--fit`).
+// Text in Andika, at `size` pt; a content taller or wider than the block shrinks its type to fit, as Rechnen does
+// (`--fit`).
 //
 // Letter boxes: with "word", each task of a worded source gets an empty square for its letter, drawn by the source
 // itself; in the answer key the letter stands in it
 // in #c0392b. Each box has class `letter` and `data-task` i (from 0 within the source). Maths: a `span.letter` of
-// 1.4 em after each exercise's text. Zahlenmauer: a square of one stone's height at the right end of the wall's top
-// row. Rechendreieck: a square of the outer field's height at the top left of the triangle's cell. Uhr: a square
+// 1.4 em after each exercise's text. Zahlenmauer: a square of 0.8 of a stone's height, 0.2 stones right of the top
+// stone and level with its top, clear of every stone. Rechendreieck: a square of the outer field's height at the top left of the triangle's cell. Uhr: a square
 // of 14 units at (84, 2) of the clock's cell. None of them moves or covers what the block drew before, and a block
 // that no "word" Selbstkontrolle links draws as before.
 // The whole sheet reaches the drawing through `Whole`, a `createContext<Doc>` in sheet.tsx beside `Words`, provided
@@ -89,8 +91,11 @@
 // Variants dialog names that block as a block the variant cannot fill (as for a Suchsel), and the variant prints the
 // letter boxes empty and no table.
 //
-// The dock adds a block of 180 by 30 mm under "Mathe-Blöcke". The block grows downward when `form`, `links` or
-// `word` change and its content needs more room (`heightFor`, a special case in the Editor's `grown` as the
+// A Selbstkontrolle copied (paste, Ctrl+D, Seite duplizieren, Ctrl+drag) together with a block it links links that
+// block's copy; copied alone it keeps its links.
+//
+// The dock adds a block of 180 by 30 mm under "Mathe-Blöcke". The block grows downward when `form`, `links`,
+// `word`, `size`, `title` or `turn` change and its content needs more room (`heightFor`, a special case in the Editor's `grown` as the
 // Zahlenstrahl's is, since it needs the doc), to the page's foot at most; it never shrinks by
 // itself, and the teacher resizes it as a text block.
 //
@@ -107,11 +112,11 @@
 
 import type { Block, Doc } from "./sheet";
 import { decimal, decimalsOf } from "./decimal";
-import { at, rng, made as wallsOf } from "./zahlenmauer";
-import { made as trianglesOf } from "./rechendreieck";
-import { made as strahlOf } from "./zahlenstrahl";
-import { made as feldOf } from "./hunderterfeld";
-import { timesOf, written } from "./uhr";
+import { at, rng, made as wallsOf, sane as saneWall } from "./zahlenmauer";
+import { made as trianglesOf, sane as saneDreieck } from "./rechendreieck";
+import { made as strahlOf, sane as saneStrahl } from "./zahlenstrahl";
+import { made as feldOf, sane as saneFeld } from "./hunderterfeld";
+import { sane as saneUhr, timesOf, written } from "./uhr";
 
 const PT = 25.4 / 72; // mm per point
 
@@ -155,15 +160,18 @@ export function tasksOf(b: Block): Result[][] | undefined {
       const d = decimalsOf(p);
       const money = d > 0 && !!p.money;
       const euro = money ? " €" : "";
-      return p.exercises.map((e): Result[] => {
-        if ("sign" in e) return [{ text: e.sign }];
+      // A client wrote the exercises: what is not a task of numbers gives no result, as it draws none.
+      const tasks = (Array.isArray(p.exercises) ? p.exercises : []).filter((e) => !!e && typeof e === "object");
+      return tasks.map((e): Result[] => {
+        if ("sign" in e) return [{ text: String(e.sign) }];
+        if (typeof e[e.hide ?? "result"] !== "number") return [{ text: "" }];
         if (e.rest > 0) return [{ text: `${decimal(e.result, d, money)}${euro} R ${decimal(e.rest, 0)}`, value: e.result }];
         const v = e[e.hide ?? "result"] as number;
         return [{ text: decimal(v, d, money) + euro, value: v }];
       });
     }
     case "zahlenmauer": {
-      const p = b.props;
+      const p = saneWall(b.props);
       if (p.empty) return [];
       const out: Result[][] = [];
       for (const w of wallsOf(p).walls) {
@@ -180,7 +188,7 @@ export function tasksOf(b: Block): Result[][] | undefined {
       return out;
     }
     case "rechendreieck": {
-      const p = b.props;
+      const p = saneDreieck(b.props);
       if (p.empty) return [];
       const out: Result[][] = [];
       for (const t of trianglesOf(p).triangles) {
@@ -194,13 +202,17 @@ export function tasksOf(b: Block): Result[][] | undefined {
       return out;
     }
     case "zahlenstrahl":
-      return strahlOf(b.props, b.w).ticks.filter((t) => t.task === "box").map((t) => [{ text: String(t.value), value: t.value }]);
-    case "hunderterfeld":
-      if (b.props.look === "punkte") return [];
-      return feldOf(b.props).cells.filter((c) => c.drawn && !c.shown).map((c) => [{ text: String(c.value), value: c.value }]);
-    case "uhr":
-      if (b.props.task !== "read") return [];
-      return timesOf(b.props).map((t) => [{ text: written(t, b.props) }]);
+      return strahlOf(saneStrahl(b.props), b.w).ticks.filter((t) => t.task === "box").map((t) => [{ text: String(t.value), value: t.value }]);
+    case "hunderterfeld": {
+      const p = saneFeld(b.props);
+      if (p.look === "punkte") return [];
+      return feldOf(p).cells.filter((c) => c.drawn && !c.shown).map((c) => [{ text: String(c.value), value: c.value }]);
+    }
+    case "uhr": {
+      const p = saneUhr(b.props);
+      if (p.task !== "read") return [];
+      return timesOf(p).map((t) => [{ text: written(t, p) }]);
+    }
     default:
       return undefined;
   }
@@ -323,23 +335,26 @@ export function lettersOf(doc: Doc): Map<string, string[]> {
 export function heightFor(p: SelbstkontrolleProps, doc: Doc, w: number): number {
   const q = sane(p);
   const c = checked(q, doc);
-  const line = 1.2 * q.size * PT;
-  let h = q.title ? line : 0;
-  if (q.form === "sum") h += c.sums.length * line;
-  else if (q.form === "word") h += 2 * line;
+  // In em of the size, as styles.css lays it: lines of 1.3, a heading of 1.2 em with .3 em under it, the fold line's
+  // words at .8 em, a table cell of a line with .3 em padding, the box of the mixed list .4 em inside and .3 em between
+  // its rows.
+  const em = q.size * PT;
+  let h = (q.title ? 1.2 * 1.3 + 0.3 : 0) + (q.turn === "fold" ? 0.8 * 1.3 : 0);
+  if (q.form === "sum") h += c.sums.length * 1.3;
+  else if (q.form === "word") h += 2 * 1.6;
   else {
-    // Items in rows: each as wide as its text and its tick box, a row filled left to right.
+    // Items in rows: each as wide as its tick box, its text and the gap to the next, a row filled left to right.
     let rows = 0;
     let cur = 0;
     for (const t of c.mixed) {
-      const iw = (t.length + 3) * 0.6 * q.size * PT;
-      if (rows === 0 || cur + iw > w) {
+      const iw = (0.9 + 0.4 + 0.6 * t.length + 1.2) * em;
+      if (rows === 0 || cur + iw > w - 1.2 * em) {
         rows++;
         cur = 0;
       }
       cur += iw;
     }
-    h += rows * line;
+    h += rows * 1.3 + Math.max(0, rows - 1) * 0.3 + 0.8;
   }
-  return h + 4;
+  return h * em + 2;
 }

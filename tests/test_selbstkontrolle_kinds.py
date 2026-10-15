@@ -134,6 +134,43 @@ def test_rechnen_in_each_format_feeds_the_list(browser, server, limits):
     paper.context.close()
 
 
+def test_a_zahlenmauer_gets_a_letter_box_per_wall_clear_of_its_stones(browser, server):
+    """Lösungswort: one box per wall beside its top stone, touching no stone; the key writes the
+    letter of its wall in it."""
+    client = user()
+    mine = sheet(
+        client,
+        [
+            box("m", "zahlenmauer", WALL, z=1, w=180, h=40, y=15),
+            box(
+                "s",
+                "selbstkontrolle",
+                {**SK, "form": "word", "word": "ABCD", "links": ["m"]},
+                z=2,
+                w=180,
+                h=60,
+                y=200,
+            ),
+        ],
+    )["id"]
+    paper = key_print(browser, server, mine)
+    letters = paper.locator(".zahlenmauer .letter")
+    expect(letters).to_have_count(4)
+    stones = [s.bounding_box() for s in paper.locator(".zahlenmauer .stone rect").all()]
+    for one in letters.all():
+        r = one.locator("rect").bounding_box()
+        for s in stones:
+            apart = (
+                r["x"] >= s["x"] + s["width"]
+                or s["x"] >= r["x"] + r["width"]
+                or r["y"] >= s["y"] + s["height"]
+                or s["y"] >= r["y"] + r["height"]
+            )
+            assert apart, (r, s)
+    assert [t.strip() for t in letters.all_text_contents()] == ["A", "B", "C", "D"]
+    paper.context.close()
+
+
 def test_an_uhr_that_asks_to_draw_gives_no_result(browser, server):
     """An Uhr with task "draw" has nothing to write in: the list is empty."""
     client = user()

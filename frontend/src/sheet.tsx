@@ -1890,7 +1890,7 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   const letters = useLetters(block.id);
   // A wrong wall gives no task, and a block with `empty` none: the letter boxes number the walls that have one.
   let next = 0;
-  const task = walls.map((w) => (w.wrong || p.empty ? -1 : next++));
+  const task = walls.map((w) => (w.wrong || p.empty || w.given.every(Boolean) ? -1 : next++));
   return (
     <div className={`zahlenmauer${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the walls, so the lines at the edge show whole. */}
@@ -1916,7 +1916,7 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
           return (
             <g key={i} className={`wall${w.wrong ? " wrong" : ""}`} data-wall={i}>
               {stones.flat()}
-              {letters && t >= 0 && <LetterBox x={x0 + (p.base + 1) * S} y={y0} side={S} task={t} letter={letters[t] ?? ""} solved={solved} />}
+              {letters && t >= 0 && <LetterBox x={x0 + (p.base + 1.2) * S} y={y0} side={0.8 * S} task={t} letter={letters[t] ?? ""} solved={solved} />}
             </g>
           );
         })}
@@ -1935,7 +1935,7 @@ function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number
   const letters = useLetters(block.id);
   // A wrong triangle gives no task, and a block with `empty` none: the letter boxes number the triangles that have one.
   let next = 0;
-  const task = triangles.map((tri) => (tri.wrong || p.empty ? -1 : next++));
+  const task = triangles.map((tri) => (tri.wrong || p.empty || tri.given.every(Boolean) ? -1 : next++));
   return (
     <div className={`rechendreieck${solved ? " solved" : ""}`}>
       {/* Half a unit of room around the triangles, so the lines at the edge show whole. */}
@@ -2168,8 +2168,16 @@ function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k:
     if (!el) return;
     el.style.removeProperty("--fit");
     // A block with no height to speak of has no scale: it would come out below nothing.
-    const over = el.clientHeight > 2 && el.scrollHeight > el.clientHeight + 1;
-    if (over) el.style.setProperty("--fit", String((el.clientHeight - 2) / el.scrollHeight));
+    // Too tall or too wide (a long table): it takes the smaller of the two scales. Lines of a pixel do not shrink
+    // with the type, so it measures again, up to three times.
+    let fit = 1;
+    for (let round = 0; round < 3; round++) {
+      const tall = el.clientHeight > 2 && el.scrollHeight > el.clientHeight + 1 ? (el.clientHeight - 2) / el.scrollHeight : 1;
+      const wide = el.clientWidth > 2 && el.scrollWidth > el.clientWidth + 1 ? (el.clientWidth - 2) / el.scrollWidth : 1;
+      if (Math.min(tall, wide) >= 1) break;
+      fit *= Math.min(tall, wide);
+      el.style.setProperty("--fit", String(fit));
+    }
   }
   useLayoutEffect(() => {
     fit();

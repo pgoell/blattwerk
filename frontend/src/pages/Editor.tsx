@@ -218,12 +218,16 @@ const grouped = (ids: string[], bs: Block[]) => {
   return bs.filter((b) => ids.includes(b.id) || (b.group && tops.has(b.group[0]))).map((b) => b.id);
 };
 // Copies with ids of their own. A group copied whole stays one, as a group of its own; part of a group leaves it.
+// A Selbstkontrolle copied with a block it links links the copy; alone it keeps its links.
 const cloned = (from: Block[], all: Block[]) => {
   const fresh = new Map<string, string>();
+  const ids = new Map(from.map((b) => [b.id, crypto.randomUUID()]));
   const whole = (g: string) => all.every((b) => !b.group?.includes(g) || from.some((f) => f.id === b.id));
   return from.map((b) => {
     const group = b.group?.filter(whole).map((g) => fresh.get(g) ?? fresh.set(g, crypto.randomUUID()).get(g)!);
-    return { ...b, id: crypto.randomUUID(), group: group?.length ? group : undefined };
+    const copy = { ...b, id: ids.get(b.id)!, group: group?.length ? group : undefined } as Block;
+    if (copy.type === "selbstkontrolle" && Array.isArray(copy.props.links)) copy.props = { ...copy.props, links: copy.props.links.map((id) => ids.get(id) ?? id) };
+    return copy;
   });
 };
 const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -1342,7 +1346,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
     }
     // A Selbstkontrolle grows with its form, its links or its word, as its content needs, and needs the sheet to count its tasks.
-    if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (next.props.form !== b.props.form || next.props.links !== b.props.links || next.props.word !== b.props.word)) {
+    if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (["form", "links", "word", "size", "title", "turn"] as const).some((key) => next.props[key] !== b.props[key])) {
       const need = round(Math.min(heightForSelbst(saneSelbst(next.props), hist.doc, b.w), foot));
       if (need > b.h) return tall(b, need);
     }
