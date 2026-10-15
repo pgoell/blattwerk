@@ -67,3 +67,28 @@ def test_one_quer_page_alone_shows_whole(editor):
     assert frame["x"] - 0.5 <= paper["x"]
     assert paper["x"] + paper["width"] <= frame["x"] + frame["width"] + 0.5
     assert abs(paper["width"] / paper["height"] / QUER - 1) < 0.02
+
+
+def test_eight_upright_pages_stay_readable_and_scroll_sideways(editor):
+    """Asked #616 review: a page is at least 120 px wide on screen; the row scrolls for the rest."""
+    pages = [{"blocks": [wide(f"p{n}")]} for n in range(2, 9)]
+    page = editor(wide("p1"), client=user(), pages=pages)
+    open_preview(page)
+    preview = page.get_by_role("dialog").locator(".preview")
+    papers = preview.locator(".paper")
+    expect(papers).to_have_count(8)
+    for n in range(8):
+        paper = papers.nth(n).bounding_box()
+        assert paper["width"] >= 119, n
+        assert abs(paper["width"] / paper["height"] / UPRIGHT - 1) < 0.02, n
+    assert preview.evaluate("e => e.scrollWidth > e.clientWidth")
+
+
+def test_forty_pages_each_keep_a_width(editor):
+    """Asked #616 review: with many pages no page is drawn with a negative width."""
+    page = editor(wide("p1"), client=user(), pages=[{"blocks": []} for _ in range(39)])
+    open_preview(page)
+    papers = page.get_by_role("dialog").locator(".preview .paper")
+    expect(papers).to_have_count(40)
+    for n in range(40):
+        assert papers.nth(n).bounding_box()["width"] >= 119, n

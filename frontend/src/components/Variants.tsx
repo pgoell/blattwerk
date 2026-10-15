@@ -15,11 +15,11 @@ const WIDTH = 227;
 const GAP = 12;
 
 // Each page is as large as fits its share of the row, and as its own shape allows: an upright page and a Quer one
-// keep their proportions and both stay whole.
+// keep their proportions and both stay whole. Never narrower than 120 px: past that the row scrolls sideways.
 function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number }) {
   const [w, h] = sizeOf(read(doc), n);
   if (!room.w) return WIDTH / w;
-  return Math.min((room.w - GAP * (pages - 1)) / pages / w, room.h / h);
+  return Math.max(120 / w, Math.min((room.w - GAP * (pages - 1)) / pages / w, room.h / h));
 }
 
 type Short = { letter: string; page: number; id: string; type: string };

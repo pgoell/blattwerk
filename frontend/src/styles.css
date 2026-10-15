@@ -733,7 +733,7 @@ body:has(.print) { background: #fff; }
 .moveable-e::after { inset-inline: -8px -26px; }
 
 /* The right panel: what is selected under Format, the grid and the guide lines under Ansicht. */
-.panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); overflow-x: clip; }
+.panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); }
 .tabs { position: sticky; top: 0; z-index: 1; display: flex; gap: 14px; height: 38px; margin: 0 -14px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .tabs button { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
 .tabs [aria-selected=true] { color: var(--ink); box-shadow: inset 0 -2px var(--accent); }
