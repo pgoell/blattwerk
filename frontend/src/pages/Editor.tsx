@@ -1012,10 +1012,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Ctrl+] and Ctrl+[ step the picked blocks in the stack, with Shift to the front or the back, as in PowerPoint.
     // With Alt or AltGr the key types a character, so it is no order key.
     const order = (front: boolean) => sel.length > 0 && !e.altKey && !e.getModifierState("AltGraph") && (() => raise(front, !e.shiftKey));
+    // Ctrl and + or - zoom the sheet a step, as the buttons do, and Ctrl+Alt+O fits the page, not the browser's zoom.
+    // With AltGr the keys type characters, so they are no zoom keys.
+    const zoomStep = (by: number) => !e.getModifierState("AltGraph") && (() => zoomBy(by));
+    const fitKey = e.altKey && !e.getModifierState("AltGraph") && (() => fitPage());
     // Ctrl+V alone is not here: a key stopped on its way down brings no paste.
     const keys: Record<string, (() => void) | false | undefined> =
       e.ctrlKey || e.metaKey
-        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false) }
+        ? { z: e.shiftKey ? redo : undo, y: redo, x: cut, c: e.shiftKey ? () => dip() : copy, v: e.shiftKey && (() => daub(ids)), d: () => put(sel), a: all, g: e.shiftKey ? split : join, b: flip("bold"), i: flip("italic"), u: flip("underline"), "]": order(true), "}": order(true), "[": order(false), "{": order(false), "+": zoomStep(1), "=": zoomStep(1), "-": zoomStep(-1), o: fitKey }
         : {
             delete: remove,
             backspace: remove,
@@ -1036,7 +1040,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             f2: write,
             tab: plain && blocks.length > 0 && next,
           };
-    const run = keys[e.key.toLowerCase()];
+    // A Mac's Option+O types ø, so the key is read by its place on the keyboard.
+    const run = keys[e.code === "KeyO" && e.altKey ? "o" : e.key.toLowerCase()];
     // With nothing to move the arrows scroll the desk, and Alt with an arrow stays the browser's way back.
     if (!run || (e.key.startsWith("Arrow") && (!free.length || cropping || e.altKey))) return;
     e.preventDefault();
