@@ -221,6 +221,21 @@ def test_a_full_page_puts_the_block_on_the_next_page_not_over_the_top(editor):
     expect(at(page, block["id"])).to_be_in_viewport()
 
 
+def test_on_a_later_page_the_block_goes_under_its_lowest_block_first(editor):
+    """Review of #638: page 1 full, page 2 holds one block at the top left: the Punkte box goes
+    under that block, as on page 1, not beside it."""
+    client = user()
+    top = box("top", "text", TEXT, x=15, y=15, w=100, h=30)
+    # Down to 275 mm: no room for a Punkte box under it, nor anywhere else on page 1.
+    fuller = box("full", "text", TEXT, x=15, y=50, h=225, w=180)
+    page = editor(*TOP, fuller, pages=[{"blocks": [top]}], client=client)
+    add_by_button(page, "Punkte")
+    block = new_block(page, client, {"name", "heading", "full", "top"})
+    assert page_of(client, page, block["id"]) == 1
+    assert (block["x"], block["y"]) == (15, 50)
+    assert drawn_overlaps(page, block["id"]) == []
+
+
 def test_a_quer_page_puts_a_kreis_in_its_free_third(editor):
     """#630: on a Quer page the blocks fill the left, so a Kreis lands in the free right part."""
     client = user()

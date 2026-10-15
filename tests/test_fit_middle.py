@@ -2,7 +2,7 @@
 
 from test_pages import expect_in_use, three
 from test_zoom import fit
-from ui import thumb
+from ui import TEXT, box, expect_picked, pick, thumb
 
 INSIDE_BOXES = """(n) => {
     const d = document.querySelector('.desk').getBoundingClientRect();
@@ -105,6 +105,38 @@ def test_page_down_and_end_work_right_after_ganze_seite(editor):
     expect_in_use(page, 1)
     page.keyboard.press("End")
     expect_in_use(page, 2)
+
+
+def desk_top(page):
+    return page.evaluate("document.querySelector('.desk').scrollTop")
+
+
+def test_page_down_works_after_ganze_seite_with_a_block_picked(editor):
+    """Review of #638: with a block picked, PageDown after Ganze Seite still scrolls the desk."""
+    page = three(editor)
+    pick(page, "a")
+    fit(page).click()
+    was = desk_top(page)
+    page.keyboard.press("PageDown")
+    page.wait_for_function("(was) => document.querySelector('.desk').scrollTop > was + 50", arg=was)
+    expect_picked(page, "a")
+
+
+def test_the_page_keys_on_a_thumbnail_page_the_strip_not_the_desk(editor):
+    """Review of #638: on a thumbnail, PageDown scrolls the long strip and leaves the desk."""
+    page = editor(
+        box("a", "text", TEXT),
+        pages=[{"blocks": [box(f"p{n}", "text", TEXT)]} for n in range(14)],
+        theme="",
+    )
+    window(page, 1280, 700)
+    thumb(page, 0).click()
+    was = desk_top(page)
+    page.keyboard.press("PageDown")
+    page.wait_for_function(
+        "() => document.querySelector('.pages').closest('aside, .left').scrollTop > 0"
+    )
+    assert desk_top(page) == was
 
 
 def test_page_up_and_home_work_right_after_ganze_seite_from_the_zoom_list(editor):
