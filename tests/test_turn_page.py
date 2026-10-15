@@ -219,15 +219,15 @@ def test_a_margin_wide_circle_keeps_its_shape_and_stays_centred(editor):
     assert (c["x"], c["w"], c["h"]) == (58.5, 180, 180)
 
 
-def fields(page, name):
-    """The block's X and Breite in the right panel, as a teacher reads them."""
+def fields(page, name, labels=("X", "Breite")):
+    """The block's X and Breite, or the labels given, in the right panel as a teacher reads them."""
     pick(page, name)
     page.locator(".modes").get_by_role("tab", name="Start").click()
     geo = page.locator(".geo")
     expect(geo).to_be_visible()
     return {
         label: float(geo.get_by_label(label, exact=True).input_value().replace(",", "."))
-        for label in ("X", "Breite")
+        for label in labels
     }
 
 
@@ -261,14 +261,16 @@ def test_issue_613_a_heading_one_step_off_the_middle_keeps_its_offset(editor):
     assert f["X"] + f["Breite"] / 2 == 148.5 + 5
 
 
-@pytest.mark.parametrize("w", [150, 160])
-def test_issue_613_a_block_off_centre_by_more_than_9_5_mm_stays_at_the_left(editor, w):
-    """Edge: a block at X 15 is aligned to the margin, not centred. At 160 its middle is 10 mm off
-    the page's middle, two paste steps. The bound is 9.5, so it counts as left, not centred."""
+@pytest.mark.parametrize("x, w", [(15, 150), (15, 160), (24, 168)])
+def test_issue_613_a_block_off_the_middle_by_other_than_a_paste_step_stays_at_the_left(
+    editor, x, w
+):
+    """Edge: the middle is 0, 5, 10 or 15 mm right of the page's middle, and a block at 15, 150 wide
+    or 160 wide is not. At 24 with 168 its middle is 3 mm off, so it stays too."""
     client = user()
-    page = editor(box("l", "text", TEXT, x=15, w=w, y=55), client=client)
+    page = editor(box("l", "text", TEXT, x=x, w=w, y=55), client=client)
     turn(page)
-    assert fields(page, "l") == {"X": 15, "Breite": w}
+    assert fields(page, "l") == {"X": x, "Breite": w}
 
 
 @pytest.mark.parametrize(
@@ -284,3 +286,45 @@ def test_issue_613_turned_back_upright_the_offset_blocks_have_their_start_places
     turn(page)
     turn(page, to="Hoch")
     assert fields(page, "b") == {"X": x, "Breite": w}
+
+
+def test_issue_613_a_right_column_keeps_its_x_turned_to_quer_and_back(editor):
+    """#613: a text on the right, from 110 to 195, is not centred, so Quer and back keep its X."""
+    client = user()
+    page = editor(box("r", "text", TEXT, x=110, w=85, y=55), client=client)
+    turn(page)
+    assert fields(page, "r") == {"X": 110, "Breite": 85}
+    turn(page, to="Hoch")
+    assert fields(page, "r") == {"X": 110, "Breite": 85}
+
+
+def test_issue_613_a_text_at_15_and_165_wide_stays_on_quer(editor):
+    """#613: from 15 to 180 is 7.5 mm left of the page's middle: not a paste step, so it stays."""
+    client = user()
+    page = editor(box("t", "text", TEXT, x=15, w=165, y=55), client=client)
+    turn(page)
+    assert fields(page, "t") == {"X": 15, "Breite": 165}
+
+
+def test_issue_613_a_tall_text_and_lineatur_keep_their_height_turned_back_upright(editor):
+    """#613: nothing stretches down the page. A 180 mm high block at Y 25 keeps its height."""
+    client = user()
+    page = editor(
+        box("t", "text", TEXT, x=15, w=60, y=25, h=180),
+        box("l", "ruling", RULING, z=2, x=100, w=60, y=25, h=180),
+        client=client,
+    )
+    turn(page)
+    turn(page, to="Hoch")
+    assert fields(page, "t", ("Höhe",)) == {"Höhe": 180}
+    assert fields(page, "l", ("Höhe",)) == {"Höhe": 180}
+
+
+def test_issue_613_a_block_at_15_and_170_wide_comes_back_to_15_after_hoch(editor):
+    """#613: a block from 15 to 185 is not centred on Quer, so Hoch and Quer give its X 15 back."""
+    client = user()
+    page = editor(box("b", "text", TEXT, x=15, w=170, y=55), client=client)
+    turn(page)
+    turn(page, to="Hoch")
+    turn(page)
+    assert fields(page, "b") == {"X": 15, "Breite": 170}
