@@ -2342,14 +2342,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       ),
     );
   // A turn follows the handle from the angles the blocks began with: `by` is how far it has gone. With Shift one
-  // block stops at every 15 degrees. Several blocks turn as one about the middle of the box around them, in steps
-  // of 15 degrees with Shift.
+  // block stops at every 15 degrees. A group picked whole turns as one about the middle of the box around it, in
+  // steps of 15 degrees with Shift; each loose block turns about its own centre.
   const twist = (by: number, shift: boolean) => {
     const from = start.current;
     const stop = (a: number) => (shift || mod & KEEP ? Math.round(a / 15) * 15 : a);
-    const first = from[0].angle ?? 0;
-    const a = from.length > 1 ? stop(by) : stop(first + by) - first;
-    flushSync(() => place(swung(from, a).map(({ id, x, y, angle }) => [id, { x, y, angle }]), "drag"));
+    const parts = [...new Set(from.map(thing))].map((t) => from.filter((b) => thing(b) === t));
+    const to = new Map(
+      parts.flatMap((part) => {
+        if (part.length > 1) return swung(part, stop(by));
+        const first = part[0].angle ?? 0;
+        return swung(part, stop(first + by) - first);
+      }).map((b) => [b.id, b]),
+    );
+    flushSync(() => change((bs) => bs.map((b) => to.get(b.id) ?? b), "drag"));
   };
   // A press on the handle that turns is a click until the pointer has left its spot, by as much as a click on a
   // block may: a hand moves the mouse a pixel or two, and that turns nothing.
