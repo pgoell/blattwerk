@@ -6,8 +6,14 @@ The numbers are the page's own: 148.5 is the middle of 297, 282 is 297 less the 
 
 import pytest
 from playwright.sync_api import expect
+from test_hunderterfeld_block import FELD
 from test_lock import KINDS
 from test_lock_format import OTHER, every
+from test_panel_undo import UHR, ZAHLENSTRAHL
+from test_rechendreieck import DREIECK
+from test_selbstkontrolle_block import SK
+from test_suchsel import SUCHSEL
+from test_zahlenmauer_size import MAUER
 from ui import TEXT, box, doc, user
 
 # The types that stretch across when the page turns: a block spanning the width gets the new width.
@@ -49,6 +55,29 @@ def test_a_block_of_each_kind_spanning_the_width_stretches_or_stays_centred(edit
         assert (b["x"], b["x"] + b["w"]) == (15, RIGHT)
     else:
         assert b["w"] == 180 and b["x"] + b["w"] / 2 == MIDDLE
+
+
+DRAWN = {
+    "suchsel": (SUCHSEL, 60),
+    "zahlenmauer": (MAUER, 60),
+    "rechendreieck": (DREIECK, 60),
+    "zahlenstrahl": (ZAHLENSTRAHL, 40),
+    "hunderterfeld": (FELD, 180),
+    "uhr": (UHR, 110),
+    "selbstkontrolle": (SK, 30),
+}
+
+
+@pytest.mark.parametrize("kind", DRAWN)
+def test_a_drawn_block_spanning_the_width_keeps_its_size_and_stays_centred(editor, kind):
+    """Rule 13, the kinds `every` does not make: their content is drawn to their size, so none
+    stretches."""
+    client = user()
+    props, h = DRAWN[kind]
+    page = editor(box("fest", kind, props, w=180, h=h), client=client)
+    turn(page, scope="Nur diese Seite")
+    b = named(doc(page, client))["fest"]
+    assert (b["w"], b["h"], b["x"]) == (180, h, 58.5)
 
 
 def test_a_block_that_is_neither_keeps_x_and_one_low_on_the_page_comes_up(editor):
