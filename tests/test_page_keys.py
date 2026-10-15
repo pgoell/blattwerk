@@ -4,7 +4,7 @@ import re
 
 from playwright.sync_api import expect
 from test_pages import expect_order, three, write
-from ui import TEXT, box, pick, thumb
+from ui import TEXT, at, bar, box, doc, pick, thumb, user
 
 ON = re.compile(r"\bon\b")
 
@@ -154,6 +154,62 @@ def at_top(page, name):
 
 
 def at_top_locator(page, name):
-    from ui import at
-
     return at(page, name)
+
+
+def on_page(page, n):
+    """The thumbnail of page n is the one in use."""
+    expect(thumb(page, n)).to_have_class(ON)
+
+
+def test_a_block_added_after_page_down_lands_on_page_3(editor):
+    client = user()
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
+    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
+    click_desk_beside_pages(page)
+    scroll_to_page(page, "PageDown", lambda: desk_bottom(page))
+    on_page(page, 2)
+    page.locator(".dock, .insert").get_by_label("Text", exact=True).click()
+    saved_pages = doc(page, client)["pages"]
+    assert [len(p["blocks"]) for p in saved_pages] == [1, 1, 2]
+
+
+def test_a_text_being_written_keeps_its_page_in_use(editor):
+    page = three(editor)
+    write(page, "b", "du")
+    on_page(page, 1)
+    page.keyboard.press("PageDown")
+    page.wait_for_timeout(800)
+    on_page(page, 1)
+
+
+def test_a_number_field_with_the_focus_keeps_the_page_in_use(editor):
+    page = three(editor)
+    pick(page, "a")
+    page.locator("input.mm").first.focus()
+    on_page(page, 0)
+    page.keyboard.press("PageDown")
+    page.wait_for_timeout(800)
+    on_page(page, 0)
+
+
+def test_delete_in_a_number_field_does_not_touch_the_page(editor):
+    page = three(editor)
+    pick(page, "a")
+    page.locator("input.mm").first.focus()
+    page.keyboard.press("Delete")
+    expect_order(page, "abc")
+    expect(page.locator(".block.sel")).to_have_count(1)
+
+
+def test_tab_reaches_a_thumbnail_and_delete_removes_its_page(editor):
+    page = three(editor)
+    pick(page, "a")
+    bar(page, "left").focus()
+    for _ in range(40):
+        if thumb(page, 1).evaluate("el => el === document.activeElement"):
+            break
+        page.keyboard.press("Tab")
+    expect(thumb(page, 1)).to_be_focused()
+    page.keyboard.press("Delete")
+    expect_order(page, "ac")
