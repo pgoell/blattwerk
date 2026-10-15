@@ -348,12 +348,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const clicked = useRef<[number, number]>(undefined);
   // Whether the field that opens next has all its text picked.
   const entire = useRef(false);
-  // A name line's words while it is written in, the words it was opened with, and whether Escape ended it.
+  // A name line's words while it is written in, and the words it was opened with.
   const [words, setWords] = useState<string[]>([]);
   const wordsKept = useRef("");
   // The name line being written in, and the page it stands on.
   const nameWriting = useRef<{ id: string; n: number } | undefined>(undefined);
-  const escaped = useRef(false);
   // The field of the text being edited, and what is picked in it.
   const field = useRef<EditorView>(null);
   const [part, setPart] = useState<Picked>();
@@ -533,6 +532,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [zoom, setZoom] = useState(1);
   // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
   const fitted = useRef(false);
+  // The page in use when Ganze Seite was pressed, and a count that makes each press a change to draw.
+  const fitOn = useRef(0);
+  const [fitTick, setFitTick] = useState(0);
   // A thumbnail's width in px.
   const [thumb, setThumb] = useState(97);
   // Space held makes the pointer a hand, and a drag with it moves the desk. The drag may outlast the key.
@@ -780,7 +782,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (editing || !line) return;
     nameWriting.current = undefined;
     const fields = words.map((w) => w.trim()).filter(Boolean);
-    if (escaped.current || !fields.length || fields.join("\n") === wordsKept.current) return;
+    if (!fields.length || fields.join("\n") === wordsKept.current) return;
     if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
     turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
   });
@@ -988,6 +990,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const x = rects.length ? (Math.min(...rects.map((r) => r.left)) + Math.max(...rects.map((r) => r.right))) / 2 : (paper?.left ?? 0) + 20;
       const y = rects.length ? (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2 : (paper?.top ?? 0) + 20;
       setMenu({ x: Math.max(0, Math.min(x, innerWidth)), y: Math.max(0, Math.min(y, innerHeight)) });
+      return;
+    }
+    // With the focus on a button or on nothing, as after Ganze Seite, a page key scrolls the desk: the browser would
+    // scroll the window instead. The left strip keeps them for its own long list of pages.
+    if (!target.closest(".desk, .left, .ProseMirror, input, textarea, select, .panel, .menu, dialog, [role=menu]") && /^(PageUp|PageDown|Home|End)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) {
+      e.preventDefault();
+      const d = desk.current!;
+      if (!sel.length) steer();
+      d.scrollTop = e.key === "End" ? d.scrollHeight : e.key === "Home" ? 0 : d.scrollTop + d.clientHeight * (e.key === "PageDown" ? 0.9 : -0.9);
       return;
     }
     // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
@@ -1917,26 +1928,51 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
   // margin there. Words and pictures pasted from another app keep the place at the top of the view.
-  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
-    const { doc } = latest.current;
-    const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
-    const id = crypto.randomUUID();
-    // A turned block counts with the box it fills on the page, turned about its middle.
-    const outer = held.map((b) => {
+  // The boxes the blocks fill on a page: a turned block counts with the box it fills, turned about its middle.
+  const filled = (blocks: Block[]) =>
+    blocks.map((b) => {
       const [c, s] = dir(b).map(Math.abs);
       const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
       return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
     });
-    const low = pasted || !outer.length ? undefined : outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
-    const under = !!low && low.y + low.h + 5 + h <= size[1] - MARGIN;
-    const [x, y] =
-      low && under
-        ? [Math.max(0, Math.min(low.x, size[0] - MARGIN - w)), round(low.y + low.h + 5)]
-        : [(size[0] - w) / 2, round(Math.max(0, seen(0, n))) + MARGIN];
-    const z = Math.max(0, ...held.map((b) => b.z)) + 1;
-    const [block] = land([{ id, x, y, w, h, z, locked: false, ...rest }], held, size);
-    turn((p) => ({ ...p, blocks: [...p.blocks, block] }), undefined, n);
-    setAt(n);
+  // The first spot of page `p` where a w x h box keeps 5 mm from every block, scanned in rows from the top, in steps of 5 mm.
+  function freeSpot(doc: Doc, p: number, w: number, h: number) {
+    const [W, H] = sizeOf(doc, p);
+    const boxes = filled(doc.pages[p].blocks);
+    for (let y = MARGIN; y <= H - MARGIN - h; y += 5)
+      for (let x = MARGIN; x <= W - MARGIN - w; x += 5)
+        if (boxes.every((b) => x + w + 5 <= b.x || x >= b.x + b.w + 5 || y + h + 5 <= b.y || y >= b.y + b.h + 5)) return { p, x, y };
+    return undefined;
+  }
+  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
+    const { doc } = latest.current;
+    const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
+    const id = crypto.randomUUID();
+    // Under the lowest block of page p, at its left edge, when it fits above the margin there.
+    const below = (p: number) => {
+      const outer = filled(doc.pages[p].blocks);
+      if (!outer.length) return undefined;
+      const [W, H] = sizeOf(doc, p);
+      const low = outer.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a));
+      return low.y + low.h + 5 + h <= H - MARGIN ? { p, x: Math.max(0, Math.min(low.x, W - MARGIN - w)), y: round(low.y + low.h + 5) } : undefined;
+    };
+    // Under the lowest block, else the first free spot, on page n and then on each later page; else a new page after the last.
+    const free = () => {
+      for (let p = n; p < doc.pages.length; p++) {
+        const spot = below(p) ?? freeSpot(doc, p, w, h);
+        if (spot) return spot;
+      }
+      return { p: doc.pages.length, x: MARGIN, y: MARGIN };
+    };
+    const spot = pasted || !held.length ? { p: n, x: (size[0] - w) / 2, y: round(Math.max(0, seen(0, n))) + MARGIN } : free();
+    const { p } = spot;
+    const onPage = p < doc.pages.length;
+    const z = Math.max(0, ...(onPage ? doc.pages[p].blocks : []).map((b) => b.z)) + 1;
+    const [block] = land([{ id, x: spot.x, y: spot.y, w, h, z, locked: false, ...rest }], onPage ? doc.pages[p].blocks : [], onPage ? sizeOf(doc, p) : size);
+    // A new page is one step with the block, and takes the format of page n.
+    if (onPage) turn((q) => ({ ...q, blocks: [...q.blocks, block] }), undefined, p);
+    else update((d) => ({ ...d, pages: [...d.pages, { blocks: [block], landscape: d.pages[n].landscape }] }), "", p);
+    setAt(p);
     setIds([id]);
     // A block under the view is brought into it, once it is drawn.
     requestAnimationFrame(() => document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
@@ -2933,7 +2969,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         setWords(free[0].props.fields ?? FIELDS);
         wordsKept.current = (free[0].props.fields ?? FIELDS).join("\n");
         nameWriting.current = { id, n: page };
-        escaped.current = false;
       }
       setEditing(id);
     }
@@ -3141,15 +3176,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   // The whole page in use, width and height, until a zoom by hand: it follows the desk when the window changes.
   function fitPage() {
-    const el = desk.current!;
     fitted.current = true;
+    fitOn.current = page;
     // 120 is the desk's padding above and below. The whole box, not clientHeight: that leaves out the bar along the
     // bottom, which goes once the page fits, and the desk has no border to take off.
-    flushSync(() => setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (el.offsetHeight - 120) / H) / fit))));
-    const [page, box] = [sheet.current!.getBoundingClientRect(), el.getBoundingClientRect()];
-    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
-    el.scrollBy(page.left + page.width / 2 - box.left - el.clientWidth / 2, page.top - box.top - 32);
+    setZoom(Math.min(4, Math.max(0.25, Math.min(room / W, (desk.current!.offsetHeight - 120) / H) / fit)));
+    setFitTick((n) => n + 1);
   }
+  // The scroll follows the zoom once it is drawn: the rects read before that are the old size's. The page is the one
+  // in use when the fit was made.
+  useLayoutEffect(() => {
+    if (!fitted.current) return;
+    const el = desk.current!;
+    const [sheetRect, box] = [el.querySelector(`.sheet[data-page="${fitOn.current}"]`)!.getBoundingClientRect(), el.getBoundingClientRect()];
+    // The page lies in the middle, across, also beside a wider one, and its top under the desk's padding.
+    el.scrollBy(sheetRect.left + sheetRect.width / 2 - box.left - el.clientWidth / 2, sheetRect.top - box.top - 32);
+  }, [fitTick]);
   const zoomer = (
     <>
       <Tool icon={ZoomOut} label="Kleiner" onClick={() => zoomBy(-1)} />
@@ -3489,7 +3531,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </span>
           </div>
           {/* As many thumbnails in a row as fit, 12 px apart, in the 206 px that two take at first. */}
-          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px`, "--across": Math.floor(218 / (Math.round(thumb) + 12)) } as CSSProperties}>
+          <div className="pages" ref={strip} style={{ "--thumb": `${thumb}px` } as CSSProperties}>
             {pages.map((_, n) => (
               <button
                 key={n}
@@ -3775,10 +3817,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                             value={word}
                             onChange={(e) => setWords((ws) => ws.map((w, j) => (j === i ? e.target.value : w)))}
                             onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                escaped.current = true;
-                                setEditing("");
-                              }
+                              if (e.key === "Escape") setEditing("");
                               if (e.key === "Enter" || e.key === "F2") e.currentTarget.blur();
                             }}
                             onBlur={(e) => {

@@ -2335,10 +2335,11 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
 // A score as it is typed: a whole number from 1 to 999, or else none.
 export const score = (text: string) => (/^\s*\d{1,3}\s*$/.test(text) && +text >= 1 ? +text : undefined);
 
-// The field of a score, in a box or in the panel. However it ends, except by Escape, it keeps the typed score when that is
-// a whole number from 1 to 999; any other text leaves the old one. `change` gets the score and makes no step when the
-// sheet has it already. `end` runs after Enter, `blur` on leaving the field. `steps` adds the buttons that count by one,
-// each from the sheet's own number, after the typed score is kept.
+// The field of a score, in a box or in the panel. However it ends, it keeps the typed score when that is a whole number
+// from 1 to 999; any other text leaves the old one. On the sheet Escape keeps it too, as Enter does; in the panel (with
+// `steps`) Escape gives up what was typed, as every panel number field does. `change` gets the score and makes no step
+// when the sheet has it already. `end` runs after Enter, `blur` on leaving the field. `steps` adds the buttons that
+// count by one, each from the sheet's own number, after the typed score is kept.
 export function ScoreInput({ max, change, end, blur, steps }: { max: number; change: (max: number) => void; end?: () => void; blur?: (e: FocusEvent<HTMLInputElement>) => void; steps?: (by: number) => void }) {
   const [draft, setDraft] = useState(String(max));
   const [round, setRound] = useState(0);
@@ -2402,11 +2403,18 @@ export function ScoreInput({ max, change, end, blur, steps }: { max: number; cha
           latest.current.end?.();
         }
         if (e.key !== "Escape") return;
-        off.current = true;
-        // What was typed is given up: a later visit of the field that types nothing sends nothing.
-        dirty.current = false;
-        typed.current = String(shown.current);
-        setDraft(typed.current);
+        if (steps) {
+          // What was typed is given up: a later visit of the field that types nothing sends nothing.
+          off.current = true;
+          dirty.current = false;
+          typed.current = String(shown.current);
+          setDraft(typed.current);
+        } else {
+          // The sheet keeps a valid score, as Enter does; the field then ends with no more to keep.
+          dirty.current = true;
+          keep();
+          off.current = true;
+        }
         e.currentTarget.blur();
       }}
     />

@@ -181,3 +181,106 @@ def test_the_pdf_says_65_once_a_task_is_15(editor, server):
     after = re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
     assert "/65Punkte" in after
     assert "/60Punkte" not in after
+
+
+def fresh(page, client, before):
+    """The one block that is not in `before`, once the editor has drawn it."""
+    drawn = "document.querySelectorAll('.sheet .block[data-id]').length"
+    page.wait_for_function(f"{drawn} === {len(before) + 1}")
+    blocks = [b for p in doc(page, client)["pages"] for b in p["blocks"]]
+    ids = [b["id"] for b in blocks if b["id"] not in before]
+    assert len(ids) == 1, ids
+    return ids[0]
+
+
+def ids_of(page, client):
+    return {b["id"] for p in doc(page, client)["pages"] for b in p["blocks"]}
+
+
+def add_points_on_page_2(page, client):
+    """A Punkte box of 10 from the left panel, on an empty part of page 2. Gives its id."""
+    before = ids_of(page, client)
+    page.locator(".sheet").nth(1).click(position={"x": 5, "y": 5})
+    page.locator(".dock, .insert").get_by_label("Punkte", exact=True).click()
+    return fresh(page, client, before)
+
+
+def expect_totals(page, text):
+    for name in ["t1", "t2", "t3"]:
+        expect(at(page, name).locator(".points")).to_have_text(text)
+
+
+def test_a_new_punkte_box_on_page_2_counts_in_every_total(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    new = add_points_on_page_2(page, client)
+    expect_totals(page, "/ 70 Punkte")
+    type_into_panel(page, new, "5")
+    expect_totals(page, "/ 65 Punkte")
+    assert sorted(maxes(doc(page, client))[1]) == [5, 10, 10, 65]
+    assert maxes(doc(page, client))[0] == [65, 10, 10]
+
+
+def test_a_new_punkte_box_pdf_prints_the_new_total(editor, server):
+    client = user()
+    page = klassenarbeit(editor, client)
+    new = add_points_on_page_2(page, client)
+    type_into_panel(page, new, "5")
+    expect_totals(page, "/ 65 Punkte")
+    doc(page, client)
+    after = re.sub(r"\s", "", pdf_text(server, client, sheet_id(page)))
+    assert "/65Punkte" in after
+    assert "/60Punkte" not in after
+
+
+def test_a_copy_of_a_task_counts_and_plus_one_moves_the_total_by_one(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    before = ids_of(page, client)
+    pick(page, "a1")
+    page.keyboard.press("Control+d")
+    fresh(page, client, before)
+    expect_totals(page, "/ 70 Punkte")
+    page.get_by_label(PLUS).click()
+    expect_totals(page, "/ 71 Punkte")
+
+
+def test_a_deleted_task_takes_10_off_and_undo_gives_it_back(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    pick(page, "a1")
+    page.keyboard.press("Delete")
+    expect_totals(page, "/ 50 Punkte")
+    assert maxes(doc(page, client)) == [[50, 10], [50, 10, 10], [50, 10, 10]]
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    expect_totals(page, "/ 60 Punkte")
+
+
+def test_a_task_cut_and_pasted_to_page_2_keeps_the_sum_at_60(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    before = ids_of(page, client)
+    pick(page, "a1")
+    page.keyboard.press("Control+x")
+    expect_totals(page, "/ 50 Punkte")
+    page.locator(".sheet").nth(1).click(position={"x": 5, "y": 5})
+    page.keyboard.press("Control+v")
+    fresh(page, client, before - {"a1"})
+    expect_totals(page, "/ 60 Punkte")
+    tasks = [
+        b["props"]["max"]
+        for p in doc(page, client)["pages"]
+        for b in p["blocks"]
+        if b["type"] == "points" and not b["props"].get("total")
+    ]
+    assert sum(tasks) == 60
+
+
+def test_two_tasks_deleted_at_once_take_20_off(editor):
+    client = user()
+    page = klassenarbeit(editor, client)
+    pick(page, "a1", "b1")
+    page.keyboard.press("Delete")
+    expect_totals(page, "/ 40 Punkte")
+    page.get_by_label("Rückgängig", exact=True).first.click()
+    expect_totals(page, "/ 60 Punkte")
