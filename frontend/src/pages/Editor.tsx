@@ -600,7 +600,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     const before = last.current;
     last.current = { count: pages.length, widest };
-    if (before.count !== pages.length && before.widest !== widest) setZoom((z) => z * (widest / before.widest));
+    if (before.count !== pages.length && before.widest !== widest) setZoom((z) => Math.min(4, Math.max(0.25, z * (widest / before.widest))));
   }, [pages.length, widest]);
   // The thumbnails draw after the desk, so a drag stays quick.
   const small = useDeferredValue(hist.doc);
