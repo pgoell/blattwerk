@@ -43,6 +43,25 @@ def test_a_group_width_scales_about_its_left_edge(editor):
     assert blocks["b"]["props"]["size"] == 14
 
 
+def test_a_group_with_a_line_and_a_table_scales_all_of_it(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
+        box("l", "shape", LINE, z=2, x=55, y=50, w=20, h=10, group=["g"]),
+        box("t", "table", TABLE, z=3, x=85, y=50, w=40, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    expect(field(page, "Breite")).to_have_value("110")
+    enter(page, "Breite", "220")
+    expect(field(page, "Breite")).to_have_value("220")
+    blocks = by_id(saved(page, client))
+    assert (blocks["a"]["x"], blocks["a"]["w"]) == (15, 60)
+    assert (blocks["l"]["x"], blocks["l"]["w"], blocks["l"]["h"]) == (95, 40, 10)
+    assert (blocks["t"]["x"], blocks["t"]["w"]) == (155, 80)
+    assert blocks["t"]["props"]["cols"] == [1, 1]
+
+
 def test_a_group_height_scales_about_its_top_edge(editor):
     client = user()
     page = pair_group(editor, client)
