@@ -142,7 +142,19 @@ export const swung = (bs: Block[], by: number): Block[] => {
   const all = bounds(bs.map(outline));
   const [cx, cy] = [all.x + all.w / 2, all.y + all.h / 2];
   const [c, s] = dir({ angle: by });
+  const turnAbout = ([x, y]: number[]) => [cx + (x - cx) * c - (y - cy) * s, cy + (x - cx) * s + (y - cy) * c];
   return bs.map((b) => {
+    if (isLine(b)) {
+      // A line has no angle: its two ends go round, and its box and start follow them.
+      const f = b.props.from ?? "nw";
+      const ends = [
+        [b.x + (f[1] === "e" ? b.w : 0), b.y + (f[0] === "s" ? b.h : 0)],
+        [b.x + (f[1] === "e" ? 0 : b.w), b.y + (f[0] === "s" ? 0 : b.h)],
+      ].map(turnAbout);
+      const [[px, py], [qx, qy]] = ends;
+      const from = ((py <= qy ? "n" : "s") + (px <= qx ? "w" : "e")) as Corner;
+      return { ...b, x: round(Math.min(px, qx)), y: round(Math.min(py, qy)), w: round(Math.abs(px - qx)), h: round(Math.abs(py - qy)), props: { ...b.props, from } };
+    }
     const [x, y] = [b.x + b.w / 2 - cx, b.y + b.h / 2 - cy];
     return { ...b, x: round(cx + x * c - y * s - b.w / 2), y: round(cy + x * s + y * c - b.h / 2), angle: norm((b.angle ?? 0) + by) };
   });

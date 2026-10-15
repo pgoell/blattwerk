@@ -3866,7 +3866,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     onResizeStart={(e) => begin([e.target])}
                     onResizeGroupStart={(e) => begin(e.targets)}
                     // A table stays level, and a line turns by its ends.
-                    rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some(isLine)}
+                    rotatable={!cropping && free.length === sel.length && !sel.some((b) => b.type === "table") && !sel.some((b) => isLine(b) && thing(b) === b.id)}
                     rotationPosition="top"
                     onRotateStart={(e) => {
                       spot.current = [e.clientX, e.clientY];
