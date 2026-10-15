@@ -1,9 +1,8 @@
 """The keys open the menu of the selection: Shift+F10 and the Menu key, as in PowerPoint."""
 
-import pytest
 from playwright.sync_api import expect
-from test_menu import item, menu, texts
-from ui import BROWSER, TEXT, at, box, expect_picked, pick
+from test_menu import item, menu, right, texts
+from ui import TEXT, at, box, expect_picked, pick
 
 
 def watch(page):
@@ -62,7 +61,6 @@ def test_arrows_enter_and_escape_work_in_the_keys_menu(editor):
     expect(menu(page)).to_have_count(0)
 
 
-@pytest.mark.xfail(BROWSER == "webkit", reason="#636: WebKit misses Shift+F10 about 1 run in 10")
 def test_the_browsers_menu_does_not_come_up_with_the_keys(editor):
     """I4: the probe found whether Playwright's key makes a contextmenu event at all."""
     page = editor(*texts(*"ab"))
@@ -175,8 +173,6 @@ def test_ctrl_shift_f10_opens_no_menu(editor):
     expect(menu(page)).to_have_count(0)
 
 
-# Not strict: it passes in WebKit here and fails only in CI's.
-@pytest.mark.xfail(BROWSER == "webkit", reason="#626: CI's WebKit, no menu by the key after Escape")
 def test_the_menu_opens_again_after_escape(editor):
     """Extra 2: a second open after Escape gives the menu back at the selection."""
     page = editor(*texts(*"ab"))
@@ -188,3 +184,49 @@ def test_the_menu_opens_again_after_escape(editor):
     page.keyboard.press("ContextMenu")
     expect(menu(page)).to_be_visible()
     expect(menu(page).locator("button:enabled").first).to_be_focused()
+
+
+def test_shift_f10_at_once_after_escape_opens_the_menu_again(editor):
+    """#626: no wait between Escape and the key."""
+    page = editor(*texts(*"ab"))
+    pick(page, "a")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
+    page.keyboard.press("Escape")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
+    # A late close of the first menu would shut this one.
+    page.wait_for_timeout(300)
+    expect(menu(page)).to_be_visible()
+
+
+def test_a_right_click_menu_shut_by_escape_comes_back_by_the_menu_key(editor):
+    page = editor(*texts(*"ab"))
+    pick(page, "a")
+    right(page, "a")
+    page.keyboard.press("Escape")
+    page.keyboard.press("ContextMenu")
+    expect(menu(page)).to_be_visible()
+    expect(menu(page).locator("button:enabled").first).to_be_focused()
+
+
+def test_escape_then_delete_at_once_deletes_the_picked_block(editor):
+    page = editor(*texts(*"ab"))
+    pick(page, "b")
+    page.keyboard.press("Shift+F10")
+    expect(menu(page)).to_be_visible()
+    page.keyboard.press("Escape")
+    page.keyboard.press("Delete")
+    expect(at(page, "b")).to_have_count(0)
+    expect(at(page, "a")).to_have_count(1)
+
+
+def test_an_item_run_by_enter_then_the_key_at_once_opens_the_menu(editor):
+    page = editor(*texts(*"abc"))
+    pick(page, "b")
+    page.keyboard.press("Shift+F10")
+    item(page, "Löschen").focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("ContextMenu")
+    expect(menu(page)).to_be_visible()
+    expect(at(page, "b")).to_have_count(0)

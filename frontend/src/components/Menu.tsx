@@ -32,6 +32,15 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
     return e.target === ref.current && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom);
   };
   function key(e: KeyboardEvent) {
+    // Escape shuts the menu at once, as a pick does. The browser's own `close` comes a task later: until then the menu
+    // stayed and its button kept the focus, so a Menu key or Shift+F10 pressed at once fell on that button.
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      ref.current!.close();
+      onClose();
+      return;
+    }
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
@@ -43,7 +52,8 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
       ref={ref}
       className="menu"
       role="menu"
-      onClose={onClose}
+      // A menu shut by hand is gone when the browser's `close` comes, and has said so already.
+      onClose={() => ref.current && onClose()}
       onKeyDown={key}
       // The right button is the next line's: where it opens the menu on the press, both would run.
       onMouseDown={(e) => e.button !== 2 && beside(e) && ref.current!.close()}
