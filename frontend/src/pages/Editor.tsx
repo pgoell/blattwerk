@@ -927,9 +927,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // them. With Shift or Alt they stay the browser's.
     const mark = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey;
     if (mark && /^[biu]$/i.test(e.key) && sel.length && !target.closest("input, select")) e.preventDefault();
-    // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders and on its lists
-    // only undo and redo are the sheet's.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], select, textarea.wordlist");
+    // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders, its checkboxes
+    // and its number fields, and on its lists only undo and redo are the sheet's.
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number], select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // A letter typed with one picked text, shape, table or Lineatur opens it for writing, and the caret goes to the end
     // of its text. The focus moves in the same flush, so the browser types the key into the textarea: no preventDefault.
