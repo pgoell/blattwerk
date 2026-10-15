@@ -932,6 +932,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
+    // The page keys scroll the desk; with nothing picked the page that then fills the view becomes the page in use.
+    if (!sel.length && /^(PageUp|PageDown|Home|End|Arrow(Up|Down|Left|Right))$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey)) steer();
     // A number field drops a number it refused, as on leaving it, so it shows what the undo gives back.
     if (ours && target.matches("input[type=number]")) {
       target.blur();
@@ -1626,7 +1628,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     });
   }
   function removePage(n = page) {
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", Math.min(page, pages.length - 2));
+    // The page in use stays, one place back when a page before it goes; a page gone itself hands it to the one in its place.
+    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
     setIds([]);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
@@ -1713,6 +1716,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // On a thumbnail Ctrl with an arrow moves its page by one place, with Shift to the start or the end, and Ctrl+D
   // copies it. The focus follows the page.
   function pageKey(e: Key, n: number) {
+    // Delete and Backspace take the thumbnail's page away, never the picked blocks, and the last page stays.
+    if (/^(Delete|Backspace)$/.test(e.key) && !(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pages.length < 2) return;
+      flushSync(() => removePage(n));
+      strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
+      return;
+    }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     const last = pages.length - 1;
     const copy = /^d$/i.test(e.key) && !e.shiftKey;
