@@ -131,12 +131,13 @@ def test_the_page_keys_on_a_thumbnail_page_the_strip_not_the_desk(editor):
     )
     window(page, 1280, 700)
     thumb(page, 0).click()
-    was = desk_top(page)
     page.keyboard.press("PageDown")
     page.wait_for_function(
         "() => document.querySelector('.pages').closest('aside, .left').scrollTop > 0"
     )
-    assert desk_top(page) == was
+    # The click on the thumbnail brings page 1 to the top of the desk; the key moves it no page on.
+    expect_in_use(page, 0)
+    assert desk_top(page) < 100
 
 
 def test_page_up_and_home_work_right_after_ganze_seite_from_the_zoom_list(editor):
