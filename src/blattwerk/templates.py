@@ -50,7 +50,7 @@ def test_page(first: bool) -> list[dict]:
     top = 55 if first else 35
     return [
         block("name", 15, 15, 135, 10, {}),
-        block("points", 155, 14, 40, 12, {"max": 60}),
+        block("points", 155, 14, 40, 12, {"max": 60, "total": True}),
         *([heading(32, "Klassenarbeit")] if first else []),
         *(
             part
