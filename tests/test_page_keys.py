@@ -213,3 +213,22 @@ def test_tab_reaches_a_thumbnail_and_delete_removes_its_page(editor):
     expect(thumb(page, 1)).to_be_focused()
     page.keyboard.press("Delete")
     expect_order(page, "ac")
+
+
+def test_delete_on_a_thumbnail_while_a_page_is_dragged_deletes_nothing(editor):
+    """Review: a drag holds the page it moves. With the focus on another thumbnail (a keyboard on
+    an iPad), Delete must neither take a page away under the drag nor break the drop."""
+    page = three(editor)
+    errors = []
+    page.on("pageerror", lambda e: errors.append(e))
+    start = thumb(page, 2).bounding_box()
+    page.mouse.move(start["x"] + start["width"] / 2, start["y"] + start["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(start["x"] + start["width"] / 2, start["y"] + start["height"] / 2 - 10)
+    thumb(page, 1).focus()
+    page.keyboard.press("Delete")
+    end = thumb(page, 0).bounding_box()
+    page.mouse.move(end["x"] + end["width"] / 2, end["y"] + 4, steps=5)
+    page.mouse.up()
+    expect(page.locator(".sheet[data-page]")).to_have_count(3)
+    assert errors == []

@@ -207,3 +207,13 @@ def test_a_page_of_margin_wide_blocks_comes_back_as_it_was_after_quer_and_hoch(
 
 def places(sheet):
     return [(b["id"], b["x"], b["y"], b["w"], b["h"]) for b in sheet["pages"][0]["blocks"]]
+
+
+def test_a_margin_wide_circle_keeps_its_shape_and_stays_centred(editor):
+    """Review: a circle, a triangle and a star do not stretch into an oval."""
+    client = user()
+    circle = {"kind": "circle", "fill": "none", "stroke": "#222222", "strokeWidth": 0.5}
+    page = editor(box("c", "shape", circle, w=180, h=180, y=15), client=client)
+    turn(page, scope="Nur diese Seite")
+    c = named(doc(page, client))["c"]
+    assert (c["x"], c["w"], c["h"]) == (58.5, 180, 180)
