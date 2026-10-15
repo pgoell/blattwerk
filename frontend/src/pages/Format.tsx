@@ -425,8 +425,10 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
                   <button className={stepOf(texts[0].props.lines) === 5 ? "on" : ""} aria-pressed={stepOf(texts[0].props.lines) === 5} onClick={() => style("text", { lines: 5 }, "lines")}>
                     Jede 5. Zeile
                   </button>
-                  <Num label="Beginnt bei" value={start} disabled={false} onCommit={(n) => Number.isInteger(n) && n >= 1 && n <= 9999 && style("text", { linesFrom: n === 1 ? undefined : n }, "linesFrom")} />
                 </div>
+              )}
+              {numbered && (
+                <Num label="Beginnt bei" value={start} disabled={false} onCommit={(n) => Number.isInteger(n) && n >= 1 && n <= 9999 && style("text", { linesFrom: n === 1 ? undefined : n }, "linesFrom")} />
               )}
             </>
           )}

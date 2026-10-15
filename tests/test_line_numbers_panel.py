@@ -320,3 +320,41 @@ def test_a_stored_start_that_is_no_number_draws_from_one(editor, stored):
     numbers = numbers_of(page)
     expect(numbers.first).to_have_text("1")
     assert numbers.all_text_contents()[:3] == ["1", "2", "3"]
+
+
+def numbered_text(page):
+    """A text with every line numbered, its right panel open on it."""
+    pick(page, "a")
+    expect(button(page, "Jede Zeile")).to_have_attribute("aria-pressed", "true")
+
+
+def start_row(page):
+    """The row of "Beginnt bei": its label, which holds the field."""
+    return page.locator(".panel label", has=page.get_by_label("Beginnt bei", exact=True))
+
+
+# Asked #615: the row Beginnt bei fits the panel, and typing in it does not slide the panel.
+@pytest.mark.parametrize(
+    "typed,width",
+    [("7", 1400), ("9999", 1400), ("7", 1024)],
+    ids=["seven", "four-digits", "narrow-window"],
+)
+def test_the_start_row_fits_and_typing_does_not_slide_the_panel(editor, typed, width):
+    page = editor(box("a", "text", {**TEXT, "text": WORDS, "lines": 1}, w=80, h=200))
+    page.set_viewport_size({"width": width, "height": 1000})
+    numbered_text(page)
+    above = button(page, "Jede 5. Zeile").locator("xpath=..").bounding_box()
+    row = start_row(page).bounding_box()
+    assert row["x"] + row["width"] <= above["x"] + above["width"] + 0.5
+    panel = page.locator(".panel")
+    assert panel.evaluate("e => e.scrollWidth <= e.clientWidth")
+    start_field(page).click()
+    page.keyboard.press("Control+a")
+    page.keyboard.type(typed)
+    page.keyboard.press("Tab")
+    expect(start_field(page)).to_have_value(typed)
+    assert panel.evaluate("e => e.scrollLeft") == 0
+    inside = panel.bounding_box()
+    label = start_row(page).bounding_box()
+    right = inside["x"] + inside["width"]
+    assert inside["x"] <= label["x"] and label["x"] + label["width"] <= right + 0.5
