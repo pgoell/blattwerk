@@ -909,6 +909,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // Ctrl and + or - never zoom the browser's window, which would take the bar and the panels with it: in a field
     // or a dialog, where they zoom nothing, they type nothing either. With AltGr they type a character.
     if ((e.ctrlKey || e.metaKey) && !e.getModifierState("AltGraph") && ["+", "=", "-"].includes(e.key)) e.preventDefault();
+    // Alt+Left and Alt+Right never take the browser back or forward out of the sheet, also in a text or a dialog. A
+    // Mac's Option with an arrow goes by words in a text, and is no way back, so it stays.
+    const turnKey = e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight");
+    if (turnKey && !APPLE) e.preventDefault();
     // The keys are a dialog's own while it is open.
     if (document.querySelector("dialog:modal")) return;
     if (shut) {
@@ -968,12 +972,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
-    // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. The browser's
-    // back and forward give way while anything is picked, also where nothing can turn. A locked block, a table and a
-    // line on its own do not turn, as the buttons of the panel do not.
-    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight") && sel.length) {
+    // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. A locked
+    // block, a table and a line on its own do not turn, as the buttons of the panel do not.
+    if (turnKey) {
       e.preventDefault();
-      if (free.length === sel.length && !cropping && !sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id))) spin(e.key === "ArrowRight" ? 15 : -15);
+      if (sel.length && free.length === sel.length && !cropping && !sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id))) spin(e.key === "ArrowRight" ? 15 : -15);
       return;
     }
     // Shift+F10 and the Menu key open the menu of the selection, as in PowerPoint: at the middle of the picked blocks, or

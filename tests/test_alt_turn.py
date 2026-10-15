@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import expect
 from test_group_turn import G, group, hull, kinds, lie, pair
 from ui import (
+    FIELD,
     LINE,
     RECT,
     TABLE,
@@ -127,12 +128,27 @@ def test_alt_arrows_keep_the_browser_back(editor):
     page.keyboard.press("Alt+ArrowRight")
     assert seen(page) == [["ArrowLeft", True], ["ArrowRight", True]]
     assert page.url == address
-    # In a text the keys stay the browser's.
+    # In an open text the keys turn nothing and do not take the sheet away: the text stays open.
     page.keyboard.press("Escape")
     pick(page, "t")
     page.keyboard.press("Enter")
+    page.keyboard.press("Alt+ArrowLeft")
     page.keyboard.press("Alt+ArrowRight")
-    assert seen(page)[-1] == ["ArrowRight", False]
+    assert seen(page)[-2:] == [["ArrowLeft", True], ["ArrowRight", True]]
+    expect(page.locator(FIELD)).to_be_focused()
+    assert angle(page, "t") == 0
+    # Nor in a field of the panel, nor with nothing picked.
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    expect(page.locator(".block.sel")).to_have_count(0)
+    page.keyboard.press("Alt+ArrowLeft")
+    pick(page, "a")
+    page.locator("input.mm").first.focus()
+    page.keyboard.press("Alt+ArrowLeft")
+    assert seen(page)[-2:] == [["ArrowLeft", True], ["ArrowLeft", True]]
+    assert page.url == address
+    assert angle(page, "a") == 0
 
 
 def test_each_alt_press_is_one_undo_step(editor):

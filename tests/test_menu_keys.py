@@ -62,6 +62,7 @@ def test_arrows_enter_and_escape_work_in_the_keys_menu(editor):
     expect(menu(page)).to_have_count(0)
 
 
+@pytest.mark.xfail(BROWSER == "webkit", reason="#636: WebKit misses Shift+F10 about 1 run in 10")
 def test_the_browsers_menu_does_not_come_up_with_the_keys(editor):
     """I4: the probe found whether Playwright's key makes a contextmenu event at all."""
     page = editor(*texts(*"ab"))
