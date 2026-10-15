@@ -53,8 +53,7 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
       ref={ref}
       className="menu"
       role="menu"
-      // A menu shut by hand is gone when the browser's `close` comes, and has said so already.
-      onClose={() => ref.current && onClose()}
+      onClose={onClose}
       onKeyDown={key}
       // The right button is the next line's: where it opens the menu on the press, both would run.
       onMouseDown={(e) => e.button !== 2 && beside(e) && ref.current!.close()}
