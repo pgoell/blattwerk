@@ -218,6 +218,8 @@ type Props = {
   hint: boolean;
   // Whether the field opens with all its text picked.
   all: boolean;
+  // Where the click that opened the field landed, on the screen: the caret opens there; else at the end.
+  at?: [number, number];
   change: (props: Pick<TextProps, "text" | "rich">, key: string) => void;
   pick: (picked?: Picked) => void;
   blur: (e: FocusEvent) => void;
@@ -225,7 +227,7 @@ type Props = {
 };
 
 // It has no history of its own: every change goes to the editor, whose undo then puts the text back from outside.
-export default function Field({ view, props, hint, all, ...on }: Props) {
+export default function Field({ view, props, hint, all, at, ...on }: Props) {
   const el = useRef<HTMLDivElement>(null);
   // What the field last took or gave: a text that differs has changed outside it.
   const known = useRef<Pick<TextProps, "text" | "rich">>(props);
@@ -287,6 +289,11 @@ export default function Field({ view, props, hint, all, ...on }: Props) {
       transformPastedHTML: (html) => html.replace(/<br\b[^>]*>/gi, " "),
     });
     view.current = field;
+    // The field lies where the closed text was drawn, so the point of the click finds its letter in it.
+    // A click below the text, or beside it, goes to the nearest line, as in PowerPoint.
+    const box = field.dom.getBoundingClientRect();
+    const spot = at && field.posAtCoords({ left: Math.min(Math.max(at[0], box.left + 1), box.right - 1), top: Math.min(Math.max(at[1], box.top + 1), box.bottom - 1) });
+    if (spot) field.updateState(field.state.apply(field.state.tr.setSelection(TextSelection.near(field.state.doc.resolve(spot.pos)))));
     field.focus();
     on.pick(picked(field.state, props, split));
     return () => {
