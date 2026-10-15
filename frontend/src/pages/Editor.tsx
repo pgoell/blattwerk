@@ -409,7 +409,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [multi, setMulti] = useState(false);
   // The right click's menu and where it stands: a thumbnail's with `thumb`, its page, else the one for blocks. With
   // `more` it is the bar's menu instead, of the commands the bar has no room for.
-  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; rule?: { axis: Axis; i: number; n?: number } }>();
+  const [menu, setMenu] = useState<{ x: number; y: number; thumb?: number; more?: boolean; cells?: boolean; cell?: number; rule?: { axis: Axis; i: number; n?: number } }>();
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
@@ -2871,7 +2871,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
-  function edit(id?: string, el?: Element, all = false) {
+  function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
     // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
     if (tied(free[0])) return;
@@ -2886,7 +2886,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       }
       setEditing(id);
     }
-    setSlot(+(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
+    setSlot(cell ?? +(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -3004,7 +3004,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       setAt(to);
       setIds(id ? grouped([id], pages[to].blocks) : []);
     }
-    setMenu({ x, y });
+    // The cell under the click, for Text bearbeiten: the menu runs after the click has closed it, so it is kept here.
+    const cell = el.closest<HTMLElement>("[data-cell]")?.dataset.cell;
+    setMenu({ x, y, cell: cell === undefined ? undefined : +cell });
     return true;
   }
   function thumbMenu(n: number, x: number, y: number) {
@@ -3018,7 +3020,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const shift = APPLE ? "⇧" : "Umschalt+";
   const thumbed = menu?.thumb;
   const ruled = menu?.rule;
+  const menuCell = menu?.cell;
   type Command = Exclude<Item, "sep">;
+  // One block with words of its own, or a score or a name, opens for writing from its menu, as F2 does. Not a linked one.
+  const [only] = sel;
+  const writeIn: Item[] =
+    sel.length === 1 && (writable(only) || only.type === "points" || only.type === "name") && !tied(only) && editing !== only.id
+      ? ["sep", { label: "Text bearbeiten", keys: "F2", disabled: !free.length, run: () => setTimeout(() => edit(only.id, undefined, true, menuCell)) }, "sep"]
+      : [];
   const clips: Command[] = [
     { label: "Ausschneiden", icon: Scissors, keys: `${ctrl}X`, disabled: !free.length, run: cut },
     { label: "Kopieren", icon: Copy, keys: `${ctrl}C`, disabled: none, run: copy },
@@ -3052,6 +3061,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               ] as Item[])
             : []),
           ...clips,
+          ...writeIn,
           ...copies,
           "sep",
           lockIt,
