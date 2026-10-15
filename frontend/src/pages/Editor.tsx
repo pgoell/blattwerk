@@ -592,7 +592,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   };
   const [W, H] = sizes[page];
   // Pixels per mm when the widest page fills the desk's width.
-  const fit = room / Math.max(...sizes.map(([w]) => w));
+  const widest = Math.max(...sizes.map(([w]) => w));
+  const fit = room / widest;
+  // The page count and the widest width as they were last. A page that goes or comes along with a new widest width
+  // scales the zoom by the ratio, so the shown size stays. A page turned Quer keeps the zoom.
+  const last = useRef({ count: pages.length, widest });
+  useLayoutEffect(() => {
+    const before = last.current;
+    last.current = { count: pages.length, widest };
+    if (before.count !== pages.length && before.widest !== widest) setZoom((z) => z * (widest / before.widest));
+  }, [pages.length, widest]);
   // The thumbnails draw after the desk, so a drag stays quick.
   const small = useDeferredValue(hist.doc);
   const cellOf = (p: Page) => p.grid ?? grid;
@@ -1636,8 +1645,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function removePage(n = page) {
     // The page in use stays, one place back when a page before it goes; a page gone itself hands it to the one in its place.
-    update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
-    setIds([]);
+    // It stays on the desk where it was too: the zoom may change with the widest page, so its top is measured before and after.
+    const was = sheet.current!.getBoundingClientRect().top;
+    flushSync(() => {
+      update((doc) => ({ ...doc, pages: doc.pages.filter((_, i) => i !== n) }), "", n < page ? page - 1 : Math.min(page, pages.length - 2));
+      setIds([]);
+    });
+    desk.current!.scrollBy(0, sheet.current!.getBoundingClientRect().top - was);
   }
   // Puts a page at another place among the pages. It is the page in use from then on.
   function movePage(from: number, to: number) {
@@ -1742,7 +1756,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       e.stopPropagation();
       // A page being dragged stays: the drop would look for it.
       if (pages.length < 2 || tug.current) return;
-      flushSync(() => removePage(n));
+      removePage(n);
       strip.current!.querySelector<HTMLElement>(`[data-thumb="${Math.min(n, pages.length - 2)}"]`)!.focus();
       return;
     }
