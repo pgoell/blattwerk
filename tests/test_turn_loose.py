@@ -3,6 +3,7 @@
 import math
 
 import pytest
+from pixels import over, screen_and_print
 from playwright.sync_api import expect
 from test_rotate import HANDLE, turn
 from ui import LINE, RECT, angle, arc, at, box, centre, expect_picked, pick, saved, user
@@ -222,3 +223,48 @@ def test_a_group_with_a_line_turns_by_the_handle(editor):
         assert any(math.dist(end, new) <= 1 for new in (p2, q2))
     assert math.dist(p2, q2) == pytest.approx(math.dist(p, q), abs=0.05)
     assert angle(page, "a") == pytest.approx(30, abs=1)
+
+
+def test_a_turned_line_prints_where_the_screen_shows_it(editor, browser, server):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=60, y=80, w=40, h=20, group=["g"]),
+        box("b", "shape", {**LINE, "kind": "arrow"}, z=2, x=110, y=70, w=30, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    (ax, ay), (bx, by) = centre(at(page, "a")), centre(at(page, "b"))
+    turn(page, ((ax + bx) / 2, (ay + by) / 2), 30, keys=("Shift",))
+    blocks = {b["id"]: b for b in saved(page, client)}
+    assert blocks["a"]["angle"] == 30
+    assert "angle" not in blocks["b"]
+    sheet_id = page.url.rsplit("/", 1)[1]
+    assert over(*screen_and_print(browser, server, client, sheet_id)) == []
+
+
+@pytest.mark.parametrize("start", ["nw", "ne", "se", "sw"])
+def test_a_line_from_any_corner_keeps_its_ends_through_a_group_turn(editor, start):
+    # Beyond the brief: a line that starts at each corner goes round as its ends do, by Alt+Right
+    # and back by Alt+Left to where it was.
+    client = user()
+    line = box("l", "shape", {**LINE, "from": start}, x=40, y=60, w=50, h=30, group=["g"])
+    first = [box("r", "shape", RECT, x=100, y=60, w=40, h=30, group=["g"]), line]
+    page = editor(*first, client=client)
+    at(page, "r").click()
+    expect_picked(page, "r", "l")
+    page.keyboard.press("Alt+ArrowRight")
+    turned = {b["id"]: b for b in saved(page, client)}["l"]
+    (p, q), (p2, q2) = ends(line), ends(turned)
+    # The start stays the start: it went round the group's middle (90, 75) by 15 degrees.
+    c, s = math.cos(math.radians(15)), math.sin(math.radians(15))
+    for was, now in ((p, p2), (q, q2)):
+        dx, dy = was[0] - 90, was[1] - 75
+        assert now == pytest.approx((90 + dx * c - dy * s, 75 + dx * s + dy * c), abs=0.02)
+    page.keyboard.press("Alt+ArrowLeft")
+    back = {b["id"]: b for b in saved(page, client)}
+    for b in first:
+        for side in "xywh":
+            assert back[b["id"]][side] == pytest.approx(b[side], abs=0.02)
+        assert back[b["id"]].get("angle", 0) == 0
+    assert back["l"]["props"]["from"] == start

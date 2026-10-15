@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -134,23 +134,24 @@ const quarter = (bs: Block[]): Block[] => {
     return { ...to, x: round(x - to.w / 2 + lean(to)), y: round(y - to.h / 2 - lean(to)) };
   });
 };
+// A line's start and end on the page.
+const endsOf = (b: ShapeBlock) => [
+  [b.x + (far(b, 1, false) ? b.w : 0), b.y + (far(b, 0, false) ? b.h : 0)],
+  [b.x + (far(b, 1, true) ? b.w : 0), b.y + (far(b, 0, true) ? b.h : 0)],
+];
 // The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
 // selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
 // spot. Quarters are exact, and a line goes by them only.
 export const swung = (bs: Block[], by: number): Block[] => {
   if (by % 90 === 0) return Array.from({ length: (((by / 90) % 4) + 4) % 4 }).reduce<Block[]>(quarter, bs);
-  // The middle is that of the box around the blocks in the frame of the first block that has an angle, so it stays
-  // put while the group turns, as the blocks in the frame of the group do.
+  // The middle is that of the box around the blocks in the frame of the first block that is no line, so it stays
+  // put while the group turns: turned back and forth, the blocks come back to where they were.
   const a0 = bs.find((b) => !isLine(b))?.angle ?? 0;
   const [c0, s0] = dir({ angle: -a0 });
   const frame = ([x, y]: number[]) => [x * c0 - y * s0, x * s0 + y * c0];
   const boxes = bs.map((b) => {
     if (isLine(b)) {
-      const f = b.props.from ?? "nw";
-      const ends = [
-        [b.x + (f[1] === "e" ? b.w : 0), b.y + (f[0] === "s" ? b.h : 0)],
-        [b.x + (f[1] === "e" ? 0 : b.w), b.y + (f[0] === "s" ? 0 : b.h)],
-      ].map(frame);
+      const ends = endsOf(b).map(frame);
       const [xs, ys] = [ends.map((p) => p[0]), ends.map((p) => p[1])];
       return { ...b, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     }
@@ -166,12 +167,7 @@ export const swung = (bs: Block[], by: number): Block[] => {
   return bs.map((b) => {
     if (isLine(b)) {
       // A line has no angle: its two ends go round, and its box and start follow them.
-      const f = b.props.from ?? "nw";
-      const ends = [
-        [b.x + (f[1] === "e" ? b.w : 0), b.y + (f[0] === "s" ? b.h : 0)],
-        [b.x + (f[1] === "e" ? 0 : b.w), b.y + (f[0] === "s" ? 0 : b.h)],
-      ].map(turnAbout);
-      const [[px, py], [qx, qy]] = ends;
+      const [[px, py], [qx, qy]] = endsOf(b).map(turnAbout);
       const from = ((py <= qy ? "n" : "s") + (px <= qx ? "w" : "e")) as Corner;
       return { ...b, x: round(Math.min(px, qx)), y: round(Math.min(py, qy)), w: round(Math.abs(px - qx)), h: round(Math.abs(py - qy)), props: { ...b.props, from } };
     }
