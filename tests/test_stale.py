@@ -19,7 +19,7 @@ from itertools import permutations
 import pytest
 from playwright.sync_api import expect
 from test_loading import READY, expect_loading, expect_ready, hold, window  # noqa: F401
-from ui import TEXT, at, box, pick, sheet
+from ui import TEXT, at, box, pick, sheet, unpick
 
 # Goes to an address as the router does: the app stays, and the script of the editor with it.
 GO = "(to) => { history.pushState(null, '', to); dispatchEvent(new PopStateEvent('popstate')); }"
@@ -115,7 +115,9 @@ class Run:
             self.asked[name] = []
 
     def nudge(self):
-        """Moves the sheet's block 1 mm to the right: an unsaved change."""
+        """Moves the sheet's block 1 mm to the right: an unsaved change. A click on the block
+        picked already would open its text, so the pick starts from nothing picked."""
+        unpick(self.page)
         pick(self.page, self.here["name"])
         self.page.keyboard.press("ArrowRight")
 
