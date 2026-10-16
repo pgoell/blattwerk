@@ -11,6 +11,7 @@ from blattwerk import pictures
 from blattwerk.auth import User
 from blattwerk.db import Con, Id
 from blattwerk.maths import Settings, generate
+from blattwerk.schema import check
 
 router = APIRouter(prefix="/api")
 
@@ -76,7 +77,15 @@ def maths_height(props: dict) -> float:
 
 def maths_block(y: float, limits: dict) -> dict:
     """A maths block at height y, with exercises made from the limits, with a fixed seed."""
-    props = {**limits, **generate(Settings.model_validate(limits)), "columns": 3, "size": 14}
+    # The digit ranges a and b are empty here, as Settings has them when the exercises are made.
+    props = {
+        "a": [],
+        "b": [],
+        **limits,
+        **generate(Settings.model_validate(limits)),
+        "columns": 3,
+        "size": 14,
+    }
     return block("maths", 15, y, 180, maths_height(props), props)
 
 
@@ -527,6 +536,7 @@ def templates(user: User, con: Con) -> list[dict]:
 
 @router.post("/templates")
 def save(body: Template, user: User, con: Con) -> dict:
+    check(body.doc)
     pictures.touch(user["id"], body.doc)
     cur = con.execute(
         "INSERT INTO templates (user_id, name, doc) VALUES (?, ?, ?)",
