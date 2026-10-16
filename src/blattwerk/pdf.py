@@ -38,7 +38,7 @@ DRAW = 15000
 # Drawn on a preview only: each block's box in magenta, with its id. The PDF never gets them.
 OUTLINES = """
 .print .block { outline: 1px solid magenta; outline-offset: -1px; }
-.print .block::before { content: attr(data-id); position: absolute; top: 0; left: 0;
+.print .block::before { content: attr(data-block); position: absolute; top: 0; left: 0;
   font: bold 11px sans-serif; color: magenta; background: white; }
 """
 
