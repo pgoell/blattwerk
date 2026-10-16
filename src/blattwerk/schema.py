@@ -96,7 +96,7 @@ def problems(doc: dict) -> list[str]:
 
 # What a block must have for the editor to open the sheet: the rest of it, the editor draws from
 # its defaults where a value is wrong or missing, and saves back as it was.
-SKELETON = {"id", "type", "x", "y", "w", "h"}
+SKELETON = {"id", "type", "x", "y", "w", "h", "props"}
 
 
 def breaks(error, path: list) -> bool:
@@ -121,6 +121,13 @@ def check(doc: dict) -> None:
     if "pages" not in doc and isinstance(doc.get("blocks"), list):
         doc = {**doc, "pages": [{"blocks": doc["blocks"]}]}
         del doc["blocks"]
+    # JSON has no NaN: stored, it comes back as null, which no later save gets past.
+    try:
+        json.dumps(doc, allow_nan=False)
+    except ValueError:
+        raise HTTPException(
+            422, detail={"problems": ["doc: holds NaN or Infinity, write a finite number"]}
+        ) from None
     found = faults(doc)
     broken = [text for _, text, broke in found if broke][:10]
     if broken:

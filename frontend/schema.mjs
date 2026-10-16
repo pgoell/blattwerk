@@ -13,11 +13,18 @@ const defs = schema.definitions;
 // A block is one of 16 types. As an anyOf a wrong prop would read "not valid under any of the given schemas": the
 // type picks the one schema each block answers to, so an error names the prop and what it must be.
 const types = defs.Block.anyOf.map(({ $ref }) => defs[$ref.split("/").pop()].properties.type.const);
+// What every block has, whatever its type: a block of a type nobody knows needs it too, for the editor to open it.
+const box = ["id", "x", "y", "w", "h", "props"];
+const first = defs[defs.Block.anyOf[0].$ref.split("/").pop()].properties;
 defs.Block = {
   description: defs.Block.description,
   type: "object",
-  required: ["type"],
-  properties: { type: { description: "What the block is; the other fields depend on it.", enum: types } },
+  required: ["type", ...box],
+  properties: {
+    type: { description: "What the block is; the other fields depend on it.", type: "string", enum: types },
+    ...Object.fromEntries(box.map((key) => [key, { description: first[key].description, type: key === "id" ? "string" : key === "props" ? "object" : "number" }])),
+    props: { description: "The block's own settings; which fields it holds depends on `type`.", type: "object" },
+  },
   allOf: defs.Block.anyOf.map((ref, i) => ({ if: { properties: { type: { const: types[i] } } }, then: ref })),
 };
 

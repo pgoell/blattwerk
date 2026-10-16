@@ -110,11 +110,18 @@
     "Block": {
       "type": "object",
       "required": [
-        "type"
+        "type",
+        "id",
+        "x",
+        "y",
+        "w",
+        "h",
+        "props"
       ],
       "properties": {
         "type": {
           "description": "What the block is; the other fields depend on it.",
+          "type": "string",
           "enum": [
             "text",
             "shape",
@@ -133,6 +140,30 @@
             "uhr",
             "selbstkontrolle"
           ]
+        },
+        "id": {
+          "description": "Unique id of the block on its sheet.",
+          "type": "string"
+        },
+        "x": {
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+          "type": "number"
+        },
+        "w": {
+          "description": "Width of the block in mm, before any turn.",
+          "type": "number"
+        },
+        "h": {
+          "description": "Height of the block in mm, before any turn.",
+          "type": "number"
+        },
+        "props": {
+          "description": "The block's own settings; which fields it holds depends on `type`.",
+          "type": "object"
         }
       },
       "allOf": [
