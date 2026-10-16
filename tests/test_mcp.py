@@ -1,5 +1,6 @@
 """The Blattomat MCP server (frontend/mcp/stdio.ts), spoken to over stdio as Claude Code does."""
 
+import base64
 import json
 import os
 import subprocess
@@ -12,8 +13,8 @@ SCHEMA = json.loads((ROOT / "src/blattwerk/sheet.schema.json").read_text())
 
 
 class Mcp:
-    def __init__(self, server, token, tmp_path, url=None):
-        self.err = tmp_path / "stderr.txt"
+    def __init__(self, server, token, tmp_path, url=None, tag=""):
+        self.err = tmp_path / f"stderr{tag}.txt"
         self.proc = subprocess.Popen(
             ["node", "frontend/mcp/stdio.ts"],
             cwd=ROOT,
@@ -24,7 +25,7 @@ class Mcp:
         )
         self.out = []
         self.next_id = 1
-        self.request(
+        self.init = self.request(
             "initialize",
             {
                 "protocolVersion": "2025-06-18",
@@ -134,5 +135,195 @@ def test_create_rename_duplicate_list_get(server, tmp_path):
         )
         result = mcp.call("get_sheet", sheet_id=foreign)
         assert result["isError"] and "No sheet with id" in result["content"][0]["text"]
+    finally:
+        mcp.stop()
+
+
+def block(id, kind, props, y, h):
+    return {
+        "type": kind,
+        "id": id,
+        "x": 15,
+        "y": y,
+        "w": 180,
+        "h": h,
+        "z": 1,
+        "locked": False,
+        "props": props,
+    }
+
+
+def doc_of(*blocks):
+    return {"pages": [{"blocks": list(blocks)}], "guides": {"x": [], "y": []}, "grid": 0}
+
+
+TEXT = {"text": "Name:", "size": 14, "align": "left"}
+RULING = {"kind": "l4", "color": "#222222"}
+
+
+def maths(id, y, count=12, columns=4):
+    props = {"ops": ["+", "-"], "max": 20, "count": count, "columns": columns, "size": 14}
+    return block(id, "maths", props, y, 10)
+
+
+def new_sheet(mcp):
+    return json.loads(mcp.call("create_sheet", title="Blatt")["content"][0]["text"])
+
+
+def stored(client, sheet_id):
+    return client.get(f"/api/sheets/{sheet_id}").json()["doc"]
+
+
+def test_replace_doc_takes_the_three_types(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        doc = doc_of(
+            block("t", "text", TEXT, 20, 10), maths("m", 40), block("r", "ruling", RULING, 60, 10)
+        )
+        result = mcp.call("replace_doc", sheet_id=sheet["id"], version=sheet["version"], doc=doc)
+        assert not result.get("isError"), result
+        kinds = [b["type"] for b in stored(client, sheet["id"])["pages"][0]["blocks"]]
+        assert kinds == ["text", "maths", "ruling"]
+    finally:
+        mcp.stop()
+
+
+def test_replace_doc_names_path_and_fix(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        before = stored(client, sheet["id"])
+        doc = doc_of(maths("m", 20, columns=7))
+        result = mcp.call("replace_doc", sheet_id=sheet["id"], version=sheet["version"], doc=doc)
+        text = result["content"][0]["text"]
+        assert result["isError"]
+        assert "props.columns" in text and "must be 1 to 6" in text
+        assert stored(client, sheet["id"]) == before
+    finally:
+        mcp.stop()
+
+
+def test_maths_gets_exercises_from_the_api(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        doc = doc_of(maths("m", 20, count=12))
+        result = mcp.call("replace_doc", sheet_id=sheet["id"], version=sheet["version"], doc=doc)
+        assert not result.get("isError"), result
+        (saved,) = stored(client, sheet["id"])["pages"][0]["blocks"]
+        assert len(saved["props"]["exercises"]) == 12
+        assert saved["h"] >= 10
+    finally:
+        mcp.stop()
+
+
+def test_maths_keeps_its_own_exercises(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        first = mcp.call(
+            "replace_doc",
+            sheet_id=sheet["id"],
+            version=sheet["version"],
+            doc=doc_of(maths("m", 20)),
+        )
+        assert not first.get("isError"), first
+        once = stored(client, sheet["id"])
+        version = client.get(f"/api/sheets/{sheet['id']}").json()["version"]
+        result = mcp.call("replace_doc", sheet_id=sheet["id"], version=version, doc=once)
+        assert not result.get("isError"), result
+        twice = stored(client, sheet["id"])
+        assert (
+            twice["pages"][0]["blocks"][0]["props"]["exercises"]
+            == (once["pages"][0]["blocks"][0]["props"]["exercises"])
+        )
+    finally:
+        mcp.stop()
+
+
+def test_409_retries_once(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        got = json.loads(mcp.call("get_sheet", sheet_id=sheet["id"])["content"][0]["text"])
+        bumped = client.patch(
+            f"/api/sheets/{sheet['id']}", json={"doc": got["doc"], "version": got["version"]}
+        )
+        assert bumped.status_code == 200, bumped.text
+        result = mcp.call(
+            "replace_doc",
+            sheet_id=sheet["id"],
+            version=got["version"],
+            doc=doc_of(block("t", "text", TEXT, 20, 10)),
+        )
+        assert not result.get("isError"), result
+        assert stored(client, sheet["id"])["pages"][0]["blocks"][0]["type"] == "text"
+    finally:
+        mcp.stop()
+
+
+def test_409_after_a_teachers_edit_tells_claude(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        got = json.loads(mcp.call("get_sheet", sheet_id=sheet["id"])["content"][0]["text"])
+        teacher = doc_of(block("t", "text", TEXT, 20, 10))
+        bumped = client.patch(
+            f"/api/sheets/{sheet['id']}", json={"doc": teacher, "version": got["version"]}
+        )
+        assert bumped.status_code == 200, bumped.text
+        result = mcp.call("replace_doc", sheet_id=sheet["id"], version=got["version"], doc=doc_of())
+        assert result["isError"]
+        assert "teacher changed" in result["content"][0]["text"]
+        assert stored(client, sheet["id"]) == teacher
+    finally:
+        mcp.stop()
+
+
+def test_render_preview_gives_a_png(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet = new_sheet(mcp)
+        image = mcp.call("render_preview", sheet_id=sheet["id"])
+        assert image["content"][0]["type"] == "image"
+        assert image["content"][0]["mimeType"] == "image/png"
+        assert base64.b64decode(image["content"][0]["data"])[:4] == b"\x89PNG"
+        far = mcp.call("render_preview", sheet_id=sheet["id"], page=5)
+        assert far["isError"] and "1" in far["content"][0]["text"]
+        assert client
+    finally:
+        mcp.stop()
+
+
+def test_token_never_shows(server, tmp_path):
+    client = user()
+    token = token_for(client)
+    good = Mcp(server, token, tmp_path, tag="good")
+    bad = Mcp(server, "bt_1_wrong", tmp_path, tag="bad")
+    down = Mcp(server, token, tmp_path, url="http://127.0.0.1:9", tag="down")
+    try:
+        sheet = new_sheet(good)
+        good.call("get_sheet", sheet_id=sheet["id"])
+        assert bad.call("get_sheet", sheet_id=sheet["id"])["isError"]
+        assert down.call("list_sheets")["isError"]
+        outs = good.out + bad.out + down.out
+        for mcp in (good, bad, down):
+            mcp.stop()
+        for line in outs:
+            assert token not in line
+        for name in ("stderrgood.txt", "stderrbad.txt", "stderrdown.txt"):
+            assert token not in (tmp_path / name).read_text()
+    finally:
+        for mcp in (good, bad, down):
+            mcp.stop()
+
+
+def test_instructions_name_the_three_types(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        instructions = mcp.init["instructions"]
+        for word in ("text", "maths", "ruling"):
+            assert word in instructions
     finally:
         mcp.stop()
