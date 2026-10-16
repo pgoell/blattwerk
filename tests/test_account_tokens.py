@@ -67,6 +67,7 @@ def test_revoke_takes_the_key_away(account):
     page = account(client)
     token = make(page, "Laptop")
     page.get_by_role("button", name="Widerrufen: Laptop").click()
+    page.get_by_role("dialog").get_by_role("button", name="Widerrufen", exact=True).click()
     expect(row(page, "Laptop")).to_have_count(0)
     expect(page.get_by_test_id("new-token")).to_have_count(0)
     assert bearer(token).get("/api/sheets").status_code == 401
