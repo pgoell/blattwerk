@@ -105,9 +105,6 @@ import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, r
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
-
-// The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
-const pdfFault = "Das PDF konnte nicht erstellt werden.";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -118,6 +115,9 @@ import { generate, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
 import type { Breaks } from "../syllables";
+
+// The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
+const pdfFault = "Das PDF konnte nicht erstellt werden.";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
@@ -284,8 +284,9 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
   const navigate = useNavigate();
   const keep = () => void keepAsNew(Number(id)).then((sheet) => {
+    if (!sheet || sheet === "failed") return;
     dropFault(pdfFault);
-    if (sheet && sheet !== "failed") navigate(`/blatt/${sheet.id}`);
+    navigate(`/blatt/${sheet.id}`);
   });
   // Only from the dead sheet's own address: the teacher may have gone on while the server was asked.
   const drop = () => void discard(Number(id)).then((gone) => gone && location.pathname === `/blatt/${id}` && navigate("/"));

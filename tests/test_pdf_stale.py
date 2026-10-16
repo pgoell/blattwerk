@@ -10,7 +10,8 @@ import pypdf
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_refused_save import ALERT, break_x, open_sheet, stored
-from test_saves import clash, run, start  # noqa: F401
+from test_saves import answer, clash, run, start  # noqa: F401
+from test_stale import TURNS
 from ui import FIELD, pick, unpick
 
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
@@ -155,6 +156,57 @@ def test_variants_pdf_is_off_in_a_clash_and_says_why(run):
     )
     expect(dialog).not_to_contain_text("deine letzte Änderung")
     expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+
+
+def clash_on_text(run, mine):
+    """B saves the text `Vom Tool`; A types `mine` and its save is refused: the banner stands."""
+    other = run.held("a")
+    other["doc"]["pages"][0]["blocks"][0]["props"]["text"] = "Vom Tool"
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    gate = run.gates["a"]
+    type_text(run.page, mine)
+    with run.page.expect_request(gate.asks("PATCH")):
+        run.page.clock.run_for(2000)
+    run.page.evaluate(TURNS)
+    answer(run, "a")
+    expect(run.page.locator(".clash")).to_be_visible()
+
+
+def test_variants_print_shows_and_prints_the_other_version_after_the_choice(run):
+    """#698: in the clash the dialog's PDF waits; after „Andere Version laden“ the preview and the
+    PDF both hold `Vom Tool`, and not A's `Vom MCP`."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+    expect(dialog.locator(".clash")).to_be_visible()
+    dialog.get_by_role("button", name="Schließen").click()
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    expect(dialog.locator(".preview")).to_contain_text("Vom Tool")
+    with page.expect_download() as got:
+        dialog.get_by_role("button", name="PDF", exact=True).click()
+    text = "".join(p.extract_text() for p in pypdf.PdfReader(got.value.path()).pages)
+    assert "Vom Tool" in text
+    assert "Vom MCP" not in text
+
+
+def test_pdf_line_goes_once_the_change_is_kept_as_a_new_sheet(run):
+    """#699: the sheet was deleted elsewhere; „Als neues Blatt behalten“ takes the PDF line away."""
+    page, _ = start(run)
+    clash(run)
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(1)
+
+    assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("gelöscht")
+    page.locator(".clash").get_by_role("button", name="Als neues Blatt behalten").click()
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
 
 
 def test_pdf_after_loading_the_other_version_shows_no_line(run):
