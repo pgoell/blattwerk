@@ -31,12 +31,14 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
     const box = d.getBoundingClientRect();
     d.style.left = `${Math.max(0, Math.min(x, innerWidth - box.width))}px`;
     d.style.top = `${Math.max(0, Math.min(up ? y - box.height : y, innerHeight - box.height))}px`;
-    // The row goes 8 px above the blocks, or below them when there is no room above, and stays in the window.
+    // The row goes 8 px above the blocks, or when there is no room above below the blocks and the menu, and stays
+    // in the window.
     if (row.current && avoid) {
       const r = row.current.getBoundingClientRect();
+      const menu = d.getBoundingClientRect();
       const above = avoid.top - 8 - r.height;
       row.current.style.left = `${Math.max(0, Math.min(x, innerWidth - r.width))}px`;
-      row.current.style.top = `${above >= 0 ? above : avoid.bottom + 8}px`;
+      row.current.style.top = `${above >= 0 ? above : Math.min(Math.max(avoid.bottom, menu.bottom) + 8, innerHeight - r.height)}px`;
     }
     d.querySelector<HTMLElement>(ENTRY)?.focus();
   }, [x, y]);

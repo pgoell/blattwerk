@@ -30,7 +30,9 @@ def tool(page, name):
 
 def rect(page, name):
     """The box a block or the toolbar takes on the screen, as a dict."""
-    css = f'[data-id="{name}"]' if name != "toolbar" else '[role="toolbar"]'
+    css = {"toolbar": '[aria-label="Minisymbolleiste"]', "menu": "dialog.menu"}.get(
+        name, f'[data-id="{name}"]'
+    )
     box = page.locator(css).first.evaluate("el => el.getBoundingClientRect().toJSON()")
     return {side: box[side] for side in ("left", "top", "right", "bottom")}
 
@@ -81,16 +83,23 @@ def test_a_mini_turn_works_on_a_tapped_button(editor):
     assert angle(page, "a") == 90
 
 
-@pytest.mark.parametrize("y", [60, 2])
-def test_the_toolbar_never_covers_the_picked_blocks(editor, y):
-    """A8: beside the box of the picked blocks, above it or, with no room, below."""
-    page = editor(box("a", "text", TEXT, y=y), box("b", "text", TEXT, z=2, y=y + 30))
+@pytest.mark.parametrize("top", [False, True], ids=["room", "window-top"])
+def test_the_toolbar_never_covers_the_picked_blocks(editor, top):
+    """A8: above the picked blocks or, with no room, below them and the menu."""
+    page = editor(box("a", "text", TEXT, y=60), box("b", "text", TEXT, z=2, y=90))
     pick(page, "a", "b")
+    if top:
+        # The blocks scrolled up to the window's top edge: no room above them.
+        page.locator(".desk").evaluate(
+            "(d, a) => d.scrollBy(0, a.getBoundingClientRect().top - 4)",
+            page.locator('[data-id="a"]').element_handle(),
+        )
+        assert rect(page, "a")["top"] < 40
     right(page, "b")
     expect(mini(page)).to_be_visible()
     row = rect(page, "toolbar")
-    for name in "ab":
-        assert apart(row, rect(page, name))
+    for name in ("a", "b", "menu"):
+        assert apart(row, rect(page, name)), name
     assert row["left"] >= 0 and row["right"] <= page.viewport_size["width"]
 
 
