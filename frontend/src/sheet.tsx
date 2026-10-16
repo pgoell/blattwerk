@@ -974,6 +974,11 @@ function fitText(el: HTMLElement, least: number, high: number) {
 function cutAt(el: HTMLElement) {
   const paper = el.closest<HTMLElement>(".paper, .sheet");
   if (!paper) return undefined;
+  // A frame well above the foot needs no measure: its box's lowest point (turned or not) and its overflow lie above it.
+  const near = el.getBoundingClientRect();
+  const scale = near.width / el.offsetWidth || 1;
+  const reach = Math.max(0, el.scrollHeight - el.clientHeight) * scale;
+  if (near.bottom + reach < paper.getBoundingClientRect().bottom - 1) return undefined;
   const block = el.parentElement!;
   const was = block.style.transform;
   block.style.transform = "none";
