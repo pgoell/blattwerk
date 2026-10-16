@@ -440,11 +440,14 @@ export async function keepAsNew(id: number) {
       throw new Error("401");
     }
     // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
-    const found = s.asked && (await ask<Sheet[]>("/sheets")).find((x) => x.title === (want.title.trim() || "Unbenanntes Blatt") && same(x.doc, want.doc));
-    s.asked = want;
+    const prior = s.asked;
+    const found = prior && (await ask<Sheet[]>("/sheets")).find((x) => x.title === (prior.title.trim() || "Unbenanntes Blatt") && same(x.doc, prior.doc));
+    if (!found) s.asked = want;
     const sheet = found || (await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body }));
+    // What the new sheet holds: the change asked for, which the found sheet holds too.
+    const took = found && prior ? prior : want;
     // A change made while the server was asked goes along: the new sheet's saver finds it kept, and sends it.
-    if (s.want !== want && !s.dead) {
+    if (!s.dead && (!same(s.want.doc, took.doc) || s.want.title !== took.title)) {
       const record: Record = { owner: s.owner, base: sheet.version, doc: s.want.doc, title: s.want.title, name: sheet.title };
       try {
         localStorage.setItem(key(sheet.id), JSON.stringify(record));
@@ -452,7 +455,7 @@ export async function keepAsNew(id: number) {
         // The store is full or shut: that change is lost with the old sheet.
       }
     }
-    announce(id, want, sheet.id);
+    announce(id, took, sheet.id);
     forget(id);
     return sheet;
   } catch (e) {
