@@ -59,7 +59,9 @@ type Saver = {
 // written before there was one has none.
 // `lists` marks a record of a build that knows the Lernwörter: one without it names no list because its build
 // dropped the sheet's, not because the teacher took it away.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean };
+// `asked` is the change a keep of a sheet deleted elsewhere last sent as a new sheet, whose answer may not have come:
+// a press after a reload finds that sheet rather than making a second one.
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed"; choiceProblems?: string[] };
 
 const savers = new Map<number, Saver>();
@@ -118,7 +120,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -442,7 +444,10 @@ export async function keepAsNew(id: number) {
     // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
     const prior = s.asked;
     const found = prior && (await ask<Sheet[]>("/sheets")).find((x) => x.title === (prior.title.trim() || "Unbenanntes Blatt") && same(x.doc, prior.doc));
-    if (!found) s.asked = want;
+    if (!found) {
+      s.asked = want;
+      keep(s);
+    }
     const sheet = found || (await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body }));
     // What the new sheet holds: the change asked for, which the found sheet holds too.
     const took = found && prior ? prior : want;
@@ -539,7 +544,8 @@ export function enter(owner?: number) {
         if (!record || owner === undefined) return;
         const saved = { doc: record.doc, title: record.name ?? record.title ?? "Unbenanntes Blatt" };
         const want = { doc: read(record.doc), title: record.title ?? saved.title };
-        savers.set(id, { id, owner, base: record.base, saved, want, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
+        const asked = record.asked && { doc: read(record.asked.doc), title: record.asked.title };
+        savers.set(id, { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
         tell(1);
       },
     );
