@@ -390,6 +390,14 @@ export function onEnded(id: number, told: (to: number | null) => void) {
 // Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
 // work its change is written back, so the removal of the other tab's record leaves no loss.
 addEventListener("storage", (e) => {
+  // Another tab took a sheet's record out: a tab that still holds unsaved work of it writes its own back. That tab's
+  // removal may reach the store after this tab's own write, which then would be gone with it.
+  const out = /^unsaved:(\d+)$/.exec(e.key ?? "");
+  if (out && e.newValue === null) {
+    const s = savers.get(Number(out[1]));
+    if (s && !s.dead && unsaved(s)) keep(s);
+    return;
+  }
   const m = /^ended:(\d+)$/.exec(e.key ?? "");
   if (!m || e.newValue === null) return;
   const id = Number(m[1]);
