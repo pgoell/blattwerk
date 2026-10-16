@@ -10,7 +10,7 @@ import json
 from playwright.sync_api import expect
 from test_saves import record
 from test_stale import STATUS
-from ui import TEXT, at, box, pick, user
+from ui import TEXT, at, box, pick, unpick, user
 
 from blattwerk import db
 
@@ -179,3 +179,45 @@ def test_keeping_a_refused_sheet_as_new_names_the_problem(editor):
     page.get_by_role("button", name="Als neues Blatt behalten").click()
     expect(page.get_by_role("alert")).to_contain_text("pages[0].blocks[0].x")
     expect(page.get_by_role("alert")).not_to_contain_text("Prüfe deine Verbindung")
+
+
+def test_a_failed_rename_of_a_refused_sheet_is_tried_again(editor):
+    page, sheet_id = open_sheet(editor)
+    failed = []
+
+    def rewrite(route):
+        # The first rename fails with 500. The doc's save is refused as before; the rest goes on.
+        body = (
+            json.loads(route.request.post_data or "{}") if route.request.method == "PATCH" else {}
+        )
+        if "doc" in body:
+            body["doc"]["pages"][0]["blocks"][0]["x"] = "abc"
+            return route.continue_(post_data=json.dumps(body))
+        if "title" in body and not failed:
+            failed.append(body)
+            return route.fulfill(status=500, body="{}")
+        route.continue_()
+
+    page.route(f"**/api/sheets/{sheet_id}", rewrite)
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(ALERT)).to_contain_text("pages[0].blocks[0].x")
+
+    # The rename fails once, then is sent again on its own, and reaches the server.
+    with page.expect_response(lambda r: r.request.method == "PATCH" and r.status == 200) as sent:
+        page.get_by_label("Titel").fill("Neuer Titel")
+    sent.value.finished()
+    assert len(failed) == 1
+    assert stored_title(sheet_id) == "Neuer Titel"
+    expect(page.locator(ALERT)).to_contain_text("pages[0].blocks[0].x")
+
+    # The teacher fixes the doc: the next change saves, the alert goes, and the server holds it.
+    page.unroute(f"**/api/sheets/{sheet_id}")
+    # The title field has the focus: the block is picked again, so the arrow moves it.
+    unpick(page)
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    expect(page.locator(ALERT)).to_have_count(0)
+    assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] not in (15, "abc")
+    assert stored_title(sheet_id) == "Neuer Titel"
