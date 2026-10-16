@@ -1,9 +1,15 @@
 """Table wishes: Tab picks the next cell's text (#104)."""
 
 from playwright.sync_api import expect
-from ui import at, box, doc, user
+from ui import at, box, centre, doc, finger, pick, user
 
 TABLE = {"cells": [["H", "Z"], ["3", "7"]], "cols": [1, 1], "size": 14, "align": "center"}
+GRID = {
+    "cells": [["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]],
+    "cols": [1, 1, 1],
+    "size": 14,
+    "align": "center",
+}
 
 
 def cell(page, name, n):
@@ -13,6 +19,20 @@ def cell(page, name, n):
 def cells(page, client, name="t"):
     blocks = doc(page, client)["pages"][0]["blocks"]
     return next(b for b in blocks if b["id"] == name)["props"]["cells"]
+
+
+def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(editor):
+    """#511: a finger on the open cell's bottom right handle picks the cells it is dragged over."""
+    page = editor(box("t", "table", GRID), touch=True)
+    pick(page, "t")
+    cell(page, "t", 0).dblclick()
+    handle = page.locator(".cell-handle-se")
+    expect(handle).to_be_visible()
+    start = centre(handle)
+    target = centre(cell(page, "t", 4))
+    with finger(page, start) as touch:
+        touch("touchMove", target)
+    expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
 
 
 def test_tab_from_an_open_cell_picks_the_next_cells_text(editor):
