@@ -3,9 +3,10 @@
 import pytest
 from playwright.sync_api import expect
 from test_bows import bows, expect_under
+from test_gaps import panel
 from test_lernwoerter_follow import add_word
 from test_tints import BLUE, PAIR, RED, tinted
-from ui import RULING, at, box, sheet, user
+from ui import RULING, at, box, pick, sheet, user
 
 from blattwerk import pdf
 
@@ -116,3 +117,28 @@ def test_the_print_page_lays_out_a_linked_row_as_the_editor_does(editor, browser
         context.close()
     assert "cut" not in drawn, drawn
     assert drawn == shown
+
+
+# The word of each row, pressed: its box as laid out and as drawn, and the bows of the block.
+PRESSED = """(block) => {
+  const word = block.querySelector('.written.listed .row > span > span');
+  const r = word.getBoundingClientRect();
+  const bows = [...block.querySelectorAll('svg.bows .syl')].map((p) => p.getBoundingClientRect());
+  const spans = bows.map((b) => [b.left, b.right]);
+  return { word: [r.left, r.right], scale: word.style.transform, bows: spans };
+}"""
+
+
+def test_a_pressed_fold_word_keeps_its_bows_inside_it(editor):
+    """A long word in a narrow fold is scaled to fit; after the folds change, its bows follow it."""
+    client = user()
+    props = {**RULING, "kind": "l3", "list": "fold", "folds": 2, "syllables": True}
+    page = editor(box("a", "ruling", props, w=60, h=120), client=client, words=["Schmetterling"])
+    pick(page, "a")
+    panel(page, "3 Spalten zum Schreiben").click()
+    expect(at(page, "a").locator("line.col")).to_have_count(2)
+    expect(at(page, "a").locator(".syl").first).to_be_visible()
+    got = at(page, "a").evaluate(PRESSED)
+    assert got["bows"], got
+    for left, right in got["bows"]:
+        assert left >= got["word"][0] - 1 and right <= got["word"][1] + 1, got
