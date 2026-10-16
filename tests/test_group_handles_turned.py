@@ -149,3 +149,16 @@ def test_a_level_group_with_a_line_keeps_its_handles_after_another_turn(editor):
     expect(page.locator(".sheet i.end")).to_have_count(4)
     # The frame turned a quarter, so its nw handle moved with it.
     assert math.dist(before, handle(page, 0)) > 10
+
+
+def test_a_group_with_a_line_and_blocks_turned_each_their_own_way_has_no_size_handles(editor):
+    """No own frame to size it in: handles on the level box would stand off the frame drawn."""
+    page = editor(
+        box("a", "shape", RECT, x=40, y=60, w=40, h=30, angle=30, group=["g"]),
+        box("b", "shape", RECT, z=2, x=100, y=60, w=40, h=30, angle=60, group=["g"]),
+        box("c", "shape", LINE, z=3, x=40, y=120, w=100, h=0, group=["g"]),
+    )
+    pick_group(page, "a", "b", "c")
+    expect(page.locator(".sheet .block.sel")).to_have_count(3)
+    expect(page.locator(".sheet i.end")).to_have_count(0)
+    expect(page.locator(".sheet .turned-frame")).to_have_count(0)

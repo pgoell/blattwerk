@@ -111,13 +111,6 @@ import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTs
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, frameOf, has, hull, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
-
-// A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
-const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
-  const [c, s] = [Math.cos((by * Math.PI) / 180), Math.sin((by * Math.PI) / 180)];
-  const [dx, dy] = [x - cx, y - cy];
-  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
-};
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
@@ -126,6 +119,13 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 import { parasFromHtml } from "../pasted";
+
+// A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
+const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
+  const [c, s] = [Math.cos((by * Math.PI) / 180), Math.sin((by * Math.PI) / 180)];
+  const [dx, dy] = [x - cx, y - cy];
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+};
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
@@ -695,8 +695,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
   // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. A turned
   // one shows them on its turned frame: they size it in its own frame, where its blocks lie level.
-  // Loose blocks keep a level frame, however they are turned.
-  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) ? (oneGroup ? frameOf(sel) : { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
+  // Loose blocks keep a level frame, however they are turned. A group whose blocks are turned each their own way has
+  // no frame of its own to size it in, so it has none: the handles would stand off Moveable's frame round them.
+  const ownFrame = oneGroup && sel.some(isLine) ? frameOf(sel) : undefined;
+  const mixed = !!ownFrame && !ownFrame.turn && sel.some((b) => !isLine(b) && b.angle);
+  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) && !mixed ? (ownFrame ?? { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
   const group = frame && bounds(frame.level);
   const turnedLine = !!frame?.turn;
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
