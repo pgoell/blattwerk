@@ -618,6 +618,8 @@ body:has(.print) { background: #fff; }
   min-height: 0; margin: 0; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; color: inherit;
   white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden;
 }
+/* A shape with its text inside shrinks the type to fit, so a word never breaks in the middle. */
+.frame.inside p { overflow-wrap: normal; }
 /* A text with paragraphs of its own: drawn from the sheet, or the field it is typed in. The counters number the
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */

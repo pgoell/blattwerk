@@ -37,16 +37,30 @@ describe("totals", () => {
     expect(maxes(out)[1]).toStrictEqual([61, 10, 9]);
   });
 
-  it("does nothing when the total itself is changed", () => {
+  it("sets every marked total on every page to a total typed by hand", () => {
     const before = klassenarbeit();
-    const after = set(before, { t1: 70 });
-    expect(totals(before, after)).toBe(after);
+    expect(maxes(totals(before, set(before, { t1: 70 })))).toStrictEqual([
+      [70, 10, 10],
+      [70, 10, 10],
+      [70, 10, 10],
+    ]);
+  });
+
+  it("moves every total to the sum when a task changes after a total typed by hand", () => {
+    const typed = totals(klassenarbeit(), set(klassenarbeit(), { t1: 70 }));
+    expect(maxes(totals(typed, set(typed, { a1: 15 })))).toStrictEqual([
+      [65, 15, 10],
+      [65, 10, 10],
+      [65, 10, 10],
+    ]);
   });
 
   it("does nothing on a sheet with no marked total, however it adds up", () => {
     const before = klassenarbeit(false);
     const after = set(before, { a1: 15 });
     expect(totals(before, after)).toBe(after);
+    const typed = set(before, { t1: 70 });
+    expect(totals(before, typed)).toBe(typed);
   });
 
   it("counts a new task box in the total", () => {
@@ -76,16 +90,22 @@ describe("totals", () => {
     expect(maxes(totals(before, pasted))).toStrictEqual([[15, 10, 25]]);
   });
 
-  it("leaves the totals as they are when no task changed", () => {
+  it("gives two totals typed by hand the same number on every page", () => {
     const before = klassenarbeit();
-    const after = set(before, { t1: 70, t2: 70 });
-    expect(totals(before, after)).toBe(after);
+    expect(maxes(totals(before, set(before, { t1: 70, t2: 70 })))).toStrictEqual([
+      [70, 10, 10],
+      [70, 10, 10],
+      [70, 10, 10],
+    ]);
   });
 
   it("keeps a total typed by hand in the same step as a task, as the panel does with a total and a task picked", () => {
     const before = klassenarbeit();
-    const after = set(before, { t1: 7, a1: 7 });
-    expect(totals(before, after)).toBe(after);
+    expect(maxes(totals(before, set(before, { t1: 7, a1: 7 })))).toStrictEqual([
+      [7, 7, 10],
+      [7, 10, 10],
+      [7, 10, 10],
+    ]);
   });
 
   it("leaves a sheet with no tasks left as it is", () => {

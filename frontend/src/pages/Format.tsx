@@ -169,6 +169,24 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
     const [cx, cy] = [ox + (b.x + b.w / 2 - ox) * sx, oy + (b.y + b.h / 2 - oy) * sy];
     return { ...b, x: round(cx - w / 2), y: round(cy - h / 2), w: round(w), h: round(h) };
   });
+// A group that is turned scales in its own frame: it goes level about its middle, scales there, and turns back, so
+// a line in it still lies along the box. A group is turned when all its blocks but the lines share one angle; one with
+// blocks turned each their own way scales along the page, each block by the axis it lies along.
+const scaledGroup = (bs: Block[], sx: number, sy: number): Block[] => {
+  const angles = new Set(bs.filter((b) => !isLine(b)).map((b) => b.angle ?? 0));
+  const turn = angles.size === 1 ? [...angles][0] : 0;
+  if (!turn) {
+    const box = bounds(bs);
+    return scaled(bs, sx, sy, [box.x, box.y]);
+  }
+  const all = hull(bs);
+  const about: [number, number] = [all.x + all.w / 2, all.y + all.h / 2];
+  const level = swung(bs, -turn, about);
+  const lb = bounds(level);
+  return swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about);
+};
+// A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
+const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
 const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
@@ -359,7 +377,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       const f = to / box[side];
       const both = lock || sel.some(kept);
       const [sx, sy] = side === "w" ? [f, both ? f : 1] : [both ? f : 1, f];
-      place(scaled(sel, sx, sy, [box.x, box.y]).map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
+      place(scaledGroup(sel, sx, sy).map(sized));
       return;
     }
     place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
@@ -371,10 +389,10 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
     // The side named scales; the other too when the shape is kept.
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
     const out = whole
-      ? (([sx, sy]) => scaled(sel, sx, sy, [box.x, box.y]))(factors(lock || sel.some(kept)))
+      ? (([sx, sy]) => scaledGroup(sel, sx, sy))(factors(lock || sel.some(kept)))
       : // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
         sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
-    place(out.map((b) => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h }]));
+    place(out.map(sized));
   };
   // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut
   // shares taken off, its place kept.

@@ -742,6 +742,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const [down, across, edge] = inset(p, block.type === "shape");
   // Only a shape made since #128 keeps its text inside its outline: one saved before prints all its text as it did.
   const [fitTop, fitRight, fitBottom, fitLeft] = p.inside === true ? fitOf(p.kind, block.w, block.h, block.flipY) : [0, 0, 0, 0];
+  // Such a shape never grows for its text: its type shrinks to fit the inner box (see `fitText`).
+  const inside = p.inside === true && (p.kind === "circle" || p.kind === "triangle" || p.kind === "star");
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
   // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
@@ -777,7 +779,22 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const frame = frameRef.current;
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
+    // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
+    const over = inside && frame ? fitText(frame, least.current, block.h * k) : 0;
+    if (over > 0) frame!.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: over / k }));
   });
+  // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
+  const least = useRef(1);
+  least.current = leastOf(p.size);
+  const high = useRef(0);
+  high.current = block.h * k;
+  useLayoutEffect(() => {
+    if (!inside) return;
+    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current);
+    document.fonts.ready.then(again);
+    document.fonts.addEventListener("loadingdone", again);
+    return () => document.fonts.removeEventListener("loadingdone", again);
+  }, [inside]);
   useEffect(() => {
     const frame = frameRef.current;
     if (fade !== "rows" || !frame) return;
@@ -831,11 +848,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   return (
     <div
       ref={frameRef}
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight", inside && "inside")}
       data-trace={traceOf(p)}
       data-fade={fade}
       style={{
         ...textStyle(p, k),
+        ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
         ...(tight && { "--ink-up": `calc(${above}em + ${fringe}px)`, "--ink-down": `calc(${below}em + ${fringe}px)`, "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
@@ -878,6 +896,55 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   );
 }
 
+// The smallest type a shape shrinks its text to, in pt: a child still reads it. A text set smaller keeps its size.
+const LEAST = 10;
+// The share of a text's size it may shrink to.
+const leastOf = (size: number) => Math.min(1, LEAST / size) || 1;
+// Shrinks a frame's type (`--fit`) until its lines fit its height and no word runs past its width, down to the share
+// `least`. Each round measures the type it has and takes the share it is too big by. Up to three rounds: a line of a
+// pixel does not shrink. Gives what the lines still reach past the room at the smallest type, in px: the editor grows
+// the shape by it, as it grows a rectangle. `high` is the shape's height in px: a frame being written in is as high
+// as its text.
+function fitText(el: HTMLElement, least: number, high: number) {
+  el.style.removeProperty("--fit");
+  // A turned block lies level for the measure, so its lines run across.
+  const block = el.parentElement!;
+  const was = block.style.transform;
+  block.style.transform = "none";
+  // The room inside the padding: a text past its foot is no scroll of the frame, so the lines are measured.
+  const box = el.getBoundingClientRect();
+  const pad = getComputedStyle(el);
+  // The desk's zoom: the screen measures in its px, the frame's sizes are in its own.
+  const zoom = box.width / el.offsetWidth || 1;
+  const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
+  if (bottom - top < 3) {
+    block.style.transform = was;
+    return 0;
+  }
+  // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
+  const lowest = () =>
+    Math.max(
+      ...[...el.querySelectorAll<HTMLElement>("p")].map((p) => {
+        const r = document.createRange();
+        r.selectNodeContents(p);
+        return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+      }),
+    );
+  let scale = 1;
+  for (let round = 0; round < 3; round++) {
+    const tall = (lowest() - top) / (bottom - top);
+    const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
+    const across = Math.max(...wide);
+    // Too high: down to the smallest type. A word too wide shrinks past it: a word is never cut.
+    const next = Math.min(across > 1.01 ? scale / across : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
+    if (!(next < scale)) break;
+    scale = next;
+    el.style.setProperty("--fit", String(scale));
+  }
+  const past = (lowest() - bottom) / zoom;
+  block.style.transform = was;
+  return past > 1 ? past : 0;
+}
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
 // Every gap of a block is at least this many mm wide: a finite number above 0, at most 200. Else none.
@@ -955,7 +1022,7 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
 // The rectangle inside a shape's outline where its text lies, as the mm the box keeps from it: top, right, bottom and
 // left. A circle keeps the square inscribed in it, a triangle the half that holds its base, a star the box of its inner
 // points. Flipped top to bottom, the top and the bottom swap.
-function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
+export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
   let fit: [number, number, number, number] = [0, 0, 0, 0];
   if (kind === "circle") {
     const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
@@ -1201,6 +1268,14 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     // The bows drawn are a change too, and not one to draw anew for.
     const changed = new MutationObserver((records) => records.some((record) => !own.contains(record.target)) && later());
     changed.observe(own.parentElement!, { characterData: true, childList: true, subtree: true });
+    // A shape that shrinks its text sets the share after the bows are drawn: a new share is drawn for again.
+    let fit = own.parentElement!.style.getPropertyValue("--fit");
+    const shrunk = new MutationObserver(() => {
+      const now = own.parentElement!.style.getPropertyValue("--fit");
+      if (now !== fit) later();
+      fit = now;
+    });
+    shrunk.observe(own.parentElement!, { attributes: true, attributeFilter: ["style"] });
     document.fonts.addEventListener("loadingdone", later);
     // What React just wrote into the text is drawn for at once, so no frame shows old bows and none measures twice.
     tools.current.seen = () => {
@@ -1212,6 +1287,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
       cancelAnimationFrame(frame);
       resized.disconnect();
       changed.disconnect();
+      shrunk.disconnect();
       document.fonts.removeEventListener("loadingdone", later);
       unmark(marks.current);
     };

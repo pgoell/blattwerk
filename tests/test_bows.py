@@ -132,6 +132,13 @@ def test_a_shape_and_each_cell_of_a_table_have_their_bows(editor):
     expect_under(bows(page, "b"))
 
 
+def test_a_star_that_shrinks_its_text_has_its_bows_under_the_shrunk_syllables(editor):
+    star = {**TEXT, "kind": "star", "inside": True, "fill": "none", "stroke": "#222222"}
+    star |= {"text": "Sonnenblumenfeld am Morgen", "syllables": True, "align": "center"}
+    page = editor(box("a", "shape", star, w=30, h=30))
+    expect_under(bows(page, "a"))
+
+
 def test_the_bows_follow_the_words_as_they_are_typed(editor):
     page = editor(box("a", "text", SAID))
     pick(page, "a")

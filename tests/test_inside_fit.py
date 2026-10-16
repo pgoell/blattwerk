@@ -1,0 +1,263 @@
+"""A circle, triangle or star with its text inside never grows for it: its type shrinks to fit."""
+
+import pytest
+from playwright.sync_api import expect
+from test_feed_print import printed, sheet_id
+from ui import RECT, at, box, pick, reload, saved, user
+
+SENTENCE = "Male den Hasen in den Kreis und schreibe seinen Namen darunter."
+# A star with its text inside, as #655 makes one.
+STAR = {
+    **RECT,
+    "kind": "star",
+    "inside": True,
+    "text": "Super gemacht!",
+    "size": 14,
+    "align": "center",
+}
+
+
+def make(page, label, text):
+    """Makes a shape from the insert bar, types the text, and presses Escape. It stays picked."""
+    page.locator(".insert").get_by_label(label, exact=True).click()
+    page.keyboard.press("Enter")
+    page.keyboard.type(text)
+    page.keyboard.press("Escape")
+
+
+def enter(page, label, value):
+    """Writes the value into a field of the right panel and commits it with Enter."""
+    field = page.locator(".geo").get_by_label(label, exact=True)
+    field.fill(value)
+    field.press("Enter")
+
+
+def words_on_lines(block):
+    """Each word of the block's text with the number of lines its letters stand on."""
+    return block.locator(".frame").evaluate(
+        """el => {
+            const out = [];
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                for (const m of n.data.matchAll(/\\S+/g)) {
+                    const r = document.createRange();
+                    r.setStart(n, m.index);
+                    r.setEnd(n, m.index + m[0].length);
+                    const tops = new Set([...r.getClientRects()].map((q) => Math.round(q.top)));
+                    out.push({ word: m[0], lines: tops.size });
+                }
+            }
+            return out;
+        }"""
+    )
+
+
+def whole(block):
+    """Every word stands on one line."""
+    words = words_on_lines(block)
+    assert words, "no text is drawn"
+    assert all(w["lines"] == 1 for w in words), words
+
+
+def cut(block):
+    """Whether the text runs past the bottom of the frame's inner box."""
+    return block.locator(".frame").evaluate("el => el.scrollHeight > el.clientHeight + 1")
+
+
+def font_px(block):
+    return block.locator(".frame").evaluate("el => getComputedStyle(el).fontSize")
+
+
+def test_star_keeps_its_height_and_no_word_splits(editor):
+    client = user()
+    page = editor(client=client)
+    make(page, "Stern", "Super gemacht!")
+    (a,) = saved(page, client)
+    assert a["h"] == 40, a
+    whole(page.locator(".block.sel"))
+    assert not cut(page.locator(".block.sel"))
+    # "gemacht!" is wider than the star's inner box at 10 pt: it shrinks further, and no letter
+    # reaches past the box's side, where the clip would cut it.
+    spill = page.locator(".block.sel .frame p").evaluate_all(
+        "ps => ps.map((p) => p.scrollWidth - p.clientWidth)"
+    )
+    assert max(spill) <= 1, spill
+
+
+def test_star_stays_whole_at_60_and_30_mm_wide(editor):
+    client = user()
+    page = editor(client=client)
+    make(page, "Stern", "Super gemacht!")
+    enter(page, "Breite", "60")
+    whole(page.locator(".block.sel"))
+    enter(page, "Breite", "30")
+    whole(page.locator(".block.sel"))
+    assert not cut(page.locator(".block.sel"))
+
+
+def test_circle_stays_round_and_every_word_is_whole(editor):
+    client = user()
+    page = editor(client=client)
+    make(page, "Kreis", SENTENCE)
+    (a,) = saved(page, client)
+    assert a["w"] == a["h"], a
+    whole(page.locator(".block.sel"))
+
+
+def past_foot(block):
+    """How many px the text's lowest line reaches past the frame's foot, where the clip cuts it."""
+    return block.locator(".frame").evaluate(
+        """el => {
+            const r = document.createRange();
+            r.selectNodeContents(el);
+            const low = Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+            return low - el.getBoundingClientRect().bottom;
+        }"""
+    )
+
+
+def uncut_on_paper(page, client, browser, server):
+    """The triangle's text reaches no further than its frame on the print page either."""
+    saved(page, client)
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        assert past_foot(paper.locator(".block").filter(has_text="Dach")) <= 1
+    finally:
+        paper.context.close()
+
+
+def roof(page):
+    """The triangle of #660: Das Dach vom Haus, 60 mm wide."""
+    make(page, "Dreieck", "Das Dach vom Haus")
+    enter(page, "Breite", "60")
+
+
+@pytest.mark.parametrize("percent", ["50", "30"])
+def test_a_triangle_squashed_by_hoehe_percent_cuts_no_line(editor, browser, server, percent):
+    client = user()
+    page = editor(client=client)
+    roof(page)
+    enter(page, "Höhe %", percent)
+    (a,) = saved(page, client)
+    assert past_foot(at(page, a["id"])) <= 1
+    whole(at(page, a["id"]))
+    uncut_on_paper(page, client, browser, server)
+
+
+def test_a_triangle_in_a_group_squashed_by_hoehe_percent_cuts_no_line(editor, browser, server):
+    client = user()
+    page = editor(client=client)
+    roof(page)
+    page.locator(".insert").get_by_label("Rechteck", exact=True).click()
+    page.keyboard.type("x")
+    page.keyboard.press("Escape")
+    a, b = saved(page, client)
+    expect(at(page, b["id"])).to_have_class("block sel")
+    at(page, a["id"]).click(modifiers=["Shift"])
+    page.keyboard.press("Control+g")
+    expect(page.locator(".block.sel")).to_have_count(2)
+    enter(page, "Höhe %", "30")
+    assert past_foot(at(page, a["id"])) <= 1
+    uncut_on_paper(page, client, browser, server)
+
+
+def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
+    client = user()
+    page = editor(client=client)
+    page.locator(".insert").get_by_label("Stern", exact=True).click()
+    page.keyboard.type("Super gemacht!")
+    whole(page.locator(".block.sel"))
+    page.keyboard.press("Escape")
+    (a,) = saved(page, client)
+    assert a["h"] == 40, a
+
+
+# Many short words: each fits the inner box at 10 pt, the lines do not.
+LONG = (
+    "Male den Hasen in den Kreis und dann male einen Zaun um das Haus. "
+    "Male die Sonne und den Mond und einen Baum. Male die Kuh und das Pferd und den Hund."
+)
+
+
+@pytest.mark.parametrize("label", ["Kreis", "Dreieck", "Stern"])
+def test_a_long_sentence_shrinks_to_10_pt_at_most_and_then_grows_the_shape(editor, label):
+    """Below 10 pt a child no longer reads it: the shape grows downward instead, as a rectangle
+    does, and every word stays whole and uncut."""
+    client = user()
+    # A text of 10 pt beside it, for the size the shape's type may not go below.
+    ten = box("ten", "text", {"text": "zehn", "size": 10, "align": "left"}, x=150)
+    page = editor(ten, client=client)
+    make(page, label, LONG)
+    # A star 40 mm wide holds 9 mm between its inner points: a word of five letters at 10 pt is
+    # wider, and a word shrinks past 10 pt rather than be cut. At 80 mm the words fit.
+    wide = 80 if label == "Stern" else 40
+    if label == "Stern":
+        enter(page, "Breite", "80")
+    a = next(b for b in saved(page, client) if b["id"] != "ten")
+    block = at(page, a["id"])
+    assert a["h"] > 40, a
+    # A circle stays round; a triangle and a star grow downward only.
+    assert a["w"] == (a["h"] if label == "Kreis" else wide), a
+    assert float(font_px(block)[:-2]) >= float(font_px(at(page, "ten"))[:-2]) - 0.05
+    whole(block)
+    assert past_foot(block) <= 1
+
+
+def test_shrunk_star_grows_back_to_full_size(editor):
+    page = editor(box("a", "shape", STAR, x=20, y=30, w=40, h=40))
+    pick(page, "a")
+    enter(page, "Breite", "100")
+    full = font_px(at(page, "a"))
+    enter(page, "Breite", "30")
+    assert font_px(at(page, "a")) != full
+    enter(page, "Breite", "100")
+    assert font_px(at(page, "a")) == full
+
+
+def test_a_star_and_a_circle_print_their_words_whole_and_keep_their_shape_after_a_reload(
+    editor, browser, server
+):
+    client = user()
+    page = editor(client=client)
+    make(page, "Stern", "Super gemacht!")
+    make(page, "Kreis", SENTENCE)
+    star, circle = saved(page, client)
+    reload(page, page.url)
+    # The star keeps its size; the circle, too full at 10 pt, grows and stays round.
+    star_box, circle_box = [(b["w"], b["h"]) for b in saved(page, client)]
+    assert star_box == (40, 40) and circle_box[0] == circle_box[1], (star_box, circle_box)
+    whole(at(page, star["id"]))
+    whole(at(page, circle["id"]))
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        for words in ("Super", "Hasen"):
+            block = paper.locator(".block").filter(has_text=words)
+            whole(block)
+            assert past_foot(block) <= 1
+    finally:
+        paper.context.close()
+
+
+def test_picking_a_saved_shape_too_full_for_10_pt_leaves_the_sheet_as_saved(editor):
+    client = user()
+    full = {**STAR, "kind": "circle", "text": LONG}
+    page = editor(box("a", "shape", full, x=20, y=30, w=40, h=40), client=client)
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowLeft")
+    (a,) = saved(page, client)
+    assert (a["w"], a["h"]) == (40, 40), a
+
+
+def test_a_squashed_triangle_prints_its_text_at_the_size_the_screen_shows(editor, browser, server):
+    """The desk is zoomed on the screen and not in print: the shrink comes out the same (#669)."""
+    tri = {**RECT, "kind": "triangle", "inside": True, "size": 14, "align": "center"}
+    tri |= {"text": "Das Dach vom Haus"}
+    page = editor(box("a", "shape", tri, x=15, y=150, w=60, h=30.3))
+    share = "el => parseFloat(getComputedStyle(el).fontSize) / el.offsetWidth"
+    on_screen = at(page, "a").locator(".frame").evaluate(share)
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        assert paper.locator(".block .frame").evaluate(share) == pytest.approx(on_screen, rel=0.01)
+    finally:
+        paper.context.close()
