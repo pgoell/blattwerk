@@ -116,12 +116,12 @@ def test_two_tasks_picked_and_plus_once_give_a_total_of_62(editor):
     assert maxes(doc(page, client)) == [[62, 11, 11], [62, 10, 10], [62, 10, 10]]
 
 
-def test_the_total_typed_to_70_moves_nothing_else(editor):
+def test_the_total_typed_to_70_moves_every_total(editor):
     client = user()
     page = klassenarbeit(editor, client)
     type_into_panel(page, "t1", "70")
-    expect(at(page, "t1").locator(".points")).to_have_text("/ 70 Punkte")
-    assert maxes(doc(page, client)) == [[70, 10, 10], [60, 10, 10], [60, 10, 10]]
+    expect_totals(page, "/ 70 Punkte")
+    assert maxes(doc(page, client)) == [[70, 10, 10], [70, 10, 10], [70, 10, 10]]
 
 
 def test_a_task_typed_back_to_10_gives_60_again(editor):
