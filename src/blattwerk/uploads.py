@@ -2,11 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from blattwerk import pdf
-from blattwerk.auth import User, current_user
+from blattwerk.auth import Teacher, current_teacher
 from blattwerk.db import Con, Id
 from blattwerk.pictures import path
 
@@ -32,7 +32,7 @@ def kind(data: bytes) -> str | None:
 
 
 @router.post("/uploads")
-async def upload(file: UploadFile, user: User, con: Con) -> dict:
+async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
     data = await file.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
         raise HTTPException(413)
@@ -52,12 +52,15 @@ async def upload(file: UploadFile, user: User, con: Con) -> dict:
 @router.get("/uploads/{upload_id}")
 def serve(
     upload_id: Id,
+    request: Request,
     con: Con,
     session: Annotated[str | None, Cookie()] = None,
     token: pdf.Token = None,
 ) -> FileResponse:
     # Chromium, printing a sheet, stands for the sheet's owner, for that sheet's pictures alone.
-    user_id = pdf.shows(con, token, upload_id) if token else current_user(con, session)["id"]
+    user_id = (
+        pdf.shows(con, token, upload_id) if token else current_teacher(request, con, session)["id"]
+    )
     row = con.execute(
         "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user_id)
     ).fetchone()

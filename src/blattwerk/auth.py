@@ -1,6 +1,7 @@
 """Accounts: invite-only sign-up, login, password reset links and the admin calls."""
 
 import hashlib
+import hmac
 import logging
 import secrets
 import shutil
@@ -13,7 +14,7 @@ from typing import Annotated
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from blattwerk import db
 from blattwerk.db import Con, Id
@@ -70,6 +71,44 @@ def current_user(con: Con, session: Annotated[str | None, Cookie()] = None) -> s
 
 
 User = Annotated[sqlite3.Row, Depends(current_user)]
+
+
+def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3.Row:
+    """The user an API token belongs to. A bad token is a try per IP: 429 after TRIES of them."""
+    key = f"token:{request.client.host if request.client else ''}"
+    con.execute("DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",))
+    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= TRIES:
+        raise HTTPException(429)
+    row = None
+    parts = token.split("_", 2)
+    if len(parts) == 3 and parts[0] == "bt" and db.ID.fullmatch(parts[1]) and int(parts[1]) < 2**63:
+        row = con.execute(
+            "SELECT tokens.id AS token_id, tokens.hash, users.* FROM tokens"
+            " JOIN users ON users.id = tokens.user_id WHERE tokens.id = ?",
+            (int(parts[1]),),
+        ).fetchone()
+    if not row or not hmac.compare_digest(row["hash"], digest(token)):
+        con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
+        raise HTTPException(401)
+    with suppress(sqlite3.Error):
+        con.execute(
+            "UPDATE tokens SET last_used = CURRENT_TIMESTAMP WHERE id = ?", (row["token_id"],)
+        )
+    return row
+
+
+def current_teacher(
+    request: Request, con: Con, session: Annotated[str | None, Cookie()] = None
+) -> sqlite3.Row:
+    # With an Authorization header the cookie is ignored: a bad token beside a good cookie is 401.
+    header = request.headers.get("authorization")
+    if header is None:
+        return current_user(con, session)
+    scheme, _, token = header.partition(" ")
+    return token_user(con, request, token if scheme.lower() == "bearer" else "")
+
+
+Teacher = Annotated[sqlite3.Row, Depends(current_teacher)]
 
 
 def current_admin(user: User) -> sqlite3.Row:
@@ -185,6 +224,49 @@ def delete_account(user: User, response: Response, con: Con) -> dict:
     return {}
 
 
+class NewToken(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def stripped(cls, value: str) -> str:
+        value = value.strip()
+        if not 1 <= len(value) <= 80:
+            raise ValueError("a name of 1 to 80 characters")
+        return value
+
+
+# Cookie only, like the admin calls: a token cannot mint or list tokens.
+@router.post("/tokens")
+def make_token(body: NewToken, user: User, con: Con) -> dict:
+    row = con.execute(
+        "INSERT INTO tokens (user_id, hash, name) VALUES (?, '', ?) RETURNING id",
+        (user["id"], body.name),
+    ).fetchone()
+    token = f"bt_{row['id']}_{secrets.token_urlsafe(32)}"
+    # Only the hash is stored: this answer is the one place the token is shown.
+    con.execute("UPDATE tokens SET hash = ? WHERE id = ?", (digest(token), row["id"]))
+    made = con.execute("SELECT id, name, created, last_used FROM tokens WHERE id = ?", (row["id"],))
+    return {**dict(made.fetchone()), "token": token}
+
+
+@router.get("/tokens")
+def tokens(user: User, con: Con) -> list[dict]:
+    rows = con.execute(
+        "SELECT id, name, created, last_used FROM tokens WHERE user_id = ? ORDER BY id DESC",
+        (user["id"],),
+    )
+    return [dict(row) for row in rows]
+
+
+@router.delete("/tokens/{token_id}")
+def revoke(token_id: Id, user: User, con: Con) -> dict:
+    cur = con.execute("DELETE FROM tokens WHERE id = ? AND user_id = ?", (token_id, user["id"]))
+    if not cur.rowcount:
+        raise HTTPException(404)
+    return {}
+
+
 def remove(folder: Path) -> str | None:
     """One try to delete a folder. Gives the first error, or None when the folder is gone."""
     errors = []
@@ -239,6 +321,7 @@ def reset(body: Reset, response: Response, con: Con) -> dict:
     user_id = take_link(con, body.token, invite=False)["user_id"]
     con.execute("UPDATE users SET password = ? WHERE id = ?", (hasher.hash(body.password), user_id))
     con.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM tokens WHERE user_id = ?", (user_id,))
     return start_session(con, response, user_id)
 
 
