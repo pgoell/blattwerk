@@ -95,8 +95,9 @@ def test_a_block_split_before_the_sheet_mends_moves_its_mend_to_the_sheet(editor
     )
     assert syls(page, "a")[-2:] == ["Skate", "board"]
     pick(page, "a")
+    word(page, "Skate·board").click()
     gap(page, "Skate|board").click()
-    expect(word(page, "Ska·te·bo·ard")).to_be_visible()
+    expect(word(page, "Skateboard")).to_be_visible()
     assert "breaks" not in held(page, client)["a"]
 
 
