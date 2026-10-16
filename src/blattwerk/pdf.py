@@ -38,6 +38,10 @@ WAIT = 10
 ROOM = threading.BoundedSemaphore(4)
 # Milliseconds a preview's page may take to draw before the doc is refused as one no page can draw.
 DRAW = 15000
+# Milliseconds a PDF's page may take to draw. Nothing says the doc is at fault when it is slow.
+PRINT_WAIT = 30000
+# Milliseconds between looks at the page while it draws: a page error ends the wait at once.
+SLICE = 250
 # Drawn on a preview only: each block's box in magenta, with its id. The PDF never gets them.
 OUTLINES = """
 .print .block { outline: 1px solid magenta; outline-offset: -1px; }
@@ -135,7 +139,7 @@ def pdf(
             try:
                 page, errors = new_page(browser, sheet_id)
                 page.goto(url + ("?loesungen" if solved else ""))
-                drawn(page, errors)
+                drawn(page, errors, PRINT_WAIT)
                 # A4 with no margin of the printer's: the sheet's own margins are the page's. The
                 # stylesheet says which pages lie on their side.
                 data = page.pdf(prefer_css_page_size=True, print_background=True)
@@ -167,7 +171,7 @@ def pdf(
                         query.append("loesungen")
                     page, errors = new_page(browser, sheet_id)
                     page.goto(url + ("?" + "&".join(query) if query else ""))
-                    drawn(page, errors)
+                    drawn(page, errors, PRINT_WAIT)
                     data = page.pdf(prefer_css_page_size=True, print_background=True)
                     page.close()
                     writer.append(io.BytesIO(data))
@@ -216,15 +220,22 @@ def new_page(browser, sheet_id: int):
     return page, errors
 
 
-def drawn(page, errors: list[str]) -> None:
-    """Waits until the page says it is drawn. One that never is is a doc no page can draw: 422."""
-    try:
-        page.wait_for_selector("body.ready", state="attached", timeout=DRAW)
-    except PlaywrightTimeout:
-        why = errors[0] if errors else "it did not finish"
-        raise HTTPException(
-            422, detail={"problems": [f"doc: the page could not be drawn: {why}"]}
-        ) from None
+def drawn(page, errors: list[str], timeout: float) -> None:
+    """Waits until the page says it is drawn, in slices of SLICE ms. A page error ends the wait at
+    once, as a doc no page can draw: 422. At the deadline, PlaywrightTimeout is raised."""
+    deadline = time.monotonic() + timeout / 1000
+    while True:
+        if errors:
+            raise HTTPException(
+                422, detail={"problems": [f"doc: the page could not be drawn: {errors[0]}"]}
+            )
+        left = max(1, min(SLICE, (deadline - time.monotonic()) * 1000))
+        try:
+            page.wait_for_selector("body.ready", state="attached", timeout=left)
+            return
+        except PlaywrightTimeout:
+            if time.monotonic() >= deadline:
+                raise
 
 
 def shoot(url: str, token: str, scale: float, page: int, outlines: bool) -> bytes:
@@ -244,7 +255,13 @@ def shoot(url: str, token: str, scale: float, page: int, outlines: bool) -> byte
                 tab.on("pageerror", lambda error: errors.append(error.message))
                 tab.emulate_media(media="print")
                 tab.goto(url)
-                drawn(tab, errors)
+                try:
+                    drawn(tab, errors, DRAW)
+                except PlaywrightTimeout:
+                    why = errors[0] if errors else "it did not finish"
+                    raise HTTPException(
+                        422, detail={"problems": [f"doc: the page could not be drawn: {why}"]}
+                    ) from None
                 if outlines:
                     tab.add_style_tag(content=OUTLINES)
                 return tab.locator(".print .paper").nth(page - 1).screenshot()

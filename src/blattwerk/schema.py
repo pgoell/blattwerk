@@ -124,24 +124,46 @@ NEEDED = {
 
 
 def mended(doc: dict) -> dict:
-    """The doc as the page draws it: a copy with each wrong prop of a block cut, and the props the
-    page cannot draw without filled in. The stored doc keeps its wrong props. A doc with no fault,
-    or one from before pages, comes back as it is."""
-    found = faults(doc)
-    if "pages" not in doc or not found:
+    """The doc as the page draws it: a copy with each wrong prop of a block cut, or only its wrong
+    item when the fault is inside a list, and the props the page cannot draw without filled in.
+    The stored doc keeps its wrong props. A doc with no fault comes back as it is; a sheet from
+    before pages is read as one page. Odd shapes are skipped, not raised on."""
+    pages_doc = as_pages(doc)
+    found = faults(pages_doc)
+    if not found:
         return doc
-    # The props with a fault, by page, block and name.
-    cut = {
-        (path[1], path[3], path[5]) for path, _, _ in found if len(path) >= 6 and path[4] == "props"
-    }
-    mend = json.loads(json.dumps(doc))
-    for i, page in enumerate(mend["pages"]):
-        for j, block in enumerate(page.get("blocks", [])):
-            props = block.get("props", {})
-            for name in [name for (pi, pj, name) in cut if (pi, pj) == (i, j)]:
+    # Per block: the props to cut, and per prop the list items to drop, by index.
+    cut: dict[tuple, set] = {}
+    drop: dict[tuple, set] = {}
+    for path, _, _ in found:
+        if len(path) < 6 or path[0] != "pages" or path[2] != "blocks" or path[4] != "props":
+            continue
+        if len(path) > 6 and isinstance(path[6], int):
+            drop.setdefault((path[1], path[3], path[5]), set()).add(path[6])
+        else:
+            cut.setdefault((path[1], path[3]), set()).add(path[5])
+    mend = json.loads(json.dumps(pages_doc))
+    pages = mend.get("pages")
+    if not isinstance(pages, list):
+        return mend
+    for i, page in enumerate(pages):
+        if not isinstance(page, dict) or not isinstance(page.get("blocks"), list):
+            continue
+        for j, block in enumerate(page["blocks"]):
+            if not isinstance(block, dict) or not isinstance(block.get("props"), dict):
+                continue
+            props = block["props"]
+            for name in cut.get((i, j), ()):
                 props.pop(name, None)
-            for name, value in NEEDED.get(block.get("type"), {}).items():
-                props.setdefault(name, value)
+            for (pi, pj, name), indexes in drop.items():
+                if (pi, pj) != (i, j) or not isinstance(props.get(name), list):
+                    continue
+                for index in sorted(indexes, reverse=True):
+                    if index < len(props[name]):
+                        del props[name][index]
+            if isinstance(block.get("type"), str):
+                for name, value in NEEDED.get(block["type"], {}).items():
+                    props.setdefault(name, value)
     return mend
 
 
