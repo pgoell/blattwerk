@@ -3,8 +3,8 @@
 import pytest
 from test_align import button
 from test_fields import enter
-from test_group_scale_turned import SHAPES, pick_group
-from ui import user
+from test_group_scale_turned import ARROW, SHAPES, pick_group
+from ui import box, pick, user
 
 # Every drawn element of the block, as the page shows it, and the page's own sides.
 INK = """(name) => {
@@ -58,3 +58,17 @@ def test_a_turned_group_with_a_line_lines_up_by_what_it_draws(editor, name, side
     gap = ink(page, "a", "b")
     assert gap[side] == pytest.approx(0, abs=0.5)
     assert all(v >= -0.5 for v in gap.values())
+
+
+@pytest.mark.parametrize("name, side", [("Rechts", "right"), ("Oben", "top")])
+def test_a_lone_slanted_arrow_lines_up_by_its_head_and_stroke(editor, name, side):
+    """A lone steep arrow up to the right: its head's barbs stay on the page."""
+    page = editor(
+        box("a", "shape", {**ARROW, "strokeWidth": 1.5, "from": "sw"}, x=40, y=60, w=5, h=40),
+        client=user(),
+    )
+    pick(page, "a")
+    button(page, name).click()
+    gap = ink(page, "a")
+    assert gap[side] == pytest.approx(0, abs=0.5)
+    assert all(v >= -0.2 for v in gap.values())
