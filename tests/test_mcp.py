@@ -83,3 +83,56 @@ def test_answers_initialize_and_tools_list(server, tmp_path):
         assert isinstance(mcp.tools(), list)
     finally:
         mcp.stop()
+
+
+def test_lists_the_seven_tools(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        names = sorted(t["name"] for t in mcp.tools())
+        assert names == sorted(
+            [
+                "list_sheets",
+                "get_sheet",
+                "create_sheet",
+                "rename_sheet",
+                "duplicate_sheet",
+                "replace_doc",
+                "render_preview",
+            ]
+        )
+    finally:
+        mcp.stop()
+
+
+def test_doc_schema_is_the_generated_one(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        replace = next(t for t in mcp.tools() if t["name"] == "replace_doc")
+        assert (
+            replace["inputSchema"]["definitions"]["TextProps"] == SCHEMA["definitions"]["TextProps"]
+        )
+    finally:
+        mcp.stop()
+
+
+def test_create_rename_duplicate_list_get(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        made = json.loads(mcp.call("create_sheet", title="Plus")["content"][0]["text"])
+        sheet_id = made["id"]
+        assert made["doc"]["pages"]
+        mcp.call("rename_sheet", sheet_id=sheet_id, title="Minus")
+        copy = json.loads(mcp.call("duplicate_sheet", sheet_id=sheet_id)["content"][0]["text"])
+        assert copy["id"] != sheet_id
+        listed = json.loads(mcp.call("list_sheets")["content"][0]["text"])
+        assert {s["id"]: s["title"] for s in listed}[sheet_id] == "Minus"
+        assert "doc" not in listed[0]
+        got = json.loads(mcp.call("get_sheet", sheet_id=sheet_id)["content"][0]["text"])
+        assert got["title"] == "Minus"
+        foreign = (
+            user().post("/api/sheets", json={"title": "Fremd", "doc": made["doc"]}).json()["id"]
+        )
+        result = mcp.call("get_sheet", sheet_id=foreign)
+        assert result["isError"] and "No sheet with id" in result["content"][0]["text"]
+    finally:
+        mcp.stop()
