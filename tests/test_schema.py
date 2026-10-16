@@ -30,6 +30,11 @@ def text_block(**props):
     }
 
 
+def broken_block(**changes):
+    """A text block whose x is not a number: the editor could not open a sheet with it."""
+    return {**text_block(), "x": "fifteen", **changes}
+
+
 def built_in(name):
     return next(t for t in templates.BUILT_IN if t["name"] == name)["doc"]
 
@@ -57,10 +62,9 @@ def test_every_field_has_a_description():
 
 def test_post_refuses():
     client = user()
-    bad = doc(grid="viel")
-    res = client.post("/api/sheets", json={"title": "x", "doc": bad})
+    res = client.post("/api/sheets", json={"title": "x", "doc": {}})
     assert res.status_code == 422
-    assert res.json()["detail"] == {"problems": ["grid: must be a number, got a string"]}
+    assert res.json()["detail"] == {"problems": ["pages: missing, add it"]}
     assert client.get("/api/sheets").json() == []
 
 
@@ -69,14 +73,55 @@ def test_patch_refuses():
     made = sheet(client, [text_block()])
     res = client.patch(
         f"/api/sheets/{made['id']}",
-        json={"doc": doc(text_block(zauber=1), grid="viel"), "version": made["version"]},
+        json={"doc": doc(broken_block()), "version": made["version"]},
     )
     assert res.status_code == 422
-    problems_sent = res.json()["detail"]["problems"]
-    assert any("zauber" in p for p in problems_sent)
+    assert res.json()["detail"] == {
+        "problems": ["pages[0].blocks[0].x: must be a number, got a string"]
+    }
     after = client.get(f"/api/sheets/{made['id']}").json()
     assert after["version"] == made["version"]
     assert after["doc"] == made["doc"]
+
+
+def test_doc_before_pages_saves():
+    client = user()
+    old = {"blocks": [], "guides": {"x": [], "y": []}, "grid": 0}
+    res = client.post("/api/sheets", json={"title": "x", "doc": old})
+    assert res.status_code == 200
+    assert res.json()["doc"] == old
+
+
+def test_unknown_prop_saves():
+    client = user()
+    made = sheet(client, [text_block()])
+    res = client.patch(
+        f"/api/sheets/{made['id']}",
+        json={"doc": doc(text_block(bogus=1)), "version": made["version"]},
+    )
+    assert res.status_code == 200
+    assert res.json()["doc"]["pages"][0]["blocks"][0]["props"]["bogus"] == 1
+
+
+def test_out_of_range_saves_but_is_named():
+    client = user()
+    maths = copy.deepcopy(
+        next(
+            b
+            for b in built_in("Rechenblatt Klasse 1")["pages"][0]["blocks"]
+            if b["type"] == "maths"
+        )
+    )
+    made = sheet(client, [maths])
+    maths["props"]["columns"] = 9
+    res = client.patch(
+        f"/api/sheets/{made['id']}",
+        json={"doc": doc(maths), "version": made["version"]},
+    )
+    assert res.status_code == 200
+    assert problems(res.json()["doc"]) == [
+        "pages[0].blocks[0].props.columns: must be 1 to 6, got 9"
+    ]
 
 
 def test_error_names_path_and_bound():
@@ -88,27 +133,38 @@ def test_error_names_path_and_bound():
     assert problems(doc(maths)) == ["pages[0].blocks[0].props.columns: must be 1 to 6, got 9"]
 
 
-def test_unknown_type_names_allowed():
-    types = json.loads(SCHEMA.read_text())["definitions"]["Block"]["properties"]["type"]["enum"]
-    listed = ", ".join(f"'{t}'" for t in types)
+def test_unknown_type_saves():
+    client = user()
     block = text_block()
     block["type"] = "zauber"
+    res = client.post("/api/sheets", json={"title": "x", "doc": doc(block)})
+    assert res.status_code == 200
+    types = json.loads(SCHEMA.read_text())["definitions"]["Block"]["properties"]["type"]["enum"]
+    listed = ", ".join(f"'{t}'" for t in types)
     assert problems(doc(block)) == [
         f"pages[0].blocks[0].type: must be one of {listed}, got 'zauber'"
     ]
 
 
 def test_several_faults_listed():
-    bad = doc(text_block(zauber=1), grid="viel", landscape="ja")
+    bad = doc(
+        broken_block(),
+        _without(text_block(), "h"),
+        grid="viel",
+    )
     listed = problems(bad)
     assert len(listed) == 3
     assert listed == sorted(listed, key=lambda p: p.split(":")[0])
+    assert "pages[0].blocks[0].x: must be a number, got a string" in listed
+    assert "pages[0].blocks[1].h: missing, add it" in listed
     assert "grid: must be a number, got a string" in listed
-    assert "landscape: must be a yes or no, got a string" in listed
-    assert any("zauber" in p for p in listed)
 
     many = doc(*(dict(text_block(), type="zauber") for _ in range(12)))
     assert len(problems(many)) == 10
+
+
+def _without(block, key):
+    return {k: v for k, v in block.items() if k != key}
 
 
 def test_builtin_templates_pass():
@@ -120,8 +176,11 @@ def test_builtin_templates_pass():
 
 def test_template_post_refuses():
     client = user()
-    res = client.post("/api/templates", json={"name": "x", "doc": doc(grid="viel")})
+    res = client.post("/api/templates", json={"name": "x", "doc": doc(broken_block())})
     assert res.status_code == 422
+    assert res.json()["detail"] == {
+        "problems": ["pages[0].blocks[0].x: must be a number, got a string"]
+    }
     assert client.get("/api/templates").json() == templates.BUILT_IN
 
 
@@ -130,7 +189,7 @@ def test_rename_unchecked():
     made = sheet(client, [text_block()])
     db.open_db().execute(
         "UPDATE sheets SET doc = ? WHERE id = ?",
-        (json.dumps(doc(grid="viel")), made["id"]),
+        (json.dumps(doc(broken_block())), made["id"]),
     )
     res = client.patch(f"/api/sheets/{made['id']}", json={"title": "Neu"})
     assert res.status_code == 200
@@ -142,7 +201,7 @@ def test_old_sheet_loads():
     made = sheet(client, [text_block()])
     db.open_db().execute(
         "UPDATE sheets SET doc = ? WHERE id = ?",
-        (json.dumps(doc(grid="viel")), made["id"]),
+        (json.dumps(doc(broken_block())), made["id"]),
     )
     assert client.get(f"/api/sheets/{made['id']}").status_code == 200
 
