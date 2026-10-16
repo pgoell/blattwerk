@@ -893,11 +893,23 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
 // measures the type it has and takes the share it is too big by. Up to three rounds: a line of a pixel does not shrink.
 function fitText(el: HTMLElement) {
   el.style.removeProperty("--fit");
-  if (el.clientHeight < 3) return;
+  // The room inside the padding: a text past its foot is no scroll of the frame, so the lines are measured.
+  const box = el.getBoundingClientRect();
+  const pad = getComputedStyle(el);
+  const [top, bottom] = [box.top + parseFloat(pad.paddingTop), box.bottom - parseFloat(pad.paddingBottom)];
+  if (bottom - top < 3) return;
   let scale = 1;
   for (let round = 0; round < 3; round++) {
-    const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
-    const over = Math.max(el.scrollHeight / el.clientHeight, ...wide);
+    const ps = [...el.querySelectorAll<HTMLElement>("p")];
+    // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
+    const lowest = ps.map((p) => {
+      const r = document.createRange();
+      r.selectNodeContents(p);
+      return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+    });
+    const tall = (Math.max(...lowest) - top) / (bottom - top);
+    const wide = ps.map((p) => p.scrollWidth / p.clientWidth);
+    const over = Math.max(tall, ...wide);
     if (!(over > 1.01)) break;
     scale /= over;
     el.style.setProperty("--fit", String(scale));
