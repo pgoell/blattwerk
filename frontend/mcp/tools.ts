@@ -4,7 +4,7 @@ import type { Api } from "./api.ts";
 import { INSERTS, MATHS, filled, grown, topZ } from "../src/insert.ts";
 import { fresh } from "../src/history.ts";
 import { mathsHeight } from "../src/height.ts";
-import { sizeOf } from "../src/sheet.tsx";
+import { MARGIN, overFoot, sizeOf, tall, wordsIn } from "../src/sheet.tsx";
 import { follow } from "../src/words.ts";
 import type { MathsProps } from "../src/sheet.tsx";
 
@@ -132,8 +132,10 @@ export function tools(api: Api) {
     const r = await api.send("PATCH", `/sheets/${id}?strict=true`, { doc, version });
     if (r.status === 409) throw new Fail(stale(version, (await readSheet(id)).version));
     if (r.status === 422) throw new Fail(`${problems(r.body).join("\n")}\nFix these and call ${tool} again.`);
-    expectOk(r, id);
-    return { version: (await readSheet(id)).version, out };
+    // The version this write made, from its own answer: a read after it could already hold the teacher's next save.
+    const saved = pick(expectOk(r, id));
+    bases.set(id, { version: saved.version, doc: saved.doc });
+    return { version: saved.version, out };
   }
 
   function pageAt(doc: any, n: number) {
@@ -155,20 +157,23 @@ export function tools(api: Api) {
   function warnings(doc: any, n: number, b: any): string[] {
     const [W, H] = sizeOf(doc, n - 1);
     const out: string[] = [];
-    if (b.x < 0 || b.y < 0 || b.x + b.w > W || b.y + b.h > H) out.push("leaves the page");
+    // The printable area keeps the margin a new block keeps in the editor; a hundredth of a mm is rounding.
+    const box = boxOf(b);
+    const [lo, hiW, hiH] = [MARGIN - 0.01, W - MARGIN + 0.01, H - MARGIN + 0.01];
+    if (box.x < lo || box.y < lo || box.x + box.w > hiW || box.y + box.h > hiH) out.push(`leaves the page's printable area (${MARGIN} mm from each edge)`);
     for (const o of doc.pages[n - 1].blocks) if (o.id !== b.id && meets(boxOf(o), boxOf(b))) out.push(`overlaps block ${o.id}`);
     return out;
   }
 
   // The height and the exercises of a maths block, from the server (or kept when it has its own exercises).
-  async function makeMaths(b: any, seedless = false) {
+  async function makeMaths(b: any) {
     const p = b.props;
     p.carry ??= "either";
     p.rest ??= false;
     p.format ??= "row";
     p.columns ??= 4;
     p.size ??= 14;
-    if (seedless || p.seed === undefined) p.seed = Math.floor(Math.random() * 2 ** 31);
+    if (p.seed === undefined) p.seed = Math.floor(Math.random() * 2 ** 31);
     const settings: Record<string, unknown> = {};
     for (const key of MATHS_KEYS) if (p[key] !== undefined) settings[key] = p[key];
     const r = await api.send("POST", "/maths", settings);
@@ -258,11 +263,12 @@ export function tools(api: Api) {
       : (SEEDED as readonly string[]).includes(type) ? (INSERTS as any)[type](seed)
       : undefined;
     if (!base) throw new Fail(`Type ${type} is not one the tools add.`);
-    const b: any = { id: crypto.randomUUID(), type, x: args.x, y: args.y, w: base.w, h: base.h, z: topZ(page.blocks), locked: false, props: base.props };
+    // As in the editor: the block lands, takes the size asked for, and then its props, so it grows at that width.
+    const b: any = { id: crypto.randomUUID(), type, x: args.x, y: args.y, w: args.w ?? base.w, h: args.h ?? base.h, z: topZ(page.blocks), locked: false, props: base.props };
     const next = { ...b, props: { ...b.props, ...fresh(b, args.props ?? {}) } };
-    if (type === "maths") await makeMaths(next);
-    else Object.assign(next, grown(b, next, doc, sizeOf(doc, doc.pages.indexOf(page))[1]));
-    return { ...next, x: args.x, y: args.y, w: args.w ?? next.w, h: args.h ?? next.h };
+    if (type !== "maths") return { ...next, ...grown(b, next, doc, sizeOf(doc, doc.pages.indexOf(page))[1]) };
+    await makeMaths(next);
+    return { ...next, h: args.h ?? next.h };
   }
 
   // Lays the props of a change on a block as the editor's panel does; a maths block whose settings change gets new exercises.
@@ -270,13 +276,22 @@ export function tools(api: Api) {
     const next = { ...b, props: { ...b.props, ...fresh(b, changes) } };
     const H = sizeOf(doc, doc.pages.findIndex((p: any) => p.blocks.includes(b)))[1];
     if (b.type === "maths") {
-      // New settings for the exercises bring new ones, with a new seed unless one is given; the look keeps them.
+      // New settings for the exercises bring new ones, from the block's seed unless one is given, as the panel does.
       const changed = MATHS_KEYS.some((key) => key in changes && !isDeepStrictEqual((b.props as any)[key], (changes as any)[key]));
       if (changed) {
         next.props = { ...next.props, exercises: undefined, loosen: undefined };
-        await makeMaths(next, !("seed" in changes));
-      } else next.h = mathsHeight(next.props as MathsProps);
-      return next;
+        await makeMaths(next);
+      }
+      // The height follows the exercises when they need more or less room; a change past the page's foot is refused.
+      if (overFoot(b, next.props, H)) throw new Fail(`Block ${b.id} would reach past the page's foot. Nothing was written: move it up or ask for fewer exercises.`);
+      const need = mathsHeight(next.props as MathsProps);
+      return { ...next, h: b.h, ...(need !== mathsHeight(b.props) && tall(b, need)) };
+    }
+    if (b.type === "image" && "upload" in changes) {
+      // Another picture: it must be this teacher's, and the block takes its shape.
+      const { props } = await picture((changes as any).upload);
+      next.props = { ...next.props, ratio: props.ratio };
+      return { ...next, h: Math.round((b.w / props.ratio) * 100) / 100 };
     }
     return { ...next, ...grown(b, next, doc, H) };
   }
@@ -347,10 +362,13 @@ export function tools(api: Api) {
   async function setWords(args: any): Promise<Content> {
     const { version, out } = await edit("set_words", args.sheet_id, args.version, (doc: any) => {
       // An empty list is sent as is: the server stores no list for it, and a missing key would keep the stored one.
+      // As the editor's list field: the words as the sheet reads them, and every page's blocks, since a list runs on.
       doc.words = args.words;
+      const words = wordsIn(doc);
+      const all = doc.pages.flatMap((p: any) => p.blocks);
       doc.pages.forEach((page: any, i: number) => {
         const [W, H] = sizeOf(doc, i);
-        page.blocks = follow(page.blocks, args.words, W, H);
+        page.blocks = follow(page.blocks, words, W, H, all);
       });
       return args.words;
     });
@@ -604,19 +622,37 @@ export function tools(api: Api) {
   return { list: defs, call };
 }
 
-// Width and height in pixels from a picture's header: PNG, GIF or JPEG.
+// The EXIF orientation (tag 0x0112 of the first IFD) of the TIFF block at `tiff`, or 1 when it has none.
+function orientation(buf: Buffer, tiff: number): number {
+  const le = buf.subarray(tiff, tiff + 2).toString("latin1") === "II";
+  const u16 = (at: number) => (le ? buf.readUInt16LE(at) : buf.readUInt16BE(at));
+  const u32 = (at: number) => (le ? buf.readUInt32LE(at) : buf.readUInt32BE(at));
+  const ifd = tiff + u32(tiff + 4);
+  for (let i = 0; i < u16(ifd); i++) {
+    const entry = ifd + 2 + 12 * i;
+    if (u16(entry) === 0x0112) return u16(entry + 8);
+  }
+  return 1;
+}
+
+// Width and height in pixels from a picture's header: PNG, GIF, JPEG or WebP, as the browser shows it.
 function dimensions(buf: Buffer): [number, number] {
   if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
     return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
   if (buf.subarray(0, 3).toString("latin1") === "GIF") return [buf.readUInt16LE(6), buf.readUInt16LE(8)];
   if (buf[0] === 0xff && buf[1] === 0xd8) {
     let at = 2;
+    // A photo taken upright says so in its EXIF orientation (5 to 8): the browser, and so the editor, turns it.
+    let turned = false;
     while (at + 9 < buf.length) {
       if (buf[at] !== 0xff) throw new Fail("The picture's header is broken.");
       const marker = buf[at + 1];
+      if (marker === 0xe1 && buf.subarray(at + 4, at + 10).toString("latin1") === "Exif\0\0") turned = orientation(buf, at + 10) >= 5;
       // The frame headers (SOF0 to SOF15, but not DHT, JPG and DAC) hold the size.
-      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
-        return [buf.readUInt16BE(at + 7), buf.readUInt16BE(at + 5)];
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+        const [w, h] = [buf.readUInt16BE(at + 7), buf.readUInt16BE(at + 5)];
+        return turned ? [h, w] : [w, h];
+      }
       at += 2 + buf.readUInt16BE(at + 2);
     }
   }
