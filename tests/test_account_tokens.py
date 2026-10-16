@@ -187,6 +187,7 @@ def test_a_key_not_made_when_the_session_ran_out_is_said_after_the_login(account
     page.get_by_role("button", name="Anmelden").click()
     said = "Der Schlüssel „Danach“ wurde nicht erstellt"
     expect(page.get_by_role("status")).to_contain_text(said)
+    expect(page.get_by_label("Name des Schlüssels")).to_have_value("Danach")
     expect(page.get_by_test_id("new-token")).to_have_count(0)
     expect(row(page, "Danach")).to_have_count(0)
 

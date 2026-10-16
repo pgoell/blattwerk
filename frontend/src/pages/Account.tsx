@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, post, type User } from "../api";
+import { api, post, type Refusal, type User } from "../api";
 import { attempt, status } from "../fault";
 import { signed } from "../saves";
 
@@ -9,6 +9,8 @@ const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark
 // `created` and `last_used` are UTC, "YYYY-MM-DD HH:MM:SS".
 type Token = { id: number; name: string; created: string; last_used: string | null };
 const TAKEN = "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen.";
+const TOO_LONG = "Der Name ist zu lang: höchstens 80 Zeichen.";
+const EMPTY = "Gib dem Schlüssel einen Namen.";
 const when = (utc: string) =>
   new Date(`${utc.replace(" ", "T")}Z`).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 
@@ -16,7 +18,14 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const [sure, setSure] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "leaf");
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [name, setName] = useState("");
+  // The name typed when the session ran out: put back after the login.
+  const [name, setName] = useState(() => {
+    try {
+      return sessionStorage.getItem("konto-name") ?? "";
+    } catch {
+      return "";
+    }
+  });
   // Under the name field: why the name was refused. Gone with the next typing.
   const [fieldNote, setFieldNote] = useState("");
   // The new key, shown once. It lives in this state only: not in storage, not in the URL.
@@ -34,11 +43,20 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
   const askedId = useRef<number | null>(null);
 
-  function leave(text: string) {
+  function leave(text: string, typed?: string) {
     try {
       sessionStorage.setItem("konto-left", text);
+      if (typed !== undefined) sessionStorage.setItem("konto-name", typed);
     } catch {}
     setLeft(text);
+  }
+
+  function forget() {
+    setLeft(null);
+    try {
+      sessionStorage.removeItem("konto-left");
+      sessionStorage.removeItem("konto-name");
+    } catch {}
   }
 
   function show(to: string) {
@@ -66,10 +84,14 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         setMade({ id: fresh.id, token: fresh.token });
         setName("");
         setFieldNote("");
+        forget();
       } catch (err) {
-        // The server's own refusal: a name it already has, from another tab.
-        if (status(err) === "422") return setFieldNote(TAKEN);
-        if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`);
+        // The server's refusal: the name it already has, or a name it does not take.
+        if (status(err) === "422") {
+          const dup = (err as Refusal).detail === TAKEN;
+          return setFieldNote(dup ? TAKEN : label.length > 80 ? TOO_LONG : EMPTY);
+        }
+        if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`, label);
         throw err;
       }
       await load();
@@ -93,10 +115,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         if (status(err) !== "404") throw err;
       }
       if (made?.id === token.id) setMade(null);
-      setLeft(null);
-      try {
-        sessionStorage.removeItem("konto-left");
-      } catch {}
+      forget();
       await load();
     });
   }
