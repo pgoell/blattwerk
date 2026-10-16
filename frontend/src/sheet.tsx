@@ -1734,6 +1734,67 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     document.fonts.ready.then(() => fit(el));
     return () => watch.disconnect();
   }, [styled, cells.length, cols.length]);
+  // A word too long for its closed cell breaks mid-letter. Such a cell gets soft hyphens at the syllable borders of its
+  // broken words: they show as a hyphen only where the word breaks. The splitter loads only when a word breaks, and
+  // the text it makes is kept until the cells or the breaks change.
+  const key = `${cells.join("\u0001")}|${cols.join(",")}|${JSON.stringify(breaks ?? null)}`;
+  const made = useRef<{ key: string; texts: Record<number, string>; pending: boolean }>({ key: "", texts: {}, pending: false });
+  const [, redraw] = useState(0);
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const look = () => {
+      const m = made.current;
+      if (m.key !== key) Object.assign(m, { key, texts: {}, pending: false });
+      const broken = new Map<number, Set<string>>();
+      el.querySelectorAll<HTMLElement>(":scope > div[data-cell] > p:not(.open)").forEach((p) => {
+        const cell = Number(p.parentElement!.dataset.cell);
+        const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+        for (let node = walk.nextNode() as Text | null; node; node = walk.nextNode() as Text | null) {
+          for (const found of node.data.matchAll(/[\p{L}­]+/gu)) {
+            const range = document.createRange();
+            range.setStart(node, found.index!);
+            range.setEnd(node, found.index! + found[0].length);
+            if (new Set(Array.from(range.getClientRects(), (r) => Math.round(r.top))).size < 2) continue;
+            const words = broken.get(cell) ?? new Set<string>();
+            words.add(found[0].replace(/­/g, ""));
+            broken.set(cell, words);
+          }
+        }
+      });
+      if (broken.size === 0 || [...broken.keys()].every((c) => c in m.texts) || m.pending) return;
+      m.pending = true;
+      redraw((n) => n + 1);
+      splitting().then((module) => {
+        if (m.key !== key) return;
+        for (const [c, words] of broken) {
+          m.texts[c] = cells.flat()[c].replace(/\p{L}+/gu, (w) => {
+            if (!words.has(w)) return w;
+            let out = "";
+            let last = 0;
+            for (const place of module.cuts(w, breaks)) {
+              out += w.slice(last, place) + "­";
+              last = place;
+            }
+            return out + w.slice(last);
+          });
+        }
+        m.pending = false;
+        redraw((n) => n + 1);
+        look();
+      });
+    };
+    look();
+    const watch = new ResizeObserver(look);
+    watch.observe(el);
+    document.fonts.addEventListener("loadingdone", look);
+    return () => {
+      watch.disconnect();
+      document.fonts.removeEventListener("loadingdone", look);
+    };
+  }, [key]);
+  const hyphens = made.current.key === key ? made.current.texts : {};
+  const pending = made.current.key === key && made.current.pending;
   const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
   const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
   const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
@@ -1772,10 +1833,11 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
         if (covered.has(i)) return null;
         return (
           <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...(place(i) || undefined) }}>
-            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
+            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : hyphens[i] !== undefined ? <p style={{ ...shade(i), hyphens: "manual", WebkitHyphens: "manual", overflowWrap: "normal" }}>{wrap(hyphens[i], i)}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
           </div>
         );
       })}
+      {pending && <span className="unsplit" hidden />}
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
       {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
