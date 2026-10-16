@@ -114,6 +114,37 @@ def breaks(error, path: list) -> bool:
     return len(path) <= len(shape) or path[-1] in SKELETON
 
 
+# What a block of a type must have for the page to draw it: a prop left out is filled with this.
+NEEDED = {
+    "text": {"text": ""},
+    "shape": {"text": ""},
+    "maths": {"exercises": []},
+    "table": {"cells": [[""]], "cols": [1]},
+}
+
+
+def mended(doc: dict) -> dict:
+    """The doc as the page draws it: a copy with each wrong prop of a block cut, and the props the
+    page cannot draw without filled in. The stored doc keeps its wrong props. A doc with no fault,
+    or one from before pages, comes back as it is."""
+    found = faults(doc)
+    if "pages" not in doc or not found:
+        return doc
+    # The props with a fault, by page, block and name.
+    cut = {
+        (path[1], path[3], path[5]) for path, _, _ in found if len(path) >= 6 and path[4] == "props"
+    }
+    mend = json.loads(json.dumps(doc))
+    for i, page in enumerate(mend["pages"]):
+        for j, block in enumerate(page.get("blocks", [])):
+            props = block.get("props", {})
+            for name in [name for (pi, pj, name) in cut if (pi, pj) == (i, j)]:
+                props.pop(name, None)
+            for name, value in NEEDED.get(block.get("type"), {}).items():
+                props.setdefault(name, value)
+    return mend
+
+
 def check(doc: dict) -> None:
     """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
     and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""

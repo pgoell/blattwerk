@@ -200,10 +200,10 @@ def test_a_burst_waiter_gets_its_png_when_a_slot_frees(server):
 
 
 def test_a_doc_the_page_cannot_draw_is_422_not_500(server, monkeypatch):
-    monkeypatch.setattr(pdf, "DRAW", 3000)
+    # Nothing draws in 1 ms: the page never gets its body.ready.
+    monkeypatch.setattr(pdf, "DRAW", 1)
     client = user()
-    # A word for a number in a maths block's props: check() lets it by, the page cannot draw it.
-    bad = block("maths", 40, 30, {**MATHS, "max": "x"})
+    bad = block("maths", 40, 30, MATHS)
     doc = {"pages": [{"blocks": [bad]}], "guides": {"x": [], "y": []}, "grid": 0}
     res = httpx.post(
         f"{server}/api/preview.png", json={"doc": doc}, headers=cookie(client), timeout=60
