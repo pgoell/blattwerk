@@ -5,7 +5,7 @@ from playwright.sync_api import expect
 from test_menu import HELD, kept, menu, props, texts, watch
 from test_order import boxes
 from test_pages import three
-from ui import at, box, centre, finger, jitter, outlast, thumb, user
+from ui import angle, at, box, centre, finger, jitter, outlast, thumb, user
 
 
 @pytest.mark.parametrize("kind", HELD)
@@ -102,3 +102,20 @@ def test_a_finger_held_still_on_the_empty_page_opens_the_menu_there(editor):
     expect(menu(page)).to_be_visible()
     shown = menu(page).bounding_box()
     assert abs(shown["x"] - start[0]) < 30
+
+
+def test_the_held_fingers_menu_lies_at_the_finger_and_its_toolbar_turns_in_one_step(editor):
+    """A1 at the finger, A7"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start):
+        outlast(page)
+    shown = menu(page).bounding_box()
+    assert abs(shown["x"] - start[0]) < 2 and abs(shown["y"] - start[1]) < 2
+    page.get_by_role("toolbar", name="Minisymbolleiste").get_by_label("Rechtsdrehung 90°").tap()
+    expect(menu(page)).to_have_count(0)
+    assert angle(page, "a") == 90
+    undo = page.get_by_role("button", name="Rückgängig")
+    undo.tap()
+    expect(undo).to_be_disabled()
+    assert angle(page, "a") == 0
