@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "argon2-cffi>=25.1.0",
     "fastapi>=0.142.2",
+    "httpx>=0.28.1",
     "jsonschema>=4.26.0",
     "playwright>=1.63.0",
     "pypdf>=6.19.0",
@@ -19,8 +20,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "hypothesis>=6.168.5",
+    "mcp>=2.3.0",
     "pillow>=12.3.0",
     "pypdfium2>=5.14.0",
     "pytest",

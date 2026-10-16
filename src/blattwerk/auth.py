@@ -79,13 +79,25 @@ def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3
     A good token goes through whatever the tries: a school shares one address.
     """
     row = None
+    table = "tokens"
     parts = token.split("_", 2)
-    if len(parts) == 3 and parts[0] == "bt" and db.ID.fullmatch(parts[1]) and int(parts[1]) < 2**63:
-        row = con.execute(
-            "SELECT tokens.id AS token_id, tokens.hash, users.* FROM tokens"
-            " JOIN users ON users.id = tokens.user_id WHERE tokens.id = ?",
-            (int(parts[1]),),
-        ).fetchone()
+    if len(parts) == 3 and db.ID.fullmatch(parts[1]) and int(parts[1]) < 2**63:
+        if parts[0] == "bt":
+            row = con.execute(
+                "SELECT tokens.id AS token_id, tokens.hash, 0 AS expired, users.* FROM tokens"
+                " JOIN users ON users.id = tokens.user_id WHERE tokens.id = ?",
+                (int(parts[1]),),
+            ).fetchone()
+        elif parts[0] == "bo":
+            # An OAuth token is the access token of a connected program's grant.
+            table = "oauth_grants"
+            row = con.execute(
+                "SELECT oauth_grants.id AS token_id, oauth_grants.access_hash AS hash,"
+                " oauth_grants.access_expires <= datetime('now') AS expired, users.*"
+                " FROM oauth_grants JOIN users ON users.id = oauth_grants.user_id"
+                " WHERE oauth_grants.id = ?",
+                (int(parts[1]),),
+            ).fetchone()
     if not row or not hmac.compare_digest(row["hash"], digest(token)):
         key = f"token:{request.client.host if request.client else ''}"
         con.execute(
@@ -98,9 +110,12 @@ def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3
             raise HTTPException(429)
         con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
         raise HTTPException(401)
+    if row["expired"]:
+        # Not a guess, so no try is counted: the program refreshes its token.
+        raise HTTPException(401)
     with suppress(sqlite3.Error):
         con.execute(
-            "UPDATE tokens SET last_used = CURRENT_TIMESTAMP WHERE id = ?", (row["token_id"],)
+            f"UPDATE {table} SET last_used = CURRENT_TIMESTAMP WHERE id = ?", (row["token_id"],)
         )
     return row
 
@@ -129,10 +144,10 @@ def current_admin(user: User) -> sqlite3.Row:
 Admin = Annotated[sqlite3.Row, Depends(current_admin)]
 
 
-def limit(con: sqlite3.Connection, key: str) -> None:
+def limit(con: sqlite3.Connection, key: str, tries: int = TRIES) -> None:
     # Kept in the database, so a restart does not hand out fresh tries.
     con.execute("DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",))
-    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= TRIES:
+    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= tries:
         raise HTTPException(429)
     con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
 
@@ -342,6 +357,8 @@ def reset(body: Reset, response: Response, con: Con) -> dict:
     con.execute("UPDATE users SET password = ? WHERE id = ?", (hasher.hash(body.password), user_id))
     con.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
     con.execute("DELETE FROM tokens WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM oauth_grants WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM oauth_codes WHERE user_id = ?", (user_id,))
     return start_session(con, response, user_id)
 
 

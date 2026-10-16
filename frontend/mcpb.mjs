@@ -18,6 +18,14 @@ await build({
   output: { file: join(stage, "server/index.mjs"), format: "esm", codeSplitting: false },
 });
 
+// The remote route's child (src/blattwerk/remote.py), in the image as /app/mcp/http.mjs.
+await build({
+  input: join(here, "mcp/http-main.ts"),
+  platform: "node",
+  transform: { jsx: "react-jsx" },
+  output: { file: join(here, ".mcp-http/http.mjs"), format: "esm", codeSplitting: false },
+});
+
 cpSync(join(here, "../docs/okf"), join(stage, "okf"), { recursive: true });
 copyFileSync(join(here, "mcp/manifest.json"), join(stage, "manifest.json"));
 
