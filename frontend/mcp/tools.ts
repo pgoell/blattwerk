@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import type { Api } from "./api.ts";
-import { INSERTS, MATHS, grown, topZ } from "../src/insert.ts";
+import { INSERTS, MATHS, filled, grown, topZ } from "../src/insert.ts";
 import { fresh } from "../src/history.ts";
 import { mathsHeight } from "../src/height.ts";
 import { sizeOf } from "../src/sheet.tsx";
@@ -95,8 +95,8 @@ function pick(sheet: any) {
   return { id: sheet.id, title: sheet.title, version: sheet.version, doc: sheet.doc };
 }
 
-// A block's box, and whether two boxes meet.
-const boxOf = (b: any) => ({ x: b.x, y: b.y, w: b.w, h: b.h });
+// A block's box as it fills the page (a turned block by the box it fills, as the editor counts it), and whether two meet.
+const boxOf = (b: any) => filled([b])[0];
 const meets = (a: any, b: any) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 export function tools(api: Api) {
@@ -231,6 +231,7 @@ export function tools(api: Api) {
 
   // A picture of this teacher's upload, sized as the editor's `sent()` sizes it: 100 mm wide, or less to keep its ratio.
   async function picture(upload: unknown) {
+    if (!Number.isInteger(upload)) throw new Fail("An image needs props.upload, the id of one of the teacher's uploads.");
     const r = await api.bytes(`/uploads/${upload}`);
     if (r.status === 404) throw new Fail(`No upload with id ${upload}.`);
     if (r.status !== 200) throw new Fail(`Upload ${upload} could not be read.`);
@@ -269,11 +270,12 @@ export function tools(api: Api) {
     const next = { ...b, props: { ...b.props, ...fresh(b, changes) } };
     const H = sizeOf(doc, doc.pages.findIndex((p: any) => p.blocks.includes(b)))[1];
     if (b.type === "maths") {
-      const changed = Object.keys(changes).some((key) => (b.props as any)[key] !== (changes as any)[key]);
+      // New settings for the exercises bring new ones, with a new seed unless one is given; the look keeps them.
+      const changed = MATHS_KEYS.some((key) => key in changes && !isDeepStrictEqual((b.props as any)[key], (changes as any)[key]));
       if (changed) {
         next.props = { ...next.props, exercises: undefined, loosen: undefined };
-        await makeMaths(next, true);
-      }
+        await makeMaths(next, !("seed" in changes));
+      } else next.h = mathsHeight(next.props as MathsProps);
       return next;
     }
     return { ...next, ...grown(b, next, doc, H) };
@@ -618,7 +620,16 @@ function dimensions(buf: Buffer): [number, number] {
       at += 2 + buf.readUInt16BE(at + 2);
     }
   }
-  throw new Fail("The picture is not a PNG, GIF or JPEG.");
+  if (buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP") {
+    const chunk = buf.subarray(12, 16).toString("latin1");
+    if (chunk === "VP8X") return [buf.readUIntLE(24, 3) + 1, buf.readUIntLE(27, 3) + 1];
+    if (chunk === "VP8L") {
+      const bits = buf.readUInt32LE(21);
+      return [(bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1];
+    }
+    if (chunk === "VP8 ") return [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff];
+  }
+  throw new Fail("The picture is not a PNG, GIF, JPEG or WebP.");
 }
 
 function text(value: unknown): Content {

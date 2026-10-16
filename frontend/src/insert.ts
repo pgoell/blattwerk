@@ -7,7 +7,7 @@ import { DEFAULTS as FELD } from "./hunderterfeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
-import { MARGIN, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
+import { MARGIN, dir, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
 export type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> & { w: number; h: number } : never;
@@ -58,6 +58,14 @@ export const MATHS = {
   limits: (seed: number) => ({ ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as [number, number][], b: [[0, 9], [0, 9]] as [number, number][], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed }),
   look: { columns: 3, size: 14 },
 };
+
+// The boxes the blocks fill on a page: a turned block counts with the box it fills, turned about its middle.
+export const filled = (blocks: Box[]) =>
+  blocks.map((b) => {
+    const [c, s] = dir(b).map(Math.abs);
+    const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
+    return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+  });
 
 // The z a new block takes on a page: above every block there.
 export const topZ = (blocks: Block[]) => Math.max(0, ...blocks.map((b) => b.z)) + 1;

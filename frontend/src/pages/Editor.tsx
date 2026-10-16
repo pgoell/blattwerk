@@ -112,7 +112,7 @@ import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
-import { FRAMES as FRAME_KINDS, INSERTS, MATHS, grown, type Fresh as Insert } from "../insert";
+import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
 import type { Breaks } from "../syllables";
 
@@ -2159,13 +2159,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
   // margin there. Words and pictures pasted from another app keep the place at the top of the view.
-  // The boxes the blocks fill on a page: a turned block counts with the box it fills, turned about its middle.
-  const filled = (blocks: Block[]) =>
-    blocks.map((b) => {
-      const [c, s] = dir(b).map(Math.abs);
-      const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
-      return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
-    });
   // The first spot of page `p` where a w x h box keeps 5 mm from every block, scanned in rows from the top, in steps of 5 mm.
   function freeSpot(doc: Doc, p: number, w: number, h: number) {
     const [W, H] = sizeOf(doc, p);

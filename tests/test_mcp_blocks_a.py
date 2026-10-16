@@ -4,7 +4,7 @@ import json
 
 import pytest
 from playwright.sync_api import expect
-from test_mcp import Mcp, token_for
+from test_mcp import Mcp, printed, token_for
 from ui import FIELD, png, saved, upload, user
 
 from blattwerk import schema
@@ -79,9 +79,7 @@ def test_same_as_editor(kind, editor, server, tmp_path):
         page.locator(".dock, .insert").get_by_label(LABELS[kind], exact=True).click()
     expect(page.locator(".block[data-id]")).to_have_count(1)
     if kind == "text":
-        # An empty text may not survive the editor's save: one letter is typed in.
-        page.locator(".block[data-id]").click()
-        page.keyboard.press("Enter")
+        # A new empty text opens for typing; one letter goes in, given to add_block too.
         expect(page.locator(FIELD)).to_be_focused()
         page.keyboard.type("A")
     (editor_block,) = saved(page, client)
@@ -139,7 +137,7 @@ def test_add_change_print(kind, server, tmp_path):
         (stored,) = stored_blocks(client, sheet_id)
         assert schema.problems(client.get(f"/api/sheets/{sheet_id}").json()["doc"]) == []
         assert (stored["x"], stored["y"]) == (30, 40)
-        assert client.get(f"/api/sheets/{sheet_id}/pdf").status_code == 200
+        assert printed(server, client, sheet_id) == 200
         write(mcp, "delete_block", sheet_id=sheet_id, version=moved["version"], block_id=block_id)
         assert stored_blocks(client, sheet_id) == []
     finally:

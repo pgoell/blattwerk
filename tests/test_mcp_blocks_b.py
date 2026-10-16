@@ -4,7 +4,7 @@ import json
 
 import pytest
 from playwright.sync_api import expect
-from test_mcp import Mcp, token_for
+from test_mcp import Mcp, printed, token_for
 from ui import insert, saved, user
 
 from blattwerk import schema
@@ -138,7 +138,7 @@ def test_add_change_print(server, tmp_path, kind):
         assert (placed["x"], placed["y"]) == (20, 50)
         assert placed["props"] == after["props"]
 
-        assert client.get(f"/api/sheets/{sheet_id}/pdf").status_code == 200
+        assert printed(server, client, sheet_id) == 200
 
         tool(mcp, "delete_block", sheet_id=sheet_id, version=moved["version"], block_id=block_id)
         assert sheet_doc(client, sheet_id)["pages"][0]["blocks"] == []
@@ -174,7 +174,7 @@ def test_selbstkontrolle_links_an_uhr(server, tmp_path):
         )
         found = stored_block(client, sheet_id, selbst["block"]["id"])
         assert found["props"]["links"] == [uhr["block"]["id"]]
-        assert client.get(f"/api/sheets/{sheet_id}/pdf").status_code == 200
+        assert printed(server, client, sheet_id) == 200
         assert linked["version"] > selbst["version"]
     finally:
         mcp.stop()
@@ -201,6 +201,6 @@ def test_suchsel_with_more_words_than_fit(server, tmp_path):
         )
         found = stored_block(client, sheet_id, block_id)
         assert found["props"]["words"] == words
-        assert client.get(f"/api/sheets/{sheet_id}/pdf").status_code == 200
+        assert printed(server, client, sheet_id) == 200
     finally:
         mcp.stop()

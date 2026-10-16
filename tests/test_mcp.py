@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
+import httpx
 from jsonschema import Draft202012Validator
 from ui import user
 
@@ -72,6 +73,13 @@ class Mcp:
 
 def token_for(client):
     return client.post("/api/tokens", json={"name": "mcp"}).json()["token"]
+
+
+def printed(server, client, sheet_id):
+    """The sheet's PDF route's status. Chromium draws the print page from the app's real port, which
+    the in-process client has not."""
+    head = {"Authorization": f"Bearer {token_for(client)}"}
+    return httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=head, timeout=60).status_code
 
 
 def start(server, tmp_path):
