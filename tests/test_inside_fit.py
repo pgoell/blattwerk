@@ -76,6 +76,12 @@ def test_star_keeps_its_height_and_no_word_splits(editor):
     assert a["h"] == 40, a
     whole(page.locator(".block.sel"))
     assert not cut(page.locator(".block.sel"))
+    # "gemacht!" is wider than the star's inner box at 10 pt: it shrinks further, and no letter
+    # reaches past the box's side, where the clip would cut it.
+    spill = page.locator(".block.sel .frame p").evaluate_all(
+        "ps => ps.map((p) => p.scrollWidth - p.clientWidth)"
+    )
+    assert max(spill) <= 1, spill
 
 
 def test_star_stays_whole_at_60_and_30_mm_wide(editor):
@@ -166,9 +172,10 @@ def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
     assert a["h"] == 40, a
 
 
+# Many short words: each fits the inner box at 10 pt, the lines do not.
 LONG = (
-    "Male den Hasen in den Kreis und schreibe seinen Namen darunter. "
-    "Dann male einen Zaun um das Haus und einen Baum daneben."
+    "Male den Hasen in den Kreis und dann male einen Zaun um das Haus. "
+    "Male die Sonne und den Mond und einen Baum."
 )
 
 
@@ -181,11 +188,16 @@ def test_a_long_sentence_shrinks_to_10_pt_at_most_and_then_grows_the_shape(edito
     ten = box("ten", "text", {"text": "zehn", "size": 10, "align": "left"}, x=150)
     page = editor(ten, client=client)
     make(page, label, LONG)
+    # A star 40 mm wide holds 9 mm between its inner points: a word of five letters at 10 pt is
+    # wider, and a word shrinks past 10 pt rather than be cut. At 80 mm the words fit.
+    wide = 80 if label == "Stern" else 40
+    if label == "Stern":
+        enter(page, "Breite", "80")
     a = next(b for b in saved(page, client) if b["id"] != "ten")
     block = at(page, a["id"])
     assert a["h"] > 40, a
     # A circle stays round; a triangle and a star grow downward only.
-    assert a["w"] == (a["h"] if label == "Kreis" else 40), a
+    assert a["w"] == (a["h"] if label == "Kreis" else wide), a
     assert float(font_px(block)[:-2]) >= float(font_px(at(page, "ten"))[:-2]) - 0.05
     whole(block)
     assert past_foot(block) <= 1

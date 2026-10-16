@@ -786,9 +786,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
   const overfit = useRef((_id: string, _mm: number) => {});
   overfit.current = (id, mm) => {
+    // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back.
     const b = sel.find((x) => x.id === id);
     const shape = b && boxed(b);
-    if (!b || !shape) return;
+    if (!b || !shape || !tight.current || b.locked) return;
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
     const h = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
     // A round circle stays round (#661): it grows as wide as high.

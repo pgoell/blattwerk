@@ -899,7 +899,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
 // The smallest type a shape shrinks its text to, in pt: a child still reads it. A text set smaller keeps its size.
 const LEAST = 10;
 // The share of a text's size it may shrink to.
-const leastOf =(size: number) => Math.min(1, LEAST / size) || 1;
+const leastOf = (size: number) => Math.min(1, LEAST / size) || 1;
 // Shrinks a frame's type (`--fit`) until its lines fit its height and no word runs past its width, down to the share
 // `least`. Each round measures the type it has and takes the share it is too big by. Up to three rounds: a line of a
 // pixel does not shrink. Gives what the lines still reach past the room at the smallest type, in px: the editor grows
@@ -907,11 +907,18 @@ const leastOf =(size: number) => Math.min(1, LEAST / size) || 1;
 // as its text.
 function fitText(el: HTMLElement, least: number, high: number) {
   el.style.removeProperty("--fit");
+  // A turned block lies level for the measure, so its lines run across.
+  const block = el.parentElement!;
+  const was = block.style.transform;
+  block.style.transform = "none";
   // The room inside the padding: a text past its foot is no scroll of the frame, so the lines are measured.
   const box = el.getBoundingClientRect();
   const pad = getComputedStyle(el);
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop), box.top + high - parseFloat(pad.paddingBottom)];
-  if (bottom - top < 3) return 0;
+  if (bottom - top < 3) {
+    block.style.transform = was;
+    return 0;
+  }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
     Math.max(
@@ -922,15 +929,18 @@ function fitText(el: HTMLElement, least: number, high: number) {
       }),
     );
   let scale = 1;
-  for (let round = 0; round < 3 && scale > least; round++) {
+  for (let round = 0; round < 3; round++) {
     const tall = (lowest() - top) / (bottom - top);
     const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
-    const over = Math.max(tall, ...wide);
-    if (!(over > 1.01)) break;
-    scale = Math.max(least, scale / over);
+    const across = Math.max(...wide);
+    // Too high: down to the smallest type. A word too wide shrinks past it: a word is never cut.
+    const next = Math.min(across > 1.01 ? scale / across : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
+    if (!(next < scale)) break;
+    scale = next;
     el.style.setProperty("--fit", String(scale));
   }
   const past = lowest() - bottom;
+  block.style.transform = was;
   return past > 1 ? past : 0;
 }
 // The classes of an element, from the names that are set.
