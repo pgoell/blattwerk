@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 from pydantic import BaseModel
 from pypdf import PdfWriter
@@ -32,6 +33,14 @@ POSTED: dict[str, dict] = {}
 # Each preview is a Chromium: two at once, and a burst waits WAIT seconds for a turn, then gets 503.
 SLOTS = threading.BoundedSemaphore(2)
 WAIT = 10
+# Milliseconds a preview's page may take to draw before the doc is refused as one no page can draw.
+DRAW = 15000
+# Drawn on a preview only: each block's box in magenta, with its id. The PDF never gets them.
+OUTLINES = """
+.print .block { outline: 1px solid magenta; outline-offset: -1px; }
+.print .block::before { content: attr(data-id); position: absolute; top: 0; left: 0;
+  font: 9px sans-serif; color: magenta; background: white; }
+"""
 
 router = APIRouter(prefix="/api")
 
@@ -172,7 +181,9 @@ class Posted(BaseModel):
     doc: dict
 
 
-def snap(request: Request, token: str, sheet_id: int, doc: dict, page: int) -> bytes:
+def snap(
+    request: Request, token: str, sheet_id: int, doc: dict, page: int, outlines: bool
+) -> bytes:
     """One page of a doc as a PNG about 1000 px wide: Chromium prints the page, shot alone."""
     # A sheet from before pages holds its blocks at the top: one page.
     pages = doc.get("pages", [doc])
@@ -194,9 +205,19 @@ def snap(request: Request, token: str, sheet_id: int, doc: dict, page: int) -> b
                     extra_http_headers={"X-Render-Token": token},
                 )
                 tab = context.new_page()
+                errors: list[str] = []
+                tab.on("pageerror", lambda error: errors.append(error.message))
                 tab.emulate_media(media="print")
                 tab.goto(url)
-                tab.wait_for_selector("body.ready", state="attached")
+                try:
+                    tab.wait_for_selector("body.ready", state="attached", timeout=DRAW)
+                except PlaywrightTimeout:
+                    why = errors[0] if errors else "it did not finish"
+                    raise HTTPException(
+                        422, detail={"problems": [f"doc: the page could not be drawn: {why}"]}
+                    ) from None
+                if outlines:
+                    tab.add_style_tag(content=OUTLINES)
                 return tab.locator(".print .paper").nth(page - 1).screenshot()
             finally:
                 browser.close()
@@ -211,9 +232,10 @@ def sheet_preview(
     user: Teacher,
     con: Con,
     page: Annotated[int, Query(ge=1)] = 1,
+    outlines: bool = False,
 ) -> Response:
     sheet = find(con, sheet_id, user)
-    png = snap(request, new_token(sheet_id), sheet_id, sheet["doc"], page)
+    png = snap(request, new_token(sheet_id), sheet_id, sheet["doc"], page, outlines)
     return Response(png, media_type="image/png")
 
 
@@ -223,13 +245,14 @@ def posted_preview(
     request: Request,
     user: Teacher,
     page: Annotated[int, Query(ge=1)] = 1,
+    outlines: bool = False,
 ) -> Response:
     check(body.doc)
     # Held in memory for the print alone: the doc is never written to the database.
     key = "p" + secrets.token_urlsafe(16)
     POSTED[key] = {"id": 0, "user_id": user["id"], "doc": json.dumps(body.doc)}
     try:
-        png = snap(request, new_token(key), 0, body.doc, page)
+        png = snap(request, new_token(key), 0, body.doc, page, outlines)
     finally:
         POSTED.pop(key, None)
     return Response(png, media_type="image/png")

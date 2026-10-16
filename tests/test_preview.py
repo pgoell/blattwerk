@@ -4,9 +4,11 @@ import io
 import threading
 
 import httpx
+import pypdfium2
 from fastapi.testclient import TestClient
 from PIL import Image
-from ui import MATHS, TEXT, block, picture, sheet, upload, user
+from pixels import LIMITS, as_png, measures
+from ui import MATHS, TEXT, block, maths, picture, sheet, upload, user
 
 from blattwerk import db, pdf
 from blattwerk.app import app
@@ -24,6 +26,12 @@ def image(data):
 
 def has_red(data):
     return any(colour == (255, 0, 0) for _, colour in image(data).getcolors(maxcolors=2**24))
+
+
+def magenta(picture):
+    """How many pixels of a picture are the outline's magenta."""
+    colours = picture.getcolors(maxcolors=2**24) or []
+    return sum(n for n, (r, g, b) in colours if r > 200 and g < 80 and b > 200)
 
 
 def rows():
@@ -157,3 +165,68 @@ def test_a_burst_waiter_gets_its_png_when_a_slot_frees(server):
         pdf.SLOTS.release()
     assert res.status_code == 200
     assert res.content.startswith(PNG_SIGNATURE)
+
+
+def test_a_doc_the_page_cannot_draw_is_422_not_500(server, monkeypatch):
+    monkeypatch.setattr(pdf, "DRAW", 3000)
+    client = user()
+    # A word for a number in a maths block's props: check() lets it by, the page cannot draw it.
+    bad = block("maths", 40, 30, {**MATHS, "max": "x"})
+    doc = {"pages": [{"blocks": [bad]}], "guides": {"x": [], "y": []}, "grid": 0}
+    res = httpx.post(
+        f"{server}/api/preview.png", json={"doc": doc}, headers=cookie(client), timeout=60
+    )
+    assert res.status_code == 422
+    assert res.json()["detail"]["problems"][0].startswith("doc: the page could not be drawn: ")
+
+
+def test_outlines_draw_each_block_box_and_id(server):
+    client = user()
+    mine = sheet(client, [block("text", 15, 14, TEXT)])
+    url = f"{server}/api/sheets/{mine['id']}/preview.png"
+    outlined = httpx.get(url, params={"outlines": True}, headers=cookie(client), timeout=60)
+    plain = httpx.get(url, headers=cookie(client), timeout=60)
+    assert outlined.status_code == plain.status_code == 200
+    assert magenta(image(outlined.content)) > 0
+    assert magenta(image(plain.content)) == 0
+
+
+def test_outlines_never_reach_the_pdf(server):
+    client = user()
+    mine = sheet(client, [block("text", 15, 14, TEXT)])
+    httpx.get(
+        f"{server}/api/sheets/{mine['id']}/preview.png",
+        params={"outlines": True},
+        headers=cookie(client),
+        timeout=60,
+    )
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie(client), timeout=60)
+    assert res.status_code == 200
+    page = pypdfium2.PdfDocument(res.content)[0].render(scale=1.5).to_pil().convert("RGB")
+    assert magenta(page) == 0
+
+
+def test_png_matches_pdf_page_one(server):
+    client = user()
+    mine = sheet(
+        client,
+        [
+            block("text", 15, 14, TEXT),
+            block("maths", 40, 30, maths(client)),
+            picture(upload(client)),
+        ],
+    )
+    cookies = cookie(client)
+    png = httpx.get(
+        f"{server}/api/sheets/{mine['id']}/preview.png", headers=cookies, timeout=60
+    ).content
+    pdf_bytes = httpx.get(
+        f"{server}/api/sheets/{mine['id']}/pdf", headers=cookies, timeout=60
+    ).content
+    # As screen_and_print does: the PDF drawn at twice the size and halved, against the screen.
+    paper = pypdfium2.PdfDocument(pdf_bytes)[0]
+    large = paper.render(scale=2 * image(png).width / paper.get_width()).to_pil()
+    found, _ = measures(png, as_png(large.reduce(2)))
+    print({name: round(value, 5) for name, (value, _) in found.items()})
+    for name, (value, where) in found.items():
+        assert value < LIMITS[name], f"{name} {value:.4f}{where}"
