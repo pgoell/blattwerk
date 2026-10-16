@@ -100,7 +100,7 @@ import Tour from "../components/Tour";
 import Variants from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attempt, note, status } from "../fault";
+import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
@@ -115,6 +115,9 @@ import { generate, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
 import type { Breaks } from "../syllables";
+
+// The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
+const pdfFault = "Das PDF konnte nicht erstellt werden.";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
@@ -280,7 +283,11 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   const ended = (end: "failed" | void) => void (here.current && setChoice(end || undefined));
   // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
   const navigate = useNavigate();
-  const keep = () => void keepAsNew(Number(id)).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`));
+  const keep = () => void keepAsNew(Number(id)).then((sheet) => {
+    if (!sheet || sheet === "failed") return;
+    dropFault(pdfFault);
+    navigate(`/blatt/${sheet.id}`);
+  });
   // Only from the dead sheet's own address: the teacher may have gone on while the server was asked.
   const drop = () => void discard(Number(id)).then((gone) => gone && location.pathname === `/blatt/${id}` && navigate("/"));
   function load() {
@@ -288,6 +295,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     ask<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
         ended();
+        dropFault(pdfFault);
         const other = here.current && reset(sheet);
         if (other) show(other);
       },
@@ -3117,7 +3125,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   async function pdf(key: boolean) {
     // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
     const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
-    const what = "Das PDF konnte nicht erstellt werden.";
+    const what = pdfFault;
     await attempt(what, async () => {
       const current = await flush(file.id);
       await ask("/me");
@@ -3834,7 +3842,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
+            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} clash={!!saver?.clash} />
           )}
         </div>
         {saver?.refused && (

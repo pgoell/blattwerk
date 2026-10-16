@@ -22,6 +22,8 @@ function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number })
   return Math.max(120 / w, Math.min((room.w - GAP * (pages - 1)) / pages / w, room.h / h));
 }
 
+const CLASH = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst.";
+
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
 
@@ -81,7 +83,7 @@ function shorts(count: number, doc: Doc, got: Record<string, Variant>): Short[] 
   );
 }
 
-export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose }: {
+export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash }: {
   id: number;
   doc: Doc;
   count: number;
@@ -90,6 +92,8 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   setLetters: (on: boolean) => void;
   opener: RefObject<HTMLElement | null>;
   onClose: () => void;
+  // Another device's version waits for the teacher's choice: the preview would not be what prints.
+  clash: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [shown, setShown] = useState("A");
@@ -221,16 +225,16 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
           ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} />)
           : "Lädt …"}
       </div>
-      {(blocked ? message(blocked) : failed) && (
-        <div className="clash" role="alert">{blocked ? message(blocked) : failed}</div>
+      {(clash ? CLASH : blocked ? message(blocked) : failed) && (
+        <div className="clash" role="alert">{clash ? CLASH : blocked ? message(blocked) : failed}</div>
       )}
       <div className="row">
         <button type="button" onClick={shut}>Schließen</button>
-        <button type="button" disabled={busy} onClick={() => { setBusy(true); print(true); }}>
+        <button type="button" disabled={busy || clash} onClick={() => { setBusy(true); print(true); }}>
           <FileCheck size={14} aria-hidden />
           Lösungen
         </button>
-        <button type="button" className="primary" disabled={busy} onClick={() => { setBusy(true); print(false); }}>
+        <button type="button" className="primary" disabled={busy || clash} onClick={() => { setBusy(true); print(false); }}>
           <FileDown size={14} aria-hidden />
           PDF
         </button>

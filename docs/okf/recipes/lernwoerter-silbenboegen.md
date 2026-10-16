@@ -1,7 +1,7 @@
 ---
 type: How-to
 title: "Lernwörter mit Lineatur und Silbenbögen"
-description: Four Lernwörter on a two-line ruling, each word in grey to copy with a bow under each syllable.
+description: Four Lernwörter on a two-line ruling, each word in grey to write over with a bow under each syllable.
 tags: [lernwoerter, silben, lineatur, klasse-1]
 covers: [text, name, ruling]
 generated: { by: "human:pgoell", at: 2026-10-16T00:00:00Z }
@@ -12,9 +12,8 @@ generated: { by: "human:pgoell", at: 2026-10-16T00:00:00Z }
 When a teacher asks for: "Ein Blatt mit Lernwörtern, Lineatur und Silbenbögen."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* The ruling block is kind `l2`. It holds the words in its own `text`, one word a line, so each word gets its own row.
-* `syllables: true` draws a bow under each syllable. `trace: true` prints the word in grey for the pupil to write over.
-* A ruling linked to the sheet's Lernwörter (`list`) draws no bows today, so this recipe puts the words in the ruling's own `text`.
+* The four words go in the doc's `words` list. The ruling block is kind `l2` and links to that list with `list: "trace"`, so each word gets its own row, printed in grey for the pupil to write over.
+* `syllables: true` draws a bow under each syllable of each listed word.
 * See [ruling](../blocks/ruling.md) for the kinds.
 
 # Doc
@@ -64,9 +63,8 @@ Pass this to `replace_doc` (after `create_sheet`), or add the blocks with `add_b
           "props": {
             "kind": "l2",
             "color": "#222222",
-            "text": "Hase\nIgel\nMaus\nKatze",
-            "syllables": true,
-            "trace": true
+            "list": "trace",
+            "syllables": true
           }
         }
       ]
@@ -76,6 +74,7 @@ Pass this to `replace_doc` (after `create_sheet`), or add the blocks with `add_b
     "x": [],
     "y": []
   },
-  "grid": 0
+  "grid": 0,
+  "words": ["Hase", "Igel", "Maus", "Katze"]
 }
 ```

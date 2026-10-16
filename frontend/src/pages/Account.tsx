@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, post, type User } from "../api";
-import { attempt } from "../fault";
+import { useEffect, useRef, useState } from "react";
+import { api, post, type Refusal, type User } from "../api";
+import { attempt, status } from "../fault";
 import { signed } from "../saves";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
@@ -8,6 +8,31 @@ const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark
 
 // `created` and `last_used` are UTC, "YYYY-MM-DD HH:MM:SS".
 type Token = { id: number; name: string; created: string; last_used: string | null };
+const TAKEN = "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen.";
+const TOO_LONG = "Der Name ist zu lang: höchstens 80 Zeichen.";
+const EMPTY = "Gib dem Schlüssel einen Namen.";
+// The note of a try that ran into the end of the session. One item, with the id of the account that made the try.
+const NOTE = "konto-note";
+type Note = { uid: number; text: string; name?: string };
+function readNote(uid: number): Note | null {
+  try {
+    const note = JSON.parse(sessionStorage.getItem(NOTE) ?? "null") as Note | null;
+    if (note?.uid === uid) return note;
+    dropNote();
+  } catch {}
+  return null;
+}
+function writeNote(note: Note) {
+  try {
+    sessionStorage.setItem(NOTE, JSON.stringify(note));
+  } catch {}
+}
+function dropNote() {
+  try {
+    sessionStorage.removeItem(NOTE);
+  } catch {}
+}
+
 const when = (utc: string) =>
   new Date(`${utc.replace(" ", "T")}Z`).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 
@@ -15,9 +40,32 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const [sure, setSure] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "leaf");
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [name, setName] = useState("");
+  // What a try left when the session ran out, read once here: the line, and the name typed. Taken out of storage
+  // at mount, so it shows once. Only for the account that made the try.
+  const [note] = useState(() => readNote(user.id));
+  const [name, setName] = useState(note?.name ?? "");
+  // Under the name field: why the name was refused. Gone with the next typing.
+  const [fieldNote, setFieldNote] = useState("");
   // The new key, shown once. It lives in this state only: not in storage, not in the URL.
   const [made, setMade] = useState<{ id: number; token: string } | null>(null);
+  const [left, setLeft] = useState<string | null>(note?.text ?? null);
+  const [ask, setAsk] = useState<Token | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  const rowButtons = useRef(new Map<number, HTMLButtonElement>());
+  const askedId = useRef<number | null>(null);
+  // A create is out: a second press waits for it.
+  const busy = useRef(false);
+
+  function leave(text: string, typed?: string) {
+    writeNote({ uid: user.id, text, name: typed });
+    setLeft(text);
+  }
+
+  function forget() {
+    setLeft(null);
+    dropNote();
+  }
 
   function show(to: string) {
     localStorage.setItem("theme", to);
@@ -29,25 +77,60 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const load = () => signed(api<Token[]>("/tokens")).then(setTokens, () => {});
 
   useEffect(() => {
+    dropNote();
     load();
   }, []);
 
   function create(e: React.FormEvent) {
     e.preventDefault();
     const label = name.trim();
-    if (!label) return;
+    if (!label) return setFieldNote("Gib dem Schlüssel einen Namen.");
+    if (label.length > 80) return setFieldNote("Der Name ist zu lang: höchstens 80 Zeichen.");
+    if (tokens.some((t) => t.name.toLowerCase() === label.toLowerCase())) return setFieldNote(TAKEN);
+    if (busy.current) return;
+    busy.current = true;
     attempt("Der Schlüssel konnte nicht erstellt werden.", async () => {
-      const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
-      setMade({ id: fresh.id, token: fresh.token });
-      setName("");
+      try {
+        const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
+        setMade({ id: fresh.id, token: fresh.token });
+        setName("");
+        setFieldNote("");
+        forget();
+      } catch (err) {
+        // The server's refusal: the name it already has, or a name it does not take.
+        if (status(err) === "422") {
+          const dup = (err as Refusal).detail === TAKEN;
+          return setFieldNote(dup ? TAKEN : label.length > 80 ? TOO_LONG : EMPTY);
+        }
+        if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`, label);
+        throw err;
+      } finally {
+        busy.current = false;
+      }
       await load();
     });
   }
 
   function revoke(token: Token) {
+    askedId.current = token.id;
+    setAsk(token);
+    dialog.current?.showModal();
+    // Abbrechen has the focus, so Enter keeps the key.
+    cancel.current?.focus();
+  }
+
+  function confirmRevoke(token: Token) {
+    dialog.current?.close();
     attempt("Der Schlüssel konnte nicht widerrufen werden.", async () => {
-      await signed(api(`/tokens/${token.id}`, { method: "DELETE" }));
+      try {
+        await signed(api(`/tokens/${token.id}`, { method: "DELETE" }));
+      } catch (err) {
+        // Already gone, from another tab: the list is what is left to show.
+        if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${token.name}“ ist noch nicht widerrufen: du warst abgemeldet. Widerrufe ihn jetzt noch einmal.`);
+        if (status(err) !== "404") throw err;
+      }
       if (made?.id === token.id) setMade(null);
+      forget();
       await load();
     });
   }
@@ -73,9 +156,20 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       <div className="card">
         <label>Zugang für Claude</label>
         <p className="hint">Mit einem Schlüssel kann Claude Desktop Blätter in deinem Konto anlegen und ändern. Gib jedem Gerät einen eigenen Namen.</p>
+        {left && <p role="status" className="notice">{left}</p>}
         <form onSubmit={create}>
-          <input aria-label="Name des Schlüssels" placeholder="Claude Desktop" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />{" "}
+          <input
+            aria-label="Name des Schlüssels"
+            aria-describedby="name-note"
+            placeholder="Claude Desktop"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFieldNote("");
+            }}
+          />{" "}
           <button type="submit">Schlüssel erstellen</button>
+          <p id="name-note" className="hint">{fieldNote}</p>
         </form>
         {made && (
           <div data-testid="new-token">
@@ -96,12 +190,40 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
                   erstellt {when(token.created)}, {token.last_used ? `zuletzt benutzt ${when(token.last_used)}` : "zuletzt benutzt: noch nie"}
                 </span>
               </span>
-              <button type="button" className="plain" aria-label={`Widerrufen: ${token.name}`} onClick={() => revoke(token)}>
+              <button
+                type="button"
+                className="plain"
+                aria-label={`Widerrufen: ${token.name}`}
+                ref={(el) => {
+                  if (el) rowButtons.current.set(token.id, el);
+                  else rowButtons.current.delete(token.id);
+                }}
+                onClick={() => revoke(token)}
+              >
                 Widerrufen
               </button>
             </li>
           ))}
         </ul>
+        <dialog
+          ref={dialog}
+          className="ask"
+          aria-labelledby="ask-revoke"
+          onClose={() => {
+            const back = askedId.current;
+            if (back !== null) rowButtons.current.get(back)?.focus();
+          }}
+        >
+          <p id="ask-revoke">Schlüssel „{ask?.name}“ widerrufen? Claude Desktop auf diesem Gerät verliert den Zugang.</p>
+          <div className="row">
+            <button type="button" onClick={() => ask && confirmRevoke(ask)}>
+              Widerrufen
+            </button>
+            <button type="button" className="plain" ref={cancel} onClick={() => dialog.current?.close()}>
+              Abbrechen
+            </button>
+          </div>
+        </dialog>
       </div>
       <div className="card">
         <label>Konto löschen</label>
