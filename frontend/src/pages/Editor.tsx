@@ -747,8 +747,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const slope = at(b.h + 1) - at(b.h);
     return slope > 0.001 ? b.h + (H - at(b.h)) / slope : Infinity;
   };
-  // Whether the block reaches the page's foot. A turned block's place is rounded to 0.01 mm: it may reach a hair past.
-  const atFoot = (b: Block) => footTop(b, sizeOf(hist.doc, page)[1]) <= b.h + 0.05;
+  // Whether the block ends at the page's foot. A turned block's place is rounded to 0.01 mm: it may reach a hair past.
+  // One that hangs further down has a warning of its own.
+  const atFoot = (b: Block) => Math.abs(footTop(b, sizeOf(hist.doc, page)[1]) - b.h) <= 0.05;
   // A circle, triangle or star with `inside` shrinks its text to its outline in place of growing.
   const shrinks = (b: Block) => {
     const shape = boxed(b);
