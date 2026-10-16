@@ -901,11 +901,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // Only the desk takes them, and not while a dialog is open. Text dragged in a field and Moveable's own drags bring
   // no files and stay as they are. The photo field of the feedback dialog takes its own.
   // A picture dragged from another web page brings no file, only its address: the same rule, for the desk alone.
+  // Only an address counts (selected words bring text/html too), and never over a field, which takes it as text.
   onDrag.current = (e) => {
     const types = e.dataTransfer?.types ?? [];
     if (e.type === "drop") fromPage.current = false;
     const files = types.includes("Files");
-    const link = !files && !fromPage.current && (types.includes("text/uri-list") || types.includes("text/html"));
+    const inField = e.target instanceof Element && !!e.target.closest(".ProseMirror, textarea, input");
+    const link = !files && !fromPage.current && !inField && types.includes("text/uri-list");
     if (!files && !link) return;
     if (files && document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
     e.preventDefault();

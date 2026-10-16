@@ -394,6 +394,18 @@ LINK_EFFECT = """([x, y, items]) => {
     document.elementFromPoint(x, y).dispatchEvent(new DragEvent("dragover", init));
     return set;
 }"""
+# The dragover and drop that reach the element under the point, as a listener on it sees them. The
+# page's window listeners stop a drag they take before it gets there.
+REACHES = """([x, y, items]) => {
+    const dataTransfer = new DataTransfer();
+    for (const [type, text] of items) dataTransfer.setData(type, text);
+    const under = document.elementFromPoint(x, y);
+    const got = [];
+    for (const kind of ["dragover", "drop"]) under.addEventListener(kind, () => got.push(kind));
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    for (const kind of ["dragover", "drop"]) under.dispatchEvent(new DragEvent(kind, init));
+    return got;
+}"""
 # A drag that starts in the page, as dragging words in a field does.
 DRAG_START = """([x, y]) => {
     const init = { dataTransfer: new DataTransfer(), bubbles: true };
@@ -524,6 +536,25 @@ def test_words_dragged_over_a_text_field_get_no_answer_from_the_editor(editor):
     field = page.locator(FIELD)
     expect(field).to_be_visible()
     assert page.evaluate(LINK_EFFECT, [*centre(field), [("text/plain", "Wort")]]) == "unset"
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        [("text/plain", "Wort"), ("text/html", "<b>Wort</b>")],
+        [("text/uri-list", HTTP)],
+    ],
+    ids=["selected words", "link"],
+)
+def test_a_drag_into_an_open_text_field_is_left_to_the_field(editor, items):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD)
+    expect(field).to_be_visible()
+    assert page.evaluate(LINK_EFFECT, [*centre(field), items]) == "unset"
+    # The field's own handler may prevent the drop, so ask whether the drop reached the field.
+    assert page.evaluate(REACHES, [*centre(field), items]) == ["dragover", "drop"]
 
 
 def test_a_drag_started_in_the_page_is_left_to_the_page(editor):
