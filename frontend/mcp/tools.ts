@@ -46,6 +46,8 @@ export function docDefinitions(schema: any): Record<string, any> {
     }
     Object.values(node).forEach(walk);
   };
+  // The tool's schema points at Doc itself, so it stays too.
+  seen.add("Doc");
   walk(defs.Doc);
   return Object.fromEntries(Object.entries(defs).filter(([name]) => seen.has(name)));
 }

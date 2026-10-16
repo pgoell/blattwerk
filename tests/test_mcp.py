@@ -3,6 +3,7 @@
 import base64
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -124,6 +125,19 @@ def test_every_tool_schema_is_valid_2020_12(server, tmp_path):
     try:
         for tool in mcp.tools():
             Draft202012Validator.check_schema(tool["inputSchema"])
+            # Each `$ref` points at a definition the tool's schema holds: a dangling one makes
+            # Claude send the doc as a string.
+            schema = tool["inputSchema"]
+            for ref in set(re.findall(r'"\$ref": "#/definitions/([^"]+)"', json.dumps(schema))):
+                assert ref in schema["definitions"], f"{tool['name']}: no definition {ref}"
+        replace = next(t for t in mcp.tools() if t["name"] == "replace_doc")
+        doc = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
+        Draft202012Validator(replace["inputSchema"]).validate(
+            {"sheet_id": 1, "version": 1, "doc": doc}
+        )
+        assert not Draft202012Validator(replace["inputSchema"]).is_valid(
+            {"sheet_id": 1, "version": 1, "doc": json.dumps(doc)}
+        )
     finally:
         mcp.stop()
 
