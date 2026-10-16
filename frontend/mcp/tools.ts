@@ -6,6 +6,7 @@ import { fresh } from "../src/history.ts";
 import { mathsHeight } from "../src/height.ts";
 import { MARGIN, overFoot, sizeOf, tall, wordsIn } from "../src/sheet.tsx";
 import { follow } from "../src/words.ts";
+import { EDGE, heightsOf } from "../src/cells.ts";
 import type { MathsProps } from "../src/sheet.tsx";
 
 export const INSTRUCTIONS = readFileSync(new URL("./instructions.md", import.meta.url), "utf8");
@@ -321,6 +322,9 @@ export function tools(api: Api) {
     const { version, out } = await edit("move_block", args.sheet_id, args.version, async (doc: any) => {
       const { n, b } = locate(doc, args.block_id);
       if (b.locked) throw new Fail(`Block ${b.id} is locked. Nothing was written.`);
+      // A table with row heights keeps them in proportion to its height, as the editor's `place` does.
+      const rows = b.type === "table" && args.h !== undefined && b.h > EDGE && args.h !== b.h ? heightsOf(b.props) : undefined;
+      if (rows) b.props = { ...b.props, rows: rows.map((h) => (h * (args.h - EDGE)) / (b.h - EDGE)) };
       Object.assign(b, { x: args.x, y: args.y, ...(args.w !== undefined && { w: args.w }), ...(args.h !== undefined && { h: args.h }) });
       return { block: b, warnings: warnings(doc, n, b) };
     });

@@ -32,6 +32,7 @@ UHR = {
     "fill": "free",
     "seed": 3,
 }
+OFF = "leaves the page's printable area (15 mm from each edge)"
 # The editor's clock row is 58.5 mm (INSERTS.uhr in insert.ts); eight clocks are two rows of it.
 EIGHT_CLOCKS_H = 117
 
@@ -218,7 +219,7 @@ def test_warns_off_the_page_and_not_when_clear(server, tmp_path):
                 )
             )
         )
-        assert off["warnings"] == ["leaves the page"]
+        assert off["warnings"] == [OFF]
     finally:
         mcp.stop()
 
@@ -232,7 +233,7 @@ def test_landscape_warns_off_the_page(server, tmp_path):
                 mcp.call("set_page", sheet_id=sheet_id, version=version, page=1, landscape=True)
             )
         )
-        assert result["warnings"] == ["leaves the page"]
+        assert result["warnings"] == [OFF]
     finally:
         mcp.stop()
 
@@ -351,6 +352,24 @@ def test_locked_block_stays(server, tmp_path):
         mcp.stop()
 
 
+def test_a_taller_table_keeps_its_rows_in_proportion(server, tmp_path):
+    # As the editor's `place`: rows of 10, 10 and 20 mm in a table 40 mm high plus its line
+    # (25.4 / 96 mm) are 15, 15 and 30 mm in one 60 mm high plus its line.
+    client, mcp = start(server, tmp_path)
+    try:
+        line = 25.4 / 96
+        cells = [["a"], ["b"], ["c"]]
+        table = {"cells": cells, "cols": [1], "size": 14, "align": "center", "rows": [10, 10, 20]}
+        sheet_id, version = new_sheet(mcp, doc_of(block("t", "table", table, 20, 40 + line)))
+        mcp.call(
+            "move_block", sheet_id=sheet_id, version=version, block_id="t", x=15, y=20, h=60 + line
+        )
+        (got,) = stored(client, sheet_id)["pages"][0]["blocks"]
+        assert got["props"]["rows"] == pytest.approx([15, 15, 30])
+    finally:
+        mcp.stop()
+
+
 def test_unknown_block_and_page(server, tmp_path):
     _, mcp = start(server, tmp_path)
     try:
@@ -410,8 +429,12 @@ def test_update_maths_makes_new_exercises(server, tmp_path):
             block_id=added["block"]["id"],
             props={"count": 6},
         )
-        after = stored(client, sheet_id)["pages"][0]["blocks"][0]["props"]["exercises"]
-        assert len(after) == 6 and after != before[:6]
+        (block,) = stored(client, sheet_id)["pages"][0]["blocks"]
+        after = block["props"]["exercises"]
+        # The panel keeps the block's seed: six exercises from the server, the height follows them.
+        assert len(after) == 6 and len(before) == 12
+        assert block["props"]["seed"] == added["block"]["props"]["seed"]
+        assert block["h"] < added["block"]["h"]
     finally:
         mcp.stop()
 
