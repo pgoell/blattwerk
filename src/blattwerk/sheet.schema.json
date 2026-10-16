@@ -9,31 +9,38 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Page"
-          }
+          },
+          "description": "The pages of the sheet, in print order."
         },
         "guides": {
-          "$ref": "#/definitions/Guides"
+          "$ref": "#/definitions/Guides",
+          "description": "The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge."
         },
         "grid": {
-          "type": "number"
+          "type": "number",
+          "description": "The grid's cell on every page in mm. 0 for no grid."
         },
         "landscape": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright."
         },
         "words": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none."
         },
         "breaks": {
-          "$ref": "#/definitions/Breaks"
+          "$ref": "#/definitions/Breaks",
+          "description": "The word breaks set by hand for the whole sheet: each word in lower case, with the places it breaks at, as counts of characters. Left out, the module's own breaks apply."
         },
         "pageNumbers": {
           "type": "object",
           "properties": {
             "on": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether page numbers print at all. Left out, they do not."
             },
             "at": {
               "type": "string",
@@ -42,7 +49,8 @@
                 "right",
                 "outer",
                 "top"
-              ]
+              ],
+              "description": "Where the number prints: \"bottom\" centred at the foot, \"right\" at the foot's right, \"outer\" at the outer foot corner (left on even pages, right on odd), \"top\" at the top right. Left out, \"bottom\"."
             },
             "form": {
               "type": "string",
@@ -51,16 +59,20 @@
                 "seite",
                 "of",
                 "seiteVon"
-              ]
+              ],
+              "description": "How the number reads: \"n\" for 2, \"seite\" for Seite 2, \"of\" for 2 / 5, \"seiteVon\" for Seite 2 von 5. Left out, \"n\"."
             },
             "notFirst": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Leaves the number off the first page. Left out, the first page is numbered."
             },
             "black": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Prints the number in black. Left out, it is grey."
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "The page numbers printed on each page. Left out, none are printed."
         }
       },
       "required": [
@@ -77,16 +89,20 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Block"
-          }
+          },
+          "description": "The blocks printed on this page, drawn in order."
         },
         "guides": {
-          "$ref": "#/definitions/Guides"
+          "$ref": "#/definitions/Guides",
+          "description": "The page's own guide lines in mm, beside the sheet's. Left out, the page has none of its own."
         },
         "grid": {
-          "type": "number"
+          "type": "number",
+          "description": "The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies."
         },
         "landscape": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies."
         }
       },
       "required": [
@@ -1055,16 +1071,20 @@
           "type": "object",
           "properties": {
             "kind": {
-              "$ref": "#/definitions/Ruling"
+              "$ref": "#/definitions/Ruling",
+              "description": "The ruled pattern (Lineatur) kind: its line pattern and school level, one of the RULINGS keys, such as \"l1\" for Lineatur 1 (Klasse 1). Required."
             },
             "color": {
-              "type": "string"
+              "type": "string",
+              "description": "The colour of the lines, as a six digit hex colour such as #1a56db."
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "Text printed on the lines, in the block's font. Left out, the lines stand alone."
             },
             "font": {
-              "$ref": "#/definitions/Font"
+              "$ref": "#/definitions/Font",
+              "description": "The font of the text printed on the lines. Left out, the default font is used."
             },
             "trace": {
               "anyOf": [
@@ -1079,47 +1099,63 @@
                   "type": "string",
                   "const": "dotted"
                 }
-              ]
+              ],
+              "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
             },
             "fade": {
-              "$ref": "#/definitions/Fade"
+              "$ref": "#/definitions/Fade",
+              "description": "How the trace fades as the pupil writes on: \"row\" along each row, \"rows\" from row to row. Left out, it does not fade."
             },
             "list": {
-              "$ref": "#/definitions/ListMode"
+              "$ref": "#/definitions/ListMode",
+              "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
             },
             "from": {
-              "type": "number"
+              "type": "number",
+              "description": "Index of the first word to learn the block shows, counted from 0, so a ruled pattern run on over several pages picks up where the last one stopped. Left out, 0.",
+              "minimum": 0
             },
             "folds": {
-              "type": "number"
+              "type": "number",
+              "description": "Number of empty columns to write in on a fold sheet (Knickblatt), after the words. 2 or 3. Any other value gives 2.",
+              "minimum": 2,
+              "maximum": 3
             },
             "house": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Draws a house on the lines of a kind with zones, marking its room, roof and cellar. Left out, no house."
             },
             "houseTint": {
               "type": "string",
               "enum": [
                 "room",
                 "all"
-              ]
+              ],
+              "description": "Tints the house: \"room\" for the room alone, \"all\" for roof, room and cellar. Left out, the house is not tinted."
             },
             "band": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the middle band between the lines is tinted. Left out, the kind's own default applies."
             },
             "bandColor": {
-              "type": "string"
+              "type": "string",
+              "description": "The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used."
             },
             "syllables": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Draws an arc under each syllable of the text on the lines. Left out, no arcs."
             },
             "breaks": {
-              "$ref": "#/definitions/Breaks"
+              "$ref": "#/definitions/Breaks",
+              "description": "The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply."
             },
             "tints": {
-              "$ref": "#/definitions/Tints"
+              "$ref": "#/definitions/Tints",
+              "description": "Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour."
             },
             "tintsAcross": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again."
             }
           },
           "required": [
@@ -1234,7 +1270,8 @@
               "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "description": "The words of the name line in order, such as \"Name\", \"Datum\" and \"Klasse\". Left out, the line uses FIELDS."
             }
           },
           "additionalProperties": false
@@ -1321,10 +1358,12 @@
           "type": "object",
           "properties": {
             "max": {
-              "type": "number"
+              "type": "number",
+              "description": "The most points the task gives, printed in the box."
             },
             "total": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Marks the box as the sheet's total: it shows the sum of all the task boxes. Left out, it is a task box."
             }
           },
           "required": [
@@ -1414,7 +1453,8 @@
           "type": "object",
           "properties": {
             "code": {
-              "type": "string"
+              "type": "string",
+              "description": "The OpenMoji code of the symbol, its file name in the symbol set, such as \"270F\" for a pencil. See SYMBOLS for all of them."
             }
           },
           "required": [
@@ -1504,19 +1544,25 @@
           "type": "object",
           "properties": {
             "upload": {
-              "type": "number"
+              "type": "number",
+              "description": "The id of the uploaded picture file, as the server stores it."
             },
             "ratio": {
-              "type": "number"
+              "type": "number",
+              "description": "The picture's width over its height, from the picture as uploaded. 1 for a square."
             },
             "cut": {
               "type": "array",
               "items": {
                 "type": "number"
-              }
+              },
+              "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none."
             },
             "opacity": {
-              "type": "number"
+              "type": "number",
+              "description": "How solid the picture prints: 1 for full strength, 0 for see-through. Left out, 1.",
+              "minimum": 0,
+              "maximum": 1
             }
           },
           "required": [
@@ -3567,13 +3613,15 @@
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "The upright guide lines, each the distance in mm from the paper's left edge."
         },
         "y": {
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "The flat guide lines, each the distance in mm from the paper's top edge."
         }
       },
       "required": [

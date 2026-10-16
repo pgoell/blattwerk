@@ -246,7 +246,53 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & {
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
 // `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
+export type RulingBlock = Box & {
+  type: "ruling";
+  props: {
+    /** The ruled pattern (Lineatur) kind: its line pattern and school level, one of the RULINGS keys, such as "l1" for Lineatur 1 (Klasse 1). Required. */
+    kind: Ruling;
+    /** The colour of the lines, as a six digit hex colour such as #1a56db. */
+    color: string;
+    /** Text printed on the lines, in the block's font. Left out, the lines stand alone. */
+    text?: string;
+    /** The font of the text printed on the lines. Left out, the default font is used. */
+    font?: Font;
+    /** Trace text the pupil writes over: true for grey, "outline" or "dotted". Left out, no trace. */
+    trace?: boolean | "outline" | "dotted";
+    /** How the trace fades as the pupil writes on: "row" along each row, "rows" from row to row. Left out, it does not fade. */
+    fade?: Fade;
+    /** Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list. */
+    list?: ListMode;
+    /**
+     * Index of the first word to learn the block shows, counted from 0, so a ruled pattern run on over several pages picks up
+     * where the last one stopped. Left out, 0.
+     * @minimum 0
+     */
+    from?: number;
+    /**
+     * Number of empty columns to write in on a fold sheet (Knickblatt), after the words. 2 or 3. Any other value gives 2.
+     * @minimum 2
+     * @maximum 3
+     */
+    folds?: number;
+    /** Draws a house on the lines of a kind with zones, marking its room, roof and cellar. Left out, no house. */
+    house?: boolean;
+    /** Tints the house: "room" for the room alone, "all" for roof, room and cellar. Left out, the house is not tinted. */
+    houseTint?: "room" | "all";
+    /** Whether the middle band between the lines is tinted. Left out, the kind's own default applies. */
+    band?: boolean;
+    /** The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used. */
+    bandColor?: string;
+    /** Draws an arc under each syllable of the text on the lines. Left out, no arcs. */
+    syllables?: boolean;
+    /** The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply. */
+    breaks?: Breaks;
+    /** Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour. */
+    tints?: Tints;
+    /** Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again. */
+    tintsAcross?: boolean;
+  };
+};
 // The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
 export const startOf = (b: RulingBlock): number => {
   const from = b.props.from ?? 0;
@@ -254,11 +300,47 @@ export const startOf = (b: RulingBlock): number => {
 };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
-export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
-export type PointsBlock = Box & { type: "points"; props: { max: number; total?: boolean } };
-export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
+export type NameBlock = Box & {
+  type: "name";
+  props: {
+    /** The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. */
+    fields?: string[];
+  };
+};
+export type PointsBlock = Box & {
+  type: "points";
+  props: {
+    /** The most points the task gives, printed in the box. */
+    max: number;
+    /** Marks the box as the sheet's total: it shows the sum of all the task boxes. Left out, it is a task box. */
+    total?: boolean;
+  };
+};
+export type SymbolBlock = Box & {
+  type: "symbol";
+  props: {
+    /** The OpenMoji code of the symbol, its file name in the symbol set, such as "270F" for a pencil. See SYMBOLS for all of them. */
+    code: string;
+  };
+};
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
-export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[]; opacity?: number } };
+export type ImageBlock = Box & {
+  type: "image";
+  props: {
+    /** The id of the uploaded picture file, as the server stores it. */
+    upload: number;
+    /** The picture's width over its height, from the picture as uploaded. 1 for a square. */
+    ratio: number;
+    /** Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none. */
+    cut: number[];
+    /**
+     * How solid the picture prints: 1 for full strength, 0 for see-through. Left out, 1.
+     * @minimum 0
+     * @maximum 1
+     */
+    opacity?: number;
+  };
+};
 export type Op = keyof typeof SIGNS;
 // The lowest and the highest digit a place may hold.
 export type Range = [number, number];
@@ -359,23 +441,55 @@ export type SelbstkontrolleBlock = Box & { type: "selbstkontrolle"; props: Selbs
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
-export type Guides = Record<Axis, number[]>;
+export type Guides = {
+  /** The upright guide lines, each the distance in mm from the paper's left edge. */
+  x: number[];
+  /** The flat guide lines, each the distance in mm from the paper's top edge. */
+  y: number[];
+};
 // A page can have guide lines of its own, beside the sheet's, and a grid and a format of its own in place of the
 // sheet's.
-export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?: boolean };
+export type Page = {
+  /** The blocks printed on this page, drawn in order. */
+  blocks: Block[];
+  /** The page's own guide lines in mm, beside the sheet's. Left out, the page has none of its own. */
+  guides?: Guides;
+  /** The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies. */
+  grid?: number;
+  /** Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies. */
+  landscape?: boolean;
+};
 // The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
 // on its side.
 // `words` holds the sheet's Lernwörter as the teacher typed them, a line of the list to an entry. Sheets saved
 // before have none.
 export type Doc = {
+  /** The pages of the sheet, in print order. */
   pages: Page[];
+  /** The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge. */
   guides: Guides;
+  /** The grid's cell on every page in mm. 0 for no grid. */
   grid: number;
+  /** Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright. */
   landscape?: boolean;
+  /** The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none. */
   words?: string[];
   // The mends of the sheet: a word split by hand holds in every block. A block's own `breaks` win over these.
+  /** The word breaks set by hand for the whole sheet: each word in lower case, with the places it breaks at, as counts of characters. Left out, the module's own breaks apply. */
   breaks?: Breaks;
-  pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
+  /** The page numbers printed on each page. Left out, none are printed. */
+  pageNumbers?: {
+    /** Whether page numbers print at all. Left out, they do not. */
+    on?: boolean;
+    /** Where the number prints: "bottom" centred at the foot, "right" at the foot's right, "outer" at the outer foot corner (left on even pages, right on odd), "top" at the top right. Left out, "bottom". */
+    at?: "bottom" | "right" | "outer" | "top";
+    /** How the number reads: "n" for 2, "seite" for Seite 2, "of" for 2 / 5, "seiteVon" for Seite 2 von 5. Left out, "n". */
+    form?: "n" | "seite" | "of" | "seiteVon";
+    /** Leaves the number off the first page. Left out, the first page is numbered. */
+    notFirst?: boolean;
+    /** Prints the number in black. Left out, it is grey. */
+    black?: boolean;
+  };
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
 // The server counts a sheet's saved documents in `version`.
