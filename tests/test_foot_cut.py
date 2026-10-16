@@ -4,7 +4,7 @@ import httpx
 import pypdfium2
 from playwright.sync_api import expect
 from test_foot_stop import LONG, SENTENCE, type_into
-from ui import TEXT, at, box, unpick, user
+from ui import RECT, TEXT, at, box, unpick, user
 
 # Each line of the frame's text, as the hit test finds it at three heights: True where drawn.
 # A line cut through its letters is drawn at some heights and not at others.
@@ -117,6 +117,24 @@ def test_a_text_cut_at_the_foot_prints_only_whole_lines(editor, server):
             lowest = y
     # On master the cut line touches the foot; with whole lines the ink stops above it.
     assert lowest / per_mm < 296, f"ink reaches {lowest / per_mm:.2f} mm"
+
+
+STAR = {**RECT, "kind": "star", "inside": True, "size": 14, "align": "center"}
+
+
+def test_a_saved_star_with_too_many_words_prints_only_whole_lines(editor):
+    # Saved, not picked: the text stops at the star's inner box, and no line runs through its foot.
+    star = {**STAR, "text": "Wir lesen heute eine schöne Geschichte."}
+    page = editor(box("a", "shape", star, x=20, y=30, w=40, h=40))
+    expect(at(page, "a").locator(".frame")).to_have_attribute("data-cut", "true")
+    level = page.evaluate(LEVEL, "a")
+    assert level["lines"] > 0
+    assert level["straddles"] == 0
+
+
+def test_a_short_text_in_a_star_gets_no_mark(editor):
+    page = editor(box("a", "shape", {**STAR, "text": "Hallo"}, x=20, y=30, w=40, h=40))
+    expect(at(page, "a").locator(".frame")).not_to_have_attribute("data-cut", "true")
 
 
 def test_a_text_that_fits_gets_no_mark_and_no_clip(editor):
