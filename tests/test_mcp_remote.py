@@ -18,6 +18,7 @@ from blattwerk import db
 
 TOOLS = json.loads((Path(__file__).parent / "snapshots/mcp_tools.json").read_text())
 REDIRECT = "http://localhost:3118/callback"
+LINE = "Bitte die Blattomat-Erweiterung neu laden: Konto, Erweiterung herunterladen."
 
 
 class Memory:
@@ -224,3 +225,15 @@ def test_remote_foreign_sheet(server):
     )
     assert read.is_error
     assert "Fremd" not in str(read.content)
+
+
+def test_the_remote_route_never_asks_to_reload(server):
+    teacher = user()
+    storage, seen = Memory(), []
+    provider = connector(server, teacher.cookies["session"], storage, seen)
+    _, [made, listed] = run(
+        talk(server, provider, ("create_sheet", {"title": "Ohne Hinweis"}), ("list_sheets", {}))
+    )
+    for result in (made, listed):
+        assert not result.is_error, result
+        assert LINE not in [getattr(item, "text", None) for item in result.content]

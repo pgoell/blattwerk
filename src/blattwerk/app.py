@@ -1,6 +1,8 @@
 """Blattomat: the API, the legal pages and the built frontend."""
 
+import json
 import logging
+import zipfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.resources import files
@@ -49,6 +51,21 @@ def impressum() -> str:
 @app.get("/datenschutz", response_class=HTMLResponse)
 def datenschutz() -> str:
     return files("blattwerk").joinpath("datenschutz.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/mcpb/version")
+def mcpb_version() -> dict[str, str]:
+    # The version the Claude Desktop extension was built with: an old copy asks to be reloaded.
+    file = STATIC / "blattomat.mcpb"
+    if not file.is_file():
+        raise HTTPException(404)
+    try:
+        with zipfile.ZipFile(file) as z:
+            version = json.loads(z.read("manifest.json"))["version"]
+            return {"version": version, "fingerprint": z.read("fingerprint.txt").decode()}
+    except KeyError, zipfile.BadZipFile:
+        # A bundle from before the fingerprint, or a broken one: the extension then says nothing.
+        raise HTTPException(404) from None
 
 
 @app.get("/{path:path}")
