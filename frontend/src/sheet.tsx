@@ -346,16 +346,64 @@ export type Op = keyof typeof SIGNS;
 export type Range = [number, number];
 // A written exercise on squared paper. A cell is [column, row, character, kind], a line [from column, to column,
 // above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
-export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
+export type Grid = {
+  /** Width of the squared grid, in squares. */
+  cols: number;
+  /** Height of the squared grid, in squares. */
+  rows: number;
+  /** The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's and 2 a small carry of the answer key's. */
+  cells: [number, number, string, number][];
+  /** The lines of the grid, each as [from column, to column, row it lies above, kind], counted from 0; kind as for cells. */
+  lines: [number, number, number, number][];
+};
 // `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A task of three
 // numbers has `op2` and `c`: it reads `a op b op2 c`, with `paren` as the brackets say, "left" for `(a op b) op2 c`
 // and "right" for `a op (b op2 c)`. A task of two has none of these. `family` numbers the family the task belongs to
 // (0 for the first), and a task with no family has none: its exercises stand on their own.
-export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b" | "c"; grid?: Grid; op2?: Op; c?: number; paren?: "left" | "right"; family?: number };
+export type Calc = {
+  /** The operation between a and b: "+" plus, "-" minus, "*" times or "/" divided by. */
+  op: Op;
+  /** The first number of the task. */
+  a: number;
+  /** The second number of the task. */
+  b: number;
+  /** The result of a op b, the number a gap hides when no other is named in hide. */
+  result: number;
+  /** What a division leaves over, 0 when it divides evenly. */
+  rest: number;
+  /** The number a gap stands for: "a", "b" or "c". Left out, the gap hides the result. */
+  hide?: "a" | "b" | "c";
+  /** The working on squared paper for this task. Left out, the task has none. */
+  grid?: Grid;
+  /** The second operation of a task of three numbers, between b and c. Left out for a task of two numbers. */
+  op2?: Op;
+  /** The third number of a task of three numbers. Left out for a task of two numbers. */
+  c?: number;
+  /** The brackets of a task of three numbers: "left" for (a op b) op2 c, "right" for a op (b op2 c). */
+  paren?: "left" | "right";
+  /** Which family of tasks this task belongs to, counted from 0. Left out, the task stands on its own. */
+  family?: number;
+};
 // One side of a comparison: a plain number, or a term with its sign and its two numbers.
-export type Side = { value: number; op?: Op; a?: number; b?: number };
+export type Side = {
+  /** The number on this side. With no op it is the whole side. */
+  value: number;
+  /** The sign of the term on this side. Left out, the side is the plain number in value. */
+  op?: Op;
+  /** The first number of the term. */
+  a?: number;
+  /** The second number of the term. */
+  b?: number;
+};
 // A comparison: the two sides and the sign between them, which the pupil writes in the ring.
-export type Compare = { left: Side; right: Side; sign: "<" | ">" | "=" };
+export type Compare = {
+  /** The side left of the sign. */
+  left: Side;
+  /** The side right of the sign. */
+  right: Side;
+  /** The sign the pupil writes in the ring: "<" less than, ">" more than or "=" equal. */
+  sign: "<" | ">" | "=";
+};
 export type Exercise = Calc | Compare;
 // The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
 // `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none. `c` holds the
@@ -368,47 +416,147 @@ export type Exercise = Calc | Compare;
 // lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. Blocks saved before have none of
 // these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
+  /** The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. */
   ops: Op[];
+  /** The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.
+   * @minimum 1
+   * @maximum 1000000
+   */
   max: number;
+  /** The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. */
   a: Range[];
+  /** The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. */
   b: Range[];
+  /** The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. */
   c?: Range[];
+  /** Whether a plus or minus task must carry (Übertrag): "none" never, "required" always, "either" both kinds. */
   carry: "none" | "required" | "either";
+  /** Whether a division leaves a remainder. false, the default, gives even divisions only. */
   rest: boolean;
+  /** How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. */
   format: "row" | "gap" | "written" | "compare";
+  /** How many tasks the block makes.
+   * @minimum 1
+   * @maximum 100
+   */
   count: number;
+  /** The number the tasks are drawn from. The same seed and limits give the same tasks; a new seed draws new ones. */
   seed: number;
+  /** What stands on each side of a comparison: "nn" number and number, "tn" term and number, "tt" term and term. Default "tn". Only comparisons use it. */
   sides?: "nn" | "tn" | "tt";
+  /** Whether the sides of a comparison lie close together, 1 or 2 units or tens apart. Default false. Only comparisons use it. */
   close?: boolean;
+  /** Whether comparisons have equal sides: "none" never, "some" about one in five. Default "some". Only comparisons use it. */
   equal?: "none" | "some";
+  /** How many numbers a task has: 2 or 3. Default 2. */
   numbers?: 2 | 3;
+  /** Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false. */
   pvs?: boolean;
+  /** Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false. */
   brackets?: boolean;
+  /** Places after the comma in plus and minus tasks: 0 for whole numbers, 1 for tenths or 2 for hundredths. Default 0. */
   decimals?: 0 | 1 | 2;
+  /** Whether the numbers are money, always with two places after the comma. Default false. */
   money?: boolean;
+  /** The digits of the first number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   af?: Range[];
+  /** The digits of the second number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   bf?: Range[];
+  /** The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   cf?: Range[];
+  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks. A family has two or three tasks. Default "none". */
   family?: "none" | "swap" | "reverse" | "neighbour";
+  /** Which number a neighbouring task moves: "a" the first, the default, or "b" the second. */
   moves?: "a" | "b";
+  /** What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. */
   gaps?: ("a" | "b" | "c" | "result")[];
+  /** Whether 0 may be a number and a result. Default true. */
   zero?: boolean;
+  /** Whether 1 may be a factor or a divisor in times and divide tasks. Default true. */
   one?: boolean;
+  /** Whether tasks with equal numbers are left out. Default false. */
   distinct?: boolean;
+  /** Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. */
   small?: boolean;
 };
 export { decimalsOf } from "./decimal";
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
-export type Made = { exercises: Exercise[]; loosen: string[] | null };
+export type Made = {
+  /** The exercises the server made for the limits, in the order they stand on the sheet. */
+  exercises: Exercise[];
+  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "carry". null when the count is met. */
+  loosen: string[] | null;
+};
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
-export type MathsProps = Limits & Made & { columns: number; size: number; numbering?: string };
-export type MathsBlock = Box & { type: "maths"; props: MathsProps };
+export type MathsProps = Limits & Made & {
+  /** Number of columns the exercises stand in side by side across the block.
+   * @minimum 1
+   * @maximum 6
+   */
+  columns: number;
+  /** Font size of a row or a gap, in pt. The editor steps it by 2 pt and never goes below 8.
+   * @minimum 8
+   */
+  size: number;
+  /** How the exercises are numbered on the sheet, as the editor's numbering control sets it. */
+  numbering?: string;
+};
+export type MathsBlock = Box & {
+  type: "maths";
+  /** The maths block's limits, layout and exercises. */
+  props: MathsProps;
+};
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
 // `rows` holds a lowest height in mm for each row; a row still grows when its text needs more.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[]; rows?: number[] } & Lines };
+export type TableBlock = Box & {
+  type: "table";
+  /** The table's text, layout and lines. */
+  props: {
+    /** The text of each cell, as cells[row][column], counted from 0. A cell holds one plain text. */
+    cells: string[][];
+    /** The width share of each column, as parts of the sum of all of them. Only the ratios between columns count. */
+    cols: number[];
+    /** Font size of the cell text, in pt. */
+    size: number;
+    /** Horizontal alignment of the cell text: "left", "center" or "right". */
+    align: Align;
+    /** Font of the cell text. Left out, the default font. */
+    font?: Font;
+    /** Colour of the cell text. Left out, the default colour. */
+    color?: string;
+    /** Colour of the table's lines. */
+    line: string;
+    /** Whether the first row is printed in bold. Default false. */
+    head?: boolean;
+    /** Whether the words in the cells are split into syllables, with hyphens at the breaks. Default false. */
+    syllables?: boolean;
+    /** The teacher's own syllable breaks: each word in lower case as the key, with the places it breaks at as the value. */
+    breaks?: Breaks;
+    /** The two colours the syllables take in turn, first then second. */
+    tints?: Tints;
+    /** Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour. */
+    tintsAcross?: boolean;
+    /** Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does. */
+    gaps?: boolean[][];
+    /** Width of the gaps in mm, all the same. The editor takes 5 mm or more.
+     * @minimum 5
+     */
+    gapWidth?: number;
+    /** A word bank printed under the table for the gaps. Left out, there is none. */
+    bank?: number;
+    /** How the cell text shows as a trace to write over: true for grey, "outline" for letters with a line round them and no fill, "dotted" for dotted letters. Left out, no trace. */
+    trace?: boolean | "outline" | "dotted";
+    /** Makes the trace fade step by step until it is gone: "row" along each row, "rows" from row to row. Left out, no fade. */
+    fade?: Fade;
+    /** Merged cells, each as [row, column, rows, columns]: the cell where it starts and how many rows and columns it covers, counted from 0. */
+    spans?: Span[];
+    /** The lowest height of each row, in mm. A row still grows when its text needs more. */
+    rows?: number[];
+  } & Lines;
+};
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -416,8 +564,35 @@ export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols
 // `umlauts` ä, ö, ü and ß stay; else they become AE, OE, UE and SS. `show` prints the hidden words under the grid,
 // or only how many there are. The layout comes from `seed` alone (suchsel.ts), so every draw gives the same grid.
 export type Ways = "across" | "down" | "diag" | "back";
-export type SuchselProps = { words: string[]; cols: number; rows: number; ways: Ways; caps: boolean; umlauts: boolean; show: "words" | "count"; seed: number };
-export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
+export type SuchselProps = {
+  /** The words to hide in the grid, one entry per word, as the teacher typed them. */
+  words: string[];
+  /** Number of squares across the grid.
+   * @minimum 6
+   * @maximum 20
+   */
+  cols: number;
+  /** Number of squares down the grid.
+   * @minimum 6
+   * @maximum 20
+   */
+  rows: number;
+  /** The directions the words may run: "across" only, "down" too, "diag" (diagonal) too, or "back" (backwards) too. Each level includes the ones before. */
+  ways: Ways;
+  /** Whether every letter shows as a capital. If not, every letter is small. */
+  caps: boolean;
+  /** Whether ä, ö, ü and ß stay. If not, they become AE, OE, UE and SS. */
+  umlauts: boolean;
+  /** Whether the hidden words print under the grid ("words") or only how many there are ("count"). */
+  show: "words" | "count";
+  /** The number that sets the layout of the grid. The same seed gives the same grid. */
+  seed: number;
+};
+export type SuchselBlock = Box & {
+  type: "suchsel";
+  /** The word search's settings: the grid, the words and how they run. */
+  props: SuchselProps;
+};
 // A Zahlenmauer: walls of stones in rows, each stone the sum (or with `op` "*" the product) of the two under it.
 // `base` is the number of stones in the lowest row, `count` the walls of the block and `columns` how many stand side
 // by side. No stone is above `max`. `given` says which stones show their number: the base row, per wall a mix that
@@ -426,8 +601,39 @@ export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
 // index, value. A stone's index counts from the base row's left end up, a row at a time (zahlenmauer.ts). The walls
 // come from `seed` alone, so every draw gives the same ones.
 export type Typed = [number, number, number];
-export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number; max: number; op: "+" | "*"; given: "base" | "mix" | "free"; free?: boolean[]; empty: boolean; seed: number; typed?: Typed[] };
-export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
+export type ZahlenmauerProps = {
+  /** Number of stones in the lowest row of each wall: 3, 4 or 5. */
+  base: 3 | 4 | 5;
+  /** Number of walls in the block.
+   * @minimum 1
+   * @maximum 12
+   */
+  count: number;
+  /** Number of walls standing side by side.
+   * @minimum 1
+   * @maximum 4
+   */
+  columns: number;
+  /** The Zahlenraum: no stone lies above it. One of 10, 20, 100 or 1000. */
+  max: number;
+  /** How a stone is made from the two under it: "+" the sum, "*" the product. */
+  op: "+" | "*";
+  /** Which stones show a number: "base" the base row only, "mix" per wall a mix that needs the way back, "free" the stones marked in free. */
+  given: "base" | "mix" | "free";
+  /** Per stone index, true shows that stone's number when given is "free". The same for every wall. */
+  free?: boolean[];
+  /** Whether no stone shows a number. Default false. */
+  empty: boolean;
+  /** The number that sets the walls. The same seed gives the same walls. */
+  seed: number;
+  /** Numbers the teacher typed into stones, each as [wall, stone index, value], counted from 0. A stone's index counts from the left end of the base row, a row at a time. */
+  typed?: Typed[];
+};
+export type ZahlenmauerBlock = Box & {
+  type: "zahlenmauer";
+  /** The wall block's settings: the stones, the walls and the numbers shown. */
+  props: ZahlenmauerProps;
+};
 // A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
 export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.

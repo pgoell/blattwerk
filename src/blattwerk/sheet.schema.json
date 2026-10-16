@@ -1651,7 +1651,8 @@
           "const": "maths"
         },
         "props": {
-          "$ref": "#/definitions/MathsProps"
+          "$ref": "#/definitions/MathsProps",
+          "description": "The maths block's limits, layout and exercises."
         },
         "id": {
           "type": "string",
@@ -1728,19 +1729,26 @@
       "additionalProperties": false,
       "properties": {
         "columns": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of columns the exercises stand in side by side across the block.",
+          "minimum": 1,
+          "maximum": 6
         },
         "size": {
-          "type": "number"
+          "type": "number",
+          "description": "Font size of a row or a gap, in pt. The editor steps it by 2 pt and never goes below 8.",
+          "minimum": 8
         },
         "numbering": {
-          "type": "string"
+          "type": "string",
+          "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it."
         },
         "exercises": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Exercise"
-          }
+          },
+          "description": "The exercises the server made for the limits, in the order they stand on the sheet."
         },
         "loosen": {
           "anyOf": [
@@ -1753,34 +1761,42 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
         },
         "ops": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Op"
-          }
+          },
+          "description": "The operations the tasks may use: \"+\" plus, \"-\" minus, \"*\" times and \"/\" divided by. At least one."
         },
         "max": {
-          "type": "number"
+          "type": "number",
+          "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
+          "minimum": 1,
+          "maximum": 1000000
         },
         "a": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit."
         },
         "b": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit."
         },
         "c": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit."
         },
         "carry": {
           "type": "string",
@@ -1788,10 +1804,12 @@
             "none",
             "required",
             "either"
-          ]
+          ],
+          "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds."
         },
         "rest": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether a division leaves a remainder. false, the default, gives even divisions only."
         },
         "format": {
           "type": "string",
@@ -1800,13 +1818,18 @@
             "gap",
             "written",
             "compare"
-          ]
+          ],
+          "description": "How each task is written: \"row\" as a line of numbers, \"gap\" as a line with a gap to fill, \"written\" as a column calculation on squared paper, \"compare\" as comparisons with a ring to fill."
         },
         "count": {
-          "type": "number"
+          "type": "number",
+          "description": "How many tasks the block makes.",
+          "minimum": 1,
+          "maximum": 100
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "The number the tasks are drawn from. The same seed and limits give the same tasks; a new seed draws new ones."
         },
         "sides": {
           "type": "string",
@@ -1814,30 +1837,36 @@
             "nn",
             "tn",
             "tt"
-          ]
+          ],
+          "description": "What stands on each side of a comparison: \"nn\" number and number, \"tn\" term and number, \"tt\" term and term. Default \"tn\". Only comparisons use it."
         },
         "close": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether the sides of a comparison lie close together, 1 or 2 units or tens apart. Default false. Only comparisons use it."
         },
         "equal": {
           "type": "string",
           "enum": [
             "none",
             "some"
-          ]
+          ],
+          "description": "Whether comparisons have equal sides: \"none\" never, \"some\" about one in five. Default \"some\". Only comparisons use it."
         },
         "numbers": {
           "type": "number",
           "enum": [
             2,
             3
-          ]
+          ],
+          "description": "How many numbers a task has: 2 or 3. Default 2."
         },
         "pvs": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false."
         },
         "brackets": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false."
         },
         "decimals": {
           "type": "number",
@@ -1845,28 +1874,33 @@
             0,
             1,
             2
-          ]
+          ],
+          "description": "Places after the comma in plus and minus tasks: 0 for whole numbers, 1 for tenths or 2 for hundredths. Default 0."
         },
         "money": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether the numbers are money, always with two places after the comma. Default false."
         },
         "af": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits of the first number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
         },
         "bf": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits of the second number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
         },
         "cf": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Range"
-          }
+          },
+          "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
         },
         "family": {
           "type": "string",
@@ -1875,14 +1909,16 @@
             "swap",
             "reverse",
             "neighbour"
-          ]
+          ],
+          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\"."
         },
         "moves": {
           "type": "string",
           "enum": [
             "a",
             "b"
-          ]
+          ],
+          "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second."
         },
         "gaps": {
           "type": "array",
@@ -1894,19 +1930,24 @@
               "c",
               "result"
             ]
-          }
+          },
+          "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result."
         },
         "zero": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether 0 may be a number and a result. Default true."
         },
         "one": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether 1 may be a factor or a divisor in times and divide tasks. Default true."
         },
         "distinct": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether tasks with equal numbers are left out. Default false."
         },
         "small": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false."
         }
       },
       "required": [
@@ -1939,19 +1980,24 @@
       "type": "object",
       "properties": {
         "op": {
-          "$ref": "#/definitions/Op"
+          "$ref": "#/definitions/Op",
+          "description": "The operation between a and b: \"+\" plus, \"-\" minus, \"*\" times or \"/\" divided by."
         },
         "a": {
-          "type": "number"
+          "type": "number",
+          "description": "The first number of the task."
         },
         "b": {
-          "type": "number"
+          "type": "number",
+          "description": "The second number of the task."
         },
         "result": {
-          "type": "number"
+          "type": "number",
+          "description": "The result of a op b, the number a gap hides when no other is named in hide."
         },
         "rest": {
-          "type": "number"
+          "type": "number",
+          "description": "What a division leaves over, 0 when it divides evenly."
         },
         "hide": {
           "type": "string",
@@ -1959,26 +2005,32 @@
             "a",
             "b",
             "c"
-          ]
+          ],
+          "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result."
         },
         "grid": {
-          "$ref": "#/definitions/Grid"
+          "$ref": "#/definitions/Grid",
+          "description": "The working on squared paper for this task. Left out, the task has none."
         },
         "op2": {
-          "$ref": "#/definitions/Op"
+          "$ref": "#/definitions/Op",
+          "description": "The second operation of a task of three numbers, between b and c. Left out for a task of two numbers."
         },
         "c": {
-          "type": "number"
+          "type": "number",
+          "description": "The third number of a task of three numbers. Left out for a task of two numbers."
         },
         "paren": {
           "type": "string",
           "enum": [
             "left",
             "right"
-          ]
+          ],
+          "description": "The brackets of a task of three numbers: \"left\" for (a op b) op2 c, \"right\" for a op (b op2 c)."
         },
         "family": {
-          "type": "number"
+          "type": "number",
+          "description": "Which family of tasks this task belongs to, counted from 0. Left out, the task stands on its own."
         }
       },
       "required": [
@@ -2003,10 +2055,12 @@
       "type": "object",
       "properties": {
         "cols": {
-          "type": "number"
+          "type": "number",
+          "description": "Width of the squared grid, in squares."
         },
         "rows": {
-          "type": "number"
+          "type": "number",
+          "description": "Height of the squared grid, in squares."
         },
         "cells": {
           "type": "array",
@@ -2028,7 +2082,8 @@
               }
             ],
             "maxItems": 4
-          }
+          },
+          "description": "The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's and 2 a small carry of the answer key's."
         },
         "lines": {
           "type": "array",
@@ -2039,7 +2094,8 @@
             },
             "minItems": 4,
             "maxItems": 4
-          }
+          },
+          "description": "The lines of the grid, each as [from column, to column, row it lies above, kind], counted from 0; kind as for cells."
         }
       },
       "required": [
@@ -2054,10 +2110,12 @@
       "type": "object",
       "properties": {
         "left": {
-          "$ref": "#/definitions/Side"
+          "$ref": "#/definitions/Side",
+          "description": "The side left of the sign."
         },
         "right": {
-          "$ref": "#/definitions/Side"
+          "$ref": "#/definitions/Side",
+          "description": "The side right of the sign."
         },
         "sign": {
           "type": "string",
@@ -2065,7 +2123,8 @@
             "<",
             ">",
             "="
-          ]
+          ],
+          "description": "The sign the pupil writes in the ring: \"<\" less than, \">\" more than or \"=\" equal."
         }
       },
       "required": [
@@ -2079,16 +2138,20 @@
       "type": "object",
       "properties": {
         "value": {
-          "type": "number"
+          "type": "number",
+          "description": "The number on this side. With no op it is the whole side."
         },
         "op": {
-          "$ref": "#/definitions/Op"
+          "$ref": "#/definitions/Op",
+          "description": "The sign of the term on this side. Left out, the side is the plain number in value."
         },
         "a": {
-          "type": "number"
+          "type": "number",
+          "description": "The first number of the term."
         },
         "b": {
-          "type": "number"
+          "type": "number",
+          "description": "The second number of the term."
         }
       },
       "required": [
@@ -2117,16 +2180,22 @@
           "additionalProperties": false,
           "properties": {
             "lineStyle": {
-              "$ref": "#/definitions/LineStyle"
+              "$ref": "#/definitions/LineStyle",
+              "description": "The style of every line of the table: \"solid\", \"dashed\", \"dotted\" or \"none\". Left out, solid."
             },
             "lineWidth": {
-              "type": "number"
+              "type": "number",
+              "description": "The width of every line of the table, in mm, from 0.25 to 3. Left out, 0.25.",
+              "minimum": 0.25,
+              "maximum": 3
             },
             "cut": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether scissors mark a cutting line (Schneidelinie) at the left end of the top line. Left out, no."
             },
             "edges": {
-              "$ref": "#/definitions/Edges"
+              "$ref": "#/definitions/Edges",
+              "description": "The style and width of single lines, per edge of a cell. Left out, every line takes lineStyle and lineWidth."
             },
             "cells": {
               "type": "array",
@@ -2135,43 +2204,55 @@
                 "items": {
                   "type": "string"
                 }
-              }
+              },
+              "description": "The text of each cell, as cells[row][column], counted from 0. A cell holds one plain text."
             },
             "cols": {
               "type": "array",
               "items": {
                 "type": "number"
-              }
+              },
+              "description": "The width share of each column, as parts of the sum of all of them. Only the ratios between columns count."
             },
             "size": {
-              "type": "number"
+              "type": "number",
+              "description": "Font size of the cell text, in pt."
             },
             "align": {
-              "$ref": "#/definitions/Align"
+              "$ref": "#/definitions/Align",
+              "description": "Horizontal alignment of the cell text: \"left\", \"center\" or \"right\"."
             },
             "font": {
-              "$ref": "#/definitions/Font"
+              "$ref": "#/definitions/Font",
+              "description": "Font of the cell text. Left out, the default font."
             },
             "color": {
-              "type": "string"
+              "type": "string",
+              "description": "Colour of the cell text. Left out, the default colour."
             },
             "line": {
-              "type": "string"
+              "type": "string",
+              "description": "Colour of the table's lines."
             },
             "head": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the first row is printed in bold. Default false."
             },
             "syllables": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the words in the cells are split into syllables, with hyphens at the breaks. Default false."
             },
             "breaks": {
-              "$ref": "#/definitions/Breaks"
+              "$ref": "#/definitions/Breaks",
+              "description": "The teacher's own syllable breaks: each word in lower case as the key, with the places it breaks at as the value."
             },
             "tints": {
-              "$ref": "#/definitions/Tints"
+              "$ref": "#/definitions/Tints",
+              "description": "The two colours the syllables take in turn, first then second."
             },
             "tintsAcross": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour."
             },
             "gaps": {
               "type": "array",
@@ -2180,13 +2261,17 @@
                 "items": {
                   "type": "boolean"
                 }
-              }
+              },
+              "description": "Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does."
             },
             "gapWidth": {
-              "type": "number"
+              "type": "number",
+              "description": "Width of the gaps in mm, all the same. The editor takes 5 mm or more.",
+              "minimum": 5
             },
             "bank": {
-              "type": "number"
+              "type": "number",
+              "description": "A word bank printed under the table for the gaps. Left out, there is none."
             },
             "trace": {
               "anyOf": [
@@ -2201,22 +2286,26 @@
                   "type": "string",
                   "const": "dotted"
                 }
-              ]
+              ],
+              "description": "How the cell text shows as a trace to write over: true for grey, \"outline\" for letters with a line round them and no fill, \"dotted\" for dotted letters. Left out, no trace."
             },
             "fade": {
-              "$ref": "#/definitions/Fade"
+              "$ref": "#/definitions/Fade",
+              "description": "Makes the trace fade step by step until it is gone: \"row\" along each row, \"rows\" from row to row. Left out, no fade."
             },
             "spans": {
               "type": "array",
               "items": {
                 "$ref": "#/definitions/Span"
-              }
+              },
+              "description": "Merged cells, each as [row, column, rows, columns]: the cell where it starts and how many rows and columns it covers, counted from 0."
             },
             "rows": {
               "type": "array",
               "items": {
                 "type": "number"
-              }
+              },
+              "description": "The lowest height of each row, in mm. A row still grows when its text needs more."
             }
           },
           "required": [
@@ -2225,7 +2314,8 @@
             "cols",
             "line",
             "size"
-          ]
+          ],
+          "description": "The table's text, layout and lines."
         },
         "id": {
           "type": "string",
@@ -2316,7 +2406,8 @@
             "items": {
               "$ref": "#/definitions/Edge"
             }
-          }
+          },
+          "description": "The lines across the table: h[row][column] is the line above that cell, and h[rows] the line under the last row. Null means the table's own line."
         },
         "v": {
           "type": "array",
@@ -2325,7 +2416,8 @@
             "items": {
               "$ref": "#/definitions/Edge"
             }
-          }
+          },
+          "description": "The lines down the table: v[row][column] is the line left of that cell, and v[row][columns] the line right of the last column. Null means the table's own line."
         }
       },
       "required": [
@@ -2340,10 +2432,14 @@
           "type": "object",
           "properties": {
             "style": {
-              "$ref": "#/definitions/LineStyle"
+              "$ref": "#/definitions/LineStyle",
+              "description": "The style of this one line: \"solid\", \"dashed\", \"dotted\" or \"none\". Left out, the table's line style."
             },
             "width": {
-              "type": "number"
+              "type": "number",
+              "description": "The width of this one line, in mm, from 0.25 to 3. Left out, the table's line width.",
+              "minimum": 0.25,
+              "maximum": 3
             }
           },
           "additionalProperties": false
@@ -2374,7 +2470,8 @@
           "title": "cols"
         }
       ],
-      "maxItems": 4
+      "maxItems": 4,
+      "description": "A merged cell: where it starts, counted from 0, and how many rows and columns it covers."
     },
     "SuchselBlock": {
       "type": "object",
@@ -2385,7 +2482,8 @@
           "const": "suchsel"
         },
         "props": {
-          "$ref": "#/definitions/SuchselProps"
+          "$ref": "#/definitions/SuchselProps",
+          "description": "The word search's settings: the grid, the words and how they run."
         },
         "id": {
           "type": "string",
@@ -2464,32 +2562,44 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The words to hide in the grid, one entry per word, as the teacher typed them."
         },
         "cols": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of squares across the grid.",
+          "minimum": 6,
+          "maximum": 20
         },
         "rows": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of squares down the grid.",
+          "minimum": 6,
+          "maximum": 20
         },
         "ways": {
-          "$ref": "#/definitions/Ways"
+          "$ref": "#/definitions/Ways",
+          "description": "The directions the words may run: \"across\" only, \"down\" too, \"diag\" (diagonal) too, or \"back\" (backwards) too. Each level includes the ones before."
         },
         "caps": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether every letter shows as a capital. If not, every letter is small."
         },
         "umlauts": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether ä, ö, ü and ß stay. If not, they become AE, OE, UE and SS."
         },
         "show": {
           "type": "string",
           "enum": [
             "words",
             "count"
-          ]
+          ],
+          "description": "Whether the hidden words print under the grid (\"words\") or only how many there are (\"count\")."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "The number that sets the layout of the grid. The same seed gives the same grid."
         }
       },
       "required": [
@@ -2522,7 +2632,8 @@
           "const": "zahlenmauer"
         },
         "props": {
-          "$ref": "#/definitions/ZahlenmauerProps"
+          "$ref": "#/definitions/ZahlenmauerProps",
+          "description": "The wall block's settings: the stones, the walls and the numbers shown."
         },
         "id": {
           "type": "string",
@@ -2603,23 +2714,32 @@
             3,
             4,
             5
-          ]
+          ],
+          "description": "Number of stones in the lowest row of each wall: 3, 4 or 5."
         },
         "count": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of walls in the block.",
+          "minimum": 1,
+          "maximum": 12
         },
         "columns": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of walls standing side by side.",
+          "minimum": 1,
+          "maximum": 4
         },
         "max": {
-          "type": "number"
+          "type": "number",
+          "description": "The Zahlenraum: no stone lies above it. One of 10, 20, 100 or 1000."
         },
         "op": {
           "type": "string",
           "enum": [
             "+",
             "*"
-          ]
+          ],
+          "description": "How a stone is made from the two under it: \"+\" the sum, \"*\" the product."
         },
         "given": {
           "type": "string",
@@ -2627,25 +2747,30 @@
             "base",
             "mix",
             "free"
-          ]
+          ],
+          "description": "Which stones show a number: \"base\" the base row only, \"mix\" per wall a mix that needs the way back, \"free\" the stones marked in free."
         },
         "free": {
           "type": "array",
           "items": {
             "type": "boolean"
-          }
+          },
+          "description": "Per stone index, true shows that stone's number when given is \"free\". The same for every wall."
         },
         "empty": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether no stone shows a number. Default false."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "The number that sets the walls. The same seed gives the same walls."
         },
         "typed": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Typed"
-          }
+          },
+          "description": "Numbers the teacher typed into stones, each as [wall, stone index, value], counted from 0. A stone's index counts from the left end of the base row, a row at a time."
         }
       },
       "required": [

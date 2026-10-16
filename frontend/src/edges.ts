@@ -4,13 +4,38 @@ import { spansOf } from "./cells";
 
 export type LineStyle = "solid" | "dashed" | "dotted" | "none";
 // One line between two cells, or along the table's rim. null, or a key left out: the table's own style or width.
-export type Edge = { style?: LineStyle; width?: number } | null;
+export type Edge = {
+  /** The style of this one line: "solid", "dashed", "dotted" or "none". Left out, the table's line style. */
+  style?: LineStyle;
+  /** The width of this one line, in mm, from 0.25 to 3. Left out, the table's line width.
+   * @minimum 0.25
+   * @maximum 3
+   */
+  width?: number;
+} | null;
 // h[r][c] is the line above cell (r, c), and h[rows][c] the line under the last row: rows + 1 lists of cols entries.
 // v[r][c] is the line left of cell (r, c), and v[r][cols] the line right of the last column: rows lists of cols + 1.
-export type Edges = { h: Edge[][]; v: Edge[][] };
+export type Edges = {
+  /** The lines across the table: h[row][column] is the line above that cell, and h[rows] the line under the last row. Null means the table's own line. */
+  h: Edge[][];
+  /** The lines down the table: v[row][column] is the line left of that cell, and v[row][columns] the line right of the last column. Null means the table's own line. */
+  v: Edge[][];
+};
 // The four keys on a table's props, all optional. `lineStyle` and `lineWidth` (mm) are for every line; `cut` shows
 // the scissors of Schneidelinien at the left end of the top line.
-export type Lines = { lineStyle?: LineStyle; lineWidth?: number; cut?: boolean; edges?: Edges };
+export type Lines = {
+  /** The style of every line of the table: "solid", "dashed", "dotted" or "none". Left out, solid. */
+  lineStyle?: LineStyle;
+  /** The width of every line of the table, in mm, from 0.25 to 3. Left out, 0.25.
+   * @minimum 0.25
+   * @maximum 3
+   */
+  lineWidth?: number;
+  /** Whether scissors mark a cutting line (Schneidelinie) at the left end of the top line. Left out, no. */
+  cut?: boolean;
+  /** The style and width of single lines, per edge of a cell. Left out, every line takes lineStyle and lineWidth. */
+  edges?: Edges;
+};
 // What a line is drawn with.
 export type Pen = { style: LineStyle; width: number };
 type Grid = { cells: string[][]; cols: number[]; spans?: unknown; lineStyle?: unknown; lineWidth?: unknown; cut?: unknown; edges?: unknown };
