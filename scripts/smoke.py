@@ -99,6 +99,17 @@ def read_only() -> None:
     status = ask("/api/me")[0]
     if status != 401:
         fail(f"status {status}")
+    # Anonymous /mcp says where its metadata is, so a remote client can start the sign-in.
+    headers = {"Content-Type": "application/json"}
+    request = urllib.request.Request(urljoin(args.url, "/mcp"), b"{}", headers)
+    try:
+        urllib.request.urlopen(request, timeout=30)
+        status, challenge = 200, ""
+    except urllib.error.HTTPError as error:
+        status, challenge = error.code, error.headers.get("WWW-Authenticate", "")
+    if status != 401 or "resource_metadata=" not in challenge:
+        fail(f"status {status}, challenge {challenge!r}")
+    passed("remote")
 
 
 def users() -> None:
