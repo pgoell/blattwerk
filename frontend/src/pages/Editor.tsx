@@ -106,6 +106,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS,
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { made } from "../zahlenmauer";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -356,6 +357,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
   const [editing, setEditing] = useState("");
+  // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
+  const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
@@ -3292,6 +3295,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
+  // A double click on a stone of the selected Zahlenmauer opens its number field on the stone, as a table cell opens.
+  // Gives whether it did.
+  function openStone(target: Element): boolean {
+    const el = target.closest<SVGGElement>(".stone");
+    const block = target.closest<HTMLElement>(".block");
+    const only = free.length === 1 ? free[0] : undefined;
+    if (!el || !block || only?.type !== "zahlenmauer" || only.id !== block.dataset.id) return false;
+    const wall = Number(el.closest<SVGGElement>(".wall")?.dataset.wall);
+    const at = Number(el.dataset.stone);
+    // The block is scaled on the sheet, so its screen box is measured against its own size to give its own units.
+    const scale = block.getBoundingClientRect().width / block.offsetWidth;
+    const outer = block.getBoundingClientRect();
+    const inner = el.querySelector("rect")!.getBoundingClientRect();
+    const box = [inner.left - outer.left, inner.top - outer.top, inner.width, inner.height].map((v) => v / scale);
+    setStone({ id: only.id, wall, at, text: String(made(only.props).walls[wall].numbers[at]), box });
+    return true;
+  }
+  // A number typed into a stone, stored as the format panel stores it: one undo step for each stone.
+  function typeStone(b: Block, wall: number, at: number, text: string) {
+    if (b.type !== "zahlenmauer") return;
+    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
+    const others = (b.props.typed ?? []).filter((t) => t[0] !== wall || t[1] !== at);
+    const typed = text === "" ? (others.length ? others : undefined) : [...others, [wall, at, Number(text)]];
+    style("zahlenmauer", { typed }, `typed:${wall}:${at}`);
+  }
   function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
     // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
@@ -4098,7 +4126,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             const at = anchorOf(table.props, +over.dataset.cell!);
             setReach(at === slot ? undefined : at);
           }}
-          onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
+          onDoubleClick={(e) => brush || openStone(e.target as Element) || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
           // In a field the browser's own menu stays, a finger's and a mouse's alike.
           onContextMenu={(e) => {
@@ -4230,6 +4258,28 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
+                    {stone?.id === b.id && (
+                      <input
+                        className="stone-field"
+                        inputMode="numeric"
+                        aria-label="Zahl im Stein"
+                        autoFocus
+                        value={stone.text}
+                        style={{ left: stone.box[0], top: stone.box[1], width: stone.box[2], height: stone.box[3], fontSize: stone.box[3] * 0.6 }}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onKeyDown={(e) => {
+                          // The keys are the field's: the sheet's own keys do not take the digits or the Enter.
+                          e.stopPropagation();
+                          if (e.key === "Enter" || e.key === "Escape") setStone(null);
+                        }}
+                        onBlur={() => setStone(null)}
+                        onChange={(e) => {
+                          if (!/^\d{0,4}$/.test(e.target.value)) return;
+                          setStone({ ...stone, text: e.target.value });
+                          typeStone(b, stone.wall, stone.at, e.target.value);
+                        }}
+                      />
+                    )}
                     {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>

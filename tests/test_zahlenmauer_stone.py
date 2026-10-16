@@ -5,7 +5,6 @@ The docstrings name the lines of the checklist that each test proves.
 
 import pytest
 from playwright.sync_api import expect
-from test_words import undo
 from ui import at, box, doc, pick, unpick, user
 
 WALL = {
@@ -82,7 +81,7 @@ def test_one_ctrl_z_after_takes_the_typed_number_back(editor):
     page.keyboard.press("Enter")
     expect(number_field(page)).to_have_count(0)
     assert props_of(doc(page, client))["typed"] == [[1, 5, 25]]
-    undo(page)
+    page.keyboard.press("Control+z")
     assert "typed" not in props_of(doc(page, client))
 
 

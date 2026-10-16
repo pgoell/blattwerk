@@ -903,3 +903,5 @@ body:has(.print) { background: #fff; }
 .tinted p { user-select: text; -webkit-user-select: text; pointer-events: none; }
 .tinted .ProseMirror p { pointer-events: auto; }
 .bows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }
+/* The number field a double click opens on a Zahlenmauer stone: as big as the stone, its number in the middle. */
+.stone-field { position: absolute; box-sizing: border-box; margin: 0; padding: 0; border: 1px solid #2563eb; background: #fff; color: #222; font: inherit; text-align: center; outline: none; }
