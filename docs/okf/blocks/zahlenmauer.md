@@ -4,7 +4,7 @@ title: "Block: zahlenmauer"
 description: "The wall block's settings: the stones, the walls and the numbers shown."
 tags: [block, zahlenmauer]
 covers: [zahlenmauer]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # zahlenmauer

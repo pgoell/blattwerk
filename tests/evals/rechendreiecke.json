@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Rechendreiecken. Lege das Blatt mit dem Titel Eval Rechendreiecke an.",
+  "expect": {"types": ["rechendreieck"], "text": ["Rechendreieck"]}
+}

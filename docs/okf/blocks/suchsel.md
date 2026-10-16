@@ -4,7 +4,7 @@ title: "Block: suchsel"
 description: "The word search's settings: the grid, the words and how they run."
 tags: [block, suchsel]
 covers: [suchsel]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # suchsel

@@ -131,6 +131,17 @@ def test_recipe(path, server, browser):
         f"content overflows its box: {[drawn[k]['size'] for k in overflowing]}"
     )
 
+    # The generated blocks draw their content: an empty block prints no clock, digit or word.
+    text_of = {b["type"]: drawn[b["id"]]["text"] for b in blocks if b["type"] != "text"}
+    if path.stem == "uhrzeiten-lesen":
+        # Each face's 1 to 12, not only the answer line under it.
+        faces = re.findall(r"\d+", text_of["uhr"])
+        assert all(str(n) in faces for n in range(1, 13)), text_of["uhr"]
+    if path.stem == "suchsel-tiere":
+        # The grid's 12 x 10 letters, and the list's words under it.
+        assert len(re.findall(r"[A-ZÄÖÜ]", text_of["suchsel"])) >= 120, text_of["suchsel"]
+        assert "HUND" in text_of["suchsel"], text_of["suchsel"]
+
     if path.stem == "plusaufgaben-bis-20":
         maths = next(b for b in blocks if b["type"] == "maths")
         check = next(b for b in blocks if b["type"] == "selbstkontrolle")

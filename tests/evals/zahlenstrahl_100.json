@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit einem Zahlenstrahl bis 100. Lege das Blatt mit dem Titel Eval Zahlenstrahl bis 100 an.",
+  "expect": {"types": ["zahlenstrahl"], "text": ["100"]}
+}

@@ -4,7 +4,7 @@ title: "Block: selbstkontrolle"
 description: "The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right."
 tags: [block, selbstkontrolle]
 covers: [selbstkontrolle]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # selbstkontrolle

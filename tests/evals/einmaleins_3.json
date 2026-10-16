@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt zum Einmaleins mit der 3. Lege das Blatt mit dem Titel Eval Einmaleins mit 3 an.",
+  "expect": {"types": ["maths"], "text": []}
+}

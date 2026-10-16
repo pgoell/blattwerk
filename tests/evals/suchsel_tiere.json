@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Suchsel mit Tiernamen. Lege das Blatt mit dem Titel Eval Suchsel Tiere an.",
+  "expect": {"types": ["suchsel"], "text": ["Tier"]}
+}

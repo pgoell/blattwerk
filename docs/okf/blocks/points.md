@@ -4,7 +4,7 @@ title: "Block: points"
 description: "A box the teacher writes the points scored in, beside the most there are."
 tags: [block, points]
 covers: [points]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # points

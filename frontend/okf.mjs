@@ -80,7 +80,7 @@ function page(type) {
     `description: ${JSON.stringify(summary)}`,
     `tags: [block, ${type}]`,
     `covers: [${type}]`,
-    `generated: { by: "process:frontend/okf.mjs" }`,
+    `generated: { by: "process:frontend/okf.mjs", at: @AT@ }`,
     "---",
   ];
   const body = [
@@ -115,12 +115,22 @@ const pages = new Map(types.map((type) => [`${type}.md`, page(type)]));
 pages.set("index.md", index());
 const extra = existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith(".md") && !pages.has(name)) : [];
 
+// `at` is when the page's content last changed: the file's own `at` while nothing but that stamp differs, else now.
+const NOW = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+const STAMP = /generated: \{ by: "process:frontend\/okf\.mjs", at: (\S+) \}/;
+function stamped(path, text) {
+  const old = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const before = old.match(STAMP)?.[1];
+  const at = before !== undefined && text.replace("@AT@", before) === old ? before : NOW;
+  return text.replace("@AT@", at);
+}
+
 if (check) {
   const problems = [];
   for (const [name, text] of pages) {
     const path = resolve(dir, name);
     if (!existsSync(path)) problems.push(`${name}: missing`);
-    else if (readFileSync(path, "utf8") !== text) problems.push(`${name}: differs from the schema`);
+    else if (readFileSync(path, "utf8") !== stamped(path, text)) problems.push(`${name}: differs from the schema`);
   }
   for (const name of extra) problems.push(`${name}: extra, the schema has no such page`);
   if (problems.length) {
@@ -129,6 +139,6 @@ if (check) {
   }
 } else {
   mkdirSync(dir, { recursive: true });
-  for (const [name, text] of pages) writeFileSync(resolve(dir, name), text);
+  for (const [name, text] of pages) writeFileSync(resolve(dir, name), stamped(resolve(dir, name), text));
   for (const name of extra) rmSync(resolve(dir, name));
 }
