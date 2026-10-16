@@ -3,7 +3,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
-from ui import reload, user
+from ui import PASSWORD, reload, user
 
 from blattwerk.app import app
 
@@ -127,6 +127,38 @@ def test_revoke_asks_first_and_abbrechen_keeps_the_key(account):
     expect(dialog).not_to_be_visible()
     expect(row(page, "Laptop Schule")).to_be_visible()
     expect(page.get_by_role("button", name="Widerrufen: Laptop Schule")).to_be_focused()
+
+
+def test_a_key_another_tab_already_revoked_leaves_the_list_quietly(account):
+    page = account(user())
+    make(page, "Laptop")
+    other = page.context.new_page()
+    other.goto(page.url)
+    other.get_by_role("button", name="Widerrufen: Laptop").click()
+    other.get_by_role("dialog").get_by_role("button", name="Widerrufen", exact=True).click()
+    expect(row(other, "Laptop")).to_have_count(0)
+    page.get_by_role("button", name="Widerrufen: Laptop").click()
+    page.get_by_role("dialog").get_by_role("button", name="Widerrufen", exact=True).click()
+    expect(row(page, "Laptop")).to_have_count(0)
+    expect(page.get_by_role("alert")).to_have_count(0)
+
+
+def test_a_revoke_that_finds_the_session_gone_is_said_after_the_login(account, server):
+    client = user()
+    page = account(client)
+    make(page, "Laptop")
+    page.context.clear_cookies()
+    page.get_by_role("button", name="Widerrufen: Laptop").click()
+    page.get_by_role("dialog").get_by_role("button", name="Widerrufen", exact=True).click()
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    cookie = {"name": "session", "value": client.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(client.get("/api/me").json()["email"])
+    page.get_by_label("Passwort").fill(PASSWORD)
+    page.get_by_role("button", name="Anmelden").click()
+    said = "Der Schlüssel „Laptop“ ist noch nicht widerrufen"
+    expect(page.get_by_role("status")).to_contain_text(said)
+    expect(row(page, "Laptop")).to_be_visible()
 
 
 def test_a_blank_name_says_so_beside_the_field(account):
