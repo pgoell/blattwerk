@@ -60,4 +60,4 @@ Gefällt dir etwas nicht, sag es Claude in einem Satz: „Mach die Schrift grö�
 - Was du Claude schreibst und was auf dem Blatt steht, geht an Anthropic, die Firma hinter Claude. Schreib keine Namen oder anderen Angaben von Kindern hinein.
 - Schließ ein Blatt im Editor, solange Claude daran arbeitet. Ändert ihr beide zugleich, kommt eine der beiden Änderungen nicht durch.
 - Der Schlüssel liegt auf deinem Computer. Claude Desktop speichert ihn in der sicheren Ablage des Betriebssystems: im Schlüsselbund bei macOS, in der Anmeldeinformationsverwaltung bei Windows.
-- Willst du aufhören, entfern die Erweiterung in Claude Desktop. Dann widerrufst du den Schlüssel unter **Konto** mit **Widerrufen**.
+- Willst du aufhören, entfern die Erweiterung in Claude Desktop und widerruf den Schlüssel unter **Konto** mit **Widerrufen**.
