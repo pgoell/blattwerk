@@ -95,8 +95,8 @@ def test_remote_flow(server):
 
     names, [made] = asyncio.run(talk(server, provider, ("create_sheet", {"title": "Von Claude"})))
     # The same tools as the extension, from the same code.
-    assert names == [tool["name"] for tool in TOOLS]
-    assert not made.isError, made
+    assert sorted(names) == sorted(tool["name"] for tool in TOOLS)
+    assert not made.is_error, made
     # The sheet lies in the teacher's own account.
     assert "Von Claude" in [s["title"] for s in teacher.get("/api/sheets").json()]
     # One sign-in, with S256 and this server as the audience.
@@ -110,8 +110,10 @@ def test_remote_flow(server):
     # The access token runs out: the client refreshes, and the old refresh token is dead.
     con = db.open_db()
     con.execute("UPDATE oauth_grants SET access_expires = datetime('now', '-1 seconds')")
+    # This SDK refreshes by its own clock (Claude also on a 401), so its clock runs out too.
+    provider.context.token_expiry_time = 1
     names, [listed] = asyncio.run(talk(server, provider, ("list_sheets", {})))
-    assert not listed.isError, listed
+    assert not listed.is_error, listed
     assert "Von Claude" in str(listed.content)
     assert len(seen) == 1, "a refresh, not a new sign-in"
     assert storage.tokens.access_token != first.access_token
@@ -181,5 +183,5 @@ def test_remote_foreign_sheet(server):
             ("get_sheet", {"sheet_id": sheet["id"]}),
         )
     )
-    assert read.isError
+    assert read.is_error
     assert "Fremd" not in str(read.content)
