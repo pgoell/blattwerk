@@ -51,4 +51,4 @@ Blocks must not meet. Stack them down the page: the next block's `y` is the last
 
 ## Lernwörter
 
-`doc.words` holds the sheet's word list, one word to an entry. A Lineatur with `list` set shows them, one to a row; `set_words` changes the list and every linked block with it. See the recipe [Lernwörter mit Lineatur und Silbenbögen](recipes/lernwoerter-silbenboegen.md).
+`doc.words` holds the sheet's word list, one word to an entry. A Lineatur with `list` set shows them, one to a row; `set_words` changes the list and every linked block with it. A linked Lineatur draws no Silbenbögen today (#695): for bows, put the words in the Lineatur's own `text`, as the recipe does. See the recipe [Lernwörter mit Lineatur und Silbenbögen](recipes/lernwoerter-silbenboegen.md).

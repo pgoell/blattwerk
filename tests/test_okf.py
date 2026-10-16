@@ -117,3 +117,7 @@ def test_the_tutorial_names_what_the_teacher_does_herself():
     # The double-click install is #653, not built yet.
     for promise in (".mcpb", "Doppelklick", "Erweiterung"):
         assert promise not in body
+    # The key's name field starts empty (a placeholder only), and an empty name makes no key.
+    account = (ROOT / "frontend/src/pages/Account.tsx").read_text()
+    assert 'useState("")' in account and 'placeholder="Claude Desktop"' in account
+    assert "schreib einen Namen in das Feld" in body

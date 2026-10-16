@@ -456,7 +456,7 @@ export function tools(api: Api) {
     {
       name: "add_block",
       description:
-        "Add a block to a page. Warnings: `overlaps block <id>` means it meets that block; `leaves the page` means it goes past the page's edge. Props per type: resource blattomat://okf/blocks/<type>.md.",
+        "Add a block to a page. Warnings: `overlaps block <id>` means it meets that block; `leaves the page's printable area` means it comes within 15 mm of an edge. Props per type: resource blattomat://okf/blocks/<type>.md.",
       inputSchema: {
         type: "object",
         properties: {

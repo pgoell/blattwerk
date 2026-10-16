@@ -25,7 +25,7 @@ Der Schlüssel erlaubt Claude, in deinem Blattomat-Konto Blätter anzulegen und 
 
 1. Melde dich bei [Blattomat](https://blattwerk.pgoell.com) an.
 2. Klick oben auf **Konto**.
-3. Unter **Zugang für Claude** steht schon „Claude Desktop“ als Name. Klick auf **Schlüssel erstellen**.
+3. Unter **Zugang für Claude** schreib einen Namen in das Feld, zum Beispiel „Claude Desktop“. Klick auf **Schlüssel erstellen**.
 4. Klick auf **Kopieren** und leg den Schlüssel kurz in eine Notiz. Blattomat zeigt ihn nur dieses eine Mal.
 
 Gib den Schlüssel niemandem weiter. Ist er weg oder in falschen Händen, klick daneben auf **Widerrufen** und mach einen neuen.
@@ -34,7 +34,7 @@ Gib den Schlüssel niemandem weiter. Ist er weg oder in falschen Händen, klick 
 
 Diesen Schritt kannst du noch nicht allein mit einem Klick machen. Das Einrichten braucht heute eine Person mit etwas Technikwissen und Zugriff auf deinen Computer. Gib ihr deinen Schlüssel aus Schritt 2 und diese Seite.
 
-> Für die Person, die einrichtet: Der Server liegt im Repository unter `frontend/mcp/stdio.ts` und braucht Node 22 und `npm ci --prefix frontend`. In Claude Desktop unter Einstellungen, Entwickler, Konfiguration bearbeiten:
+> Für die Person, die einrichtet: Der Server liegt im Repository unter `frontend/mcp/stdio.ts` und braucht Node 22.18 oder neuer und `npm ci --prefix frontend`. Trag `node` mit seinem vollen Pfad ein, da Claude Desktop den Pfad der Shell nicht kennt. In Claude Desktop unter Einstellungen, Entwickler, Konfiguration bearbeiten:
 >
 > ```json
 > {"mcpServers": {"blattomat": {"command": "node", "args": ["<Pfad zum Repository>/frontend/mcp/stdio.ts"], "env": {"BLATTWERK_TOKEN": "<Schlüssel>"}}}}
