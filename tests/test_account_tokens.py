@@ -176,6 +176,8 @@ def test_escape_keeps_the_key_and_gives_the_focus_back(account):
 def test_a_key_not_made_when_the_session_ran_out_is_said_after_the_login(account, server):
     client = user()
     page = account(client)
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    page.wait_for_load_state("networkidle")
     page.context.clear_cookies()
     page.get_by_label("Name des Schlüssels").fill("Danach")
     page.keyboard.press("Enter")
