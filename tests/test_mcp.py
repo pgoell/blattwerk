@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
 from ui import user
 
 ROOT = Path(__file__).parent.parent
@@ -112,6 +113,17 @@ def test_doc_schema_is_the_generated_one(server, tmp_path):
         assert (
             replace["inputSchema"]["definitions"]["TextProps"] == SCHEMA["definitions"]["TextProps"]
         )
+    finally:
+        mcp.stop()
+
+
+def test_every_tool_schema_is_valid_2020_12(server, tmp_path):
+    # Claude Code drops a tool whose schema is not draft 2020-12: the generated schema is draft 7,
+    # whose fixed-length lists (`items` as a list) 2020-12 writes as `prefixItems`.
+    _, mcp = start(server, tmp_path)
+    try:
+        for tool in mcp.tools():
+            Draft202012Validator.check_schema(tool["inputSchema"])
     finally:
         mcp.stop()
 
@@ -275,7 +287,11 @@ def test_409_after_a_teachers_edit_tells_claude(server, tmp_path):
         assert bumped.status_code == 200, bumped.text
         result = mcp.call("replace_doc", sheet_id=sheet["id"], version=got["version"], doc=doc_of())
         assert result["isError"]
-        assert "teacher changed" in result["content"][0]["text"]
+        said = result["content"][0]["text"]
+        assert "teacher changed" in said
+        # The new version, and where Claude reads the teacher's doc to build its change on.
+        assert f"it is now {bumped.json()['version']}" in said
+        assert "get_sheet" in said
         assert stored(client, sheet["id"]) == teacher
     finally:
         mcp.stop()

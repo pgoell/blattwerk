@@ -32,6 +32,11 @@ export function docDefinitions(schema: any): Record<string, any> {
   const walk = (node: any): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
+    // The schema is draft 7; a tool's schema is draft 2020-12, where a list of fixed length says `prefixItems`.
+    if (Array.isArray(node.items)) {
+      node.prefixItems = node.items;
+      delete node.items;
+    }
     if (typeof node.$ref === "string" && node.$ref.startsWith("#/definitions/")) {
       const name = node.$ref.slice("#/definitions/".length);
       if (!seen.has(name)) {
