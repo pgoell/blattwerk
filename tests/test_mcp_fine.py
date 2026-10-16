@@ -1,8 +1,10 @@
 """The fine tools of the MCP server (frontend/mcp/tools.ts): blocks, pages, words, one write."""
 
+import io
 import json
 
 import pytest
+from PIL import Image
 from test_mcp import SCHEMA, start
 from ui import upload, user
 
@@ -434,5 +436,310 @@ def test_block_ids_are_fresh_and_z_is_top(server, tmp_path):
         new = added["block"]
         assert new["id"] != "t"
         assert new["z"] == 5
+    finally:
+        mcp.stop()
+
+
+RULING_ONE_ROW = {"kind": "l3", "color": "#222222", "list": "fold", "folds": 2}
+
+
+def stored_block(client, sheet_id, block_id):
+    return next(b for b in stored(client, sheet_id)["pages"][0]["blocks"] if b["id"] == block_id)
+
+
+def test_set_words_reads_words_as_the_editor(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        # One string with commas is three words, as the editor's list field reads them.
+        one = new_sheet(mcp, doc_of(block("r", "ruling", RULING_ONE_ROW, 100, 6)))
+        mcp.call("set_words", sheet_id=one[0], version=one[1], words=["Hund, Katze, Maus"])
+        # The same three words as three entries: the same height.
+        three = new_sheet(mcp, doc_of(block("r", "ruling", RULING_ONE_ROW, 100, 6)))
+        mcp.call("set_words", sheet_id=three[0], version=three[1], words=["Hund", "Katze", "Maus"])
+        grown = stored_block(client, one[0], "r")["h"]
+        assert grown == stored_block(client, three[0], "r")["h"]
+        assert grown > 6
+        # Blank words are no words: nothing grows.
+        blank = new_sheet(mcp, doc_of(block("r", "ruling", RULING_ONE_ROW, 100, 6)))
+        mcp.call("set_words", sheet_id=blank[0], version=blank[1], words=["", " "])
+        assert stored_block(client, blank[0], "r")["h"] == 6
+    finally:
+        mcp.stop()
+
+
+def test_maths_keeps_a_stretched_height(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet_id, version = new_sheet(mcp, doc_of())
+        added = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=version,
+                    page=1,
+                    type="maths",
+                    x=15,
+                    y=10,
+                )
+            )
+        )
+        block_id = added["block"]["id"]
+        moved = json.loads(
+            text_of(
+                mcp.call(
+                    "move_block",
+                    sheet_id=sheet_id,
+                    version=added["version"],
+                    block_id=block_id,
+                    x=15,
+                    y=10,
+                    h=150,
+                )
+            )
+        )
+        assert moved["block"]["h"] == 150
+        size = stored_block(client, sheet_id, block_id)["props"]["size"]
+        kept = json.loads(
+            text_of(
+                mcp.call(
+                    "update_block",
+                    sheet_id=sheet_id,
+                    version=moved["version"],
+                    block_id=block_id,
+                    props={"size": size},
+                )
+            )
+        )
+        assert kept["block"]["h"] == 150
+        before = stored_block(client, sheet_id, block_id)
+        seed = before["props"]["seed"]
+        mcp.call(
+            "update_block",
+            sheet_id=sheet_id,
+            version=kept["version"],
+            block_id=block_id,
+            props={"max": 100},
+        )
+        after = stored_block(client, sheet_id, block_id)
+        assert after["props"]["seed"] == seed
+        assert after["props"]["exercises"] != before["props"]["exercises"]
+    finally:
+        mcp.stop()
+
+
+def test_maths_past_the_foot_is_refused(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet_id, version = new_sheet(mcp, doc_of())
+        added = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=version,
+                    page=1,
+                    type="maths",
+                    x=15,
+                    y=10,
+                )
+            )
+        )
+        block_id = added["block"]["id"]
+        low = json.loads(
+            text_of(
+                mcp.call(
+                    "move_block",
+                    sheet_id=sheet_id,
+                    version=added["version"],
+                    block_id=block_id,
+                    x=15,
+                    y=260,
+                )
+            )
+        )
+        before = stored(client, sheet_id)
+        result = mcp.call(
+            "update_block",
+            sheet_id=sheet_id,
+            version=low["version"],
+            block_id=block_id,
+            props={"count": 40},
+        )
+        assert result.get("isError") is True
+        assert "foot" in text_of(result)
+        assert stored(client, sheet_id) == before
+    finally:
+        mcp.stop()
+
+
+def test_update_image_to_another_teachers_upload_is_refused(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet_id, version = new_sheet(mcp, doc_of())
+        own = upload(client)
+        added = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=version,
+                    page=1,
+                    type="image",
+                    props={"upload": own},
+                    x=10,
+                    y=10,
+                )
+            )
+        )
+        block_id = added["block"]["id"]
+        before = stored(client, sheet_id)
+        other = upload(user())
+        result = mcp.call(
+            "update_block",
+            sheet_id=sheet_id,
+            version=added["version"],
+            block_id=block_id,
+            props={"upload": other},
+        )
+        assert result.get("isError") is True
+        assert f"No upload with id {other}." in text_of(result)
+        assert stored(client, sheet_id) == before
+    finally:
+        mcp.stop()
+
+
+def jpeg(size, orientation=None):
+    buf = io.BytesIO()
+    if orientation is None:
+        Image.new("RGB", size).save(buf, "JPEG")
+    else:
+        exif = Image.Exif()
+        exif[0x0112] = orientation
+        Image.new("RGB", size).save(buf, "JPEG", exif=exif)
+    return buf.getvalue()
+
+
+def test_jpeg_turned_by_exif(server, tmp_path):
+    client, mcp = start(server, tmp_path)
+    try:
+        sheet_id, version = new_sheet(mcp, doc_of())
+        turned = client.post(
+            "/api/uploads", files={"file": ("p.jpg", jpeg((40, 20), 6), "image/jpeg")}
+        ).json()["id"]
+        plain = client.post(
+            "/api/uploads", files={"file": ("q.jpg", jpeg((40, 20)), "image/jpeg")}
+        ).json()["id"]
+        first = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=version,
+                    page=1,
+                    type="image",
+                    props={"upload": turned},
+                    x=10,
+                    y=10,
+                )
+            )
+        )
+        assert stored_block(client, sheet_id, first["block"]["id"])["props"]["ratio"] == 0.5
+        second = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=first["version"],
+                    page=1,
+                    type="image",
+                    props={"upload": plain},
+                    x=10,
+                    y=200,
+                )
+            )
+        )
+        assert stored_block(client, sheet_id, second["block"]["id"])["props"]["ratio"] == 2
+    finally:
+        mcp.stop()
+
+
+def test_add_block_grows_at_the_width_asked(server, tmp_path):
+    _client, mcp = start(server, tmp_path)
+    try:
+        sheet_id, version = new_sheet(mcp, doc_of())
+        narrow = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=version,
+                    page=1,
+                    type="uhr",
+                    props={"count": 8},
+                    x=15,
+                    y=10,
+                    w=90,
+                )
+            )
+        )
+        # The editor's uhr height for 8 clocks at 90 mm: the frontend's heightFor, run once by hand.
+        assert narrow["block"]["h"] == 58.5
+        wide = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=sheet_id,
+                    version=narrow["version"],
+                    page=1,
+                    type="uhr",
+                    props={"count": 8},
+                    x=15,
+                    y=200,
+                )
+            )
+        )
+        assert wide["block"]["h"] != narrow["block"]["h"]
+    finally:
+        mcp.stop()
+
+
+def test_printable_area(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        edge_sheet, edge_version = new_sheet(mcp, doc_of())
+        edge = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=edge_sheet,
+                    version=edge_version,
+                    page=1,
+                    type="text",
+                    x=5,
+                    y=5,
+                    w=80,
+                    h=12,
+                )
+            )
+        )
+        assert any("printable area" in w for w in edge["warnings"])
+        clear_sheet, clear_version = new_sheet(mcp, doc_of())
+        clear = json.loads(
+            text_of(
+                mcp.call(
+                    "add_block",
+                    sheet_id=clear_sheet,
+                    version=clear_version,
+                    page=1,
+                    type="text",
+                    x=15,
+                    y=15,
+                    w=180,
+                    h=10,
+                )
+            )
+        )
+        assert not any("printable area" in w for w in clear["warnings"])
     finally:
         mcp.stop()
