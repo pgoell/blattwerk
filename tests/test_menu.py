@@ -617,8 +617,8 @@ def test_a_right_click_on_a_thumbnail_puts_its_page_in_use(editor):
     expect_order(page, "abc")
 
 
-def test_a_held_finger_gets_no_menu_of_the_editors(editor):
-    """Touch stays as it was: the browser's menu is kept away and the editor's stays shut."""
+def test_a_finger_on_a_block_keeps_the_browsers_own_menu_away(editor):
+    """A held finger on a block: the browser's own menu is prevented. The editor's opens on lift."""
     page = editor(*texts("a"), touch=True)
     at(page, "a").tap()
     expect_picked(page, "a")

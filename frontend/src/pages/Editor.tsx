@@ -573,11 +573,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const held = useRef(false);
   // Where the finger of a hold or a drag came down.
   const came = useRef([0, 0]);
+  // Whether that finger has left its SLOP since it came down, and what it came down on.
+  const away = useRef(false);
+  const downOn = useRef<Element>(null);
   // What Moveable said of a drag while the finger had not yet left there.
   const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
-  const tug = useRef<{ from: number; x: number; y: number; slot?: number }>(undefined);
+  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean }>(undefined);
   const press = useRef(0);
   // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
   const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
@@ -1328,10 +1331,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (!thumb || e.touches.length !== 1) return;
       const { clientX: x, clientY: y } = e.touches[0];
       tug.current = { from: +thumb.dataset.thumb!, x, y };
-      press.current = window.setTimeout(() => aim(x, y), 500);
+      press.current = window.setTimeout(() => {
+        tug.current!.held = true;
+        aim(x, y);
+      }, 500);
     }
     function onMove(e: globalThis.TouchEvent) {
       if (!tug.current) return;
+      if (Math.hypot(e.touches[0].clientX - tug.current.x, e.touches[0].clientY - tug.current.y) > SLOP) tug.current.left = true;
       if (tug.current.slot === undefined) {
         // No preventDefault during the hold: it would keep the panel still for the whole swipe.
         // A second finger may have come down beside the panel, where the start of a touch is not heard.
@@ -1947,8 +1954,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHaul(undefined);
   }
   function release() {
-    const { from, slot } = tug.current ?? {};
+    const t = tug.current;
     quit();
+    // A finger held still on a thumbnail opens its page's menu on the lift.
+    if (t?.held && !t.left) return thumbMenu(t.from, t.x, t.y);
+    const { from, slot } = t ?? {};
     if (slot === undefined) return;
     // The chosen pages go together; the dragged one alone when it is not chosen.
     const ns = choiceOf(from!);
@@ -3279,7 +3289,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const id = on?.getAttribute("data-id");
     // A drag asks for it too, and that may begin on Moveable's box over the selection.
     came.current = [x, y];
-    if (!(id || over) || id === editing) return;
+    away.current = false;
+    downOn.current = el;
+    // The empty page holds no block, but a still hold there opens its menu on the lift.
+    if (!(id || over)) {
+      hold.current = window.setTimeout(() => (held.current = true), 500);
+      return;
+    }
+    if (id === editing) return;
     const to = pageOf(on ?? el);
     hold.current = window.setTimeout(() => {
       held.current = true;
@@ -3293,7 +3310,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (e.touches.length === 1) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
-    if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) clearTimeout(hold.current);
+    if (Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) away.current = true;
+    if (e.touches.length > 1 || away.current) clearTimeout(hold.current);
     // A snap the blocks reached before the finger had left where it came down takes them now, if it has.
     if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
     if (e.touches.length !== 2) return;
@@ -3967,13 +3985,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           }}
           onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
-          onContextMenu={(e) => (touch.current || menuAt(e.target as Element, e.clientX, e.clientY)) && e.preventDefault()}
+          // In a field the browser's own menu stays, a finger's and a mouse's alike.
+          onContextMenu={(e) => {
+            const el = e.target as Element;
+            if (touch.current ? !el.closest(".ProseMirror, textarea, input, select") : menuAt(el, e.clientX, e.clientY)) e.preventDefault();
+          }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={(e) => {
             clearTimeout(hold.current);
             // Lifting the finger after a hold is not a tap.
             if (held.current) e.preventDefault();
+            // A finger held still opens the menu on the lift, where it lies.
+            if (held.current && !away.current && !e.touches.length) menuAt(downOn.current!, e.changedTouches[0].clientX, e.changedTouches[0].clientY);
           }}
           // The browser took the touch for its own, a scroll: no finger holds, and the next lift is a tap again.
           onTouchCancel={() => {

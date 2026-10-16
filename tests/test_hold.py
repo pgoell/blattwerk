@@ -60,6 +60,10 @@ def test_a_finger_held_on_what_is_selected_starts_selecting_several(editor, kind
     expect(page.locator(OPEN)).to_have_count(0)
     assert [spot(page, name) for name in names] == before
     expect(page.get_by_role("button", name="Rückgängig")).to_be_disabled()
+    # The lift opened the menu: a tap beside it shuts it and does not reach the block.
+    desk = page.locator(".desk").bounding_box()
+    page.touchscreen.tap(desk["x"] + 4, desk["y"] + 4)
+    expect(page.get_by_role("menu")).to_have_count(0)
     # The next tap is one again: with Mehrere on it takes its block out, a group as a whole.
     page.touchscreen.tap(*centre(at(page, names[-1])))
     expect_picked(page, *("a" if kind == "several" else ""))
