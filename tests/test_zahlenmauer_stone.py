@@ -96,3 +96,30 @@ def test_only_digits_go_into_the_field(editor):
     expect(number_field(page)).to_have_value("25")
     page.keyboard.press("Enter")
     assert props_of(doc(page, client))["typed"] == [[1, 5, 25]]
+
+
+def test_a_second_tap_on_a_stone_opens_its_number_field(editor):
+    """Z8: on touch, a first tap picks the block and a second tap opens the stone's field."""
+    client = user()
+    page = editor(box("w", "zahlenmauer", WALL, w=180, h=60), client=client, touch=True)
+    at(page, "w").locator(TOP_OF_SECOND).tap()
+    expect(at(page, "w")).to_have_class("block sel")
+    at(page, "w").locator(TOP_OF_SECOND).tap()
+    expect(number_field(page)).to_be_focused()
+    page.keyboard.type("25")
+    expect(number_field(page)).to_have_value("25")
+    assert props_of(doc(page, client))["typed"] == [[1, 5, 25]]
+
+
+def test_a_turned_zahlenmauer_puts_its_field_on_the_stone(editor):
+    """Z9: on a block turned by 30 degrees the field lies on the stone, its centre within 3 px."""
+    client = user()
+    page = editor(box("w", "zahlenmauer", {**WALL}, w=180, h=60, angle=30), client=client)
+    pick(page, "w")
+    stone = at(page, "w").locator(TOP_OF_SECOND)
+    stone.dblclick()
+    expect(number_field(page)).to_be_focused()
+    field = number_field(page).bounding_box()
+    rect = stone.locator("rect").bounding_box()
+    assert abs(field["x"] + field["width"] / 2 - (rect["x"] + rect["width"] / 2)) <= 3
+    assert abs(field["y"] + field["height"] / 2 - (rect["y"] + rect["height"] / 2)) <= 3
