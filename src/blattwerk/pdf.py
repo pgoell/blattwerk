@@ -20,7 +20,7 @@ from pypdf import PdfWriter
 from blattwerk import pictures, variants
 from blattwerk.auth import Teacher
 from blattwerk.db import Con, Id
-from blattwerk.schema import check
+from blattwerk.schema import check, mended
 from blattwerk.sheets import find
 from blattwerk.variants import LETTERS
 
@@ -38,6 +38,10 @@ WAIT = 10
 ROOM = threading.BoundedSemaphore(4)
 # Milliseconds a preview's page may take to draw before the doc is refused as one no page can draw.
 DRAW = 15000
+# Milliseconds a PDF's page may take to draw. Nothing says the doc is at fault when it is slow.
+PRINT_WAIT = 30000
+# Milliseconds between looks at the page while it draws: a page error ends the wait at once.
+SLICE = 250
 # Drawn on a preview only: each block's box in magenta, with its id. The PDF never gets them.
 OUTLINES = """
 .print .block { outline: 1px solid magenta; outline-offset: -1px; }
@@ -100,9 +104,10 @@ def render(
     row = opened(con, token)
     if row["id"] != sheet_id:
         raise HTTPException(404)
+    doc = mended(json.loads(row["doc"]))
     if variante:
-        return variants.vary(json.loads(row["doc"]), variante)[0]
-    return json.loads(row["doc"])
+        return variants.vary(doc, variante)[0]
+    return doc
 
 
 @router.get("/sheets/{sheet_id}/variante/{letter}")
@@ -131,14 +136,15 @@ def pdf(
     if varianten == 1:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            page = browser.new_page(extra_http_headers={"X-Render-Token": new_token(sheet_id)})
-            page.goto(url + ("?loesungen" if solved else ""))
-            # The page says when its fonts and pictures have loaded.
-            page.wait_for_selector("body.ready", state="attached")
-            # A4 with no margin of the printer's: the sheet's own margins are the page's. The
-            # stylesheet says which pages lie on their side.
-            data = page.pdf(prefer_css_page_size=True, print_background=True)
-            browser.close()
+            try:
+                page, errors = new_page(browser, sheet_id)
+                page.goto(url + ("?loesungen" if solved else ""))
+                drawn(page, errors, PRINT_WAIT)
+                # A4 with no margin of the printer's: the sheet's own margins are the page's. The
+                # stylesheet says which pages lie on their side.
+                data = page.pdf(prefer_css_page_size=True, print_background=True)
+            finally:
+                browser.close()
         # Chromium names itself as the file's maker, and has no setting for that. The title is the
         # page's own.
         writer = PdfWriter(clone_from=io.BytesIO(data))
@@ -153,22 +159,24 @@ def pdf(
         writer = PdfWriter()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            for letter in LETTERS[:varianten]:
-                # A fresh page and token for each variant: the old `body.ready` is never seen.
-                query = []
-                if letter != "A":
-                    query.append(f"variante={letter}")
-                if buchstaben or solved:
-                    query.append(f"buchstabe={letter}")
-                if solved:
-                    query.append("loesungen")
-                page = browser.new_page(extra_http_headers={"X-Render-Token": new_token(sheet_id)})
-                page.goto(url + ("?" + "&".join(query) if query else ""))
-                page.wait_for_selector("body.ready", state="attached")
-                data = page.pdf(prefer_css_page_size=True, print_background=True)
-                page.close()
-                writer.append(io.BytesIO(data))
-            browser.close()
+            try:
+                for letter in LETTERS[:varianten]:
+                    # A fresh page and token for each variant: the old `body.ready` is never seen.
+                    query = []
+                    if letter != "A":
+                        query.append(f"variante={letter}")
+                    if buchstaben or solved:
+                        query.append(f"buchstabe={letter}")
+                    if solved:
+                        query.append("loesungen")
+                    page, errors = new_page(browser, sheet_id)
+                    page.goto(url + ("?" + "&".join(query) if query else ""))
+                    drawn(page, errors, PRINT_WAIT)
+                    data = page.pdf(prefer_css_page_size=True, print_background=True)
+                    page.close()
+                    writer.append(io.BytesIO(data))
+            finally:
+                browser.close()
     writer.add_metadata({"/Creator": "Blattomat", "/Producer": "Blattomat"})
     out = io.BytesIO()
     writer.write(out)
@@ -204,6 +212,32 @@ def snap(
         ROOM.release()
 
 
+def new_page(browser, sheet_id: int):
+    """A page for the sheet's print, with its token, and the list its page errors go to."""
+    page = browser.new_page(extra_http_headers={"X-Render-Token": new_token(sheet_id)})
+    errors: list[str] = []
+    page.on("pageerror", lambda error: errors.append(error.message))
+    return page, errors
+
+
+def drawn(page, errors: list[str], timeout: float) -> None:
+    """Waits until the page says it is drawn, in slices of SLICE ms. A page error ends the wait at
+    once, as a doc no page can draw: 422. At the deadline, PlaywrightTimeout is raised."""
+    deadline = time.monotonic() + timeout / 1000
+    while True:
+        if errors:
+            raise HTTPException(
+                422, detail={"problems": [f"doc: the page could not be drawn: {errors[0]}"]}
+            )
+        left = max(1, min(SLICE, (deadline - time.monotonic()) * 1000))
+        try:
+            page.wait_for_selector("body.ready", state="attached", timeout=left)
+            return
+        except PlaywrightTimeout:
+            if time.monotonic() >= deadline:
+                raise
+
+
 def shoot(url: str, token: str, scale: float, page: int, outlines: bool) -> bytes:
     if not SLOTS.acquire(timeout=WAIT):
         raise HTTPException(503, headers={"Retry-After": "5"})
@@ -222,7 +256,7 @@ def shoot(url: str, token: str, scale: float, page: int, outlines: bool) -> byte
                 tab.emulate_media(media="print")
                 tab.goto(url)
                 try:
-                    tab.wait_for_selector("body.ready", state="attached", timeout=DRAW)
+                    drawn(tab, errors, DRAW)
                 except PlaywrightTimeout:
                     why = errors[0] if errors else "it did not finish"
                     raise HTTPException(

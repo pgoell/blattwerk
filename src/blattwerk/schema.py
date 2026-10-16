@@ -114,13 +114,78 @@ def breaks(error, path: list) -> bool:
     return len(path) <= len(shape) or path[-1] in SKELETON
 
 
-def check(doc: dict) -> None:
-    """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
-    and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""
-    # A sheet from before pages holds its blocks at the top; the editor reads them as one page.
+# What a block of a type must have for the page to draw it: a prop left out is filled with this.
+NEEDED = {
+    "text": {"text": ""},
+    "shape": {"text": ""},
+    "maths": {"exercises": []},
+    "table": {"cells": [[""]], "cols": [1]},
+}
+
+
+def mended(doc: dict) -> dict:
+    """The doc as the page draws it: a copy with each wrong prop of a block cut, or only its wrong
+    item when the fault is inside a list, and the props the page cannot draw without filled in.
+    The stored doc keeps its wrong props. A doc with no fault comes back as it is; a sheet from
+    before pages is read as one page. Odd shapes are skipped, not raised on."""
+    pages_doc = as_pages(doc)
+    found = faults(pages_doc)
+    if not found:
+        return doc
+    # Per block: the props to cut, and per prop the list items to drop, by index.
+    cut: dict[tuple, set] = {}
+    drop: dict[tuple, set] = {}
+    for path, _, _ in found:
+        if len(path) < 6 or path[0] != "pages" or path[2] != "blocks" or path[4] != "props":
+            continue
+        if len(path) > 6 and isinstance(path[6], int):
+            drop.setdefault((path[1], path[3], path[5]), set()).add(path[6])
+        else:
+            cut.setdefault((path[1], path[3]), set()).add(path[5])
+    mend = json.loads(json.dumps(pages_doc))
+    pages = mend.get("pages")
+    if not isinstance(pages, list):
+        return mend
+    for i, page in enumerate(pages):
+        if not isinstance(page, dict) or not isinstance(page.get("blocks"), list):
+            continue
+        for j, block in enumerate(page["blocks"]):
+            if not isinstance(block, dict) or not isinstance(block.get("props"), dict):
+                continue
+            props = block["props"]
+            for name in cut.get((i, j), ()):
+                props.pop(name, None)
+            for (pi, pj, name), indexes in drop.items():
+                if (pi, pj) != (i, j) or not isinstance(props.get(name), list):
+                    continue
+                for index in sorted(indexes, reverse=True):
+                    if index < len(props[name]):
+                        del props[name][index]
+            if isinstance(block.get("type"), str):
+                for name, value in NEEDED.get(block["type"], {}).items():
+                    props.setdefault(name, value)
+    return mend
+
+
+def as_pages(doc: dict) -> dict:
+    """A sheet from before pages holds its blocks at the top; the editor reads them as one page."""
     if "pages" not in doc and isinstance(doc.get("blocks"), list):
         doc = {**doc, "pages": [{"blocks": doc["blocks"]}]}
         del doc["blocks"]
+    return doc
+
+
+def refuse_any_fault(doc: dict) -> None:
+    """Refuses a doc with any fault of the whole schema, for a save that asks for it."""
+    found = problems(as_pages(doc))
+    if found:
+        raise HTTPException(422, detail={"problems": found})
+
+
+def check(doc: dict) -> None:
+    """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
+    and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""
+    doc = as_pages(doc)
     # JSON has no NaN: stored, it comes back as null, which no later save gets past.
     try:
         json.dumps(doc, allow_nan=False)

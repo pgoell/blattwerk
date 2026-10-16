@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 from blattwerk import pictures
 from blattwerk.auth import Teacher
 from blattwerk.db import Con, Id, Whole
-from blattwerk.schema import check
+from blattwerk.schema import check, refuse_any_fault
 
 router = APIRouter(prefix="/api")
 
@@ -61,8 +61,10 @@ def sheets(user: Teacher, con: Con) -> list[dict]:
 
 
 @router.post("/sheets")
-def create(body: Sheet, user: Teacher, con: Con) -> dict:
+def create(body: Sheet, user: Teacher, con: Con, strict: bool = False) -> dict:
     check(body.doc)
+    if strict:
+        refuse_any_fault(body.doc)
     pictures.touch(user["id"], body.doc)
     return public(
         con.execute(
@@ -112,11 +114,13 @@ def sheet(sheet_id: Id, user: Teacher, con: Con) -> dict:
 
 
 @router.patch("/sheets/{sheet_id}")
-def save(sheet_id: Id, body: Change, user: Teacher, con: Con) -> dict:
+def save(sheet_id: Id, body: Change, user: Teacher, con: Con, strict: bool = False) -> dict:
     # Only a new document moves the version on, so a rename from the list neither needs one
     # nor gets in the way of an open editor's next save.
     if body.doc is not None:
         check(body.doc)
+        if strict:
+            refuse_any_fault(body.doc)
         keep_words(con, sheet_id, user, body.doc)
     doc = body.doc and json.dumps(body.doc)
     if body.doc is not None:

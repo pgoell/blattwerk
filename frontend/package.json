@@ -18,6 +18,7 @@
     "@fontsource-variable/playwrite-de-la": "^5.3.0",
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "hyphen": "^1.14.1",
     "lucide-react": "^1.55.0",
     "modern-screenshot": "^4.7.0",
@@ -33,6 +34,7 @@
     "react-selecto": "^1.26.3"
   },
   "devDependencies": {
+    "@types/node": "22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
