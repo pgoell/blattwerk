@@ -975,18 +975,23 @@ function fitText(el: HTMLElement, least: number, high: number) {
 // lies wholly on the page. Measured level, as `fitText` measures it. Undefined when every line is on the page.
 function cutAt(el: HTMLElement) {
   const paper = el.closest<HTMLElement>(".paper, .sheet");
-  if (!paper) return undefined;
+  // An inside shape's text stops at its inner box (its padding's foot), so it is measured even off the foot.
+  const inside = el.classList.contains("inside");
+  if (!paper && !inside) return undefined;
   // A frame well above the foot needs no measure: its box's lowest point (turned or not) and its overflow lie above it.
   const near = el.getBoundingClientRect();
   const scale = near.width / el.offsetWidth || 1;
   const reach = Math.max(0, el.scrollHeight - el.clientHeight) * scale;
-  if (near.bottom + reach < paper.getBoundingClientRect().bottom - 1) return undefined;
+  if (!inside && near.bottom + reach < paper!.getBoundingClientRect().bottom - 1) return undefined;
   const block = el.parentElement!;
   const was = block.style.transform;
   block.style.transform = "none";
   const box = el.getBoundingClientRect();
   const zoom = box.width / el.offsetWidth || 1;
-  const foot = (paper.getBoundingClientRect().bottom - box.top) / zoom;
+  // The lowest px a line may reach: the page's foot, or the inner box's foot, whichever is higher.
+  const onPage = paper ? (paper.getBoundingClientRect().bottom - box.top) / zoom : Infinity;
+  const inner = inside ? el.clientHeight - parseFloat(getComputedStyle(el).paddingBottom) : Infinity;
+  const foot = Math.min(onPage, inner);
   let whole = 0;
   let past = false;
   for (const p of el.querySelectorAll<HTMLElement>("p")) {
