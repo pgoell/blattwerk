@@ -25,7 +25,8 @@ NO_VERIFY = (
 )
 FORCE = (
     "a force push rewrites the remote branch",
-    "Add new commits and push them with a plain `git push`.",
+    "If master moved, run `git merge origin/master` on the branch and push plainly. "
+    "Never rebase a pushed branch; the PR merges by squash.",
 )
 SETTINGS = (
     "repo:apply-settings changes the GitHub repo settings and branch protection",
