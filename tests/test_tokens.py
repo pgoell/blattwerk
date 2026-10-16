@@ -154,7 +154,22 @@ def test_bad_tokens_are_rate_limited():
     for _ in range(10):
         assert bearer("bt_1_nope").get("/api/sheets").status_code == 401
     assert bearer("bt_1_nope").get("/api/sheets").status_code == 429
-    assert bearer(good).get("/api/sheets").status_code == 429
+    # A school shares one address: the bad tries never block a good token.
+    assert bearer(good).get("/api/sheets").status_code == 200
+
+
+def test_a_revoked_token_from_one_address_blocks_no_good_token_and_no_login():
+    client = user("schule@example.com")
+    revoked = make(client, "alt")
+    client.delete(f"/api/tokens/{listed(client)['alt']['id']}")
+    good = make(user(), "gut")
+    codes = {bearer(revoked).get("/api/sheets").status_code for _ in range(25)}
+    assert codes == {401, 429}
+    assert bearer(good).get("/api/sheets").status_code == 200
+    fresh = TestClient(app, base_url="https://testserver")
+    login = {"email": "schule@example.com", "password": PASSWORD}
+    assert fresh.post("/api/login", json=login).status_code == 200
+    assert fresh.get("/api/sheets").status_code == 200
 
 
 def test_malformed_headers_are_401():
@@ -258,4 +273,5 @@ def test_bad_tries_from_before_the_window_do_not_count():
             "INSERT INTO attempts (key, created) VALUES ('token:testclient', '2026-01-01 08:00:00')"
         )
     con.close()
+    assert bearer("bt_1_nope").get("/api/sheets").status_code == 401
     assert bearer(good).get("/api/sheets").status_code == 200

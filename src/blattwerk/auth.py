@@ -74,12 +74,10 @@ User = Annotated[sqlite3.Row, Depends(current_user)]
 
 
 def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3.Row:
-    """The user an API token belongs to. A bad token is a try per IP: 429 after TRIES of them."""
-    key = f"token:{request.client.host if request.client else ''}"
-    # Reads only, so a good token writes nothing here.
-    tries = "SELECT count(*) FROM attempts WHERE key = ? AND created > datetime('now', ?)"
-    if con.execute(tries, (key, f"-{WINDOW} seconds")).fetchone()[0] >= TRIES:
-        raise HTTPException(429)
+    """The user an API token belongs to. A bad token is a try per IP: 429 after TRIES of them.
+
+    A good token goes through whatever the tries: a school shares one address.
+    """
     row = None
     parts = token.split("_", 2)
     if len(parts) == 3 and parts[0] == "bt" and db.ID.fullmatch(parts[1]) and int(parts[1]) < 2**63:
@@ -89,9 +87,15 @@ def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3
             (int(parts[1]),),
         ).fetchone()
     if not row or not hmac.compare_digest(row["hash"], digest(token)):
+        key = f"token:{request.client.host if request.client else ''}"
         con.execute(
             "DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",)
         )
+        if (
+            con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0]
+            >= TRIES
+        ):
+            raise HTTPException(429)
         con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
         raise HTTPException(401)
     with suppress(sqlite3.Error):
