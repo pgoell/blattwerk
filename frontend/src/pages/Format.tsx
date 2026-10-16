@@ -38,6 +38,8 @@ type Props = {
   feed: (props: object, key?: string) => void;
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
   paint: (props: Marks, key?: string) => void;
+  // Mends a word's split on every block of the sheet, or with no counts takes the mend back to the module's own split.
+  mendWord: (word: string, counts?: number[]) => void;
   // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
   itemize: (kind: List) => void;
   // Makes the picked words, the cell being edited or else every selected text a gap, or takes the gap off.
@@ -263,7 +265,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -327,7 +329,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
-  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} />;
+  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} />;
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
@@ -1045,7 +1047,7 @@ function Mix({ sel, look, words: sheet }: Pick<Props, "sel" | "look" | "words">)
 // unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
 // its words stand below too, each as it is split, to mend by hand: a click on a word shows its letters, and a click
 // between two of them sets a break there or takes it away.
-function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "look" | "style">) {
+function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" | "part" | "look" | "style" | "mendWord" | "doc">) {
   const held = sel.filter(syllabled);
   const bowsOn = held.every((b) => syllabled(b)!.syllables);
   // A stored pair that is garbage colours nothing, so the switch is off for it.
@@ -1062,7 +1064,7 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   }, [split, part?.word]);
   const set = both(held, look, style);
   const one = split && held.length === 1 ? syllabled(held[0])! : undefined;
-  const fixes = one?.breaks ?? {};
+  const fixes = { ...doc.breaks, ...one?.breaks };
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
@@ -1070,15 +1072,12 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text ?? "").filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
-  // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in characters of the composed word, and an
-  // entry under the old key goes, so the word has one entry.
+  // module splits it needs no entry. The mend holds for the word in every block of the sheet.
   const mend = (at?: number) => {
     const now = split!.cuts(word!, fixes);
     const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
     const counts = next && split!.counted(word!, next);
-    const rest = Object.fromEntries(Object.entries(fixes).filter(([key]) => key !== open && key !== split!.oldKeyOf(word!)));
-    const breaks = counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? { ...rest, [open!]: counts } : rest;
-    set({ breaks: Object.keys(breaks).length ? breaks : undefined });
+    mendWord(word!, counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined);
   };
   return (
     <>

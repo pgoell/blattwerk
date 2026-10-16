@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
 import { edged, linesOf, type Lines, type Pen } from "./edges";
@@ -205,6 +205,8 @@ export type Doc = {
   grid: number;
   landscape?: boolean;
   words?: string[];
+  // The mends of the sheet: a word split by hand holds in every block. A block's own `breaks` win over these.
+  breaks?: Breaks;
   pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
@@ -340,13 +342,15 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
   words,
   pageNumbers,
+  // A sheet may come from anywhere: only a plain object of mends is kept.
+  breaks: breaks && typeof breaks === "object" && !Array.isArray(breaks) ? breaks : undefined,
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
@@ -401,6 +405,11 @@ export const Words = createContext<string[]>([]);
 export const Whole = createContext<Doc>(EMPTY);
 // The letter boxes of this block, one per task, when a "word" Selbstkontrolle of the sheet links it.
 const useLetters = (id: string) => lettersOf(useContext(Whole)).get(id);
+// The mends a block draws with: the sheet's, and the block's own where it has one for the same word.
+export const useBreaks = (own?: Breaks) => {
+  const doc = useContext(Whole);
+  return useMemo(() => ({ ...doc.breaks, ...own }), [doc.breaks, own]);
+};
 // A letter box in the drawing's own units: a square at (x, y), the letter in its middle in the answer key.
 function LetterBox({ x, y, side, task, letter, solved }: { x: number; y: number; side: number; task: number; letter: string; solved: boolean }) {
   return (
@@ -721,6 +730,7 @@ function linesIn(frame: HTMLElement) {
 // A text or a shape with its text. The editor passes the field the text is typed in.
 function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
   const p = boxed(block)!;
+  const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
   const width = gapWidth(p.gapWidth);
   // A linked text draws the sheet's Lernwörter, one to a paragraph, in columns, and grows to hold them. Its own text
@@ -892,7 +902,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       )}
       {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
       {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
-      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
 }
@@ -1301,7 +1311,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     svg.current!.classList.add("unsplit");
     tools.current.draw();
     // The place of a block moves no letter in it.
-  }, [module, block.props, block.w, block.h, block.angle, solved]);
+  }, [module, block.props, how.breaks, block.w, block.h, block.angle, solved]);
   return <svg ref={svg} className="bows unsplit" aria-hidden />;
 }
 // Resolves once every block's bows are drawn. The PDF waits for it.
@@ -1557,6 +1567,7 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
 function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
   const { row, at, zones, size } = RULINGS[kindOf(block.props.kind)];
   const { text = "" } = block.props;
+  const breaks = useBreaks(block.props.breaks);
   const rows = rowsOf(block);
   const cols = colsOf(block);
   // A block set to the list shows the list alone: with no word in it, empty rows, and not its own text, which the
@@ -1667,7 +1678,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
             <>
               {/* With colours the copy shows and the field's letters go clear, as in a table's open cell, so the colours stay while typing. */}
               {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...writtenStyle(block, k), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
-              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={block.props.breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
+              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
             </>
           )}
         </>
@@ -1681,7 +1692,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k: number; at?: number; reach?: number; solved: boolean; children?: ReactNode }) {
-  const { cells, cols, line, head, syllables, breaks, tintsAcross, gaps } = block.props;
+  const { cells, cols, line, head, syllables, breaks: own, tintsAcross, gaps } = block.props;
+  const breaks = useBreaks(own);
   const tints = pairOf(block.props.tints);
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
