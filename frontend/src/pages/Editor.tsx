@@ -786,6 +786,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }, [blocks, k]);
   // The ids whose text the page's foot cuts short: the panel warns about them.
   const [full, setFull] = useState<string[]>([]);
+  // The blocks the panel resized last, and the picked shapes whose text grew them back: the panel says why they stay.
+  const panelSized = useRef<string[]>([]);
+  const [heldIds, setHeldIds] = useState<string[]>([]);
+  const pickedKey = ids.join(" ");
+  useEffect(() => {
+    panelSized.current = [];
+    setHeldIds([]);
+  }, [pickedKey]);
   const stopped = (id: string, on: boolean) =>
     setFull((f) => (f.includes(id) === on ? f : on ? [...f, id] : f.filter((x) => x !== id)));
   // The height at which a block's lowest point meets the page's foot `H`, or Infinity when it never does. Lowest is
@@ -885,6 +893,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // the text written in it is drawn.
     const shape = b && boxed(b);
     if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || (mm <= 0 && across <= 1)) return;
+    if (panelSized.current.includes(id)) setHeldIds((h) => (h.includes(id) ? h : [...h, id]));
     const H = sizeOf(hist.doc, page);
     if (across > 1) {
       // A word too wide for the inner box: the shape grows as wide as high, by the share its words and lines lack,
@@ -4473,6 +4482,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 unmerge={unmerge}
                 laid={laidMm}
                 full={full}
+                held={heldIds}
+                onSize={(ids) => (panelSized.current = ids)}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}

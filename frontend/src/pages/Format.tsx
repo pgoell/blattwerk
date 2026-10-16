@@ -62,6 +62,10 @@ type Props = {
   laid: number[];
   // The ids of the blocks whose text the page's foot cuts short.
   full: string[];
+  // The ids of the picked shapes whose text grew them back after a smaller size from this panel.
+  held: string[];
+  // Tells the editor which blocks this panel resizes.
+  onSize: (ids: string[]) => void;
   // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
   sizeCells: (axis: "col" | "row", mm: number) => void;
   evenCells: (axis: "col" | "row") => void;
@@ -265,7 +269,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -387,6 +391,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     const other = side === "w" ? "h" : "w";
     // A group of flat lines has no height to scale from.
     if (to <= 0 || (whole && own[side] <= 0)) return;
+    onSize(sel.map((b) => b.id));
     if (whole) {
       const f = to / own[side];
       const both = lock || sel.some(kept);
@@ -399,6 +404,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   // A percent scales the box from its top left corner, or about the group's; a loose block keeps its own shape when it is kept.
   const percent = (side: "w" | "h", p: number) => {
     if (!(p > 0)) return;
+    onSize(sel.map((b) => b.id));
     const f = p / 100;
     // The side named scales; the other too when the shape is kept.
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
@@ -434,6 +440,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {sel.some((b) => full.includes(b.id)) && (
         <p className="hint warn" role="status" data-foot="full">
           Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
+        </p>
+      )}
+      {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
+      {sel.some((b) => held.includes(b.id)) && (
+        <p className="hint" role="status" data-held="text">
+          Der Text braucht diese Höhe. Verkleinere die Schrift oder kürze den Text, dann wird die Form kleiner.
         </p>
       )}
       {/* A table that a new column made wider than the page is cut too, at the right edge. */}

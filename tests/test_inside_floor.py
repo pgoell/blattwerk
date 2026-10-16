@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from ui import RECT, at, box, pick, saved, user
+from ui import RECT, TEXT, at, box, pick, saved, user
 
 SENTENCE = "Wir lesen heute eine schöne Geschichte."
 SHAPE = {**RECT, "inside": True, "text": "", "size": 14, "align": "center"}
@@ -117,3 +117,66 @@ def test_a_grown_star_is_still_whole_in_its_outline_for_a_child(editor):
         .evaluate_all("ps => ps.map((p) => p.scrollWidth - p.clientWidth)")
     )
     assert max(spill) <= 1, spill
+
+
+HELD = '.panel [data-held="text"]'
+
+
+def enter_field(page, label, value):
+    """Writes the value into a field of the right panel and commits it with Enter."""
+    field = page.locator(".geo").get_by_label(label, exact=True)
+    field.fill(value)
+    field.press("Enter")
+
+
+def roof_at(page):
+    """The triangle of #680: Das Dach vom Haus ist rot und spitz, 60 mm wide."""
+    make(page, "Dreieck", "Das Dach vom Haus ist rot und spitz.")
+    enter_field(page, "Breite", "60")
+
+
+def test_the_panel_says_why_a_triangle_cannot_be_squashed_by_its_text(editor):
+    client = user()
+    page = editor(client=client)
+    roof_at(page)
+    enter_field(page, "Höhe %", "50")
+    expect(page.locator(HELD)).to_contain_text("Der Text braucht diese Höhe")
+    enter_field(page, "Höhe", "20")
+    expect(page.locator(HELD)).to_be_visible()
+
+
+def test_the_hint_goes_when_another_block_is_picked(editor):
+    client = user()
+    roof = {
+        **RECT,
+        "kind": "triangle",
+        "inside": True,
+        "text": "Das Dach vom Haus ist rot und spitz.",
+        "size": 14,
+        "align": "center",
+    }
+    page = editor(
+        box("a", "shape", roof, x=20, y=30, w=60, h=63), box("b", "text", TEXT, z=2), client=client
+    )
+    pick(page, "a")
+    enter_field(page, "Höhe %", "50")
+    expect(page.locator(HELD)).to_be_visible()
+    pick(page, "b")
+    expect(page.locator(HELD)).to_have_count(0)
+
+
+def test_a_circle_that_takes_its_smaller_height_shows_no_hint(editor):
+    client = user()
+    circle = {
+        **RECT,
+        "kind": "circle",
+        "inside": True,
+        "text": "Hallo",
+        "size": 14,
+        "align": "center",
+    }
+    page = editor(box("a", "shape", circle, x=20, y=30, w=40, h=40), client=client)
+    pick(page, "a")
+    enter_field(page, "Höhe %", "50")
+    saved(page, client)
+    expect(page.locator(HELD)).to_have_count(0)
