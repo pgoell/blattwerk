@@ -976,10 +976,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!table) return;
     e.preventDefault();
     e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
     cellDrag.current = true;
     const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
     gripFixed.current = anchorOf(table.props, corner === "nw" ? r1 * table.props.cols.length + c1 : r0 * table.props.cols.length + c0);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const gripMove = (e: PointerEvent<HTMLElement>) => {
     if (!cellDrag.current || !table) return;
