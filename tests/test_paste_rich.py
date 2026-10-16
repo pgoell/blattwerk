@@ -174,7 +174,8 @@ def test_a_copy_within_the_field_keeps_the_gap_and_not_bold(editor):
 
 # Extra cases a teacher hits. A Word copy carries empty Office paragraphs and no-break spaces, which
 # must not add blank lines. A line break in a copy makes two paragraphs.
-def test_word_copy_has_no_blank_lines_from_office_paragraphs(editor):
+def test_word_copy_keeps_one_line_per_paragraph_and_one_for_an_empty_one(editor):
+    """Word's paragraph end adds no line; a paragraph left empty on purpose is one empty line."""
     client = user()
     page = editor(client=client)
     html = (
@@ -183,7 +184,52 @@ def test_word_copy_has_no_blank_lines_from_office_paragraphs(editor):
     )
     paste(page, html, "Aufgabe\n\nLösung")
     paras = pasted(page, client, "Aufgabe")["props"]["rich"]
-    assert [p["runs"][0]["text"] for p in paras] == ["Aufgabe", "Lösung"]
+    assert ["".join(r["text"] for r in p["runs"]) for p in paras] == ["Aufgabe", "", "Lösung"]
+
+
+def test_an_empty_paragraph_between_words_stays_a_line(editor):
+    client = user()
+    page = editor(client=client)
+    paste(page, "<p>oben</p><p><br></p><p>unten</p>", "oben\n\nunten")
+    assert pasted(page, client, "oben")["props"]["text"] == "oben\n\nunten"
+
+
+def test_hidden_text_does_not_come_along(editor):
+    client = user()
+    page = editor(client=client)
+    paste(page, '<p>sichtbar</p><p style="display:none">versteckt</p>', "sichtbar")
+    assert "versteckt" not in pasted(page, client, "sichtbar")["props"]["text"]
+
+
+def test_a_named_colour_is_kept_and_windowtext_drops(editor):
+    client = user()
+    page = editor(client=client)
+    html = '<span style="color:red">rot</span> <span style="color:windowtext">still</span>'
+    paste(page, html, "rot still")
+    assert run(pasted(page, client, "rot"), "rot").get("color") == "#ff0000"
+    assert "color" not in run(pasted(page, client, "rot"), "still")
+
+
+def test_word_list_paragraphs_are_list_items_by_level(editor):
+    """Word writes its lists as paragraphs with mso-list; its marker is no part of the words."""
+    client = user()
+    page = editor(client=client)
+    marker = "<![if !supportLists]><span style='mso-list:Ignore'>{}&nbsp;</span><![endif]>"
+    html = (
+        "<p class=MsoListParagraph style='mso-list:l0 level1 lfo1'>"
+        + marker.format("·")
+        + "eins</p>"
+        + "<p class=MsoListParagraph style='mso-list:l1 level1 lfo2'>"
+        + marker.format("1.")
+        + "zwei</p>"
+        + "<p class=MsoListParagraph style='mso-list:l1 level2 lfo2'>"
+        + marker.format("a)")
+        + "drei</p>"
+    )
+    paste(page, html, "eins\nzwei\ndrei")
+    paras = pasted(page, client, "eins")["props"]["rich"]
+    got = [(p["list"], p.get("level", 0), p["runs"][0]["text"]) for p in paras]
+    assert got == [("bullet", 0, "eins"), ("number", 0, "zwei"), ("number", 1, "drei")]
 
 
 def test_table_cells_from_a_web_page_are_paragraphs_of_their_own(editor):

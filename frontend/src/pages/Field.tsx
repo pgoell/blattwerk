@@ -308,7 +308,8 @@ export default function Field({ view, props, hint, all, at, ...on }: Props) {
       // A copy of the field's own keeps its gaps and its marks as they are; ProseMirror marks it so.
       transformPastedHTML: (html) => {
         const flat = html.replace(/<br\b[^>]*>/gi, " ");
-        return flat.includes("data-pm-slice") ? flat : fieldMarkup(parasFromHtml(flat));
+        const paras = flat.includes("data-pm-slice") ? [] : parasFromHtml(flat);
+        return paras.length ? fieldMarkup(paras) : flat;
       },
     });
     view.current = field;

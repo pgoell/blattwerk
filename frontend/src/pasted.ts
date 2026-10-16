@@ -9,6 +9,7 @@ const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "HEAD", "IMG", 
 const BLOCK = new Set(["P", "DIV", "LI", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "TR", "TD", "TH", "BLOCKQUOTE"]);
 
 // A colour as #rrggbb, or nothing for a form the editor does not hold.
+let canvas: CanvasRenderingContext2D | null | undefined;
 function hex(v: string): string | undefined {
   const s = v.trim().toLowerCase();
   const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(s);
@@ -16,14 +17,32 @@ function hex(v: string): string | undefined {
   if (/^#[0-9a-f]{6}$/.test(s)) return s;
   const rgb = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(s);
   if (rgb) return "#" + rgb.slice(1).map((n) => Math.min(255, +n).toString(16).padStart(2, "0")).join("");
-  return undefined;
+  // A name such as red: the canvas gives it back as #rrggbb. A value it does not know keeps the marker.
+  canvas ??= document.createElement("canvas").getContext("2d");
+  if (!canvas) return undefined;
+  canvas.fillStyle = "#000001";
+  canvas.fillStyle = s;
+  const got = String(canvas.fillStyle);
+  return /^#[0-9a-f]{6}$/.test(got) && got !== "#000001" ? got : undefined;
+}
+
+// A Word list paragraph: its level (one to three in Word, nested two deep here) and whether its marker is a number.
+function wordList(el: Element): { list: List; level: number } | undefined {
+  const style = el.getAttribute("style") ?? "";
+  const m = /mso-list:\s*l\d+\s+level(\d)/.exec(style);
+  if (!m) return undefined;
+  const marker = el.querySelector("span[style*='mso-list:Ignore' i]")?.textContent ?? "";
+  const number = /^\s*\(?(\d+|[a-z]|[ivxlc]+)[.)]/i.test(marker);
+  return { list: number ? "number" : "bullet", level: Math.min(2, Math.max(0, +m[1] - 1)) };
 }
 
 // The list a text stands in: its closest item, as a bullet or a number, nested two deep at most. A paragraph the
 // editor's field copied carries its list in data-list and data-level.
 function listOf(el: Element): { list?: List; level?: number } {
-  const item = el.closest("li, p[data-list]");
+  const item = el.closest("li, p[data-list], p[style*='mso-list']");
   if (!item) return {};
+  const word = wordList(item);
+  if (word) return word;
   if (item.tagName === "P") {
     const list = (item as HTMLElement).dataset.list;
     const level = Math.min(2, +((item as HTMLElement).dataset.level ?? 0) || 0);
@@ -65,7 +84,9 @@ export function parasFromHtml(html: string): Para[] {
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
     const tag = el.tagName;
-    if (SKIP.has(tag)) return;
+    // Hidden text and Word's list markers, which the list shows instead, are no part of the words.
+    if (SKIP.has(tag) || el.style.display === "none" || /mso-hide:\s*all/i.test(el.getAttribute("style") ?? "")) return;
+    if (/mso-list:\s*ignore/i.test(el.getAttribute("style") ?? "")) return;
     if (tag === "BR") return brk();
     const block = BLOCK.has(tag);
     // A mark the element sets wins over the one it inherits; what it does not set it keeps.
@@ -82,12 +103,17 @@ export function parasFromHtml(html: string): Para[] {
     // Black is what the text has anyway: the block's own colour stays.
     if (colour && colour !== "#000000") next.color = colour;
     if (block) brk();
+    const started = paras.length;
     el.childNodes.forEach((child) => walk(child, next));
-    if (block) brk();
+    if (block) {
+      brk();
+      // A paragraph with no words is an empty line, as in the plain text. Word's own paragraph ends make no line of theirs.
+      if (paras.length === started && /^(P|DIV|H[1-6]|BLOCKQUOTE)$/.test(tag)) paras.push({ runs: [] });
+    }
   };
   walk(body, {});
 
-  // Spaces at the ends of a paragraph and empty paragraphs go.
+  // Spaces at the ends of a paragraph go. Empty paragraphs keep their place between the words, not at the ends.
   for (const p of paras) {
     p.runs = p.runs.filter((r) => r.text);
     if (p.runs.length) {
@@ -96,5 +122,7 @@ export function parasFromHtml(html: string): Para[] {
     }
     p.runs = p.runs.filter((r) => r.text);
   }
-  return paras.filter((p) => p.runs.length);
+  const first = paras.findIndex((p) => p.runs.length);
+  const last = paras.map((p) => p.runs.length > 0).lastIndexOf(true);
+  return first < 0 ? [] : paras.slice(first, last + 1);
 }
