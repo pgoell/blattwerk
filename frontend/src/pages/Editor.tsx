@@ -3283,7 +3283,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // a cell's and a Lineatur's to the end, as a textarea tells no letter for a point.
       else if (touch.current || (!press && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
         clicked.current = point;
-        edit(id, el);
+        openStone(el) || edit(id, el);
       }
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
@@ -3304,11 +3304,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (!el || !block || only?.type !== "zahlenmauer" || only.id !== block.dataset.id) return false;
     const wall = Number(el.closest<SVGGElement>(".wall")?.dataset.wall);
     const at = Number(el.dataset.stone);
-    // The block is scaled on the sheet, so its screen box is measured against its own size to give its own units.
-    const scale = block.getBoundingClientRect().width / block.offsetWidth;
-    const outer = block.getBoundingClientRect();
-    const inner = el.querySelector("rect")!.getBoundingClientRect();
-    const box = [inner.left - outer.left, inner.top - outer.top, inner.width, inner.height].map((v) => v / scale);
+    // The stone's box in the block's own layout, from the svg's units: a turned block's screen box is not its own.
+    const svg = el.closest<SVGSVGElement>("svg")!;
+    const view = svg.viewBox.baseVal;
+    const cell = el.querySelector("rect")!;
+    const scale = Math.min(svg.clientWidth / view.width, svg.clientHeight / view.height);
+    // The svg has no offsets of its own: its box is that of the block's Zahlenmauer, which has.
+    const host = el.closest<HTMLElement>(".zahlenmauer")!;
+    const left = host.offsetLeft + (svg.clientWidth - view.width * scale) / 2 + (cell.x.baseVal.value - view.x) * scale;
+    const top = host.offsetTop + (cell.y.baseVal.value - view.y) * scale;
+    const box = [left, top, cell.width.baseVal.value * scale, cell.height.baseVal.value * scale];
     setStone({ id: only.id, wall, at, text: String(made(only.props).walls[wall].numbers[at]), box });
     return true;
   }
