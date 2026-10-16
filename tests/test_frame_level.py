@@ -144,12 +144,26 @@ def test_a_turned_group_of_a_rectangle_and_an_arrow_has_handles_on_its_frame(edi
     group(page, "r", "p")
     for _ in range(3):
         page.keyboard.press("Alt+ArrowRight")
-    expect(page.locator(".moveable-control.moveable-nw")).to_have_count(1)
     # The four size handles stand on the turned frame, as a rectangle (#667).
     expect(page.locator(".sheet i.end")).to_have_count(4)
     nw, ne, sw, se = (centre(page.locator(".sheet i.end").nth(i)) for i in range(4))
     assert (nw[0] + se[0], nw[1] + se[1]) == pytest.approx((ne[0] + sw[0], ne[1] + sw[1]), abs=1)
     assert math.dist(nw, se) == pytest.approx(math.dist(ne, sw), abs=1)
+    # The one frame drawn is the turned one: each corner of it touches the level box round it.
+    frame = page.locator(".sheet .turned-frame").bounding_box()
+    sides = (frame["x"], frame["x"] + frame["width"]), (frame["y"], frame["y"] + frame["height"])
+    for point in (nw, ne, sw, se):
+        near = [abs(point[axis] - side) for axis in (0, 1) for side in sides[axis]]
+        assert min(near) <= NEAR, point
+    lines = page.evaluate(
+        """() => [...document.querySelectorAll('.sheet .moveable-line')]
+            .filter((el) => el.getClientRects().length && getComputedStyle(el).display !== 'none')
+            .map((el) => el.className.baseVal ?? el.className)"""
+    )
+    # Only the stalk of the turn handle: Moveable's own frame, wider than the group's, is not drawn.
+    assert all("rotation" in line for line in lines), lines
+    expect(page.locator(".sheet .moveable-direction")).to_have_count(0)
+    expect(page.locator(".sheet .moveable-rotation-control")).to_be_visible()
 
 
 def test_a_level_group_of_a_rectangle_and_an_arrow_keeps_its_corner_handles(editor):
