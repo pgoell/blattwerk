@@ -2,7 +2,6 @@
 
 import math
 
-import pytest
 from playwright.sync_api import expect
 from ui import FIELD, RECT, TEXT, at, box, saved, user
 
@@ -85,7 +84,6 @@ def test_a_block_already_past_the_foot_does_not_shrink(editor):
     assert a["h"] >= 20
 
 
-@pytest.mark.xfail(strict=True, reason="open: the stop holds the turned text, but no warning shows")
 def test_a_turned_text_near_the_foot_stops(editor):
     # Extra: a text box a teacher tilts near the foot. Turned by 30 degrees, its lowest corner is
     # its centre plus half its width and height, each leaning. At 90 degrees words grow sideways.

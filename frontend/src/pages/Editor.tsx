@@ -784,7 +784,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const stops = shape !== undefined && shape.list !== true;
       const top = stops ? footTop(b, H) : Infinity;
       const fit = stops ? Math.max(b.h, Math.min(h, top)) : h;
-      stopped(b.id, stops && top >= b.h && fit < h);
+      // A turned block's place is rounded to 0.01 mm: one stopped at the foot may reach a hair past it.
+      stopped(b.id, stops && top > b.h - 0.05 && fit < h);
       if (down ? Math.abs(h - b.h) <= 0.05 : fit <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, fit));
@@ -818,7 +819,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
     const top = footTop(b, sizeOf(hist.doc, page)[1]);
     const h = Math.max(b.h, Math.min(want, top));
-    stopped(id, top >= b.h && h < want);
+    stopped(id, top > b.h - 0.05 && h < want);
     // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
     if (h <= b.h) return;
     // A round circle stays round (#661): it grows as wide as high.
