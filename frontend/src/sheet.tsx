@@ -1809,8 +1809,10 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       });
     };
     look();
+    // A column that narrows inside a table of the same size changes no size of the table: its cells are watched too.
     const watch = new ResizeObserver(look);
     watch.observe(el);
+    el.querySelectorAll(":scope > div[data-cell]").forEach((c) => watch.observe(c));
     document.fonts.addEventListener("loadingdone", look);
     return () => {
       watch.disconnect();

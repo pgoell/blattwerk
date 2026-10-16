@@ -26,13 +26,13 @@ LINES = """(cell) => {
       range.setStart(node, start > 0 && part.length > 1 ? start + 1 : start);
       range.setEnd(node, start + part.length);
       const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0);
-      const top = rects[0].top;
+      const top = Math.round(rects[0].top);
       if (rects.some((r) => Math.abs(r.top - top) > 2)) {
         lines.push({ top: null, text: part + '!' });
         continue;
       }
       const last = lines[lines.length - 1];
-      if (last && last.top === top) last.text += part;
+      if (last && last.top !== null && Math.abs(last.top - top) < 3) last.text += part;
       else lines.push({ top, text: part });
     }
   }
@@ -120,3 +120,38 @@ def test_the_pdf_breaks_a_long_word_at_a_syllable_with_a_hyphen(editor, server):
     # The extracted text spaces the letters out, and a hyphen at a line's end comes out as a dash.
     found = re.search(r"(Sach(?:un)?(?:unter)?)\W([a-zäöüß]+)", re.sub(r"\s", "", text))
     assert found and found.group(1) + found.group(2) == "Sachunterricht", text
+
+
+def test_a_merged_cell_and_a_narrow_cell_each_break_at_a_syllable(editor):
+    props = table(
+        [WEEK, ["Sachunterricht", "", "Sachunterricht", "", "", ""]],
+        cols=[0.4, 0.4, 0.4, 1, 1, 1],
+        spans=[[1, 0, 1, 2]],
+    )
+    page = editor(box("a", "table", props))
+    expect(cell(page, 6)).to_contain_text("­")
+    expect(cell(page, 8)).to_contain_text("­")
+    # Each line but the last ends at a syllable border: the narrow cell may take more lines.
+    for n in (6, 8):
+        lines = page.evaluate(LINES, cell(page, n).element_handle())
+        ends = ["".join(lines[: i + 1]) for i in range(len(lines) - 1)]
+        assert "".join(lines) == "Sachunterricht" and all(e in SACH for e in ends), lines
+
+
+def test_a_column_made_narrower_after_the_first_draw_breaks_the_word(editor):
+    props = table([WEEK, ["Sachunterricht", "", "", "", "", ""]], cols=[3, 1, 1, 1, 1, 1])
+    page = editor(box("a", "table", props))
+    expect(page.locator(".unsplit")).to_have_count(0)
+    assert "­" not in page.evaluate(
+        "() => document.querySelector('[data-cell=\"6\"] p').textContent"
+    )
+    # The first column is made as narrow as the others: the layout of the drawn table changes.
+    page.evaluate(
+        "() => { document.querySelector('.block[data-id=\"a\"] .table').style.gridTemplateColumns"
+        " = 'repeat(6, minmax(0, 1fr))'; }"
+    )
+    page.wait_for_function(
+        "() => document.querySelector('[data-cell=\"6\"] p').textContent.includes('\\u00ad')"
+    )
+    lines = page.evaluate(LINES, cell(page, 6).element_handle())
+    assert len(lines) == 2 and lines[0] in SACH and lines[0] + lines[1] == "Sachunterricht", lines
