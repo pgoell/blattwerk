@@ -35,6 +35,8 @@ type Saver = {
   // has chosen, to keep it as a new sheet or to drop it. `choice` says how the first of the two stands.
   gone: boolean;
   choice?: "busy" | "failed";
+  // The change last sent as a sheet kept as new, whose answer may not have come.
+  asked?: Kept;
   // What the server refused in the sheet kept as new, where its answer was a refusal.
   choiceProblems?: string[];
   // Another account took over: nothing of this one is sent or heard any more.
@@ -437,7 +439,10 @@ export async function keepAsNew(id: number) {
       signedOut();
       throw new Error("401");
     }
-    const sheet = await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
+    const found = s.asked && (await ask<Sheet[]>("/sheets")).find((x) => x.title === (want.title.trim() || "Unbenanntes Blatt") && same(x.doc, want.doc));
+    s.asked = want;
+    const sheet = found || (await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body }));
     // A change made while the server was asked goes along: the new sheet's saver finds it kept, and sends it.
     if (s.want !== want && !s.dead) {
       const record: Record = { owner: s.owner, base: sheet.version, doc: s.want.doc, title: s.want.title, name: sheet.title };
