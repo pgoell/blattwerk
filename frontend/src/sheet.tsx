@@ -78,7 +78,7 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
 // `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string } };
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
 // The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
 export const startOf = (b: RulingBlock): number => {
   const from = b.props.from ?? 0;
@@ -1659,7 +1659,18 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           </>
         )}
       </svg>
-      {mode ? listed : children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
+      {mode ? listed : (
+        <>
+          {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
+          {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
+          {at && text && (block.props.syllables || block.props.tints) && (
+            <>
+              {children && <p className="written" aria-hidden="true" style={{ ...writtenStyle(block, k), visibility: "hidden" }}>{text}</p>}
+              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={block.props.breaks} syllables={block.props.syllables} tints={block.props.tints} tintsAcross={block.props.tintsAcross} />
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
