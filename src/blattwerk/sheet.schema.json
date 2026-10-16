@@ -71,7 +71,6 @@
               "description": "Prints the number in black. Left out, it is grey."
             }
           },
-          "additionalProperties": false,
           "description": "The page numbers printed on each page. Left out, none are printed."
         }
       },
@@ -79,8 +78,7 @@
         "pages",
         "guides",
         "grid"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Page": {
       "type": "object",
@@ -107,8 +105,7 @@
       },
       "required": [
         "blocks"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Block": {
       "type": "object",
@@ -335,7 +332,6 @@
     },
     "TextBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -580,7 +576,6 @@
         "strokeWidth": {
           "type": "number",
           "description": "Width of the border in mm. Absent means 0.5.",
-          "minimum": 0.25,
           "maximum": 3
         },
         "dash": {
@@ -616,8 +611,7 @@
         "text",
         "size",
         "align"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Para": {
       "type": "object",
@@ -642,8 +636,7 @@
       },
       "required": [
         "runs"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Run": {
       "type": "object",
@@ -675,8 +668,7 @@
       },
       "required": [
         "text"
-      ],
-      "additionalProperties": false
+      ]
     },
     "List": {
       "type": "string",
@@ -754,7 +746,6 @@
     },
     "ShapeBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -762,7 +753,6 @@
         },
         "props": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
             "kind": {
               "$ref": "#/definitions/Kind",
@@ -779,7 +769,6 @@
             "strokeWidth": {
               "type": "number",
               "description": "Width of the border in mm. Absent means 0.5.",
-              "minimum": 0.25,
               "maximum": 3
             },
             "from": {
@@ -1063,7 +1052,6 @@
     },
     "RulingBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1164,7 +1152,6 @@
             "kind",
             "color"
           ],
-          "additionalProperties": false,
           "description": "The Lineatur's kind and colour, and the words it may show on its rows."
         },
         "id": {
@@ -1260,7 +1247,6 @@
     },
     "NameBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1277,7 +1263,6 @@
               "description": "The words of the name line in order, such as \"Name\", \"Datum\" and \"Klasse\". Left out, the line uses FIELDS."
             }
           },
-          "additionalProperties": false,
           "description": "The line the pupil writes their name (and date, class) on."
         },
         "id": {
@@ -1352,7 +1337,6 @@
     },
     "PointsBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1373,7 +1357,6 @@
           "required": [
             "max"
           ],
-          "additionalProperties": false,
           "description": "A box the teacher writes the points scored in, beside the most there are."
         },
         "id": {
@@ -1448,7 +1431,6 @@
     },
     "SymbolBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1465,7 +1447,6 @@
           "required": [
             "code"
           ],
-          "additionalProperties": false,
           "description": "Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box."
         },
         "id": {
@@ -1540,7 +1521,6 @@
     },
     "ImageBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1576,7 +1556,6 @@
             "ratio",
             "cut"
           ],
-          "additionalProperties": false,
           "description": "Which uploaded picture the block shows, and how it is cropped."
         },
         "id": {
@@ -1651,7 +1630,6 @@
     },
     "MathsBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -1733,7 +1711,6 @@
     },
     "MathsProps": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "columns": {
           "type": "number",
@@ -2044,8 +2021,7 @@
         "b",
         "result",
         "rest"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Op": {
       "type": "string",
@@ -2108,8 +2084,7 @@
         "rows",
         "cells",
         "lines"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Compare": {
       "type": "object",
@@ -2136,8 +2111,7 @@
         "left",
         "right",
         "sign"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Side": {
       "type": "object",
@@ -2161,8 +2135,7 @@
       },
       "required": [
         "value"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Range": {
       "type": "array",
@@ -2174,7 +2147,6 @@
     },
     "TableBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -2182,7 +2154,6 @@
         },
         "props": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
             "lineStyle": {
               "$ref": "#/definitions/LineStyle",
@@ -2317,7 +2288,6 @@
             "align",
             "cells",
             "cols",
-            "line",
             "size"
           ],
           "description": "The table's text, layout and lines."
@@ -2428,8 +2398,7 @@
       "required": [
         "h",
         "v"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Edge": {
       "anyOf": [
@@ -2446,8 +2415,7 @@
               "minimum": 0.25,
               "maximum": 3
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "null"
@@ -2480,7 +2448,6 @@
     },
     "SuchselBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -2616,8 +2583,7 @@
         "umlauts",
         "show",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Ways": {
       "type": "string",
@@ -2630,7 +2596,6 @@
     },
     "ZahlenmauerBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -2787,8 +2752,7 @@
         "given",
         "empty",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Typed": {
       "type": "array",
@@ -2800,7 +2764,6 @@
     },
     "RechendreieckBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -2939,8 +2902,7 @@
         "given",
         "empty",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "FieldTyped": {
       "type": "array",
@@ -2953,7 +2915,6 @@
     },
     "ZahlenstrahlBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -3141,8 +3102,7 @@
         "arrows",
         "jumps",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Mark": {
       "type": "array",
@@ -3168,7 +3128,6 @@
     },
     "HunderterfeldBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -3391,8 +3350,7 @@
         "fill",
         "dots",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Tint": {
       "type": "number",
@@ -3403,7 +3361,6 @@
     },
     "UhrBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -3592,12 +3549,10 @@
         "step",
         "fill",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "SelbstkontrolleBlock": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
@@ -3722,8 +3677,7 @@
         "size",
         "turn",
         "seed"
-      ],
-      "additionalProperties": false
+      ]
     },
     "Form": {
       "type": "string",
@@ -3762,8 +3716,7 @@
       "required": [
         "x",
         "y"
-      ],
-      "additionalProperties": false
+      ]
     }
   }
 }

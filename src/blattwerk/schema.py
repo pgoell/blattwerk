@@ -1,11 +1,13 @@
 """Checks a sheet document against sheet.schema.json and says what to fix in plain words."""
 
 import json
+import logging
 from pathlib import Path
 
 from fastapi import HTTPException
 from jsonschema import Draft7Validator
 
+log = logging.getLogger(__name__)
 SCHEMA = json.loads((Path(__file__).parent / "sheet.schema.json").read_text())
 VALIDATOR = Draft7Validator(SCHEMA)
 WORDS = {
@@ -76,18 +78,54 @@ def items(error) -> list[tuple[list, str]]:
     return [(path, verdict(error))]
 
 
-def problems(doc: dict) -> list[str]:
-    """Every fault in the doc, the first ten by path. An empty list when the doc is right."""
+def faults(doc: dict) -> list[tuple[list, str, bool]]:
+    """Each fault's path, its text, and whether it breaks the sheet, ordered by path."""
     found = {}
     for error in VALIDATOR.iter_errors(doc):
         for path, text in items(error):
             key = tuple((0, k) if isinstance(k, int) else (1, k) for k in path)
-            found.setdefault(f"{where(path)}: {text}", key)
-    return [text for text, _ in sorted(found.items(), key=lambda item: item[1])][:10]
+            found.setdefault(f"{where(path)}: {text}", (key, path, breaks(error, path)))
+    ordered = sorted(found.items(), key=lambda item: item[1][0])
+    return [(path, text, broken) for text, (_, path, broken) in ordered]
+
+
+def problems(doc: dict) -> list[str]:
+    """Every fault in the doc against the whole schema, the first ten by path. None when right."""
+    return [text for _, text, _ in faults(doc)][:10]
+
+
+# What a block must have for the editor to open the sheet: the rest of it, the editor draws from
+# its defaults where a value is wrong or missing, and saves back as it was.
+SKELETON = {"id", "type", "x", "y", "w", "h"}
+
+
+def breaks(error, path: list) -> bool:
+    """Whether the editor cannot open a sheet with this fault: the pages, their blocks, and each
+    block's place, id and type must be there and of their type. A value it does not know, or
+    out of range, it draws as the default; a block of a type it does not know as a plain one."""
+    if error.validator not in ("type", "required"):
+        return False
+    shape = ["pages", int, "blocks", int]
+    if len(path) > len(shape) + 1:
+        return False
+    for key, want in zip(path, shape, strict=False):
+        if not isinstance(key, int) if want is int else key != want:
+            return False
+    return len(path) <= len(shape) or path[-1] in SKELETON
 
 
 def check(doc: dict) -> None:
-    """Refuses the doc with the problems as the answer's detail, so a client can fix them."""
-    listed = problems(doc)
-    if listed:
-        raise HTTPException(422, detail={"problems": listed})
+    """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
+    and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""
+    # A sheet from before pages holds its blocks at the top; the editor reads them as one page.
+    if "pages" not in doc and isinstance(doc.get("blocks"), list):
+        doc = {**doc, "pages": [{"blocks": doc["blocks"]}]}
+        del doc["blocks"]
+    found = faults(doc)
+    broken = [text for _, text, broke in found if broke][:10]
+    if broken:
+        raise HTTPException(422, detail={"problems": broken})
+    if found:
+        log.warning(
+            "sheet saved with %d faults, such as %s", len(found), [t for _, t, _ in found[:3]]
+        )

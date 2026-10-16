@@ -5,7 +5,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createGenerator } from "ts-json-schema-generator";
 
 const OUT = new URL("../src/blattwerk/sheet.schema.json", import.meta.url);
-const schema = createGenerator({ path: "src/sheet.tsx", tsconfig: "tsconfig.json", type: "Doc", skipTypeCheck: true }).createSchema("Doc");
+// A field the types do not name passes: a tab opened before a deploy, or a sheet a later build wrote, must still
+// save. The check refuses only what breaks a sheet: a wrong type, a number out of range, a field that is missing.
+const schema = createGenerator({ path: "src/sheet.tsx", tsconfig: "tsconfig.json", type: "Doc", skipTypeCheck: true, additionalProperties: true }).createSchema("Doc");
 const defs = schema.definitions;
 
 // A block is one of 16 types. As an anyOf a wrong prop would read "not valid under any of the given schemas": the
@@ -19,10 +21,15 @@ defs.Block = {
   allOf: defs.Block.anyOf.map((ref, i) => ({ if: { properties: { type: { const: types[i] } } }, then: ref })),
 };
 
-// Saved sheets that differ from the types, which the check still takes so they stay savable. The built-in maths
-// templates (src/blattwerk/templates.py) make maths blocks with no `a` and `b`, and the editor fills those in on open.
+// Saved sheets that differ from the types, which the schema still takes. The built-in maths templates
+// (src/blattwerk/templates.py) make maths blocks with no `a` and `b`, and the editor fills those in on open. A table
+// with no `line` keeps the colour of what it lies on.
 const LOOSE = { MathsProps: ["a", "b"] };
 for (const [name, fields] of Object.entries(LOOSE)) defs[name].required = defs[name].required.filter((field) => !fields.includes(field));
+const table = defs.TableBlock.properties.props;
+table.required = table.required.filter((field) => field !== "line");
+// A border thinner than the menu's 0.25 mm prints as thin as it is set.
+for (const props of [defs.TextProps, defs.ShapeBlock.properties.props]) delete props.properties.strokeWidth.minimum;
 
 // That every field has a description, tests/test_schema.py checks.
 const text = JSON.stringify(schema, null, 2) + "\n";

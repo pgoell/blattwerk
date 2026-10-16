@@ -745,7 +745,7 @@ def test_built_in_templates_are_everyones_and_stay():
 def test_templates_belong_to_one_user():
     client = user("a@example.com")
     other = user("b@example.com")
-    doc = {"pages": [{"blocks": []}], "guides": {"x": [70], "y": []}, "grid": 5}
+    doc = {"blocks": [], "guides": {"x": [70], "y": []}, "grid": 5}
     saved = client.post("/api/templates", json={"name": "Drei Spalten", "doc": doc}).json()
     assert own(client) == [{**saved, "name": "Drei Spalten", "doc": doc}]
     assert own(other) == []

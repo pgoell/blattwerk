@@ -45,13 +45,7 @@ RED = b"\xff\x00\x00"
 TEXT = {"text": "Hallo", "size": 14, "align": "left"}
 RECT = {"kind": "rect", "fill": "none", "stroke": "#222222", "strokeWidth": 0.5}
 RULING = {"kind": "l4", "color": "#222222"}
-TABLE = {
-    "cells": [["H", "Z"], ["3", "7"]],
-    "cols": [1, 1],
-    "size": 14,
-    "align": "center",
-    "line": "#222222",
-}
+TABLE = {"cells": [["H", "Z"], ["3", "7"]], "cols": [1, 1], "size": 14, "align": "center"}
 LINE = {**RECT, "kind": "line"}
 ITEM = {**TEXT, "text": "eins", "rich": [{"runs": [{"text": "eins"}], "list": "bullet"}]}
 FIELD = ".block.sel .ProseMirror"
