@@ -174,13 +174,15 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
 // A group that is turned scales in its own frame: it goes level about its middle, scales there, and turns back, so
 // a line in it still lies along the box. A group is turned when all its blocks but the lines share one angle; one with
 // blocks turned each their own way scales along the page, each block by the axis it lies along.
-const scaledGroup = (bs: Block[], sx: number, sy: number): Block[] => {
+// `at` is the point that stays, in the level frame: the level box's top left corner unless one is given.
+export const scaledGroup = (bs: Block[], sx: number, sy: number, at?: [number, number]): Block[] => {
   const { turn, about, level } = frameOf(bs);
   const lb = bounds(level);
-  return turn ? swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about) : scaled(bs, sx, sy, [lb.x, lb.y]);
+  const o = at ?? [lb.x, lb.y];
+  return turn ? swung(scaled(level, sx, sy, o), turn, about) : scaled(bs, sx, sy, o);
 };
 // A group's own frame: its blocks laid level about its middle when it is turned, as they are when it is not.
-const frameOf = (bs: Block[]) => {
+export const frameOf = (bs: Block[]) => {
   const angles = new Set(bs.filter((b) => !isLine(b)).map((b) => b.angle ?? 0));
   const turn = angles.size === 1 ? [...angles][0] : 0;
   const all = hull(bs);
@@ -188,7 +190,7 @@ const frameOf = (bs: Block[]) => {
   return { turn, about, level: turn ? swung(bs, -turn, about) : bs };
 };
 // A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
-const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
+export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
 const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
