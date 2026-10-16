@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
+import schema from "../../src/blattwerk/sheet.schema.json" with { type: "json" };
 import type { Api } from "./api.ts";
 import { INSERTS, MATHS, filled, grown, topZ } from "../src/insert.ts";
 import { fresh } from "../src/history.ts";
@@ -100,7 +100,6 @@ const meets = (a: any, b: any) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.
 
 export function tools(api: Api) {
   const bases = new Map<number, Base>();
-  const schema = JSON.parse(readFileSync(new URL("../../src/blattwerk/sheet.schema.json", import.meta.url), "utf8"));
   const docDefs = docDefinitions(schema);
   const props = propsSchema(schema);
   const blockTypes = schema.definitions.Block.properties.type.enum;

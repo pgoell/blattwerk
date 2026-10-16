@@ -23,6 +23,7 @@ data/
 
 # Frontend
 node_modules/
+frontend/.mcpb-stage/
 src/blattwerk/static/
 .claude/worktrees/
 
