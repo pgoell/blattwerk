@@ -283,6 +283,8 @@ def test_a_name_already_used_is_refused_whatever_the_case_and_spaces():
     res = client.post("/api/tokens", json={"name": " laptop schule "})
     assert res.status_code == 422
     assert list(listed(client)) == ["Laptop Schule"]
+    make(client, "Äpfel")
+    assert client.post("/api/tokens", json={"name": "äpfel"}).status_code == 422
 
 
 def test_a_name_is_free_again_once_its_key_is_revoked():

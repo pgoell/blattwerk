@@ -247,11 +247,8 @@ class NewToken(BaseModel):
 # Cookie only, like the admin calls: a token cannot mint or list tokens.
 @router.post("/tokens")
 def make_token(body: NewToken, user: User, con: Con) -> dict:
-    taken = con.execute(
-        "SELECT 1 FROM tokens WHERE user_id = ? AND lower(name) = lower(?)",
-        (user["id"], body.name),
-    ).fetchone()
-    if taken:
+    names = con.execute("SELECT name FROM tokens WHERE user_id = ?", (user["id"],))
+    if any(row["name"].strip().casefold() == body.name.casefold() for row in names):
         raise HTTPException(
             422, "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen."
         )

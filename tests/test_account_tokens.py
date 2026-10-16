@@ -161,6 +161,36 @@ def test_a_revoke_that_finds_the_session_gone_is_said_after_the_login(account, s
     expect(row(page, "Laptop")).to_be_visible()
 
 
+def test_escape_keeps_the_key_and_gives_the_focus_back(account):
+    page = account(user())
+    make(page, "Laptop Schule")
+    button = page.get_by_role("button", name="Widerrufen: Laptop Schule")
+    button.click()
+    expect(page.get_by_role("dialog")).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_role("dialog")).not_to_be_visible()
+    expect(row(page, "Laptop Schule")).to_be_visible()
+    expect(button).to_be_focused()
+
+
+def test_a_key_not_made_when_the_session_ran_out_is_said_after_the_login(account, server):
+    client = user()
+    page = account(client)
+    page.context.clear_cookies()
+    page.get_by_label("Name des Schlüssels").fill("Danach")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    cookie = {"name": "session", "value": client.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(client.get("/api/me").json()["email"])
+    page.get_by_label("Passwort").fill(PASSWORD)
+    page.get_by_role("button", name="Anmelden").click()
+    said = "Der Schlüssel „Danach“ wurde nicht erstellt"
+    expect(page.get_by_role("status")).to_contain_text(said)
+    expect(page.get_by_test_id("new-token")).to_have_count(0)
+    expect(row(page, "Danach")).to_have_count(0)
+
+
 def test_a_blank_name_says_so_beside_the_field(account):
     page = account(user())
     field = page.get_by_label("Name des Schlüssels")
