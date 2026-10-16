@@ -108,12 +108,17 @@ run = [
   "npm run typecheck --prefix frontend",
   # The schema the server checks a saved sheet against comes from the types: it fails where they moved apart.
   "npm run schema --prefix frontend -- --check",
+  # The block pages in docs/okf/blocks come from the same schema: it fails where a page differs from it.
+  "npm run okf --prefix frontend -- --check",
 ]
 
 [tasks.schema]
 description = "Write src/blattwerk/sheet.schema.json from the sheet's types in frontend/src"
 depends = ["deps"]
-run = "npm run schema --prefix frontend"
+run = [
+  "npm run schema --prefix frontend",
+  "npm run okf --prefix frontend",
+]
 
 [tasks.fmt]
 description = "Auto-format"

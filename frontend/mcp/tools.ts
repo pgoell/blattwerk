@@ -9,8 +9,6 @@ import { follow } from "../src/words.ts";
 import { EDGE, heightsOf } from "../src/cells.ts";
 import type { MathsProps } from "../src/sheet.tsx";
 
-export const INSTRUCTIONS = readFileSync(new URL("./instructions.md", import.meta.url), "utf8");
-
 export type ToolDef = { name: string; description: string; inputSchema: Record<string, unknown> };
 export type Content = { type: string; text?: string; data?: string; mimeType?: string }[];
 export type ToolResult = { content: Content; isError?: boolean };
@@ -418,7 +416,8 @@ export function tools(api: Api) {
     },
     {
       name: "create_sheet",
-      description: "Make a new worksheet, empty or from a template by name.",
+      description:
+        "Make a new worksheet, empty or from a template by name. Read blattomat://okf/page-model.md first.",
       inputSchema: {
         type: "object",
         properties: { title: { type: "string" }, template: { type: "string", description: "a template's name" } },
@@ -442,7 +441,7 @@ export function tools(api: Api) {
     {
       name: "replace_doc",
       description:
-        "Write the whole doc of a worksheet, with the version get_sheet gave. Maths blocks get their exercises from the server.",
+        "Write the whole doc of a worksheet, with the version get_sheet gave. Maths blocks get their exercises from the server. Whole sheets to start from: blattomat://okf/recipes/index.md.",
       inputSchema: {
         type: "object",
         properties: {
@@ -457,7 +456,7 @@ export function tools(api: Api) {
     {
       name: "add_block",
       description:
-        "Add a block to a page. Warnings: `overlaps block <id>` means it meets that block; `leaves the page` means it goes past the page's edge.",
+        "Add a block to a page. Warnings: `overlaps block <id>` means it meets that block; `leaves the page` means it goes past the page's edge. Props per type: resource blattomat://okf/blocks/<type>.md.",
       inputSchema: {
         type: "object",
         properties: {
@@ -478,7 +477,7 @@ export function tools(api: Api) {
     {
       name: "update_block",
       description:
-        "Change a block's props. Warnings mean as for add_block. A locked block is refused.",
+        "Change a block's props. Warnings mean as for add_block. A locked block is refused. Props per type: resource blattomat://okf/blocks/<type>.md.",
       inputSchema: {
         type: "object",
         properties: {
