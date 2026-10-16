@@ -203,7 +203,8 @@ def test_an_empty_key_says_so(tmp_path):
     text = mcp.err.read_text()
     assert "BLATTWERK_TOKEN" in text
     assert "API key" in text
-    assert "Traceback" not in text
+    # A message, not a crash: Node prints a stack's "    at " lines when it throws.
+    assert "    at " not in text
 
 
 def test_the_url_may_end_in_api(server, tmp_path):

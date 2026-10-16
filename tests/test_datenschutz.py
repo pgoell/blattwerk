@@ -7,9 +7,9 @@ from blattwerk.app import app
 
 def test_privacy_page_names_claude_desktop_and_its_recipient():
     text = TestClient(app).get("/datenschutz").text
-    for word in ("Anthropic", "Claude Desktop", "Lernwörter"):
-        assert word in text
-    assert "Widerrufen" in text or "widerrufen" in text
+    section = text.split("<h2>9. ", 1)[1].split("<h2>10. ", 1)[0]
+    for word in ("Anthropic", "Claude Desktop", "Lernwörter", "entfernen", "widerrufen"):
+        assert word in section
 
 
 def test_privacy_sections_run_in_order():
