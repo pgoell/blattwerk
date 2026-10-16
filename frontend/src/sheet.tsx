@@ -215,11 +215,17 @@ export type TextProps = {
   /** How the grey of a trace text fades: "row" fades each row from left to right, "rows" fades the rows step by step down the block. Absent means no fade. Needs `trace`. */
   fade?: Fade;
 };
-export type TextBlock = Box & { type: "text"; props: TextProps };
+export type TextBlock = Box & {
+  type: "text";
+  /** The text box's words and look. */
+  props: TextProps;
+};
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
 // ("show") or on the answer key alone ("key").
-export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & {
+export type ShapeBlock = Box & { type: "shape";
+  /** The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too. */
+  props: Partial<TextProps> & {
   /** What to draw: a frame ("rect", "rounded", "circle", "triangle", "star", "bubble") or a line ("line", a plain line, "arrow", a line with a head at its end, "double", a line with a head at each end). */
   kind: Kind;
   /** Colour inside the shape as a hex colour. "none" means no fill. */
@@ -248,6 +254,7 @@ export type ListMode = "copy" | "trace" | "row" | "fold";
 // `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
 export type RulingBlock = Box & {
   type: "ruling";
+  /** The Lineatur's kind and colour, and the words it may show on its rows. */
   props: {
     /** The ruled pattern (Lineatur) kind: its line pattern and school level, one of the RULINGS keys, such as "l1" for Lineatur 1 (Klasse 1). Required. */
     kind: Ruling;
@@ -302,6 +309,7 @@ export const startOf = (b: RulingBlock): number => {
 export const FIELDS = ["Name", "Datum", "Klasse"];
 export type NameBlock = Box & {
   type: "name";
+  /** The line the pupil writes their name (and date, class) on. */
   props: {
     /** The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. */
     fields?: string[];
@@ -309,6 +317,7 @@ export type NameBlock = Box & {
 };
 export type PointsBlock = Box & {
   type: "points";
+  /** A box the teacher writes the points scored in, beside the most there are. */
   props: {
     /** The most points the task gives, printed in the box. */
     max: number;
@@ -318,6 +327,7 @@ export type PointsBlock = Box & {
 };
 export type SymbolBlock = Box & {
   type: "symbol";
+  /** Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box. */
   props: {
     /** The OpenMoji code of the symbol, its file name in the symbol set, such as "270F" for a pencil. See SYMBOLS for all of them. */
     code: string;
@@ -326,6 +336,7 @@ export type SymbolBlock = Box & {
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
 export type ImageBlock = Box & {
   type: "image";
+  /** Which uploaded picture the block shows, and how it is cropped. */
   props: {
     /** The id of the uploaded picture file, as the server stores it. */
     upload: number;
@@ -635,15 +646,35 @@ export type ZahlenmauerBlock = Box & {
   props: ZahlenmauerProps;
 };
 // A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
-export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
+export type RechendreieckBlock = Box & {
+  type: "rechendreieck";
+  /** The calculation triangles (Rechendreiecke) and which of their fields are given. */
+  props: RechendreieckProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
-export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
+export type ZahlenstrahlBlock = Box & {
+  type: "zahlenstrahl";
+  /** The number line (Zahlenstrahl): its range, ticks and the tasks on it. */
+  props: ZahlenstrahlProps;
+};
 // A Hunderterfeld: its stored shape is the contract at the top of hunderterfeld.ts.
-export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
+export type HunderterfeldBlock = Box & {
+  type: "hunderterfeld";
+  /** The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in. */
+  props: HunderterfeldProps;
+};
 // An Uhr: its stored shape is the contract at the top of uhr.ts.
-export type UhrBlock = Box & { type: "uhr"; props: UhrProps };
+export type UhrBlock = Box & {
+  type: "uhr";
+  /** The clock faces, their times and the task: read the time or draw the hands. */
+  props: UhrProps;
+};
 // A Selbstkontrolle: its stored shape is the contract at the top of selbstkontrolle.ts.
-export type SelbstkontrolleBlock = Box & { type: "selbstkontrolle"; props: SelbstkontrolleProps };
+export type SelbstkontrolleBlock = Box & {
+  type: "selbstkontrolle";
+  /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
+  props: SelbstkontrolleProps;
+};
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.

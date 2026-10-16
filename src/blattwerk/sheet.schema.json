@@ -342,7 +342,8 @@
           "const": "text"
         },
         "props": {
-          "$ref": "#/definitions/TextProps"
+          "$ref": "#/definitions/TextProps",
+          "description": "The text box's words and look."
         },
         "id": {
           "type": "string",
@@ -978,7 +979,8 @@
             "kind",
             "stroke",
             "strokeWidth"
-          ]
+          ],
+          "description": "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
         },
         "id": {
           "type": "string",
@@ -1162,7 +1164,8 @@
             "kind",
             "color"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "The Lineatur's kind and colour, and the words it may show on its rows."
         },
         "id": {
           "type": "string",
@@ -1274,7 +1277,8 @@
               "description": "The words of the name line in order, such as \"Name\", \"Datum\" and \"Klasse\". Left out, the line uses FIELDS."
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "The line the pupil writes their name (and date, class) on."
         },
         "id": {
           "type": "string",
@@ -1369,7 +1373,8 @@
           "required": [
             "max"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "A box the teacher writes the points scored in, beside the most there are."
         },
         "id": {
           "type": "string",
@@ -1460,7 +1465,8 @@
           "required": [
             "code"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box."
         },
         "id": {
           "type": "string",
@@ -1570,7 +1576,8 @@
             "ratio",
             "cut"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "Which uploaded picture the block shows, and how it is cropped."
         },
         "id": {
           "type": "string",
@@ -2802,7 +2809,8 @@
           "const": "rechendreieck"
         },
         "props": {
-          "$ref": "#/definitions/RechendreieckProps"
+          "$ref": "#/definitions/RechendreieckProps",
+          "description": "The calculation triangles (Rechendreiecke) and which of their fields are given."
         },
         "id": {
           "type": "string",
@@ -2954,7 +2962,8 @@
           "const": "zahlenstrahl"
         },
         "props": {
-          "$ref": "#/definitions/ZahlenstrahlProps"
+          "$ref": "#/definitions/ZahlenstrahlProps",
+          "description": "The number line (Zahlenstrahl): its range, ticks and the tasks on it."
         },
         "id": {
           "type": "string",
@@ -3168,7 +3177,8 @@
           "const": "hunderterfeld"
         },
         "props": {
-          "$ref": "#/definitions/HunderterfeldProps"
+          "$ref": "#/definitions/HunderterfeldProps",
+          "description": "The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in."
         },
         "id": {
           "type": "string",
@@ -3402,7 +3412,8 @@
           "const": "uhr"
         },
         "props": {
-          "$ref": "#/definitions/UhrProps"
+          "$ref": "#/definitions/UhrProps",
+          "description": "The clock faces, their times and the task: read the time or draw the hands."
         },
         "id": {
           "type": "string",
@@ -3595,7 +3606,8 @@
           "const": "selbstkontrolle"
         },
         "props": {
-          "$ref": "#/definitions/SelbstkontrolleProps"
+          "$ref": "#/definitions/SelbstkontrolleProps",
+          "description": "The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right."
         },
         "id": {
           "type": "string",
