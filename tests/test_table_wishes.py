@@ -1,7 +1,10 @@
-"""Table wishes: Tab picks the next cell's text (#104)."""
+"""Table wishes: Tab picks the next cell's text (#104), a finger picks cells by handles (#511)."""
+
+import math
 
 from playwright.sync_api import expect
-from ui import at, box, centre, doc, drawer, finger, user
+from test_zoom import wheel
+from ui import BROWSER, at, bar, box, centre, doc, finger, user
 
 TABLE = {"cells": [["H", "Z"], ["3", "7"]], "cols": [1, 1], "size": 14, "align": "center"}
 GRID = {
@@ -41,8 +44,14 @@ def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(e
     assert page.evaluate(where) == scrolled
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
     # On the iPad held upright the format panel is a drawer: its button keeps the cells picked.
-    drawer(page, "right")
-    page.get_by_role("button", name="Zellen verbinden", exact=True).tap()
+    # Chromium's touch emulation loses a tap after such a drag now and then, WebKit's does not
+    # (#723): Chromium clicks.
+    press = (
+        (lambda button: button.tap()) if BROWSER == "webkit" else (lambda button: button.click())
+    )
+    press(bar(page, "right"))
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    press(page.get_by_role("button", name="Zellen verbinden", exact=True))
     expect(cell(page, "t", 0)).to_have_attribute("data-span", "2x2")
 
 
@@ -97,7 +106,47 @@ def test_a_tap_in_one_cell_ends_the_range(editor):
     with finger(page, centre(cell(page, "t", 8))):
         pass
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(0)
-    expect(page.locator(".cell-handle")).to_have_count(2)
+    expect(cell(page, "t", 8).locator("textarea")).to_have_count(1)
+    expect_corners(page, 8, 8)
+
+
+def expect_corners(page, first, last, turned=False):
+    """The handles stand at the top left of cell `first` and the bottom right of cell `last`.
+    A table turned by 90 degrees has those corners at the top right and the bottom left."""
+    page.wait_for_function("() => document.querySelectorAll('.cell-handle').length === 2")
+    a, b = cell(page, "t", first).bounding_box(), cell(page, "t", last).bounding_box()
+    nw = (a["x"] + a["width"], a["y"]) if turned else (a["x"], a["y"])
+    se = (b["x"], b["y"] + b["height"]) if turned else (b["x"] + b["width"], b["y"] + b["height"])
+    for corner, want in (("nw", nw), ("se", se)):
+        got = centre(page.locator(f".cell-handle-{corner}"))
+        assert math.dist(got, want) <= 3, (corner, got, want)
+
+
+def test_the_handles_stand_at_the_cells_corners(editor):
+    """Review: the bottom right handle stood beside the cell's corner."""
+    page = editor(box("t", "table", GRID), touch=True)
+    tap_open(page, 4)
+    expect_corners(page, 4, 4)
+
+
+def test_the_handles_of_a_turned_table_stand_at_its_cells_corners(editor):
+    """Review: on a turned table the handles stood far from the cells."""
+    page = editor(box("t", "table", GRID, angle=90), touch=True)
+    tap_open(page, 4)
+    expect_corners(page, 4, 4, turned=True)
+
+
+def test_the_handles_follow_a_zoom(editor):
+    """Review: after a zoom the handles kept their old place."""
+    page = editor(box("t", "table", GRID), touch=True)
+    tap_open(page, 4)
+    expect_corners(page, 4, 4)
+    wide = "() => document.querySelector('.sheet.on').getBoundingClientRect().width"
+    before = page.evaluate(wide)
+    wheel(page, -100)
+    page.wait_for_function(f"(w) => ({wide})() > w + 1", arg=before)
+    expect(cell(page, "t", 4).locator("textarea")).to_have_count(1)
+    expect_corners(page, 4, 4)
 
 
 def test_tab_from_an_open_cell_picks_the_next_cells_text(editor):
