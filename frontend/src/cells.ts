@@ -1,7 +1,7 @@
 // The merged cells of a table: pure helpers over its grid. A merged cell is a rectangle of cells. Its top-left cell
 // (its anchor) holds the text, and the other cells it covers hold nothing.
 
-// A merged cell: where it starts, and how many rows and columns it covers.
+/** A merged cell: where it starts, counted from 0, and how many rows and columns it covers. */
 export type Span = [row: number, col: number, rows: number, cols: number];
 // A rectangle of cells, both ends inside: [first row, first col, last row, last col].
 export type Rect = [number, number, number, number];
