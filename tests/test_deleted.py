@@ -328,6 +328,24 @@ def test_a_change_made_while_the_new_sheet_is_made_goes_into_it(run):
     assert len(run.client.get("/api/sheets").json()) == 3
 
 
+def test_a_keep_whose_answer_never_came_makes_no_second_sheet_on_the_next_press(run):
+    """4: the new sheet was made and its answer never came. The next press finds that sheet and
+    makes no second one."""
+    page, _, _ = deleted(run)
+    page.route(
+        f"{run.server}/api/sheets",
+        lambda route: route.fetch() if route.request.method == "POST" else route.continue_(),
+    )
+    banner = page.locator(".clash")
+    with page.expect_request(makes):
+        banner.get_by_role("button", name=KEEP).click()
+    page.clock.run_for(20000)
+    expect(banner).to_contain_text(WORD)
+    banner.get_by_role("button", name=KEEP).click()
+    expect_new(run, page)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
 def tab_to(page, press):
     for _ in range(40):
         page.keyboard.press("Tab")
