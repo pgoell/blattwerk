@@ -97,11 +97,11 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
-import Variants from "../components/Variants";
+import Variants, { CLASH } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
-import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
@@ -304,7 +304,11 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   }
   function over() {
     setChoice("busy");
-    overwrite(Number(id)).then(ended);
+    overwrite(Number(id)).then((end) => {
+      // Where this version took the other's place: what shows is what the next PDF prints.
+      if (!inClash(Number(id)) && !isGone(Number(id))) dropFault(pdfFault);
+      ended(end);
+    });
   }
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
@@ -3127,7 +3131,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
     const what = pdfFault;
     await attempt(what, async () => {
+      // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
+      // the save it waits for is the one turned down.
+      if (inClash(file.id)) return note(what, CLASH);
       const current = await flush(file.id);
+      if (inClash(file.id)) return note(what, CLASH);
       await ask("/me");
       const res = await signed(
         fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {

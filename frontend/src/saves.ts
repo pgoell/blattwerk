@@ -377,6 +377,7 @@ export function forget(id: number) {
 }
 // Whether the sheet was deleted elsewhere and waits for the teacher's choice, as of this moment.
 export const isGone = (id: number) => !!savers.get(id)?.gone;
+export const inClash = (id: number) => !!savers.get(id)?.clash;
 // A sheet deleted elsewhere is kept as a new one, with the title and the page as they stand at the press. Gives the
 // new sheet, and the old saver and its record go. Where the server made none this gives "failed", and the choice
 // stands with all that was kept: after a failure the saver says so, and a session that ran out brings the login.

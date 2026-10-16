@@ -22,7 +22,8 @@ function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number })
   return Math.max(120 / w, Math.min((room.w - GAP * (pages - 1)) / pages / w, room.h / h));
 }
 
-const CLASH = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst.";
+// The PDF of a clash waits for the teacher's choice, here and in the editor: the server holds the other device's sheet.
+export const CLASH = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst.";
 
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };

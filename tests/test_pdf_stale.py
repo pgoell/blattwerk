@@ -19,6 +19,10 @@ from ui import FIELD, pick, unpick
 
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
 VARIANTS_STALE = "Die Varianten zeigen den zuletzt gespeicherten Stand"
+# In a clash the PDF waits for the choice (#707).
+CLASH_LINE = "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
+# The PDF's line, whichever it says.
+PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
 
 
 def pdf_button(page):
@@ -136,15 +140,14 @@ def test_a_change_typed_while_the_pdf_waits_lands_and_no_line_shows(editor):
 
 
 def test_pdf_line_goes_once_the_other_version_is_loaded(run):
-    """#699: the PDF line says the change is not saved; loading the other version takes it away."""
+    """#699: the PDF line of the clash goes once the other version is loaded."""
     page, _ = start(run)
     clash(run)
-    with page.expect_download():
-        pdf_button(page).click()
-    expect(page.locator(ALERT, has_text=STALE)).to_have_count(1)
+    pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
 
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
-    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
 
 
 def test_variants_pdf_is_off_in_a_clash_and_says_why(run):
@@ -201,15 +204,14 @@ def test_pdf_line_goes_once_the_change_is_kept_as_a_new_sheet(run):
     """#699: the sheet was deleted elsewhere; „Als neues Blatt behalten“ takes the PDF line away."""
     page, _ = start(run)
     clash(run)
-    with page.expect_download():
-        pdf_button(page).click()
-    expect(page.locator(ALERT, has_text=STALE)).to_have_count(1)
+    pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
 
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(".clash")).to_contain_text("gelöscht")
     page.locator(".clash").get_by_role("button", name="Als neues Blatt behalten").click()
-    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
 
 
 def test_pdf_after_loading_the_other_version_shows_no_line(run):
@@ -223,10 +225,6 @@ def test_pdf_after_loading_the_other_version_shows_no_line(run):
     expect(page.locator(ALERT)).to_have_count(0)
 
 
-CLASH_LINE = "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
-PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
-
-
 def pdf_asks(page):
     """The PDF requests the page sends from now on."""
     asked = []
@@ -238,7 +236,7 @@ def text_of(download):
     return "".join(p.extract_text() for p in pypdf.PdfReader(download.path()).pages)
 
 
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"])
+@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
 def test_main_pdf_waits_in_a_clash_and_says_why(run, button):
     """#707: in a clash the PDF prints nothing, not the other device's sheet, and says to choose."""
     page, _ = start(run)
