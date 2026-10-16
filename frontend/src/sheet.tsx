@@ -1762,7 +1762,17 @@ function bows(svg: SVGSVGElement, module: Splitter, { base, breaks, syllables, t
         // A rect for each line the syllable stands in: one, unless a word too long for its line broke in it. A
         // syllable that two runs share has a rect for each run, side by side, and still one bow.
         const lines: { left: number; right: number; top: number; bottom: number }[] = [];
+        // A word of a linked list that its row or its folded span cuts off gets no bow where it is hidden.
+        const clipped = (x: number, y: number) => {
+          for (let el: Element | null = first.parentElement; el && el !== host; el = el.parentElement) {
+            if (!el.classList.contains("row") && (el as HTMLElement).style.overflow !== "hidden") continue;
+            const box = el.getBoundingClientRect();
+            if (x < box.left || x > box.right || y < box.top || y > box.bottom) return true;
+          }
+          return false;
+        };
         for (const { left, right, top, bottom } of range.getClientRects()) {
+          if (clipped((left + right) / 2, (top + bottom) / 2)) continue;
           const line = lines.find((line) => (top + bottom) / 2 > line.top && (top + bottom) / 2 < line.bottom);
           if (line) [line.left, line.right] = [Math.min(line.left, left), Math.max(line.right, right)];
           else if (right > left) lines.push({ left, right, top, bottom });
@@ -2182,11 +2192,11 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const listed = mode && at && (
     <div ref={list} className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
-        <div className="row" key={i} style={{ height: row * k }}>
+        <p className="row" key={i} style={{ height: row * k, margin: 0 }}>
           {mode === "row"
-            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <span key={j}>{word}</span>)
+            ? Array.from({ length: Math.min(200, Math.ceil(block.w / (size * s * 0.3 * Math.max(1, word.length))) + 1) }, (_, j) => <Fragment key={j}>{j > 0 && " "}<span>{word}</span></Fragment>)
             : <span style={fold ? { width: Math.max(0, first - indentOf(block)) * k, overflow: "hidden" } : undefined}>{fold ? <span style={{ display: "inline-block", transformOrigin: "left" }}>{word}</span> : word}</span>}
-        </div>
+        </p>
       ))}
     </div>
   );
@@ -2231,7 +2241,12 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           </>
         )}
       </svg>
-      {mode ? listed : (
+      {mode ? (
+        <>
+          {listed}
+          {at && (block.props.syllables || block.props.tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />}
+        </>
+      ) : (
         <>
           {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
           {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
