@@ -205,7 +205,8 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
     s.refused = { doc: now.doc, problems: e.problems };
     s.tries = 0;
     return settle(s);
-  } else if (!["401", "404", "stale"].includes(e.message) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
+  // A title that went alone took no document along: the server holds none of `now` then.
+  } else if (!["401", "404", "stale"].includes(e.message) && !s.lost.includes(now) && !(s.refused && now.doc === s.refused.doc)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only a 404 served for the owner means the sheet is gone.
   // One that names nobody is a failure like any other. The saver of a sheet that is gone stays, with the change and
   // its record, until the teacher has chosen, and the list asks anew: it shows the sheet no more.
@@ -232,7 +233,8 @@ function settle(s: Saver, landed = 0) {
   keep(s);
   tell(landed);
   s.idle.splice(0).forEach((done) => done());
-  if (!unsaved(s) || s.clash || s.stop || s.gone || refusal(s)) return;
+  // A refused document waits for a change; a title changed meanwhile still goes.
+  if (!unsaved(s) || s.clash || s.stop || s.gone || (refusal(s) && s.want.title === s.saved.title)) return;
   if (s.tries) plan(s, Math.min(2000 * 2 ** (s.tries - 1), 30000));
   else if (s.open) plan(s, AFTER);
   else send(s);
