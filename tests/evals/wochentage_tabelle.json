@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir eine Tabelle mit den Wochentagen Montag bis Freitag. Lege das Blatt mit dem Titel Eval Wochentage an.",
+  "expect": {"types": ["table"], "text": ["Montag", "Freitag"]}
+}

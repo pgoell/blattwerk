@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Zahlenmauern. Lege das Blatt mit dem Titel Eval Zahlenmauern an.",
+  "expect": {"types": ["zahlenmauer"], "text": ["Zahlenmauer"]}
+}

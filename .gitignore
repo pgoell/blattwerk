@@ -26,5 +26,8 @@ node_modules/
 src/blattwerk/static/
 .claude/worktrees/
 
+# Eval runs: scripts/eval.py writes its tables here
+eval-out/
+
 # Probes: run by node id, never committed
 tests/probe_*.py
