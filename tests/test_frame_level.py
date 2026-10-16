@@ -145,8 +145,11 @@ def test_a_turned_group_of_a_rectangle_and_an_arrow_has_handles_on_its_frame(edi
     for _ in range(3):
         page.keyboard.press("Alt+ArrowRight")
     expect(page.locator(".moveable-control.moveable-nw")).to_have_count(1)
-    for point in handles(page):
-        assert on_frame(page, point), point
+    # The four size handles stand on the turned frame, as a rectangle (#667).
+    expect(page.locator(".sheet i.end")).to_have_count(4)
+    nw, ne, sw, se = (centre(page.locator(".sheet i.end").nth(i)) for i in range(4))
+    assert (nw[0] + se[0], nw[1] + se[1]) == pytest.approx((ne[0] + sw[0], ne[1] + sw[1]), abs=1)
+    assert math.dist(nw, se) == pytest.approx(math.dist(ne, sw), abs=1)
 
 
 def test_a_level_group_of_a_rectangle_and_an_arrow_keeps_its_corner_handles(editor):
