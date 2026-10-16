@@ -455,8 +455,10 @@ export async function flush(id: number) {
   await idle();
   if (s.tries > failed) return false;
   send(s);
+  const went = s.out;
   await idle();
-  return s.saved.doc === asked.doc || same(s.saved.doc, asked.doc);
+  // The server holds the doc of the press, or a newer one this flush sent.
+  return same(s.saved.doc, asked.doc) || (!!went && s.saved === went);
 }
 
 // The account is known: at the app's start, a login or a logout. Another account's savers leave this window, their

@@ -6,8 +6,8 @@ that the PDF shows the saved version. A save that lands in time gives no line at
 
 import pypdf
 from playwright.sync_api import expect
-from test_refused_save import ALERT, break_x, open_sheet
-from ui import FIELD, pick
+from test_refused_save import ALERT, break_x, open_sheet, stored
+from ui import FIELD, pick, unpick
 
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
 VARIANTS_STALE = "Die Varianten zeigen den zuletzt gespeicherten Stand"
@@ -98,6 +98,33 @@ def test_slow_save_that_lands_pdf_prints_the_new_sheet(editor):
     text = "".join(p.extract_text() for p in pypdf.PdfReader(got.value.path()).pages)
     assert "du" in text
     expect(page.locator(ALERT)).to_have_count(0)
+
+
+def test_a_change_typed_while_the_pdf_waits_lands_and_no_line_shows(editor):
+    """The first save is held; the PDF waits; a newer change lands in its wait. No line shows."""
+    page, sheet_id = open_sheet(editor)
+    held = []
+
+    def hold_first(route):
+        if route.request.method == "PATCH" and not held:
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(f"**/api/sheets/{sheet_id}", hold_first)
+    type_text(page, "du")
+    while not held:
+        page.wait_for_timeout(50)
+
+    with page.expect_download(timeout=30000):
+        pdf_button(page).click()
+        unpick(page)
+        pick(page, "a")
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(1500)
+        held[0].continue_()
+    assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] != 15
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
 
 
 def test_variants_print_after_failed_save_says_so(editor):
