@@ -4,7 +4,9 @@ import base64
 import json
 import os
 import re
+import shutil
 import subprocess
+import uuid
 from pathlib import Path
 
 import httpx
@@ -16,15 +18,21 @@ SCHEMA = json.loads((ROOT / "src/blattwerk/sheet.schema.json").read_text())
 
 
 class Mcp:
-    def __init__(self, server, token, tmp_path, url=None, tag=""):
+    def __init__(self, server, token, tmp_path, url=None, tag="", docs=None):
         self.err = tmp_path / f"stderr{tag}.txt"
+        extra = {"BLATTWERK_DOCS": str(docs)} if docs else {}
         self.proc = subprocess.Popen(
             ["node", "frontend/mcp/stdio.ts"],
             cwd=ROOT,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=self.err.open("w"),
-            env={**os.environ, "BLATTWERK_URL": url or server, "BLATTWERK_TOKEN": token},
+            env={
+                **os.environ,
+                "BLATTWERK_URL": url or server,
+                "BLATTWERK_TOKEN": token,
+                **extra,
+            },
         )
         self.out = []
         self.next_id = 1
@@ -47,6 +55,12 @@ class Mcp:
         self._send({"jsonrpc": "2.0", "method": method})
 
     def request(self, method, params=None):
+        message = self.reply(method, params)
+        assert "error" not in message, message
+        return message["result"]
+
+    def reply(self, method, params=None):
+        """The whole answer, error or not."""
         ident = self.next_id
         self.next_id += 1
         self._send({"jsonrpc": "2.0", "id": ident, "method": method, "params": params or {}})
@@ -57,8 +71,7 @@ class Mcp:
             self.out.append(line)
             message = json.loads(line)
             if message.get("id") == ident:
-                assert "error" not in message, message
-                return message["result"]
+                return message
 
     def tools(self):
         return self.request("tools/list")["tools"]
@@ -373,11 +386,77 @@ def test_token_never_shows(server, tmp_path):
             mcp.stop()
 
 
-def test_instructions_name_the_three_types(server, tmp_path):
+DOCS = ROOT / "docs/okf"
+
+
+def test_instructions_are_the_index(server, tmp_path):
     _, mcp = start(server, tmp_path)
     try:
-        instructions = mcp.init["instructions"]
-        for word in ("text", "maths", "ruling"):
-            assert word in instructions
+        text = (DOCS / "index.md").read_text()
+        body = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.S).strip()
+        assert mcp.init["instructions"] == body
+        assert "Language:" in mcp.init["instructions"]
+    finally:
+        mcp.stop()
+
+
+def test_every_bundle_file_is_a_resource(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        listed = mcp.request("resources/list")["resources"]
+        paths = sorted(p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md"))
+        assert sorted(r["uri"] for r in listed) == sorted(f"blattomat://okf/{p}" for p in paths)
+        assert all(r["mimeType"] == "text/markdown" for r in listed)
+        for p in paths:
+            contents = mcp.request("resources/read", {"uri": f"blattomat://okf/{p}"})["contents"]
+            assert contents[0]["text"] == (DOCS / p).read_text()
+    finally:
+        mcp.stop()
+
+
+def test_reading_an_unknown_resource_is_an_error(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        for uri in ("blattomat://okf/nope.md", "blattomat://okf/../README.md"):
+            message = mcp.reply("resources/read", {"uri": uri})
+            assert "error" in message, message
+            assert message["error"]["message"] == (
+                f"No resource {uri}. Call resources/list for the bundle's files."
+            )
+        assert isinstance(mcp.tools(), list)
+    finally:
+        mcp.stop()
+
+
+def test_tool_descriptions_are_short_and_point_to_the_docs(server, tmp_path):
+    _, mcp = start(server, tmp_path)
+    try:
+        described = {t["name"]: t["description"] for t in mcp.tools()}
+        for name, text in described.items():
+            assert len(text) <= 250, name
+        assert "blattomat://okf/blocks/" in described["add_block"]
+        assert "blattomat://okf/blocks/" in described["update_block"]
+        assert "blattomat://okf/recipes/index.md" in described["replace_doc"]
+        assert "blattomat://okf/page-model.md" in described["create_sheet"]
+    finally:
+        mcp.stop()
+
+
+def test_a_bundle_file_added_while_stopped_shows_on_the_next_start(server, tmp_path):
+    name = f"probe-{uuid.uuid4().hex[:8]}.md"
+    docs = tmp_path / "okf"
+    shutil.copytree(DOCS, docs)
+    probe = '---\ntitle: "Probe page"\ndescription: Added by a test\n---\n\nHallo\n'
+    (docs / name).write_text(probe)
+    mcp = Mcp(server, token_for(user()), tmp_path, docs=docs)
+    try:
+        listed = {r["uri"]: r for r in mcp.request("resources/list")["resources"]}
+        found = listed[f"blattomat://okf/{name}"]
+        assert found["title"] == "Probe page"
+        assert found["description"] == "Added by a test"
+        contents = mcp.request("resources/read", {"uri": f"blattomat://okf/{name}"})
+        assert "Hallo" in contents["contents"][0]["text"]
+        escaped = mcp.reply("resources/read", {"uri": "blattomat://okf/../frontend/mcp/api.ts"})
+        assert "error" in escaped
     finally:
         mcp.stop()

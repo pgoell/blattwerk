@@ -27,6 +27,7 @@ dev = [
     "pytest-repeat>=0.9.4",
     "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
+    "pyyaml>=6.0.3",
     "ruff",
     "ty",
 ]
