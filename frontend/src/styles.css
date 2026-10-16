@@ -129,6 +129,12 @@ dialog.menu button:not(:disabled):is(:hover, :focus) { outline: 0; background: v
 dialog.menu i { width: 14px; }
 dialog.menu kbd { margin-left: auto; padding-left: 24px; font: inherit; color: var(--faint); }
 dialog.menu hr { margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
+/* The mini toolbar beside the block menu: one row of icons on the menu's own look. */
+dialog.menu .mini {
+  position: fixed; display: flex; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--raise); box-shadow: 0 6px 24px rgb(0 0 0 / .18);
+}
+dialog.menu .mini button { width: auto; min-height: 28px; padding: 0 6px; justify-content: center; }
 dialog.feedback h1, dialog.variants h1 { margin-top: 0; }
 dialog.feedback label, dialog.variants > label { margin-top: 14px; }
 dialog.variants > label { display: flex; }
