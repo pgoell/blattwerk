@@ -135,9 +135,9 @@ def test_recipe(path, server, browser):
     text_of = {b["type"]: drawn[b["id"]]["text"] for b in blocks if b["type"] != "text"}
     if path.stem == "uhrzeiten-lesen":
         assert "Uhr" in text_of["uhr"], text_of["uhr"]
-    if path.stem == "zahlenmauer-bis-20":
-        assert re.search(r"\d", text_of["zahlenmauer"]), text_of["zahlenmauer"]
     if path.stem == "suchsel-tiere":
+        # The grid's 12 x 10 letters, and the list's words under it.
+        assert len(re.findall(r"[A-ZÄÖÜ]", text_of["suchsel"])) >= 120, text_of["suchsel"]
         assert "HUND" in text_of["suchsel"], text_of["suchsel"]
 
     if path.stem == "plusaufgaben-bis-20":

@@ -8,6 +8,4 @@ table
 rechendreieck
 zahlenstrahl
 hunderterfeld
-uhr
 zahlenmauer
-suchsel
