@@ -491,8 +491,11 @@ def finger(page, start):
     # Playwright's own touchscreen only taps, so the browser is told of each touch by hand: Chromium
     # over its debugging line, WebKit, which has none, by the events themselves.
     session = None if BROWSER == "webkit" else page.context.new_cdp_session(page)
+    cancelled = []
 
     def touch(kind, *at):
+        if kind == "touchCancel":
+            cancelled.append(kind)
         if session:
             touched = [{"x": x, "y": y} for x, y in at]
             session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
@@ -501,7 +504,9 @@ def finger(page, start):
 
     touch("touchStart", start)
     yield touch
-    touch("touchEnd")
+    # A cancelled touch has no lift to send.
+    if not cancelled:
+        touch("touchEnd")
     if session:
         session.detach()
 

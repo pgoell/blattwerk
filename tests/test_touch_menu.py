@@ -72,6 +72,26 @@ def test_a_finger_held_on_a_thumbnail_then_moved_away_opens_no_menu(editor):
     expect(menu(page)).to_have_count(0)
 
 
+def test_a_second_finger_after_a_hold_opens_no_menu_on_the_lift(editor):
+    """A pinch after a hold: no menu when the fingers lift"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        outlast(page)
+        touch("touchStart", start, (start[0] + 60, start[1]))
+    expect(menu(page)).to_have_count(0)
+
+
+def test_a_touch_the_browser_cancels_after_a_hold_opens_no_menu(editor):
+    """I6"""
+    page = editor(*texts("a"), touch=True)
+    start = centre(at(page, "a"))
+    with finger(page, start) as touch:
+        outlast(page)
+        touch("touchCancel")
+    expect(menu(page)).to_have_count(0)
+
+
 def test_a_finger_held_still_on_the_empty_page_opens_the_menu_there(editor):
     """I5, and the menu lands where the finger lifts"""
     page = editor(*texts("a"), touch=True)

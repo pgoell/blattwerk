@@ -3271,6 +3271,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function onTouchStart(e: TouchEvent) {
     clearTimeout(hold.current);
     if (e.touches.length === 2) {
+      // A second finger means a pinch, which opens no menu on the lift.
+      away.current = true;
       moveable.current!.stopDrag();
       owed.current = undefined;
       const page = sheet.current!.getBoundingClientRect();
@@ -3310,7 +3312,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (e.touches.length === 1) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
-    if (Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) away.current = true;
+    if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) away.current = true;
     if (e.touches.length > 1 || away.current) clearTimeout(hold.current);
     // A snap the blocks reached before the finger had left where it came down takes them now, if it has.
     if (e.touches.length === 1 && owed.current) drag(owed.current, e.touches[0]);
