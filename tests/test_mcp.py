@@ -161,6 +161,9 @@ def test_create_rename_duplicate_list_get(server, tmp_path):
         )
         result = mcp.call("get_sheet", sheet_id=foreign)
         assert result["isError"] and "No sheet with id" in result["content"][0]["text"]
+        # An id goes into the URL: one that is no whole number never reaches another route.
+        result = mcp.call("get_sheet", sheet_id="1/../../templates")
+        assert result["isError"] and "whole number" in result["content"][0]["text"]
     finally:
         mcp.stop()
 

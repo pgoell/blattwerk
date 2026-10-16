@@ -265,6 +265,11 @@ export function tools(api: Api) {
 
   async function call(name: string, args: any): Promise<ToolResult> {
     try {
+      // The SDK does not check arguments against the schema, and these go into the URL.
+      for (const key of ["sheet_id", "page"]) {
+        if (args?.[key] !== undefined && !Number.isInteger(args[key])) throw new Fail(`${key} must be a whole number.`);
+      }
+      if (args?.outlines !== undefined && typeof args.outlines !== "boolean") throw new Fail("outlines must be true or false.");
       return { content: (await run(name, args ?? {})).map((c) => (c.text === undefined ? c : { ...c, text: api.hide(c.text) })) };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
