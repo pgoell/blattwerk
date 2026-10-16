@@ -4,7 +4,7 @@ title: "Block: name"
 description: "The line the pupil writes their name (and date, class) on."
 tags: [block, name]
 covers: [name]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # name

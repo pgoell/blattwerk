@@ -97,6 +97,29 @@ def test_every_link_lands_on_a_file_of_the_bundle(path):
         assert (path.parent / target.split("#")[0]).resolve().is_file(), f"{name(path)}: {target}"
 
 
+def when(value) -> str:
+    """A generated.at as the text it is written in, so that times compare as text."""
+    return str(value).replace(" ", "T").replace("+00:00", "Z")
+
+
+HAND_PAGES = [f for f in CONCEPTS if f.parent != DOCS / "blocks"]
+
+
+@pytest.mark.parametrize("path", HAND_PAGES, ids=name)
+def test_a_page_is_newer_than_the_blocks_it_covers(path):
+    meta, _ = split(path)
+    assert meta is not None
+    own = when(meta["generated"]["at"])
+    for block_type in meta["covers"]:
+        block_meta, _ = split(DOCS / "blocks" / f"{block_type}.md")
+        assert block_meta is not None
+        changed = when(block_meta["generated"]["at"])
+        assert changed <= own, (
+            f"{name(path)} covers {block_type}, changed at {changed} after the page's {own}: "
+            "read the page, fix it, and bump generated.at"
+        )
+
+
 def test_the_index_states_one_language_rule():
     _, body = split(DOCS / "index.md")
     rule = next(line for line in body.splitlines() if line.startswith("Language:"))

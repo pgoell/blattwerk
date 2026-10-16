@@ -4,7 +4,7 @@ title: "Block: table"
 description: "The table's text, layout and lines."
 tags: [block, table]
 covers: [table]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # table

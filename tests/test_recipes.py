@@ -131,6 +131,15 @@ def test_recipe(path, server, browser):
         f"content overflows its box: {[drawn[k]['size'] for k in overflowing]}"
     )
 
+    # The generated blocks draw their content: an empty block prints no clock, digit or word.
+    text_of = {b["type"]: drawn[b["id"]]["text"] for b in blocks if b["type"] != "text"}
+    if path.stem == "uhrzeiten-lesen":
+        assert "Uhr" in text_of["uhr"], text_of["uhr"]
+    if path.stem == "zahlenmauer-bis-20":
+        assert re.search(r"\d", text_of["zahlenmauer"]), text_of["zahlenmauer"]
+    if path.stem == "suchsel-tiere":
+        assert "HUND" in text_of["suchsel"], text_of["suchsel"]
+
     if path.stem == "plusaufgaben-bis-20":
         maths = next(b for b in blocks if b["type"] == "maths")
         check = next(b for b in blocks if b["type"] == "selbstkontrolle")

@@ -4,7 +4,7 @@ title: "Block: ruling"
 description: "The Lineatur's kind and colour, and the words it may show on its rows."
 tags: [block, ruling]
 covers: [ruling]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # ruling
