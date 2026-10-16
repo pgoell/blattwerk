@@ -6,7 +6,7 @@ type Marks = Omit<Run, "text">;
 
 // What the editor cannot hold (pictures, scripts, styles, frames) drops with its words.
 const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "HEAD", "IMG", "SVG", "IFRAME", "OBJECT"]);
-const BLOCK = new Set(["P", "DIV", "LI", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "TR", "BLOCKQUOTE"]);
+const BLOCK = new Set(["P", "DIV", "LI", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "TR", "TD", "TH", "BLOCKQUOTE"]);
 
 // A colour as #rrggbb, or nothing for a form the editor does not hold.
 function hex(v: string): string | undefined {

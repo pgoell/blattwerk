@@ -305,7 +305,11 @@ export default function Field({ view, props, hint, all, at, ...on }: Props) {
       // A key pressed before that would still replace all, so the field reads the caret first.
       handleKeyDown: () => void document.dispatchEvent(new Event("selectionchange")),
       // The field knows no line break within a paragraph.
-      transformPastedHTML: (html) => fieldMarkup(parasFromHtml(html.replace(/<br\b[^>]*>/gi, " "))),
+      // A copy of the field's own keeps its gaps and its marks as they are; ProseMirror marks it so.
+      transformPastedHTML: (html) => {
+        const flat = html.replace(/<br\b[^>]*>/gi, " ");
+        return flat.includes("data-pm-slice") ? flat : fieldMarkup(parasFromHtml(flat));
+      },
     });
     view.current = field;
     // The field lies where the closed text was drawn, so the point of the click finds its letter in it.

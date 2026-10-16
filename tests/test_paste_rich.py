@@ -151,6 +151,27 @@ def test_a_paste_into_an_open_text_keeps_bold_colour_and_drops_the_script(editor
     assert run(block, "fett").get("color") == "#ff0000"
 
 
+def test_a_copy_within_the_field_keeps_the_gap_and_not_bold(editor):
+    """A gap and a word that is not bold keep both when copied and pasted within the open text."""
+    client = user()
+    runs_of = [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " nicht", "bold": False}]
+    rich = [{"runs": runs_of}]
+    text = {"text": "Der Hund nicht", "size": 14, "align": "left", "rich": rich}
+    page = editor(box("a", "text", text), client=client)
+    pick(page, "a")
+    page.keyboard.press("F2")
+    expect(page.locator(".ProseMirror")).to_be_focused()
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    found = next(b for b in saved(page, client) if b["id"] == "a")
+    got = runs(found)
+    # Once from the first copy, once from the paste: each of the two keeps its mark.
+    assert sum(1 for r in got if r["text"] == "Hund" and r.get("gap")) == 2
+    assert sum(1 for r in got if r["text"] == " nicht" and r.get("bold") is False) == 2
+
+
 # Extra cases a teacher hits. A Word copy carries empty Office paragraphs and no-break spaces, which
 # must not add blank lines. A line break in a copy makes two paragraphs.
 def test_word_copy_has_no_blank_lines_from_office_paragraphs(editor):
@@ -163,6 +184,13 @@ def test_word_copy_has_no_blank_lines_from_office_paragraphs(editor):
     paste(page, html, "Aufgabe\n\nLösung")
     paras = pasted(page, client, "Aufgabe")["props"]["rich"]
     assert [p["runs"][0]["text"] for p in paras] == ["Aufgabe", "Lösung"]
+
+
+def test_table_cells_from_a_web_page_are_paragraphs_of_their_own(editor):
+    client = user()
+    page = editor(client=client)
+    paste(page, "<table><tr><td>eins</td><td>zwei</td></tr></table>", "eins\tzwei")
+    assert pasted(page, client, "eins")["props"]["text"] == "eins\nzwei"
 
 
 def test_a_line_break_makes_two_lines(editor):
