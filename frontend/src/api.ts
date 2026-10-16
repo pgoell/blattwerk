@@ -1,11 +1,18 @@
 export type User = { id: number; email: string; admin: boolean };
 
 // Throws the HTTP status as the error message, so callers can tell 401 from 429. `by` is the user a sheet's 404 was
-// served for, where the server named one.
-export type Refusal = Error & { by?: number };
+// served for, where the server named one. `problems` is what the server found wrong in a sheet it refused (a 422).
+export type Refusal = Error & { by?: number; problems?: string[] };
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init);
-  if (!res.ok) throw Object.assign(new Error(String(res.status)), { by: Number(res.headers.get("X-User")) || undefined });
+  if (!res.ok) {
+    const body = res.status === 422 ? await res.json().catch(() => undefined) : undefined;
+    const problems = body?.detail?.problems;
+    throw Object.assign(new Error(String(res.status)), {
+      by: Number(res.headers.get("X-User")) || undefined,
+      problems: Array.isArray(problems) ? problems.map(String) : undefined,
+    });
+  }
   return res.json();
 }
 
