@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, PT, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -165,7 +165,17 @@ export const inked = (b: Block): Box => {
     at(s, 0, sw / 2), at(s, 0, -sw / 2), at(e, 0, sw / 2), at(e, 0, -sw / 2),
     at(e, -head, head / 2), at(e, -head, -head / 2),
     ...(b.props.kind === "double" ? [at(s, head, head / 2), at(s, head, -head / 2)] : []),
+    // Ticks stand 1.5 mm to each side of the ends (`Line` in sheet.tsx draws them).
+    ...(b.props.ticks ? [s, e].flatMap((end) => [at(end, 0, 1.5), at(end, 0, -1.5)]) : []),
   ];
+  // The length stands 2 mm over the middle, on the side that reads upright: its em box, with a char at most 0.6 em.
+  if (b.props.label) {
+    const fs = 12 * PT;
+    const half = (`${(Math.round(len * 10) / 100).toLocaleString("de")} cm`.length * 0.6 * fs) / 2;
+    const side = u[0] < 0 ? -1 : 1;
+    const mid = [(s[0] + e[0]) / 2, (s[1] + e[1]) / 2];
+    for (const along of [-half, half]) for (const across of [-2 - 1.2 * fs, -2 + 0.35 * fs]) points.push(at(mid, along, side * across));
+  }
   const [xs, ys] = [points.map(([x]) => x), points.map(([, y]) => y)];
   const [x, y] = [Math.min(...xs), Math.min(...ys)];
   return { ...b, x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };

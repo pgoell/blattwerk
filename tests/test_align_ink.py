@@ -4,7 +4,7 @@ import pytest
 from test_align import button
 from test_fields import enter
 from test_group_scale_turned import ARROW, SHAPES, pick_group
-from ui import box, pick, user
+from ui import LINE, box, pick, user
 
 # Every drawn element of the block, as the page shows it, and the page's own sides.
 INK = """(name) => {
@@ -72,3 +72,14 @@ def test_a_lone_slanted_arrow_lines_up_by_its_head_and_stroke(editor, name, side
     gap = ink(page, "a")
     assert gap[side] == pytest.approx(0, abs=0.5)
     assert all(v >= -0.2 for v in gap.values())
+
+
+@pytest.mark.parametrize("more", [{"ticks": True}, {"label": "show"}])
+def test_a_level_line_with_ticks_or_its_length_lines_up_by_them(editor, more):
+    """A Strecke's ticks reach across the line, its length stands above it: Oben keeps both on."""
+    page = editor(box("a", "shape", {**LINE, **more}, x=40, y=60, w=60, h=1), client=user())
+    pick(page, "a")
+    button(page, "Oben").click()
+    gap = ink(page, "a")
+    assert gap["top"] == pytest.approx(0, abs=0.5)
+    assert gap["top"] >= -0.2
