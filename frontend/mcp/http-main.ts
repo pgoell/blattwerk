@@ -6,31 +6,37 @@ import { connect } from "./api.ts";
 import { build } from "./server.ts";
 
 const server = createServer(async (req, res) => {
-  if (req.method !== "POST" || req.url !== "/mcp") {
-    res.writeHead(405, { Allow: "POST" }).end();
-    return;
-  }
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  let body: unknown;
+  // Any throw in here, a client cut mid-body included, would end the child for every teacher: it answers this request only.
   try {
-    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (req.method !== "POST" || req.url !== "/mcp") {
+      res.writeHead(405, { Allow: "POST" }).end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    let body: unknown;
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+      // A body that is no JSON is only this request's fault.
+      res.writeHead(400).end();
+      return;
+    }
+    // The bearer token comes from the route, which checked it; the API address is set by the route too.
+    const token = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
+    const api = String(req.headers["x-blattomat-api"] ?? "");
+    const mcp = build(connect(api, token));
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    res.on("close", () => {
+      transport.close();
+      mcp.close();
+    });
+    await mcp.connect(transport);
+    await transport.handleRequest(req, res, body);
   } catch {
-    // A throw here would end the child for every teacher, so a body that is no JSON is only this request's fault.
-    res.writeHead(400).end();
-    return;
+    if (res.headersSent) res.destroy();
+    else res.writeHead(500).end();
   }
-  // The bearer token comes from the route, which checked it; the API address is set by the route too.
-  const token = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
-  const api = String(req.headers["x-blattomat-api"] ?? "");
-  const mcp = build(connect(api, token));
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-  res.on("close", () => {
-    transport.close();
-    mcp.close();
-  });
-  await mcp.connect(transport);
-  await transport.handleRequest(req, res, body);
 });
 
 server.listen(0, "127.0.0.1", () => {
