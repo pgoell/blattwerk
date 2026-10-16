@@ -1,5 +1,7 @@
 """A circle, triangle or star with inside text: type stays at 10 pt, a wide word grows the shape."""
 
+import httpx
+import pypdfium2
 import pytest
 from playwright.sync_api import expect
 from ui import RECT, TEXT, at, box, pick, saved, user
@@ -77,13 +79,74 @@ def test_a_star_at_the_foot_stops_and_keeps_10_pt(editor):
     at_least_ten_pt(page, at(page, "a"))
 
 
-def test_a_saved_star_with_a_long_text_draws_10_pt_and_is_not_grown(editor):
+SAVED = {**RECT, "kind": "star", "inside": True, "text": SENTENCE, "size": 14, "align": "center"}
+
+
+@pytest.mark.parametrize("kind, side", [("star", 40), ("circle", 20)])
+def test_a_saved_small_star_and_circle_print_as_before(editor, server, kind, side):
     client = user()
     page = editor(
         TEN,
-        box("a", "shape", {**SHAPE, "kind": "star", "text": SENTENCE}, x=20, y=30, w=40, h=40),
+        box("a", "shape", {**SAVED, "kind": kind}, x=20, y=30, w=side, h=side),
         client=client,
     )
+    # Saved and not picked: the size stays, and the type shrinks past 10 pt as before.
+    sheet_id = page.url.rsplit("/", 1)[1]
+    a = next(
+        b
+        for b in client.get(f"/api/sheets/{sheet_id}").json()["doc"]["pages"][0]["blocks"]
+        if b["id"] == "a"
+    )
+    assert (a["w"], a["h"]) == (side, side), a
+    assert font_px(at(page, "a")) < font_px(at(page, "ten")) - 0.05
+    # Every line lies inside the frame's box: nothing is drawn past the outline's inner box.
+    outside = (
+        at(page, "a")
+        .locator(".frame")
+        .evaluate(
+            """el => {
+            const f = el.getBoundingClientRect();
+            return [...el.querySelectorAll('p')].flatMap((p) => {
+                const r = document.createRange();
+                r.selectNodeContents(p);
+                const out = (q) => q.left < f.left - 1 || q.right > f.right + 1
+                  || q.top < f.top - 1 || q.bottom > f.bottom + 1;
+                return [...r.getClientRects()].filter((q) => q.width >= 1 && out(q));
+            }).length;
+        }"""
+        )
+    )
+    assert outside == 0
+    # The PDF shows the text only inside the shape's box, one mm of margin for the outline.
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=cookie, timeout=60)
+    picture = pypdfium2.PdfDocument(res.content)[0].render(scale=4).to_pil().convert("L")
+    per_mm = picture.height / 297
+    # The reference text beside it lies at 150 mm: the ink of the shape alone is left of 140 mm.
+    left = picture.crop((0, 0, int(140 * per_mm), picture.height))
+    x0, y0, x1, y1 = left.point(lambda v: 255 if v < 128 else 0).getbbox()
+    assert (
+        x0 / per_mm >= 19
+        and y0 / per_mm >= 29
+        and x1 / per_mm <= 21 + side
+        and y1 / per_mm <= 31 + side
+    ), (
+        x0 / per_mm,
+        y0 / per_mm,
+        x1 / per_mm,
+        y1 / per_mm,
+    )
+
+
+def test_an_edit_of_a_saved_star_brings_the_floor(editor):
+    client = user()
+    page = editor(TEN, box("a", "shape", SAVED, x=20, y=30, w=40, h=40), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.type(SENTENCE + " Ende.")
+    page.keyboard.press("Escape")
+    a = next(b for b in saved(page, client) if b["id"] == "a")
+    assert a["w"] > 40, a
     at_least_ten_pt(page, at(page, "a"))
 
 
