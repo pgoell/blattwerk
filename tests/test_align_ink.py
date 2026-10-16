@@ -9,11 +9,22 @@ from ui import user
 # Every drawn element of the block, as the page shows it, and the page's own sides.
 INK = """(name) => {
     const page = document.querySelector('.sheet').getBoundingClientRect();
-    // The drawn shapes only: a rotated group's box is wider than its ink.
+    // The drawn shapes only. A rotated box is wider than its ink, so a polygon's
+    // points are moved onto the screen one by one.
     const drawn = [...document.querySelectorAll(`.sheet .block[data-id="${name}"] *`)]
         .filter((el) => !["svg", "g"].includes(el.tagName))
-        .map((el) => el.getBoundingClientRect())
-        .filter((r) => r.width > 0 || r.height > 0);
+        .flatMap((el) => {
+            if (el.tagName === "polygon") {
+                const m = el.getScreenCTM();
+                return [...el.points].map((p) => {
+                    const q = new DOMPoint(p.x, p.y).matrixTransform(m);
+                    return { left: q.x, right: q.x, top: q.y, bottom: q.y };
+                });
+            }
+            const r = el.getBoundingClientRect();
+            const box = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+            return r.width > 0 || r.height > 0 ? [box] : [];
+        });
     const mm = page.width / 210;
     return {
         left: (Math.min(...drawn.map((r) => r.left)) - page.left) / mm,
@@ -36,11 +47,7 @@ def ink(page, *names):
         ("Links", "left"),
         ("Rechts", "right"),
         ("Oben", "top"),
-        pytest.param(
-            "Unten",
-            "bottom",
-            marks=pytest.mark.xfail(strict=True, reason="bottom still 1.3 mm past the page foot"),
-        ),
+        ("Unten", "bottom"),
     ],
 )
 def test_a_turned_group_with_a_line_lines_up_by_what_it_draws(editor, name, side):
