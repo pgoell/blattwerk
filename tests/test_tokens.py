@@ -248,3 +248,14 @@ def test_cookie_routes_ignore_the_header():
     assert client.get("/api/me", headers=bad).status_code == 200
     assert client.post("/api/tokens", json={"name": "x"}, headers=bad).status_code == 200
     assert client.get("/api/tokens", headers=bad).status_code == 200
+
+
+def test_bad_tries_from_before_the_window_do_not_count():
+    good = make(user())
+    con = db.open_db()
+    for _ in range(10):
+        con.execute(
+            "INSERT INTO attempts (key, created) VALUES ('token:testclient', '2026-01-01 08:00:00')"
+        )
+    con.close()
+    assert bearer(good).get("/api/sheets").status_code == 200
