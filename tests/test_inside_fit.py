@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
-from ui import RECT, at, box, pick, saved, user
+from ui import RECT, at, box, pick, reload, saved, user
 
 SENTENCE = "Male den Hasen in den Kreis und schreibe seinen Namen darunter."
 # A star with its text inside, as #655 makes one.
@@ -175,3 +175,25 @@ def test_shrunk_star_grows_back_to_full_size(editor):
     assert font_px(at(page, "a")) != full
     enter(page, "Breite", "100")
     assert font_px(at(page, "a")) == full
+
+
+def test_a_star_and_a_circle_print_their_words_whole_and_keep_their_shape_after_a_reload(
+    editor, browser, server
+):
+    client = user()
+    page = editor(client=client)
+    make(page, "Stern", "Super gemacht!")
+    make(page, "Kreis", SENTENCE)
+    star, circle = saved(page, client)
+    reload(page, page.url)
+    assert [(b["w"], b["h"]) for b in saved(page, client)] == [(40, 40), (40, 40)]
+    whole(at(page, star["id"]))
+    whole(at(page, circle["id"]))
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        for words in ("Super", "Hasen"):
+            block = paper.locator(".block").filter(has_text=words)
+            whole(block)
+            assert past_foot(block) <= 1
+    finally:
+        paper.context.close()
