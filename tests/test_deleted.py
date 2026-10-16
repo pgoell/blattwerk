@@ -596,6 +596,19 @@ def test_another_tab_with_other_work_keeps_its_choice_and_its_record(run):
     assert kept_x(other, run) == 17
 
 
+def test_a_tab_writes_its_record_back_when_another_tab_takes_it_out(run):
+    """CI: the other tab's removal of the record may reach the store after this tab wrote it back.
+    A tab with unsaved work writes its record again whenever another tab takes it out."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{a}")
+    expect_choice(other.locator(NOTICE), LINE)
+    page.evaluate(f"() => localStorage.removeItem('unsaved:{a}')")
+    other.wait_for_function(f"localStorage.getItem('unsaved:{a}') !== null")
+    expect_choice(other.locator(NOTICE), LINE)
+
+
 def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
     """2: tab 2 holds what tab 1 dropped, so its choice ends, and it goes to the list."""
     page, _, _ = deleted(run)
