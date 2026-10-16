@@ -162,7 +162,8 @@ def opened(editor, kind):
     blocks = {
         "text": [box("a", "text", {**TEXT, **PLAIN}, **CORNER)],
         "shape": [box("a", "shape", {**RECT, **PLAIN}, **CORNER)],
-        "line": [box("a", "shape", LINE, **CORNER)],
+        # A line lines up by its stroke (#677): this one's reaches past its ends to the left and up.
+        "line": [box("a", "shape", LINE, x=0.03, y=0.25)],
         "picture": [{**picture(upload(client)), "id": "a", **CORNER}],
         "table": [box("a", "table", {**TABLE, "cells": [["H", "Z"]], "size": 8}, **CORNER)],
         # As wide as the room between the margins, and down to the lower one.

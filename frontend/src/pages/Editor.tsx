@@ -110,7 +110,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, frameOf, has, hull, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
+import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
@@ -786,6 +786,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }, [blocks, k]);
   // The ids whose text the page's foot cuts short: the panel warns about them.
   const [full, setFull] = useState<string[]>([]);
+  // The blocks the panel resized last, and the picked shapes whose text grew them back: the panel says why they stay.
+  const panelSized = useRef<string[]>([]);
+  const [heldIds, setHeldIds] = useState<string[]>([]);
+  const pickedKey = ids.join(" ");
+  useEffect(() => {
+    panelSized.current = [];
+    setHeldIds([]);
+  }, [pickedKey]);
   const stopped = (id: string, on: boolean) =>
     setFull((f) => (f.includes(id) === on ? f : on ? [...f, id] : f.filter((x) => x !== id)));
   // The height at which a block's lowest point meets the page's foot `H`, or Infinity when it never does. Lowest is
@@ -845,7 +853,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     for (const b of measured) {
       // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
-      if (shrinks(b)) continue;
+      if (shrinks(b)) {
+        // A saved shape prints as it did. The teacher's change gives a picked one the floor: its type stays at 10 pt,
+        // and the grow that follows is told by `overfit` on the next draw, so the flag is set again for it.
+        // A locked one cannot grow, so it keeps its old type.
+        if (shape && shape.floor !== true && !b.locked && sel.some((s) => s.id === b.id)) {
+          grown.set(b.id, { props: { ...b.props, floor: true } } as Partial<Block>);
+          tight.current = true;
+        }
+        continue;
+      }
       const h = natural(b);
       if (h === undefined) continue;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
@@ -873,21 +890,40 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
 
   // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
-  const overfit = useRef((_id: string, _mm: number) => {});
+  const overfit = useRef((_id: string, _lack: { down: number; across: number }) => {});
   // The block last written in.
   const wrote = useRef("");
   if (editing) wrote.current = editing;
-  overfit.current = (id, mm) => {
+  overfit.current = (id, { down: mm, across }) => {
     const b = sel.find((x) => x.id === id);
     // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
-    if (b) stopped(id, mm > 0 && atFoot(b));
+    if (b) stopped(id, (mm > 0 || across > 1) && atFoot(b));
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
     const shape = b && boxed(b);
-    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || mm <= 0) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || (mm <= 0 && across <= 1)) return;
+    if (panelSized.current.includes(id)) setHeldIds((h) => (h.includes(id) ? h : [...h, id]));
+    const H = sizeOf(hist.doc, page);
+    if (across > 1) {
+      // A word too wide for the inner box: the shape grows as wide as high, by the share its words and lines lack,
+      // its top left corner stays, up to the foot and the page's right edge, by its outline when it is turned.
+      const grownBy = (s: number) => ({ ...b, ...tall(b, Math.ceil(b.h * s * 100) / 100), w: Math.ceil(b.w * s * 100) / 100 }) as Block;
+      const fits = (s: number) => lowest(grownBy(s)) <= H[1] + 0.01 && outline(grownBy(s)).x + outline(grownBy(s)).w <= H[0] + 0.01;
+      // The share it lacks, or the largest that fits, found by halving: the outline's reach grows with the share.
+      let [lo, s] = [1, Math.max(across, 1 + mm / b.h)];
+      for (let i = 0; i < 12 && !fits(s); i++) {
+        const mid = (lo + s) / 2;
+        if (fits(mid)) lo = mid;
+        else s = mid;
+      }
+      if (!fits(s)) s = lo;
+      if (!(s > 1)) return;
+      setHist((st) => ({ ...st, doc: { ...st.doc, pages: st.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, Math.ceil(x.h * s * 100) / 100), w: Math.ceil(x.w * s * 100) / 100 } as Block) : x)) } : p)) } }));
+      return;
+    }
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
-    const top = footTop(b, sizeOf(hist.doc, page)[1]);
+    const top = footTop(b, H[1]);
     const h = Math.max(b.h, Math.min(want, top));
     // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
     if (h <= b.h) return;
@@ -896,7 +932,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
   };
   useEffect(() => {
-    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<number>).detail);
+    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
     const desk = sheet.current!;
     desk.addEventListener("overfit", on);
     return () => desk.removeEventListener("overfit", on);
@@ -2577,7 +2613,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A thing lines up by the box around its outlines, a turned block's too, and moves whole.
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    const boxes = things.map((t) => bounds(t.map(outline)));
+    const boxes = things.map((t) => bounds(t.map(inked)));
     // One thing lines up with the page. Several do so with each other, or with the page when the switch says so.
     const lo = among ? Math.min(...boxes.map((b) => b[axis])) : 0;
     const hi = among ? Math.max(...boxes.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
@@ -2603,7 +2639,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
-    const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
+    const row = things.map((t) => ({ t, box: bounds(t.map(inked)) })).sort((a, b) => a.box[axis] - b.box[axis]);
     // Between the outer things, or between the page's edges. One thing goes to the middle of the frame.
     const lo = among ? Math.min(...row.map((r) => r.box[axis])) : 0;
     const hi = among ? Math.max(...row.map((r) => r.box[axis] + r.box[size])) : axis === "x" ? W : H;
@@ -3660,7 +3696,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
                 type: "shape",
                 // A shape that holds text keeps it inside its outline (#128).
-                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true }) },
+                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true, floor: true }) },
               })
             }
           />
@@ -4464,6 +4500,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 unmerge={unmerge}
                 laid={laidMm}
                 full={full}
+                held={heldIds}
+                onSize={(ids) => (panelSized.current = ids)}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}

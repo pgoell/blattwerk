@@ -64,7 +64,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; floor?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -784,28 +784,43 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const fade = fadeOf(p);
   const rowMM = p.size * PT * (p.spacing ?? 1.3);
   const frameRef = useRef<HTMLDivElement>(null);
+  // The px from the frame's top where its whole lines end, when a line lies past the page's foot (see `cutAt`).
+  const [cut, setCut] = useState<number>();
   const [lines, setLines] = useState<number>();
   useLayoutEffect(() => {
     const frame = frameRef.current;
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
-    const over = inside && frame ? fitText(frame, least.current, block.h * k) : 0;
+    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1 };
     // Zero when it fits: the editor then lifts the page foot's warning for it.
-    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: Math.max(0, over) / k }));
+    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across } }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);
   least.current = leastOf(p.size);
+  // Only a shape edited since it came in (`floor`) keeps its type at 10 pt for a word too wide; a saved one prints as it did.
+  const floored = useRef(false);
+  floored.current = p.floor === true;
   const high = useRef(0);
   high.current = block.h * k;
   useLayoutEffect(() => {
     if (!inside) return;
-    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current);
+    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current, floored.current);
     document.fonts.ready.then(again);
     document.fonts.addEventListener("loadingdone", again);
     return () => document.fonts.removeEventListener("loadingdone", again);
   }, [inside]);
+  // The whole lines are measured after the type is fitted above, on each draw and once a font is in.
+  useLayoutEffect(() => {
+    if (frameRef.current) setCut(cutAt(frameRef.current));
+  });
+  useLayoutEffect(() => {
+    const again = () => frameRef.current && setCut(cutAt(frameRef.current));
+    document.fonts.ready.then(again);
+    document.fonts.addEventListener("loadingdone", again);
+    return () => document.fonts.removeEventListener("loadingdone", again);
+  }, []);
   useEffect(() => {
     const frame = frameRef.current;
     if (fade !== "rows" || !frame) return;
@@ -862,6 +877,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight", inside && "inside")}
       data-trace={traceOf(p)}
       data-fade={fade}
+      data-cut={cut !== undefined ? "true" : undefined}
+      title={cut !== undefined ? "Text passt nicht ganz hinein" : undefined}
       style={{
         ...textStyle(p, k),
         ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
@@ -877,7 +894,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
+        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -916,7 +933,7 @@ const leastOf = (size: number) => Math.min(1, LEAST / size) || 1;
 // pixel does not shrink. Gives what the lines still reach past the room at the smallest type, in px: the editor grows
 // the shape by it, as it grows a rectangle. `high` is the shape's height in px: a frame being written in is as high
 // as its text.
-function fitText(el: HTMLElement, least: number, high: number) {
+function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   el.style.removeProperty("--fit");
   // A turned block lies level for the measure, so its lines run across.
   const block = el.parentElement!;
@@ -930,7 +947,7 @@ function fitText(el: HTMLElement, least: number, high: number) {
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
   if (bottom - top < 3) {
     block.style.transform = was;
-    return 0;
+    return { down: 0, across: 1 };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -946,15 +963,54 @@ function fitText(el: HTMLElement, least: number, high: number) {
     const tall = (lowest() - top) / (bottom - top);
     const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
     const across = Math.max(...wide);
-    // Too high: down to the smallest type. A word too wide shrinks past it: a word is never cut.
-    const next = Math.min(across > 1.01 ? scale / across : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
+    // Too high or too wide: down to the smallest type. A floored shape's word too wide that the smallest type does not fit grows the shape.
+    const side = across > 1.01 ? (floor ? Math.max(least, scale / across) : scale / across) : scale;
+    const next = Math.min(side, tall > 1.01 ? Math.max(least, scale / tall) : scale);
     if (!(next < scale)) break;
     scale = next;
     el.style.setProperty("--fit", String(scale));
   }
   const past = (lowest() - bottom) / zoom;
+  // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
+  const left = Math.max(...[...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth));
   block.style.transform = was;
-  return past > 1 ? past : 0;
+  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
+}
+// The px from a frame's top where its lines end whole, when a line lies past the page's foot: the lowest line that
+// lies wholly on the page. Measured level, as `fitText` measures it. Undefined when every line is on the page.
+function cutAt(el: HTMLElement) {
+  const paper = el.closest<HTMLElement>(".paper, .sheet");
+  // An inside shape's text stops at its inner box (its padding's foot), so it is measured even off the foot.
+  const inside = el.classList.contains("inside");
+  if (!paper && !inside) return undefined;
+  // A frame well above the foot needs no measure: its box's lowest point (turned or not) and its overflow lie above it.
+  const near = el.getBoundingClientRect();
+  const scale = near.width / el.offsetWidth || 1;
+  const reach = Math.max(0, el.scrollHeight - el.clientHeight) * scale;
+  if (!inside && near.bottom + reach < paper!.getBoundingClientRect().bottom - 1) return undefined;
+  const block = el.parentElement!;
+  const was = block.style.transform;
+  block.style.transform = "none";
+  const box = el.getBoundingClientRect();
+  const zoom = box.width / el.offsetWidth || 1;
+  // The lowest px a line may reach: the page's foot, or the inner box's foot, whichever is higher.
+  const onPage = paper ? (paper.getBoundingClientRect().bottom - box.top) / zoom : Infinity;
+  const inner = inside ? el.clientHeight - parseFloat(getComputedStyle(el).paddingBottom) : Infinity;
+  const foot = Math.min(onPage, inner);
+  let whole = 0;
+  let past = false;
+  for (const p of el.querySelectorAll<HTMLElement>("p")) {
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    for (const q of r.getClientRects()) {
+      if (q.width < 1 || q.height < 1) continue;
+      const bottom = (q.bottom - box.top) / zoom;
+      if (bottom <= foot + 0.5) whole = Math.max(whole, bottom);
+      else past = true;
+    }
+  }
+  block.style.transform = was;
+  return past ? whole : undefined;
 }
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");

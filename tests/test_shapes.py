@@ -574,8 +574,9 @@ def test_the_frame_switch_offers_the_new_shapes(editor, kind):
         expect(shape).to_have_attribute("stroke-dasharray", re.compile(r"\d"))
         expect(at(page, "a").locator(".frame")).to_have_text("Hallo")
         (a,) = saved(page, client)
-        # A kind picked now takes the inside rule of #128.
-        assert a["props"] == {**props, "kind": name, "inside": True}
+        # A kind picked now takes the inside rule of #128, and the 10 pt floor of a shape the
+        # teacher changed (#682), which stays on.
+        assert a["props"] == {**props, "kind": name, "inside": True, "floor": True}
     # And back to a box.
     frame(page, "Eckig").click()
     expect(at(page, "a").locator("svg.outline")).to_have_count(0)
