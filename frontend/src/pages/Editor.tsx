@@ -676,8 +676,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const table = sel.length === 1 && free[0]?.type === "table" ? free[0] : undefined;
   // The picture in crop mode. The draft is dropped when the selection moves on by any way but `done`.
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
-  // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles.
-  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) ? bounds(sel) : undefined;
+  // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles. They scale
+  // along the page, so a turned group has none: its frame is turned, and they would stand where no block is.
+  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) && !sel.some((b) => !isLine(b) && b.angle) ? bounds(sel) : undefined;
   // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
@@ -4066,6 +4067,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     // Each loose block has its own outline from Moveable, which the padding does not reach. Blocks of one
                     // group keep only the frame about them all, so the outlines do not cut their letters.
                     hideChildMoveableDefaultLines={oneGroup}
+                    // Loose blocks turned alike would get a frame turned about their middle. Their frame stays level.
+                    useDefaultGroupRotate={!oneGroup}
                     origin={false}
                     checkInput
                     // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
