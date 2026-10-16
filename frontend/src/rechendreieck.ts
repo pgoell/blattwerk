@@ -35,7 +35,8 @@
 
 import { rng } from "./zahlenmauer";
 
-export type Typed = [number, number, number];
+export type FieldTyped = [number, number, number];
+type Typed = FieldTyped;
 export type RechendreieckProps = {
   count: number;
   columns: number;

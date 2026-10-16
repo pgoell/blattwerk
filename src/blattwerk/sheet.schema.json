@@ -1,0 +1,3135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Doc",
+  "definitions": {
+    "Doc": {
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Page"
+          }
+        },
+        "guides": {
+          "$ref": "#/definitions/Guides"
+        },
+        "grid": {
+          "type": "number"
+        },
+        "landscape": {
+          "type": "boolean"
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "breaks": {
+          "$ref": "#/definitions/Breaks"
+        },
+        "pageNumbers": {
+          "type": "object",
+          "properties": {
+            "on": {
+              "type": "boolean"
+            },
+            "at": {
+              "type": "string",
+              "enum": [
+                "bottom",
+                "right",
+                "outer",
+                "top"
+              ]
+            },
+            "form": {
+              "type": "string",
+              "enum": [
+                "n",
+                "seite",
+                "of",
+                "seiteVon"
+              ]
+            },
+            "notFirst": {
+              "type": "boolean"
+            },
+            "black": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "pages",
+        "guides",
+        "grid"
+      ],
+      "additionalProperties": false
+    },
+    "Page": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Block"
+          }
+        },
+        "guides": {
+          "$ref": "#/definitions/Guides"
+        },
+        "grid": {
+          "type": "number"
+        },
+        "landscape": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "additionalProperties": false
+    },
+    "Block": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "description": "What the block is; the other fields depend on it.",
+          "enum": [
+            "text",
+            "shape",
+            "ruling",
+            "name",
+            "points",
+            "symbol",
+            "image",
+            "maths",
+            "table",
+            "suchsel",
+            "zahlenmauer",
+            "rechendreieck",
+            "zahlenstrahl",
+            "hunderterfeld",
+            "uhr",
+            "selbstkontrolle"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/TextBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "shape"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ShapeBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ruling"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/RulingBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "name"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/NameBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "points"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/PointsBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "symbol"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SymbolBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ImageBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "maths"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/MathsBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/TableBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "suchsel"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SuchselBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenmauer"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenmauerBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "rechendreieck"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/RechendreieckBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenstrahl"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenstrahlBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "hunderterfeld"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/HunderterfeldBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "uhr"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/UhrBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "selbstkontrolle"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SelbstkontrolleBlock"
+          }
+        }
+      ]
+    },
+    "TextBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "text"
+        },
+        "props": {
+          "$ref": "#/definitions/TextProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "TextProps": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "rich": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Para"
+          }
+        },
+        "syllables": {
+          "type": "boolean"
+        },
+        "breaks": {
+          "$ref": "#/definitions/Breaks"
+        },
+        "tints": {
+          "$ref": "#/definitions/Tints"
+        },
+        "tintsAcross": {
+          "type": "boolean"
+        },
+        "gapWidth": {
+          "type": "number"
+        },
+        "bank": {
+          "type": "number"
+        },
+        "lines": {
+          "type": "number"
+        },
+        "linesFrom": {
+          "type": "number"
+        },
+        "mix": {
+          "type": "number"
+        },
+        "mixFirst": {
+          "type": "boolean"
+        },
+        "mixCaps": {
+          "type": "boolean"
+        },
+        "mixLine": {
+          "type": "string",
+          "enum": [
+            "after",
+            "under"
+          ]
+        },
+        "list": {
+          "type": "boolean"
+        },
+        "listCols": {
+          "type": "number"
+        },
+        "holes": {
+          "type": "string",
+          "enum": [
+            "one",
+            "second",
+            "vowels"
+          ]
+        },
+        "holeSeed": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        },
+        "align": {
+          "$ref": "#/definitions/Align"
+        },
+        "font": {
+          "$ref": "#/definitions/Font"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "underline": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string"
+        },
+        "spacing": {
+          "type": "number"
+        },
+        "valign": {
+          "$ref": "#/definitions/Valign"
+        },
+        "kind": {
+          "$ref": "#/definitions/Kind"
+        },
+        "fill": {
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeOpacity": {
+          "type": "number"
+        },
+        "inside": {
+          "type": "boolean"
+        },
+        "floor": {
+          "type": "boolean"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "dash": {
+          "type": "string",
+          "enum": [
+            "dashed",
+            "dotted"
+          ]
+        },
+        "trace": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "const": "outline"
+            },
+            {
+              "type": "string",
+              "const": "dotted"
+            }
+          ]
+        },
+        "fade": {
+          "$ref": "#/definitions/Fade"
+        }
+      },
+      "required": [
+        "text",
+        "size",
+        "align"
+      ],
+      "additionalProperties": false
+    },
+    "Para": {
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Run"
+          }
+        },
+        "list": {
+          "$ref": "#/definitions/List"
+        },
+        "level": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "additionalProperties": false
+    },
+    "Run": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "underline": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string"
+        },
+        "gap": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "List": {
+      "type": "string",
+      "enum": [
+        "bullet",
+        "number"
+      ]
+    },
+    "Breaks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      }
+    },
+    "Tints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "Align": {
+      "type": "string",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "Font": {
+      "type": "string",
+      "enum": [
+        "andika",
+        "nord",
+        "sued",
+        "grund",
+        "urff",
+        "va",
+        "sas",
+        "la"
+      ]
+    },
+    "Valign": {
+      "type": "string",
+      "enum": [
+        "top",
+        "middle",
+        "bottom"
+      ]
+    },
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "rect",
+        "rounded",
+        "circle",
+        "triangle",
+        "star",
+        "bubble",
+        "line",
+        "arrow",
+        "double"
+      ]
+    },
+    "Fade": {
+      "type": "string",
+      "enum": [
+        "row",
+        "rows"
+      ]
+    },
+    "ShapeBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "shape"
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "$ref": "#/definitions/Kind"
+            },
+            "fill": {
+              "type": "string"
+            },
+            "stroke": {
+              "type": "string"
+            },
+            "strokeWidth": {
+              "type": "number"
+            },
+            "from": {
+              "$ref": "#/definitions/Corner"
+            },
+            "ticks": {
+              "type": "boolean"
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "show",
+                "key"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "rich": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Para"
+              }
+            },
+            "syllables": {
+              "type": "boolean"
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks"
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints"
+            },
+            "tintsAcross": {
+              "type": "boolean"
+            },
+            "gapWidth": {
+              "type": "number"
+            },
+            "bank": {
+              "type": "number"
+            },
+            "lines": {
+              "type": "number"
+            },
+            "linesFrom": {
+              "type": "number"
+            },
+            "mix": {
+              "type": "number"
+            },
+            "mixFirst": {
+              "type": "boolean"
+            },
+            "mixCaps": {
+              "type": "boolean"
+            },
+            "mixLine": {
+              "type": "string",
+              "enum": [
+                "after",
+                "under"
+              ]
+            },
+            "list": {
+              "type": "boolean"
+            },
+            "listCols": {
+              "type": "number"
+            },
+            "holes": {
+              "type": "string",
+              "enum": [
+                "one",
+                "second",
+                "vowels"
+              ]
+            },
+            "holeSeed": {
+              "type": "number"
+            },
+            "size": {
+              "type": "number"
+            },
+            "align": {
+              "$ref": "#/definitions/Align"
+            },
+            "font": {
+              "$ref": "#/definitions/Font"
+            },
+            "bold": {
+              "type": "boolean"
+            },
+            "italic": {
+              "type": "boolean"
+            },
+            "underline": {
+              "type": "boolean"
+            },
+            "color": {
+              "type": "string"
+            },
+            "spacing": {
+              "type": "number"
+            },
+            "valign": {
+              "$ref": "#/definitions/Valign"
+            },
+            "opacity": {
+              "type": "number"
+            },
+            "strokeOpacity": {
+              "type": "number"
+            },
+            "inside": {
+              "type": "boolean"
+            },
+            "floor": {
+              "type": "boolean"
+            },
+            "dash": {
+              "type": "string",
+              "enum": [
+                "dashed",
+                "dotted"
+              ]
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ]
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade"
+            }
+          },
+          "required": [
+            "fill",
+            "kind",
+            "stroke",
+            "strokeWidth"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "Corner": {
+      "type": "string",
+      "enum": [
+        "nw",
+        "ne",
+        "sw",
+        "se"
+      ]
+    },
+    "RulingBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "ruling"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "$ref": "#/definitions/Ruling"
+            },
+            "color": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "font": {
+              "$ref": "#/definitions/Font"
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ]
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade"
+            },
+            "list": {
+              "$ref": "#/definitions/ListMode"
+            },
+            "from": {
+              "type": "number"
+            },
+            "folds": {
+              "type": "number"
+            },
+            "house": {
+              "type": "boolean"
+            },
+            "houseTint": {
+              "type": "string",
+              "enum": [
+                "room",
+                "all"
+              ]
+            },
+            "band": {
+              "type": "boolean"
+            },
+            "bandColor": {
+              "type": "string"
+            },
+            "syllables": {
+              "type": "boolean"
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks"
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints"
+            },
+            "tintsAcross": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "color"
+          ],
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "Ruling": {
+      "type": "string",
+      "enum": [
+        "l1",
+        "l2",
+        "l3",
+        "l4",
+        "lines",
+        "k5",
+        "k7"
+      ]
+    },
+    "ListMode": {
+      "type": "string",
+      "enum": [
+        "copy",
+        "trace",
+        "row",
+        "fold"
+      ]
+    },
+    "NameBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "name"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "PointsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "points"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "max": {
+              "type": "number"
+            },
+            "total": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "max"
+          ],
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SymbolBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "symbol"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ImageBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "image"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "upload": {
+              "type": "number"
+            },
+            "ratio": {
+              "type": "number"
+            },
+            "cut": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "opacity": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "upload",
+            "ratio",
+            "cut"
+          ],
+          "additionalProperties": false
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "MathsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "maths"
+        },
+        "props": {
+          "$ref": "#/definitions/MathsProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "MathsProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        },
+        "numbering": {
+          "type": "string"
+        },
+        "exercises": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Exercise"
+          }
+        },
+        "loosen": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Op"
+          }
+        },
+        "max": {
+          "type": "number"
+        },
+        "a": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "b": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "c": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "carry": {
+          "type": "string",
+          "enum": [
+            "none",
+            "required",
+            "either"
+          ]
+        },
+        "rest": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "row",
+            "gap",
+            "written",
+            "compare"
+          ]
+        },
+        "count": {
+          "type": "number"
+        },
+        "seed": {
+          "type": "number"
+        },
+        "sides": {
+          "type": "string",
+          "enum": [
+            "nn",
+            "tn",
+            "tt"
+          ]
+        },
+        "close": {
+          "type": "boolean"
+        },
+        "equal": {
+          "type": "string",
+          "enum": [
+            "none",
+            "some"
+          ]
+        },
+        "numbers": {
+          "type": "number",
+          "enum": [
+            2,
+            3
+          ]
+        },
+        "pvs": {
+          "type": "boolean"
+        },
+        "brackets": {
+          "type": "boolean"
+        },
+        "decimals": {
+          "type": "number",
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "money": {
+          "type": "boolean"
+        },
+        "af": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "bf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "cf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          }
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "none",
+            "swap",
+            "reverse",
+            "neighbour"
+          ]
+        },
+        "moves": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ]
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "a",
+              "b",
+              "c",
+              "result"
+            ]
+          }
+        },
+        "zero": {
+          "type": "boolean"
+        },
+        "one": {
+          "type": "boolean"
+        },
+        "distinct": {
+          "type": "boolean"
+        },
+        "small": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "carry",
+        "columns",
+        "count",
+        "exercises",
+        "format",
+        "loosen",
+        "max",
+        "ops",
+        "rest",
+        "seed",
+        "size"
+      ]
+    },
+    "Exercise": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Calc"
+        },
+        {
+          "$ref": "#/definitions/Compare"
+        }
+      ]
+    },
+    "Calc": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "$ref": "#/definitions/Op"
+        },
+        "a": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        },
+        "result": {
+          "type": "number"
+        },
+        "rest": {
+          "type": "number"
+        },
+        "hide": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b",
+            "c"
+          ]
+        },
+        "grid": {
+          "$ref": "#/definitions/Grid"
+        },
+        "op2": {
+          "$ref": "#/definitions/Op"
+        },
+        "c": {
+          "type": "number"
+        },
+        "paren": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ]
+        },
+        "family": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "op",
+        "a",
+        "b",
+        "result",
+        "rest"
+      ],
+      "additionalProperties": false
+    },
+    "Op": {
+      "type": "string",
+      "enum": [
+        "+",
+        "-",
+        "*",
+        "/"
+      ]
+    },
+    "Grid": {
+      "type": "object",
+      "properties": {
+        "cols": {
+          "type": "number"
+        },
+        "rows": {
+          "type": "number"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "items": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "maxItems": 4
+          }
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        }
+      },
+      "required": [
+        "cols",
+        "rows",
+        "cells",
+        "lines"
+      ],
+      "additionalProperties": false
+    },
+    "Compare": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "$ref": "#/definitions/Side"
+        },
+        "right": {
+          "$ref": "#/definitions/Side"
+        },
+        "sign": {
+          "type": "string",
+          "enum": [
+            "<",
+            ">",
+            "="
+          ]
+        }
+      },
+      "required": [
+        "left",
+        "right",
+        "sign"
+      ],
+      "additionalProperties": false
+    },
+    "Side": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "op": {
+          "$ref": "#/definitions/Op"
+        },
+        "a": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "Range": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "TableBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "table"
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "lineStyle": {
+              "$ref": "#/definitions/LineStyle"
+            },
+            "lineWidth": {
+              "type": "number"
+            },
+            "cut": {
+              "type": "boolean"
+            },
+            "edges": {
+              "$ref": "#/definitions/Edges"
+            },
+            "cells": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "cols": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "size": {
+              "type": "number"
+            },
+            "align": {
+              "$ref": "#/definitions/Align"
+            },
+            "font": {
+              "$ref": "#/definitions/Font"
+            },
+            "color": {
+              "type": "string"
+            },
+            "line": {
+              "type": "string"
+            },
+            "head": {
+              "type": "boolean"
+            },
+            "syllables": {
+              "type": "boolean"
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks"
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints"
+            },
+            "tintsAcross": {
+              "type": "boolean"
+            },
+            "gaps": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "gapWidth": {
+              "type": "number"
+            },
+            "bank": {
+              "type": "number"
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ]
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade"
+            },
+            "spans": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Span"
+              }
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "align",
+            "cells",
+            "cols",
+            "line",
+            "size"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "LineStyle": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "dashed",
+        "dotted",
+        "none"
+      ]
+    },
+    "Edges": {
+      "type": "object",
+      "properties": {
+        "h": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Edge"
+            }
+          }
+        },
+        "v": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Edge"
+            }
+          }
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ],
+      "additionalProperties": false
+    },
+    "Edge": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "style": {
+              "$ref": "#/definitions/LineStyle"
+            },
+            "width": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Span": {
+      "type": "array",
+      "minItems": 4,
+      "items": [
+        {
+          "type": "number",
+          "title": "row"
+        },
+        {
+          "type": "number",
+          "title": "col"
+        },
+        {
+          "type": "number",
+          "title": "rows"
+        },
+        {
+          "type": "number",
+          "title": "cols"
+        }
+      ],
+      "maxItems": 4
+    },
+    "SuchselBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "suchsel"
+        },
+        "props": {
+          "$ref": "#/definitions/SuchselProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SuchselProps": {
+      "type": "object",
+      "properties": {
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cols": {
+          "type": "number"
+        },
+        "rows": {
+          "type": "number"
+        },
+        "ways": {
+          "$ref": "#/definitions/Ways"
+        },
+        "caps": {
+          "type": "boolean"
+        },
+        "umlauts": {
+          "type": "boolean"
+        },
+        "show": {
+          "type": "string",
+          "enum": [
+            "words",
+            "count"
+          ]
+        },
+        "seed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "words",
+        "cols",
+        "rows",
+        "ways",
+        "caps",
+        "umlauts",
+        "show",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "Ways": {
+      "type": "string",
+      "enum": [
+        "across",
+        "down",
+        "diag",
+        "back"
+      ]
+    },
+    "ZahlenmauerBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenmauer"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenmauerProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenmauerProps": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "type": "number",
+          "enum": [
+            3,
+            4,
+            5
+          ]
+        },
+        "count": {
+          "type": "number"
+        },
+        "columns": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "+",
+            "*"
+          ]
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "base",
+            "mix",
+            "free"
+          ]
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "empty": {
+          "type": "boolean"
+        },
+        "seed": {
+          "type": "number"
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Typed"
+          }
+        }
+      },
+      "required": [
+        "base",
+        "count",
+        "columns",
+        "max",
+        "op",
+        "given",
+        "empty",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "Typed": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "RechendreieckBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "rechendreieck"
+        },
+        "props": {
+          "$ref": "#/definitions/RechendreieckProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "RechendreieckProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "columns": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "inner",
+            "mix",
+            "outer",
+            "free"
+          ]
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "empty": {
+          "type": "boolean"
+        },
+        "seed": {
+          "type": "number"
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FieldTyped"
+          }
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "max",
+        "given",
+        "empty",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "FieldTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "ZahlenstrahlBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenstrahl"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenstrahlProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenstrahlProps": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "minor": {
+          "type": "number"
+        },
+        "major": {
+          "type": "number"
+        },
+        "labels": {
+          "type": "string",
+          "enum": [
+            "all",
+            "major",
+            "ends",
+            "none"
+          ]
+        },
+        "size": {
+          "type": "number"
+        },
+        "cut": {
+          "type": "boolean"
+        },
+        "tasks": {
+          "type": "string",
+          "enum": [
+            "random",
+            "free"
+          ]
+        },
+        "boxes": {
+          "type": "number"
+        },
+        "arrows": {
+          "type": "number"
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Mark"
+          }
+        },
+        "jumps": {
+          "type": "boolean"
+        },
+        "jump": {
+          "type": "number"
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "seed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "minor",
+        "major",
+        "labels",
+        "size",
+        "cut",
+        "tasks",
+        "boxes",
+        "arrows",
+        "jumps",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "Mark": {
+      "type": "array",
+      "minItems": 2,
+      "items": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/definitions/Task"
+        }
+      ],
+      "maxItems": 2
+    },
+    "Task": {
+      "type": "string",
+      "enum": [
+        "box",
+        "arrow"
+      ]
+    },
+    "HunderterfeldBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hunderterfeld"
+        },
+        "props": {
+          "$ref": "#/definitions/HunderterfeldProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "HunderterfeldProps": {
+      "type": "object",
+      "properties": {
+        "look": {
+          "type": "string",
+          "enum": [
+            "tafel",
+            "punkte"
+          ]
+        },
+        "from": {
+          "type": "number",
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "show": {
+          "type": "string",
+          "enum": [
+            "all",
+            "none",
+            "random",
+            "free"
+          ]
+        },
+        "hide": {
+          "type": "number"
+        },
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "tint": {
+          "type": "string",
+          "enum": [
+            "none",
+            "even",
+            "times",
+            "row",
+            "column",
+            "free"
+          ]
+        },
+        "times": {
+          "type": "number"
+        },
+        "line": {
+          "type": "number"
+        },
+        "color": {
+          "$ref": "#/definitions/Tint"
+        },
+        "tints": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/definitions/Tint"
+              }
+            ],
+            "maxItems": 2
+          }
+        },
+        "cut": {
+          "type": "boolean"
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "given": {
+          "type": "number"
+        },
+        "fill": {
+          "type": "string",
+          "enum": [
+            "count",
+            "free"
+          ]
+        },
+        "dots": {
+          "type": "number"
+        },
+        "filled": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "seed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "look",
+        "from",
+        "show",
+        "hide",
+        "tint",
+        "times",
+        "line",
+        "color",
+        "cut",
+        "fill",
+        "dots",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "Tint": {
+      "type": "number",
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "UhrBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "uhr"
+        },
+        "props": {
+          "$ref": "#/definitions/UhrProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "UhrProps": {
+      "type": "object",
+      "properties": {
+        "numbers": {
+          "type": "string",
+          "enum": [
+            "all",
+            "quarters",
+            "none"
+          ]
+        },
+        "minutes": {
+          "type": "boolean"
+        },
+        "ring": {
+          "type": "boolean"
+        },
+        "task": {
+          "type": "string",
+          "enum": [
+            "read",
+            "draw"
+          ]
+        },
+        "answer": {
+          "type": "string",
+          "enum": [
+            "box",
+            "line"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "12",
+            "24",
+            "words"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "enum": [
+            "nach",
+            "viertel"
+          ]
+        },
+        "count": {
+          "type": "number"
+        },
+        "cols": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "enum": [
+            60,
+            30,
+            15,
+            5,
+            1
+          ]
+        },
+        "fill": {
+          "type": "string",
+          "enum": [
+            "random",
+            "free"
+          ]
+        },
+        "times": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "seed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "numbers",
+        "minutes",
+        "ring",
+        "task",
+        "answer",
+        "format",
+        "region",
+        "count",
+        "cols",
+        "step",
+        "fill",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "SelbstkontrolleBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "selbstkontrolle"
+        },
+        "props": {
+          "$ref": "#/definitions/SelbstkontrolleProps"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "mark": {
+          "type": "string"
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "angle": {
+          "type": "number"
+        },
+        "flipX": {
+          "type": "boolean"
+        },
+        "flipY": {
+          "type": "boolean"
+        },
+        "keep": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SelbstkontrolleProps": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "$ref": "#/definitions/Form"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "word": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "size": {
+          "type": "number"
+        },
+        "turn": {
+          "$ref": "#/definitions/Turn"
+        },
+        "seed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "form",
+        "links",
+        "word",
+        "title",
+        "size",
+        "turn",
+        "seed"
+      ],
+      "additionalProperties": false
+    },
+    "Form": {
+      "type": "string",
+      "enum": [
+        "mixed",
+        "word",
+        "sum"
+      ]
+    },
+    "Turn": {
+      "type": "string",
+      "enum": [
+        "none",
+        "upside",
+        "fold"
+      ]
+    },
+    "Guides": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "y": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

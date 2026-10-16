@@ -27,7 +27,7 @@ export type Kind = "rect" | "rounded" | "circle" | "triangle" | "star" | "bubble
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
-export type Ruling = keyof typeof RULINGS;
+export type Ruling = "l1" | "l2" | "l3" | "l4" | "lines" | "k5" | "k7";
 export type Valign = "top" | "middle" | "bottom";
 // The two colours the syllables of a text take in turn.
 export type Tints = [string, string];
@@ -313,7 +313,7 @@ export const FONT_GROUPS = [
 // `zones` are four heights in mm from a row's top: they bound the roof, the room and the cellar of a house drawn on
 // each row. Lineatur 1 to 3 have them; Lineatur 4, the single lines and Karo have none, so they take no house.
 // `band` says whether the middle band is tinted by default (`band > 0`). A block may switch the band on or off.
-export const RULINGS = {
+export const RULINGS: Record<Ruling, { name: string; row: number; at?: number[]; zones?: number[]; band: number; base: number; size: number }> = {
   l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], zones: [2.5, 7.5, 12.5, 17.5], band: 5, base: 12.5, size: 10 },
   l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], zones: [2, 6, 10, 14], band: 4, base: 10, size: 8 },
   l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], zones: [0.5, 4, 7.5, 11], band: 0, base: 7.5, size: 7 },

@@ -1,7 +1,7 @@
 // The Rechendreieck generator: the triangles hold the rules, the given fields alone fix each one, and the typed numbers come out right.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { FIELDS, SIDES, fixes, heightFor, made, type RechendreieckProps, type Typed } from "./rechendreieck";
+import { FIELDS, SIDES, fixes, heightFor, made, type RechendreieckProps, type FieldTyped as Typed } from "./rechendreieck";
 
 const P = (over: Partial<RechendreieckProps> = {}): RechendreieckProps => ({ count: 4, columns: 4, max: 20, given: "inner", empty: false, seed: 1, ...over });
 
