@@ -596,6 +596,7 @@ body:has(.print) { background: #fff; }
 .guide { position: absolute; left: 0; top: 0; z-index: 3000; min-width: 1px; min-height: 1px; background: var(--sel); pointer-events: none; }
 /* Moveable's outline lies over a table's column lines and must not take their presses. */
 .sheet .moveable-line { pointer-events: none; }
+.sheet .turned-frame { position: absolute; z-index: 1; border: 1px solid var(--sel); transform-origin: 0 0; pointer-events: none; }
 /* The frame stands 8 px outside the block (FRAME in Editor.tsx). Moveable lays an area over that band that would take
    the press: it takes none, so a click or a drag there goes to the block or the paper under it, as beside any block. */
 .sheet .moveable-padding { pointer-events: none; }

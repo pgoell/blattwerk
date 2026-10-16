@@ -693,8 +693,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
   // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. A turned
   // one shows them on its turned frame: they size it in its own frame, where its blocks lie level.
-  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) ? frameOf(sel) : undefined;
+  // Loose blocks keep a level frame, however they are turned.
+  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) ? (oneGroup ? frameOf(sel) : { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
   const group = frame && bounds(frame.level);
+  const turnedLine = !!frame?.turn;
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -3017,7 +3019,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function scale(e: PointerEvent, right: boolean, low: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     // A turned group scales in its own frame: the pointer turns back to it, and the factor is taken there.
-    const { turn, about, level } = frameOf(start.current);
+    const { turn, about, level } = turnedLine ? frameOf(start.current) : { turn: 0, about: [0, 0] as [number, number], level: start.current };
     const { x, y, w, h } = bounds(level);
     const [px, py] = turn ? turnedAt(point(e) as [number, number], -turn, about) : point(e);
     const half = mod & CENTRE ? 2 : 1;
@@ -4210,6 +4212,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         onLostPointerCapture={() => setGuide([])}
                       />
                     ))}
+                  {/* Moveable's frame round a turned group with a line takes in the line's level box, so the group's own
+                      frame is drawn here, where its handles stand. */}
+                  {turnedLine &&
+                    ((nw, off) => (
+                      <div
+                        className="turned-frame"
+                        style={{ left: nw[0] * k + off[0], top: nw[1] * k + off[1], width: group!.w * k + FRAME.left + FRAME.right, height: group!.h * k + FRAME.top + FRAME.bottom, transform: `rotate(${frame!.turn}deg)` }}
+                      />
+                    ))(turnedAt([group!.x, group!.y], frame!.turn, frame!.about), turnedAt([-FRAME.left, -FRAME.top], frame!.turn, [0, 0]))}
                   {group &&
                     [0, 1, 2, 3].map((i) => {
                       // On the frame's corners, which stand outside the group's. A turned frame turns them about its middle.
@@ -4239,14 +4250,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     target={cropping ? [] : targets}
                     draggable={free.length === sel.length}
                     resizable={free.length === sel.length && !sel.some(isLine)}
-                    renderDirections={handles}
+                    renderDirections={turnedLine ? [] : handles}
+                    hideDefaultLines={turnedLine}
                     // A lone line keeps its own handles at its ends, and has no frame.
                     padding={sel.length === 1 && isLine(sel[0]) ? undefined : FRAME}
                     // Each loose block has its own outline from Moveable, which the padding does not reach. Blocks of one
                     // group keep only the frame about them all, so the outlines do not cut their letters.
                     hideChildMoveableDefaultLines={oneGroup}
                     // Loose blocks turned alike would get a frame turned about their middle. Their frame stays level.
-                    useDefaultGroupRotate={!oneGroup}
+                    // A turned group with a line has blocks of two angles: its frame takes the group's own.
+                    useDefaultGroupRotate={!oneGroup || !!turnedLine}
+                    defaultGroupRotate={turnedLine ? frame!.turn : 0}
                     origin={false}
                     checkInput
                     // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
