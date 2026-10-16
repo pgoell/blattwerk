@@ -12,4 +12,16 @@ if (!token) {
 const base = (process.env.BLATTWERK_URL ?? "").trim() || "https://blattwerk.pgoell.com";
 const url = base.replace(/\/+$/, "").replace(/\/api$/, "");
 
-await build(connect(url, token)).connect(new StdioServerTransport());
+// The app's version, for the line that asks to reload an old extension. Without an answer, no line.
+const check = async (): Promise<string | null> => {
+  try {
+    const res = await fetch(`${url}/api/mcpb/version`, { signal: AbortSignal.timeout(2000) });
+    if (res.status !== 200) return null;
+    const version = (await res.json()).version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+};
+
+await build(connect(url, token), check).connect(new StdioServerTransport());
