@@ -164,3 +164,9 @@ def test_datenschutz_connector():
     section = text.split("<h2>9. ", 1)[1].split("<h2>10. ", 1)[0]
     assert "https://blattwerk.pgoell.com/mcp" in section
     assert "Trennen" in section
+    connector = section.split("(b) Connector.", 1)[1]
+    assert "Anthropic PBC" in connector
+    assert "Rücksprungadresse" in connector
+    # The tries lie in the database (attempts), not in memory.
+    assert "im Arbeitsspeicher" not in text
+    assert "die Anmeldungen von Programmen" in text
