@@ -914,7 +914,9 @@ function fitText(el: HTMLElement, least: number, high: number) {
   // The room inside the padding: a text past its foot is no scroll of the frame, so the lines are measured.
   const box = el.getBoundingClientRect();
   const pad = getComputedStyle(el);
-  const [top, bottom] = [box.top + parseFloat(pad.paddingTop), box.top + high - parseFloat(pad.paddingBottom)];
+  // The desk's zoom: the screen measures in its px, the frame's sizes are in its own.
+  const zoom = box.width / el.offsetWidth || 1;
+  const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
   if (bottom - top < 3) {
     block.style.transform = was;
     return 0;
@@ -939,7 +941,7 @@ function fitText(el: HTMLElement, least: number, high: number) {
     scale = next;
     el.style.setProperty("--fit", String(scale));
   }
-  const past = lowest() - bottom;
+  const past = (lowest() - bottom) / zoom;
   block.style.transform = was;
   return past > 1 ? past : 0;
 }

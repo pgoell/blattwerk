@@ -175,7 +175,7 @@ def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
 # Many short words: each fits the inner box at 10 pt, the lines do not.
 LONG = (
     "Male den Hasen in den Kreis und dann male einen Zaun um das Haus. "
-    "Male die Sonne und den Mond und einen Baum."
+    "Male die Sonne und den Mond und einen Baum. Male die Kuh und das Pferd und den Hund."
 )
 
 
@@ -234,5 +234,30 @@ def test_a_star_and_a_circle_print_their_words_whole_and_keep_their_shape_after_
             block = paper.locator(".block").filter(has_text=words)
             whole(block)
             assert past_foot(block) <= 1
+    finally:
+        paper.context.close()
+
+
+def test_picking_a_saved_shape_too_full_for_10_pt_leaves_the_sheet_as_saved(editor):
+    client = user()
+    full = {**STAR, "kind": "circle", "text": LONG}
+    page = editor(box("a", "shape", full, x=20, y=30, w=40, h=40), client=client)
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowLeft")
+    (a,) = saved(page, client)
+    assert (a["w"], a["h"]) == (40, 40), a
+
+
+def test_a_squashed_triangle_prints_its_text_at_the_size_the_screen_shows(editor, browser, server):
+    """The desk is zoomed on the screen and not in print: the shrink comes out the same (#669)."""
+    tri = {**RECT, "kind": "triangle", "inside": True, "size": 14, "align": "center"}
+    tri |= {"text": "Das Dach vom Haus"}
+    page = editor(box("a", "shape", tri, x=15, y=150, w=60, h=30.3))
+    share = "el => parseFloat(getComputedStyle(el).fontSize) / el.offsetWidth"
+    on_screen = at(page, "a").locator(".frame").evaluate(share)
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        assert paper.locator(".block .frame").evaluate(share) == pytest.approx(on_screen, rel=0.01)
     finally:
         paper.context.close()

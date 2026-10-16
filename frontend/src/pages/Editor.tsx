@@ -785,11 +785,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
   const overfit = useRef((_id: string, _mm: number) => {});
+  // The block last written in.
+  const wrote = useRef("");
+  if (editing) wrote.current = editing;
   overfit.current = (id, mm) => {
-    // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back.
+    // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
+    // the text written in it is drawn.
     const b = sel.find((x) => x.id === id);
     const shape = b && boxed(b);
-    if (!b || !shape || !tight.current || b.locked) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked) return;
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
     const h = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
     // A round circle stays round (#661): it grows as wide as high.
