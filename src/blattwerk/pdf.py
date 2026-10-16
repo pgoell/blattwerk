@@ -33,6 +33,9 @@ POSTED: dict[str, dict] = {}
 # Each preview is a Chromium: two at once, and a burst waits WAIT seconds for a turn, then gets 503.
 SLOTS = threading.BoundedSemaphore(2)
 WAIT = 10
+# A preview holds one of the server's threads while it runs or waits, and Chromium's own requests
+# for the page need others: so two may wait beside the two that run, and the rest get 503 at once.
+ROOM = threading.BoundedSemaphore(4)
 # Milliseconds a preview's page may take to draw before the doc is refused as one no page can draw.
 DRAW = 15000
 # Drawn on a preview only: each block's box in magenta, with its id. The PDF never gets them.
@@ -193,6 +196,15 @@ def snap(
     # A4 is 210 mm wide, or 297 mm lying on its side; 96 px to the inch.
     scale = 1000 / ((297 if landscape else 210) * 96 / 25.4)
     url = f"http://127.0.0.1:{request.scope['server'][1]}/druck/{sheet_id}"
+    if not ROOM.acquire(blocking=False):
+        raise HTTPException(503, headers={"Retry-After": "5"})
+    try:
+        return shoot(url, token, scale, page, outlines)
+    finally:
+        ROOM.release()
+
+
+def shoot(url: str, token: str, scale: float, page: int, outlines: bool) -> bytes:
     if not SLOTS.acquire(timeout=WAIT):
         raise HTTPException(503, headers={"Retry-After": "5"})
     try:

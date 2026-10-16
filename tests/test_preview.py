@@ -2,6 +2,7 @@
 
 import io
 import threading
+import time
 
 import httpx
 import pypdfium2
@@ -158,6 +159,25 @@ def test_a_burst_waits_then_gets_503(monkeypatch):
         pdf.SLOTS.release()
     assert res.status_code == 503
     assert res.headers["retry-after"] == "5"
+
+
+def test_a_burst_past_the_queue_gets_503_at_once(monkeypatch):
+    # Two run and two wait: a fifth does not take a server thread for the wait.
+    client = user()
+    mine = sheet(client, [])
+    monkeypatch.setattr(pdf, "WAIT", 5)
+    for _ in range(4):
+        pdf.ROOM.acquire()
+    try:
+        start = time.monotonic()
+        res = client.get(f"/api/sheets/{mine['id']}/preview.png")
+        took = time.monotonic() - start
+    finally:
+        for _ in range(4):
+            pdf.ROOM.release()
+    assert res.status_code == 503
+    assert res.headers["retry-after"] == "5"
+    assert took < 1
 
 
 def test_a_burst_waiter_gets_its_png_when_a_slot_frees(server):
