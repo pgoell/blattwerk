@@ -5,9 +5,12 @@ a block that stood before, split the word the same way.
 """
 
 from playwright.sync_api import expect
+from test_clipboard import go
 from test_painter import held
 from test_syllables import gap, word
-from ui import TEXT, box, pick, reload, syls, user
+from ui import TEXT, at, box, pick, reload, sheet, syls, user
+
+from blattwerk import pdf
 
 SKATE = "Am Abend fahren Oma und Opa mit dem Skateboard."
 ROLL = "Das Skateboard rollt."
@@ -128,3 +131,54 @@ def test_a_mend_holds_for_the_word_in_capitals(editor):
     gap(page, "SKATEBO|ARD").click()
     pick(page, "b")
     assert syls(page, "b") == ["Das", "Skate", "board", "rollt"]
+
+
+def test_a_mend_holds_in_the_pdf(editor, browser, server):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": SKATE}),
+        box("b", "text", {**TEXT, "text": ROLL}, z=2),
+        client=client,
+    )
+    pick(page, "a")
+    bows_on(page)
+    mend_skateboard(page)
+    pick(page, "b")
+    bows_on(page)
+    expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
+    mine = page.url.rsplit("/", 1)[1]
+    printing = browser.new_context(extra_http_headers={"X-Render-Token": pdf.new_token(int(mine))})
+    print_page = printing.new_page()
+    print_page.goto(f"{server}/druck/{mine}")
+    print_page.wait_for_selector("body.ready", state="attached")
+    bows = print_page.locator(".syl")
+    expect(bows).to_have_count(18)
+    assert bows.evaluate_all("els => els.map((e) => e.dataset.syl)")[-4:] == [
+        "Das",
+        "Skate",
+        "board",
+        "rollt",
+    ]
+    printing.close()
+
+
+def test_a_copied_mended_block_keeps_its_mend_in_another_sheet(editor, server):
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": SKATE, "syllables": True}), client=client)
+    pick(page, "a")
+    word(page, "Ska·te·bo·ard").click()
+    gap(page, "Ska|teboard").click()
+    gap(page, "Skatebo|ard").click()
+    expect(word(page, "Skate·board")).to_be_visible()
+    pick(page, "a")
+    # The panel holds the keys after a mend: the desk takes them back with a click on the block.
+    at(page, "a").click()
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+c")
+    other = sheet(client, [box("t", "text", TEXT, z=3)])
+    go(page, other, 1)
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    pasted = page.locator(".block.sel").get_attribute("data-id")
+    bows = syls(page, pasted)
+    assert "Ska" not in bows and bows[bows.index("Skate") :][:2] == ["Skate", "board"]

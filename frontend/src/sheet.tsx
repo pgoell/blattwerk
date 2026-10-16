@@ -342,13 +342,15 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
   words,
   pageNumbers,
+  // A sheet may come from anywhere: only a plain object of mends is kept.
+  breaks: breaks && typeof breaks === "object" && !Array.isArray(breaks) ? breaks : undefined,
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
