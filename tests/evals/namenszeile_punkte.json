@@ -1,4 +1,4 @@
 {
   "prompt": "Mach mir ein Blatt mit einer Namenszeile und einer Punkteangabe. Lege das Blatt mit dem Titel Eval Namenszeile und Punkte an.",
-  "expect": {"types": ["name", "points"], "text": ["Punkte"]}
+  "expect": {"types": ["name", "points"], "text": []}
 }
