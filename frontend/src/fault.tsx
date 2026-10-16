@@ -49,6 +49,12 @@ export async function attempt<T>(what: string, run: () => Promise<T>, own?: (sta
   }
 }
 
+// A line that says something without a try: the action is done, and the teacher must know more. The next try of the
+// same `what` takes it away, as for a failure.
+export function note(what: string, text: string) {
+  show([...faults.filter((f) => f.what !== what), { what, text }]);
+}
+
 // Another account's login takes every line away: its button would act for the account before.
 export const clear = () => show([]);
 
