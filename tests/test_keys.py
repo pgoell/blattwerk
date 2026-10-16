@@ -92,11 +92,11 @@ def test_enter_and_f2_pick_all_of_a_ruling_and_of_a_cell(editor):
     expect(cell).to_be_focused()
     page.keyboard.type("x")
     expect(cell).to_have_value("x")
-    # Tab goes to the next cell, with the caret at the end of its text as before.
+    # Tab goes to the next cell and picks its text, as PowerPoint does (#104).
     page.keyboard.press("Tab")
     expect(cell).to_have_value("Z")
     page.keyboard.type("!")
-    expect(cell).to_have_value("Z!")
+    expect(cell).to_have_value("!")
     page.keyboard.press("F2")
     expect(cell).to_have_count(0)
     assert picked(page) == ["table"]
