@@ -481,7 +481,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
       {sel.some((b) => held.includes(b.id)) && (
         <p className="hint" role="status" data-held="text">
-          Der Text braucht diese Höhe. Verkleinere die Schrift oder kürze den Text, dann wird die Form kleiner.
+          Der Text braucht diese Höhe. Mit kleinerer Schrift oder kürzerem Text lässt sich die Form kleiner stellen.
         </p>
       )}
       {/* A table that a new column made wider than the page is cut too, at the right edge. */}

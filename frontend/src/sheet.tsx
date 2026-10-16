@@ -786,15 +786,6 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const frameRef = useRef<HTMLDivElement>(null);
   // The px from the frame's top where its whole lines end, when a line lies past the page's foot (see `cutAt`).
   const [cut, setCut] = useState<number>();
-  useLayoutEffect(() => {
-    if (frameRef.current) setCut(cutAt(frameRef.current));
-  });
-  useLayoutEffect(() => {
-    const again = () => frameRef.current && setCut(cutAt(frameRef.current));
-    document.fonts.ready.then(again);
-    document.fonts.addEventListener("loadingdone", again);
-    return () => document.fonts.removeEventListener("loadingdone", again);
-  }, []);
   const [lines, setLines] = useState<number>();
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -820,6 +811,16 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     document.fonts.addEventListener("loadingdone", again);
     return () => document.fonts.removeEventListener("loadingdone", again);
   }, [inside]);
+  // The whole lines are measured after the type is fitted above, on each draw and once a font is in.
+  useLayoutEffect(() => {
+    if (frameRef.current) setCut(cutAt(frameRef.current));
+  });
+  useLayoutEffect(() => {
+    const again = () => frameRef.current && setCut(cutAt(frameRef.current));
+    document.fonts.ready.then(again);
+    document.fonts.addEventListener("loadingdone", again);
+    return () => document.fonts.removeEventListener("loadingdone", again);
+  }, []);
   useEffect(() => {
     const frame = frameRef.current;
     if (fade !== "rows" || !frame) return;

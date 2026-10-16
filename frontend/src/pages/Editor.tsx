@@ -856,7 +856,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       if (shrinks(b)) {
         // A saved shape prints as it did. The teacher's change gives a picked one the floor: its type stays at 10 pt,
         // and the grow that follows is told by `overfit` on the next draw, so the flag is set again for it.
-        if (shape && shape.floor !== true && sel.some((s) => s.id === b.id)) {
+        // A locked one cannot grow, so it keeps its old type.
+        if (shape && shape.floor !== true && !b.locked && sel.some((s) => s.id === b.id)) {
           grown.set(b.id, { props: { ...b.props, floor: true } } as Partial<Block>);
           tight.current = true;
         }
@@ -905,8 +906,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const H = sizeOf(hist.doc, page);
     if (across > 1) {
       // A word too wide for the inner box: the shape grows as wide as high, by the share its words and lines lack,
-      // its top left corner stays, up to the foot and the page's right edge.
-      const s = Math.min(Math.max(across, 1 + mm / b.h), footTop(b, H[1]) / b.h, (H[0] - b.x) / b.w);
+      // its top left corner stays, up to the foot and the page's right edge, by its outline when it is turned.
+      const grownBy = (s: number) => ({ ...b, ...tall(b, Math.ceil(b.h * s * 100) / 100), w: Math.ceil(b.w * s * 100) / 100 }) as Block;
+      const fits = (s: number) => lowest(grownBy(s)) <= H[1] + 0.01 && outline(grownBy(s)).x + outline(grownBy(s)).w <= H[0] + 0.01;
+      // The share it lacks, or the largest that fits, found by halving: the outline's reach grows with the share.
+      let [lo, s] = [1, Math.max(across, 1 + mm / b.h)];
+      for (let i = 0; i < 12 && !fits(s); i++) {
+        const mid = (lo + s) / 2;
+        if (fits(mid)) lo = mid;
+        else s = mid;
+      }
+      if (!fits(s)) s = lo;
       if (!(s > 1)) return;
       setHist((st) => ({ ...st, doc: { ...st.doc, pages: st.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, Math.ceil(x.h * s * 100) / 100), w: Math.ceil(x.w * s * 100) / 100 } as Block) : x)) } : p)) } }));
       return;

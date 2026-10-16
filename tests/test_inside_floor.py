@@ -1,5 +1,7 @@
 """A circle, triangle or star with inside text: type stays at 10 pt, a wide word grows the shape."""
 
+import math
+
 import httpx
 import pypdfium2
 import pytest
@@ -243,3 +245,31 @@ def test_a_circle_that_takes_its_smaller_height_shows_no_hint(editor):
     enter_field(page, "Höhe %", "50")
     saved(page, client)
     expect(page.locator(HELD)).to_have_count(0)
+
+
+def test_a_locked_saved_star_keeps_its_old_type_after_a_bold_click(editor):
+    """A locked shape cannot grow, so a change to it must not bring the floor and hide words."""
+    client = user()
+    page = editor(TEN, box("a", "shape", SAVED, x=20, y=30, w=40, h=40, locked=True), client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+b")
+    expect(at(page, "a").locator(".frame")).to_have_css("font-weight", "700")
+    a = next(b for b in saved(page, client) if b["id"] == "a")
+    assert (a["w"], a["h"], a["props"].get("floor")) == (40, 40, None), a
+    # It still shrinks its words to fit, below the 10 pt text beside it, and hides none.
+    assert font_px(at(page, "a")) < font_px(at(page, "ten"))
+    expect(at(page, "a").locator(".frame")).not_to_have_attribute("data-cut", "true")
+
+
+def test_a_turned_star_that_grows_for_a_wide_word_stays_above_the_foot(editor):
+    client = user()
+    star = {**SHAPE, "kind": "star", "floor": True}
+    page = editor(TEN, box("a", "shape", star, x=100, y=235, w=40, h=40, angle=30), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Donaudampfschifffahrtsgesellschaft")
+    page.keyboard.press("Escape")
+    a = next(b for b in saved(page, client) if b["id"] == "a")
+    turn = math.radians(a["angle"])
+    low = a["y"] + a["h"] / 2 + a["w"] / 2 * abs(math.sin(turn)) + a["h"] / 2 * abs(math.cos(turn))
+    assert low <= 297.01, a
