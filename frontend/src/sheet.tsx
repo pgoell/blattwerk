@@ -781,7 +781,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
     const over = inside && frame ? fitText(frame, least.current, block.h * k) : 0;
-    if (over > 0) frame!.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: over / k }));
+    // Zero when it fits: the editor then lifts the page foot's warning for it.
+    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: Math.max(0, over) / k }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);

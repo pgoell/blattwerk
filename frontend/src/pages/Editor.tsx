@@ -100,7 +100,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -736,6 +736,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     if (!moveable.current!.isDragging()) moveable.current!.updateRect();
   }, [blocks, k]);
+  // The ids whose text the page's foot cuts short: the panel warns about them.
+  const [full, setFull] = useState<string[]>([]);
+  const stopped = (id: string, on: boolean) =>
+    setFull((f) => (f.includes(id) === on ? f : on ? [...f, id] : f.filter((x) => x !== id)));
+  // The height at which a block's lowest point meets the page's foot `H`, or Infinity when it never does. Lowest is
+  // linear in the height, so one more mm gives the slope.
+  const footTop = (b: Block, H: number) => {
+    const at = (h: number) => lowest({ ...b, ...tall(b, h) } as Box);
+    const slope = at(b.h + 1) - at(b.h);
+    return slope > 0.001 ? b.h + (H - at(b.h)) / slope : Infinity;
+  };
   // A box grows with its text, as a PowerPoint text box does, and never shrinks by itself. Only a change the teacher
   // makes is measured, so a sheet that opens stays as saved. The frame says how high it would be with no height
   // set; the top edge stays. The new height adds no step to undo: it belongs to the change that asked for it.
@@ -745,6 +756,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const snug = sink.current;
     sink.current = false;
     const grown = new Map<string, Partial<Block>>();
+    const H = sizeOf(hist.doc, page)[1];
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
@@ -768,9 +780,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
       // never shrinks by itself. No other change brings a table down: a height the teacher set holds.
       const down = snug && kept;
-      if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
+      // A text or a shape stops at the page's foot; a linked text and a table grow on.
+      const stops = shape !== undefined && shape.list !== true;
+      const top = stops ? footTop(b, H) : Infinity;
+      const fit = stops ? Math.max(b.h, Math.min(h, top)) : h;
+      stopped(b.id, stops && top >= b.h && fit < h);
+      if (down ? Math.abs(h - b.h) <= 0.05 : fit <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
-      grown.set(b.id, tall(b, h));
+      grown.set(b.id, tall(b, fit));
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -790,13 +807,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const wrote = useRef("");
   if (editing) wrote.current = editing;
   overfit.current = (id, mm) => {
+    const b = sel.find((x) => x.id === id);
+    // A text that fits again at the foot lifts its warning; the frame tells on every draw, with 0 when it fits.
+    if (b && mm <= 0) stopped(id, false);
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
-    const b = sel.find((x) => x.id === id);
     const shape = b && boxed(b);
-    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || mm <= 0) return;
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
-    const h = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
+    const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
+    const top = footTop(b, sizeOf(hist.doc, page)[1]);
+    const h = Math.max(b.h, Math.min(want, top));
+    stopped(id, top >= b.h && h < want);
+    // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
+    if (h <= b.h) return;
     // A round circle stays round (#661): it grows as wide as high.
     const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
@@ -4294,6 +4318,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 merge={merge}
                 unmerge={unmerge}
                 laid={laidMm}
+                full={full}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}

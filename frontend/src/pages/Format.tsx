@@ -58,6 +58,8 @@ type Props = {
   unmerge: () => void;
   // The height in mm of each row of the table being edited, as its grid lays them out.
   laid: number[];
+  // The ids of the blocks whose text the page's foot cuts short.
+  full: string[];
   // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
   sizeCells: (axis: "col" | "row", mm: number) => void;
   evenCells: (axis: "col" | "row") => void;
@@ -256,7 +258,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -416,6 +418,12 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {sel.some((b) => lowest(b) > H + 0.01) && (
         <p className="hint warn" role="status" data-foot="over">
           {sel.length > 1 ? "Die Auswahl ragt unten über die Seite hinaus." : "Der Block ragt unten über die Seite hinaus."} Was unter dem Rand steht, wird nicht gedruckt.
+        </p>
+      )}
+      {/* A text that the foot stops from growing says that its last words are cut. */}
+      {sel.some((b) => full.includes(b.id)) && (
+        <p className="hint warn" role="status" data-foot="full">
+          Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
         </p>
       )}
       {/* A table that a new column made wider than the page is cut too, at the right edge. */}
