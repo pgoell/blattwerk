@@ -27,7 +27,8 @@ export function build(api: Api, check?: () => Promise<string | null>): Server {
       t.call(req.params.name, req.params.arguments ?? {}),
       check ? check().catch(() => null) : null,
     ]);
-    const old = typeof served === "string" && served !== VERSION;
+    // Run from source, the server has no build to be old against.
+    const old = typeof served === "string" && served !== VERSION && !VERSION.endsWith("-dev");
     return old ? { ...result, content: [...result.content, { type: "text", text: RELOAD }] } : result;
   });
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: resources() }));

@@ -289,6 +289,26 @@ def test_an_old_bundle_asks_to_be_reloaded(server, tmp_path):
         mcp.stop()
 
 
+def test_the_server_run_from_source_never_asks_to_reload(server, tmp_path):
+    # As `node frontend/mcp/stdio.ts` runs it: no build, so nothing to be old against.
+    _, manifest = unpack(tmp_path)
+    config = manifest["server"]["mcp_config"]
+    run = {
+        **config,
+        "args": [str(ROOT / "frontend/mcp/stdio.ts")],
+        "env": {**config["env"], "BLATTWERK_DOCS": str(DOCS)},
+    }
+    source = {**manifest, "server": {**manifest["server"], "mcp_config": run}}
+    mcp = Bundle(ROOT / "frontend/mcp", source, tmp_path, token_for(user()), server, tag="-source")
+    try:
+        assert mcp.start()["serverInfo"]["version"] == "0.0.0-dev"
+        result = mcp.call("list_sheets")
+        assert not result.get("isError"), result
+        assert LINE not in [item.get("text") for item in result["content"]]
+    finally:
+        mcp.stop()
+
+
 def proxy_handler(upstream, case):
     """Forwards to the app, except the version: `error` answers 500, `hang` takes 10 s to answer."""
 
