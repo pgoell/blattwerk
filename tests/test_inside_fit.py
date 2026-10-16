@@ -1,6 +1,8 @@
 """A circle, triangle or star with its text inside never grows for it: its type shrinks to fit."""
 
-from test_feed_print import pdf_text
+import pytest
+from playwright.sync_api import expect
+from test_feed_print import printed, sheet_id
 from ui import RECT, at, box, pick, saved, user
 
 SENTENCE = "Male den Hasen in den Kreis und schreibe seinen Namen darunter."
@@ -96,26 +98,72 @@ def test_circle_stays_round_and_every_word_is_whole(editor):
     whole(page.locator(".block.sel"))
 
 
-def test_triangle_with_half_height_is_not_cut(editor, server):
-    client = user()
-    page = editor(client=client)
-    make(page, "Dreieck", "Das Dach vom Haus")
-    enter(page, "Breite", "60")
-    enter(page, "Höhe %", "50")
-    block = page.locator(".block.sel")
-    assert not cut(block)
-    # Every line of text lies above the bottom edge of the triangle.
-    bottom = block.locator(".frame").evaluate("el => el.getBoundingClientRect().bottom")
-    lowest = block.locator(".frame").evaluate(
+def past_foot(block):
+    """How many px the text's lowest line reaches past the frame's foot, where the clip cuts it."""
+    return block.locator(".frame").evaluate(
         """el => {
             const r = document.createRange();
             r.selectNodeContents(el);
-            return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+            const low = Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+            return low - el.getBoundingClientRect().bottom;
         }"""
     )
-    assert lowest <= bottom + 1, (lowest, bottom)
+
+
+def uncut_on_paper(page, client, browser, server):
+    """The triangle's text reaches no further than its frame on the print page either."""
     saved(page, client)
-    assert "vom Haus" in pdf_text(server, client, page.url.rsplit("/", 1)[1])
+    paper = printed(browser, server, sheet_id(page))
+    try:
+        assert past_foot(paper.locator(".block").filter(has_text="Dach")) <= 1
+    finally:
+        paper.context.close()
+
+
+def roof(page):
+    """The triangle of #660: Das Dach vom Haus, 60 mm wide."""
+    make(page, "Dreieck", "Das Dach vom Haus")
+    enter(page, "Breite", "60")
+
+
+@pytest.mark.parametrize("percent", ["50", "30"])
+def test_a_triangle_squashed_by_hoehe_percent_cuts_no_line(editor, browser, server, percent):
+    client = user()
+    page = editor(client=client)
+    roof(page)
+    enter(page, "Höhe %", percent)
+    (a,) = saved(page, client)
+    assert past_foot(at(page, a["id"])) <= 1
+    whole(at(page, a["id"]))
+    uncut_on_paper(page, client, browser, server)
+
+
+def test_a_triangle_in_a_group_squashed_by_hoehe_percent_cuts_no_line(editor, browser, server):
+    client = user()
+    page = editor(client=client)
+    roof(page)
+    page.locator(".insert").get_by_label("Rechteck", exact=True).click()
+    page.keyboard.type("x")
+    page.keyboard.press("Escape")
+    a, b = saved(page, client)
+    expect(at(page, b["id"])).to_have_class("block sel")
+    at(page, a["id"]).click(modifiers=["Shift"])
+    page.keyboard.press("Control+g")
+    expect(page.locator(".block.sel")).to_have_count(2)
+    enter(page, "Höhe %", "30")
+    assert past_foot(at(page, a["id"])) <= 1
+    uncut_on_paper(page, client, browser, server)
+
+
+def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
+    client = user()
+    page = editor(client=client)
+    page.locator(".insert").get_by_label("Stern", exact=True).click()
+    page.keyboard.type("Super gemacht!")
+    whole(page.locator(".block.sel"))
+    page.keyboard.press("Escape")
+    (a,) = saved(page, client)
+    assert a["h"] == 40, a
 
 
 def test_shrunk_star_grows_back_to_full_size(editor):
