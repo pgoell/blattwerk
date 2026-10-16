@@ -6,7 +6,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from playwright.sync_api import sync_playwright
 from ui import user
 
 from blattwerk import pdf, schema
@@ -72,7 +71,7 @@ def drawn_boxes(browser_page):
 
 
 @pytest.mark.parametrize("path", RECIPES, ids=lambda p: p.stem)
-def test_recipe(path, server):
+def test_recipe(path, server, browser):
     doc = doc_of(path)
     assert schema.problems(doc) == []
 
@@ -89,21 +88,41 @@ def test_recipe(path, server):
     blocks = boxes_of(doc)
     assert_clear({b["id"]: (b["x"], b["y"], b["w"], b["h"]) for b in blocks}, "doc")
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
-        try:
-            context = browser.new_context(
-                viewport={"width": 1400, "height": 1400},
-                extra_http_headers={"X-Render-Token": pdf.new_token(sheet_id)},
+    context = browser.new_context(
+        viewport={"width": 1400, "height": 1400},
+        extra_http_headers={"X-Render-Token": pdf.new_token(sheet_id)},
+    )
+    try:
+        page = context.new_page()
+        page.emulate_media(media="print")
+        page.goto(f"{server}/druck/{sheet_id}")
+        page.wait_for_selector("body.ready", state="attached", timeout=30000)
+        if path.stem == "lernwoerter-silbenboegen":
+            # The splitter loads after the page is ready; `unsplit` stands until the bows are drawn.
+            page.wait_for_selector(".unsplit", state="detached", timeout=15000)
+            bows = page.locator(".print .syl").count()
+            # The top of each word's text on the page, found by its text node.
+            tops = page.evaluate(
+                """(words) => words.map((word) => {
+                    const ruling = document.querySelector('.print .block[data-block] .ruling');
+                    const walk = document.createTreeWalker(ruling.closest('.block'),
+                        NodeFilter.SHOW_TEXT);
+                    while (walk.nextNode()) {
+                        const at = walk.currentNode.data.indexOf(word);
+                        if (at >= 0) {
+                            const range = document.createRange();
+                            range.setStart(walk.currentNode, at);
+                            range.setEnd(walk.currentNode, at + word.length);
+                            return [word, range.getBoundingClientRect().top];
+                        }
+                    }
+                    return [word, null];
+                })""",
+                ["Hase", "Igel", "Maus", "Katze"],
             )
-            page = context.new_page()
-            page.emulate_media(media="print")
-            page.goto(f"{server}/druck/{sheet_id}")
-            page.wait_for_selector("body.ready", state="attached", timeout=30000)
-            drawn = drawn_boxes(page)
-            page.close()
-        finally:
-            browser.close()
+        drawn = drawn_boxes(page)
+    finally:
+        context.close()
 
     assert set(drawn) == {b["id"] for b in blocks}
     assert_clear({k: tuple(v["box"]) for k, v in drawn.items()}, "print")
@@ -122,6 +141,9 @@ def test_recipe(path, server):
     if path.stem == "lernwoerter-silbenboegen":
         ruling = next(b for b in blocks if b["type"] == "ruling")
         assert ruling["props"]["syllables"] is True
-        # Known gap: the page draws bows only under a ruling's own text, not under its list rows.
-        for word in doc["words"]:
-            assert word in drawn[ruling["id"]]["text"], word
+        # Ha-se, I-gel, Mau-s, Kat-ze: 7 syllables, one bow each.
+        assert bows == 7
+        # Each word on its own row: the paragraph's top differs from the others.
+        row_tops = [top for _, top in tops]
+        assert None not in row_tops, tops
+        assert len(set(row_tops)) == 4, row_tops
