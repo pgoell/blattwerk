@@ -1,8 +1,11 @@
 import json
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
+from test_loading import window  # noqa: F401
+from test_signed_out import login
 from ui import user
 
 from blattwerk.app import app
@@ -124,6 +127,36 @@ def test_connections_list(signed_in):
         dialog.get_by_role("button", name="Trennen", exact=True).click()
     assert sent.value.url.endswith("/api/connections/7")
     assert deleted == [sent.value.url]
+
+
+def test_consent_after_the_login_with_the_real_server(window, server):  # noqa: F811
+    """Logged out, the program's link brings the login, then the consent, then the code."""
+    back = f"{server}/ueber"
+    client = TestClient(app).post(
+        "/oauth/register", json={"client_name": "Claude", "redirect_uris": [back]}
+    )
+    assert client.status_code == 201
+    query = urlencode(
+        {
+            "client_id": client.json()["client_id"],
+            "redirect_uri": back,
+            "response_type": "code",
+            "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+            "code_challenge_method": "S256",
+            "state": "s",
+            "resource": f"{server}/mcp",
+        }
+    )
+    page, teacher = window(signed=False)
+    page.goto(f"{server}/oauth/authorize?{query}")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    login(page, server, teacher)
+    expect(page.get_by_role("heading", name=HEADING)).to_be_visible()
+    # The place the answer goes, so a teacher can tell a fake from claude.ai.
+    expect(page.locator("main")).to_contain_text("127.0.0.1")
+    page.get_by_role("button", name="Erlauben").click()
+    page.wait_for_url(f"{back}?code=*")
+    assert parse_qs(urlsplit(page.url).query)["state"] == ["s"]
 
 
 def test_datenschutz_connector():
