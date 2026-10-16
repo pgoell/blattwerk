@@ -37,8 +37,15 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
       const r = row.current.getBoundingClientRect();
       const menu = d.getBoundingClientRect();
       const above = Math.min(avoid.top, menu.top) - 8 - r.height;
-      row.current.style.left = `${Math.max(0, Math.min(x, innerWidth - r.width))}px`;
-      row.current.style.top = `${above >= 0 ? above : Math.min(Math.max(avoid.bottom, menu.bottom) + 8, innerHeight - r.height)}px`;
+      const below = Math.max(avoid.bottom, menu.bottom) + 8;
+      let [left, top] = [Math.max(0, Math.min(x, innerWidth - r.width)), above >= 0 ? above : below];
+      // In a window too low for either, as a phone on its side, the row goes beside the menu, which it never covers.
+      if (above < 0 && below + r.height > innerHeight) {
+        left = menu.right + 8 + r.width <= innerWidth ? menu.right + 8 : Math.max(0, menu.left - 8 - r.width);
+        top = Math.max(0, Math.min(menu.top, innerHeight - r.height));
+      }
+      row.current.style.left = `${left}px`;
+      row.current.style.top = `${top}px`;
     }
     d.querySelector<HTMLElement>(ENTRY)?.focus();
   }, [x, y]);
@@ -92,15 +99,6 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
         if (beside(e)) onElsewhere(e.clientX, e.clientY);
       }}
     >
-      {tools && (
-        <div ref={row} role="toolbar" aria-label="Minisymbolleiste" className="mini">
-          {tools.map((item) => (
-            <button key={item.label} aria-label={item.label} title={item.label} disabled={item.disabled} onClick={() => pick(item)}>
-              {item.icon && <item.icon size={16} aria-hidden />}
-            </button>
-          ))}
-        </div>
-      )}
       {items.map((item, i) =>
         item === "sep" ? (
           <hr key={i} />
@@ -118,6 +116,16 @@ export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhe
             {item.keys && <kbd>{item.keys}</kbd>}
           </button>
         ),
+      )}
+      {/* After the entries: the menu's first button is its first entry. The row lies above by its own place. */}
+      {tools && (
+        <div ref={row} role="toolbar" aria-label="Minisymbolleiste" className="mini">
+          {tools.map((item) => (
+            <button key={item.label} aria-label={item.label} title={item.label} disabled={item.disabled} onClick={() => pick(item)}>
+              {item.icon && <item.icon size={16} aria-hidden />}
+            </button>
+          ))}
+        </div>
       )}
     </dialog>
   );

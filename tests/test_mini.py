@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_menu import GROUP, corner, menu, props, right, right_thumb, texts
+from test_menu import GROUP, corner, menu, props, right, right_thumb, spot, texts
 from test_pages import three
 from test_painter import expect_brush, held
 from ui import LINE, RECT, TEXT, angle, at, box, expect_picked, pick, user
@@ -64,7 +64,8 @@ def test_the_block_menu_shows_the_mini_toolbar(editor):
 def test_a_mini_buttons_change_is_one_undo_step(editor, name):
     """A6"""
     page = editor(box("a", "text", TEXT, x=60, y=60))
-    before = rect(page, "a")
+    # Its place on the page: the panel that opens with the pick moves the page on the screen.
+    before = spot(page, "a")
     right(page, "a")
     tool(page, name).click()
     expect(menu(page)).to_have_count(0)
@@ -72,7 +73,8 @@ def test_a_mini_buttons_change_is_one_undo_step(editor, name):
     page.keyboard.press("Control+z")
     expect(page.get_by_role("button", name="Rückgängig")).to_be_disabled()
     expect(page.get_by_role("button", name="Wiederholen")).to_be_enabled()
-    assert rect(page, "a") == before
+    assert spot(page, "a") == before
+    assert angle(page, "a") == 0
 
 
 def test_a_mini_turn_works_on_a_tapped_button(editor):
