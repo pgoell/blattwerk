@@ -4,7 +4,7 @@ title: "Block: uhr"
 description: "The clock faces, their times and the task: read the time or draw the hands."
 tags: [block, uhr]
 covers: [uhr]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # uhr

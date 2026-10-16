@@ -4,7 +4,7 @@ title: "Block: image"
 description: "Which uploaded picture the block shows, and how it is cropped."
 tags: [block, image]
 covers: [image]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # image

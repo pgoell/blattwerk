@@ -4,7 +4,7 @@ title: "Block: symbol"
 description: "Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box."
 tags: [block, symbol]
 covers: [symbol]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # symbol

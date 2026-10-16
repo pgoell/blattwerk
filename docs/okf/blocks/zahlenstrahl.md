@@ -4,7 +4,7 @@ title: "Block: zahlenstrahl"
 description: "The number line (Zahlenstrahl): its range, ticks and the tasks on it."
 tags: [block, zahlenstrahl]
 covers: [zahlenstrahl]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # zahlenstrahl

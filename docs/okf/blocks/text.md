@@ -4,7 +4,7 @@ title: "Block: text"
 description: "The text box's words and look."
 tags: [block, text]
 covers: [text]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # text

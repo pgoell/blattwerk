@@ -4,7 +4,7 @@ title: "Block: rechendreieck"
 description: "The calculation triangles (Rechendreiecke) and which of their fields are given."
 tags: [block, rechendreieck]
 covers: [rechendreieck]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # rechendreieck

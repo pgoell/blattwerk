@@ -4,7 +4,7 @@ title: "Block: shape"
 description: "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
 tags: [block, shape]
 covers: [shape]
-generated: { by: "process:frontend/okf.mjs" }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
 ---
 
 # shape
