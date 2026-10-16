@@ -68,16 +68,16 @@ def font_px(block):
     return block.locator(".frame").evaluate("el => getComputedStyle(el).fontSize")
 
 
-def test_star_keeps_its_height_and_no_word_splits(editor):
+def test_star_grows_for_a_word_too_wide_and_no_word_splits(editor):
     client = user()
     page = editor(client=client)
     make(page, "Stern", "Super gemacht!")
     (a,) = saved(page, client)
-    assert a["h"] == 40, a
+    # "gemacht!" is wider than a 40 mm star's inner box at 10 pt: the type stays at 10 pt and the
+    # star grows as wide as high (#682), and no letter reaches past the box's side.
+    assert a["w"] > 40 and a["w"] == a["h"], a
     whole(page.locator(".block.sel"))
     assert not cut(page.locator(".block.sel"))
-    # "gemacht!" is wider than the star's inner box at 10 pt: it shrinks further, and no letter
-    # reaches past the box's side, where the clip would cut it.
     spill = page.locator(".block.sel .frame p").evaluate_all(
         "ps => ps.map((p) => p.scrollWidth - p.clientWidth)"
     )
