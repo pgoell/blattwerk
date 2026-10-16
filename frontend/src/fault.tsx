@@ -16,7 +16,7 @@ function show(to: Fault[]) {
   faults = to;
   heard.forEach((hear) => hear());
 }
-const drop = (what: string) => faults.some((f) => f.what === what) && show(faults.filter((f) => f.what !== what));
+export const drop = (what: string) => faults.some((f) => f.what === what) && show(faults.filter((f) => f.what !== what));
 
 // What went wrong, as the HTTP status where the server answered, "offline" where no answer came (the browser's
 // fetch refuses with a TypeError, a request given up after 20 s with an AbortError), and "" for anything else.

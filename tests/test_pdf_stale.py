@@ -4,9 +4,13 @@ The PDF prints what the server holds. Where the last change has not been saved, 
 that the PDF shows the saved version. A save that lands in time gives no line at all.
 """
 
+# ruff: noqa: F811
+
 import pypdf
 from playwright.sync_api import expect
+from test_loading import window  # noqa: F401
 from test_refused_save import ALERT, break_x, open_sheet, stored
+from test_saves import clash, run, start  # noqa: F401
 from ui import FIELD, pick, unpick
 
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
@@ -125,6 +129,58 @@ def test_a_change_typed_while_the_pdf_waits_lands_and_no_line_shows(editor):
         held[0].continue_()
     assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] != 15
     expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
+
+
+def test_pdf_line_goes_once_the_other_version_is_loaded(run):
+    """#699: the PDF line says the change is not saved; loading the other version takes it away."""
+    page, _ = start(run)
+    clash(run)
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(1)
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
+
+
+def test_variants_pdf_is_off_in_a_clash_and_says_why(run):
+    """#698: the dialog's PDF waits for the teacher's choice, and says so."""
+    page, _ = start(run)
+    clash(run)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog).to_contain_text(
+        "Dieses Blatt wurde auf einem anderen Gerät geändert. "
+        "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
+    )
+    expect(dialog).not_to_contain_text("deine letzte Änderung")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+
+
+def test_pdf_after_loading_the_other_version_shows_no_line(run):
+    """#699, beyond the brief: after the other version, a PDF with nothing unsaved says nothing."""
+    page, _ = start(run)
+    clash(run)
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_have_count(0)
+
+
+def test_variants_pdf_works_again_once_the_other_version_is_loaded(run):
+    """#698, beyond the brief: after the choice the dialog prints again."""
+    page, _ = start(run)
+    clash(run)
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_enabled()
+    with page.expect_download() as got:
+        dialog.get_by_role("button", name="PDF", exact=True).click()
+    assert pypdf.PdfReader(got.value.path()).pages
+    expect(dialog.locator(".clash")).to_have_count(0)
 
 
 def test_variants_print_after_failed_save_says_so(editor):
