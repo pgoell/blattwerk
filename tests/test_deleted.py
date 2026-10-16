@@ -514,6 +514,30 @@ def test_a_keep_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work
     assert len(run.client.get("/api/sheets").json()) == 3
 
 
+def test_another_tab_with_other_work_keeps_its_choice_and_its_record(run):
+    """3: tab 2 holds a change other than the one tab 1 kept, so its choice stands and its record
+    is written back."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    other = page.context.new_page()
+    other.add_init_script(
+        f"const k = JSON.parse(localStorage.getItem('unsaved:{a}') ?? 'null');"
+        f"if (k) {{"
+        f" k.doc.pages[0].blocks[0].x = 17;"
+        f" localStorage.setItem('unsaved:{a}', JSON.stringify(k));"
+        f" }}"
+    )
+    other.goto(f"{run.server}/blatt/{a}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), KEEP)
+    expect(page).not_to_have_url(re.compile(rf"/blatt/{a}$"))
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert len(run.client.get("/api/sheets").json()) == 3
+    other.wait_for_function(f"(localStorage.getItem('unsaved:{a}') ?? '').includes('\"x\":17')")
+    expect_choice(other.locator(NOTICE), LINE)
+    assert kept_x(other, run) == 17
+
+
 def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
     """2: tab 2 holds what tab 1 dropped, so its choice ends, and it goes to the list."""
     page, _, _ = deleted(run)
