@@ -157,9 +157,10 @@ def test_every_kind_that_holds_words_takes_the_bows(editor, kind):
     assert kind != "group" or now["c"] == LINE
 
 
-@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths", "ruling"])
+# A Lineatur with lines takes the bows since #357; Karo has none (tests/test_ruling_bows.py).
+@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths"])
 def test_a_block_that_holds_no_words_shows_no_switch(editor, kind):
-    """A10: a line, a picture, a symbol, maths and a Lineatur have no bows to switch on."""
+    """A10: a line, a picture, a symbol and maths have no bows to switch on."""
     client = user()
     page = editor(*({**b, "locked": False} for b in fest(client, kind)), client=client)
     pick(page, "fest")
@@ -168,11 +169,12 @@ def test_a_block_that_holds_no_words_shows_no_switch(editor, kind):
 
 
 def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
-    """A10: the switch of a text changes neither a Lineatur nor a line picked with it."""
+    """A10: the switch of a text changes neither a Lineatur on Karo nor a line picked with it."""
     client = user()
+    karo = {**RULING, "kind": "k5"}
     blocks = [
         box("a", "text", WORDS),
-        box("r", "ruling", RULING, z=2),
+        box("r", "ruling", karo, z=2),
         box("l", "shape", LINE, z=3),
     ]
     page = editor(*blocks, client=client)
@@ -180,7 +182,7 @@ def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
     switch(page).click()
     bows(page, "a").to_have_text(BOWS)
     now = held(page, client)
-    assert (now["r"], now["l"]) == (RULING, LINE)
+    assert (now["r"], now["l"]) == (karo, LINE)
 
 
 def test_the_format_of_the_words_passes_a_line_picked_along_and_the_stroke_reaches_it(editor):

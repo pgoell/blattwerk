@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
 import { edged, linesOf, type Lines, type Pen } from "./edges";
@@ -78,7 +78,7 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
 // `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string } };
+export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
 // The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
 export const startOf = (b: RulingBlock): number => {
   const from = b.props.from ?? 0;
@@ -205,6 +205,8 @@ export type Doc = {
   grid: number;
   landscape?: boolean;
   words?: string[];
+  // The mends of the sheet: a word split by hand holds in every block. A block's own `breaks` win over these.
+  breaks?: Breaks;
   pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
@@ -340,13 +342,15 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   guides,
   grid,
   landscape,
   words,
   pageNumbers,
+  // A sheet may come from anywhere: only a plain object of mends is kept.
+  breaks: breaks && typeof breaks === "object" && !Array.isArray(breaks) ? breaks : undefined,
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
@@ -401,6 +405,11 @@ export const Words = createContext<string[]>([]);
 export const Whole = createContext<Doc>(EMPTY);
 // The letter boxes of this block, one per task, when a "word" Selbstkontrolle of the sheet links it.
 const useLetters = (id: string) => lettersOf(useContext(Whole)).get(id);
+// The mends a block draws with: the sheet's, and the block's own where it has one for the same word.
+export const useBreaks = (own?: Breaks) => {
+  const doc = useContext(Whole);
+  return useMemo(() => ({ ...doc.breaks, ...own }), [doc.breaks, own]);
+};
 // A letter box in the drawing's own units: a square at (x, y), the letter in its middle in the answer key.
 function LetterBox({ x, y, side, task, letter, solved }: { x: number; y: number; side: number; task: number; letter: string; solved: boolean }) {
   return (
@@ -721,6 +730,7 @@ function linesIn(frame: HTMLElement) {
 // A text or a shape with its text. The editor passes the field the text is typed in.
 function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
   const p = boxed(block)!;
+  const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
   const width = gapWidth(p.gapWidth);
   // A linked text draws the sheet's Lernwörter, one to a paragraph, in columns, and grows to hold them. Its own text
@@ -892,7 +902,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       )}
       {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
       {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
-      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
 }
@@ -1301,7 +1311,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     svg.current!.classList.add("unsplit");
     tools.current.draw();
     // The place of a block moves no letter in it.
-  }, [module, block.props, block.w, block.h, block.angle, solved]);
+  }, [module, block.props, how.breaks, block.w, block.h, block.angle, solved]);
   return <svg ref={svg} className="bows unsplit" aria-hidden />;
 }
 // Resolves once every block's bows are drawn. The PDF waits for it.
@@ -1557,6 +1567,7 @@ function Rich({ paras, mix, line, solved, holes, cols }: { paras: Para[]; mix?: 
 function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
   const { row, at, zones, size } = RULINGS[kindOf(block.props.kind)];
   const { text = "" } = block.props;
+  const breaks = useBreaks(block.props.breaks);
   const rows = rowsOf(block);
   const cols = colsOf(block);
   // A block set to the list shows the list alone: with no word in it, empty rows, and not its own text, which the
@@ -1620,7 +1631,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     </div>
   );
   return (
-    <div>
+    // The bows end where the rows do, with room for the last row's bows: a row cut off below shows no bow.
+    <div className="lined" style={{ "--rows": `${(rows * row + 3) * k}px` } as CSSProperties}>
       <svg className="ruling" data-trace={karoLook} data-fade={karoFade} viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
         {/* The middle band lies between a row's second and third line. */}
         {zones && bandOf(block) && each(rows).map((top) => <rect key={top} className="band" y={top + zones[1]} width={block.w} height={zones[2] - zones[1]} fill={bandColorOf(block) ?? block.props.color} fillOpacity={bandColorOf(block) ? 1 : 0.12} stroke="none" />)}
@@ -1659,7 +1671,19 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           </>
         )}
       </svg>
-      {mode ? listed : children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
+      {mode ? listed : (
+        <>
+          {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
+          {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
+          {at && text && (block.props.syllables || block.props.tints) && (
+            <>
+              {/* With colours the copy shows and the field's letters go clear, as in a table's open cell, so the colours stay while typing. */}
+              {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...writtenStyle(block, k), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
+              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1669,7 +1693,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k: number; at?: number; reach?: number; solved: boolean; children?: ReactNode }) {
-  const { cells, cols, line, head, syllables, breaks, tintsAcross, gaps } = block.props;
+  const { cells, cols, line, head, syllables, breaks: own, tintsAcross, gaps } = block.props;
+  const breaks = useBreaks(own);
   const tints = pairOf(block.props.tints);
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
@@ -1734,6 +1759,89 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
     document.fonts.ready.then(() => fit(el));
     return () => watch.disconnect();
   }, [styled, cells.length, cols.length]);
+  // A word too long for its closed cell breaks mid-letter. Such a cell gets soft hyphens at the syllable borders of its
+  // broken words: they show as a hyphen only where the word breaks. The splitter loads only when a word breaks, and
+  // the text it makes is kept until the cells or the breaks change.
+  const key = `${cells.join("\u0001")}|${cols.join(",")}|${JSON.stringify(breaks ?? null)}`;
+  const made = useRef<{ key: string; texts: Record<number, string>; done: Record<number, Set<string>>; pending: boolean }>({ key: "", texts: {}, done: {}, pending: false });
+  const [, redraw] = useState(0);
+  const mark = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const look = () => {
+      const m = made.current;
+      if (m.key !== key) Object.assign(m, { key, texts: {}, done: {}, pending: false });
+      // A font still on its way draws wider letters: a word that fits would seem to break. The fonts that come in look again.
+      if (document.fonts.status !== "loaded") return;
+      const broken = new Map<number, Set<string>>();
+      el.querySelectorAll<HTMLElement>(":scope > div[data-cell] > p:not(.open)").forEach((p) => {
+        const cell = Number(p.parentElement!.dataset.cell);
+        const walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+        for (let node = walk.nextNode() as Text | null; node; node = walk.nextNode() as Text | null) {
+          for (const found of node.data.matchAll(/[\p{L}­]+/gu)) {
+            const range = document.createRange();
+            range.setStart(node, found.index!);
+            range.setEnd(node, found.index! + found[0].length);
+            // A word on two lines: its letters' tops lie a line apart, not a pixel.
+            const tops = Array.from(range.getClientRects(), (r) => r.top);
+            if (!tops.length || Math.max(...tops) - Math.min(...tops) < 3) continue;
+            const words = broken.get(cell) ?? new Set<string>();
+            words.add(found[0].replace(/­/g, ""));
+            broken.set(cell, words);
+          }
+        }
+      });
+      // A word that breaks later in a cell already done (a bigger font, a narrower column) joins the cell's words.
+      if (m.pending || [...broken].every(([c, words]) => [...words].every((w) => m.done[c]?.has(w)))) return;
+      m.pending = true;
+      // At once, not at the next render: the PDF looks for it in the next frame.
+      mark.current?.classList.add("unsplit");
+      redraw((n) => n + 1);
+      splitting().then((module) => {
+        if (m.key !== key) return;
+        for (const [c, found] of broken) {
+          const words = (m.done[c] = new Set([...(m.done[c] ?? []), ...found]));
+          m.texts[c] = cells.flat()[c].replace(/\p{L}+/gu, (w) => {
+            if (!words.has(w)) return w;
+            let out = "";
+            let last = 0;
+            for (const place of module.cuts(w, breaks)) {
+              out += w.slice(last, place) + "­";
+              last = place;
+            }
+            return out + w.slice(last);
+          });
+        }
+        m.pending = false;
+        redraw((n) => n + 1);
+        look();
+      }, () => {
+        // A splitter that does not load leaves the words as they break, and the print does not wait for it.
+        m.pending = false;
+        redraw((n) => n + 1);
+      });
+    };
+    look();
+    let gone = false;
+    document.fonts.ready.then(() => gone || look());
+    // A column that narrows inside a table of the same size changes no size of the table: its cells are watched too.
+    const watch = new ResizeObserver(look);
+    watch.observe(el);
+    // And their texts: a bigger type in a cell held to its row's height grows only the text.
+    el.querySelectorAll(":scope > div[data-cell], :scope > div[data-cell] > p").forEach((c) => watch.observe(c));
+    document.fonts.addEventListener("loadingdone", look);
+    return () => {
+      gone = true;
+      watch.disconnect();
+      document.fonts.removeEventListener("loadingdone", look);
+    };
+    // A cell that closes draws its text anew, in a new paragraph: it is looked at and watched then.
+  }, [key, at]);
+  const hyphens = made.current.key === key ? made.current.texts : {};
+  const pending = made.current.key === key && made.current.pending;
+  // The marker set at once by hand follows the state after every render: a check dropped for new cells takes it away.
+  useLayoutEffect(() => void mark.current?.classList.toggle("unsplit", made.current.key === key && made.current.pending));
   const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
   const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
   const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
@@ -1772,10 +1880,11 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
         if (covered.has(i)) return null;
         return (
           <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...(place(i) || undefined) }}>
-            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
+            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : hyphens[i] !== undefined ? <p style={{ ...shade(i), hyphens: "manual", WebkitHyphens: "manual" }}>{wrap(hyphens[i], i)}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
           </div>
         );
       })}
+      <span ref={mark} className={pending ? "unsplit" : undefined} hidden />
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
       {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
