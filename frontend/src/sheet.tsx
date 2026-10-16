@@ -15,6 +15,8 @@ import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, w
 import { checked, lettersOf, sane as saneSelbst, type SelbstkontrolleProps } from "./selbstkontrolle";
 import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, decimalsOf, GAP } from "./decimal";
+import { KARO, PT, mathsHeight } from "./height";
+export { KARO, PT, mathsHeight };
 import { Scissors } from "lucide-react";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
@@ -736,7 +738,6 @@ export type Sheet = { id: number; user_id: number; title: string; updated: strin
 export const sizeOf = (doc: Doc, n: number) => ((doc.pages[n].landscape ?? doc.landscape) ? [297, 210] : [210, 297]);
 // The margin a new block keeps, and a ruling that fills the page.
 export const MARGIN = 15;
-export const PT = 25.4 / 72; // mm per point
 // The pixels per mm of the PDF. Every page is laid out at this scale and drawn at another by a transform, so a
 // line of text breaks at the same word in the PDF, at every zoom and in a thumbnail.
 export const K = 96 / 25.4;
@@ -845,8 +846,6 @@ export const RULINGS: Record<Ruling, { name: string; row: number; at?: number[];
 export const kindOf = (kind: unknown): Ruling => (typeof kind === "string" && Object.hasOwn(RULINGS, kind) ? (kind as Ruling) : "l1");
 // The signs as German schools write them.
 export const SIGNS = { "+": "+", "-": "−", "*": "·", "/": ":" };
-// The side of a square of a written exercise, in mm.
-export const KARO = 5;
 // A numbering counts in numbers, "1", or letters, "a", and has one of these looks; "#o" is a ring around it.
 export const LOOKS = ["#", "#.", "#)", "(#)", "#o"];
 export const lookOf = (mark: string) => mark.replace(/[1a]/, "#");
@@ -998,20 +997,6 @@ export function squares(text: string, cols: number) {
     if (ch !== "\n") out.push([x++, y, ch]);
   }
   return out;
-}
-// The height in mm a maths block needs for its exercises.
-export function mathsHeight(p: MathsProps) {
-  // With families, each family is one item of the grid: as tall as its most tasks, with a gap of 0.9 lines to the next.
-  const sizes = new Map<number, number>();
-  for (const e of p.exercises) if (!("sign" in e) && e.family !== undefined) sizes.set(e.family, (sizes.get(e.family) ?? 0) + 1);
-  if (sizes.size) {
-    const lines = Math.ceil(sizes.size / p.columns);
-    return Math.max(10, Math.round(lines * (Math.max(...sizes.values()) * 1.8 + 0.9) * p.size * PT));
-  }
-  const lines = Math.ceil(p.exercises.length / p.columns);
-  // A comparison is a row of its own, with no squared paper.
-  const rows = Math.max(0, ...p.exercises.map((e) => ("sign" in e ? 0 : e.grid?.rows ?? 0)));
-  return Math.max(10, Math.round(lines * (p.format === "written" ? (rows + 1) * KARO : p.size * PT * 2.4)));
 }
 // The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
 export function lowest(b: Box) {
