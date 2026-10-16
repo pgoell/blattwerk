@@ -25,7 +25,7 @@ import type { LineStyle, Pen } from "../edges";
 type Props = {
   sel: Block[];
   // Sets props on every selected block of one type.
-  style: (type: Block["type"], props: object, key?: string) => void;
+  style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   // Adds `by` to the score of each picked score box, each from its own number.
   bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
@@ -857,11 +857,12 @@ const syllabled = (b: Block) => ruled(b) ?? worded(b);
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
 // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
 // so there is always one, the names of the props where none is given.
-const both = (held: Block[], look: Props["look"], style: Props["style"], every: Block[] = held) => (props: object, key = Object.keys(props).join()) => {
+const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
   if (held.some(boxed)) look(props, key);
   if (held.some((b) => b.type === "table")) style("table", props, key);
-  // `style` reaches every picked Lineatur: only when all of them take syllables, so a Karo picked along stays as it is.
-  if (held.some((b) => b.type === "ruling") && every.every((b) => b.type !== "ruling" || ruled(b))) style("ruling", props, key);
+  // Only the Lineaturen that take syllables: a Karo picked along stays as it is.
+  const lined = held.filter((b) => b.type === "ruling" && ruled(b)).map((b) => b.id);
+  if (lined.length) style("ruling", props, key, lined);
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
@@ -1063,7 +1064,7 @@ function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" 
   useEffect(() => {
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
-  const set = both(held, look, style, sel);
+  const set = both(held, look, style);
   const one = split && held.length === 1 ? syllabled(held[0])! : undefined;
   const fixes = { ...doc.breaks, ...one?.breaks };
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
@@ -1078,7 +1079,7 @@ function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" 
     const now = split!.cuts(word!, fixes);
     const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
     const counts = next && split!.counted(word!, next);
-    mendWord([split!.keyOf(word!), split!.oldKeyOf(word!)], counts &&String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined, held[0].id);
+    mendWord([split!.keyOf(word!), split!.oldKeyOf(word!)], counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined, held[0].id);
   };
   return (
     <>

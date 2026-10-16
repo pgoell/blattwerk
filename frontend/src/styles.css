@@ -651,7 +651,7 @@ body:has(.print) { background: #fff; }
 .block textarea.written:has(+ .copy.shown) { color: transparent !important; -webkit-text-fill-color: transparent; caret-color: #222; }
 .block .written.copy { pointer-events: none; }
 .block textarea.written:has(+ .copy.shown)::selection { color: transparent; -webkit-text-fill-color: transparent; background: rgb(0 103 244 / .3); }
-.lined > svg.bows { clip-path: inset(0 0 calc(100% - var(--rows)) 0); }
+.lined > svg.bows { clip-path: inset(-50% -50% calc(100% - var(--rows)) -50%); }
 /* A speech bubble is a grid of the row for its text and an empty one where its tail is (Frame in sheet.tsx). The
    text and its solution words lie in the body one under the other, and a text too long for it ends at its foot. */
 .frame.tailed > .body { grid-area: words; display: flex; flex-direction: column; min-width: 0; min-height: 0; }

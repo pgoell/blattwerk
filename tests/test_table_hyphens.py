@@ -183,7 +183,8 @@ def test_a_splitter_that_does_not_load_lets_the_print_go_on(editor):
     expect(at(page, "a").locator("textarea")).to_be_focused()
     page.keyboard.press("Control+a")
     page.keyboard.type("Sachunterricht")
-    cell(page, 1).click()
+    with page.expect_event("requestfailed", lambda request: "syllables" in request.url):
+        cell(page, 1).click()
     expect(cell(page, 6)).to_have_text("Sachunterricht")
     # The PDF waits for no `.unsplit`: with the splitter gone the word breaks as before.
     expect(page.locator(".unsplit")).to_have_count(0)

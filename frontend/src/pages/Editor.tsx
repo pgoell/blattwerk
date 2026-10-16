@@ -619,9 +619,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
-  // A mend holds for the word in every block of the sheet: the sheet's entry is set or taken away, and the blocks' own
-  // entries for it go, in one step. Counts undefined takes the word back to the module's own split.
-  // The mend stands in the sheet, for every block, and in the block it was made in, which takes it along when copied.
+  // A mend holds for the word in every block of the sheet, in one step: it stands in the sheet, and in the block it was
+  // made in, which takes it along when copied; the other blocks' own entries for it go. Counts undefined takes the word
+  // back to the module's own split everywhere.
   // `keys` are the word's key and its old key: the panel has the splitter that makes them, the editor loads none.
   function mendWord(keys: string[], counts: number[] | undefined, id: string) {
     const rest = (own?: Breaks) => Object.fromEntries(Object.entries(own ?? {}).filter(([key]) => !keys.includes(key)));
@@ -1580,12 +1580,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       key,
     );
   }
-  function style(type: Block["type"], props: object, key?: string) {
+  // `only` names the picked blocks of the type that take the props, where not all of them do.
+  function style(type: Block["type"], props: object, key?: string, only?: string[]) {
     if (type === "table" || key === "words") tight.current = true;
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id) || b.type !== type) return b;
+          if (!ids.includes(b.id) || b.type !== type || (only && !only.includes(b.id))) return b;
           const next = { ...b, props: { ...b.props, ...fresh(b, props) } } as Block;
           return { ...next, ...grown(b, next) } as Block;
         }),

@@ -99,6 +99,15 @@ def test_a_text_and_a_lineatur_picked_together_show_the_switch_once(editor):
     expect(bows_switch(page)).to_have_count(1)
 
 
+def test_a_karo_picked_along_leaves_the_switch_working_for_the_lineatur(editor):
+    karo = {**ABEND, "kind": "k5"}
+    page = editor(box("a", "ruling", ABEND), box("k", "ruling", karo, z=2))
+    pick(page, "a", "k")
+    bows_switch(page).click()
+    expect(at(page, "a").locator(".syl")).to_have_count(2)
+    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
+
+
 def test_a_row_cut_off_below_shows_no_bow(editor):
     # Two rows of 8 mm, three lines of text: the third is cut off, and so are its bows.
     lines = {**ABEND, "kind": "lines", "text": "Abend\nAbend\nAbend", "syllables": True}

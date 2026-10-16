@@ -1765,6 +1765,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   const key = `${cells.join("\u0001")}|${cols.join(",")}|${JSON.stringify(breaks ?? null)}`;
   const made = useRef<{ key: string; texts: Record<number, string>; done: Record<number, Set<string>>; pending: boolean }>({ key: "", texts: {}, done: {}, pending: false });
   const [, redraw] = useState(0);
+  const mark = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = host.current;
     if (!el) return;
@@ -1794,6 +1795,8 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       // A word that breaks later in a cell already done (a bigger font, a narrower column) joins the cell's words.
       if (m.pending || [...broken].every(([c, words]) => [...words].every((w) => m.done[c]?.has(w)))) return;
       m.pending = true;
+      // At once, not at the next render: the PDF looks for it in the next frame.
+      mark.current?.classList.add("unsplit");
       redraw((n) => n + 1);
       splitting().then((module) => {
         if (m.key !== key) return;
@@ -1833,9 +1836,12 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       watch.disconnect();
       document.fonts.removeEventListener("loadingdone", look);
     };
-  }, [key]);
+    // A cell that closes draws its text anew, in a new paragraph: it is looked at and watched then.
+  }, [key, at]);
   const hyphens = made.current.key === key ? made.current.texts : {};
   const pending = made.current.key === key && made.current.pending;
+  // The marker set at once by hand follows the state after every render: a check dropped for new cells takes it away.
+  useLayoutEffect(() => void mark.current?.classList.toggle("unsplit", made.current.key === key && made.current.pending));
   const TOP = [["0", "0"], ["100%", "0"], ["50%", "0"]];
   const BOTTOM = [["0", "100%"], ["100%", "100%"], ["50%", "100%"]];
   const LEFT = [["0", "0"], ["0", "100%"], ["0", "50%"]];
@@ -1878,7 +1884,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
           </div>
         );
       })}
-      {pending && <span className="unsplit" hidden />}
+      <span ref={mark} className={pending ? "unsplit" : undefined} hidden />
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
       {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
