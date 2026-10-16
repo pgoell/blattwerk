@@ -146,6 +146,26 @@ const endsOf = (b: ShapeBlock) => [
   [b.x + (far(b, 1, false) ? b.w : 0), b.y + (far(b, 0, false) ? b.h : 0)],
   [b.x + (far(b, 1, true) ? b.w : 0), b.y + (far(b, 0, true) ? b.h : 0)],
 ];
+// The box a thing lines up by: a line draws its stroke round its ends and an arrow head there (a double's at both),
+// so its box takes them in. Any other block lines up by its outline.
+export const inked = (b: Block): Box => {
+  if (!isLine(b)) return outline(b);
+  const [s, e] = endsOf(b);
+  const [dx, dy] = [e[0] - s[0], e[1] - s[1]];
+  const len = Math.hypot(dx, dy) || 1;
+  const [u, p] = [[dx / len, dy / len], [-dy / len, dx / len]];
+  const sw = b.props.strokeWidth ?? 0.5;
+  const head = b.props.kind === "line" ? 0 : 2 + sw * 3;
+  const at = ([x, y]: number[], along: number, across: number) => [x + u[0] * along + p[0] * across, y + u[1] * along + p[1] * across];
+  const points = [
+    at(s, 0, sw / 2), at(s, 0, -sw / 2), at(e, 0, sw / 2), at(e, 0, -sw / 2),
+    at(e, -head, head / 2), at(e, -head, -head / 2),
+    ...(b.props.kind === "double" ? [at(s, head, head / 2), at(s, head, -head / 2)] : []),
+  ];
+  const [xs, ys] = [points.map(([x]) => x), points.map(([, y]) => y)];
+  const [x, y] = [Math.min(...xs), Math.min(...ys)];
+  return { ...b, x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+};
 // The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
 // selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
 // spot. Quarters are exact, and a line goes by them only. `about` is the point to turn about, when the caller
