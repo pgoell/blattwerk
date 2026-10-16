@@ -2,8 +2,12 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { tools, INSTRUCTIONS } from "./tools.ts";
+import { register } from "node:module";
 import { connect } from "./api.ts";
+
+// The tools run the editor's modules, which load only through these hooks.
+register("./hooks.ts", import.meta.url);
+const { tools, INSTRUCTIONS } = await import("./tools.ts");
 
 const token = process.env.BLATTWERK_TOKEN;
 if (!token) {
