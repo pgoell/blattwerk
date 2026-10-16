@@ -5,7 +5,9 @@ from playwright.sync_api import expect
 from test_bows import bows, expect_under
 from test_lernwoerter_follow import add_word
 from test_tints import BLUE, PAIR, RED, tinted
-from ui import RULING, at, box
+from ui import RULING, at, box, sheet, user
+
+from blattwerk import pdf
 
 WORDS = ["Hase", "Igel", "Maus", "Katze"]
 # Ha-se, I-gel, Mau-s, Kat-ze.
@@ -40,7 +42,7 @@ ROWS = """(block, syllables) => {
     const shown = spans.filter((s) => inside(s.getBoundingClientRect(), box)).length;
     return { word, box, shown };
   });
-  const bows = [...block.querySelectorAll('svg.ruling path.syl')].map((p) =>
+  const bows = [...block.querySelectorAll('svg.bows .syl')].map((p) =>
     p.getBoundingClientRect());
   const orphan = bows.filter((b) => {
     const mid = (b.top + b.bottom) / 2;
@@ -81,3 +83,36 @@ def test_a_word_added_to_the_list_adds_its_bows(editor):
     add_word(page, "Sonne")
     # Son-ne: two more bows.
     expect(at(page, "a").locator(".syl")).to_have_count(SEVEN + 2)
+
+
+# Each word of a row, as the row's box cuts it: inside, outside or across its bottom.
+CUT = """(block) => [...block.querySelectorAll('.written.listed .row')].flatMap((row) => {
+  const box = row.getBoundingClientRect();
+  return [...row.querySelectorAll('span')].map((span) => {
+    const r = span.getBoundingClientRect();
+    return r.bottom <= box.bottom + 0.5 ? 'in' : r.top >= box.bottom - 0.5 ? 'out' : 'cut';
+  });
+})"""
+
+
+def test_the_print_page_lays_out_a_linked_row_as_the_editor_does(editor, browser, server):
+    """A row is a paragraph for the bows; the print's paragraph style must not lay it out anew."""
+    page = editor(linked("row"), words=WORDS)
+    shown = at(page, "a").evaluate(CUT)
+    client = user()
+    mine = sheet(client, [linked("row")], words=WORDS)["id"]
+    context = browser.new_context(
+        viewport={"width": 1400, "height": 1400},
+        extra_http_headers={"X-Render-Token": pdf.new_token(mine)},
+    )
+    try:
+        printed = context.new_page()
+        printed.emulate_media(media="print")
+        printed.goto(f"{server}/druck/{mine}")
+        printed.wait_for_selector("body.ready", state="attached")
+        printed.wait_for_selector(".unsplit", state="detached")
+        drawn = printed.locator(".print .block[data-block]").first.evaluate(CUT)
+    finally:
+        context.close()
+    assert "cut" not in drawn, drawn
+    assert drawn == shown

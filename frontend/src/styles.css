@@ -473,6 +473,8 @@ body:has(.print) { background: #fff; }
 .block .written { position: absolute; left: 0; width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
 .block .written.listed { white-space: nowrap; }
 .written.listed .row { display: flex; flex-wrap: wrap; column-gap: .6em; overflow: hidden; }
+/* A row is a paragraph only so the bows find it: it lays out as the list does, not as a text's paragraph. */
+.written.listed p.row { line-height: inherit; white-space: inherit; overflow-wrap: normal; }
 .written.listed .row span { flex: none; }
 /* A cut picture is larger than its box and clips itself at the cut (Draw in sheet.tsx). The box clips too, on whole
    pixels: without that the part cut off would give the desk room to scroll to. */
