@@ -191,6 +191,23 @@ def test_outlines_draw_each_block_box_and_id(server):
     assert magenta(image(plain.content)) == 0
 
 
+def test_outlines_name_each_block_by_its_id(server):
+    client = user()
+    url = f"{server}/api/preview.png"
+    shots = []
+    for name in ("a", "langer-name-eines-blocks"):
+        doc = {"pages": [{"blocks": [{**block("text", 15, 14, TEXT), "id": name}]}]}
+        res = httpx.post(url, json={"doc": doc}, params={"outlines": 1}, headers=cookie(client))
+        assert res.status_code == 200
+        shots.append(image(res.content))
+    short, long = shots
+    # The box: the block's left edge, 15 mm in, is magenta halfway down the block.
+    x, y = int(15 * short.width / 210), int(22 * short.width / 210)
+    assert magenta(short.crop((x - 1, y, x + 2, y + 1))) > 0
+    # The id: the same box with a longer id carries far more magenta, in the label at its top left.
+    assert magenta(long) > magenta(short) + 100
+
+
 def test_outlines_never_reach_the_pdf(server):
     client = user()
     mine = sheet(client, [block("text", 15, 14, TEXT)])

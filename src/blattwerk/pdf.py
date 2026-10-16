@@ -39,7 +39,7 @@ DRAW = 15000
 OUTLINES = """
 .print .block { outline: 1px solid magenta; outline-offset: -1px; }
 .print .block::before { content: attr(data-id); position: absolute; top: 0; left: 0;
-  font: 9px sans-serif; color: magenta; background: white; }
+  font: bold 11px sans-serif; color: magenta; background: white; }
 """
 
 router = APIRouter(prefix="/api")
