@@ -1,6 +1,11 @@
 """A word too long for a closed table cell breaks at a syllable, with a hyphen (#524)."""
 
+import io
+import re
+
+import httpx
 from playwright.sync_api import expect
+from pypdf import PdfReader
 from ui import at, box, pick, saved, user
 
 # What a reader sees of a cell: its lines, each as the letters it holds. The text is read piece by
@@ -97,3 +102,21 @@ def test_typing_in_a_hyphenated_table_saves_no_soft_hyphen(editor):
     saved_cells = next(b for b in blocks if b["id"] == "a")["props"]["cells"]
     assert saved_cells[0][1] == "Montag neu" and saved_cells[1][0] == "Sachunterricht"
     assert not [text for row in saved_cells for text in row if "­" in text]
+
+
+def test_the_pdf_breaks_a_long_word_at_a_syllable_with_a_hyphen(editor, server):
+    client = user()
+    props = table([WEEK, ["Sachunterricht", "", "", "", "", ""]])
+    page = editor(box("a", "table", props), client=client)
+    expect(cell(page, 6)).to_contain_text("­")
+    sheet_id = page.url.rsplit("/", 1)[1]
+    res = httpx.get(
+        f"{server}/api/sheets/{sheet_id}/pdf",
+        headers={"Cookie": f"session={client.cookies['session']}"},
+        timeout=60,
+    )
+    assert res.status_code == 200
+    text = " ".join(p.extract_text() for p in PdfReader(io.BytesIO(res.content)).pages)
+    # The extracted text spaces the letters out, and a hyphen at a line's end comes out as a dash.
+    found = re.search(r"(Sach(?:un)?(?:unter)?)\W([a-zäöüß]+)", re.sub(r"\s", "", text))
+    assert found and found.group(1) + found.group(2) == "Sachunterricht", text
