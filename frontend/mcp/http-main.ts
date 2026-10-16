@@ -12,7 +12,14 @@ const server = createServer(async (req, res) => {
   }
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
-  const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "null");
+  let body: unknown;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    // A throw here would end the child for every teacher, so a body that is no JSON is only this request's fault.
+    res.writeHead(400).end();
+    return;
+  }
   // The bearer token comes from the route, which checked it; the API address is set by the route too.
   const token = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
   const api = String(req.headers["x-blattomat-api"] ?? "");

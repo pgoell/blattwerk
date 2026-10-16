@@ -17,6 +17,7 @@ import os
 import re
 import secrets
 import sqlite3
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -109,6 +110,18 @@ def read_only() -> None:
         status, challenge = error.code, error.headers.get("WWW-Authenticate", "")
     if status != 401 or "resource_metadata=" not in challenge:
         fail(f"status {status}, challenge {challenge!r}")
+    # The child behind /mcp starts in this image: node runs, and the bundle says its port.
+    script = os.environ.get("BLATTWERK_MCP_HTTP")
+    if script:
+        child = subprocess.Popen(
+            ["node", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+        )
+        try:
+            line = child.stdout.readline() if child.stdout else ""
+        finally:
+            child.kill()
+        if '"port"' not in line:
+            fail(f"the MCP child gave {line!r}")
     passed("remote")
 
 

@@ -103,6 +103,7 @@ source = { editable = "." }
 dependencies = [
     { name = "argon2-cffi" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "jsonschema" },
     { name = "playwright" },
     { name = "pypdf" },
@@ -112,7 +113,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "mcp" },
     { name = "pillow" },
@@ -130,6 +130,7 @@ dev = [
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "fastapi", specifier = ">=0.142.2" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "playwright", specifier = ">=1.63.0" },
     { name = "pypdf", specifier = ">=6.19.0" },
@@ -139,7 +140,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "hypothesis", specifier = ">=6.168.5" },
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "pillow", specifier = ">=12.3.0" },
