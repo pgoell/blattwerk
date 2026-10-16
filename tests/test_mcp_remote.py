@@ -170,6 +170,38 @@ def test_remote_expired_token(server):
     assert con.execute("SELECT count(*) FROM attempts").fetchone()[0] == before
 
 
+def test_remote_shared_address_locks_out_no_good_token(server):
+    """Teachers behind one address (Anthropic's): run-out or wrong tokens never block a good one."""
+    late, good = Memory(), Memory()
+    asyncio.run(talk(server, connector(server, user().cookies["session"], late, [])))
+    asyncio.run(talk(server, connector(server, user().cookies["session"], good, [])))
+    assert late.tokens is not None
+    assert good.tokens is not None
+    con = db.open_db()
+    con.execute(
+        "UPDATE oauth_grants SET access_expires = datetime('now', '-1 seconds') WHERE id = ?",
+        (int(late.tokens.access_token.split("_")[1]),),
+    )
+
+    def ask(token):
+        return httpx.post(
+            f"{server}/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+            headers={
+                "authorization": f"Bearer {token}",
+                "accept": "application/json, text/event-stream",
+                "mcp-protocol-version": "2025-06-18",
+            },
+        ).status_code
+
+    # A run-out token is no guess: as often as the client likes, a 401 that makes it refresh.
+    assert [ask(late.tokens.access_token) for _ in range(15)] == [401] * 15
+    # Wrong tokens from the address count, and past the limit they get 429 ...
+    assert [ask("bo_1_wrong") for _ in range(11)][-1] == 429
+    # ... while the other teacher's good token from the same address goes through.
+    assert ask(good.tokens.access_token) == 200
+
+
 def test_remote_foreign_sheet(server):
     owner, other = user(), user()
     sheet = owner.post(
