@@ -14,7 +14,8 @@ await build({
   input: join(here, "mcp/bundle.ts"),
   platform: "node",
   transform: { jsx: "react-jsx" },
-  output: { file: join(stage, "server/index.js"), format: "esm", codeSplitting: false },
+  // .mjs: Node before 22 reads a .js file with no package.json beside it as CommonJS.
+  output: { file: join(stage, "server/index.mjs"), format: "esm", codeSplitting: false },
 });
 
 cpSync(join(here, "../docs/okf"), join(stage, "okf"), { recursive: true });

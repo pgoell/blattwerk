@@ -120,6 +120,10 @@ def test_manifest(tmp_path):
     assert "darwin" in manifest["compatibility"]["platforms"]
     assert "win32" in manifest["compatibility"]["platforms"]
     assert manifest["compatibility"]["runtimes"]["node"] == ">=18.0.0"
+    # Node before 22 reads a .js file as CommonJS; the bundle is a module and says so by name.
+    entry = manifest["server"]["entry_point"]
+    assert entry.endswith(".mjs")
+    assert manifest["server"]["mcp_config"]["args"] == ["${__dirname}/" + entry]
 
 
 def test_the_unpacked_bundle_makes_a_sheet(server, tmp_path):
