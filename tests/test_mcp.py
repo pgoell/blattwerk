@@ -305,6 +305,10 @@ def test_token_never_shows(server, tmp_path):
     try:
         sheet = new_sheet(good)
         good.call("get_sheet", sheet_id=sheet["id"])
+        # A title that holds the token, so an answer does carry it: the server hides it.
+        client.post("/api/sheets", json={"title": token[:80], "doc": stored(client, sheet["id"])})
+        listed = good.call("list_sheets")["content"][0]["text"]
+        assert "***" in listed
         assert bad.call("get_sheet", sheet_id=sheet["id"])["isError"]
         assert down.call("list_sheets")["isError"]
         outs = good.out + bad.out + down.out
@@ -312,6 +316,8 @@ def test_token_never_shows(server, tmp_path):
             mcp.stop()
         for line in outs:
             assert token not in line
+        # The refused token is the one the bad server holds: it does not show either.
+        assert not any("bt_1_wrong" in line for line in bad.out)
         for name in ("stderrgood.txt", "stderrbad.txt", "stderrdown.txt"):
             assert token not in (tmp_path / name).read_text()
     finally:

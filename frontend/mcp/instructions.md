@@ -2,7 +2,7 @@ Blattomat makes worksheets for German primary school (Grundschule).
 
 Page: A4 portrait, 210 x 297 mm. Units are mm. Keep a margin of 15 mm from the edges.
 
-Every block has x, y (top left), w, h and z. Blocks must not overlap: stack them, so the next block's y is the last block's y + h + 5.
+A doc is `{"pages": [{"blocks": [...]}], "guides": {"x": [], "y": []}, "grid": 0}`. Every block has `id` (a unique string), `type`, `x`, `y` (top left), `w`, `h`, `z` (1 and up, higher lies on top), `locked` (false) and `props`. Blocks must not overlap: stack them, so the next block's y is the last block's y + h + 5.
 
 Three block types in this version:
 - `text`: props `text`, `size` (pt), `align` (left, center, right).
