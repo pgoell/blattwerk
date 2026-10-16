@@ -3,7 +3,8 @@
 import pytest
 from playwright.sync_api import expect
 from test_menu import GROUP, corner, menu, props, right, right_thumb, texts
-from ui import LINE, RECT, TEXT, angle, box, expect_picked, pick, user
+from test_painter import expect_brush, held
+from ui import LINE, RECT, TEXT, angle, at, box, expect_picked, pick, user
 
 MINI = [
     "Linksdrehung 90°",
@@ -175,3 +176,27 @@ def test_the_page_and_empty_menus_have_no_toolbar(editor, opened):
         corner(page)
     expect(menu(page)).to_be_visible()
     expect(mini(page)).to_have_count(0)
+
+
+def test_format_uebertragen_in_the_toolbar_paints_the_next_block_once(editor):
+    """A6: one stroke, as one click on the bar's brush."""
+    client = user()
+    page = editor(
+        box("a", "shape", {**RECT, "fill": "#00ff00"}),
+        box("b", "shape", RECT, z=2, x=120),
+        box("c", "shape", RECT, z=3, y=150),
+        client=client,
+    )
+    right(page, "a")
+    tool(page, "Format übertragen").click()
+    expect(menu(page)).to_have_count(0)
+    expect_brush(page, True)
+    at(page, "b").click()
+    expect_brush(page, False)
+    at(page, "c").click()
+    now = held(page, client)
+    assert now["b"]["fill"] == "#00ff00"
+    assert now["c"].get("fill") == RECT.get("fill")
+    undo = page.get_by_role("button", name="Rückgängig")
+    undo.click()
+    assert held(page, client)["b"].get("fill") == RECT.get("fill")
