@@ -2852,7 +2852,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     mergeKey.current = "";
     setReach(undefined);
     const after = next(b.props, slot, e.shiftKey ? -1 : 1);
-    if (after !== undefined) setSlot(after);
+    if (after !== undefined) {
+      // The next cell's text is picked, so that typing replaces it.
+      entire.current = true;
+      setSlot(after);
+    }
     else if (!e.shiftKey) {
       const rows = b.props.cells.length;
       rank(b, "row", rows, true);
