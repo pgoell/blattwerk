@@ -944,30 +944,36 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
   };
   // With a finger, round handles stand at the top left and the bottom right of the picked cells, as on PowerPoint's
-  // iPad. Their place is the cells' in the table, on the sheet as the lines' handles are.
+  // iPad. They stand on the sheet as the lines' handles do, at the cells' corners as the block's turn puts them.
   useLayoutEffect(() => {
-    const block = table && finger && editing === table.id ? sheet.current?.querySelector<HTMLElement>(`[data-id="${table.id}"]`) : null;
-    if (!table || !block) return void setGrips([]);
-    const offset = (el: HTMLElement) => {
-      let x = 0;
-      let y = 0;
-      for (let n: HTMLElement | null = el; n && n !== block; n = n.offsetParent as HTMLElement | null) {
-        x += n.offsetLeft;
-        y += n.offsetTop;
-      }
-      return [x, y];
-    };
+    const page = sheet.current;
+    const block = table && finger && editing === table.id ? page?.querySelector<HTMLElement>(`[data-id="${table.id}"]`) : null;
+    // Measured after each draw, as the open cell's field may move the cells; set only where a place changed.
+    const none = () => setGrips((was) => (was.length ? [] : was));
+    if (!table || !page || !block) return none();
     const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
     const cellAt = (r: number, c: number) => block.querySelector<HTMLElement>(`.table > div[data-cell="${anchorOf(table.props, r * table.props.cols.length + c)}"]`);
     const [first, last] = [cellAt(r0, c0), cellAt(r1, c1)];
-    if (!first || !last) return void setGrips([]);
-    const [x0, y0] = offset(first);
-    const [x1, y1] = offset(last);
-    setGrips([
-      { corner: "nw", x: x0, y: y0 },
-      { corner: "se", x: x1 + last.offsetWidth, y: y1 + last.offsetHeight },
-    ]);
-  }, [slot, reach, editing, table, finger]);
+    if (!first || !last) return none();
+    // A turned cell's box on the screen has the cell's centre still: the corner lies half the cell from there, turned
+    // as the block is. The sheet may be drawn larger or smaller than its own size.
+    const on = page.getBoundingClientRect();
+    const scale = on.width / page.offsetWidth;
+    const [c, s] = dir(table);
+    // The table draws its cells smaller or larger than their own size: the turned box's width tells by how much.
+    const corner = (cell: HTMLElement, side: number) => {
+      const box = cell.getBoundingClientRect();
+      const [w, h] = [cell.offsetWidth, cell.offsetHeight];
+      const drawn = box.width / (w * Math.abs(c) + h * Math.abs(s)) / scale;
+      const [vx, vy] = [(side * w * drawn) / 2, (side * h * drawn) / 2];
+      return { x: (box.left + box.width / 2 - on.left) / scale + vx * c - vy * s, y: (box.top + box.height / 2 - on.top) / scale + vx * s + vy * c };
+    };
+    const now = [
+      { corner: "nw", ...corner(first, -1) },
+      { corner: "se", ...corner(last, 1) },
+    ];
+    setGrips((was) => (JSON.stringify(was) === JSON.stringify(now) ? was : now));
+  });
   // The cell that stays while a handle is dragged: the corner across from it.
   const gripFixed = useRef(0);
   // A finger on a handle picks the cells from the corner across to the cell it lies over, as a mouse drag does. The
@@ -4386,9 +4392,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       />
                     )),
                   )}
-                  {/* Over the lines' handles, which run along the cells' edges where these stand. */}
+                  {/* Over the lines' handles, which run along the cells' edges where these stand. The sheet's touch, a
+                      hold that opens a menu, is not theirs: it took the click of the next tap. */}
                   {table && grips.map((g) => (
-                    <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: table.x * k + g.x, top: table.y * k + g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
+                    <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
                   ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {line &&
