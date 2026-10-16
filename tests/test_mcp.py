@@ -85,7 +85,8 @@ class Mcp:
 
 
 def token_for(client):
-    return client.post("/api/tokens", json={"name": "mcp"}).json()["token"]
+    # A name of its own: one teacher's keys have different names.
+    return client.post("/api/tokens", json={"name": f"mcp {uuid.uuid4().hex[:8]}"}).json()["token"]
 
 
 def printed(server, client, sheet_id):

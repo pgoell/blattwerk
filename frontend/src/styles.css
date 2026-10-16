@@ -97,11 +97,11 @@ nav a {
   transition: background-color 150ms ease, color 150ms ease;
 }
 nav > button { border: 0; background: none; color: var(--muted); font-weight: 500; }
-dialog.feedback, dialog.variants {
+dialog.feedback, dialog.variants, dialog.ask {
   width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--bg); color: var(--ink); text-align: left;
 }
-dialog.feedback::backdrop, dialog.variants::backdrop { background: rgba(0, 0, 0, .4); }
+dialog.feedback::backdrop, dialog.variants::backdrop, dialog.ask::backdrop { background: rgba(0, 0, 0, .4); }
 /* The preview scrolls in its own box, so the dialog stays as high as the screen allows. */
 dialog.variants fieldset { margin: 14px 0 0; padding: 0; border: 0; }
 dialog.variants label { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 0 0; }
@@ -138,7 +138,7 @@ dialog.menu .mini button { width: auto; min-height: 28px; padding: 0 6px; justif
 dialog.feedback h1, dialog.variants h1 { margin-top: 0; }
 dialog.feedback label, dialog.variants > label { margin-top: 14px; }
 dialog.variants > label { display: flex; }
-dialog.feedback .row, dialog.variants .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+dialog.feedback .row, dialog.variants .row, dialog.ask .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 nav a.active { background: var(--accent-soft); color: var(--accent); }
 nav a.brand { margin-right: auto; padding-left: 0; background: none; }
 @media (max-width: 480px) {

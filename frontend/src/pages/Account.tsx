@@ -207,7 +207,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         </ul>
         <dialog
           ref={dialog}
-          className="feedback"
+          className="ask"
           aria-labelledby="ask-revoke"
           onClose={() => {
             const back = askedId.current;
