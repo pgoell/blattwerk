@@ -85,7 +85,7 @@ def shape(editor, client=None):
     expect(slider(page)).to_have_value("0.5")
     assert tool.where(page, "Randstärke").endswith("(outside the window)")
     # A heading of the panel that lies in the window: the one over the border has moved below it.
-    tool.wheel(page, "Schrift", "480")
+    tool.wheel(page, "Schrift", "540")
     expect(slider(page)).to_be_in_viewport(ratio=1)
     return page
 

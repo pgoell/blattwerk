@@ -194,7 +194,8 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
     # But for the choice of text of a Lineatur and of a text: it takes the block's own text away,
     # so what holds for a control beside a text being written does not hold for it. test_words.py
     # and test_feed.py test them.
-    own = ("Text der Lineatur", "Text des Textfelds")
+    # "von" moves the place X shows, so it has a test of its own below.
+    own = ("Text der Lineatur", "Text des Textfelds", "von")
     assert [label for label in found if label not in own] == CONTROLS[name]
 
     control = choose(page, label)
@@ -212,6 +213,19 @@ def test_a_pick_with_the_mouse_gives_the_keys_back_to_the_sheet(editor, name, la
         choose(page, label)
         page.keyboard.press("Enter")
         expect(page.locator(OPEN)).to_be_focused()
+
+
+def test_a_pick_in_von_gives_the_keys_back_to_the_sheet(editor):
+    page = editor(box("z", "text", TEXT), box("shape", "shape", RECT, z=2))
+    pick(page, "shape")
+    # The block stands at 15 mm, 90 mm left of the page's centre.
+    expect(choose(page, "von")).not_to_be_focused()
+    expect(page.get_by_label("X", exact=True)).to_have_value("-90")
+    page.keyboard.press("ArrowRight")
+    expect(page.get_by_label("X", exact=True)).to_have_value("-89")
+    choose(page, "von")
+    page.keyboard.press("Tab")
+    expect_picked(page, "z")
 
 
 def test_a_pick_in_a_select_of_a_maths_block_gives_the_keys_back(editor):

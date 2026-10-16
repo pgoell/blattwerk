@@ -58,6 +58,7 @@ HIDE = """
 .sheet { border-radius: 0 !important; background-image: none !important; }
 .sheet { box-shadow: 0 0 0 2px #fff !important; outline: none !important; }
 .sheet .rule, .sheet .moveable-control-box, .sheet > .bar, .sheet .end { display: none !important; }
+.sheet .turned-frame { display: none !important; }
 .sheet [data-hint] p::before { content: none !important; }
 .dock { display: none !important; }
 """

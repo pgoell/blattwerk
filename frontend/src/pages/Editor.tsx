@@ -110,7 +110,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
+import Format, { bounds, drawn, frameOf, has, hull, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
@@ -119,6 +119,13 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 import { parasFromHtml } from "../pasted";
+
+// A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
+const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
+  const [c, s] = [Math.cos((by * Math.PI) / 180), Math.sin((by * Math.PI) / 180)];
+  const [dx, dy] = [x - cx, y - cy];
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+};
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
@@ -652,6 +659,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function setLock(on: boolean) {
     place(sel.map((b): [string, Partial<Box>] => [b.id, { keep: on || undefined }]));
   }
+  // Where the panel's X and Y count from. Not in the sheet, and kept while the picks change.
+  const [from, setFrom] = useState<"corner" | "centre">("corner");
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
   // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
@@ -684,9 +693,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
-  // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. They scale
-  // along the page, so a turned group has none: its frame is turned, and they would stand where no block is.
-  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) && !(oneGroup && sel.some((b) => !isLine(b) && b.angle)) ? bounds(sel) : undefined;
+  // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. A turned
+  // one shows them on its turned frame: they size it in its own frame, where its blocks lie level.
+  // Loose blocks keep a level frame, however they are turned. A group whose blocks are turned each their own way has
+  // no frame of its own to size it in, so it has none: the handles would stand off Moveable's frame round them.
+  const ownFrame = oneGroup && sel.some(isLine) ? frameOf(sel) : undefined;
+  const mixed = !!ownFrame && !ownFrame.turn && sel.some((b) => !isLine(b) && b.angle);
+  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) && !mixed ? (ownFrame ?? { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
+  const group = frame && bounds(frame.level);
+  const turnedLine = !!frame?.turn;
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -3008,12 +3023,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // tenth, not flip.
   function scale(e: PointerEvent, right: boolean, low: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const { x, y, w, h } = bounds(start.current);
-    const [px, py] = point(e);
+    // A turned group scales in its own frame: the pointer turns back to it, and the factor is taken there.
+    const { turn, about, level } = turnedLine ? frameOf(start.current) : { turn: 0, about: [0, 0] as [number, number], level: start.current };
+    const { x, y, w, h } = bounds(level);
+    const [px, py] = turn ? turnedAt(point(e) as [number, number], -turn, about) : point(e);
     const half = mod & CENTRE ? 2 : 1;
     const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
     const [sw, sh] = [(right ? w : -w) / half, (low ? h : -h) / half];
     let s = Math.max(0.1, w && (px - fx) / sw, h && (py - fy) / sh);
+    if (turn) {
+      setGuide([]);
+      place(scaledGroup(start.current, s, s, [fx, fy]).map(resized), "drag");
+      return;
+    }
     // The dragged corner snaps to the guides a block drag snaps to. The group keeps its shape, so only the nearer
     // of the two guides holds it.
     const [mx, my] = [fx + sw * s, fy + sh * s];
@@ -4195,13 +4217,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         onLostPointerCapture={() => setGuide([])}
                       />
                     ))}
+                  {/* Moveable's frame round a turned group with a line takes in the line's level box, so the group's own
+                      frame is drawn here, where its handles stand. */}
+                  {turnedLine &&
+                    ((nw, off) => (
+                      <div
+                        className="turned-frame"
+                        style={{ left: nw[0] * k + off[0], top: nw[1] * k + off[1], width: group!.w * k + FRAME.left + FRAME.right, height: group!.h * k + FRAME.top + FRAME.bottom, transform: `rotate(${frame!.turn}deg)` }}
+                      />
+                    ))(turnedAt([group!.x, group!.y], frame!.turn, frame!.about), turnedAt([-FRAME.left, -FRAME.top], frame!.turn, [0, 0]))}
                   {group &&
-                    [0, 1, 2, 3].map((i) => (
+                    [0, 1, 2, 3].map((i) => {
+                      // On the frame's corners, which stand outside the group's. A turned frame turns them about its middle.
+                      const at = turnedAt([group.x + (i % 2) * group.w, group.y + (i >> 1) * group.h], frame!.turn, frame!.about);
+                      const off = turnedAt([i % 2 ? FRAME.right : -FRAME.left, i >> 1 ? FRAME.bottom : -FRAME.top], frame!.turn, [0, 0]);
+                      return (
                       <i
                         key={i}
                         className="end"
-                        // On the frame's corners, which stand outside the group's.
-                        style={{ left: (group.x + (i % 2) * group.w) * k + (i % 2 ? FRAME.right : -FRAME.left), top: (group.y + (i >> 1) * group.h) * k + (i >> 1 ? FRAME.bottom : -FRAME.top) }}
+                        style={{ left: at[0] * k + off[0], top: at[1] * k + off[1] }}
                         onPointerDown={(e) => {
                           grip(e);
                           start.current = free;
@@ -4213,21 +4247,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           setGuide([]);
                         }}
                       />
-                    ))}
+                      );
+                    })}
                   <Moveable
                     ref={moveable}
                     // In crop mode the frame's handles stand in for Moveable's.
                     target={cropping ? [] : targets}
                     draggable={free.length === sel.length}
                     resizable={free.length === sel.length && !sel.some(isLine)}
-                    renderDirections={handles}
+                    renderDirections={turnedLine ? [] : handles}
+                    hideDefaultLines={turnedLine}
                     // A lone line keeps its own handles at its ends, and has no frame.
                     padding={sel.length === 1 && isLine(sel[0]) ? undefined : FRAME}
                     // Each loose block has its own outline from Moveable, which the padding does not reach. Blocks of one
                     // group keep only the frame about them all, so the outlines do not cut their letters.
                     hideChildMoveableDefaultLines={oneGroup}
                     // Loose blocks turned alike would get a frame turned about their middle. Their frame stays level.
-                    useDefaultGroupRotate={!oneGroup}
+                    // A turned group with a line has blocks of two angles: its frame takes the group's own.
+                    useDefaultGroupRotate={!oneGroup || !!turnedLine}
+                    defaultGroupRotate={turnedLine ? frame!.turn : 0}
                     origin={false}
                     checkInput
                     // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
@@ -4401,6 +4439,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 alone={(b) => thing(b) === b.id}
                 lock={lock}
                 setLock={setLock}
+                from={from}
+                setFrom={setFrom}
                 size={[W, H]}
                 doc={hist.doc}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}

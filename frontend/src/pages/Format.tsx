@@ -88,6 +88,9 @@ type Props = {
   // Whether a new width sets the height to match, in the fields and on the handles.
   lock: boolean;
   setLock: (on: boolean) => void;
+  // Where X and Y count from: the page's top left corner, or its centre. Kept by the editor, not in the sheet.
+  from: "corner" | "centre";
+  setFrom: (from: "corner" | "centre") => void;
   // The width and height in mm of the page in use.
   size: number[];
   // The whole sheet, for the maths blocks a Selbstkontrolle can check.
@@ -174,13 +177,15 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
 // A group that is turned scales in its own frame: it goes level about its middle, scales there, and turns back, so
 // a line in it still lies along the box. A group is turned when all its blocks but the lines share one angle; one with
 // blocks turned each their own way scales along the page, each block by the axis it lies along.
-const scaledGroup = (bs: Block[], sx: number, sy: number): Block[] => {
+// `at` is the point that stays, in the level frame: the level box's top left corner unless one is given.
+export const scaledGroup = (bs: Block[], sx: number, sy: number, at?: [number, number]): Block[] => {
   const { turn, about, level } = frameOf(bs);
   const lb = bounds(level);
-  return turn ? swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about) : scaled(bs, sx, sy, [lb.x, lb.y]);
+  const o = at ?? [lb.x, lb.y];
+  return turn ? swung(scaled(level, sx, sy, o), turn, about) : scaled(bs, sx, sy, o);
 };
 // A group's own frame: its blocks laid level about its middle when it is turned, as they are when it is not.
-const frameOf = (bs: Block[]) => {
+export const frameOf = (bs: Block[]) => {
   const angles = new Set(bs.filter((b) => !isLine(b)).map((b) => b.angle ?? 0));
   const turn = angles.size === 1 ? [...angles][0] : 0;
   const all = hull(bs);
@@ -188,7 +193,7 @@ const frameOf = (bs: Block[]) => {
   return { turn, about, level: turn ? swung(bs, -turn, about) : bs };
 };
 // A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
-const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
+export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
 const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
@@ -258,7 +263,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -371,6 +376,9 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = lock || shaped;
   const move = (axis: Axis, to: number) => place(sel.map((b) => [b.id, { [axis]: whole ? round(b[axis] + to - box[axis]) : to }]));
+  // The distance from the page's corner to where X and Y count from: nothing, or half the page in Mitte.
+  const offset = (axis: "x" | "y") => (from === "centre" ? (axis === "x" ? W : H) / 2 : 0);
+  const shownAt = (axis: "x" | "y", v?: number) => (v === undefined ? undefined : round(v - offset(axis)));
   // The corner stays. A group scales about its top left corner, and with the lock all of it keeps its shape.
   // Loose blocks each keep their own shape.
   const resize = (side: "w" | "h", to: number) => {
@@ -434,10 +442,19 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       )}
       <div className="geo">
         <h2>Position und Größe in mm</h2>
-        <Num label="X" value={whole ? round(box.x) : shared((b) => b.x)} disabled={fixed} onCommit={(n) => move("x", n)} />
-        <Num label="Y" value={whole ? round(box.y) : shared((b) => b.y)} disabled={fixed} onCommit={(n) => move("y", n)} />
-        <Num label="Breite" value={whole ? round(own.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
-        <Num label="Höhe" value={whole ? round(own.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
+        <label>
+          von
+          <select aria-label="von" value={from} onChange={(e) => setFrom(e.target.value as "corner" | "centre")}>
+            <option value="corner">Ecke oben links</option>
+            <option value="centre">Mitte</option>
+          </select>
+        </label>
+        <span />
+        {/* In Mitte the place counts from the page's centre: a block at 15 mm shows -90 in a page 210 mm wide. */}
+        <Num label="X" units value={shownAt("x", whole ? box.x : shared((b) => b.x))} disabled={fixed} onCommit={(n) => move("x", n + offset("x"))} />
+        <Num label="Y" units value={shownAt("y", whole ? box.y : shared((b) => b.y))} disabled={fixed} onCommit={(n) => move("y", n + offset("y"))} />
+        <Num label="Breite" units value={whole ? round(own.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
+        <Num label="Höhe" units value={whole ? round(own.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
         <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
         <span>
           °
@@ -1124,16 +1141,25 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   );
 }
 
+// The size of each unit in mm, for a length typed with one: 72 pt is an inch.
+const UNITS: Record<string, number> = { mm: 1, cm: 10, pt: 25.4 / 72, in: 25.4 };
+
 // A field for a number. What is typed counts on Enter or when the field is left, and Escape drops it. An arrow up
-// or down steps by one. `value` is absent where the selected blocks differ.
-function Num({ label, value, disabled, onCommit }: { label: string; value?: number; disabled: boolean; onCommit: (n: number) => void }) {
+// or down steps by one. `value` is absent where the selected blocks differ. With `units` a length may carry mm, cm,
+// pt or in.
+function Num({ label, value, disabled, units, onCommit }: { label: string; value?: number; disabled: boolean; units?: boolean; onCommit: (n: number) => void }) {
   const [draft, setDraft] = useState<string>();
   // Whether the mouse that is down brought the focus.
   const fresh = useRef(false);
   // The field follows the sheet: a drag or an undo takes the place of what was typed.
   useEffect(() => setDraft(undefined), [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
-  const read = () => (/^-?\d+([.,]\d+)?$/.test(draft?.trim() ?? "") ? round(Number(draft!.replace(",", "."))) : NaN);
+  const read = () => {
+    const text = draft?.trim() ?? "";
+    const unit = units && /^(-?\d+(?:[.,]\d+)?)\s*(mm|cm|pt|in)$/i.exec(text);
+    if (unit) return round(Number(unit[1].replace(",", ".")) * UNITS[unit[2].toLowerCase()]);
+    return /^-?\d+([.,]\d+)?$/.test(text) ? round(Number(text.replace(",", "."))) : NaN;
+  };
   // Without a draft the blur that follows Enter finds nothing to set.
   const commit = (n: number) => {
     setDraft(undefined);
