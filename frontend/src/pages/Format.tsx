@@ -327,7 +327,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
-  const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
+  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} />;
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
@@ -618,6 +618,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
+          {!mode && RULINGS[kindOf(rulings[0].props.kind)].at && bows}
         </>
       )}
       {tables.length > 0 && (
@@ -847,6 +848,9 @@ function FontSelect({ label, value: stored, onChange }: { label: string; value: 
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
+// A Lineatur with lines takes the bows and the colours too, on its written line, but not on Karo or a Lernwörter list.
+const ruled = (b: Block) => (b.type === "ruling" && RULINGS[kindOf(b.props.kind)].at && !listOf(b) ? b.props : undefined);
+const syllabled = (b: Block) => ruled(b) ?? worded(b);
 // A stored seed that is a finite number, or none: a seed that is no number counts as no seed.
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
 // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
@@ -854,6 +858,7 @@ const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n 
 const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
   if (held.some(boxed)) look(props, key);
   if (held.some((b) => b.type === "table")) style("table", props, key);
+  if (held.some((b) => b.type === "ruling")) style("ruling", props, key);
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
@@ -1041,13 +1046,13 @@ function Mix({ sel, look, words: sheet }: Pick<Props, "sel" | "look" | "words">)
 // its words stand below too, each as it is split, to mend by hand: a click on a word shows its letters, and a click
 // between two of them sets a break there or takes it away.
 function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "look" | "style">) {
-  const held = sel.filter(worded);
-  const bowsOn = held.every((b) => worded(b)!.syllables);
+  const held = sel.filter(syllabled);
+  const bowsOn = held.every((b) => syllabled(b)!.syllables);
   // A stored pair that is garbage colours nothing, so the switch is off for it.
-  const tintsOn = held.every((b) => pairOf(worded(b)!.tints));
-  const pair = pairOf(held[0] && worded(held[0])!.tints) ?? TINTS;
+  const tintsOn = held.every((b) => pairOf(syllabled(b)!.tints));
+  const pair = pairOf(held[0] && syllabled(held[0])!.tints) ?? TINTS;
   const greys = pair[0] === GREYS[0] && pair[1] === GREYS[1];
-  const across = held.every((b) => worded(b)!.tintsAcross);
+  const across = held.every((b) => syllabled(b)!.tintsAcross);
   const split = useSplitter(bowsOn || tintsOn);
   // The word whose letters show, as `breaks` names it.
   const [open, setOpen] = useState<string>();
@@ -1056,13 +1061,13 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
   const set = both(held, look, style);
-  const one = split && held.length === 1 ? worded(held[0])! : undefined;
+  const one = split && held.length === 1 ? syllabled(held[0])! : undefined;
   const fixes = one?.breaks ?? {};
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
-  const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
+  const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text ?? "").filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
   // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in characters of the composed word, and an
