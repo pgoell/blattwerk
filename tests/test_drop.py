@@ -384,6 +384,213 @@ def test_a_dialog_shows_that_it_takes_no_drop_and_the_browser_keeps_none(editor)
     assert page.url == url
 
 
+# The page's answer to a drag of words or addresses from another web page, as it sets dropEffect.
+LINK_EFFECT = """([x, y, items]) => {
+    const dataTransfer = new DataTransfer();
+    for (const [type, text] of items) dataTransfer.setData(type, text);
+    let set = "unset";
+    Object.defineProperty(dataTransfer, "dropEffect", { set: (effect) => (set = effect) });
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    document.elementFromPoint(x, y).dispatchEvent(new DragEvent("dragover", init));
+    return set;
+}"""
+# The dragover and drop that reach the element under the point, as a listener on it sees them. The
+# page's window listeners stop a drag they take before it gets there.
+REACHES = """([x, y, items]) => {
+    const dataTransfer = new DataTransfer();
+    for (const [type, text] of items) dataTransfer.setData(type, text);
+    const under = document.elementFromPoint(x, y);
+    const got = [];
+    for (const kind of ["dragover", "drop"]) under.addEventListener(kind, () => got.push(kind));
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    for (const kind of ["dragover", "drop"]) under.dispatchEvent(new DragEvent(kind, init));
+    return got;
+}"""
+# A drag that starts in the page, as dragging words in a field does.
+DRAG_START = """([x, y]) => {
+    const init = { dataTransfer: new DataTransfer(), bubbles: true };
+    document.elementFromPoint(x, y).dispatchEvent(new DragEvent("dragstart", init));
+}"""
+# Dragged as a picture leaves a web page: its address, and the markup around it, but no file.
+LINK = """([x, y, items]) => {
+    const dataTransfer = new DataTransfer();
+    for (const [type, text] of items) dataTransfer.setData(type, text);
+    const under = document.elementFromPoint(x, y);
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    return ["dragover", "drop"].map((kind) => {
+        const event = new DragEvent(kind, init);
+        under.dispatchEvent(event);
+        return event.defaultPrevented;
+    });
+}"""
+WEB_PICTURE = (
+    "Ein Bild von einer Webseite lässt sich nicht hereinziehen. "
+    "Kopiere es dort und füge es hier mit Strg+V ein, oder speichere es und ziehe die Datei herein."
+)
+HTTP = "https://example.org/katze.png"
+
+
+def picture(src):
+    """What a web page gives for its picture dragged out: the address, and an <img> with it."""
+    return [("text/uri-list", src), ("text/html", f'<img src="{src}" alt="">')]
+
+
+def data_png():
+    return f"data:image/png;base64,{base64.b64encode(png()).decode()}"
+
+
+def drop_items(page, x, y, *items):
+    """Drops words and addresses, no file, on the point. Gives whether the page kept each event."""
+    return dict(zip(KEPT, page.evaluate(LINK, [x, y, list(items)]), strict=True))
+
+
+def test_a_picture_dragged_from_a_web_page_lands_under_the_pointer(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    url = page.url
+    assert drop_items(page, *spot(page, 105, 150), *picture(data_png())) == KEPT
+    landed(page, 2)
+    assert page.url == url
+    [held] = new(saved(page, client), "a")
+    assert held["type"] == "image"
+    assert isinstance(held["props"]["upload"], int)
+    assert middle(held) == pytest.approx((105, 150), abs=0.5)
+    page.keyboard.press("Control+z")
+    expect(blocks(page)).to_have_count(1)
+    expect(at(page, "a")).to_be_visible()
+
+
+def test_a_web_picture_dropped_on_the_second_page_lands_there(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), more=[box("far", "text", TEXT)], client=client)
+    second = page.locator('.sheet[data-page="1"]')
+    second.scroll_into_view_if_needed()
+    expect(second).to_be_in_viewport()
+    drop_items(page, *spot(page, 105, 148.5, n=1), *picture(data_png()))
+    landed(page, 3)
+    first, other = docs(page, client)
+    assert [b["id"] for b in first] == ["a"]
+    [held] = new(other, "far")
+    assert middle(held) == pytest.approx((105, 148.5), abs=0.5)
+
+
+def test_a_web_picture_address_is_not_fetched_and_the_hint_says_how(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    url = page.url
+    asked = []
+    page.on("request", lambda r: asked.append(r.url))
+    assert drop_items(page, *spot(page, 105, 150), *picture(HTTP)) == KEPT
+    expect(page.locator(".notice.fault")).to_contain_text(WEB_PICTURE)
+    expect(blocks(page)).to_have_count(1)
+    assert page.url == url
+    assert [u for u in asked if "example.org" in u] == []
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+
+
+def test_a_lazy_picture_is_taken_by_the_address_it_shows_not_its_placeholder(editor):
+    # Review: the <img> holds a blank data: placeholder, the browser hands over the real address.
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    items = [("text/uri-list", HTTP), ("text/html", f'<img src="{data_png()}" data-src="{HTTP}">')]
+    assert drop_items(page, *spot(page, 105, 150), *items) == KEPT
+    expect(page.locator(".notice.fault")).to_contain_text(WEB_PICTURE)
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+
+
+def test_a_picture_in_a_link_lands_by_its_own_address(editor):
+    # Review: a thumbnail in a link hands over the link's address; its <img> holds the picture.
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    items = [
+        ("text/uri-list", "https://example.org/seite"),
+        ("text/html", f'<a href="https://example.org/seite"><img src="{data_png()}"></a>'),
+    ]
+    assert drop_items(page, *spot(page, 105, 150), *items) == KEPT
+    landed(page, 2)
+    [held] = new(saved(page, client), "a")
+    assert held["type"] == "image"
+
+
+def test_a_link_that_is_no_picture_adds_nothing(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    url = page.url
+    link = "https://example.org/seite"
+    items = [("text/uri-list", link), ("text/html", f'<a href="{link}">Seite</a>')]
+    assert drop_items(page, *spot(page, 105, 150), *items) == KEPT
+    expect(page.locator(".notice.fault")).to_have_count(0)
+    drop(page, *spot(page, 105, 150), PNG)
+    landed(page, 2)
+    assert [b["type"] for b in new(saved(page, client), "a")] == ["image"]
+    assert page.url == url
+
+
+def test_a_web_picture_dropped_while_a_dialog_is_open_adds_nothing(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    point = behind(page)
+    assert drop_items(page, *point, *picture(data_png())) == KEPT
+    page.keyboard.press("Escape")
+    expect(page.locator("dialog")).to_have_count(0)
+    # A picture of the file drop would be there by the time the web one's is.
+    drop(page, *spot(page, 105, 150), PNG)
+    landed(page, 2)
+    assert [b["type"] for b in new(saved(page, client), "a")] == ["image"]
+
+
+def test_a_file_dragged_over_the_top_bar_or_the_panel_is_refused(editor):
+    page = editor(box("a", "text", TEXT))
+    assert page.evaluate(EFFECT, centre(page.locator("header button").first)) == "none"
+    assert page.evaluate(EFFECT, centre(page.locator("aside.panel"))) == "none"
+    assert page.evaluate(EFFECT, spot(page, 105, 150)) == "copy"
+
+
+def test_a_web_picture_is_copied_over_the_sheet_and_refused_over_the_top_bar(editor):
+    page = editor(box("a", "text", TEXT))
+    assert page.evaluate(LINK_EFFECT, [*spot(page, 105, 150), picture(HTTP)]) == "copy"
+    bar = centre(page.locator("header button").first)
+    assert page.evaluate(LINK_EFFECT, [*bar, picture(HTTP)]) == "none"
+
+
+def test_words_dragged_over_a_text_field_get_no_answer_from_the_editor(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD)
+    expect(field).to_be_visible()
+    assert page.evaluate(LINK_EFFECT, [*centre(field), [("text/plain", "Wort")]]) == "unset"
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        [("text/plain", "Wort"), ("text/html", "<b>Wort</b>")],
+        [("text/uri-list", HTTP)],
+    ],
+    ids=["selected words", "link"],
+)
+def test_a_drag_into_an_open_text_field_is_left_to_the_field(editor, items):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD)
+    expect(field).to_be_visible()
+    assert page.evaluate(LINK_EFFECT, [*centre(field), items]) == "unset"
+    # The field's own handler may prevent the drop, so ask whether the drop reached the field.
+    assert page.evaluate(REACHES, [*centre(field), items]) == ["dragover", "drop"]
+
+
+def test_a_drag_started_in_the_page_is_left_to_the_page(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    field = page.locator(FIELD)
+    expect(field).to_be_visible()
+    page.evaluate(DRAG_START, centre(field))
+    assert page.evaluate(LINK_EFFECT, [*spot(page, 105, 150), picture(HTTP)]) == "unset"
+
+
 # #197
 
 

@@ -7,6 +7,7 @@ import { Schema, type Attrs, type MarkSpec, type Node, type ResolvedPos } from "
 import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { parasOf, stored, useSplitter, type List, type Para, type Run, type TextProps } from "../sheet";
+import { parasFromHtml } from "../pasted";
 
 // The look a run can have of its own.
 export type Marks = Omit<Run, "text">;
@@ -40,6 +41,24 @@ const mark = (name: Name, css: (v: string | boolean) => string, tag?: string): M
     ...(tag ? [{ tag, getAttrs: (el: HTMLElement) => el.style.fontWeight !== "normal" && null }] : []),
   ],
 });
+// A paste from elsewhere, as the field's own markup: its marks as the spans the schema reads, its lists as paragraphs.
+const CSS = (name: Name, v: string | boolean) => (name === "color" ? `color: ${v}` : name === "bold" ? "font-weight: 700" : name === "italic" ? "font-style: italic" : "text-decoration: underline");
+const fieldMarkup = (paras: Para[]) =>
+  paras
+    .map((p) => {
+      const inner = p.runs
+        .map((r) => {
+          let s = r.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          for (const name of NAMES) {
+            const v = r[name];
+            if (v && fits(name, v)) s = `<span data-${name}="${v}" style="${CSS(name, v)}">${s}</span>`;
+          }
+          return s;
+        })
+        .join("");
+      return `<p${p.list ? ` data-list="${p.list}"` : ""}${p.level ? ` data-level="${p.level}"` : ""}>${inner}</p>`;
+    })
+    .join("");
 const schema = new Schema({
   nodes: {
     doc: { content: "paragraph+" },
@@ -286,7 +305,12 @@ export default function Field({ view, props, hint, all, at, ...on }: Props) {
       // A key pressed before that would still replace all, so the field reads the caret first.
       handleKeyDown: () => void document.dispatchEvent(new Event("selectionchange")),
       // The field knows no line break within a paragraph.
-      transformPastedHTML: (html) => html.replace(/<br\b[^>]*>/gi, " "),
+      // A copy of the field's own keeps its gaps and its marks as they are; ProseMirror marks it so.
+      transformPastedHTML: (html) => {
+        const flat = html.replace(/<br\b[^>]*>/gi, " ");
+        const paras = flat.includes("data-pm-slice") ? [] : parasFromHtml(flat);
+        return paras.length ? fieldMarkup(paras) : flat;
+      },
     });
     view.current = field;
     // The field lies where the closed text was drawn, so the point of the click finds its letter in it.

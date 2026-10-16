@@ -189,10 +189,11 @@ def test_a_long_sentence_shrinks_to_10_pt_at_most_and_then_grows_the_shape(edito
     page = editor(ten, client=client)
     make(page, label, LONG)
     # A star 40 mm wide holds 9 mm between its inner points: a word of five letters at 10 pt is
-    # wider, and a word shrinks past 10 pt rather than be cut. At 80 mm the words fit.
-    wide = 80 if label == "Stern" else 40
-    if label == "Stern":
-        enter(page, "Breite", "80")
+    # wider, and a word shrinks past 10 pt rather than be cut. At 80 mm the words fit. A triangle
+    # 40 mm wide would need more than the page: it stops at the foot (#668), so it gets 60 mm.
+    wide = {"Stern": 80, "Dreieck": 60}.get(label, 40)
+    if wide != 40:
+        enter(page, "Breite", str(wide))
     a = next(b for b in saved(page, client) if b["id"] != "ten")
     block = at(page, a["id"])
     assert a["h"] > 40, a

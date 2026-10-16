@@ -58,6 +58,8 @@ type Props = {
   unmerge: () => void;
   // The height in mm of each row of the table being edited, as its grid lays them out.
   laid: number[];
+  // The ids of the blocks whose text the page's foot cuts short.
+  full: string[];
   // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
   sizeCells: (axis: "col" | "row", mm: number) => void;
   evenCells: (axis: "col" | "row") => void;
@@ -173,17 +175,17 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
 // a line in it still lies along the box. A group is turned when all its blocks but the lines share one angle; one with
 // blocks turned each their own way scales along the page, each block by the axis it lies along.
 const scaledGroup = (bs: Block[], sx: number, sy: number): Block[] => {
+  const { turn, about, level } = frameOf(bs);
+  const lb = bounds(level);
+  return turn ? swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about) : scaled(bs, sx, sy, [lb.x, lb.y]);
+};
+// A group's own frame: its blocks laid level about its middle when it is turned, as they are when it is not.
+const frameOf = (bs: Block[]) => {
   const angles = new Set(bs.filter((b) => !isLine(b)).map((b) => b.angle ?? 0));
   const turn = angles.size === 1 ? [...angles][0] : 0;
-  if (!turn) {
-    const box = bounds(bs);
-    return scaled(bs, sx, sy, [box.x, box.y]);
-  }
   const all = hull(bs);
   const about: [number, number] = [all.x + all.w / 2, all.y + all.h / 2];
-  const level = swung(bs, -turn, about);
-  const lb = bounds(level);
-  return swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about);
+  return { turn, about, level: turn ? swung(bs, -turn, about) : bs };
 };
 // A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
 const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
@@ -256,7 +258,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -362,6 +364,8 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // A selection with a group in it is one thing: it shows the box around it, which only moves.
   const whole = sel.some((b) => b.group);
   const box = bounds(sel);
+  // Its width and height are those of its own frame, the box it has at 0 degrees, as in PowerPoint.
+  const own = whole ? bounds(frameOf(sel).level) : box;
   const shared = (of: (b: Block) => number) => (whole ? undefined : sel.every((b) => of(b) === of(sel[0])) ? of(sel[0]) : undefined);
   // A picture, a symbol and a Hunderterfeld always keep their shape.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
@@ -372,9 +376,9 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
     // A group of flat lines has no height to scale from.
-    if (to <= 0 || (whole && box[side] <= 0)) return;
+    if (to <= 0 || (whole && own[side] <= 0)) return;
     if (whole) {
-      const f = to / box[side];
+      const f = to / own[side];
       const both = lock || sel.some(kept);
       const [sx, sy] = side === "w" ? [f, both ? f : 1] : [both ? f : 1, f];
       place(scaledGroup(sel, sx, sy).map(sized));
@@ -416,6 +420,12 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           {sel.length > 1 ? "Die Auswahl ragt unten über die Seite hinaus." : "Der Block ragt unten über die Seite hinaus."} Was unter dem Rand steht, wird nicht gedruckt.
         </p>
       )}
+      {/* A text that the foot stops from growing says that its last words are cut. */}
+      {sel.some((b) => full.includes(b.id)) && (
+        <p className="hint warn" role="status" data-foot="full">
+          Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
+        </p>
+      )}
       {/* A table that a new column made wider than the page is cut too, at the right edge. */}
       {sel.some((b) => b.type === "table" && rightmost(b) > W + 0.01) && (
         <p className="hint warn" role="status" data-edge="over">
@@ -426,8 +436,8 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
         <h2>Position und Größe in mm</h2>
         <Num label="X" value={whole ? round(box.x) : shared((b) => b.x)} disabled={fixed} onCommit={(n) => move("x", n)} />
         <Num label="Y" value={whole ? round(box.y) : shared((b) => b.y)} disabled={fixed} onCommit={(n) => move("y", n)} />
-        <Num label="Breite" value={whole ? round(box.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
-        <Num label="Höhe" value={whole ? round(box.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
+        <Num label="Breite" value={whole ? round(own.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
+        <Num label="Höhe" value={whole ? round(own.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
         <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
         <span>
           °

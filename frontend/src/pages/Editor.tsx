@@ -100,7 +100,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -116,6 +116,7 @@ import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
+import { parasFromHtml } from "../pasted";
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
@@ -735,6 +736,52 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   useLayoutEffect(() => {
     if (!moveable.current!.isDragging()) moveable.current!.updateRect();
   }, [blocks, k]);
+  // The ids whose text the page's foot cuts short: the panel warns about them.
+  const [full, setFull] = useState<string[]>([]);
+  const stopped = (id: string, on: boolean) =>
+    setFull((f) => (f.includes(id) === on ? f : on ? [...f, id] : f.filter((x) => x !== id)));
+  // The height at which a block's lowest point meets the page's foot `H`, or Infinity when it never does. Lowest is
+  // linear in the height, so one more mm gives the slope.
+  const footTop = (b: Block, H: number) => {
+    const at = (h: number) => lowest({ ...b, ...tall(b, h) } as Box);
+    const slope = at(b.h + 1) - at(b.h);
+    return slope > 0.001 ? b.h + (H - at(b.h)) / slope : Infinity;
+  };
+  // Whether the block ends at the page's foot. A turned block's place is rounded to 0.01 mm: it may reach a hair past.
+  // One that hangs further down has a warning of its own.
+  const atFoot = (b: Block) => Math.abs(footTop(b, sizeOf(hist.doc, page)[1]) - b.h) <= 0.05;
+  // A circle, triangle or star with `inside` shrinks its text to its outline in place of growing.
+  const shrinks = (b: Block) => {
+    const shape = boxed(b);
+    return shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star");
+  };
+  // How high the block's frame would be with no height set, in mm. A table's rows are each as high as their highest
+  // cell when its height is not set.
+  const natural = (b: Block) => {
+    const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
+    if (!frame) return undefined;
+    // A turned frame would measure as high as its outline, so the block lies level for the moment.
+    const block = frame.parentElement!;
+    const was = block.style.transform;
+    block.style.transform = "none";
+    // A linked text's frame has a height of its own, which it keeps after the measure.
+    const own = frame.style.height;
+    frame.style.height = "auto";
+    const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
+    frame.style.height = own;
+    block.style.transform = was;
+    return h;
+  };
+  // A picked text at the page's foot whose words need more room than it has: the panel warns. Told from the sheet as
+  // it is, so it holds after an undo, a reload or a paste too. A shape that shrinks its text tells by `overfit`.
+  useLayoutEffect(() => {
+    for (const b of sel) {
+      const p = boxed(b);
+      if (!p || p.list === true || shrinks(b)) continue;
+      const h = atFoot(b) ? natural(b) : undefined;
+      stopped(b.id, h !== undefined && h > b.h + 0.05);
+    }
+  });
   // A box grows with its text, as a PowerPoint text box does, and never shrinks by itself. Only a change the teacher
   // makes is measured, so a sheet that opens stays as saved. The frame says how high it would be with no height
   // set; the top edge stays. The new height adds no step to undo: it belongs to the change that asked for it.
@@ -744,32 +791,26 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const snug = sink.current;
     sink.current = false;
     const grown = new Map<string, Partial<Block>>();
+    const H = sizeOf(hist.doc, page)[1];
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
       // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
-      if (shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star")) continue;
-      // A table's rows are each as high as their highest cell when its height is not set.
-      const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
-      if (!frame) continue;
-      // A turned frame would measure as high as its outline, so the block lies level for the moment.
-      const block = frame.parentElement!;
-      const was = block.style.transform;
-      block.style.transform = "none";
-      // A linked text's frame has a height of its own, which it keeps after the measure.
-      const own = frame.style.height;
-      frame.style.height = "auto";
-      const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
-      frame.style.height = own;
-      block.style.transform = was;
+      if (shrinks(b)) continue;
+      const h = natural(b);
+      if (h === undefined) continue;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
       // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
       // never shrinks by itself. No other change brings a table down: a height the teacher set holds.
       const down = snug && kept;
-      if (down ? Math.abs(h - b.h) <= 0.05 : h <= b.h) continue;
+      // A text or a shape stops at the page's foot; a linked text and a table grow on.
+      const stops = shape !== undefined && shape.list !== true;
+      const top = stops ? footTop(b, H) : Infinity;
+      const fit = stops ? Math.max(b.h, Math.min(h, top)) : h;
+      if (down ? Math.abs(h - b.h) <= 0.05 : fit <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
-      grown.set(b.id, tall(b, h));
+      grown.set(b.id, tall(b, fit));
     }
     // A font used for the first time is still on its way: the text is measured again once it is there.
     if (document.fonts.status === "loading")
@@ -789,13 +830,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const wrote = useRef("");
   if (editing) wrote.current = editing;
   overfit.current = (id, mm) => {
+    const b = sel.find((x) => x.id === id);
+    // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
+    if (b) stopped(id, mm > 0 && atFoot(b));
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
-    const b = sel.find((x) => x.id === id);
     const shape = b && boxed(b);
-    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || mm <= 0) return;
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
-    const h = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
+    const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
+    const top = footTop(b, sizeOf(hist.doc, page)[1]);
+    const h = Math.max(b.h, Math.min(want, top));
+    // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
+    if (h <= b.h) return;
     // A round circle stays round (#661): it grows as wide as high.
     const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
@@ -850,6 +897,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const onKey = useRef((_e: KeyboardEvent) => {});
   const onPaste = useRef((_e: ClipboardEvent) => {});
   const onDrag = useRef((_e: DragEvent) => {});
+  // A drag that starts in the page, as words dragged in a field do, is the page's own: only one that comes in is taken.
+  const fromPage = useRef(false);
   // The sheet and the page in use as last drawn, for what comes back from the server after them.
   const latest = useRef({ doc: hist.doc, page });
   latest.current = { doc: hist.doc, page };
@@ -879,7 +928,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     window.addEventListener("paste", pasted, true);
     window.addEventListener("dragover", dragged, true);
     window.addEventListener("drop", dragged, true);
+    const began = () => (fromPage.current = true);
+    const ended = () => (fromPage.current = false);
+    window.addEventListener("dragstart", began);
+    window.addEventListener("dragend", ended);
     return () => {
+      window.removeEventListener("dragstart", began);
+      window.removeEventListener("dragend", ended);
       window.removeEventListener("change", chosen);
       window.removeEventListener("keyup", shut);
       window.removeEventListener("keydown", press);
@@ -891,14 +946,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
   // Only the desk takes them, and not while a dialog is open. Text dragged in a field and Moveable's own drags bring
   // no files and stay as they are. The photo field of the feedback dialog takes its own.
+  // A picture dragged from another web page brings no file, only its address: the same rule, for the desk alone.
+  // Only an address counts (selected words bring text/html too), and never over a field, which takes it as text.
   onDrag.current = (e) => {
-    if (!e.dataTransfer?.types.includes("Files")) return;
-    if (document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
+    const types = e.dataTransfer?.types ?? [];
+    if (e.type === "drop") fromPage.current = false;
+    const files = types.includes("Files");
+    const inField = e.target instanceof Element && !!e.target.closest(".ProseMirror, textarea, input");
+    const link = !files && !fromPage.current && !inField && types.includes("text/uri-list");
+    if (!files && !link) return;
+    if (files && document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
     e.preventDefault();
     e.stopPropagation();
     const on = desk.current!.contains(e.target as Node) && !document.querySelector("dialog:modal");
-    if (e.type === "dragover") e.dataTransfer.dropEffect = on ? "copy" : "none";
-    else if (on) dropped([...e.dataTransfer.files], e.clientX, e.clientY);
+    if (e.type === "dragover") e.dataTransfer!.dropEffect = on ? "copy" : "none";
+    else if (on && files) dropped([...e.dataTransfer!.files], e.clientX, e.clientY);
+    else if (on) dropLink(e.dataTransfer!, e.clientX, e.clientY);
   };
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
   // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
@@ -922,7 +985,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
     if (!picture || writing.current) {
-      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "")) paste();
+      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
     }
     e.preventDefault();
@@ -2130,6 +2193,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     let rest = files;
     return attempt(NO_PICTURE, () => landed(rest, was, x, y, (still) => void (rest = still)), unfit);
   }
+  // A picture from a web page comes as its address: a data: address is read here, as a file, and a web address is not
+  // fetched (a browser refuses it across sites, and the server must not ask it). A dragged link with no picture adds nothing.
+  const WEB_PICTURE = "Ein Bild von einer Webseite lässt sich nicht hereinziehen. Kopiere es dort und füge es hier mit Strg+V ein, oder speichere es und ziehe die Datei herein.";
+  function dropLink(data: DataTransfer, left: number, top: number) {
+    const html = data.getData("text/html");
+    const pic = html ? new DOMParser().parseFromString(html, "text/html").querySelector("img") : null;
+    const img = pic?.getAttribute("src");
+    const uri = data.getData("text/uri-list").split(/\r?\n/).find((line) => line && !line.startsWith("#"));
+    // The address the browser hands over is the picture shown: a lazy picture's `src` may be a blank placeholder. A
+    // picture in a link hands over the link's address instead: then its <img> tells.
+    const address = uri?.startsWith("data:image/") || (uri && pic && !pic.closest("a[href]")) ? uri : (img ?? undefined);
+    if (!address) return;
+    const read = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=]+)$/.exec(address);
+    if (!read) return attempt(WEB_PICTURE, () => Promise.reject(), () => WEB_PICTURE);
+    const [, kind, b64] = read;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return dropped([new File([bytes], `bild.${kind}`, { type: `image/${kind}` })], left, top);
+  }
   // Sends the files and lands those that arrived. Tells which did not, and throws why.
   async function landed(files: File[], was: number, x: number, y: number, keep: (still: File[]) => void) {
     const where = mark(was);
@@ -2300,15 +2381,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
   // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
-  function typed(got: string) {
+  function typed(got: string, html = "") {
     const words = got.replace(/\r\n/g, "\n");
     const [copied, held] = [localStorage.getItem("copied"), clip()];
     // A copy of the build before left no mark: its words are those of the stored blocks.
     const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
     if (!words.trim() || own) return false;
     tight.current = true;
-    // Word ends a whole line with a break, which would make an empty last paragraph.
-    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } }, page, true);
+    // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
+    const paras = parasFromHtml(html);
+    const props = paras.length ? stored(paras) : { text: words.replace(/\n+$/, "") };
+    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, page, true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
@@ -2320,18 +2403,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (writing.current) return paste();
     reading.current = true;
     let words = "";
+    let html = "";
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
         if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
+        if (item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
       }
     } catch {
       // No leave to read, or a browser that cannot: the copied blocks are still there.
     } finally {
       reading.current = false;
     }
-    if (!typed(words)) paste();
+    if (!typed(words, html)) paste();
   }
   // What is locked stays, and stays picked: "Entsperren" is one click away. With nothing free there is no undo step.
   function remove() {
@@ -4258,6 +4343,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 merge={merge}
                 unmerge={unmerge}
                 laid={laidMm}
+                full={full}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}
