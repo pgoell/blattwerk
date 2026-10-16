@@ -137,10 +137,11 @@ def test_the_tutorial_names_what_the_teacher_does_herself():
     for words in ("Konto", "Zugang für Claude", "Schlüssel erstellen", "Kopieren", "Widerrufen"):
         assert words in body
     assert "claude.ai/download" in body
-    # The double-click install is #653, not built yet.
-    for promise in (".mcpb", "Doppelklick", "Erweiterung"):
-        assert promise not in body
-    # The key's name field starts empty (a placeholder only), and an empty name makes no key.
     account = (ROOT / "frontend/src/pages/Account.tsx").read_text()
+    # The install (#653): the link on the account page, and the file it gives.
+    assert "Erweiterung für Claude Desktop herunterladen" in body
+    assert "Erweiterung für Claude Desktop herunterladen" in account
+    assert 'download="blattomat.mcpb"' in account and "`blattomat.mcpb`" in body
+    # The key's name field starts empty (a placeholder only), and an empty name makes no key.
     assert 'useState("")' in account and 'placeholder="Claude Desktop"' in account
     assert "schreib einen Namen in das Feld" in body

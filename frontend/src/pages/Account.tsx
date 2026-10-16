@@ -156,6 +156,11 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       <div className="card">
         <label>Zugang für Claude</label>
         <p className="hint">Mit einem Schlüssel kann Claude Desktop Blätter in deinem Konto anlegen und ändern. Gib jedem Gerät einen eigenen Namen.</p>
+        <p>
+          <a href="/blattomat.mcpb" download="blattomat.mcpb">
+            Erweiterung für Claude Desktop herunterladen
+          </a>
+        </p>
         {left && <p role="status" className="notice">{left}</p>}
         <form onSubmit={create}>
           <input

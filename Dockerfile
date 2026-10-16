@@ -3,7 +3,10 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend ./
-# Writes to /app/src/blattwerk/static.
+# The Claude Desktop extension (frontend/mcpb.mjs) bundles the docs and reads the sheet schema.
+COPY docs/okf /app/docs/okf
+COPY src/blattwerk/sheet.schema.json /app/src/blattwerk/sheet.schema.json
+# Writes to /app/src/blattwerk/static, the extension blattomat.mcpb included.
 RUN npm run build
 
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim

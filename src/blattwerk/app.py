@@ -58,4 +58,7 @@ def frontend(path: str) -> FileResponse:
         file = STATIC / "index.html"
     if not file.is_file():
         raise HTTPException(404)
+    # The Claude Desktop extension, a zip that mimetypes does not know: a file to save, not text.
+    if file.suffix == ".mcpb":
+        return FileResponse(file, media_type="application/octet-stream")
     return FileResponse(file)
