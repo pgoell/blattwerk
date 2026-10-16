@@ -24,6 +24,7 @@ REFRESH_DAYS = 90
 PKCE = re.compile(r"[A-Za-z0-9\-._~]{43,128}")
 LOOPBACK = ("localhost", "127.0.0.1")
 DEFAULT_NAME = "Unbekanntes Programm"
+REGISTER_TRIES = 100
 
 router = APIRouter()
 
@@ -60,8 +61,8 @@ def redirect_to(uri: str, **params: str | None) -> str:
     return uri + ("&" if "?" in uri else "?") + urlencode(params)
 
 
-def checked(con: sqlite3.Connection, base: str, asked: dict) -> tuple[sqlite3.Row, str | None]:
-    """The client of a request, and the error to send back to its redirect (None when good).
+def checked(con: sqlite3.Connection, base: str, asked: dict) -> sqlite3.Row:
+    """The client of a request. A bad request is a 400 page, never a redirect.
 
     Used by the page that asks and by the teacher's yes, so both judge a request the same way.
     """
@@ -71,32 +72,41 @@ def checked(con: sqlite3.Connection, base: str, asked: dict) -> tuple[sqlite3.Ro
     # Never send anyone to an address the client did not register: that would be an open redirect.
     if not client or asked.get("redirect_uri") not in json.loads(client["redirect_uris"]):
         raise HTTPException(400, "Das Programm ist nicht bekannt oder seine Adresse stimmt nicht.")
+    # A redirect with an error would send the page on with no click, so these are 400 too.
     if (
         asked.get("response_type") != "code"
         or not PKCE.fullmatch(str(asked.get("code_challenge", "")))
         or asked.get("code_challenge_method") != "S256"
     ):
-        return client, "invalid_request"
+        raise HTTPException(400, "Die Anfrage ist nicht gültig: nur Code mit S256.")
     if asked.get("resource") not in (None, "", base + "/mcp"):
-        return client, "invalid_target"
-    return client, None
+        raise HTTPException(400, "Die Anfrage gilt für ein anderes Ziel als Blattomat.")
+    return client
 
 
-def issue(con: sqlite3.Connection, grant_id: int) -> dict:
+def issue(con: sqlite3.Connection, grant_id: int, refresh_was: str | None = None) -> dict | None:
+    """New tokens for a grant. A refresh passes the refresh hash it read: if another refresh
+    rotated it since, nothing changes and the answer is None.
+    """
     # The grant id is part of each token, so the id comes first and the tokens after it.
     access = f"bo_{grant_id}_{secrets.token_urlsafe(32)}"
     refresh = f"br_{grant_id}_{secrets.token_urlsafe(32)}"
-    con.execute(
+    cur = con.execute(
         "UPDATE oauth_grants SET access_hash = ?, access_expires = datetime('now', ?),"
-        " refresh_hash = ?, refresh_expires = datetime('now', ?) WHERE id = ?",
+        " refresh_hash = ?, refresh_expires = datetime('now', ?)"
+        " WHERE id = ? AND (? IS NULL OR refresh_hash = ?)",
         (
             auth.digest(access),
             f"+{ACCESS_SECONDS} seconds",
             auth.digest(refresh),
             f"+{REFRESH_DAYS} days",
             grant_id,
+            refresh_was,
+            refresh_was,
         ),
     )
+    if not cur.rowcount:
+        return None
     return {
         "access_token": access,
         "token_type": "Bearer",
@@ -144,8 +154,14 @@ def authorization_server(request: Request) -> dict:
 
 @router.post("/oauth/register", status_code=201)
 def register(body: dict, request: Request, con: Con) -> JSONResponse:
-    # A program registers itself, so the tries are per address: no flood of clients.
-    auth.limit(con, f"register:{request.client.host if request.client else ''}")
+    # Many teachers' programs share Anthropic's few addresses, so the tries are generous.
+    auth.limit(con, f"register:{request.client.host if request.client else ''}", REGISTER_TRIES)
+    # Clients nobody connected, from a day or more ago, go: the table stays small.
+    con.execute(
+        "DELETE FROM oauth_clients WHERE created <= datetime('now', '-1 days')"
+        " AND id NOT IN (SELECT client_id FROM oauth_grants)"
+    )
+    con.execute("DELETE FROM oauth_codes WHERE expires <= datetime('now')")
     uris = body.get("redirect_uris")
     if not isinstance(uris, list) or not 1 <= len(uris) <= 5:
         return refuse("invalid_client_metadata", "redirect_uris needs 1 to 5 addresses")
@@ -182,21 +198,17 @@ def register(body: dict, request: Request, con: Con) -> JSONResponse:
 def authorize(request: Request, user: auth.User, con: Con) -> dict:
     # The page the teacher sees: who asks, and where the answer goes.
     asked = dict(request.query_params)
-    client, error = checked(con, origin(request), asked)
+    client = checked(con, origin(request), asked)
     uri = asked["redirect_uri"]
-    if error:
-        return {"redirect": redirect_to(uri, error=error, state=asked.get("state"))}
     host = urlsplit(uri).hostname
     return {"client_name": client["name"], "redirect_host": host, "loopback": host in LOOPBACK}
 
 
 @router.post("/api/oauth/consent")
 def consent(body: dict, request: Request, user: auth.User, con: Con) -> dict:
-    client, error = checked(con, origin(request), body)
+    client = checked(con, origin(request), body)
     uri = body["redirect_uri"]
     state = body.get("state")
-    if error:
-        return {"redirect": redirect_to(uri, error=error, state=state)}
     if body.get("approve") is not True:
         return {"redirect": redirect_to(uri, error="access_denied", state=state)}
     code = secrets.token_urlsafe(32)
@@ -258,7 +270,8 @@ def token(
             " RETURNING id",
             (row["user_id"], row["client_id"], row["hash"], row["resource"]),
         ).fetchone()[0]
-        return answer(issue(con, grant_id))
+        # A new grant has no refresh hash to compare, so the rotation always applies here.
+        return answer(issue(con, grant_id) or {})
     if grant_type == "refresh_token":
         grant_id = grant_id_of(refresh_token)
         row = None
@@ -273,7 +286,10 @@ def token(
             return refuse("invalid_grant", "the refresh token is unknown, expired or used")
         if resource and resource != row["resource"]:
             return answer({"error": "invalid_target"}, 400)
-        return answer(issue(con, row["id"]))
+        tokens = issue(con, row["id"], row["refresh_hash"])
+        if tokens is None:
+            return refuse("invalid_grant", "the refresh token is unknown, expired or used")
+        return answer(tokens)
     return refuse("unsupported_grant_type", "use authorization_code or refresh_token")
 
 

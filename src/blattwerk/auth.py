@@ -144,10 +144,10 @@ def current_admin(user: User) -> sqlite3.Row:
 Admin = Annotated[sqlite3.Row, Depends(current_admin)]
 
 
-def limit(con: sqlite3.Connection, key: str) -> None:
+def limit(con: sqlite3.Connection, key: str, tries: int = TRIES) -> None:
     # Kept in the database, so a restart does not hand out fresh tries.
     con.execute("DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",))
-    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= TRIES:
+    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= tries:
         raise HTTPException(429)
     con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
 

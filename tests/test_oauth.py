@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi.testclient import TestClient
 from ui import sheet, user
 
-from blattwerk import auth, db
+from blattwerk import auth, db, oauth
 from blattwerk.app import app
 
 BASE = "https://testserver"
@@ -150,11 +150,26 @@ def test_register():
     )
     assert secret.status_code == 400
 
-    # Ten registrations from one address in a window; the eleventh is refused.
+    # A hundred registrations from one address in a window; the 101st is refused.
     # The three above count too: 1 good, 1 bad redirect, 1 bad method.
-    for _ in range(7):
+    for _ in range(97):
         assert client.post("/oauth/register", json={"redirect_uris": [REDIRECT]}).status_code == 201
     assert client.post("/oauth/register", json={"redirect_uris": [REDIRECT]}).status_code == 429
+
+
+def test_register_sweeps_old_clients():
+    old = register()
+    kept = register()
+    teacher = user()
+    verifier, challenge = pkce()
+    code = approve_code(teacher, kept, challenge)
+    assert exchange(code, kept, verifier).status_code == 200
+    con = db.open_db()
+    con.execute("UPDATE oauth_clients SET created = datetime('now', '-2 days')")
+    register()
+    ids = {row[0] for row in con.execute("SELECT id FROM oauth_clients").fetchall()}
+    assert old not in ids
+    assert kept in ids
 
 
 def test_code_flow():
@@ -226,13 +241,13 @@ def test_plain_method():
     client_id = register()
     _, challenge = pkce()
     params = params_for(client_id, challenge, code_challenge_method="plain")
+    # A bad request never goes to its redirect: the page would jump there with no click.
     res = teacher.get("/api/oauth/authorize", params=params)
-    assert res.status_code == 200
-    query = query_of(res.json()["redirect"])
-    assert query["error"] == ["invalid_request"]
-    assert query["state"] == ["xyz"]
+    assert res.status_code == 400
+    assert "redirect" not in res.json()
     res = consent(teacher, params)
-    assert query_of(res.json()["redirect"])["error"] == ["invalid_request"]
+    assert res.status_code == 400
+    assert "redirect" not in res.json()
 
 
 def test_wrong_resource():
@@ -241,8 +256,11 @@ def test_wrong_resource():
     _, challenge = pkce()
     params = params_for(client_id, challenge, resource="https://other.example/mcp")
     res = teacher.get("/api/oauth/authorize", params=params)
-    assert res.status_code == 200
-    assert query_of(res.json()["redirect"])["error"] == ["invalid_target"]
+    assert res.status_code == 400
+    assert "redirect" not in res.json()
+    res = consent(teacher, params)
+    assert res.status_code == 400
+    assert "redirect" not in res.json()
 
 
 def test_deny():
@@ -292,6 +310,30 @@ def test_refresh_rotates():
     assert old_again.status_code == 400
     assert old_again.json()["error"] == "invalid_grant"
     assert bearer(tokens["access_token"]).get("/api/sheets").status_code == 401
+    assert bearer(new["access_token"]).get("/api/sheets").status_code == 200
+
+
+def test_refresh_twice_only_once(monkeypatch):
+    teacher = user()
+    client_id, tokens = grant(teacher)
+    real = oauth.issue
+    raced = []
+
+    def racing(con, grant_id, refresh_was=None):
+        # A second refresh with the same token lands after this one read the grant.
+        if not raced:
+            raced.append(True)
+            raced.append(refresh(tokens["refresh_token"], client_id))
+        return real(con, grant_id, refresh_was)
+
+    # A scoped patch: undo() would also drop the test's data folder.
+    with monkeypatch.context() as patch:
+        patch.setattr(oauth, "issue", racing)
+        res = refresh(tokens["refresh_token"], client_id)
+    assert raced[1].status_code == 200
+    assert res.status_code == 400
+    assert res.json()["error"] == "invalid_grant"
+    new = raced[1].json()
     assert bearer(new["access_token"]).get("/api/sheets").status_code == 200
 
 
