@@ -29,7 +29,6 @@ def test_typed_size_after_a_handle_drag_shows_what_was_typed(editor, field_name,
     expect(field(page, field_name)).to_have_value(shown)
 
 
-@pytest.mark.xfail(strict=True, reason="a percent lands on 39,99: no factor on the grid hits 40")
 def test_breite_percent_after_a_handle_drag_halves_the_shown_width(editor):
     page = turned_group(editor, user(), *SHAPES)
     drag_se_outward(page)
@@ -56,4 +55,18 @@ def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
     enter(page, "Breite", "80")
     expect(field(page, "Breite")).to_have_value("80")
     page.keyboard.press("Control+z")
+    expect(field(page, "Breite")).not_to_have_value("80")
+
+
+def test_a_drag_and_an_undo_after_a_typed_size_show_the_measured_size(editor):
+    page = turned_group(editor, user(), *SHAPES)
+    drag_se_outward(page)
+    measured = number(page, "Breite")
+    enter(page, "Breite", "80")
+    expect(field(page, "Breite")).to_have_value("80")
+    page.keyboard.press("Control+z")
+    assert number(page, "Breite") == pytest.approx(measured, abs=0.02)
+    enter(page, "Breite", "80")
+    expect(field(page, "Breite")).to_have_value("80")
+    drag_se_outward(page)
     expect(field(page, "Breite")).not_to_have_value("80")

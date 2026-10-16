@@ -243,6 +243,9 @@ export const mirrored = (bs: Block[], axis: Axis): Block[] => {
 // Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
 // look goes on unless all have it. A text has it when all its words do, of their own or through the block; one
 // with no words has what the block has.
+// What a size typed on these blocks is remembered by: their places, sizes and angles.
+const signature = (bs: Block[]) => JSON.stringify(bs.map((b) => [b.id, b.x, b.y, b.w, b.h, b.angle ?? 0]));
+
 export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
   part
     ? !!part.marks[name]
@@ -291,6 +294,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   // with it by quarters, and whatever is in it changes sides in a flip.
   // The line style and width that a border button or the pen draws with while a cell is open. It starts at the table's.
   const [pen, setPen] = useState<Pen>({ style: "solid", width: 0.25 });
+  // The size last typed for a group, with the blocks it was typed on: the frame may not land on it.
+  const [typed, setTyped] = useState<{ sig: string; w?: number; h?: number }>();
   const fixed = sel.some((b) => b.locked);
   const level = fixed || sel.some((b) => b.type === "table" || (isLine(b) && alone(b)));
   const plain = fixed || !sel.some((b) => !alone(b) || b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
@@ -393,6 +398,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const box = bounds(sel);
   // Its width and height are those of its own frame, the box it has at 0 degrees, as in PowerPoint.
   const own = whole ? bounds(frameOf(sel).level) : box;
+  // What the panel shows for a group's side: what was typed, while the group is as it was left, else its frame.
+  const shownOwn = (side: "w" | "h") => (typed && typed.sig === signature(sel) && typed[side] !== undefined ? typed[side] : round(own[side]));
   const shared = (of: (b: Block) => number) => (whole ? undefined : sel.every((b) => of(b) === of(sel[0])) ? of(sel[0]) : undefined);
   // A picture, a symbol and a Hunderterfeld always keep their shape.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
@@ -403,29 +410,22 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const shownAt = (axis: "x" | "y", v?: number) => (v === undefined ? undefined : round(v - offset(axis)));
   // The corner stays. A group scales about its top left corner, and with the lock all of it keeps its shape.
   // Loose blocks each keep their own shape.
-  // A group scaled so that its own frame on that side is `to`: the frame is rounded to hundredths, so a few rounds
-  // of correction close the gap to what was typed.
-  const fitted = (side: "w" | "h", to: number) => {
+  // A group scaled once by `f` on its sides; the field then shows what was typed, as the frame may not land on it.
+  // `to` is the value of `side` the field shows after; the other side shows its own value, scaled when both scale.
+  const scaleWhole = (side: "w" | "h", f: number, to: number) => {
     const both = lock || sel.some(kept);
-    const grow = (g: number): [number, number] => (side === "w" ? [g, both ? g : 1] : [both ? g : 1, g]);
-    let g = to / own[side];
-    // The frame can miss by a hundredth whatever the factor: the one nearest to what was typed is kept.
-    let best: [number, Block[]] | undefined;
-    for (let i = 0; i < 12; i++) {
-      const out = scaledGroup(sel, ...grow(g));
-      const got = bounds(frameOf(out).level)[side];
-      if (!best || Math.abs(got - to) < best[0]) best = [Math.abs(got - to), out];
-      if (best[0] < 0.005) break;
-      g *= to / got;
-    }
-    return best![1];
+    const out = scaledGroup(sel, ...(side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]) as [number, number]);
+    const other = side === "w" ? "h" : "w";
+    const rest = both ? own[other] * f : own[other];
+    setTyped({ sig: signature(out), ...(side === "w" ? { w: to, h: rest } : { w: rest, h: to }) });
+    place(out.map(sized));
   };
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
     // A group of flat lines has no height to scale from.
     if (to <= 0 || (whole && own[side] <= 0)) return;
     if (whole) {
-      place(fitted(side, to).map(sized));
+      scaleWhole(side, to / shownOwn(side), to);
       return;
     }
     place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
@@ -436,10 +436,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     const f = p / 100;
     // The side named scales; the other too when the shape is kept.
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
-    const out = whole
-      ? fitted(side, own[side] * f)
-      :// A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
-        sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
+    if (whole) {
+      scaleWhole(side, f, shownOwn(side) * f);
+      return;
+    }
+    // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
+    const out = sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
     place(out.map(sized));
   };
   // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut
@@ -489,8 +491,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         {/* In Mitte the place counts from the page's centre: a block at 15 mm shows -90 in a page 210 mm wide. */}
         <Num label="X" units value={shownAt("x", whole ? box.x : shared((b) => b.x))} disabled={fixed} onCommit={(n) => move("x", n + offset("x"))} />
         <Num label="Y" units value={shownAt("y", whole ? box.y : shared((b) => b.y))} disabled={fixed} onCommit={(n) => move("y", n + offset("y"))} />
-        <Num label="Breite" units value={whole ? round(own.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
-        <Num label="Höhe" units value={whole ? round(own.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
+        <Num label="Breite" units value={whole ? shownOwn("w") : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
+        <Num label="Höhe" units value={whole ? shownOwn("h") : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
         <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
         <span>
           °
