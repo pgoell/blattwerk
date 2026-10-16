@@ -1,7 +1,11 @@
 // The docs bundle docs/okf/: its index is the server's instructions, and each .md file is a resource.
 import { readFileSync, readdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
-const ROOT = new URL("../../docs/okf/", import.meta.url);
+// BLATTWERK_DOCS names another bundle folder (the tests use a copy); the default is the repo's.
+const ROOT = process.env.BLATTWERK_DOCS
+  ? pathToFileURL(`${process.env.BLATTWERK_DOCS}/`)
+  : new URL("../../docs/okf/", import.meta.url);
 const SCHEME = "blattomat://okf/";
 
 export type Resource = { uri: string; name: string; title: string; description?: string; mimeType: string };
