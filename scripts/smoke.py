@@ -14,11 +14,13 @@ import argparse
 import io
 import json
 import os
+import queue
 import re
 import secrets
 import sqlite3
 import subprocess
 import sys
+import threading
 import urllib.error
 import urllib.request
 from http.cookies import SimpleCookie
@@ -116,10 +118,18 @@ def read_only() -> None:
         child = subprocess.Popen(
             ["node", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
         )
+        assert child.stdout is not None
+        out = child.stdout
+        # A thread reads the line, so a child that never prints cannot hang the deploy.
+        lines: queue.Queue[str] = queue.Queue()
+        threading.Thread(target=lambda: lines.put(out.readline()), daemon=True).start()
         try:
-            line = child.stdout.readline() if child.stdout else ""
+            line = lines.get(timeout=30)
+        except queue.Empty:
+            line = ""
         finally:
             child.kill()
+            child.wait()
         if '"port"' not in line:
             fail(f"the MCP child gave {line!r}")
     passed("remote")

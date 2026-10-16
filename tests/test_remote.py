@@ -1,6 +1,8 @@
 """The remote MCP route /mcp: the bearer check, and the Node child that answers behind it (#654)."""
 
 import json
+import socket
+import time
 import uuid
 
 import httpx
@@ -72,6 +74,40 @@ def test_child_lists_tools(server):
         timeout=30,
     ).json()
     assert not called["result"].get("isError")
+
+
+def test_child_survives_a_cut_request(server):
+    port = remote.ensure()
+    # A request whose body stops short: the client closes the socket with 990 bytes still to come.
+    cut = socket.create_connection(("127.0.0.1", port), timeout=5)
+    cut.sendall(
+        b"POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
+        b"Content-Length: 1000\r\n\r\n0123456789"
+    )
+    cut.close()
+    time.sleep(0.5)
+    child = remote._child
+    assert child is not None and child[0].poll() is None, "the child exited on a cut request"
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "0"},
+        },
+    }
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "authorization": "Bearer bt_test",
+        "x-blattomat-api": server,
+    }
+    answer = httpx.post(
+        f"http://127.0.0.1:{port}/mcp", json=initialize, headers=headers, timeout=30
+    )
+    assert answer.status_code == 200
 
 
 def test_child_down(monkeypatch):

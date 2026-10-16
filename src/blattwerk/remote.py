@@ -49,6 +49,7 @@ def start() -> tuple[subprocess.Popen, int]:
         return proc, json.loads(first.get(timeout=30))["port"]
     except (queue.Empty, ValueError, KeyError, TypeError) as error:
         proc.kill()
+        proc.wait()
         raise HTTPException(503) from error
 
 
@@ -66,9 +67,14 @@ def stop() -> None:
     global _child
     with _lock:
         if _child is not None:
-            assert _child[0].stdin is not None
-            _child[0].stdin.close()
-            _child[0].wait(timeout=10)
+            proc = _child[0]
+            assert proc.stdin is not None
+            proc.stdin.close()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
             _child = None
 
 
