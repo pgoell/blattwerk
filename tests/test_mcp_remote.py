@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -74,6 +75,12 @@ def connector(server, session, storage, seen):
     )
 
 
+def run(coroutine):
+    """Runs the client in a thread of its own: a browser test may hold this thread's loop."""
+    with ThreadPoolExecutor(1) as pool:
+        return pool.submit(asyncio.run, coroutine).result()
+
+
 async def talk(server, provider, *calls):
     """One connection to /mcp: the tool names, then each call's result."""
     async with (
@@ -93,7 +100,7 @@ def test_remote_flow(server):
     storage, seen = Memory(), []
     provider = connector(server, session, storage, seen)
 
-    names, [made] = asyncio.run(talk(server, provider, ("create_sheet", {"title": "Von Claude"})))
+    names, [made] = run(talk(server, provider, ("create_sheet", {"title": "Von Claude"})))
     # The same tools as the extension, from the same code.
     assert sorted(names) == sorted(tool["name"] for tool in TOOLS)
     assert not made.is_error, made
@@ -112,7 +119,7 @@ def test_remote_flow(server):
     con.execute("UPDATE oauth_grants SET access_expires = datetime('now', '-1 seconds')")
     # This SDK refreshes by its own clock (Claude also on a 401), so its clock runs out too.
     provider.context.token_expiry_time = 1
-    names, [listed] = asyncio.run(talk(server, provider, ("list_sheets", {})))
+    names, [listed] = run(talk(server, provider, ("list_sheets", {})))
     assert not listed.is_error, listed
     assert "Von Claude" in str(listed.content)
     assert len(seen) == 1, "a refresh, not a new sign-in"
@@ -148,7 +155,7 @@ def test_remote_flow(server):
 def test_remote_expired_token(server):
     teacher = user()
     storage = Memory()
-    asyncio.run(talk(server, connector(server, teacher.cookies["session"], storage, [])))
+    run(talk(server, connector(server, teacher.cookies["session"], storage, [])))
     assert storage.tokens is not None
     con = db.open_db()
     con.execute("UPDATE oauth_grants SET access_expires = datetime('now', '-1 seconds')")
@@ -173,8 +180,8 @@ def test_remote_expired_token(server):
 def test_remote_shared_address_locks_out_no_good_token(server):
     """Teachers behind one address (Anthropic's): run-out or wrong tokens never block a good one."""
     late, good = Memory(), Memory()
-    asyncio.run(talk(server, connector(server, user().cookies["session"], late, [])))
-    asyncio.run(talk(server, connector(server, user().cookies["session"], good, [])))
+    run(talk(server, connector(server, user().cookies["session"], late, [])))
+    run(talk(server, connector(server, user().cookies["session"], good, [])))
     assert late.tokens is not None
     assert good.tokens is not None
     con = db.open_db()
@@ -208,7 +215,7 @@ def test_remote_foreign_sheet(server):
         "/api/sheets", json={"title": "Fremd", "doc": {"pages": [{"blocks": []}]}}
     ).json()
     storage = Memory()
-    _, [read] = asyncio.run(
+    _, [read] = run(
         talk(
             server,
             connector(server, other.cookies["session"], storage, []),
