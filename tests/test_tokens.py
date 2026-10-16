@@ -275,3 +275,34 @@ def test_bad_tries_from_before_the_window_do_not_count():
     con.close()
     assert bearer("bt_1_nope").get("/api/sheets").status_code == 401
     assert bearer(good).get("/api/sheets").status_code == 200
+
+
+def test_a_name_already_used_is_refused_whatever_the_case_and_spaces():
+    client = user()
+    make(client, "Laptop Schule")
+    res = client.post("/api/tokens", json={"name": " laptop schule "})
+    assert res.status_code == 422
+    assert list(listed(client)) == ["Laptop Schule"]
+
+
+def test_a_name_is_free_again_once_its_key_is_revoked():
+    client = user()
+    make(client, "Laptop Schule")
+    client.delete(f"/api/tokens/{listed(client)['Laptop Schule']['id']}")
+    assert client.post("/api/tokens", json={"name": "Laptop Schule"}).status_code == 200
+
+
+def test_another_teacher_may_use_the_same_name():
+    make(user(), "Laptop Schule")
+    assert make(user(), "Laptop Schule")
+
+
+def test_a_name_of_81_characters_is_refused():
+    client = user()
+    assert client.post("/api/tokens", json={"name": "x" * 81}).status_code == 422
+    assert listed(client) == {}
+
+
+def test_a_blank_name_is_refused():
+    client = user()
+    assert client.post("/api/tokens", json={"name": "  "}).status_code == 422

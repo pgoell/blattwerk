@@ -115,3 +115,46 @@ def test_newest_key_comes_first(account):
     make(page, "Zweiter")
     rows = page.get_by_role("listitem")
     expect(rows).to_have_text([re.compile(r"^Zweiter"), re.compile(r"^Erster")])
+
+
+def test_revoke_asks_first_and_abbrechen_keeps_the_key(account):
+    page = account(user())
+    make(page, "Laptop Schule")
+    page.get_by_role("button", name="Widerrufen: Laptop Schule").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Schlüssel „Laptop Schule“ widerrufen?")
+    dialog.get_by_role("button", name="Abbrechen").click()
+    expect(dialog).not_to_be_visible()
+    expect(row(page, "Laptop Schule")).to_be_visible()
+    expect(page.get_by_role("button", name="Widerrufen: Laptop Schule")).to_be_focused()
+
+
+def test_a_blank_name_says_so_beside_the_field(account):
+    page = account(user())
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("   ")
+    page.keyboard.press("Enter")
+    expect(field).to_have_accessible_description("Gib dem Schlüssel einen Namen.")
+    expect(page.get_by_test_id("new-token")).to_have_count(0)
+    field.fill("x")
+    expect(field).to_have_accessible_description("")
+
+
+def test_a_name_already_in_the_list_says_so_beside_the_field(account):
+    page = account(user())
+    make(page, "Laptop")
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill(" laptop ")
+    page.keyboard.press("Enter")
+    taken = "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen."
+    expect(field).to_have_accessible_description(taken)
+    expect(page.get_by_role("listitem")).to_have_count(1)
+
+
+def test_a_name_of_81_letters_stays_whole_and_says_so(account):
+    page = account(user())
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("x" * 81)
+    page.keyboard.press("Enter")
+    expect(field).to_have_accessible_description("Der Name ist zu lang: höchstens 80 Zeichen.")
+    expect(field).to_have_value("x" * 81)
