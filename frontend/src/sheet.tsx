@@ -1833,7 +1833,7 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
         if (covered.has(i)) return null;
         return (
           <div key={i} data-cell={i} data-span={span && `${span[2]}x${span[3]}`} className={picked(i) ? "picked" : undefined} style={{ fontWeight: head && i < cols.length ? 700 : undefined, ...(place(i) || undefined) }}>
-            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : hyphens[i] !== undefined ? <p style={{ ...shade(i), hyphens: "manual", WebkitHyphens: "manual", overflowWrap: "normal" }}>{wrap(hyphens[i], i)}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
+            {i === at ? <p className="open" style={shade(i)}>{wrap(text, i)}&#8203;{children}</p> : hyphens[i] !== undefined ? <p style={{ ...shade(i), hyphens: "manual", WebkitHyphens: "manual" }}>{wrap(hyphens[i], i)}</p> : <p style={shade(i)}>{wrap(text, i)}</p>}
           </div>
         );
       })}
