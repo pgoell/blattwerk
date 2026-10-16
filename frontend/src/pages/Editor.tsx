@@ -119,6 +119,7 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 import { parasFromHtml } from "../pasted";
+import { type Breaks, keyOf as wordKey, oldKeyOf } from "../syllables";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
@@ -618,6 +619,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  // A mend holds for the word in every block of the sheet: the sheet's entry is set or taken away, and the blocks' own
+  // entries for it go, in one step. Counts undefined takes the word back to the module's own split.
+  function mendWord(word: string, counts?: number[]) {
+    const keys = [wordKey(word), oldKeyOf(word)];
+    const rest = (own?: Breaks) => Object.fromEntries(Object.entries(own ?? {}).filter(([key]) => !keys.includes(key)));
+    update((doc) => {
+      const base = { ...doc };
+      delete base.breaks;
+      const mended = counts ? { ...rest(doc.breaks), [keys[0]]: counts } : rest(doc.breaks);
+      if (Object.keys(mended).length) base.breaks = mended;
+      const pages = doc.pages.map((p) => ({
+        ...p,
+        blocks: p.blocks.map((b) => {
+          const own = (b.props as { breaks?: Breaks }).breaks;
+          if (!own) return b;
+          const props = { ...b.props } as Record<string, unknown>;
+          delete props.breaks;
+          const kept = rest(own);
+          if (Object.keys(kept).length) props.breaks = kept;
+          return { ...b, props } as Block;
+        }),
+      }));
+      return { ...base, pages };
+    });
+  }
   // Page numbers are sheet-wide. A change turns them on and keeps the rest; "Aus" turns them off and keeps the rest too.
   const folio = pageNumbersOf(hist.doc);
   // A click on what is already set makes no step to undo.
@@ -2319,11 +2345,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
   // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
   const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
+  // The sheet's mends go along with the copied texts and tables, so a paste into another sheet keeps them. A block's own entry wins.
+  const carrying = (bs: Block[]): Block[] => {
+    const mends = live.current.doc.breaks;
+    if (!mends) return bs;
+    return bs.map((b) => ("text" in b.props || "cells" in b.props ? ({ ...b, props: { ...b.props, breaks: { ...mends, ...(b.props as { breaks?: Breaks }).breaks } } } as Block) : b));
+  };
   function copy(held = sel) {
     if (!held.length) return;
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
-    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: carrying(held), ...(linkedAny && { words: live.current.doc.words }) }));
     // The newest copy wins: pages copied before are no longer what a paste on a thumbnail brings.
     localStorage.removeItem("pages");
     const words = wordsOf(held);
@@ -2371,7 +2403,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function storePages(ns: number[]) {
     const held = [...ns].sort((a, b) => a - b).map((i) => live.current.doc.pages[i]);
     const linkedAny = held.some((p) => p.blocks.some(tied));
-    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held.map((p) => ({ ...p, blocks: carrying(p.blocks) })), ...(linkedAny && { words: live.current.doc.words }) }));
   }
   // The pasted pages come after page `after`, with blocks of their own, and are the choice from then on. One step of undo.
   function pastePages(after: number) {
@@ -4410,6 +4442,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 style={style}
                 bump={bump}
                 look={look}
+                mendWord={mendWord}
                 traced={traced}
                 paint={paint}
                 itemize={itemize}

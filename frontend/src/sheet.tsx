@@ -1,5 +1,5 @@
 // The sheet document and how a page of it draws, shared by the editor, the list's thumbnails and the PDF.
-import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
+import { Fragment, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode, type SVGAttributes } from "react";
 import type { Breaks } from "./syllables";
 import { heightsOf, rectOf, spansOf, type Span } from "./cells";
 import { edged, linesOf, type Lines, type Pen } from "./edges";
@@ -205,6 +205,8 @@ export type Doc = {
   grid: number;
   landscape?: boolean;
   words?: string[];
+  // The mends of the sheet: a word split by hand holds in every block. A block's own `breaks` win over these.
+  breaks?: Breaks;
   pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
@@ -401,6 +403,11 @@ export const Words = createContext<string[]>([]);
 export const Whole = createContext<Doc>(EMPTY);
 // The letter boxes of this block, one per task, when a "word" Selbstkontrolle of the sheet links it.
 const useLetters = (id: string) => lettersOf(useContext(Whole)).get(id);
+// The mends a block draws with: the sheet's, and the block's own where it has one for the same word.
+export const useBreaks = (own?: Breaks) => {
+  const doc = useContext(Whole);
+  return useMemo(() => ({ ...doc.breaks, ...own }), [doc.breaks, own]);
+};
 // A letter box in the drawing's own units: a square at (x, y), the letter in its middle in the answer key.
 function LetterBox({ x, y, side, task, letter, solved }: { x: number; y: number; side: number; task: number; letter: string; solved: boolean }) {
   return (
@@ -721,6 +728,7 @@ function linesIn(frame: HTMLElement) {
 // A text or a shape with its text. The editor passes the field the text is typed in.
 function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
   const p = boxed(block)!;
+  const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
   const width = gapWidth(p.gapWidth);
   // A linked text draws the sheet's Lernwörter, one to a paragraph, in columns, and grows to hold them. Its own text
@@ -892,7 +900,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       )}
       {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
       {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
-      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={p.breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
+      {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
     </div>
   );
 }
@@ -1301,7 +1309,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     svg.current!.classList.add("unsplit");
     tools.current.draw();
     // The place of a block moves no letter in it.
-  }, [module, block.props, block.w, block.h, block.angle, solved]);
+  }, [module, block.props, how.breaks, block.w, block.h, block.angle, solved]);
   return <svg ref={svg} className="bows unsplit" aria-hidden />;
 }
 // Resolves once every block's bows are drawn. The PDF waits for it.
@@ -1669,7 +1677,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k: number; at?: number; reach?: number; solved: boolean; children?: ReactNode }) {
-  const { cells, cols, line, head, syllables, breaks, tintsAcross, gaps } = block.props;
+  const { cells, cols, line, head, syllables, breaks: own, tintsAcross, gaps } = block.props;
+  const breaks = useBreaks(own);
   const tints = pairOf(block.props.tints);
   const width = gapWidth(block.props.gapWidth);
   const words = typeof block.props.bank === "number" && Number.isFinite(block.props.bank) ? cellEntries(cells, gaps) : [];
