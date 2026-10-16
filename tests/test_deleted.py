@@ -497,3 +497,30 @@ def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run, butto
     expect(line).to_contain_text(PDF_GONE)
     expect(line.get_by_role("button", name="Erneut versuchen")).to_have_count(0)
     expect_choice(page.locator(".clash"), SAYS)
+
+
+def test_a_keep_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
+    """1: tab 2 holds what tab 1 kept, so its choice ends, and it opens the new sheet. One sheet
+    is made."""
+    page, _, _ = deleted(run)
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{run.ids['a']}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), KEEP)
+    expect_new(run, page)
+    new = page.url.rsplit("/", 1)[1]
+    expect(other).to_have_url(f"{run.server}/blatt/{new}")
+    expect(other.locator(NOTICE)).to_have_count(0)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
+def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
+    """2: tab 2 holds what tab 1 dropped, so its choice ends, and it goes to the list."""
+    page, _, _ = deleted(run)
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{run.ids['a']}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), DROP)
+    expect_list(page)
+    expect_list(other)
+    expect(other).not_to_have_url(re.compile(rf"/blatt/{run.ids['a']}$"))
