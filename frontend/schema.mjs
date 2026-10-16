@@ -38,9 +38,25 @@ table.required = table.required.filter((field) => field !== "line");
 // A border thinner than the menu's 0.25 mm prints as thin as it is set.
 for (const props of [defs.TextProps, defs.ShapeBlock.properties.props]) delete props.properties.strokeWidth.minimum;
 
-// That every field has a description, tests/test_schema.py checks.
+// Every entry under a "properties" key with no description, as "Def.properties.field". A block's `type` needs none.
+// The same rule tests/test_schema.py checks.
+function undescribed(node, where, found) {
+  if (Array.isArray(node)) node.forEach((value, i) => undescribed(value, `${where}[${i}]`, found));
+  else if (node && typeof node === "object") {
+    if (node.properties && typeof node.properties === "object")
+      for (const [key, value] of Object.entries(node.properties)) if (key !== "type" && !value.description) found.push(`${where}.properties.${key}`);
+    for (const [key, value] of Object.entries(node)) undescribed(value, `${where}.${key}`, found);
+  }
+  return found;
+}
+
 const text = JSON.stringify(schema, null, 2) + "\n";
 if (process.argv.includes("--check")) {
+  const bare = Object.entries(defs).flatMap(([name, def]) => undescribed(def, name, []));
+  if (bare.length) {
+    console.error(`fields with no description (add a TSDoc comment above each field in frontend/src):\n${bare.map((path) => `  ${path}: no description`).join("\n")}`);
+    process.exit(1);
+  }
   let was = "";
   try {
     was = readFileSync(OUT, "utf8");
