@@ -166,6 +166,31 @@ def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
     assert a["h"] == 40, a
 
 
+LONG = (
+    "Male den Hasen in den Kreis und schreibe seinen Namen darunter. "
+    "Dann male einen Zaun um das Haus und einen Baum daneben."
+)
+
+
+@pytest.mark.parametrize("label", ["Kreis", "Dreieck", "Stern"])
+def test_a_long_sentence_shrinks_to_10_pt_at_most_and_then_grows_the_shape(editor, label):
+    """Below 10 pt a child no longer reads it: the shape grows downward instead, as a rectangle
+    does, and every word stays whole and uncut."""
+    client = user()
+    # A text of 10 pt beside it, for the size the shape's type may not go below.
+    ten = box("ten", "text", {"text": "zehn", "size": 10, "align": "left"}, x=150)
+    page = editor(ten, client=client)
+    make(page, label, LONG)
+    a = next(b for b in saved(page, client) if b["id"] != "ten")
+    block = at(page, a["id"])
+    assert a["h"] > 40, a
+    # A circle stays round; a triangle and a star grow downward only.
+    assert a["w"] == (a["h"] if label == "Kreis" else 40), a
+    assert float(font_px(block)[:-2]) >= float(font_px(at(page, "ten"))[:-2]) - 0.05
+    whole(block)
+    assert past_foot(block) <= 1
+
+
 def test_shrunk_star_grows_back_to_full_size(editor):
     page = editor(box("a", "shape", STAR, x=20, y=30, w=40, h=40))
     pick(page, "a")
@@ -186,7 +211,9 @@ def test_a_star_and_a_circle_print_their_words_whole_and_keep_their_shape_after_
     make(page, "Kreis", SENTENCE)
     star, circle = saved(page, client)
     reload(page, page.url)
-    assert [(b["w"], b["h"]) for b in saved(page, client)] == [(40, 40), (40, 40)]
+    # The star keeps its size; the circle, too full at 10 pt, grows and stays round.
+    star_box, circle_box = [(b["w"], b["h"]) for b in saved(page, client)]
+    assert star_box == (40, 40) and circle_box[0] == circle_box[1], (star_box, circle_box)
     whole(at(page, star["id"]))
     whole(at(page, circle["id"]))
     paper = printed(browser, server, sheet_id(page))

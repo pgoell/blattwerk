@@ -110,3 +110,17 @@ def test_a_group_of_two_rectangles_at_30_degrees_keeps_them_level_after_a_percen
     assert a["h"] == pytest.approx(20, abs=0.5) and b["h"] == pytest.approx(20, abs=0.5)
     assert centre["b"][0] - centre["a"][0] == pytest.approx(25, abs=0.5)
     assert centre["a"][1] == pytest.approx(centre["b"][1], abs=0.5)
+
+
+def test_a_slanted_line_in_a_turned_group_keeps_its_way_after_a_percent(editor):
+    """The line runs 30 down and 30 right in the group. Squeezed to a fifth across in the group's
+    own frame, it runs 6 right and 30 down: the scale may start it at another corner of its box."""
+    client = user()
+    slant = box("b", "shape", LINE, z=2, x=60, y=110, w=30, h=30, group=["g"])
+    page = turned_group(editor, client, SHAPES[0], slant)
+    enter(page, "Breite %", "20")
+    enter(page, "Drehung", "0")
+    expect(field(page, "Drehung")).to_have_value("0")
+    line = by_id(saved(page, client))["b"]
+    assert (line["w"], line["h"]) == (pytest.approx(6, abs=0.5), pytest.approx(30, abs=0.5)), line
+    assert line["props"].get("from", "nw") == "nw", line

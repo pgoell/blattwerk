@@ -185,3 +185,12 @@ def test_a_drag_of_the_corner_resizes_both_turned_loose_blocks(editor):
     expect_picked(page, "a", "b")
     # The frame stays level through the resize.
     expect_level(page)
+
+
+def test_a_turned_loose_block_picked_with_a_line_keeps_its_corner_handles(editor):
+    """Not one group: the frame is level, so the editor's own corner handles stand on it."""
+    rect = box("r", "shape", RECT, x=60, y=60, w=40, h=30, angle=45)
+    line = box("l", "shape", LINE, z=2, x=60, y=120, w=50, h=10)
+    page = editor(rect, line)
+    pick(page, "r", "l")
+    expect(page.locator(".sheet i.end")).to_have_count(4)

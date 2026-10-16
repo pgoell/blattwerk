@@ -100,7 +100,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import type { EditorView } from "prosemirror-view";
 import { attempt, status } from "../fault";
 import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -676,11 +676,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const table = sel.length === 1 && free[0]?.type === "table" ? free[0] : undefined;
   // The picture in crop mode. The draft is dropped when the selection moves on by any way but `done`.
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
-  // Moveable collapses a group that holds a flat line, so a group with a line gets its own corner handles. They scale
-  // along the page, so a turned group has none: its frame is turned, and they would stand where no block is.
-  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) && !sel.some((b) => !isLine(b) && b.angle) ? bounds(sel) : undefined;
   // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
+  // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. They scale
+  // along the page, so a turned group has none: its frame is turned, and they would stand where no block is.
+  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) && !(oneGroup && sel.some((b) => !isLine(b) && b.angle)) ? bounds(sel) : undefined;
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -747,7 +747,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
-      // A circle, triangle or star with `inside` shrinks its text to its outline and never grows for it.
+      // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
       if (shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star")) continue;
       // A table's rows are each as high as their highest cell when its height is not set.
@@ -781,6 +781,26 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const grow = (p: Page) => ({ ...p, blocks: p.blocks.map((b) => (grown.has(b.id) ? ({ ...b, ...grown.get(b.id) } as Block) : b)) });
     setHist((h) => ({ ...h, doc: { ...h.doc, pages: h.doc.pages.map((p, i) => (i === page ? grow(p) : p)) } }));
   });
+
+  // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
+  // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
+  const overfit = useRef((_id: string, _mm: number) => {});
+  overfit.current = (id, mm) => {
+    const b = sel.find((x) => x.id === id);
+    const shape = b && boxed(b);
+    if (!b || !shape) return;
+    const [up, , low] = fitOf(shape.kind, b.w, b.h);
+    const h = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
+    // A round circle stays round (#661): it grows as wide as high.
+    const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
+    setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
+  };
+  useEffect(() => {
+    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<number>).detail);
+    const desk = sheet.current!;
+    desk.addEventListener("overfit", on);
+    return () => desk.removeEventListener("overfit", on);
+  }, []);
 
   // A ruling's field, or that of a table's cell, a score's or a name line's first word; a text's own field takes the
   // focus by itself.
@@ -4118,7 +4138,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                     onRotate={rotate}
                     onRotateGroup={rotate}
                     onRotateEnd={rotated}
-                    // Moveable measures the box around the blocks anew: turned with them where they share an angle, else level.
+                    // Moveable measures the box around the blocks anew: turned with one group's blocks, else level.
                     onRotateGroupEnd={(e) => {
                       moveable.current!.updateRect();
                       rotated(e);

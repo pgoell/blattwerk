@@ -779,11 +779,18 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const frame = frameRef.current;
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
-    if (inside && frame) fitText(frame);
+    // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
+    const over = inside && frame ? fitText(frame, least.current, block.h * k) : 0;
+    if (over > 0) frame!.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: over / k }));
   });
+  // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
+  const least = useRef(1);
+  least.current = leastOf(p.size);
+  const high = useRef(0);
+  high.current = block.h * k;
   useLayoutEffect(() => {
     if (!inside) return;
-    const again = () => frameRef.current && fitText(frameRef.current);
+    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current);
     document.fonts.ready.then(again);
     document.fonts.addEventListener("loadingdone", again);
     return () => document.fonts.removeEventListener("loadingdone", again);
@@ -889,31 +896,42 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   );
 }
 
-// Shrinks a frame's type (`--fit`) until its lines fit its height and no word runs past its width. Each round
-// measures the type it has and takes the share it is too big by. Up to three rounds: a line of a pixel does not shrink.
-function fitText(el: HTMLElement) {
+// The smallest type a shape shrinks its text to, in pt: a child still reads it. A text set smaller keeps its size.
+const LEAST = 10;
+// The share of a text's size it may shrink to.
+const leastOf =(size: number) => Math.min(1, LEAST / size) || 1;
+// Shrinks a frame's type (`--fit`) until its lines fit its height and no word runs past its width, down to the share
+// `least`. Each round measures the type it has and takes the share it is too big by. Up to three rounds: a line of a
+// pixel does not shrink. Gives what the lines still reach past the room at the smallest type, in px: the editor grows
+// the shape by it, as it grows a rectangle. `high` is the shape's height in px: a frame being written in is as high
+// as its text.
+function fitText(el: HTMLElement, least: number, high: number) {
   el.style.removeProperty("--fit");
   // The room inside the padding: a text past its foot is no scroll of the frame, so the lines are measured.
   const box = el.getBoundingClientRect();
   const pad = getComputedStyle(el);
-  const [top, bottom] = [box.top + parseFloat(pad.paddingTop), box.bottom - parseFloat(pad.paddingBottom)];
-  if (bottom - top < 3) return;
+  const [top, bottom] = [box.top + parseFloat(pad.paddingTop), box.top + high - parseFloat(pad.paddingBottom)];
+  if (bottom - top < 3) return 0;
+  // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
+  const lowest = () =>
+    Math.max(
+      ...[...el.querySelectorAll<HTMLElement>("p")].map((p) => {
+        const r = document.createRange();
+        r.selectNodeContents(p);
+        return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+      }),
+    );
   let scale = 1;
-  for (let round = 0; round < 3; round++) {
-    const ps = [...el.querySelectorAll<HTMLElement>("p")];
-    // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
-    const lowest = ps.map((p) => {
-      const r = document.createRange();
-      r.selectNodeContents(p);
-      return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
-    });
-    const tall = (Math.max(...lowest) - top) / (bottom - top);
-    const wide = ps.map((p) => p.scrollWidth / p.clientWidth);
+  for (let round = 0; round < 3 && scale > least; round++) {
+    const tall = (lowest() - top) / (bottom - top);
+    const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
     const over = Math.max(tall, ...wide);
     if (!(over > 1.01)) break;
-    scale /= over;
+    scale = Math.max(least, scale / over);
     el.style.setProperty("--fit", String(scale));
   }
+  const past = lowest() - bottom;
+  return past > 1 ? past : 0;
 }
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
@@ -992,7 +1010,7 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string
 // The rectangle inside a shape's outline where its text lies, as the mm the box keeps from it: top, right, bottom and
 // left. A circle keeps the square inscribed in it, a triangle the half that holds its base, a star the box of its inner
 // points. Flipped top to bottom, the top and the bottom swap.
-function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
+export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
   let fit: [number, number, number, number] = [0, 0, 0, 0];
   if (kind === "circle") {
     const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
@@ -1238,6 +1256,14 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     // The bows drawn are a change too, and not one to draw anew for.
     const changed = new MutationObserver((records) => records.some((record) => !own.contains(record.target)) && later());
     changed.observe(own.parentElement!, { characterData: true, childList: true, subtree: true });
+    // A shape that shrinks its text sets the share after the bows are drawn: a new share is drawn for again.
+    let fit = own.parentElement!.style.getPropertyValue("--fit");
+    const shrunk = new MutationObserver(() => {
+      const now = own.parentElement!.style.getPropertyValue("--fit");
+      if (now !== fit) later();
+      fit = now;
+    });
+    shrunk.observe(own.parentElement!, { attributes: true, attributeFilter: ["style"] });
     document.fonts.addEventListener("loadingdone", later);
     // What React just wrote into the text is drawn for at once, so no frame shows old bows and none measures twice.
     tools.current.seen = () => {
@@ -1249,6 +1275,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
       cancelAnimationFrame(frame);
       resized.disconnect();
       changed.disconnect();
+      shrunk.disconnect();
       document.fonts.removeEventListener("loadingdone", later);
       unmark(marks.current);
     };
