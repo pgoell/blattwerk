@@ -112,6 +112,18 @@ def test_preview_needs_a_login():
     assert anon.post("/api/preview.png", json={"doc": mine["doc"]}).status_code == 401
 
 
+def test_preview_of_a_posted_doc_in_the_old_shape(server):
+    # Before pages, a sheet held its blocks at the top (#543): one page.
+    client = user()
+    doc = {"blocks": [block("text", 15, 14, TEXT)]}
+    url = f"{server}/api/preview.png"
+    res = httpx.post(url, json={"doc": doc}, headers=cookie(client), timeout=60)
+    assert res.status_code == 200
+    assert 990 <= image(res.content).width <= 1010
+    res = httpx.post(url, json={"doc": doc}, params={"page": 2}, headers=cookie(client))
+    assert res.status_code == 404
+
+
 def test_preview_of_a_bad_page(server):
     client = user()
     mine = sheet(client, [block("text", 15, 14, TEXT)])
