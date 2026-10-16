@@ -209,3 +209,91 @@ def test_old_sheet_loads():
 def test_corpus_passes():
     for path in sorted(CORPUS.glob("*.json")):
         assert problems(json.loads(path.read_text())["doc"]) == [], path.name
+
+
+def test_props_that_are_no_object_are_refused():
+    client = user()
+    maths = copy.deepcopy(
+        next(
+            b
+            for b in built_in("Rechenblatt Klasse 1")["pages"][0]["blocks"]
+            if b["type"] == "maths"
+        )
+    )
+    made = sheet(client, [text_block()])
+    maths["props"] = None
+    res = client.patch(
+        f"/api/sheets/{made['id']}", json={"doc": doc(maths), "version": made["version"]}
+    )
+    assert res.status_code == 422
+    assert res.json()["detail"] == {
+        "problems": ["pages[0].blocks[0].props: must be an object, got nothing"]
+    }
+
+    bare = text_block()
+    del bare["props"]
+    res = client.patch(
+        f"/api/sheets/{made['id']}", json={"doc": doc(bare), "version": made["version"]}
+    )
+    assert res.status_code == 422
+    assert res.json()["detail"] == {"problems": ["pages[0].blocks[0].props: missing, add it"]}
+
+
+def test_nan_is_refused():
+    client = user()
+    made = sheet(client, [text_block()])
+    body = (
+        '{"doc": {"pages": [{"blocks": [{"id": "a", "type": "text", "x": NaN, "y": 20, "w": 180,'
+        ' "h": 10, "z": 1, "locked": false, "props": {"text": "Hallo", "size": 14,'
+        ' "align": "left"}}]}], "guides": {"x": [], "y": []}, "grid": 0},'
+        f' "version": {made["version"]}}}'
+    )
+    res = client.patch(
+        f"/api/sheets/{made['id']}",
+        content=body,
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 422
+    assert "NaN" in res.json()["detail"]["problems"][0]
+    after = client.get(f"/api/sheets/{made['id']}").json()
+    assert after["version"] == made["version"]
+    assert after["doc"] == made["doc"]
+
+    res = client.patch(
+        f"/api/sheets/{made['id']}",
+        json={"doc": doc(dict(text_block(), x=None)), "version": made["version"]},
+    )
+    assert res.status_code == 422
+    assert res.json()["detail"] == {
+        "problems": ["pages[0].blocks[0].x: must be a number, got nothing"]
+    }
+
+
+def test_a_block_of_any_type_needs_its_skeleton():
+    client = user()
+    res = client.post("/api/sheets", json={"title": "x", "doc": doc({"type": "zzz"})})
+    assert res.status_code == 422
+    listed = res.json()["detail"]["problems"]
+    for field in ("id", "x", "y", "w", "h", "props"):
+        assert f"pages[0].blocks[0].{field}: missing, add it" in listed
+
+    full = text_block()
+    full["type"] = 5
+    res = client.post("/api/sheets", json={"title": "x", "doc": doc(full)})
+    assert res.status_code == 422
+    assert any(p.startswith("pages[0].blocks[0].type:") for p in res.json()["detail"]["problems"])
+
+    zzz = {**text_block(), "type": "zzz", "props": {}}
+    res = client.post("/api/sheets", json={"title": "x", "doc": doc(zzz)})
+    assert res.status_code == 200
+
+
+def test_odd_shapes_are_422_not_500():
+    client = user()
+    res = client.post("/api/sheets", json={"title": "x", "doc": [1, 2]})
+    assert res.status_code == 422
+    res = client.post("/api/sheets", json={"title": "x", "doc": {"pages": {"a": 1}}})
+    assert res.status_code == 422
+    assert res.json()["detail"] == {"problems": ["pages: must be a list, got an object"]}
+    res = client.post("/api/templates", json={"name": "x", "doc": [1, 2]})
+    assert res.status_code == 422
