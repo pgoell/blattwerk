@@ -33,17 +33,17 @@ def open_sheet(editor, props=TEXT):
     return page, int(page.url.rsplit("/", 1)[1])
 
 
-def break_x(page, sheet_id):
+def break_x(page, url, method="PATCH"):
     """Rewrites each save's block x to "abc" on its way to the server, which then refuses it."""
 
     def rewrite(route):
-        if route.request.method != "PATCH":
+        body = json.loads(route.request.post_data or "{}") if route.request.method == method else {}
+        if "doc" not in body:
             return route.continue_()
-        body = json.loads(route.request.post_data)
         body["doc"]["pages"][0]["blocks"][0]["x"] = "abc"
         route.continue_(post_data=json.dumps(body))
 
-    page.route(f"**/api/sheets/{sheet_id}", rewrite)
+    page.route(url, rewrite)
 
 
 def test_a_field_the_schema_does_not_know_saves_and_stays(editor):
@@ -61,7 +61,7 @@ def test_a_field_the_schema_does_not_know_saves_and_stays(editor):
 
 def test_a_refused_save_names_the_field_and_keeps_the_change(editor):
     page, sheet_id = open_sheet(editor)
-    break_x(page, sheet_id)
+    break_x(page, f"**/api/sheets/{sheet_id}")
     patches = []
     page.on("request", lambda r: patches.append(r) if r.method == "PATCH" else None)
 
@@ -92,7 +92,7 @@ def test_a_refused_save_names_the_field_and_keeps_the_change(editor):
 
 def test_removing_the_block_with_the_bad_field_saves_and_clears_the_alert(editor):
     page, sheet_id = open_sheet(editor)
-    break_x(page, sheet_id)
+    break_x(page, f"**/api/sheets/{sheet_id}")
 
     pick(page, "a")
     page.keyboard.press("ArrowRight")
@@ -106,7 +106,7 @@ def test_removing_the_block_with_the_bad_field_saves_and_clears_the_alert(editor
 
 def test_undo_back_to_the_stored_sheet_keeps_the_change_for_redo(editor):
     page, sheet_id = open_sheet(editor)
-    break_x(page, sheet_id)
+    break_x(page, f"**/api/sheets/{sheet_id}")
     start = at(page, "a").evaluate(LEFT)
 
     pick(page, "a")
@@ -129,3 +129,53 @@ def test_undo_back_to_the_stored_sheet_keeps_the_change_for_redo(editor):
     page.wait_for_function("id => localStorage.getItem('unsaved:' + id) !== null", arg=sheet_id)
     assert record(page, sheet_id)["doc"]["pages"][0]["blocks"][0]["x"] != 15
     assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] == 15
+
+
+def stored_title(sheet_id):
+    """The sheet's title as the server holds it."""
+    con = db.open_db()
+    return con.execute("SELECT title FROM sheets WHERE id = ?", (sheet_id,)).fetchone()[0]
+
+
+def test_a_renamed_title_still_goes_while_the_doc_is_refused(editor):
+    page, sheet_id = open_sheet(editor)
+    break_x(page, f"**/api/sheets/{sheet_id}")
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(ALERT)).to_contain_text("pages[0].blocks[0].x")
+
+    with page.expect_response(lambda r: r.request.method == "PATCH") as sent:
+        page.get_by_label("Titel").fill("Neuer Titel")
+    sent.value.finished()
+
+    assert stored_title(sheet_id) == "Neuer Titel"
+    expect(page.locator(ALERT)).to_contain_text("pages[0].blocks[0].x")
+
+
+def test_a_refused_sheet_off_screen_says_it_is_not_saved_and_why(editor):
+    page, sheet_id = open_sheet(editor)
+    break_x(page, f"**/api/sheets/{sheet_id}")
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(ALERT)).to_contain_text("pages[0].blocks[0].x")
+
+    page.goto(page.url.split("/blatt/")[0] + "/")
+    notice = page.locator(".notice")
+    expect(notice).to_contain_text("ist nicht gespeichert: das Blatt passt nicht zum Format.")
+    expect(notice).not_to_contain_text("versucht es weiter")
+
+
+def test_keeping_a_refused_sheet_as_new_names_the_problem(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    assert client.delete(f"/api/sheets/{sheet_id}").status_code == 200
+
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.get_by_role("alert")).to_contain_text("auf einem anderen Gerät gelöscht")
+
+    break_x(page, "**/api/sheets", method="POST")
+    page.get_by_role("button", name="Als neues Blatt behalten").click()
+    expect(page.get_by_role("alert")).to_contain_text("pages[0].blocks[0].x")
+    expect(page.get_by_role("alert")).not_to_contain_text("Prüfe deine Verbindung")
