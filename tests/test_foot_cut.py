@@ -124,7 +124,7 @@ STAR = {**RECT, "kind": "star", "inside": True, "size": 14, "align": "center"}
 
 def test_a_saved_star_with_too_many_words_prints_only_whole_lines(editor):
     # Saved, not picked: the text stops at the star's inner box, and no line runs through its foot.
-    star = {**STAR, "text": "Wir lesen heute eine schöne Geschichte."}
+    star = {**STAR, "text": "Wir lesen heute eine schöne Geschichte.", "floor": True}
     page = editor(box("a", "shape", star, x=20, y=30, w=40, h=40))
     expect(at(page, "a").locator(".frame")).to_have_attribute("data-cut", "true")
     level = page.evaluate(LEVEL, "a")

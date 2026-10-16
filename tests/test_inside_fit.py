@@ -169,7 +169,8 @@ def test_typing_into_a_new_star_shrinks_as_it_goes_and_breaks_no_word(editor):
     whole(page.locator(".block.sel"))
     page.keyboard.press("Escape")
     (a,) = saved(page, client)
-    assert a["h"] == 40, a
+    # A new star is floored (#682): its type stays at 10 pt, so the words grow the star past 40 mm.
+    assert a["w"] > 40 and a["h"] > 40, a
 
 
 # Many short words: each fits the inner box at 10 pt, the lines do not.
@@ -207,6 +208,9 @@ def test_a_long_sentence_shrinks_to_10_pt_at_most_and_then_grows_the_shape(edito
 def test_shrunk_star_grows_back_to_full_size(editor):
     page = editor(box("a", "shape", STAR, x=20, y=30, w=40, h=40))
     pick(page, "a")
+    # The first change gives the star its floor (#682): 100 mm is measured after that change.
+    enter(page, "Breite", "100")
+    enter(page, "Breite", "30")
     enter(page, "Breite", "100")
     full = font_px(at(page, "a"))
     enter(page, "Breite", "30")
@@ -224,9 +228,10 @@ def test_a_star_and_a_circle_print_their_words_whole_and_keep_their_shape_after_
     make(page, "Kreis", SENTENCE)
     star, circle = saved(page, client)
     reload(page, page.url)
-    # The star keeps its size; the circle, too full at 10 pt, grows and stays round.
+    # The typed star is floored (#682): its words grow it square past 40 mm. The circle stays round.
     star_box, circle_box = [(b["w"], b["h"]) for b in saved(page, client)]
-    assert star_box == (40, 40) and circle_box[0] == circle_box[1], (star_box, circle_box)
+    assert star_box[0] == star_box[1] > 40, star_box
+    assert circle_box[0] == circle_box[1], circle_box
     whole(at(page, star["id"]))
     whole(at(page, circle["id"]))
     paper = printed(browser, server, sheet_id(page))

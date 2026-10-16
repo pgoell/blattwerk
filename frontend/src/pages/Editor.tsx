@@ -853,7 +853,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     for (const b of measured) {
       // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
-      if (shrinks(b)) continue;
+      if (shrinks(b)) {
+        // A saved shape prints as it did. The teacher's change gives a picked one the floor: its type stays at 10 pt,
+        // and the grow that follows is told by `overfit` on the next draw, so the flag is set again for it.
+        if (shape && shape.floor !== true && sel.some((s) => s.id === b.id)) {
+          grown.set(b.id, { props: { ...b.props, floor: true } } as Partial<Block>);
+          tight.current = true;
+        }
+        continue;
+      }
       const h = natural(b);
       if (h === undefined) continue;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
@@ -3678,7 +3686,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
                 type: "shape",
                 // A shape that holds text keeps it inside its outline (#128).
-                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true }) },
+                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true, floor: true }) },
               })
             }
           />

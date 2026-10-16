@@ -64,7 +64,7 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
+export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; floor?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
 export type TextBlock = Box & { type: "text"; props: TextProps };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
@@ -801,18 +801,21 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
-    const over = inside && frame ? fitText(frame, least.current, block.h * k) : { down: 0, across: 1 };
+    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1 };
     // Zero when it fits: the editor then lifts the page foot's warning for it.
     if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across } }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);
   least.current = leastOf(p.size);
+  // Only a shape edited since it came in (`floor`) keeps its type at 10 pt for a word too wide; a saved one prints as it did.
+  const floored = useRef(false);
+  floored.current = p.floor === true;
   const high = useRef(0);
   high.current = block.h * k;
   useLayoutEffect(() => {
     if (!inside) return;
-    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current);
+    const again = () => frameRef.current && fitText(frameRef.current, least.current, high.current, floored.current);
     document.fonts.ready.then(again);
     document.fonts.addEventListener("loadingdone", again);
     return () => document.fonts.removeEventListener("loadingdone", again);
@@ -929,7 +932,7 @@ const leastOf = (size: number) => Math.min(1, LEAST / size) || 1;
 // pixel does not shrink. Gives what the lines still reach past the room at the smallest type, in px: the editor grows
 // the shape by it, as it grows a rectangle. `high` is the shape's height in px: a frame being written in is as high
 // as its text.
-function fitText(el: HTMLElement, least: number, high: number) {
+function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   el.style.removeProperty("--fit");
   // A turned block lies level for the measure, so its lines run across.
   const block = el.parentElement!;
@@ -959,8 +962,9 @@ function fitText(el: HTMLElement, least: number, high: number) {
     const tall = (lowest() - top) / (bottom - top);
     const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
     const across = Math.max(...wide);
-    // Too high or too wide: down to the smallest type. A word too wide that the smallest type does not fit grows the shape.
-    const next = Math.min(across > 1.01 ? Math.max(least, scale / across) : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
+    // Too high or too wide: down to the smallest type. A floored shape's word too wide that the smallest type does not fit grows the shape.
+    const side = across > 1.01 ? (floor ? Math.max(least, scale / across) : scale / across) : scale;
+    const next = Math.min(side, tall > 1.01 ? Math.max(least, scale / tall) : scale);
     if (!(next < scale)) break;
     scale = next;
     el.style.setProperty("--fit", String(scale));
@@ -969,7 +973,7 @@ function fitText(el: HTMLElement, least: number, high: number) {
   // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
   const left = Math.max(...[...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth));
   block.style.transform = was;
-  return { down: past > 1 ? past : 0, across: left > 1.01 ? left : 1 };
+  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
 }
 // The px from a frame's top where its lines end whole, when a line lies past the page's foot: the lowest line that
 // lies wholly on the page. Measured level, as `fitText` measures it. Undefined when every line is on the page.
