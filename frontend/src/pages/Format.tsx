@@ -420,7 +420,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     const both = lock || sel.some(kept);
     const out = scaledGroup(sel, ...(side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]) as [number, number]);
     const other = side === "w" ? "h" : "w";
-    const rest = both ? own[other] * f : own[other];
+    const rest = both ? round(shownOwn(other) * f) : shownOwn(other);
     setTyped({ sig: signature(out), ...(side === "w" ? { w: to, h: rest } : { w: rest, h: to }) });
     place(out.map(sized));
   };

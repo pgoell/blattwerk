@@ -29,6 +29,19 @@ def test_typed_size_after_a_handle_drag_shows_what_was_typed(editor, field_name,
     expect(field(page, field_name)).to_have_value(shown)
 
 
+@pytest.mark.parametrize("angle", ["30", "45"])
+def test_breite_then_hoehe_after_a_handle_drag_both_show_what_was_typed(editor, angle):
+    """The steps of #678: Breite 80, then Höhe 50; Breite still shows 80."""
+    page = turned_group(editor, user(), *SHAPES)
+    enter(page, "Drehung", angle)
+    expect(field(page, "Drehung")).to_have_value(angle)
+    drag_se_outward(page)
+    enter(page, "Breite", "80")
+    enter(page, "Höhe", "50")
+    expect(field(page, "Höhe")).to_have_value("50")
+    expect(field(page, "Breite")).to_have_value("80")
+
+
 def test_breite_percent_after_a_handle_drag_halves_the_shown_width(editor):
     page = turned_group(editor, user(), *SHAPES)
     drag_se_outward(page)
