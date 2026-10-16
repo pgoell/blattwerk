@@ -181,3 +181,30 @@ def test_a_lock_keeps_the_ratio_for_a_typed_unit(editor):
     expect(field(page, "Höhe")).to_have_value("10")
     a = by_id(saved(page, client))["a"]
     assert (a["w"], a["h"]) == (20, 10)
+
+
+@pytest.mark.parametrize("kind", ["table", "maths"])
+def test_a_table_and_a_maths_block_take_a_unit_for_their_width(editor, kind):
+    client = user()
+    page = editor(box("a", TYPES[kind], props_of(client, kind)), client=client)
+    pick(page, "a")
+    # Capitals count too: 4 IN is 101,6 mm.
+    enter(page, "Breite", "4 IN")
+    expect(field(page, "Breite")).to_have_value("101,6")
+    assert by_id(saved(page, client))["a"]["w"] == 101.6
+
+
+def test_a_group_takes_a_unit_for_its_width(editor):
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=20, y=50, w=30, h=20, group=["g"]),
+        box("b", "shape", RECT, z=2, x=70, y=50, w=30, h=20, group=["g"]),
+        client=client,
+    )
+    at(page, "a").click()
+    expect(page.locator(".block.sel")).to_have_count(2)
+    # The group is 80 mm wide; 4 cm halves it from its left edge.
+    enter(page, "Breite", "4cm")
+    expect(field(page, "Breite")).to_have_value("40")
+    a, b = (by_id(saved(page, client))[name] for name in "ab")
+    assert (a["x"], a["w"], b["x"], b["w"]) == (20, 15, 45, 15)
