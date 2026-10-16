@@ -1,7 +1,7 @@
 ---
 type: How-to
 title: "Zahlenmauern"
-description: A heading, a name line, and a Zahlenmauer with the sums of the stones below each stone to fill in.
+description: A heading, a name line, and four Zahlenmauern with the sums above the given foot stones to fill in.
 tags: [zahlenmauer, zahlen, klasse-1]
 covers: [text, name, zahlenmauer]
 generated: { by: "human:pgoell", at: 2026-10-16T19:30:00Z }
