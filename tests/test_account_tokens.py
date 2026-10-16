@@ -1,5 +1,8 @@
+import json
 import re
+import zipfile
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
@@ -284,3 +287,18 @@ def test_a_name_of_81_letters_stays_whole_and_says_so(account):
     page.keyboard.press("Enter")
     expect(field).to_have_accessible_description("Der Name ist zu lang: höchstens 80 Zeichen.")
     expect(field).to_have_value("x" * 81)
+
+
+def test_the_extension_downloads_beside_the_key(account, server, tmp_path):
+    """The card of the keys offers the Claude Desktop extension, served by the app as a file."""
+    page = account(user())
+    card = page.locator(".card").filter(has_text="Zugang für Claude")
+    with page.expect_download() as download:
+        card.get_by_role("link", name="Erweiterung für Claude Desktop herunterladen").click()
+    assert download.value.suggested_filename == "blattomat.mcpb"
+    path = tmp_path / "blattomat.mcpb"
+    download.value.save_as(path)
+    with zipfile.ZipFile(path) as bundle:
+        assert json.loads(bundle.read("manifest.json"))["name"] == "blattomat"
+    answer = httpx.get(f"{server}/blattomat.mcpb")
+    assert answer.headers["content-type"] == "application/octet-stream"
