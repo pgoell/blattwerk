@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import subprocess
 import uuid
 from pathlib import Path
@@ -17,15 +18,21 @@ SCHEMA = json.loads((ROOT / "src/blattwerk/sheet.schema.json").read_text())
 
 
 class Mcp:
-    def __init__(self, server, token, tmp_path, url=None, tag=""):
+    def __init__(self, server, token, tmp_path, url=None, tag="", docs=None):
         self.err = tmp_path / f"stderr{tag}.txt"
+        extra = {"BLATTWERK_DOCS": str(docs)} if docs else {}
         self.proc = subprocess.Popen(
             ["node", "frontend/mcp/stdio.ts"],
             cwd=ROOT,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=self.err.open("w"),
-            env={**os.environ, "BLATTWERK_URL": url or server, "BLATTWERK_TOKEN": token},
+            env={
+                **os.environ,
+                "BLATTWERK_URL": url or server,
+                "BLATTWERK_TOKEN": token,
+                **extra,
+            },
         )
         self.out = []
         self.next_id = 1
@@ -437,20 +444,19 @@ def test_tool_descriptions_are_short_and_point_to_the_docs(server, tmp_path):
 
 def test_a_bundle_file_added_while_stopped_shows_on_the_next_start(server, tmp_path):
     name = f"probe-{uuid.uuid4().hex[:8]}.md"
-    added = DOCS / name
-    added.write_text('---\ntitle: "Probe page"\ndescription: Added by a test\n---\n\nHallo\n')
+    docs = tmp_path / "okf"
+    shutil.copytree(DOCS, docs)
+    probe = '---\ntitle: "Probe page"\ndescription: Added by a test\n---\n\nHallo\n'
+    (docs / name).write_text(probe)
+    mcp = Mcp(server, token_for(user()), tmp_path, docs=docs)
     try:
-        _, mcp = start(server, tmp_path)
-        try:
-            listed = {r["uri"]: r for r in mcp.request("resources/list")["resources"]}
-            found = listed[f"blattomat://okf/{name}"]
-            assert found["title"] == "Probe page"
-            assert found["description"] == "Added by a test"
-            contents = mcp.request("resources/read", {"uri": f"blattomat://okf/{name}"})
-            assert "Hallo" in contents["contents"][0]["text"]
-            escaped = mcp.reply("resources/read", {"uri": "blattomat://okf/../frontend/mcp/api.ts"})
-            assert "error" in escaped
-        finally:
-            mcp.stop()
+        listed = {r["uri"]: r for r in mcp.request("resources/list")["resources"]}
+        found = listed[f"blattomat://okf/{name}"]
+        assert found["title"] == "Probe page"
+        assert found["description"] == "Added by a test"
+        contents = mcp.request("resources/read", {"uri": f"blattomat://okf/{name}"})
+        assert "Hallo" in contents["contents"][0]["text"]
+        escaped = mcp.reply("resources/read", {"uri": "blattomat://okf/../frontend/mcp/api.ts"})
+        assert "error" in escaped
     finally:
-        added.unlink()
+        mcp.stop()
