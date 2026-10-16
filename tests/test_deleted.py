@@ -38,7 +38,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import login
 from test_stale import STATUS, TURNS
-from ui import at, unpick, user
+from ui import at, reload, unpick, user
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da."
@@ -363,6 +363,26 @@ def test_a_second_press_finds_the_sheet_made_and_takes_the_newer_change(run):
     nudge(run)
     banner.get_by_role("button", name=KEEP).click()
     expect_new(run, page, x=17)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
+def test_a_keep_asked_before_a_reload_finds_the_sheet_made_and_makes_no_second(run):
+    """4, follow-up B: the press's answer never came and the page reloaded. The next press, on the
+    reloaded page, finds the sheet made and makes no second one."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    page.route(
+        f"{run.server}/api/sheets",
+        lambda route: route.fetch() if route.request.method == "POST" else route.continue_(),
+    )
+    with page.expect_request(makes):
+        page.locator(".clash").get_by_role("button", name=KEEP).click()
+    page.clock.resume()
+    reload(page, f"{run.server}/blatt/{a}")
+    line = page.locator(NOTICE)
+    expect_choice(line, LINE)
+    press(line, KEEP)
+    expect_new(run, page)
     assert len(run.client.get("/api/sheets").json()) == 3
 
 
