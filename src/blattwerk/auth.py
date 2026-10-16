@@ -247,14 +247,14 @@ class NewToken(BaseModel):
 # Cookie only, like the admin calls: a token cannot mint or list tokens.
 @router.post("/tokens")
 def make_token(body: NewToken, user: User, con: Con) -> dict:
-    names = con.execute("SELECT name FROM tokens WHERE user_id = ?", (user["id"],))
-    if any(row["name"].strip().casefold() == body.name.casefold() for row in names):
-        raise HTTPException(
-            422, "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen."
-        )
-    # One transaction, so no row is left with an empty hash.
+    # One transaction: no row keeps an empty hash, and two creates cannot both pass the name check.
     con.execute("BEGIN IMMEDIATE")
     try:
+        names = con.execute("SELECT name FROM tokens WHERE user_id = ?", (user["id"],))
+        if any(row["name"].strip().casefold() == body.name.casefold() for row in names):
+            raise HTTPException(
+                422, "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen."
+            )
         row = con.execute(
             "INSERT INTO tokens (user_id, hash, name) VALUES (?, '', ?) RETURNING id",
             (user["id"], body.name),

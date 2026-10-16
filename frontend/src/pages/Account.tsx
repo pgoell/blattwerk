@@ -11,6 +11,28 @@ type Token = { id: number; name: string; created: string; last_used: string | nu
 const TAKEN = "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen.";
 const TOO_LONG = "Der Name ist zu lang: höchstens 80 Zeichen.";
 const EMPTY = "Gib dem Schlüssel einen Namen.";
+// The note of a try that ran into the end of the session. One item, with the id of the account that made the try.
+const NOTE = "konto-note";
+type Note = { uid: number; text: string; name?: string };
+function readNote(uid: number): Note | null {
+  try {
+    const note = JSON.parse(sessionStorage.getItem(NOTE) ?? "null") as Note | null;
+    if (note?.uid === uid) return note;
+    dropNote();
+  } catch {}
+  return null;
+}
+function writeNote(note: Note) {
+  try {
+    sessionStorage.setItem(NOTE, JSON.stringify(note));
+  } catch {}
+}
+function dropNote() {
+  try {
+    sessionStorage.removeItem(NOTE);
+  } catch {}
+}
+
 const when = (utc: string) =>
   new Date(`${utc.replace(" ", "T")}Z`).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 
@@ -18,45 +40,31 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const [sure, setSure] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "leaf");
   const [tokens, setTokens] = useState<Token[]>([]);
-  // The name typed when the session ran out: put back after the login.
-  const [name, setName] = useState(() => {
-    try {
-      return sessionStorage.getItem("konto-name") ?? "";
-    } catch {
-      return "";
-    }
-  });
+  // What a try left when the session ran out, read once here: the line, and the name typed. Taken out of storage
+  // at mount, so it shows once. Only for the account that made the try.
+  const [note] = useState(() => readNote(user.id));
+  const [name, setName] = useState(note?.name ?? "");
   // Under the name field: why the name was refused. Gone with the next typing.
   const [fieldNote, setFieldNote] = useState("");
   // The new key, shown once. It lives in this state only: not in storage, not in the URL.
   const [made, setMade] = useState<{ id: number; token: string } | null>(null);
-  // A try that ran into the end of the session: said again here, after the new login. Kept in storage only for that.
-  const [left, setLeft] = useState<string | null>(() => {
-    try {
-      return sessionStorage.getItem("konto-left");
-    } catch {
-      return null;
-    }
-  });
+  const [left, setLeft] = useState<string | null>(note?.text ?? null);
   const [ask, setAsk] = useState<Token | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
   const askedId = useRef<number | null>(null);
+  // A create is out: a second press waits for it.
+  const busy = useRef(false);
 
   function leave(text: string, typed?: string) {
-    try {
-      sessionStorage.setItem("konto-left", text);
-      if (typed !== undefined) sessionStorage.setItem("konto-name", typed);
-    } catch {}
+    writeNote({ uid: user.id, text, name: typed });
     setLeft(text);
   }
 
   function forget() {
     setLeft(null);
-    try {
-      sessionStorage.removeItem("konto-left");
-      sessionStorage.removeItem("konto-name");
-    } catch {}
+    dropNote();
   }
 
   function show(to: string) {
@@ -69,6 +77,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const load = () => signed(api<Token[]>("/tokens")).then(setTokens, () => {});
 
   useEffect(() => {
+    dropNote();
     load();
   }, []);
 
@@ -78,6 +87,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
     if (!label) return setFieldNote("Gib dem Schlüssel einen Namen.");
     if (label.length > 80) return setFieldNote("Der Name ist zu lang: höchstens 80 Zeichen.");
     if (tokens.some((t) => t.name.toLowerCase() === label.toLowerCase())) return setFieldNote(TAKEN);
+    if (busy.current) return;
+    busy.current = true;
     attempt("Der Schlüssel konnte nicht erstellt werden.", async () => {
       try {
         const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
@@ -93,6 +104,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         }
         if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`, label);
         throw err;
+      } finally {
+        busy.current = false;
       }
       await load();
     });
@@ -102,6 +115,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
     askedId.current = token.id;
     setAsk(token);
     dialog.current?.showModal();
+    // Abbrechen has the focus, so Enter keeps the key.
+    cancel.current?.focus();
   }
 
   function confirmRevoke(token: Token) {
@@ -204,7 +219,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
             <button type="button" onClick={() => ask && confirmRevoke(ask)}>
               Widerrufen
             </button>
-            <button type="button" className="plain" onClick={() => dialog.current?.close()}>
+            <button type="button" className="plain" ref={cancel} onClick={() => dialog.current?.close()}>
               Abbrechen
             </button>
           </div>

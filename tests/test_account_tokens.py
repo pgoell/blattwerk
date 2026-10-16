@@ -195,6 +195,66 @@ def test_a_key_not_made_when_the_session_ran_out_is_said_after_the_login(account
     expect(row(page, "Danach")).to_have_count(0)
 
 
+def test_the_note_of_one_teacher_never_shows_to_the_next_one_at_that_login(account, server):
+    page = account(user())
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    page.wait_for_load_state("networkidle")
+    page.context.clear_cookies()
+    page.get_by_label("Name des Schlüssels").fill("Danach")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    other = user()
+    cookie = {"name": "session", "value": other.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(other.get("/api/me").json()["email"])
+    page.get_by_label("Passwort").fill(PASSWORD)
+    page.get_by_role("button", name="Anmelden").click()
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    expect(page.get_by_label("Name des Schlüssels")).to_have_value("")
+    expect(page.get_by_role("status")).to_have_count(0)
+
+
+def test_the_note_shows_once_and_a_reload_takes_it_away(account, server):
+    client = user()
+    page = account(client)
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    page.wait_for_load_state("networkidle")
+    page.context.clear_cookies()
+    page.get_by_label("Name des Schlüssels").fill("Danach")
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
+    cookie = {"name": "session", "value": client.cookies["session"], "url": server}
+    page.context.add_cookies([cookie])
+    page.get_by_label("E-Mail").fill(client.get("/api/me").json()["email"])
+    page.get_by_label("Passwort").fill(PASSWORD)
+    page.get_by_role("button", name="Anmelden").click()
+    expect(page.get_by_role("status")).to_contain_text("wurde nicht erstellt")
+    reload(page, page.url)
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    expect(page.get_by_role("status")).to_have_count(0)
+
+
+def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
+    page = account(user())
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("Doppelt")
+    page.get_by_role("button", name="Schlüssel erstellen").dblclick()
+    expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
+    page.wait_for_timeout(500)
+    expect(row(page, "Doppelt")).to_have_count(1)
+    expect(field).to_have_accessible_description("")
+
+
+def test_enter_on_the_question_keeps_the_key(account):
+    page = account(user())
+    make(page, "Laptop")
+    page.get_by_role("button", name="Widerrufen: Laptop").click()
+    expect(page.get_by_role("dialog").get_by_role("button", name="Abbrechen")).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("dialog")).not_to_be_visible()
+    expect(row(page, "Laptop")).to_be_visible()
+
+
 def test_a_blank_name_says_so_beside_the_field(account):
     page = account(user())
     field = page.get_by_label("Name des Schlüssels")
