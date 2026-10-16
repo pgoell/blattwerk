@@ -742,6 +742,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const [down, across, edge] = inset(p, block.type === "shape");
   // Only a shape made since #128 keeps its text inside its outline: one saved before prints all its text as it did.
   const [fitTop, fitRight, fitBottom, fitLeft] = p.inside === true ? fitOf(p.kind, block.w, block.h, block.flipY) : [0, 0, 0, 0];
+  // Such a shape never grows for its text: its type shrinks to fit the inner box (see `fitText`).
+  const inside = p.inside === true && (p.kind === "circle" || p.kind === "triangle" || p.kind === "star");
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
   // reach `up` and `down` em further, so no dot and no foot is lost (#487). A line centred on the middle of the
   // line box, which lies `c` em above the baseline, holds the ink from `s / 2` em each side of that middle.
@@ -777,7 +779,15 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const frame = frameRef.current;
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
+    if (inside && frame) fitText(frame);
   });
+  useLayoutEffect(() => {
+    if (!inside) return;
+    const again = () => frameRef.current && fitText(frameRef.current);
+    document.fonts.ready.then(again);
+    document.fonts.addEventListener("loadingdone", again);
+    return () => document.fonts.removeEventListener("loadingdone", again);
+  }, [inside]);
   useEffect(() => {
     const frame = frameRef.current;
     if (fade !== "rows" || !frame) return;
@@ -831,11 +841,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   return (
     <div
       ref={frameRef}
-      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight")}
+      className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight", inside && "inside")}
       data-trace={traceOf(p)}
       data-fade={fade}
       style={{
         ...textStyle(p, k),
+        ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
         ...(tight && { "--ink-up": `calc(${above}em + ${fringe}px)`, "--ink-down": `calc(${below}em + ${fringe}px)`, "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
@@ -878,6 +889,20 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   );
 }
 
+// Shrinks a frame's type (`--fit`) until its lines fit its height and no word runs past its width. Each round
+// measures the type it has and takes the share it is too big by. Up to three rounds: a line of a pixel does not shrink.
+function fitText(el: HTMLElement) {
+  el.style.removeProperty("--fit");
+  if (el.clientHeight < 3) return;
+  let scale = 1;
+  for (let round = 0; round < 3; round++) {
+    const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
+    const over = Math.max(el.scrollHeight / el.clientHeight, ...wide);
+    if (!(over > 1.01)) break;
+    scale /= over;
+    el.style.setProperty("--fit", String(scale));
+  }
+}
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
 // Every gap of a block is at least this many mm wide: a finite number above 0, at most 200. Else none.

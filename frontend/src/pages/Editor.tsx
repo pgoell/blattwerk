@@ -747,6 +747,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // The linked texts on the page in view grow with the list too, picked or not.
     const measured = [...sel, ...blocks.filter((b) => !ids.includes(b.id) && !b.locked && boxed(b)?.list === true)];
     for (const b of measured) {
+      // A circle, triangle or star with `inside` shrinks its text to its outline and never grows for it.
+      const shape = boxed(b);
+      if (shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star")) continue;
       // A table's rows are each as high as their highest cell when its height is not set.
       const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
       if (!frame) continue;
