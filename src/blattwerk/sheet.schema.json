@@ -2411,13 +2411,20 @@
       "type": "object",
       "properties": {
         "count": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of triangles on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
         },
         "columns": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of triangles per row. Default 4.",
+          "minimum": 1,
+          "maximum": 4
         },
         "max": {
-          "type": "number"
+          "type": "number",
+          "description": "The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20."
         },
         "given": {
           "type": "string",
@@ -2426,25 +2433,30 @@
             "mix",
             "outer",
             "free"
-          ]
+          ],
+          "description": "Which fields show their number. \"inner\": the three inner fields (easy). \"mix\": two inner fields and one outer field (medium). \"outer\": the three outer fields (hard). \"free\": the fields flagged in `free`. Default \"inner\"."
         },
         "free": {
           "type": "array",
           "items": {
             "type": "boolean"
-          }
+          },
+          "description": "With `given` \"free\": one flag per field, index 0 to 5 (inner 0 to 2, outer 3 to 5). A flagged field shows its number. Missing or invalid: the three inner fields."
         },
         "empty": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "When true, no field shows a number, so the pupil fills in every field. Default false."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "Seed for the random triangles. The same seed always gives the same triangles."
         },
         "typed": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/FieldTyped"
-          }
+          },
+          "description": "Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers."
         }
       },
       "required": [
@@ -2463,7 +2475,8 @@
         "type": "number"
       },
       "minItems": 3,
-      "maxItems": 3
+      "maxItems": 3,
+      "description": "A number the teacher typed into a field: the triangle's index (from 0), the field's index (0 to 5), the value (0 to 9999)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",
@@ -2535,16 +2548,26 @@
       "type": "object",
       "properties": {
         "start": {
-          "type": "number"
+          "type": "number",
+          "description": "The number of the first tick, from 0 up. The line starts here. Default 0.",
+          "minimum": 0,
+          "maximum": 999999
         },
         "end": {
-          "type": "number"
+          "type": "number",
+          "description": "The number of the last tick, above `start`. The last tick is the last multiple of `minor` that is not above it. Default 20.",
+          "minimum": 0,
+          "maximum": 1000000
         },
         "minor": {
-          "type": "number"
+          "type": "number",
+          "description": "The step between two ticks (small ticks), in whole numbers. Default 1.",
+          "minimum": 1,
+          "maximum": 1000000
         },
         "major": {
-          "type": "number"
+          "type": "number",
+          "description": "The step between two long ticks. A multiple of `minor`. A tick is long when its number minus `start` is a multiple of it. The first tick is always long. Default 5."
         },
         "labels": {
           "type": "string",
@@ -2553,38 +2576,53 @@
             "major",
             "ends",
             "none"
-          ]
+          ],
+          "description": "Which ticks show their number. \"all\": every tick. \"major\": the long ticks. \"ends\": the first and the last tick. \"none\": no tick. Default \"major\"."
         },
         "size": {
-          "type": "number"
+          "type": "number",
+          "description": "Font size of the numbers, in pt. Does not change with the block's size. Default 12.",
+          "minimum": 8,
+          "maximum": 24
         },
         "cut": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false."
         },
         "tasks": {
           "type": "string",
           "enum": [
             "random",
             "free"
-          ]
+          ],
+          "description": "\"random\": boxes and arrows go on ticks chosen from the seed. \"free\": the ticks in `marks` get their task. Default \"random\"."
         },
         "boxes": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of boxes placed on the line with `tasks` \"random\". Default 3.",
+          "minimum": 0,
+          "maximum": 12
         },
         "arrows": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of arrows placed on the line with `tasks` \"random\". Default 0.",
+          "minimum": 0,
+          "maximum": 6
         },
         "marks": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Mark"
-          }
+          },
+          "description": "The ticks picked in \"free\" mode, each [number, \"box\" or \"arrow\"]. An entry that is not a tick is kept but not drawn."
         },
         "jumps": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Draws jump arcs above the line, from the first tick on. Default false."
         },
         "jump": {
-          "type": "number"
+          "type": "number",
+          "description": "Width of each jump arc, a multiple of `minor`. Default `major`."
         },
         "arcs": {
           "type": "array",
@@ -2593,10 +2631,12 @@
               "string",
               "null"
             ]
-          }
+          },
+          "description": "A text for each jump arc, by index. A missing or empty entry shows \"+\" and the jump width."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "Seed for the random tasks. The same seed always gives the same tasks."
         }
       },
       "required": [
@@ -2626,14 +2666,16 @@
           "$ref": "#/definitions/Task"
         }
       ],
-      "maxItems": 2
+      "maxItems": 2,
+      "description": "A tick the teacher picked in \"free\" mode: [the tick's number, its task]."
     },
     "Task": {
       "type": "string",
       "enum": [
         "box",
         "arrow"
-      ]
+      ],
+      "description": "A task on a tick: \"box\" an empty box to write the number in, \"arrow\" an arrow to draw to the tick."
     },
     "HunderterfeldBlock": {
       "type": "object",
@@ -2709,14 +2751,16 @@
           "enum": [
             "tafel",
             "punkte"
-          ]
+          ],
+          "description": "What is drawn: \"tafel\" the Hundertertafel with its numbers in a 10 by 10 grid, \"punkte\" a field of 10 by 10 dots. Default \"tafel\"."
         },
         "from": {
           "type": "number",
           "enum": [
             0,
             1
-          ]
+          ],
+          "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1."
         },
         "show": {
           "type": "string",
@@ -2725,16 +2769,21 @@
             "none",
             "random",
             "free"
-          ]
+          ],
+          "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\"."
         },
         "hide": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of cells hidden with `show` \"random\". Default 20.",
+          "minimum": 0,
+          "maximum": 100
         },
         "hidden": {
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "Cell indices (0 to 99, row by row from the top left) whose number is hidden with `show` \"free\"."
         },
         "tint": {
           "type": "string",
@@ -2745,16 +2794,24 @@
             "row",
             "column",
             "free"
-          ]
+          ],
+          "description": "Which cells of the Tafel are tinted. \"none\": no cell. \"even\": the even numbers. \"times\": the multiples of `times` up to 10 times `times`. \"row\": the row `line`. \"column\": the column `line`. \"free\": the cells in `tints`. Default \"none\"."
         },
         "times": {
-          "type": "number"
+          "type": "number",
+          "description": "The row of the Einmaleins that \"times\" tints, 1 to 10. Default 2.",
+          "minimum": 1,
+          "maximum": 10
         },
         "line": {
-          "type": "number"
+          "type": "number",
+          "description": "The row or column tinted with \"row\" or \"column\", counted from the top or the left, 1 to 10. Default 1.",
+          "minimum": 1,
+          "maximum": 10
         },
         "color": {
-          "$ref": "#/definitions/Tint"
+          "$ref": "#/definitions/Tint",
+          "description": "The colour of a tint from \"even\", \"times\", \"row\" or \"column\": 1 yellow, 2 blue. Default 1."
         },
         "tints": {
           "type": "array",
@@ -2770,38 +2827,50 @@
               }
             ],
             "maxItems": 2
-          }
+          },
+          "description": "Each tinted cell with its colour, for tint \"free\": [cell index 0 to 99, colour 1 yellow or 2 blue]."
         },
         "cut": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false."
         },
         "shape": {
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing."
         },
         "given": {
-          "type": "number"
+          "type": "number",
+          "description": "The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.",
+          "minimum": 0,
+          "maximum": 99
         },
         "fill": {
           "type": "string",
           "enum": [
             "count",
             "free"
-          ]
+          ],
+          "description": "With \"count\", the first `dots` dots are filled, row by row. With \"free\", the dots in `filled` are. Default \"count\"."
         },
         "dots": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of filled dots with `fill` \"count\", counted row by row from the top left. Default 0.",
+          "minimum": 0,
+          "maximum": 100
         },
         "filled": {
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "Cell indices (0 to 99) of the filled dots with `fill` \"free\"."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "Seed for the random hidden cells with `show` \"random\". The same seed always hides the same cells."
         }
       },
       "required": [
@@ -2902,27 +2971,32 @@
             "all",
             "quarters",
             "none"
-          ]
+          ],
+          "description": "The numbers on the face. \"all\": 1 to 12. \"quarters\": only 12, 3, 6 and 9. \"none\": no numbers. Default \"all\"."
         },
         "minutes": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Draws the 60 minute ticks. The 12 hour ticks are always drawn. Default true."
         },
         "ring": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Draws a second ring with 13 to 24 inside the numbers. Not drawn when `numbers` is \"none\". Default false."
         },
         "task": {
           "type": "string",
           "enum": [
             "read",
             "draw"
-          ]
+          ],
+          "description": "\"read\": the hands are drawn and the pupil writes the time under the clock. \"draw\": no hands, the time is written under the clock and the pupil draws the hands. Default \"read\"."
         },
         "answer": {
           "type": "string",
           "enum": [
             "box",
             "line"
-          ]
+          ],
+          "description": "The empty answer under a clock with task \"read\". \"box\": a digital box `__:__ Uhr`. \"line\": a writing line. Default \"box\"."
         },
         "format": {
           "type": "string",
@@ -2930,20 +3004,28 @@
             "12",
             "24",
             "words"
-          ]
+          ],
+          "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"words\": in words, such as \"halb vier\". Default \"12\"."
         },
         "region": {
           "type": "string",
           "enum": [
             "nach",
             "viertel"
-          ]
+          ],
+          "description": "The form of the time in words, with format \"words\". \"nach\": \"viertel nach drei\" and \"viertel vor vier\". \"viertel\": \"viertel vier\" and \"dreiviertel vier\". Default \"nach\"."
         },
         "count": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of clocks on the sheet, 1 to 12. Default 4.",
+          "minimum": 1,
+          "maximum": 12
         },
         "cols": {
-          "type": "number"
+          "type": "number",
+          "description": "Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.",
+          "minimum": 1,
+          "maximum": 6
         },
         "step": {
           "type": "number",
@@ -2953,23 +3035,27 @@
             15,
             5,
             1
-          ]
+          ],
+          "description": "The minutes that random times keep to: 60 full hours, 30 half hours, 15 quarter hours, 5 or 1 minute. Default 15."
         },
         "fill": {
           "type": "string",
           "enum": [
             "random",
             "free"
-          ]
+          ],
+          "description": "\"random\": every time is drawn from the seed. \"free\": each clock takes its time from `times`, and from the seed where that is missing. Default \"random\"."
         },
         "times": {
           "type": "array",
           "items": {
             "type": "number"
-          }
+          },
+          "description": "The time of each clock in minutes since 0:00 (0 to 1439), in clock order. A missing or -1 entry takes a random time. Used with fill \"free\"."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "Seed for the random times. The same seed always gives the same times."
         }
       },
       "required": [
@@ -3058,28 +3144,37 @@
       "type": "object",
       "properties": {
         "form": {
-          "$ref": "#/definitions/Form"
+          "$ref": "#/definitions/Form",
+          "description": "How the child checks her results. \"mixed\": the results in a shuffled list, each with a box to tick. \"word\": a Lösungswort with a letter box under each task. \"sum\": one control sum per linked block. Default \"mixed\"."
         },
         "links": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Ids of the linked maths blocks of the sheet, in the order the teacher ticked them. Default none."
         },
         "word": {
-          "type": "string"
+          "type": "string",
+          "description": "The Lösungswort the child builds from the letters, as the teacher typed it. Used with form \"word\" only. Default \"\"."
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "The heading of the block. An empty heading prints none. Default \"Selbstkontrolle\"."
         },
         "size": {
-          "type": "number"
+          "type": "number",
+          "description": "Font size of the text in pt, except the heading, which is 1.2 times it. Default 14.",
+          "minimum": 8,
+          "maximum": 24
         },
         "turn": {
-          "$ref": "#/definitions/Turn"
+          "$ref": "#/definitions/Turn",
+          "description": "Turns the block for the child to read it later. \"none\": not turned. \"upside\": the whole content turned by 180 degrees. \"fold\": a dashed fold line along the top, with \"Hier umknicken\" over it, and the content turned by 180 degrees under it, so the child folds it back. Default \"none\"."
         },
         "seed": {
-          "type": "number"
+          "type": "number",
+          "description": "Seed for the shuffle of form \"mixed\" and of the table of form \"word\". The same seed always gives the same order."
         }
       },
       "required": [

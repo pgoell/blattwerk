@@ -35,16 +35,31 @@
 
 import { rng } from "./zahlenmauer";
 
+/** A number the teacher typed into a field: the triangle's index (from 0), the field's index (0 to 5), the value (0 to 9999). */
 export type FieldTyped = [number, number, number];
 type Typed = FieldTyped;
 export type RechendreieckProps = {
+  /** Number of triangles on the sheet, side by side in rows of `columns`. Default 4.
+   * @minimum 1
+   * @maximum 12
+   */
   count: number;
+  /** Number of triangles per row. Default 4.
+   * @minimum 1
+   * @maximum 4
+   */
   columns: number;
+  /** The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20. */
   max: number;
+  /** Which fields show their number. "inner": the three inner fields (easy). "mix": two inner fields and one outer field (medium). "outer": the three outer fields (hard). "free": the fields flagged in `free`. Default "inner". */
   given: "inner" | "mix" | "outer" | "free";
+  /** With `given` "free": one flag per field, index 0 to 5 (inner 0 to 2, outer 3 to 5). A flagged field shows its number. Missing or invalid: the three inner fields. */
   free?: boolean[];
+  /** When true, no field shows a number, so the pupil fills in every field. Default false. */
   empty: boolean;
+  /** Seed for the random triangles. The same seed always gives the same triangles. */
   seed: number;
+  /** Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers. */
   typed?: Typed[];
 };
 
