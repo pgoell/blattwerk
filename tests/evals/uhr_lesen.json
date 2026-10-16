@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt, auf dem die Kinder Uhrzeiten lesen. Lege das Blatt mit dem Titel Eval Uhrzeiten lesen an.",
+  "expect": {"types": ["uhr"], "text": ["Uhrzeit"]}
+}

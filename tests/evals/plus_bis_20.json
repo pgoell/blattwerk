@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt Plusaufgaben bis 20 mit Selbstkontrolle. Lege das Blatt mit dem Titel Eval Plus bis 20 an.",
+  "expect": {"types": ["maths", "selbstkontrolle"], "text": ["Plus"]}
+}

@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit einem Hunderterfeld. Lege das Blatt mit dem Titel Eval Hunderterfeld an.",
+  "expect": {"types": ["hunderterfeld"], "text": []}
+}
