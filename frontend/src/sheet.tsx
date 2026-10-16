@@ -1665,8 +1665,9 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
           {at && text && (block.props.syllables || block.props.tints) && (
             <>
-              {children && <p className="written" aria-hidden="true" style={{ ...writtenStyle(block, k), visibility: "hidden" }}>{text}</p>}
-              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={block.props.breaks} syllables={block.props.syllables} tints={block.props.tints} tintsAcross={block.props.tintsAcross} />
+              {/* With colours the copy shows and the field's letters go clear, as in a table's open cell, so the colours stay while typing. */}
+              {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...writtenStyle(block, k), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
+              <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={block.props.breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
             </>
           )}
         </>

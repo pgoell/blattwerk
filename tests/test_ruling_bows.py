@@ -87,6 +87,19 @@ def test_c4_silbenfarbe_colours_the_letters_of_the_ruling(editor):
     tinted(page, "a").to_have_text([("A", BLUE), ("bend", RED)])
 
 
+def test_the_colours_stay_while_typing_on_a_lineatur(editor):
+    page = editor(box("a", "ruling", {**ABEND, "tints": PAIR}))
+    at(page, "a").dblclick()
+    page.keyboard.press("End")
+    page.keyboard.type(" Abend")
+    tinted(page, "a").to_have_text([("A", BLUE), ("bend", RED), ("A", BLUE), ("bend", RED)])
+    # What the eye reads: the coloured copy, and no black letters of the field over it.
+    copy = at(page, "a").locator("p.written.copy")
+    expect(copy).to_be_visible()
+    fill = "(t) => getComputedStyle(t).webkitTextFillColor"
+    assert at(page, "a").locator("textarea.written").evaluate(fill) == "rgba(0, 0, 0, 0)"
+
+
 def test_x1_two_rows_of_text_give_a_bow_per_syllable_in_each(editor):
     page = editor(box("a", "ruling", {**ABEND, "text": "Abend Abend", "syllables": True}, h=40))
     assert syls(page, "a") == ["A", "bend", "A", "bend"]
