@@ -10,13 +10,15 @@ Language: German for every word that lands on the sheet or that a teacher reads 
 
 In brief: a sheet is A4 upright, 210 x 297 mm, and every number is in mm. A block sits at `x`, `y` (its top left) with size `w`, `h`. Keep 15 mm from each edge. Blocks must not overlap: put the next block at the last block's `y + h + 5`. Read [the page model](page-model.md) before your first sheet.
 
+Every file named here is a resource of this server: the link `blocks/uhr.md` is the resource `blattomat://okf/blocks/uhr.md`.
+
 Before you write a block, read its page under [blocks](blocks/index.md): it lists every prop with its values. Before you build a whole sheet, look for a recipe that is close and start from its doc.
 
 Work like this: `create_sheet`; `add_block` for each block, or `replace_doc` with a recipe's doc; read the warnings in each answer (`overlaps block <id>`, `leaves the page's printable area`) and fix them with `move_block`; `render_preview` to look at the page before you say you are done.
 
 # Explanation
 
-* [Page model](page-model.md): A4 in mm, the box of a block, z, pages, guides and the grid.
+* [Page model](page-model.md): How a Blattomat sheet is laid out, A4 in mm, the box of each block, z order, pages, guide lines and the grid.
 
 # Reference
 
