@@ -1,21 +1,28 @@
 """The Claude Desktop extension (static/blattomat.mcpb): unpacked, run from its manifest."""
 
+import hashlib
 import json
 import os
 import subprocess
+import threading
+import time
 import uuid
 import zipfile
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import httpx
 from ui import user
 
 ROOT = Path(__file__).parent.parent
 BUNDLE = ROOT / "src/blattwerk/static/blattomat.mcpb"
 DOCS = ROOT / "docs/okf"
+# The line the teacher's Claude gets after a tool answer when the extension is old.
+LINE = "Bitte die Blattomat-Erweiterung neu laden: Konto, Erweiterung herunterladen."
 
 
-def unpack(tmp_path):
-    folder = tmp_path / "bundle"
+def unpack(tmp_path, name="bundle"):
+    folder = tmp_path / name
     with zipfile.ZipFile(BUNDLE) as z:
         z.extractall(folder)
     return folder, json.loads((folder / "manifest.json").read_text())
@@ -217,3 +224,123 @@ def test_the_url_may_end_in_api(server, tmp_path):
         assert not result.get("isError"), result
     finally:
         mcp.stop()
+
+
+def test_the_version_comes_from_the_build(server, tmp_path):
+    folder, manifest = unpack(tmp_path)
+    version = manifest["version"]
+    mcp = Bundle(folder, manifest, tmp_path, token_for(user()), server)
+    try:
+        served = mcp.start()["serverInfo"]["version"]
+    finally:
+        mcp.stop()
+    assert served == version
+    assert httpx.get(f"{server}/api/mcpb/version").json()["version"] == version
+    assert version not in ("0.1.0", "0.0.0-dev")
+    # The build's own hash, as frontend/mcpb.mjs computes it: the bundle with the placeholder
+    # back in place, the docs by path and bytes, then the source manifest.
+    index = (folder / "server/index.mjs").read_bytes()
+    index = index.replace(f'"{version}"'.encode(), b'"0.0.0-dev"')
+    digest = hashlib.sha256(index)
+    okf = folder / "okf"
+    for rel in sorted(p.relative_to(okf).as_posix() for p in okf.rglob("*") if p.is_file()):
+        digest.update(rel.encode())
+        digest.update((okf / rel).read_bytes())
+    source = ROOT / "frontend/mcp/manifest.json"
+    digest.update(source.read_bytes())
+    assert version == f"0.1.{int(digest.hexdigest()[:8], 16)}"
+    assert "version" not in json.loads(source.read_text())
+
+
+def test_an_old_bundle_asks_to_be_reloaded(server, tmp_path):
+    token = token_for(user())
+    # The old copy: the same bundle, its version set back to 0.1.1.
+    folder, manifest = unpack(tmp_path, "old")
+    old = manifest["version"]
+    index = folder / "server/index.mjs"
+    index.write_bytes(index.read_bytes().replace(f'"{old}"'.encode(), b'"0.1.1"'))
+    manifest["version"] = "0.1.1"
+    (folder / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    mcp = Bundle(folder, manifest, tmp_path, token, server, tag="-old")
+    try:
+        mcp.start()
+        listed = mcp.call("list_sheets")
+        assert listed["content"][-1]["text"] == LINE
+        assert isinstance(json.loads(listed["content"][0]["text"]), list)
+        assert mcp.call("list_sheets")["content"][-1]["text"] == LINE
+        failed = mcp.call("set_title", sheet_id=999999999, title="x")
+        assert failed["isError"]
+        assert failed["content"][-1]["text"] == LINE
+    finally:
+        mcp.stop()
+
+    # The current copy: the same calls, no line.
+    folder, manifest = unpack(tmp_path, "current")
+    mcp = Bundle(folder, manifest, tmp_path, token, server, tag="-new")
+    try:
+        mcp.start()
+        for result in (
+            mcp.call("list_sheets"),
+            mcp.call("list_sheets"),
+            mcp.call("set_title", sheet_id=999999999, title="x"),
+        ):
+            assert LINE not in [item.get("text") for item in result["content"]]
+    finally:
+        mcp.stop()
+
+
+def proxy_handler(upstream, case):
+    """Forwards to the app, except the version: `error` answers 500, `hang` takes 10 s to answer."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def _forward(self):
+            body = self.rfile.read(int(self.headers.get("content-length") or 0))
+            if self.path == "/api/mcpb/version":
+                if case == "error":
+                    self.send_response(500)
+                    self.send_header("content-length", "0")
+                    self.end_headers()
+                    return
+                time.sleep(10)
+            skip = {"host", "content-length", "connection", "accept-encoding", "transfer-encoding"}
+            headers = {k: v for k, v in self.headers.items() if k.lower() not in skip}
+            reply = httpx.request(
+                self.command, upstream + self.path, headers=headers, content=body, timeout=30
+            )
+            self.send_response(reply.status_code)
+            drop = {"content-length", "content-encoding", "transfer-encoding", "connection"}
+            for k, v in reply.headers.items():
+                if k.lower() not in drop:
+                    self.send_header(k, v)
+            self.send_header("content-length", str(len(reply.content)))
+            self.end_headers()
+            self.wfile.write(reply.content)
+
+        do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = _forward
+
+        def log_message(self, format, *args):
+            pass
+
+    return Handler
+
+
+def test_without_the_version_the_tools_still_work(server, tmp_path):
+    folder, manifest = unpack(tmp_path)
+    token = token_for(user())
+    for case in ("error", "hang"):
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), proxy_handler(server, case))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{httpd.server_port}"
+        mcp = Bundle(folder, manifest, tmp_path, token, url, tag=f"-{case}")
+        try:
+            mcp.start()
+            began = time.monotonic()
+            result = mcp.call("list_sheets")
+            took = time.monotonic() - began
+        finally:
+            mcp.stop()
+            httpd.shutdown()
+            httpd.server_close()
+        assert not result.get("isError"), result
+        assert LINE not in [item.get("text") for item in result["content"]]
+        assert took < 5, took
