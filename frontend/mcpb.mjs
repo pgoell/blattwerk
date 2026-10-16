@@ -38,21 +38,25 @@ await build({
 
 cpSync(join(here, "../docs/okf"), join(stage, "okf"), { recursive: true });
 
-// The version is a hash of what the extension is made of, so any change to it makes a new one.
+// The fingerprint is a hash of what the extension is made of: an installed copy whose fingerprint
+// differs from the app's is old. The version is the build's UTC time, so Desktop sees a newer file as newer.
 const indexPath = join(stage, "server/index.mjs");
 const indexText = readFileSync(indexPath, "utf8");
 const sourcePath = join(here, "mcp/manifest.json");
 const sourceText = readFileSync(sourcePath, "utf8");
-// Every copy: the bundler may inline the constant into a comparison as well as its declaration.
+// Every copy: the bundler may inline a constant into a comparison as well as its declaration.
 if (!indexText.includes(PLACEHOLDER)) throw new Error(`${PLACEHOLDER} is not in the bundle`);
 const hash = createHash("sha256").update(indexText);
 for (const rel of filesIn(join(stage, "okf")).sort()) {
   hash.update(rel).update(readFileSync(join(stage, "okf", rel)));
 }
 hash.update(sourceText);
-const version = `0.1.${parseInt(hash.digest("hex").slice(0, 8), 16)}`;
+const fingerprint = hash.digest("hex").slice(0, 16);
+const version = `0.1.${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}`;
 
 writeFileSync(indexPath, indexText.replaceAll(PLACEHOLDER, `"${version}"`));
+// The server reads it beside its bundle (stdio-main.ts), the app from the .mcpb (app.py).
+writeFileSync(join(stage, "fingerprint.txt"), fingerprint);
 const { manifest_version, ...manifest } = JSON.parse(sourceText);
 writeFileSync(join(stage, "manifest.json"), `${JSON.stringify({ manifest_version, version, ...manifest }, null, 2)}\n`);
 

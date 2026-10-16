@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 import zipfile
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -234,11 +235,16 @@ def test_the_version_comes_from_the_build(server, tmp_path):
         served = mcp.start()["serverInfo"]["version"]
     finally:
         mcp.stop()
+    fingerprint = (folder / "fingerprint.txt").read_text()
     assert served == version
-    assert httpx.get(f"{server}/api/mcpb/version").json()["version"] == version
-    assert version not in ("0.1.0", "0.0.0-dev")
-    # The build's own hash, as frontend/mcpb.mjs computes it: the bundle with the placeholder
-    # back in place, the docs by path and bytes, then the source manifest.
+    app = httpx.get(f"{server}/api/mcpb/version").json()
+    assert app == {"version": version, "fingerprint": fingerprint}
+    # The version is the build's UTC time, so a later build is a higher version.
+    built = datetime.strptime(version.removeprefix("0.1."), "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+    assert built <= datetime.now(UTC)
+    assert version.startswith("0.1.")
+    # The fingerprint is the build's own hash, as frontend/mcpb.mjs computes it: the bundle with
+    # the placeholder back in place, the docs by path and bytes, then the source manifest.
     index = (folder / "server/index.mjs").read_bytes()
     index = index.replace(f'"{version}"'.encode(), b'"0.0.0-dev"')
     digest = hashlib.sha256(index)
@@ -248,18 +254,20 @@ def test_the_version_comes_from_the_build(server, tmp_path):
         digest.update((okf / rel).read_bytes())
     source = ROOT / "frontend/mcp/manifest.json"
     digest.update(source.read_bytes())
-    assert version == f"0.1.{int(digest.hexdigest()[:8], 16)}"
+    assert fingerprint == digest.hexdigest()[:16]
     assert "version" not in json.loads(source.read_text())
 
 
 def test_an_old_bundle_asks_to_be_reloaded(server, tmp_path):
     token = token_for(user())
-    # The old copy: the same bundle, its version set back to 0.1.1.
+    # The old copy: the same bundle, with an older build's version and fingerprint.
     folder, manifest = unpack(tmp_path, "old")
-    old = manifest["version"]
     index = folder / "server/index.mjs"
-    index.write_bytes(index.read_bytes().replace(f'"{old}"'.encode(), b'"0.1.1"'))
-    manifest["version"] = "0.1.1"
+    index.write_bytes(
+        index.read_bytes().replace(f'"{manifest["version"]}"'.encode(), b'"0.1.20260101000000"')
+    )
+    (folder / "fingerprint.txt").write_text("0123456789abcdef")
+    manifest["version"] = "0.1.20260101000000"
     (folder / "manifest.json").write_text(json.dumps(manifest, indent=2))
     mcp = Bundle(folder, manifest, tmp_path, token, server, tag="-old")
     try:

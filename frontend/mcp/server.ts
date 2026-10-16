@@ -14,8 +14,8 @@ import { tools } from "./tools.ts";
 export const VERSION = "0.0.0-dev";
 const RELOAD = "Bitte die Blattomat-Erweiterung neu laden: Konto, Erweiterung herunterladen.";
 
-// `check` answers the app's served version, or null when it cannot tell.
-export function build(api: Api, check?: () => Promise<string | null>): Server {
+// `check`: the installed extension's fingerprint, and the one of the extension the app serves (null when it cannot tell).
+export function build(api: Api, check?: { own: string; served: () => Promise<string | null> }): Server {
   const t = tools(api);
   const server = new Server(
     { name: "blattomat", version: VERSION },
@@ -25,10 +25,9 @@ export function build(api: Api, check?: () => Promise<string | null>): Server {
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const [result, served] = await Promise.all([
       t.call(req.params.name, req.params.arguments ?? {}),
-      check ? check().catch(() => null) : null,
+      check ? check.served().catch(() => null) : null,
     ]);
-    // Run from source, the server has no build to be old against.
-    const old = typeof served === "string" && served !== VERSION && !VERSION.endsWith("-dev");
+    const old = typeof served === "string" && served !== check?.own;
     return old ? { ...result, content: [...result.content, { type: "text", text: RELOAD }] } : result;
   });
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: resources() }));

@@ -60,7 +60,8 @@ def mcpb_version() -> dict[str, str]:
     if not file.is_file():
         raise HTTPException(404)
     with zipfile.ZipFile(file) as z:
-        return {"version": json.loads(z.read("manifest.json"))["version"]}
+        version = json.loads(z.read("manifest.json"))["version"]
+        return {"version": version, "fingerprint": z.read("fingerprint.txt").decode()}
 
 
 @app.get("/{path:path}")
