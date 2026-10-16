@@ -239,13 +239,20 @@ class NewToken(BaseModel):
 # Cookie only, like the admin calls: a token cannot mint or list tokens.
 @router.post("/tokens")
 def make_token(body: NewToken, user: User, con: Con) -> dict:
-    row = con.execute(
-        "INSERT INTO tokens (user_id, hash, name) VALUES (?, '', ?) RETURNING id",
-        (user["id"], body.name),
-    ).fetchone()
-    token = f"bt_{row['id']}_{secrets.token_urlsafe(32)}"
-    # Only the hash is stored: this answer is the one place the token is shown.
-    con.execute("UPDATE tokens SET hash = ? WHERE id = ?", (digest(token), row["id"]))
+    # One transaction, so no row is left with an empty hash.
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        row = con.execute(
+            "INSERT INTO tokens (user_id, hash, name) VALUES (?, '', ?) RETURNING id",
+            (user["id"], body.name),
+        ).fetchone()
+        token = f"bt_{row['id']}_{secrets.token_urlsafe(32)}"
+        # Only the hash is stored: this answer is the one place the token is shown.
+        con.execute("UPDATE tokens SET hash = ? WHERE id = ?", (digest(token), row["id"]))
+    except BaseException:
+        con.execute("ROLLBACK")
+        raise
+    con.execute("COMMIT")
     made = con.execute("SELECT id, name, created, last_used FROM tokens WHERE id = ?", (row["id"],))
     return {**dict(made.fetchone()), "token": token}
 

@@ -1,6 +1,7 @@
 import logging
 from uuid import uuid4
 
+import httpx
 from fastapi.testclient import TestClient
 from ui import sheet, upload, user
 
@@ -97,6 +98,7 @@ def test_other_teacher_token_sees_nothing():
     assert other.patch(f"/api/sheets/{sheet_id}", json={"title": "X"}).status_code == 404
     assert other.post(f"/api/sheets/{sheet_id}/duplicate").status_code == 404
     assert other.get(f"/api/sheets/{sheet_id}/variante/B").status_code == 404
+    assert other.get(f"/api/sheets/{sheet_id}/pdf").status_code == 404
     assert other.get(f"/api/uploads/{upload_id}").status_code == 404
     assert other.delete(f"/api/sheets/{sheet_id}").status_code == 404
     assert other.get("/api/sheets").json() == []
@@ -227,3 +229,22 @@ def test_name_of_eighty_characters_is_kept():
     client = user()
     name = "x" * 80
     assert client.post("/api/tokens", json={"name": f"  {name}  "}).json()["name"] == name
+
+
+def test_token_prints_and_varies_its_own_sheet(server):
+    client = user()
+    token = make(client)
+    sheet_id = sheet(client, title="Plus")["id"]
+    auth_header = {"Authorization": f"Bearer {token}"}
+    assert bearer(token).get(f"/api/sheets/{sheet_id}/variante/B").status_code == 200
+    res = httpx.get(f"{server}/api/sheets/{sheet_id}/pdf", headers=auth_header, timeout=60)
+    assert res.status_code == 200
+    assert res.content.startswith(b"%PDF")
+
+
+def test_cookie_routes_ignore_the_header():
+    client = user()
+    bad = {"Authorization": "Bearer bt_1_nope"}
+    assert client.get("/api/me", headers=bad).status_code == 200
+    assert client.post("/api/tokens", json={"name": "x"}, headers=bad).status_code == 200
+    assert client.get("/api/tokens", headers=bad).status_code == 200
