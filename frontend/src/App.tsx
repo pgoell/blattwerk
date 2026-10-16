@@ -177,7 +177,11 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
           <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && location.pathname === `/blatt/${s.id}` && navigate("/"))}>
             Verwerfen
           </button>
-          {s.choice && <span>{s.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+          {s.choice && (
+            <span>
+              {s.choice === "busy" ? "Lädt …" : s.choiceProblems ? `Das hat nicht geklappt: das Blatt passt nicht zum Format. ${s.choiceProblems.join("; ")}` : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}
+            </span>
+          )}
         </>
       ) : s.stopped ? (
         // First of all: without a login a clash has no sheet to open either.
@@ -186,6 +190,8 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
         <>
           „{s.title}“ wurde auf einem anderen Gerät geändert. <Link to={`/blatt/${s.id}`}>Öffne das Blatt</Link>, um zu wählen.
         </>
+      ) : s.refused ? (
+        `„${s.title}“ ist nicht gespeichert: das Blatt passt nicht zum Format.`
       ) : (
         `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Blattomat versucht es weiter.`
       )}
