@@ -144,7 +144,7 @@ def test_pdf_line_goes_once_the_other_version_is_loaded(run):
     page, _ = start(run)
     clash(run)
     pdf_button(page).click()
-    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
+    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
 
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
@@ -205,7 +205,7 @@ def test_pdf_line_goes_once_the_change_is_kept_as_a_new_sheet(run):
     page, _ = start(run)
     clash(run)
     pdf_button(page).click()
-    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
+    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
 
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()

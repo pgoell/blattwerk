@@ -75,6 +75,9 @@ def run_claude(prompt: str, config: Path, cwd: Path) -> dict:
     command = [
         "claude", "-p", prompt,
         "--mcp-config", str(config), "--strict-mcp-config",
+        # No built-in tool (no shell, no web, no files) and no user settings: the local app's MCP is
+        # all Claude can reach, never the live server or the live data.
+        "--tools", "", "--setting-sources", "", "--permission-mode", "dontAsk",
         "--allowedTools", "mcp__blattomat__*",
         "--max-turns", "40", "--output-format", "json",
         "--append-system-prompt", SYSTEM,

@@ -8,4 +8,4 @@ table
 rechendreieck
 zahlenstrahl
 hunderterfeld
-zahlenmauer
+zahlenmauer  # its print overflows its box, #711
