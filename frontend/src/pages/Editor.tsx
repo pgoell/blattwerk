@@ -873,21 +873,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
 
   // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
-  const overfit = useRef((_id: string, _mm: number) => {});
+  const overfit = useRef((_id: string, _lack: { down: number; across: number }) => {});
   // The block last written in.
   const wrote = useRef("");
   if (editing) wrote.current = editing;
-  overfit.current = (id, mm) => {
+  overfit.current = (id, { down: mm, across }) => {
     const b = sel.find((x) => x.id === id);
     // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
-    if (b) stopped(id, mm > 0 && atFoot(b));
+    if (b) stopped(id, (mm > 0 || across > 1) && atFoot(b));
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
     const shape = b && boxed(b);
-    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || mm <= 0) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || (mm <= 0 && across <= 1)) return;
+    const H = sizeOf(hist.doc, page);
+    if (across > 1) {
+      // A word too wide for the inner box: the shape grows as wide as high, by the share its words and lines lack,
+      // its top left corner stays, up to the foot and the page's right edge.
+      const s = Math.min(Math.max(across, 1 + mm / b.h), footTop(b, H[1]) / b.h, (H[0] - b.x) / b.w);
+      if (!(s > 1)) return;
+      setHist((st) => ({ ...st, doc: { ...st.doc, pages: st.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, Math.ceil(x.h * s * 100) / 100), w: Math.ceil(x.w * s * 100) / 100 } as Block) : x)) } : p)) } }));
+      return;
+    }
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
-    const top = footTop(b, sizeOf(hist.doc, page)[1]);
+    const top = footTop(b, H[1]);
     const h = Math.max(b.h, Math.min(want, top));
     // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
     if (h <= b.h) return;
@@ -896,7 +905,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
   };
   useEffect(() => {
-    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<number>).detail);
+    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
     const desk = sheet.current!;
     desk.addEventListener("overfit", on);
     return () => desk.removeEventListener("overfit", on);

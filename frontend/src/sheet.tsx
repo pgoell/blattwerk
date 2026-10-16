@@ -790,9 +790,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
-    const over = inside && frame ? fitText(frame, least.current, block.h * k) : 0;
+    const over = inside && frame ? fitText(frame, least.current, block.h * k) : { down: 0, across: 1 };
     // Zero when it fits: the editor then lifts the page foot's warning for it.
-    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: Math.max(0, over) / k }));
+    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across } }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);
@@ -930,7 +930,7 @@ function fitText(el: HTMLElement, least: number, high: number) {
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
   if (bottom - top < 3) {
     block.style.transform = was;
-    return 0;
+    return { down: 0, across: 1 };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -946,15 +946,17 @@ function fitText(el: HTMLElement, least: number, high: number) {
     const tall = (lowest() - top) / (bottom - top);
     const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
     const across = Math.max(...wide);
-    // Too high: down to the smallest type. A word too wide shrinks past it: a word is never cut.
-    const next = Math.min(across > 1.01 ? scale / across : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
+    // Too high or too wide: down to the smallest type. A word too wide that the smallest type does not fit grows the shape.
+    const next = Math.min(across > 1.01 ? Math.max(least, scale / across) : scale, tall > 1.01 ? Math.max(least, scale / tall) : scale);
     if (!(next < scale)) break;
     scale = next;
     el.style.setProperty("--fit", String(scale));
   }
   const past = (lowest() - bottom) / zoom;
+  // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
+  const left = Math.max(...[...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth));
   block.style.transform = was;
-  return past > 1 ? past : 0;
+  return { down: past > 1 ? past : 0, across: left > 1.01 ? left : 1 };
 }
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
