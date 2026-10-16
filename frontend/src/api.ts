@@ -6,7 +6,7 @@ export type Refusal = Error & { by?: number; problems?: string[]; detail?: strin
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init);
   if (!res.ok) {
-    const body = res.status === 422 ? await res.json().catch(() => undefined) : undefined;
+    const body = await res.json().catch(() => undefined);
     const problems = body?.detail?.problems;
     throw Object.assign(new Error(String(res.status)), {
       by: Number(res.headers.get("X-User")) || undefined,

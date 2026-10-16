@@ -8,6 +8,8 @@ const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark
 
 // `created` and `last_used` are UTC, "YYYY-MM-DD HH:MM:SS".
 type Token = { id: number; name: string; created: string; last_used: string | null };
+// A program connected over OAuth: the same times as a key.
+type Connection = { id: number; name: string; created: string; last_used: string | null };
 const TAKEN = "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen.";
 const TOO_LONG = "Der Name ist zu lang: höchstens 80 Zeichen.";
 const EMPTY = "Gib dem Schlüssel einen Namen.";
@@ -50,6 +52,9 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const [made, setMade] = useState<{ id: number; token: string } | null>(null);
   const [left, setLeft] = useState<string | null>(note?.text ?? null);
   const [ask, setAsk] = useState<Token | null>(null);
+  const [links, setLinks] = useState<Connection[]>([]);
+  const [unlink, setUnlink] = useState<Connection | null>(null);
+  const linkDialog = useRef<HTMLDialogElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
@@ -76,9 +81,26 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   // Quiet when it fails: the list is not what the teacher came for, and the next make or revoke loads it again.
   const load = () => signed(api<Token[]>("/tokens")).then(setTokens, () => {});
 
+  // The programs the teacher has connected: quiet when it fails, as the keys are.
+  const loadLinks = () => signed(api<Connection[]>("/connections")).then(setLinks, () => {});
+
+  function askUnlink(connection: Connection) {
+    setUnlink(connection);
+    linkDialog.current?.showModal();
+  }
+
+  function confirmUnlink(connection: Connection) {
+    linkDialog.current?.close();
+    attempt("Das Programm konnte nicht getrennt werden.", async () => {
+      await signed(api(`/connections/${connection.id}`, { method: "DELETE" }));
+      await loadLinks();
+    });
+  }
+
   useEffect(() => {
     dropNote();
     load();
+    loadLinks();
   }, []);
 
   function create(e: React.FormEvent) {
@@ -225,6 +247,38 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
               Widerrufen
             </button>
             <button type="button" className="plain" ref={cancel} onClick={() => dialog.current?.close()}>
+              Abbrechen
+            </button>
+          </div>
+        </dialog>
+      </div>
+      <div className="card">
+        <label>Verbundene Programme</label>
+        <p className="hint">Programme wie Claude, die du auf einer Seite von Blattomat erlaubt hast.</p>
+        {links.length === 0 && <p>Noch kein Programm verbunden.</p>}
+        <ul className="rows">
+          {links.map((connection) => (
+            <li key={connection.id}>
+              <span>
+                {connection.name}
+                <br />
+                <span className="hint">
+                  verbunden {when(connection.created)}, {connection.last_used ? `zuletzt benutzt ${when(connection.last_used)}` : "zuletzt benutzt: noch nie"}
+                </span>
+              </span>
+              <button type="button" className="plain" aria-label={`Trennen: ${connection.name}`} onClick={() => askUnlink(connection)}>
+                Trennen
+              </button>
+            </li>
+          ))}
+        </ul>
+        <dialog ref={linkDialog} className="ask" aria-labelledby="ask-unlink">
+          <p id="ask-unlink">„{unlink?.name}“ trennen? Das Programm verliert den Zugang zu deinem Konto.</p>
+          <div className="row">
+            <button type="button" onClick={() => unlink && confirmUnlink(unlink)}>
+              Trennen
+            </button>
+            <button type="button" className="plain" onClick={() => linkDialog.current?.close()}>
               Abbrechen
             </button>
           </div>
