@@ -59,9 +59,13 @@ def mcpb_version() -> dict[str, str]:
     file = STATIC / "blattomat.mcpb"
     if not file.is_file():
         raise HTTPException(404)
-    with zipfile.ZipFile(file) as z:
-        version = json.loads(z.read("manifest.json"))["version"]
-        return {"version": version, "fingerprint": z.read("fingerprint.txt").decode()}
+    try:
+        with zipfile.ZipFile(file) as z:
+            version = json.loads(z.read("manifest.json"))["version"]
+            return {"version": version, "fingerprint": z.read("fingerprint.txt").decode()}
+    except KeyError, zipfile.BadZipFile:
+        # A bundle from before the fingerprint, or a broken one: the extension then says nothing.
+        raise HTTPException(404) from None
 
 
 @app.get("/{path:path}")

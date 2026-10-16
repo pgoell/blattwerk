@@ -13,7 +13,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import httpx
+from fastapi.testclient import TestClient
 from ui import user
+
+import blattwerk.app as app_module
 
 ROOT = Path(__file__).parent.parent
 BUNDLE = ROOT / "src/blattwerk/static/blattomat.mcpb"
@@ -317,13 +320,15 @@ def test_the_server_run_from_source_never_asks_to_reload(server, tmp_path):
         mcp.stop()
 
 
-def proxy_handler(upstream, case):
-    """Forwards to the app, except the version: `error` answers 500, `hang` takes 10 s to answer."""
+def proxy_handler(upstream, case, asked):
+    """Forwards to the app, except the version: `error` answers 500, `hang` takes 10 s to answer.
+    The headers of each ask for the version go into `asked`."""
 
     class Handler(BaseHTTPRequestHandler):
         def _forward(self):
             body = self.rfile.read(int(self.headers.get("content-length") or 0))
             if self.path == "/api/mcpb/version":
+                asked.append({k.lower() for k in self.headers})
                 if case == "error":
                     self.send_response(500)
                     self.send_header("content-length", "0")
@@ -356,7 +361,8 @@ def test_without_the_version_the_tools_still_work(server, tmp_path):
     folder, manifest = unpack(tmp_path)
     token = token_for(user())
     for case in ("error", "hang"):
-        httpd = ThreadingHTTPServer(("127.0.0.1", 0), proxy_handler(server, case))
+        asked = []
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), proxy_handler(server, case, asked))
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         url = f"http://127.0.0.1:{httpd.server_port}"
         mcp = Bundle(folder, manifest, tmp_path, token, url, tag=f"-{case}")
@@ -372,3 +378,17 @@ def test_without_the_version_the_tools_still_work(server, tmp_path):
         assert not result.get("isError"), result
         assert LINE not in [item.get("text") for item in result["content"]]
         assert took < 5, took
+        # The ask for the version carries no key.
+        assert asked
+        assert all("authorization" not in headers for headers in asked)
+
+
+def test_a_bundle_without_a_fingerprint_has_no_version(tmp_path, monkeypatch):
+    # A .mcpb from before the fingerprint, or no zip at all: no version, not a failure.
+    with zipfile.ZipFile(tmp_path / "blattomat.mcpb", "w") as z:
+        z.writestr("manifest.json", json.dumps({"version": "0.1.0"}))
+    monkeypatch.setattr(app_module, "STATIC", tmp_path)
+    client = TestClient(app_module.app)
+    assert client.get("/api/mcpb/version").status_code == 404
+    (tmp_path / "blattomat.mcpb").write_text("no zip")
+    assert client.get("/api/mcpb/version").status_code == 404
