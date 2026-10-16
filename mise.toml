@@ -106,7 +106,14 @@ run = [
   "uv run ruff format --check",
   "uv run ty check",
   "npm run typecheck --prefix frontend",
+  # The schema the server checks a saved sheet against comes from the types: it fails where they moved apart.
+  "npm run schema --prefix frontend -- --check",
 ]
+
+[tasks.schema]
+description = "Write src/blattwerk/sheet.schema.json from the sheet's types in frontend/src"
+depends = ["deps"]
+run = "npm run schema --prefix frontend"
 
 [tasks.fmt]
 description = "Auto-format"

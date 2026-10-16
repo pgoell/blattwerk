@@ -81,18 +81,37 @@
 import { rng } from "./zahlenmauer";
 
 export type UhrProps = {
+  /** The numbers on the face. "all": 1 to 12. "quarters": only 12, 3, 6 and 9. "none": no numbers. Default "all". */
   numbers: "all" | "quarters" | "none";
+  /** Draws the 60 minute ticks. The 12 hour ticks are always drawn. Default true. */
   minutes: boolean;
+  /** Draws a second ring with 13 to 24 inside the numbers. Not drawn when `numbers` is "none". Default false. */
   ring: boolean;
+  /** "read": the hands are drawn and the pupil writes the time under the clock. "draw": no hands, the time is written under the clock and the pupil draws the hands. Default "read". */
   task: "read" | "draw";
+  /** The empty answer under a clock with task "read". "box": a digital box `__:__ Uhr`. "line": a writing line. Default "box". */
   answer: "box" | "line";
+  /** How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "words": in words, such as "halb vier". Default "12". */
   format: "12" | "24" | "words";
+  /** The form of the time in words, with format "words". "nach": "viertel nach drei" and "viertel vor vier". "viertel": "viertel vier" and "dreiviertel vier". Default "nach". */
   region: "nach" | "viertel";
+  /** Number of clocks on the sheet, 1 to 12. Default 4.
+   * @minimum 1
+   * @maximum 12
+   */
   count: number;
+  /** Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.
+   * @minimum 1
+   * @maximum 6
+   */
   cols: number;
+  /** The minutes that random times keep to: 60 full hours, 30 half hours, 15 quarter hours, 5 or 1 minute. Default 15. */
   step: 60 | 30 | 15 | 5 | 1;
+  /** "random": every time is drawn from the seed. "free": each clock takes its time from `times`, and from the seed where that is missing. Default "random". */
   fill: "random" | "free";
+  /** The time of each clock in minutes since 0:00 (0 to 1439), in clock order. A missing or -1 entry takes a random time. Used with fill "free". */
   times?: number[];
+  /** Seed for the random times. The same seed always gives the same times. */
   seed: number;
 };
 

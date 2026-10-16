@@ -89,7 +89,7 @@ import {
 import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useNavigate, useParams } from "react-router";
-import { api, post, type User } from "../api";
+import { api, post, type Refusal, type User } from "../api";
 import { DRAWERS, opening } from "../components/Blank";
 import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
@@ -3189,18 +3189,26 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const storing = useRef(false);
   async function store() {
     const made = { name: name.trim() };
-    await attempt("Die Vorlage konnte nicht gespeichert werden.", async () => {
-      if (storing.current) return;
-      storing.current = true;
-      try {
-        // The page as it stands at the try: a later one stores what the teacher sees then.
-        const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
-        setTemplates((ts) => [...ts, saved]);
-        setName((now) => (now.trim() === made.name ? "" : now));
-      } finally {
-        storing.current = false;
-      }
-    });
+    await attempt(
+      "Die Vorlage konnte nicht gespeichert werden.",
+      async () => {
+        if (storing.current) return;
+        storing.current = true;
+        try {
+          // The page as it stands at the try: a later one stores what the teacher sees then.
+          const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
+          setTemplates((ts) => [...ts, saved]);
+          setName((now) => (now.trim() === made.name ? "" : now));
+        } finally {
+          storing.current = false;
+        }
+      },
+      // A template the server refuses names what is wrong in it, and a try again would end the same.
+      (_, e) => {
+        const problems = (e as Refusal).problems;
+        return problems ? `Die Vorlage konnte nicht gespeichert werden: das Blatt passt nicht zum Format. ${problems.join("; ")}` : undefined;
+      },
+    );
   }
   // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
   // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
@@ -3871,6 +3879,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
           )}
         </div>
+        {saver?.refused && (
+          <div className="clash" role="alert">
+            Nicht gespeichert: Das Blatt passt nicht zum Format.
+            <ul>
+              {saver.refused.map((problem, i) => (
+                <li key={i}>{problem}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {saver?.clash && (
           <div className="clash" role="alert">
             Dieses Blatt wurde auf einem anderen Gerät geändert.
@@ -3886,7 +3904,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da.
             <button disabled={saver.choice === "busy"} onClick={asNew}>Als neues Blatt behalten</button>
             <button disabled={saver.choice === "busy"} onClick={discard}>Verwerfen</button>
-            {saver.choice && <span>{saver.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+            {saver.choice && (
+              <span>
+                {saver.choice === "busy" ? "Lädt …" : saver.choiceProblems ? `Das hat nicht geklappt: das Blatt passt nicht zum Format. ${saver.choiceProblems.join("; ")}` : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}
+              </span>
+            )}
           </div>
         )}
       </header>

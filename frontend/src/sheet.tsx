@@ -21,13 +21,43 @@ import { Scissors } from "lucide-react";
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
 // centre, in degrees clockwise from 0 up to 360. `flipX` and `flipY` mirror a picture or a symbol in its box.
 // `keep` is set when the block keeps its width over its height, as PowerPoint's 'Lock aspect ratio'. Absent means off.
-export type Box = { id: string; x: number; y: number; w: number; h: number; z: number; locked: boolean; mark?: string; group?: string[]; angle?: number; flipX?: boolean; flipY?: boolean; keep?: boolean };
+export type Box = {
+  /** Unique id of the block on its sheet. */
+  id: string;
+  /** Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright. */
+  x: number;
+  /** Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright. */
+  y: number;
+  /** Width of the block in mm, before any turn. */
+  w: number;
+  /** Height of the block in mm, before any turn. */
+  h: number;
+  /** Stacking order on the page: a block with a higher z lies over one with a lower z. */
+  z: number;
+  /** True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked. */
+  locked: boolean;
+  /** Numbering printed before the block on paper, such as "1.", "a)" or "(1)", or a symbol's code. Absent means none. */
+  mark?: string;
+  /** The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group. */
+  group?: string[];
+  /** Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.
+   * @minimum 0
+   * @maximum 360
+   */
+  angle?: number;
+  /** True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored. */
+  flipX?: boolean;
+  /** True mirrors the block from top to bottom inside its box. Absent means not mirrored. */
+  flipY?: boolean;
+  /** True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off. */
+  keep?: boolean;
+};
 // "double" is an arrow with a head at both ends.
 export type Kind = "rect" | "rounded" | "circle" | "triangle" | "star" | "bubble" | "line" | "arrow" | "double";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
 export type Font = keyof typeof FONTS;
-export type Ruling = keyof typeof RULINGS;
+export type Ruling = "l1" | "l2" | "l3" | "l4" | "lines" | "k5" | "k7";
 export type Valign = "top" | "middle" | "bottom";
 // The two colours the syllables of a text take in turn.
 export type Tints = [string, string];
@@ -39,9 +69,32 @@ export type List = "bullet" | "number";
 // A stretch of a text with a look of its own. `bold` and `italic` stand in for the block's, on or off; an underline
 // and a colour lie on top of the block's. `gap` makes the stretch a gap of a Lückentext: the pupil's sheet shows a line
 // to write on in its place, as wide as its words, the editor shows the words in grey and the answer key in its colour.
-export type Run = { text: string; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; gap?: boolean };
+export type Run = {
+  /** The words of this stretch. In a gap, the answer: the pupil's sheet shows a line in its place. */
+  text: string;
+  /** True makes the stretch bold, false makes it plain. Absent takes the block's setting. */
+  bold?: boolean;
+  /** True makes the stretch italic, false makes it upright. Absent takes the block's setting. */
+  italic?: boolean;
+  /** True underlines the stretch, on top of the block's own underline. Absent means no extra underline. */
+  underline?: boolean;
+  /** Colour of the stretch as a hex colour, such as "#e02424", on top of the block's colour. Absent takes the block's colour. */
+  color?: string;
+  /** True makes the stretch a gap of a Lückentext. On the pupil's sheet it is a line to write on, as wide as its words. The editor shows the words in grey, the answer key in the gap's colour. */
+  gap?: boolean;
+};
 // A paragraph of a text: an item of a list with `list`, moved in by `level` steps, 0 to 2.
-export type Para = { runs: Run[]; list?: List; level?: number };
+export type Para = {
+  /** The stretches of the paragraph in reading order, each with its own look. */
+  runs: Run[];
+  /** Makes the paragraph an item of a list: "bullet" for a dot, "number" for a count. Absent means no list. */
+  list?: List;
+  /** How far the paragraph is moved in, in steps, from 0 (flush left) to 2. Absent means 0.
+   * @minimum 0
+   * @maximum 2
+   */
+  level?: number;
+};
 // Sheets saved before text had these settings lack them: a text is then Andika, black, with lines 1.3 apart.
 // A text has what a shape has, as a PowerPoint text box does: a fill and a border ("none" or absent for neither,
 // the border 0.5 mm wide unless set), dashes, and round corners with `kind`. `opacity` is how solid the fill is,
@@ -64,12 +117,133 @@ export type Para = { runs: Run[]; list?: List; level?: number };
 // `list` makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern); its own `text` and
 // `rich` rest. `listCols` sets the words in 1 to 4 columns, which fill column by column. `holes` is the Lückenwörter
 // mode of a linked text: letters give way to gaps, chosen from `holeSeed`. Only a linked text has these looks.
-export type TextProps = { text: string; rich?: Para[]; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gapWidth?: number; bank?: number; lines?: number; linesFrom?: number; mix?: number; mixFirst?: boolean; mixCaps?: boolean; mixLine?: "after" | "under"; list?: boolean; listCols?: number; holes?: "one" | "second" | "vowels"; holeSeed?: number; size: number; align: Align; font?: Font; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; spacing?: number; valign?: Valign; kind?: Kind; fill?: string; opacity?: number; stroke?: string; strokeOpacity?: number; inside?: boolean; floor?: boolean; strokeWidth?: number; dash?: "dashed" | "dotted"; trace?: boolean | "outline" | "dotted"; fade?: Fade };
-export type TextBlock = Box & { type: "text"; props: TextProps };
+export type TextProps = {
+  /** The words of the text as one plain string, with no look of their own. Always the same words as `rich`. */
+  text: string;
+  /** The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it. */
+  rich?: Para[];
+  /** True draws a bow under each syllable of each word (Silbenbögen). Absent means off. */
+  syllables?: boolean;
+  /** The words the teacher split by hand into syllables. Absent means the program alone splits the words. */
+  breaks?: Breaks;
+  /** The two colours the syllables take in turn, the first and then the second, such as blue and red. Absent means the syllables are not coloured in turn. */
+  tints?: Tints;
+  /** True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour. */
+  tintsAcross?: boolean;
+  /** Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.
+   * @maximum 200
+   */
+  gapWidth?: number;
+  /** Seed for the box of hidden words set under the text (Lösungswörter). The box shows the words shuffled in an order this seed sets. Absent means no box. */
+  bank?: number;
+  /** Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers. */
+  lines?: number;
+  /** The number of the first line, for the numbering in `lines`. Absent means 1.
+   * @minimum 1
+   * @maximum 9999
+   */
+  linesFrom?: number;
+  /** Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling. */
+  mix?: number;
+  /** True keeps the first letter of each scrambled word in place. Absent means the first letter is scrambled too. */
+  mixFirst?: boolean;
+  /** True sets the letters of the scrambled words in capitals. */
+  mixCaps?: boolean;
+  /** Where the pupil writes each scrambled word: "after" puts a line after it, "under" a line under it. Absent means no line, except that a list draws it after each word. */
+  mixLine?: "after" | "under";
+  /** True makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern). Its own text stays as it is and is not shown. */
+  list?: boolean;
+  /** The number of columns the list words fill, column by column. Absent means 1.
+   * @minimum 1
+   * @maximum 4
+   */
+  listCols?: number;
+  /** Lückenwörter for a linked text: "one" gives one letter of each word as a gap, "second" every second letter, "vowels" the vowels. Absent means no gaps. */
+  holes?: "one" | "second" | "vowels";
+  /** Seed that picks which letters become gaps under `holes`. The same seed gives the same gaps on every draw. Absent means 0. */
+  holeSeed?: number;
+  /** Font size of the text in pt (points). */
+  size: number;
+  /** Horizontal alignment of the lines in the box: "left", "center" or "right". */
+  align: Align;
+  /** Typeface, one of the keys of FONTS, such as "andika" (the school print). Absent means andika. */
+  font?: Font;
+  /** True sets the whole text in bold. Absent means off. */
+  bold?: boolean;
+  /** True sets the whole text in italic. Absent means off. */
+  italic?: boolean;
+  /** True underlines the whole text. Absent means off. */
+  underline?: boolean;
+  /** Colour of the text as a hex colour, such as "#222222". Absent means #222222. */
+  color?: string;
+  /** Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.
+   * @minimum 1
+   * @maximum 3
+   */
+  spacing?: number;
+  /** Vertical place of the text in its box: "top", "middle" or "bottom". Absent means top. */
+  valign?: Valign;
+  /** Outline of the box the text sits in: "rect", "rounded", "circle", "triangle", "star" or "bubble". Absent means rect. */
+  kind?: Kind;
+  /** Colour inside the box as a hex colour. "none" or absent means no fill. */
+  fill?: string;
+  /** How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.
+   * @minimum 0
+   * @maximum 1
+   */
+  opacity?: number;
+  /** Colour of the border as a hex colour. "none" or absent means no border. */
+  stroke?: string;
+  /** How solid the border is: 0 is invisible, 1 is solid. Absent means 1.
+   * @minimum 0
+   * @maximum 1
+   */
+  strokeOpacity?: number;
+  /** True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off. */
+  inside?: boolean;
+  /** Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. */
+  floor?: boolean;
+  /** Width of the border in mm. Absent means 0.5.
+   * @minimum 0.25
+   * @maximum 3
+   */
+  strokeWidth?: number;
+  /** Style of the border: "dashed" for dashes, "dotted" for dots. Absent means a solid border. */
+  dash?: "dashed" | "dotted";
+  /** Nachspuren: the text prints in grey to write over. true is plain grey, "outline" a thin outline of the letters, "dotted" dotted letters (in fonts that have them, else grey). Absent means no trace text. */
+  trace?: boolean | "outline" | "dotted";
+  /** How the grey of a trace text fades: "row" fades each row from left to right, "rows" fades the rows step by step down the block. Absent means no fade. Needs `trace`. */
+  fade?: Fade;
+};
+export type TextBlock = Box & {
+  type: "text";
+  /** The text box's words and look. */
+  props: TextProps;
+};
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
 // ("show") or on the answer key alone ("key").
-export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { kind: Kind; fill: string; stroke: string; strokeWidth: number; from?: Corner; ticks?: boolean; label?: "show" | "key" } };
+export type ShapeBlock = Box & { type: "shape";
+  /** The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too. */
+  props: Partial<TextProps> & {
+  /** What to draw: a frame ("rect", "rounded", "circle", "triangle", "star", "bubble") or a line ("line", a plain line, "arrow", a line with a head at its end, "double", a line with a head at each end). */
+  kind: Kind;
+  /** Colour inside the shape as a hex colour. "none" means no fill. */
+  fill: string;
+  /** Colour of the outline, or of the line, as a hex colour. "none" means no outline. */
+  stroke: string;
+  /** Width of the outline, or of the line, in mm.
+   * @minimum 0.25
+   * @maximum 3
+   */
+  strokeWidth: number;
+  /** For a line or an arrow: the corner of the box where it starts, "nw" top left, "ne" top right, "sw" bottom left, "se" bottom right. The line runs to the opposite corner. Absent means "nw". */
+  from?: Corner;
+  /** True puts a short cross stroke at each end of a line. Absent means no ticks. */
+  ticks?: boolean;
+  /** Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. */
+  label?: "show" | "key";
+} };
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
 // square, and grey with `trace` so the children can write over it. Karo is always in print.
 // With `list` the block takes its words from the sheet's Lernwörter, one to a row, and `text` and `trace` rest: "copy"
@@ -78,7 +252,54 @@ export type ShapeBlock = Box & { type: "shape"; props: Partial<TextProps> & { ki
 // with `folds` empty columns to write in (2 or 3) and a dashed fold line between the words and them.
 export type ListMode = "copy" | "trace" | "row" | "fold";
 // `from` is the index of the first word of the list the block shows, for a run-on Lineatur on a later page.
-export type RulingBlock = Box & { type: "ruling"; props: { kind: Ruling; color: string; text?: string; font?: Font; trace?: boolean | "outline" | "dotted"; fade?: Fade; list?: ListMode; from?: number; folds?: number; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean } };
+export type RulingBlock = Box & {
+  type: "ruling";
+  /** The Lineatur's kind and colour, and the words it may show on its rows. */
+  props: {
+    /** The ruled pattern (Lineatur) kind: its line pattern and school level, one of the RULINGS keys, such as "l1" for Lineatur 1 (Klasse 1). Required. */
+    kind: Ruling;
+    /** The colour of the lines, as a six digit hex colour such as #1a56db. */
+    color: string;
+    /** Text printed on the lines, in the block's font. Left out, the lines stand alone. */
+    text?: string;
+    /** The font of the text printed on the lines. Left out, the default font is used. */
+    font?: Font;
+    /** Trace text the pupil writes over: true for grey, "outline" or "dotted". Left out, no trace. */
+    trace?: boolean | "outline" | "dotted";
+    /** How the trace fades as the pupil writes on: "row" along each row, "rows" from row to row. Left out, it does not fade. */
+    fade?: Fade;
+    /** Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list. */
+    list?: ListMode;
+    /**
+     * Index of the first word to learn the block shows, counted from 0, so a ruled pattern run on over several pages picks up
+     * where the last one stopped. Left out, 0.
+     * @minimum 0
+     */
+    from?: number;
+    /**
+     * Number of empty columns to write in on a fold sheet (Knickblatt), after the words. 2 or 3. Any other value gives 2.
+     * @minimum 2
+     * @maximum 3
+     */
+    folds?: number;
+    /** Draws a house on the lines of a kind with zones, marking its room, roof and cellar. Left out, no house. */
+    house?: boolean;
+    /** Tints the house: "room" for the room alone, "all" for roof, room and cellar. Left out, the house is not tinted. */
+    houseTint?: "room" | "all";
+    /** Whether the middle band between the lines is tinted. Left out, the kind's own default applies. */
+    band?: boolean;
+    /** The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used. */
+    bandColor?: string;
+    /** Draws an arc under each syllable of the text on the lines. Left out, no arcs. */
+    syllables?: boolean;
+    /** The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply. */
+    breaks?: Breaks;
+    /** Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour. */
+    tints?: Tints;
+    /** Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again. */
+    tintsAcross?: boolean;
+  };
+};
 // The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
 export const startOf = (b: RulingBlock): number => {
   const from = b.props.from ?? 0;
@@ -86,26 +307,114 @@ export const startOf = (b: RulingBlock): number => {
 };
 // The words of a name line, as a new one has them. A line's `fields` replace them.
 export const FIELDS = ["Name", "Datum", "Klasse"];
-export type NameBlock = Box & { type: "name"; props: { fields?: string[] } };
-export type PointsBlock = Box & { type: "points"; props: { max: number; total?: boolean } };
-export type SymbolBlock = Box & { type: "symbol"; props: { code: string } };
+export type NameBlock = Box & {
+  type: "name";
+  /** The line the pupil writes their name (and date, class) on. */
+  props: {
+    /** The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. */
+    fields?: string[];
+  };
+};
+export type PointsBlock = Box & {
+  type: "points";
+  /** A box the teacher writes the points scored in, beside the most there are. */
+  props: {
+    /** The most points the task gives, printed in the box. */
+    max: number;
+    /** Marks the box as the sheet's total: it shows the sum of all the task boxes. Left out, it is a task box. */
+    total?: boolean;
+  };
+};
+export type SymbolBlock = Box & {
+  type: "symbol";
+  /** Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box. */
+  props: {
+    /** The OpenMoji code of the symbol, its file name in the symbol set, such as "270F" for a pencil. See SYMBOLS for all of them. */
+    code: string;
+  };
+};
 // `ratio` is the picture's width over its height; `cut` the share cropped off its left, top, right and bottom.
-export type ImageBlock = Box & { type: "image"; props: { upload: number; ratio: number; cut: number[]; opacity?: number } };
+export type ImageBlock = Box & {
+  type: "image";
+  /** Which uploaded picture the block shows, and how it is cropped. */
+  props: {
+    /** The id of the uploaded picture file, as the server stores it. */
+    upload: number;
+    /** The picture's width over its height, from the picture as uploaded. 1 for a square. */
+    ratio: number;
+    /** Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none. */
+    cut: number[];
+    /**
+     * How solid the picture prints: 1 for full strength, 0 for see-through. Left out, 1.
+     * @minimum 0
+     * @maximum 1
+     */
+    opacity?: number;
+  };
+};
 export type Op = keyof typeof SIGNS;
 // The lowest and the highest digit a place may hold.
 export type Range = [number, number];
 // A written exercise on squared paper. A cell is [column, row, character, kind], a line [from column, to column,
 // above row, kind]; kind 0 is printed on the sheet, 1 is the answer key's and 2 a small carry of the answer key's.
-export type Grid = { cols: number; rows: number; cells: [number, number, string, number][]; lines: [number, number, number, number][] };
+export type Grid = {
+  /** Width of the squared grid, in squares. */
+  cols: number;
+  /** Height of the squared grid, in squares. */
+  rows: number;
+  /** The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's and 2 a small carry of the answer key's. */
+  cells: [number, number, string, number][];
+  /** The lines of the grid, each as [from column, to column, row it lies above, kind], counted from 0; kind as for cells. */
+  lines: [number, number, number, number][];
+};
 // `hide` is the number a gap stands for, the result when absent. `rest` is what a division leaves. A task of three
 // numbers has `op2` and `c`: it reads `a op b op2 c`, with `paren` as the brackets say, "left" for `(a op b) op2 c`
 // and "right" for `a op (b op2 c)`. A task of two has none of these. `family` numbers the family the task belongs to
 // (0 for the first), and a task with no family has none: its exercises stand on their own.
-export type Calc = { op: Op; a: number; b: number; result: number; rest: number; hide?: "a" | "b" | "c"; grid?: Grid; op2?: Op; c?: number; paren?: "left" | "right"; family?: number };
+export type Calc = {
+  /** The operation between a and b: "+" plus, "-" minus, "*" times or "/" divided by. */
+  op: Op;
+  /** The first number of the task. */
+  a: number;
+  /** The second number of the task. */
+  b: number;
+  /** The result of a op b, the number a gap hides when no other is named in hide. */
+  result: number;
+  /** What a division leaves over, 0 when it divides evenly. */
+  rest: number;
+  /** The number a gap stands for: "a", "b" or "c". Left out, the gap hides the result. */
+  hide?: "a" | "b" | "c";
+  /** The working on squared paper for this task. Left out, the task has none. */
+  grid?: Grid;
+  /** The second operation of a task of three numbers, between b and c. Left out for a task of two numbers. */
+  op2?: Op;
+  /** The third number of a task of three numbers. Left out for a task of two numbers. */
+  c?: number;
+  /** The brackets of a task of three numbers: "left" for (a op b) op2 c, "right" for a op (b op2 c). */
+  paren?: "left" | "right";
+  /** Which family of tasks this task belongs to, counted from 0. Left out, the task stands on its own. */
+  family?: number;
+};
 // One side of a comparison: a plain number, or a term with its sign and its two numbers.
-export type Side = { value: number; op?: Op; a?: number; b?: number };
+export type Side = {
+  /** The number on this side. With no op it is the whole side. */
+  value: number;
+  /** The sign of the term on this side. Left out, the side is the plain number in value. */
+  op?: Op;
+  /** The first number of the term. */
+  a?: number;
+  /** The second number of the term. */
+  b?: number;
+};
 // A comparison: the two sides and the sign between them, which the pupil writes in the ring.
-export type Compare = { left: Side; right: Side; sign: "<" | ">" | "=" };
+export type Compare = {
+  /** The side left of the sign. */
+  left: Side;
+  /** The side right of the sign. */
+  right: Side;
+  /** The sign the pupil writes in the ring: "<" less than, ">" more than or "=" equal. */
+  sign: "<" | ">" | "=";
+};
 export type Exercise = Calc | Compare;
 // The generator's limits, as the server takes them: `a` and `b` hold the digits each number may have, units first.
 // `sides`, `close` and `equal` only matter for a comparison, and blocks saved before them have none. `c` holds the
@@ -118,47 +427,147 @@ export type Exercise = Calc | Compare;
 // lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. Blocks saved before have none of
 // these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
+  /** The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. */
   ops: Op[];
+  /** The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.
+   * @minimum 1
+   * @maximum 1000000
+   */
   max: number;
+  /** The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. */
   a: Range[];
+  /** The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit. */
   b: Range[];
+  /** The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. */
   c?: Range[];
+  /** Whether a plus or minus task must carry (Übertrag): "none" never, "required" always, "either" both kinds. */
   carry: "none" | "required" | "either";
+  /** Whether a division leaves a remainder. false, the default, gives even divisions only. */
   rest: boolean;
+  /** How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. */
   format: "row" | "gap" | "written" | "compare";
+  /** How many tasks the block makes.
+   * @minimum 1
+   * @maximum 100
+   */
   count: number;
+  /** The number the tasks are drawn from. The same seed and limits give the same tasks; a new seed draws new ones. */
   seed: number;
+  /** What stands on each side of a comparison: "nn" number and number, "tn" term and number, "tt" term and term. Default "tn". Only comparisons use it. */
   sides?: "nn" | "tn" | "tt";
+  /** Whether the sides of a comparison lie close together, 1 or 2 units or tens apart. Default false. Only comparisons use it. */
   close?: boolean;
+  /** Whether comparisons have equal sides: "none" never, "some" about one in five. Default "some". Only comparisons use it. */
   equal?: "none" | "some";
+  /** How many numbers a task has: 2 or 3. Default 2. */
   numbers?: 2 | 3;
+  /** Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false. */
   pvs?: boolean;
+  /** Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false. */
   brackets?: boolean;
+  /** Places after the comma in plus and minus tasks: 0 for whole numbers, 1 for tenths or 2 for hundredths. Default 0. */
   decimals?: 0 | 1 | 2;
+  /** Whether the numbers are money, always with two places after the comma. Default false. */
   money?: boolean;
+  /** The digits of the first number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   af?: Range[];
+  /** The digits of the second number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   bf?: Range[];
+  /** The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   cf?: Range[];
+  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks. A family has two or three tasks. Default "none". */
   family?: "none" | "swap" | "reverse" | "neighbour";
+  /** Which number a neighbouring task moves: "a" the first, the default, or "b" the second. */
   moves?: "a" | "b";
+  /** What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. */
   gaps?: ("a" | "b" | "c" | "result")[];
+  /** Whether 0 may be a number and a result. Default true. */
   zero?: boolean;
+  /** Whether 1 may be a factor or a divisor in times and divide tasks. Default true. */
   one?: boolean;
+  /** Whether tasks with equal numbers are left out. Default false. */
   distinct?: boolean;
+  /** Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. */
   small?: boolean;
 };
 export { decimalsOf } from "./decimal";
 // What the generator made of the limits. With fewer exercises than asked for, `loosen` names the limits in the way.
-export type Made = { exercises: Exercise[]; loosen: string[] | null };
+export type Made = {
+  /** The exercises the server made for the limits, in the order they stand on the sheet. */
+  exercises: Exercise[];
+  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "carry". null when the count is met. */
+  loosen: string[] | null;
+};
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.
-export type MathsProps = Limits & Made & { columns: number; size: number; numbering?: string };
-export type MathsBlock = Box & { type: "maths"; props: MathsProps };
+export type MathsProps = Limits & Made & {
+  /** Number of columns the exercises stand in side by side across the block.
+   * @minimum 1
+   * @maximum 6
+   */
+  columns: number;
+  /** Font size of a row or a gap, in pt. The editor steps it by 2 pt and never goes below 8.
+   * @minimum 8
+   */
+  size: number;
+  /** How the exercises are numbered on the sheet, as the editor's numbering control sets it. */
+  numbering?: string;
+};
+export type MathsBlock = Box & {
+  type: "maths";
+  /** The maths block's limits, layout and exercises. */
+  props: MathsProps;
+};
 // `cells` holds the texts, a row of columns at a time. `cols` holds each column's share of the block's width, in
 // parts of their sum. A row is as high as its highest cell needs, and the rows share equally what room the block
 // has beyond that. `line` is the colour of the lines, and `head` sets the first row in bold. A cell holds no runs, so
 // a whole cell is a gap: `gaps` holds a flag for each cell, a row of columns at a time as `cells` does.
 // `rows` holds a lowest height in mm for each row; a row still grows when its text needs more.
-export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols: number[]; size: number; align: Align; font?: Font; color?: string; line: string; head?: boolean; syllables?: boolean; breaks?: Breaks; tints?: Tints; tintsAcross?: boolean; gaps?: boolean[][]; gapWidth?: number; bank?: number; trace?: boolean | "outline" | "dotted"; fade?: Fade; spans?: Span[]; rows?: number[] } & Lines };
+export type TableBlock = Box & {
+  type: "table";
+  /** The table's text, layout and lines. */
+  props: {
+    /** The text of each cell, as cells[row][column], counted from 0. A cell holds one plain text. */
+    cells: string[][];
+    /** The width share of each column, as parts of the sum of all of them. Only the ratios between columns count. */
+    cols: number[];
+    /** Font size of the cell text, in pt. */
+    size: number;
+    /** Horizontal alignment of the cell text: "left", "center" or "right". */
+    align: Align;
+    /** Font of the cell text. Left out, the default font. */
+    font?: Font;
+    /** Colour of the cell text. Left out, the default colour. */
+    color?: string;
+    /** Colour of the table's lines. */
+    line: string;
+    /** Whether the first row is printed in bold. Default false. */
+    head?: boolean;
+    /** Whether the words in the cells are split into syllables, with hyphens at the breaks. Default false. */
+    syllables?: boolean;
+    /** The teacher's own syllable breaks: each word in lower case as the key, with the places it breaks at as the value. */
+    breaks?: Breaks;
+    /** The two colours the syllables take in turn, first then second. */
+    tints?: Tints;
+    /** Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour. */
+    tintsAcross?: boolean;
+    /** Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does. */
+    gaps?: boolean[][];
+    /** Width of the gaps in mm, all the same. The editor takes 5 mm or more.
+     * @minimum 5
+     */
+    gapWidth?: number;
+    /** A word bank printed under the table for the gaps. Left out, there is none. */
+    bank?: number;
+    /** How the cell text shows as a trace to write over: true for grey, "outline" for letters with a line round them and no fill, "dotted" for dotted letters. Left out, no trace. */
+    trace?: boolean | "outline" | "dotted";
+    /** Makes the trace fade step by step until it is gone: "row" along each row, "rows" from row to row. Left out, no fade. */
+    fade?: Fade;
+    /** Merged cells, each as [row, column, rows, columns]: the cell where it starts and how many rows and columns it covers, counted from 0. */
+    spans?: Span[];
+    /** The lowest height of each row, in mm. A row still grows when its text needs more. */
+    rows?: number[];
+  } & Lines;
+};
 // A word search (Suchsel): a grid of `cols` by `rows` squares, each 6 to 20, with the words hidden in it and other
 // letters around them. `words` holds the words as the teacher typed them, a line of the field to an entry, as the
 // sheet's Lernwörter are held. `ways` is how the words may run, each level with the ones before: across only, down
@@ -166,8 +575,35 @@ export type TableBlock = Box & { type: "table"; props: { cells: string[][]; cols
 // `umlauts` ä, ö, ü and ß stay; else they become AE, OE, UE and SS. `show` prints the hidden words under the grid,
 // or only how many there are. The layout comes from `seed` alone (suchsel.ts), so every draw gives the same grid.
 export type Ways = "across" | "down" | "diag" | "back";
-export type SuchselProps = { words: string[]; cols: number; rows: number; ways: Ways; caps: boolean; umlauts: boolean; show: "words" | "count"; seed: number };
-export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
+export type SuchselProps = {
+  /** The words to hide in the grid, one entry per word, as the teacher typed them. */
+  words: string[];
+  /** Number of squares across the grid.
+   * @minimum 6
+   * @maximum 20
+   */
+  cols: number;
+  /** Number of squares down the grid.
+   * @minimum 6
+   * @maximum 20
+   */
+  rows: number;
+  /** The directions the words may run: "across" only, "down" too, "diag" (diagonal) too, or "back" (backwards) too. Each level includes the ones before. */
+  ways: Ways;
+  /** Whether every letter shows as a capital. If not, every letter is small. */
+  caps: boolean;
+  /** Whether ä, ö, ü and ß stay. If not, they become AE, OE, UE and SS. */
+  umlauts: boolean;
+  /** Whether the hidden words print under the grid ("words") or only how many there are ("count"). */
+  show: "words" | "count";
+  /** The number that sets the layout of the grid. The same seed gives the same grid. */
+  seed: number;
+};
+export type SuchselBlock = Box & {
+  type: "suchsel";
+  /** The word search's settings: the grid, the words and how they run. */
+  props: SuchselProps;
+};
 // A Zahlenmauer: walls of stones in rows, each stone the sum (or with `op` "*" the product) of the two under it.
 // `base` is the number of stones in the lowest row, `count` the walls of the block and `columns` how many stand side
 // by side. No stone is above `max`. `given` says which stones show their number: the base row, per wall a mix that
@@ -176,38 +612,121 @@ export type SuchselBlock = Box & { type: "suchsel"; props: SuchselProps };
 // index, value. A stone's index counts from the base row's left end up, a row at a time (zahlenmauer.ts). The walls
 // come from `seed` alone, so every draw gives the same ones.
 export type Typed = [number, number, number];
-export type ZahlenmauerProps = { base: 3 | 4 | 5; count: number; columns: number; max: number; op: "+" | "*"; given: "base" | "mix" | "free"; free?: boolean[]; empty: boolean; seed: number; typed?: Typed[] };
-export type ZahlenmauerBlock = Box & { type: "zahlenmauer"; props: ZahlenmauerProps };
+export type ZahlenmauerProps = {
+  /** Number of stones in the lowest row of each wall: 3, 4 or 5. */
+  base: 3 | 4 | 5;
+  /** Number of walls in the block.
+   * @minimum 1
+   * @maximum 12
+   */
+  count: number;
+  /** Number of walls standing side by side.
+   * @minimum 1
+   * @maximum 4
+   */
+  columns: number;
+  /** The Zahlenraum: no stone lies above it. One of 10, 20, 100 or 1000. */
+  max: number;
+  /** How a stone is made from the two under it: "+" the sum, "*" the product. */
+  op: "+" | "*";
+  /** Which stones show a number: "base" the base row only, "mix" per wall a mix that needs the way back, "free" the stones marked in free. */
+  given: "base" | "mix" | "free";
+  /** Per stone index, true shows that stone's number when given is "free". The same for every wall. */
+  free?: boolean[];
+  /** Whether no stone shows a number. Default false. */
+  empty: boolean;
+  /** The number that sets the walls. The same seed gives the same walls. */
+  seed: number;
+  /** Numbers the teacher typed into stones, each as [wall, stone index, value], counted from 0. A stone's index counts from the left end of the base row, a row at a time. */
+  typed?: Typed[];
+};
+export type ZahlenmauerBlock = Box & {
+  type: "zahlenmauer";
+  /** The wall block's settings: the stones, the walls and the numbers shown. */
+  props: ZahlenmauerProps;
+};
 // A Rechendreieck: its stored shape is the contract at the top of rechendreieck.ts.
-export type RechendreieckBlock = Box & { type: "rechendreieck"; props: RechendreieckProps };
+export type RechendreieckBlock = Box & {
+  type: "rechendreieck";
+  /** The calculation triangles (Rechendreiecke) and which of their fields are given. */
+  props: RechendreieckProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
-export type ZahlenstrahlBlock = Box & { type: "zahlenstrahl"; props: ZahlenstrahlProps };
+export type ZahlenstrahlBlock = Box & {
+  type: "zahlenstrahl";
+  /** The number line (Zahlenstrahl): its range, ticks and the tasks on it. */
+  props: ZahlenstrahlProps;
+};
 // A Hunderterfeld: its stored shape is the contract at the top of hunderterfeld.ts.
-export type HunderterfeldBlock = Box & { type: "hunderterfeld"; props: HunderterfeldProps };
+export type HunderterfeldBlock = Box & {
+  type: "hunderterfeld";
+  /** The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in. */
+  props: HunderterfeldProps;
+};
 // An Uhr: its stored shape is the contract at the top of uhr.ts.
-export type UhrBlock = Box & { type: "uhr"; props: UhrProps };
+export type UhrBlock = Box & {
+  type: "uhr";
+  /** The clock faces, their times and the task: read the time or draw the hands. */
+  props: UhrProps;
+};
 // A Selbstkontrolle: its stored shape is the contract at the top of selbstkontrolle.ts.
-export type SelbstkontrolleBlock = Box & { type: "selbstkontrolle"; props: SelbstkontrolleProps };
+export type SelbstkontrolleBlock = Box & {
+  type: "selbstkontrolle";
+  /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
+  props: SelbstkontrolleProps;
+};
 export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
-export type Guides = Record<Axis, number[]>;
+export type Guides = {
+  /** The upright guide lines, each the distance in mm from the paper's left edge. */
+  x: number[];
+  /** The flat guide lines, each the distance in mm from the paper's top edge. */
+  y: number[];
+};
 // A page can have guide lines of its own, beside the sheet's, and a grid and a format of its own in place of the
 // sheet's.
-export type Page = { blocks: Block[]; guides?: Guides; grid?: number; landscape?: boolean };
+export type Page = {
+  /** The blocks printed on this page, drawn in order. */
+  blocks: Block[];
+  /** The page's own guide lines in mm, beside the sheet's. Left out, the page has none of its own. */
+  guides?: Guides;
+  /** The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies. */
+  grid?: number;
+  /** Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies. */
+  landscape?: boolean;
+};
 // The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
 // on its side.
 // `words` holds the sheet's Lernwörter as the teacher typed them, a line of the list to an entry. Sheets saved
 // before have none.
 export type Doc = {
+  /** The pages of the sheet, in print order. */
   pages: Page[];
+  /** The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge. */
   guides: Guides;
+  /** The grid's cell on every page in mm. 0 for no grid. */
   grid: number;
+  /** Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright. */
   landscape?: boolean;
+  /** The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none. */
   words?: string[];
   // The mends of the sheet: a word split by hand holds in every block. A block's own `breaks` win over these.
+  /** The word breaks set by hand for the whole sheet: each word in lower case, with the places it breaks at, as counts of characters. Left out, the module's own breaks apply. */
   breaks?: Breaks;
-  pageNumbers?: { on?: boolean; at?: "bottom" | "right" | "outer" | "top"; form?: "n" | "seite" | "of" | "seiteVon"; notFirst?: boolean; black?: boolean };
+  /** The page numbers printed on each page. Left out, none are printed. */
+  pageNumbers?: {
+    /** Whether page numbers print at all. Left out, they do not. */
+    on?: boolean;
+    /** Where the number prints: "bottom" centred at the foot, "right" at the foot's right, "outer" at the outer foot corner (left on even pages, right on odd), "top" at the top right. Left out, "bottom". */
+    at?: "bottom" | "right" | "outer" | "top";
+    /** How the number reads: "n" for 2, "seite" for Seite 2, "of" for 2 / 5, "seiteVon" for Seite 2 von 5. Left out, "n". */
+    form?: "n" | "seite" | "of" | "seiteVon";
+    /** Leaves the number off the first page. Left out, the first page is numbered. */
+    notFirst?: boolean;
+    /** Prints the number in black. Left out, it is grey. */
+    black?: boolean;
+  };
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
 // The server counts a sheet's saved documents in `version`.
@@ -313,7 +832,7 @@ export const FONT_GROUPS = [
 // `zones` are four heights in mm from a row's top: they bound the roof, the room and the cellar of a house drawn on
 // each row. Lineatur 1 to 3 have them; Lineatur 4, the single lines and Karo have none, so they take no house.
 // `band` says whether the middle band is tinted by default (`band > 0`). A block may switch the band on or off.
-export const RULINGS = {
+export const RULINGS: Record<Ruling, { name: string; row: number; at?: number[]; zones?: number[]; band: number; base: number; size: number }> = {
   l1: { name: "Lineatur 1 (Klasse 1)", row: 20, at: [2.5, 7.5, 12.5, 17.5], zones: [2.5, 7.5, 12.5, 17.5], band: 5, base: 12.5, size: 10 },
   l2: { name: "Lineatur 2 (Klasse 2)", row: 16, at: [2, 6, 10, 14], zones: [2, 6, 10, 14], band: 4, base: 10, size: 8 },
   l3: { name: "Lineatur 3 (Klasse 3)", row: 11.5, at: [4, 7.5], zones: [0.5, 4, 7.5, 11], band: 0, base: 7.5, size: 7 },

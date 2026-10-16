@@ -11,6 +11,7 @@ from blattwerk import pictures
 from blattwerk.auth import User
 from blattwerk.db import Con, Id
 from blattwerk.maths import Settings, generate
+from blattwerk.schema import check
 
 router = APIRouter(prefix="/api")
 
@@ -527,6 +528,7 @@ def templates(user: User, con: Con) -> list[dict]:
 
 @router.post("/templates")
 def save(body: Template, user: User, con: Con) -> dict:
+    check(body.doc)
     pictures.touch(user["id"], body.doc)
     cur = con.execute(
         "INSERT INTO templates (user_id, name, doc) VALUES (?, ?, ?)",
