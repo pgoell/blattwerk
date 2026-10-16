@@ -116,6 +116,7 @@ import { DEFAULTS as FELD } from "../hunderterfeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
+import { parasFromHtml } from "../pasted";
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
@@ -922,7 +923,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
     if (!picture || writing.current) {
-      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "")) paste();
+      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
     }
     e.preventDefault();
@@ -2300,15 +2301,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
   // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
-  function typed(got: string) {
+  function typed(got: string, html = "") {
     const words = got.replace(/\r\n/g, "\n");
     const [copied, held] = [localStorage.getItem("copied"), clip()];
     // A copy of the build before left no mark: its words are those of the stored blocks.
     const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
     if (!words.trim() || own) return false;
     tight.current = true;
-    // Word ends a whole line with a break, which would make an empty last paragraph.
-    add(80, 12, { type: "text", props: { text: words.replace(/\n+$/, ""), size: 14, align: "left" } }, page, true);
+    // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
+    const paras = parasFromHtml(html);
+    const props = paras.length ? stored(paras) : { text: words.replace(/\n+$/, "") };
+    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, page, true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
@@ -2320,18 +2323,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     if (writing.current) return paste();
     reading.current = true;
     let words = "";
+    let html = "";
     try {
       for (const item of await navigator.clipboard.read()) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
         if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
+        if (item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
       }
     } catch {
       // No leave to read, or a browser that cannot: the copied blocks are still there.
     } finally {
       reading.current = false;
     }
-    if (!typed(words)) paste();
+    if (!typed(words, html)) paste();
   }
   // What is locked stays, and stays picked: "Entsperren" is one click away. With nothing free there is no undo step.
   function remove() {
