@@ -3398,7 +3398,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
   ];
   // The block menu's row of icon buttons: turn, align and the brush, as the panel and the bar have them.
-  const turnless = sel.some((b) => b.locked || b.type === "table" || (isLine(b) && thing(b) === b.id));
+  // A selection held by a locked block, though that one is not picked, turns no more than in the panel.
+  const turnless = free.length !== sel.length || sel.some((b) => b.type === "table" || (isLine(b) && thing(b) === b.id));
   const mini: Command[] = [
     { label: "Linksdrehung 90°", icon: RotateCcw, disabled: turnless, run: () => spin(-90) },
     { label: "Rechtsdrehung 90°", icon: RotateCw, disabled: turnless, run: () => spin(90) },
@@ -3409,7 +3410,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const blockMenu = !menu?.more && menu?.thumb === undefined && !menu?.rule && !menu?.cells && sel.length > 0;
   // The box around the picked blocks, which the row keeps clear of.
   const pickedBox = () => {
-    const rs = sel.map((b) => sheet.current?.querySelector(`[data-id="${b.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+    // On the whole desk: a right click on a block of another page picks it in the same render that brings its page.
+    const rs = sel.map((b) => desk.current?.querySelector(`[data-id="${b.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
     if (!rs.length) return undefined;
     return { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) };
   };

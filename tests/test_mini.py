@@ -3,6 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 from test_menu import GROUP, corner, menu, props, right, right_thumb, texts
+from test_pages import three
 from test_painter import expect_brush, held
 from ui import LINE, RECT, TEXT, angle, at, box, expect_picked, pick, user
 
@@ -200,3 +201,40 @@ def test_format_uebertragen_in_the_toolbar_paints_the_next_block_once(editor):
     undo = page.get_by_role("button", name="Rückgängig")
     undo.click()
     assert held(page, client)["b"].get("fill") == RECT.get("fill")
+
+
+def test_on_a_block_of_another_page_the_toolbar_keeps_clear_of_it_and_the_menu(editor):
+    """A8, review"""
+    page = three(editor)
+    pick(page, "a")
+    right(page, "c")
+    expect_picked(page, "c")
+    row = rect(page, "toolbar")
+    for name in ("c", "menu"):
+        assert apart(row, rect(page, name)), name
+
+
+def test_on_a_block_low_in_the_window_the_toolbar_keeps_clear_of_the_menu(editor):
+    """A8, review: the menu moves up into the window, over the room above the block."""
+    page = editor(box("a", "text", TEXT, y=250))
+    page.locator(".desk").evaluate(
+        "(d, a) => d.scrollBy(0, a.getBoundingClientRect().bottom - innerHeight + 10)",
+        page.locator('[data-id="a"]').element_handle(),
+    )
+    right(page, "a")
+    row = rect(page, "toolbar")
+    for name in ("a", "menu"):
+        assert apart(row, rect(page, name)), name
+
+
+def test_a_group_with_a_locked_block_does_not_turn(editor):
+    """I1, review: as the panel, whose turn buttons are off then."""
+    page = editor(
+        box("fest", "text", TEXT, locked=True, group=["g"]),
+        box("frei", "text", TEXT, z=2, y=120, group=["g"]),
+    )
+    right(page, "frei")
+    expect_picked(page, "fest", "frei")
+    expect(tool(page, "Rechtsdrehung 90°")).to_be_disabled()
+    # The group stays as it is, as in the panel: nothing of it lines up either.
+    expect(tool(page, "Links")).to_be_disabled()
