@@ -19,6 +19,11 @@ defs.Block = {
   allOf: defs.Block.anyOf.map((ref, i) => ({ if: { properties: { type: { const: types[i] } } }, then: ref })),
 };
 
+// Saved sheets that differ from the types, which the check still takes so they stay savable. The built-in maths
+// templates (src/blattwerk/templates.py) make maths blocks with no `a` and `b`, and the editor fills those in on open.
+const LOOSE = { MathsProps: ["a", "b"] };
+for (const [name, fields] of Object.entries(LOOSE)) defs[name].required = defs[name].required.filter((field) => !fields.includes(field));
+
 // That every field has a description, tests/test_schema.py checks.
 const text = JSON.stringify(schema, null, 2) + "\n";
 if (process.argv.includes("--check")) {

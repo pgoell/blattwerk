@@ -77,15 +77,7 @@ def maths_height(props: dict) -> float:
 
 def maths_block(y: float, limits: dict) -> dict:
     """A maths block at height y, with exercises made from the limits, with a fixed seed."""
-    # The digit ranges a and b are empty here, as Settings has them when the exercises are made.
-    props = {
-        "a": [],
-        "b": [],
-        **limits,
-        **generate(Settings.model_validate(limits)),
-        "columns": 3,
-        "size": 14,
-    }
+    props = {**limits, **generate(Settings.model_validate(limits)), "columns": 3, "size": 14}
     return block("maths", 15, y, 180, maths_height(props), props)
 
 

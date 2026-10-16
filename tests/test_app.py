@@ -17,6 +17,8 @@ from blattwerk.app import app
 
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
+# The least a sheet's document holds: the server refuses less.
+EMPTY = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
 
 
 def invite(admin=False):
@@ -39,10 +41,10 @@ def test_logged_out_gets_401():
     assert client.post("/api/feedback", data={"text": "x"}).status_code == 401
     assert client.get("/api/admin/users").status_code == 401
     assert client.get("/api/templates").status_code == 401
-    assert client.post("/api/templates", json={"name": "x", "doc": {}}).status_code == 401
+    assert client.post("/api/templates", json={"name": "x", "doc": EMPTY}).status_code == 401
     assert client.delete("/api/templates/1").status_code == 401
     assert client.get("/api/sheets").status_code == 401
-    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).status_code == 401
+    assert client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).status_code == 401
     assert client.get("/api/sheets/1").status_code == 401
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
@@ -177,8 +179,8 @@ def test_feedback_lands_in_the_users_folder(data_dir):
 def test_delete_account_removes_user_and_feedback(data_dir):
     client = user("a@example.com")
     other = user("b@example.com")
-    client.post("/api/sheets", json={"title": "Meins", "doc": {}})
-    other.post("/api/sheets", json={"title": "Deins", "doc": {}})
+    client.post("/api/sheets", json={"title": "Meins", "doc": EMPTY})
+    other.post("/api/sheets", json={"title": "Deins", "doc": EMPTY})
     client.post("/api/feedback", data={"text": "x"})
     other.post("/api/feedback", data={"text": "y"})
     assert client.delete("/api/me").status_code == 200
@@ -225,23 +227,25 @@ def restarted(client):
 
 def test_deleted_sheet_id_is_not_reused():
     client = user("a@example.com")
-    ids = [client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] for _ in "ab"]
+    ids = [client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).json()["id"] for _ in "ab"]
     assert ids == [1, 2]
     assert client.delete("/api/sheets/2").status_code == 200
-    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 3
+    assert client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).json()["id"] == 3
     assert client.delete("/api/sheets/3").status_code == 200
-    again = restarted(client).post("/api/sheets", json={"title": "x", "doc": {}})
+    again = restarted(client).post("/api/sheets", json={"title": "x", "doc": EMPTY})
     assert again.json()["id"] == 4
 
 
 def test_deleted_template_id_is_not_reused():
     client = user("a@example.com")
-    ids = [client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] for _ in "ab"]
+    ids = [
+        client.post("/api/templates", json={"name": "x", "doc": EMPTY}).json()["id"] for _ in "ab"
+    ]
     assert ids == [1, 2]
     assert client.delete("/api/templates/2").status_code == 200
-    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 3
+    assert client.post("/api/templates", json={"name": "x", "doc": EMPTY}).json()["id"] == 3
     assert client.delete("/api/templates/3").status_code == 200
-    again = restarted(client).post("/api/templates", json={"name": "x", "doc": {}})
+    again = restarted(client).post("/api/templates", json={"name": "x", "doc": EMPTY})
     assert again.json()["id"] == 4
 
 
@@ -330,8 +334,8 @@ def moved(data_dir, users):
     assert my_id(client) == users + 1
     # The newest of each is gone with user 2, and its id stays used.
     con.execute("DELETE FROM users WHERE id = 2")
-    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 3
-    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 3
+    assert client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).json()["id"] == 3
+    assert client.post("/api/templates", json={"name": "x", "doc": EMPTY}).json()["id"] == 3
     picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 3
 
@@ -376,8 +380,8 @@ def test_new_database_starts_above_the_highest_leftover_folder(data_dir):
     assert my_id(client) == 6
     picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 10
-    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
-    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
+    assert client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).json()["id"] == 1
+    assert client.post("/api/templates", json={"name": "x", "doc": EMPTY}).json()["id"] == 1
     assert (data_dir / "users" / "3" / "uploads" / "9").read_bytes() == b"old"
     assert sorted(p.name for p in (data_dir / "users").iterdir()) == ["3", "5", "6"]
 
@@ -428,8 +432,8 @@ def test_empty_old_tables_move_too(data_dir):
     assert dict(sequence(db.open_db())) == dict.fromkeys(COUNTED, 0)
     client = user("a@example.com")
     assert my_id(client) == 1
-    assert client.post("/api/sheets", json={"title": "x", "doc": {}}).json()["id"] == 1
-    assert client.post("/api/templates", json={"name": "x", "doc": {}}).json()["id"] == 1
+    assert client.post("/api/sheets", json={"title": "x", "doc": EMPTY}).json()["id"] == 1
+    assert client.post("/api/templates", json={"name": "x", "doc": EMPTY}).json()["id"] == 1
     picture = {"file": ("bild", png(), "image/png")}
     assert client.post("/api/uploads", files=picture).json()["id"] == 1
 
@@ -588,9 +592,9 @@ def test_every_answer_about_a_sheet_names_the_user_it_was_served_for():
     """Issue #353, A4: `user_id` in a sheet, and `X-User` beside the 404 of a sheet that is
     another teacher's or not there."""
     a, b = user("a@example.com"), user("b@example.com")
-    made = a.post("/api/sheets", json={"title": "Meins", "doc": {}}).json()
+    made = a.post("/api/sheets", json={"title": "Meins", "doc": EMPTY}).json()
     path = f"/api/sheets/{made['id']}"
-    save = {"doc": {"pages": []}, "version": made["version"]}
+    save = {"doc": {**EMPTY, "pages": []}, "version": made["version"]}
     answers = [
         made,
         a.get(path).json(),
@@ -612,8 +616,8 @@ def test_every_answer_about_a_sheet_names_the_user_it_was_served_for():
 def test_new_account_inherits_nothing_from_a_deleted_one(data_dir):
     a = user("a@example.com")
     a_id = my_id(a)
-    a.post("/api/sheets", json={"title": "Meins", "doc": {}})
-    a.post("/api/templates", json={"name": "Meins", "doc": {}})
+    a.post("/api/sheets", json={"title": "Meins", "doc": EMPTY})
+    a.post("/api/templates", json={"name": "Meins", "doc": EMPTY})
     upload = a.post("/api/uploads", files={"file": ("bild", png(), "image/png")}).json()["id"]
     a.post("/api/feedback", data={"text": "x"})
     con = db.open_db()
@@ -677,7 +681,7 @@ def test_deleting_an_account_ends_every_session_and_open_link():
     reset = auth.new_link(db.open_db(), my_id(first))
     assert first.delete("/api/me").status_code == 200
     assert second.get("/api/me").status_code == 401
-    assert second.post("/api/sheets", json={"title": "x", "doc": {}}).status_code == 401
+    assert second.post("/api/sheets", json={"title": "x", "doc": EMPTY}).status_code == 401
     new = {"token": reset, "password": "ganz-neu-geheim"}
     assert second.post("/api/reset", json=new).status_code == 404
     assert db.open_db().execute("SELECT count(*) FROM links").fetchone()[0] == 0
@@ -741,7 +745,7 @@ def test_built_in_templates_are_everyones_and_stay():
 def test_templates_belong_to_one_user():
     client = user("a@example.com")
     other = user("b@example.com")
-    doc = {"blocks": [], "guides": {"x": [70], "y": []}, "grid": 5}
+    doc = {"pages": [{"blocks": []}], "guides": {"x": [70], "y": []}, "grid": 5}
     saved = client.post("/api/templates", json={"name": "Drei Spalten", "doc": doc}).json()
     assert own(client) == [{**saved, "name": "Drei Spalten", "doc": doc}]
     assert own(other) == []
@@ -792,8 +796,8 @@ def test_every_call_for_an_item_hides_other_users_items():
     """Walks the routes, so a new call for an item is checked without a new test."""
     client = user("a@example.com")
     other = user("b@example.com")
-    sheet = client.post("/api/sheets", json={"title": "Meins", "doc": {}}).json()
-    template = client.post("/api/templates", json={"name": "Meins", "doc": {}}).json()
+    sheet = client.post("/api/sheets", json={"title": "Meins", "doc": EMPTY}).json()
+    template = client.post("/api/templates", json={"name": "Meins", "doc": EMPTY}).json()
     # Every id is 1, the first user's included, so one path fits every route.
     assert sheet["id"] == template["id"] == client.get("/api/me").json()["id"] == 1
 

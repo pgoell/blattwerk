@@ -84,8 +84,8 @@ def test_error_names_path_and_bound():
         b for b in built_in("Rechenblatt Klasse 1")["pages"][0]["blocks"] if b["type"] == "maths"
     )
     maths = copy.deepcopy(maths)
-    maths["props"]["columns"] = 6
-    assert problems(doc(maths)) == ["pages[0].blocks[0].props.columns: must be 1 to 4, got 6"]
+    maths["props"]["columns"] = 9
+    assert problems(doc(maths)) == ["pages[0].blocks[0].props.columns: must be 1 to 6, got 9"]
 
 
 def test_unknown_type_names_allowed():

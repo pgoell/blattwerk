@@ -1958,8 +1958,6 @@
         }
       },
       "required": [
-        "a",
-        "b",
         "carry",
         "columns",
         "count",
