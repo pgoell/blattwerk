@@ -3871,6 +3871,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
           )}
         </div>
+        {saver?.refused && (
+          <div className="clash" role="alert">
+            Nicht gespeichert: Das Blatt passt nicht zum Format.
+            <ul>
+              {saver.refused.map((problem, i) => (
+                <li key={i}>{problem}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {saver?.clash && (
           <div className="clash" role="alert">
             Dieses Blatt wurde auf einem anderen Gerät geändert.

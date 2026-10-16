@@ -26,6 +26,9 @@ type Saver = {
   tries: number;
   // The server holds another device's document: saving stops until the teacher has chosen.
   clash: boolean;
+  // The server refused the document for what is wrong in it: nothing of that document is sent again, the change
+  // stays unsaved, until the document changes.
+  refused?: { doc: Doc; problems: string[] };
   // The session ran out: nothing goes until a login or the next visit.
   stop: boolean;
   // The sheet was deleted elsewhere: nothing is sent any more, and what the editor shows is kept until the teacher
@@ -53,7 +56,7 @@ type Saver = {
 // `lists` marks a record of a build that knows the Lernwörter: one without it names no list because its build
 // dropped the sheet's, not because the teacher took it away.
 type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean };
-export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed" };
+export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed" };
 
 const savers = new Map<number, Saver>();
 // Who is signed in, as the app said last, and what the app does when a save finds the session gone. A login in
@@ -73,6 +76,8 @@ const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 // clash: the server holds another device's document, whatever the editor is back at. And of a sheet deleted
 // elsewhere the server holds nothing: all the editor shows is unsaved, also where it is back at what was saved.
 const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
+// The refusal that stands: for the document the saver holds now, and only while it is the one refused.
+const refusal = (s: Saver) => (s.refused && same(s.refused.doc, s.want.doc) ? s.refused : undefined);
 // The saver's end: nothing of it is sent, heard or written any more.
 function kill(s: Saver) {
   s.dead = true;
@@ -82,7 +87,7 @@ function kill(s: Saver) {
 
 // Tells who reads the savers, where what they read has changed: the editor draws anew only then.
 function tell(landed = 0) {
-  const list = [...savers.values()].map((s) => ({ id: s.id, owner: s.owner, title: s.want.title, saved: s.saved, unsaved: unsaved(s), failed: s.tries > 0 || s.stop || s.gone, stopped: s.stop, clash: s.clash, late: s.late, gone: s.gone, open: s.open, choice: s.choice }));
+  const list = [...savers.values()].map((s) => ({ id: s.id, owner: s.owner, title: s.want.title, saved: s.saved, unsaved: unsaved(s), failed: s.tries > 0 || s.stop || s.gone || !!refusal(s), stopped: s.stop, clash: s.clash, refused: refusal(s)?.problems, late: s.late, gone: s.gone, open: s.open, choice: s.choice }));
   const was = shot.list;
   if (!landed && list.length === was.length && list.every((s, i) => (Object.keys(s) as (keyof Save)[]).every((k) => s[k] === was[i][k]))) return;
   shot = { list, landed: shot.landed + landed };
@@ -140,7 +145,7 @@ function plan(s: Saver, ms: number) {
 // One save of a sheet at a time, always based on the saver's version. `closing` is the window that shuts.
 function send(s: Saver, closing = false) {
   clearTimeout(s.timer);
-  if (s.dead || s.out || s.clash || s.stop || s.gone || !unsaved(s)) return;
+  if (s.dead || s.out || s.clash || s.stop || s.gone || refusal(s) || !unsaved(s)) return;
   const now = (s.out = s.want);
   // The title goes along only when it changed here, so a rename from the list stays.
   const named = now.title === s.saved.title ? {} : { title: now.title.trim() || "Unbenanntes Blatt" };
@@ -187,6 +192,11 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
       return settle(s, ours ? 1 : 0);
     }
     e = sheet;
+  } else if (e.problems) {
+    // The server answered and holds none of this document: it is kept, and not sent again until it changes.
+    s.refused = { doc: now.doc, problems: e.problems };
+    s.tries = 0;
+    return settle(s);
   } else if (!["401", "404", "stale"].includes(e.message) && !s.lost.includes(now)) s.lost = [...s.lost.slice(0, 1), now];
   // Another account's sheet is as missing as a deleted one: only a 404 served for the owner means the sheet is gone.
   // One that names nobody is a failure like any other. The saver of a sheet that is gone stays, with the change and
@@ -214,7 +224,7 @@ function settle(s: Saver, landed = 0) {
   keep(s);
   tell(landed);
   s.idle.splice(0).forEach((done) => done());
-  if (!unsaved(s) || s.clash || s.stop || s.gone) return;
+  if (!unsaved(s) || s.clash || s.stop || s.gone || refusal(s)) return;
   if (s.tries) plan(s, Math.min(2000 * 2 ** (s.tries - 1), 30000));
   else if (s.open) plan(s, AFTER);
   else send(s);
