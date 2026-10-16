@@ -59,6 +59,8 @@ import {
   PanelRight,
   Plus,
   Redo2,
+  RotateCcw,
+  RotateCw,
   Rows3,
   Ruler,
   Scissors,
@@ -3375,6 +3377,22 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     { label: "Gruppieren", icon: Group, keys: `${ctrl}G`, disabled: !joinable, run: join },
     { label: "Gruppierung aufheben", icon: Ungroup, keys: `${ctrl}${shift}G`, disabled: !splittable, run: split },
   ];
+  // The block menu's row of icon buttons: turn, align and the brush, as the panel and the bar have them.
+  const turnless = sel.some((b) => b.locked || b.type === "table" || (isLine(b) && thing(b) === b.id));
+  const mini: Command[] = [
+    { label: "Linksdrehung 90°", icon: RotateCcw, disabled: turnless, run: () => spin(-90) },
+    { label: "Rechtsdrehung 90°", icon: RotateCw, disabled: turnless, run: () => spin(90) },
+    ...ALIGNS.map(([axis, at, label, icon]): Command => ({ label, icon, disabled: !things.length, run: () => align(axis, at) })),
+    { label: "Format übertragen", icon: Paintbrush, disabled: !brush && !source, run: () => (dip(part?.marks), setBrush(1)) },
+  ];
+  // The block menu, which has the row. Not the Mehr list, the thumbs, a guide line or a table's cells.
+  const blockMenu = !menu?.more && menu?.thumb === undefined && !menu?.rule && !menu?.cells && sel.length > 0;
+  // The box around the picked blocks, which the row keeps clear of.
+  const pickedBox = () => {
+    const rs = sel.map((b) => sheet.current?.querySelector(`[data-id="${b.id}"]`)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
+    if (!rs.length) return undefined;
+    return { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) };
+  };
   const items: Item[] =
     ruled
       ? // Only the one line goes, as one undo step: no merge key, so no other change joins it.
@@ -4725,6 +4743,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 }))
               : items
           }
+          // The row of the block menu only, over the picked blocks: not on the page, thumb, rule or cells menus.
+          tools={blockMenu ? mini : undefined}
+          avoid={blockMenu ? pickedBox() : undefined}
           onClose={() => {
             setMenu(undefined);
             if (late.current) refit();

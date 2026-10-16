@@ -6,10 +6,24 @@ import type { LucideIcon } from "lucide-react";
 export type Item = { label: string; icon?: LucideIcon; keys?: string; disabled?: boolean; on?: boolean; run: () => void } | "sep";
 
 // `up` puts the menu's bottom edge at `y`, for a menu that opens above its button.
-type Props = { x: number; y: number; up?: boolean; items: Item[]; onClose: () => void; onElsewhere: (x: number, y: number) => void };
+// `tools` is a row of icon buttons over the blocks at `avoid`, which the row keeps clear of.
+type Props = {
+  x: number;
+  y: number;
+  up?: boolean;
+  items: Item[];
+  tools?: Exclude<Item, "sep">[];
+  avoid?: { left: number; top: number; right: number; bottom: number };
+  onClose: () => void;
+  onElsewhere: (x: number, y: number) => void;
+};
 
-export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
+// The menu's own entries, which the arrows walk. The toolbar's buttons are not among them.
+const ENTRY = "[role=menuitem]:enabled, [role=menuitemcheckbox]:enabled";
+
+export default function Menu({ x, y, up, items, tools, avoid, onClose, onElsewhere }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const row = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const d = ref.current!;
     d.showModal();
@@ -17,7 +31,14 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
     const box = d.getBoundingClientRect();
     d.style.left = `${Math.max(0, Math.min(x, innerWidth - box.width))}px`;
     d.style.top = `${Math.max(0, Math.min(up ? y - box.height : y, innerHeight - box.height))}px`;
-    d.querySelector<HTMLElement>("button:enabled")?.focus();
+    // The row goes 8 px above the blocks, or below them when there is no room above, and stays in the window.
+    if (row.current && avoid) {
+      const r = row.current.getBoundingClientRect();
+      const above = avoid.top - 8 - r.height;
+      row.current.style.left = `${Math.max(0, Math.min(x, innerWidth - r.width))}px`;
+      row.current.style.top = `${above >= 0 ? above : avoid.bottom + 8}px`;
+    }
+    d.querySelector<HTMLElement>(ENTRY)?.focus();
   }, [x, y]);
   // Shuts the menu at once: the browser's `close` comes a task later, and until then the menu's button keeps the focus.
   const shut = () => {
@@ -46,9 +67,15 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
     const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
-    const on = [...ref.current!.querySelectorAll<HTMLElement>("button:enabled")];
+    const on = [...ref.current!.querySelectorAll<HTMLElement>(ENTRY)];
     on[(on.indexOf(document.activeElement as HTMLElement) + step + on.length) % on.length]?.focus();
   }
+  // A command shuts the menu and its row at once, then runs.
+  const pick = (item: Exclude<Item, "sep">) => {
+    ref.current!.close();
+    onClose();
+    item.run();
+  };
   return (
     <dialog
       ref={ref}
@@ -63,6 +90,15 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
         if (beside(e)) onElsewhere(e.clientX, e.clientY);
       }}
     >
+      {tools && (
+        <div ref={row} role="toolbar" aria-label="Minisymbolleiste" className="mini">
+          {tools.map((item) => (
+            <button key={item.label} aria-label={item.label} title={item.label} disabled={item.disabled} onClick={() => pick(item)}>
+              {item.icon && <item.icon size={16} aria-hidden />}
+            </button>
+          ))}
+        </div>
+      )}
       {items.map((item, i) =>
         item === "sep" ? (
           <hr key={i} />
@@ -73,11 +109,7 @@ export default function Menu({ x, y, up, items, onClose, onElsewhere }: Props) {
             aria-label={item.label}
             aria-checked={item.on}
             disabled={item.disabled}
-            onClick={() => {
-              ref.current!.close();
-              onClose();
-              item.run();
-            }}
+            onClick={() => pick(item)}
           >
             {item.icon ? <item.icon size={14} aria-hidden /> : <i />}
             {item.label}
