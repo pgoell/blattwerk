@@ -114,13 +114,25 @@ def breaks(error, path: list) -> bool:
     return len(path) <= len(shape) or path[-1] in SKELETON
 
 
-def check(doc: dict) -> None:
-    """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
-    and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""
-    # A sheet from before pages holds its blocks at the top; the editor reads them as one page.
+def as_pages(doc: dict) -> dict:
+    """A sheet from before pages holds its blocks at the top; the editor reads them as one page."""
     if "pages" not in doc and isinstance(doc.get("blocks"), list):
         doc = {**doc, "pages": [{"blocks": doc["blocks"]}]}
         del doc["blocks"]
+    return doc
+
+
+def refuse_any_fault(doc: dict) -> None:
+    """Refuses a doc with any fault of the whole schema, for a save that asks for it."""
+    found = problems(as_pages(doc))
+    if found:
+        raise HTTPException(422, detail={"problems": found})
+
+
+def check(doc: dict) -> None:
+    """Refuses a doc the editor could not open, and names what to fix. Anything else it stores
+    and logs: a sheet the editor opened saves back as it is, whatever an older build wrote."""
+    doc = as_pages(doc)
     # JSON has no NaN: stored, it comes back as null, which no later save gets past.
     try:
         json.dumps(doc, allow_nan=False)

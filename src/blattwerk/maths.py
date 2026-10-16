@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, model_validator
 
-from blattwerk.auth import User
+from blattwerk.auth import Teacher
 
 router = APIRouter(prefix="/api")
 
@@ -1220,5 +1220,5 @@ def generate(s: Settings) -> dict:
 
 
 @router.post("/maths")
-def maths(body: Settings, user: User) -> dict:
+def maths(body: Settings, user: Teacher) -> dict:
     return generate(body)
