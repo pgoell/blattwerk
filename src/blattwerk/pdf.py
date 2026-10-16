@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 from pypdf import PdfWriter
 
 from blattwerk import pictures, variants
-from blattwerk.auth import User
+from blattwerk.auth import Teacher
 from blattwerk.db import Con, Id
 from blattwerk.sheets import find
 from blattwerk.variants import LETTERS
@@ -80,7 +80,7 @@ def render(
 
 
 @router.get("/sheets/{sheet_id}/variante/{letter}")
-def variant(sheet_id: Id, letter: str, user: User, con: Con) -> dict:
+def variant(sheet_id: Id, letter: str, user: Teacher, con: Con) -> dict:
     # The sheet first: a stranger gets 404 whatever the letter, as for every call for an item.
     sheet = find(con, sheet_id, user)
     if letter not in list(LETTERS):
@@ -93,7 +93,7 @@ def variant(sheet_id: Id, letter: str, user: User, con: Con) -> dict:
 def pdf(
     sheet_id: Id,
     request: Request,
-    user: User,
+    user: Teacher,
     con: Con,
     solved: bool = False,
     varianten: Annotated[int, Query(ge=1, le=4)] = 1,
