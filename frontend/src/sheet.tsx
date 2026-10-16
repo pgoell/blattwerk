@@ -784,6 +784,17 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const fade = fadeOf(p);
   const rowMM = p.size * PT * (p.spacing ?? 1.3);
   const frameRef = useRef<HTMLDivElement>(null);
+  // The px from the frame's top where its whole lines end, when a line lies past the page's foot (see `cutAt`).
+  const [cut, setCut] = useState<number>();
+  useLayoutEffect(() => {
+    if (frameRef.current) setCut(cutAt(frameRef.current));
+  });
+  useLayoutEffect(() => {
+    const again = () => frameRef.current && setCut(cutAt(frameRef.current));
+    document.fonts.ready.then(again);
+    document.fonts.addEventListener("loadingdone", again);
+    return () => document.fonts.removeEventListener("loadingdone", again);
+  }, []);
   const [lines, setLines] = useState<number>();
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -862,6 +873,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       className={classes("frame", tints && "tinted", solved && "solved", width && "even", linked && "listed", tailed && "tailed", tight && "tight", inside && "inside")}
       data-trace={traceOf(p)}
       data-fade={fade}
+      data-cut={cut !== undefined ? "true" : undefined}
+      title={cut !== undefined ? "Text passt nicht ganz hinein" : undefined}
       style={{
         ...textStyle(p, k),
         ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
@@ -877,7 +890,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
+        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -955,6 +968,32 @@ function fitText(el: HTMLElement, least: number, high: number) {
   const past = (lowest() - bottom) / zoom;
   block.style.transform = was;
   return past > 1 ? past : 0;
+}
+// The px from a frame's top where its lines end whole, when a line lies past the page's foot: the lowest line that
+// lies wholly on the page. Measured level, as `fitText` measures it. Undefined when every line is on the page.
+function cutAt(el: HTMLElement) {
+  const paper = el.closest<HTMLElement>(".paper, .sheet");
+  if (!paper) return undefined;
+  const block = el.parentElement!;
+  const was = block.style.transform;
+  block.style.transform = "none";
+  const box = el.getBoundingClientRect();
+  const zoom = box.width / el.offsetWidth || 1;
+  const foot = (paper.getBoundingClientRect().bottom - box.top) / zoom;
+  let whole = 0;
+  let past = false;
+  for (const p of el.querySelectorAll<HTMLElement>("p")) {
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    for (const q of r.getClientRects()) {
+      if (q.width < 1 || q.height < 1) continue;
+      const bottom = (q.bottom - box.top) / zoom;
+      if (bottom <= foot + 0.5) whole = Math.max(whole, bottom);
+      else past = true;
+    }
+  }
+  block.style.transform = was;
+  return past ? whole : undefined;
 }
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
