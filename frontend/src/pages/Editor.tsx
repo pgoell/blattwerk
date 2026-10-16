@@ -359,6 +359,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const [editing, setEditing] = useState("");
   // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
   const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
+  // Whether the last press was a finger's, and where the handles of the picked table's range stand.
+  const [finger, setFinger] = useState(false);
+  const [grips, setGrips] = useState<{ corner: string; x: number; y: number }[]>([]);
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
@@ -939,6 +942,55 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A round circle stays round (#661): it grows as wide as high.
     const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
+  };
+  // With a finger, round handles stand at the top left and the bottom right of the picked cells, as on PowerPoint's
+  // iPad. Their place is the cells' in the table, on the sheet as the lines' handles are.
+  useLayoutEffect(() => {
+    const block = table && finger && editing === table.id ? sheet.current?.querySelector<HTMLElement>(`[data-id="${table.id}"]`) : null;
+    if (!table || !block) return void setGrips([]);
+    const offset = (el: HTMLElement) => {
+      let x = 0;
+      let y = 0;
+      for (let n: HTMLElement | null = el; n && n !== block; n = n.offsetParent as HTMLElement | null) {
+        x += n.offsetLeft;
+        y += n.offsetTop;
+      }
+      return [x, y];
+    };
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    const cellAt = (r: number, c: number) => block.querySelector<HTMLElement>(`.table > div[data-cell="${anchorOf(table.props, r * table.props.cols.length + c)}"]`);
+    const [first, last] = [cellAt(r0, c0), cellAt(r1, c1)];
+    if (!first || !last) return void setGrips([]);
+    const [x0, y0] = offset(first);
+    const [x1, y1] = offset(last);
+    setGrips([
+      { corner: "nw", x: x0, y: y0 },
+      { corner: "se", x: x1 + last.offsetWidth, y: y1 + last.offsetHeight },
+    ]);
+  }, [slot, reach, editing, table, finger]);
+  // The cell that stays while a handle is dragged: the corner across from it.
+  const gripFixed = useRef(0);
+  // A finger on a handle picks the cells from the corner across to the cell it lies over, as a mouse drag does. The
+  // open cell is that far corner's: the range is the open cell and `reach`.
+  const gripDown = (e: PointerEvent<HTMLElement>, corner: string) => {
+    if (!table) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    cellDrag.current = true;
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    gripFixed.current = anchorOf(table.props, corner === "nw" ? r1 * table.props.cols.length + c1 : r0 * table.props.cols.length + c0);
+  };
+  const gripMove = (e: PointerEvent<HTMLElement>) => {
+    if (!cellDrag.current || !table) return;
+    const over = document.elementsFromPoint(e.clientX, e.clientY).map((el) => el.closest<HTMLElement>("[data-cell]")).find((el) => el && el.closest(`[data-id="${table.id}"]`));
+    if (!over) return;
+    const at = anchorOf(table.props, +over.dataset.cell!);
+    if (gripFixed.current !== slot) setSlot(gripFixed.current);
+    setReach(at === gripFixed.current ? undefined : at);
+  };
+  const gripUp = () => {
+    cellDrag.current = false;
   };
   useEffect(() => {
     const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
@@ -3340,6 +3392,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       setEditing(id);
     }
     setSlot(cell ?? +(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
+    // A tap in a cell opens that cell alone, as a press of the mouse does: the cells picked before are let go.
+    setReach(undefined);
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -4080,7 +4134,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               window.addEventListener("pointercancel", let_go);
             }
             touch.current = e.pointerType === "touch";
-            cover.current = moveable.current!.isMoveableElement(e.target as Element);
+            setFinger(touch.current);
+            cover.current =moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
             held.current = false;
             // A press of the mouse on a cell of the table being edited picks cells. Moveable takes the focus from the
@@ -4331,6 +4386,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       />
                     )),
                   )}
+                  {/* Over the lines' handles, which run along the cells' edges where these stand. */}
+                  {table && grips.map((g) => (
+                    <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: table.x * k + g.x, top: table.y * k + g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
+                  ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {line &&
                     [false, true].map((end) => (

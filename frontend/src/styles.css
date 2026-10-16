@@ -566,6 +566,8 @@ body:has(.print) { background: #fff; }
 .block .table p { position: relative; flex: 1; min-width: 0; margin: auto 0; line-height: inherit; white-space: pre-wrap; overflow-wrap: break-word; overflow: visible; }
 /* The field lies over the text of its cell, which keeps the room. */
 .table > div.picked { background: rgb(0 103 244 / .18); }
+/* A finger's round handle at a corner of the picked range; the editor shows it only after a touch. */
+.cell-handle { position: absolute; z-index: 3001; width: 18px; height: 18px; border-radius: 50%; background: var(--sel); transform: translate(-50%, -50%); touch-action: none; }
 .table .open { visibility: hidden; }
 .table textarea { position: absolute; inset: 0; visibility: visible; height: 100%; text-align: inherit; }
 /* Silbenfarbe: a browser colours no syllable inside a field, so the cell's own text shows in its colours and the
