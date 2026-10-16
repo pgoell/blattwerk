@@ -4,7 +4,7 @@ title: Dein erstes Blatt mit Claude
 description: For teachers, in German. From a Blattomat account to a first worksheet that Claude makes, in short steps.
 tags: [tutorial, lehrkraft, claude-desktop]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-16T00:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-16T21:30:00Z }
 ---
 
 # Dein erstes Blatt mit Claude
@@ -30,19 +30,20 @@ Der Schlüssel erlaubt Claude, in deinem Blattomat-Konto Blätter anzulegen und 
 
 Gib den Schlüssel niemandem weiter. Ist er weg oder in falschen Händen, klick daneben auf **Widerrufen** und mach einen neuen.
 
-## Schritt 3: Blattomat in Claude Desktop eintragen
+## Schritt 3: Die Erweiterung installieren
 
-Diesen Schritt kannst du noch nicht allein mit einem Klick machen. Das Einrichten braucht heute eine Person mit etwas Technikwissen und Zugriff auf deinen Computer. Gib ihr deinen Schlüssel aus Schritt 2 und diese Seite.
+Blattomat gibt es für Claude Desktop als Erweiterung. Du installierst sie einmal.
 
-> Für die Person, die einrichtet: Der Server liegt im Repository unter `frontend/mcp/stdio.ts` und braucht Node 22.18 oder neuer und `npm ci --prefix frontend`. Trag `node` mit seinem vollen Pfad ein, da Claude Desktop den Pfad der Shell nicht kennt. In Claude Desktop unter Einstellungen, Entwickler, Konfiguration bearbeiten:
->
-> ```json
-> {"mcpServers": {"blattomat": {"command": "node", "args": ["<Pfad zum Repository>/frontend/mcp/stdio.ts"], "env": {"BLATTWERK_TOKEN": "<Schlüssel>"}}}}
-> ```
->
-> Danach Claude Desktop ganz beenden und neu öffnen.
+1. Geh in Blattomat auf **Konto** und klick auf den Link **Erweiterung für Claude Desktop herunterladen**.
+2. Die Datei heißt `blattomat.mcpb` und liegt danach in deinem Ordner **Downloads**.
+3. Doppelklick auf die Datei. Claude Desktop öffnet sich mit einer Seite zum Installieren.
 
-Wenn es geklappt hat, siehst du in Claude Desktop unter dem Eingabefeld bei den Werkzeugen den Eintrag **blattomat**.
+Klappt das Doppelklicken nicht, zieh die Datei in das Fenster von Claude Desktop. Oder klick in Claude Desktop auf **Einstellungen (Settings)**, dann **Erweiterungen (Extensions)**, dann **Erweiterte Einstellungen (Advanced settings)** und **Erweiterung installieren (Install Extension)**. Wähl dort die Datei aus.
+
+4. Auf der Installationsseite trägst du unter **API-Schlüssel** den Schlüssel aus Schritt 2 ein. Lass **Adresse** so, wie sie ist.
+5. Klick auf **Installieren (Install)**.
+
+Hat es geklappt, steht **Blattomat** in der Liste der Erweiterungen (Extensions) in Claude Desktop.
 
 ## Schritt 4: Dein erstes Blatt
 
@@ -58,3 +59,5 @@ Gefällt dir etwas nicht, sag es Claude in einem Satz: „Mach die Schrift grö�
 
 - Was du Claude schreibst und was auf dem Blatt steht, geht an Anthropic, die Firma hinter Claude. Schreib keine Namen oder anderen Angaben von Kindern hinein.
 - Schließ ein Blatt im Editor, solange Claude daran arbeitet. Ändert ihr beide zugleich, kommt eine der beiden Änderungen nicht durch.
+- Der Schlüssel liegt auf deinem Computer. Claude Desktop speichert ihn in der sicheren Ablage des Betriebssystems: im Schlüsselbund bei macOS, in der Anmeldeinformationsverwaltung bei Windows.
+- Willst du aufhören, entfern die Erweiterung in Claude Desktop. Dann widerrufst du den Schlüssel unter **Konto** mit **Widerrufen**.
