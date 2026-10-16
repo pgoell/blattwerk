@@ -498,6 +498,20 @@ def test_a_lazy_picture_is_taken_by_the_address_it_shows_not_its_placeholder(edi
     assert [b["id"] for b in saved(page, client)] == ["a"]
 
 
+def test_a_picture_in_a_link_lands_by_its_own_address(editor):
+    # Review: a thumbnail in a link hands over the link's address; its <img> holds the picture.
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    items = [
+        ("text/uri-list", "https://example.org/seite"),
+        ("text/html", f'<a href="https://example.org/seite"><img src="{data_png()}"></a>'),
+    ]
+    assert drop_items(page, *spot(page, 105, 150), *items) == KEPT
+    landed(page, 2)
+    [held] = new(saved(page, client), "a")
+    assert held["type"] == "image"
+
+
 def test_a_link_that_is_no_picture_adds_nothing(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)

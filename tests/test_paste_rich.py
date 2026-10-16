@@ -194,6 +194,35 @@ def test_an_empty_paragraph_between_words_stays_a_line(editor):
     assert pasted(page, client, "oben")["props"]["text"] == "oben\n\nunten"
 
 
+def test_a_picture_between_paragraphs_makes_no_empty_line(editor):
+    # Review: a web article's figures drop, and leave no blank line behind.
+    client = user()
+    page = editor(client=client)
+    html = '<p>imA</p><figure><img src="x.png"></figure><div><img src="y.png"></div><p>imB</p>'
+    paste(page, html, "imA\nimB")
+    assert pasted(page, client, "imA")["props"]["text"] == "imA\nimB"
+
+
+def test_a_google_docs_empty_line_stays(editor):
+    # Review: Google Docs writes an empty paragraph as a bare <br> between its paragraphs.
+    client = user()
+    page = editor(client=client)
+    html = '<b style="font-weight:normal" id="docs-internal-guid-1"><p>gdA</p><br><p>gdB</p></b>'
+    paste(page, html, "gdA\n\ngdB")
+    assert pasted(page, client, "gdA")["props"]["text"] == "gdA\n\ngdB"
+
+
+def test_a_word_numbered_heading_keeps_its_number(editor):
+    # Review: Word numbers a heading as a list item, with its number in a span it ignores.
+    client = user()
+    page = editor(client=client)
+    marker = '<span style="mso-list:Ignore">1.<span>&nbsp;</span></span>'
+    paste(page, f'<h1 style="mso-list:l0 level1 lfo1">{marker}Kapitel</h1>', "1. Kapitel")
+    block = pasted(page, client, "Kapitel")
+    assert block["props"]["rich"][0]["list"] == "number"
+    assert block["props"]["text"] == "Kapitel"
+
+
 def test_hidden_text_does_not_come_along(editor):
     client = user()
     page = editor(client=client)

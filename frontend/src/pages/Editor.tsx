@@ -2198,10 +2198,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const WEB_PICTURE = "Ein Bild von einer Webseite lässt sich nicht hereinziehen. Kopiere es dort und füge es hier mit Strg+V ein, oder speichere es und ziehe die Datei herein.";
   function dropLink(data: DataTransfer, left: number, top: number) {
     const html = data.getData("text/html");
-    const img = html ? new DOMParser().parseFromString(html, "text/html").querySelector("img")?.getAttribute("src") : null;
-    const uri = data.getData("text/uri-list").split("\n").find((line) => line && !line.startsWith("#"));
-    // The address the browser hands over is the picture shown: a lazy picture's `src` may be a blank placeholder.
-    const address = img ? (uri ?? img) : uri?.startsWith("data:image/") ? uri : undefined;
+    const pic = html ? new DOMParser().parseFromString(html, "text/html").querySelector("img") : null;
+    const img = pic?.getAttribute("src");
+    const uri = data.getData("text/uri-list").split(/\r?\n/).find((line) => line && !line.startsWith("#"));
+    // The address the browser hands over is the picture shown: a lazy picture's `src` may be a blank placeholder. A
+    // picture in a link hands over the link's address instead: then its <img> tells.
+    const address = uri?.startsWith("data:image/") || (uri && pic && !pic.closest("a[href]")) ? uri : (img ?? undefined);
     if (!address) return;
     const read = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=]+)$/.exec(address);
     if (!read) return attempt(WEB_PICTURE, () => Promise.reject(), () => WEB_PICTURE);

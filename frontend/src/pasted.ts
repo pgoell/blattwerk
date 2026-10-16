@@ -39,10 +39,12 @@ function wordList(el: Element): { list: List; level: number } | undefined {
 // The list a text stands in: its closest item, as a bullet or a number, nested two deep at most. A paragraph the
 // editor's field copied carries its list in data-list and data-level.
 function listOf(el: Element): { list?: List; level?: number } {
-  const item = el.closest("li, p[data-list], p[style*='mso-list']");
+  // Word marks a list item, a numbered heading too, by its style.
+  const item = el.closest("li, p[data-list], [style*='mso-list' i]");
   if (!item) return {};
   const word = wordList(item);
   if (word) return word;
+  if (item.tagName !== "P" && item.tagName !== "LI") return {};
   if (item.tagName === "P") {
     const list = (item as HTMLElement).dataset.list;
     const level = Math.min(2, +((item as HTMLElement).dataset.level ?? 0) || 0);
@@ -87,7 +89,11 @@ export function parasFromHtml(html: string): Para[] {
     // Hidden text and Word's list markers, which the list shows instead, are no part of the words.
     if (SKIP.has(tag) || el.style.display === "none" || /mso-hide:\s*all/i.test(el.getAttribute("style") ?? "")) return;
     if (/mso-list:\s*ignore/i.test(el.getAttribute("style") ?? "")) return;
-    if (tag === "BR") return brk();
+    // A break with no line open is an empty line, as Google Docs writes one between paragraphs.
+    if (tag === "BR") {
+      if (!open && paras.length) paras.push({ runs: [] });
+      return brk();
+    }
     const block = BLOCK.has(tag);
     // A mark the element sets wins over the one it inherits; what it does not set it keeps.
     const next: Marks = { ...marks };
@@ -108,7 +114,8 @@ export function parasFromHtml(html: string): Para[] {
     if (block) {
       brk();
       // A paragraph with no words is an empty line, as in the plain text. Word's own paragraph ends make no line of theirs.
-      if (paras.length === started && /^(P|DIV|H[1-6]|BLOCKQUOTE)$/.test(tag)) paras.push({ runs: [] });
+      // One that holds a picture or a figure only is no line typed.
+      if (paras.length === started && /^(P|DIV)$/.test(tag) && !el.querySelector("img, svg, picture, video, iframe, object, canvas")) paras.push({ runs: [] });
     }
   };
   walk(body, {});
