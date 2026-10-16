@@ -2,7 +2,6 @@
   "manifest_version": "0.3",
   "name": "blattomat",
   "display_name": "Blattomat",
-  "version": "0.1.0",
   "description": "Claude legt Arbeitsblätter in deinem Blattomat-Konto an und ändert sie.",
   "author": {
     "name": "Pascal Goellner"
