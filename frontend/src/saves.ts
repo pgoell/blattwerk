@@ -46,9 +46,9 @@ type Saver = {
   // Unsaved for over a second.
   late: boolean;
   // The clocks: to the next save, to `late`, and to the store, which has each change within a second.
-  timer?: number;
-  slow?: number;
-  note?: number;
+  timer?: ReturnType<typeof setTimeout>;
+  slow?: ReturnType<typeof setTimeout>;
+  note?: ReturnType<typeof setTimeout>;
   idle: (() => void)[];
 };
 // What the browser keeps of an unsaved change, for the next visit. `title` only where it changed here, `sent` only
