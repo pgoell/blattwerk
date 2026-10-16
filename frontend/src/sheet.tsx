@@ -3271,7 +3271,7 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         <PageNumber doc={all} page={page} />
         {all.pages[page].blocks.map((b) => (
-          <div key={b.id} className="block" style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
+          <div key={b.id} className="block" data-block={b.id} style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />
             {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
             <Mark block={b} k={K} n={ns.get(b.id)} />

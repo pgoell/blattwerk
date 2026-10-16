@@ -145,6 +145,8 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
       if (!now) return setFailed("Die Varianten konnten nicht geladen werden.");
       setGot(now);
       if (shorts(count, doc, now)[0]) return;
+      // The variants were asked for once, at the load: the server may hold an older sheet than the editor shows now.
+      const current = await flush(id);
       await ask("/me");
       const query = `varianten=${count}&buchstaben=${letters}${key ? "&solved=true" : ""}`;
       const res = await signed(fetch(`/api/sheets/${id}/pdf?${query}`));
@@ -160,6 +162,8 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
       link.click();
       // After the browser has taken the file.
       setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      // Shown in the dialog, which stays open: the teacher can read it before shutting.
+      if (!current) setFailed("Die Varianten zeigen den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
     } catch (e) {
       // A lost session brings the login, which takes the dialog away.
       const s = (e as Error).message;

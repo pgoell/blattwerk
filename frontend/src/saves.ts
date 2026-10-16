@@ -444,15 +444,21 @@ export async function discard(id: number) {
 
 // Waits for the save under way, which may hold an older document, then sends what is unsaved and waits for that:
 // until it landed, failed, or was given up after 20 s. A save that fails is not waited for again.
+// True when the server holds the document the editor had at the call, once the waits are over. The title does not count:
+// the server names the file, and the document is what prints.
 export async function flush(id: number) {
   const s = savers.get(id);
-  if (!s) return;
+  if (!s) return true;
+  const asked = s.want;
   const idle = () => s.out && new Promise<void>((done) => s.idle.push(done));
   const failed = s.tries;
   await idle();
-  if (s.tries > failed) return;
+  if (s.tries > failed) return false;
   send(s);
+  const went = s.out;
   await idle();
+  // The server holds the doc of the press, or a newer one this flush sent.
+  return same(s.saved.doc, asked.doc) || (!!went && s.saved === went);
 }
 
 // The account is known: at the app's start, a login or a logout. Another account's savers leave this window, their
