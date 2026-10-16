@@ -101,6 +101,13 @@ def test_lists_the_seven_tools(server, tmp_path):
                 "duplicate_sheet",
                 "replace_doc",
                 "render_preview",
+                "add_block",
+                "update_block",
+                "move_block",
+                "delete_block",
+                "add_page",
+                "set_page",
+                "set_words",
             ]
         )
     finally:

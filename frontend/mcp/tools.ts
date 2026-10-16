@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import type { Api } from "./api.ts";
+import { INSERTS, MATHS, grown, topZ } from "../src/insert.ts";
+import { fresh } from "../src/history.ts";
 import { mathsHeight } from "../src/height.ts";
+import { sizeOf } from "../src/sheet.tsx";
+import { follow } from "../src/words.ts";
 import type { MathsProps } from "../src/sheet.tsx";
 
 export const INSTRUCTIONS = readFileSync(new URL("./instructions.md", import.meta.url), "utf8");
@@ -12,13 +16,15 @@ export type ToolResult = { content: Content; isError?: boolean };
 
 const TOKEN_MESSAGE = "The Blattomat token is not valid: make a new one on the account page.";
 // The block types the MCP server writes. The others stay in the schema for the editor, not for Claude.
-const KEPT_BLOCKS = ["text", "maths", "ruling"];
+const KEPT_BLOCKS = ["text", "shape", "ruling", "name", "points", "symbol", "image", "maths", "table", "suchsel", "zahlenmauer", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"];
 // The settings the server's /api/maths takes, read from a block's props.
 const MATHS_KEYS = [
   "ops", "max", "count", "seed", "a", "b", "c", "carry", "rest", "format", "sides", "close", "equal",
   "numbers", "pvs", "brackets", "decimals", "money", "af", "bf", "cf", "family", "moves", "gaps", "zero",
   "one", "distinct", "small",
 ];
+// The types a Block's `props` may take, each with the seed it is drawn with when added.
+const SEEDED = ["suchsel", "zahlenmauer", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"] as const;
 
 // An error the teacher's Claude reads as the tool's answer.
 class Fail extends Error {}
@@ -52,6 +58,30 @@ export function docDefinitions(schema: any): Record<string, any> {
   return Object.fromEntries(Object.entries(defs).filter(([name]) => seen.has(name)));
 }
 
+// The props of each block type as the tools take them: the schema's `<Type>Props` with `required` removed, since
+// Claude sends partial props. Returns the anyOf variants and the definitions they point at.
+function propsSchema(schema: any) {
+  // docDefinitions makes the list types draft 2020-12, so the copies here are valid too.
+  const defs = docDefinitions(schema);
+  const own: Record<string, any> = {};
+  const variants = defs.Block.allOf
+    .filter((e: any) => KEPT_BLOCKS.includes(e.if.properties.type.const))
+    .map((e: any) => {
+      const props = defs[e.then.$ref.slice("#/definitions/".length)].properties.props;
+      // Some types keep their props inline in the Block definition, not in a `<Type>Props` one.
+      if (typeof props.$ref !== "string") return withoutRequired(props);
+      const name = props.$ref.slice("#/definitions/".length);
+      own[name] = withoutRequired(defs[name]);
+      return { $ref: props.$ref };
+    });
+  return { variants, definitions: own };
+}
+
+function withoutRequired(schema: any) {
+  const { required: _required, ...rest } = schema;
+  return rest;
+}
+
 // The server's own messages: a FastAPI list of {msg}, a {problems} list, or a plain detail text.
 function problems(body: any): string[] {
   const detail = body?.detail;
@@ -65,10 +95,16 @@ function pick(sheet: any) {
   return { id: sheet.id, title: sheet.title, version: sheet.version, doc: sheet.doc };
 }
 
+// A block's box, and whether two boxes meet.
+const boxOf = (b: any) => ({ x: b.x, y: b.y, w: b.w, h: b.h });
+const meets = (a: any, b: any) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
 export function tools(api: Api) {
   const bases = new Map<number, Base>();
   const schema = JSON.parse(readFileSync(new URL("../../src/blattwerk/sheet.schema.json", import.meta.url), "utf8"));
   const docDefs = docDefinitions(schema);
+  const props = propsSchema(schema);
+  const blockTypes = schema.definitions.Block.properties.type.enum;
 
   // Any answer that is not a success becomes an error for the teacher's Claude, or throws.
   function expectOk(r: { status: number; body: any }, sheetId?: number) {
@@ -84,25 +120,71 @@ export function tools(api: Api) {
     return sheet;
   }
 
+  const stale = (had: number, now: number) =>
+    `The teacher changed this sheet in the editor since you read it (you had version ${had}, it is now ${now}). Nothing was written. Call get_sheet and make your change on the new doc.`;
+
+  // The one write path of the fine tools: read the sheet, check the version, change a fresh copy, PATCH it strictly.
+  async function edit(tool: string, id: number, version: number, change: (doc: any) => any): Promise<{ version: number; out: any }> {
+    const cur = pick(expectOk(await api.send("GET", `/sheets/${id}`), id));
+    if (cur.version !== version) throw new Fail(stale(version, cur.version));
+    const doc = structuredClone(cur.doc);
+    const out = await change(doc);
+    const r = await api.send("PATCH", `/sheets/${id}?strict=true`, { doc, version });
+    if (r.status === 409) throw new Fail(stale(version, (await readSheet(id)).version));
+    if (r.status === 422) throw new Fail(`${problems(r.body).join("\n")}\nFix these and call ${tool} again.`);
+    expectOk(r, id);
+    return { version: (await readSheet(id)).version, out };
+  }
+
+  function pageAt(doc: any, n: number) {
+    const count = doc.pages.length;
+    if (!Number.isInteger(n) || n < 1 || n > count) throw new Fail(`No page ${n}. The sheet has ${count} pages.`);
+    return doc.pages[n - 1];
+  }
+
+  function locate(doc: any, id: string) {
+    for (const [i, page] of doc.pages.entries()) {
+      const b = page.blocks.find((o: any) => o.id === id);
+      if (b) return { n: i + 1, page, b };
+    }
+    const ids = doc.pages.flatMap((p: any) => p.blocks.map((o: any) => o.id));
+    throw new Fail(`No block with id ${id}. The sheet's blocks: ${ids.length ? ids.join(", ") : "none"}.`);
+  }
+
+  // Warnings for block `b` on page `n`: what it meets and whether it leaves the page.
+  function warnings(doc: any, n: number, b: any): string[] {
+    const [W, H] = sizeOf(doc, n - 1);
+    const out: string[] = [];
+    if (b.x < 0 || b.y < 0 || b.x + b.w > W || b.y + b.h > H) out.push("leaves the page");
+    for (const o of doc.pages[n - 1].blocks) if (o.id !== b.id && meets(boxOf(o), boxOf(b))) out.push(`overlaps block ${o.id}`);
+    return out;
+  }
+
+  // The height and the exercises of a maths block, from the server (or kept when it has its own exercises).
+  async function makeMaths(b: any, seedless = false) {
+    const p = b.props;
+    p.carry ??= "either";
+    p.rest ??= false;
+    p.format ??= "row";
+    p.columns ??= 4;
+    p.size ??= 14;
+    if (seedless || p.seed === undefined) p.seed = Math.floor(Math.random() * 2 ** 31);
+    const settings: Record<string, unknown> = {};
+    for (const key of MATHS_KEYS) if (p[key] !== undefined) settings[key] = p[key];
+    const r = await api.send("POST", "/maths", settings);
+    if (r.status === 422) throw new Fail(`maths block ${b.id}:\n${problems(r.body).join("\n")}`);
+    const made = expectOk(r);
+    p.exercises = made.exercises;
+    p.loosen = made.loosen;
+    b.h = mathsHeight(p as MathsProps);
+  }
+
   async function fillMaths(doc: any) {
     for (const page of doc.pages ?? []) {
       for (const block of page.blocks ?? []) {
         if (block.type !== "maths" || block.props?.exercises?.length) continue;
-        const p = block.props;
-        p.carry ??= "either";
-        p.rest ??= false;
-        p.format ??= "row";
-        p.columns ??= 4;
-        p.size ??= 14;
-        p.seed ??= Math.floor(Math.random() * 2 ** 31);
-        const settings: Record<string, unknown> = {};
-        for (const key of MATHS_KEYS) if (p[key] !== undefined) settings[key] = p[key];
-        const r = await api.send("POST", "/maths", settings);
-        if (r.status === 422) throw new Fail(`maths block ${block.id}:\n${problems(r.body).join("\n")}`);
-        const made = expectOk(r);
-        p.exercises = made.exercises;
-        p.loosen = made.loosen;
-        block.h = mathsHeight(p as MathsProps);
+        if (Object.keys(block.props ?? {}).length === 0) block.props = { ...MATHS.limits(Math.floor(Math.random() * 2 ** 31)), ...MATHS.look };
+        await makeMaths(block);
       }
     }
   }
@@ -147,6 +229,132 @@ export function tools(api: Api) {
     return text(await readSheet(made.id));
   }
 
+  // A picture of this teacher's upload, sized as the editor's `sent()` sizes it: 100 mm wide, or less to keep its ratio.
+  async function picture(upload: unknown) {
+    const r = await api.bytes(`/uploads/${upload}`);
+    if (r.status === 404) throw new Fail(`No upload with id ${upload}.`);
+    if (r.status !== 200) throw new Fail(`Upload ${upload} could not be read.`);
+    const [width, height] = dimensions(Buffer.from(r.body, "base64"));
+    const ratio = width / height;
+    const w = Math.round(Math.min(100, 100 * ratio) * 100) / 100;
+    return { w, h: Math.round((w / ratio) * 100) / 100, type: "image", props: { upload, ratio, cut: [0, 0, 0, 0] } };
+  }
+
+  // A new block of `type` as the editor's insert button makes it, its props laid on as the panel does.
+  async function newBlock(args: any, doc: any, page: any) {
+    const type: string = args.type;
+    const seed = args.props?.seed ?? Math.floor(Math.random() * 2 ** 31);
+    const base: any =
+      type === "image" ? await picture(args.props?.upload)
+      : type === "text" ? INSERTS.text()
+      : type === "shape" ? INSERTS.shape(args.props?.kind ?? "rect")
+      : type === "ruling" ? INSERTS.ruling()
+      : type === "name" ? INSERTS.name()
+      : type === "points" ? INSERTS.points()
+      : type === "symbol" ? INSERTS.symbol()
+      : type === "table" ? INSERTS.table()
+      : type === "maths" ? { w: MATHS.w, h: 10, type: "maths", props: { ...MATHS.limits(seed), ...MATHS.look } }
+      : (SEEDED as readonly string[]).includes(type) ? (INSERTS as any)[type](seed)
+      : undefined;
+    if (!base) throw new Fail(`Type ${type} is not one the tools add.`);
+    const b: any = { id: crypto.randomUUID(), type, x: args.x, y: args.y, w: base.w, h: base.h, z: topZ(page.blocks), locked: false, props: base.props };
+    const next = { ...b, props: { ...b.props, ...fresh(b, args.props ?? {}) } };
+    if (type === "maths") await makeMaths(next);
+    else Object.assign(next, grown(b, next, doc, sizeOf(doc, doc.pages.indexOf(page))[1]));
+    return { ...next, x: args.x, y: args.y, w: args.w ?? next.w, h: args.h ?? next.h };
+  }
+
+  // Lays the props of a change on a block as the editor's panel does; a maths block whose settings change gets new exercises.
+  async function patched(doc: any, b: any, changes: object) {
+    const next = { ...b, props: { ...b.props, ...fresh(b, changes) } };
+    const H = sizeOf(doc, doc.pages.findIndex((p: any) => p.blocks.includes(b)))[1];
+    if (b.type === "maths") {
+      const changed = Object.keys(changes).some((key) => (b.props as any)[key] !== (changes as any)[key]);
+      if (changed) {
+        next.props = { ...next.props, exercises: undefined, loosen: undefined };
+        await makeMaths(next, true);
+      }
+      return next;
+    }
+    return { ...next, ...grown(b, next, doc, H) };
+  }
+
+  async function addBlock(args: any): Promise<Content> {
+    const { version, out } = await edit("add_block", args.sheet_id, args.version, async (doc: any) => {
+      const page = pageAt(doc, args.page);
+      const b = await newBlock(args, doc, page);
+      page.blocks.push(b);
+      return { block: b, warnings: warnings(doc, args.page, b) };
+    });
+    return text({ version, block: out.block, warnings: out.warnings });
+  }
+
+  async function updateBlock(args: any): Promise<Content> {
+    const { version, out } = await edit("update_block", args.sheet_id, args.version, async (doc: any) => {
+      const { n, page, b } = locate(doc, args.block_id);
+      if (b.locked) throw new Fail(`Block ${b.id} is locked. Nothing was written.`);
+      const next = await patched(doc, b, args.props ?? {});
+      page.blocks[page.blocks.indexOf(b)] = next;
+      return { block: next, warnings: warnings(doc, n, next) };
+    });
+    return text({ version, block: out.block, warnings: out.warnings });
+  }
+
+  async function moveBlock(args: any): Promise<Content> {
+    const { version, out } = await edit("move_block", args.sheet_id, args.version, async (doc: any) => {
+      const { n, b } = locate(doc, args.block_id);
+      if (b.locked) throw new Fail(`Block ${b.id} is locked. Nothing was written.`);
+      Object.assign(b, { x: args.x, y: args.y, ...(args.w !== undefined && { w: args.w }), ...(args.h !== undefined && { h: args.h }) });
+      return { block: b, warnings: warnings(doc, n, b) };
+    });
+    return text({ version, block: out.block, warnings: out.warnings });
+  }
+
+  async function deleteBlock(args: any): Promise<Content> {
+    const { version } = await edit("delete_block", args.sheet_id, args.version, (doc: any) => {
+      const { page, b } = locate(doc, args.block_id);
+      if (b.locked) throw new Fail(`Block ${b.id} is locked. Nothing was written.`);
+      page.blocks.splice(page.blocks.indexOf(b), 1);
+    });
+    return text({ version, deleted: args.block_id, warnings: [] });
+  }
+
+  async function addPage(args: any): Promise<Content> {
+    const { version, out } = await edit("add_page", args.sheet_id, args.version, (doc: any) => {
+      const after = args.after ?? doc.pages.length;
+      if (!Number.isInteger(after) || after < 0 || after > doc.pages.length) throw new Fail(`No page ${after}. The sheet has ${doc.pages.length} pages.`);
+      doc.pages.splice(after, 0, { blocks: [] });
+      return after + 1;
+    });
+    return text({ version, page: out, warnings: [] });
+  }
+
+  async function setPage(args: any): Promise<Content> {
+    const { version, out } = await edit("set_page", args.sheet_id, args.version, (doc: any) => {
+      const page = pageAt(doc, args.page);
+      if (args.landscape !== undefined) page.landscape = args.landscape;
+      if (args.grid !== undefined) doc.grid = args.grid;
+      if (args.guides !== undefined) page.guides = args.guides;
+      const found = new Set<string>();
+      for (const b of page.blocks) for (const w of warnings(doc, args.page, b)) found.add(w);
+      return [...found];
+    });
+    return text({ version, page: args.page, warnings: out });
+  }
+
+  async function setWords(args: any): Promise<Content> {
+    const { version, out } = await edit("set_words", args.sheet_id, args.version, (doc: any) => {
+      // An empty list is sent as is: the server stores no list for it, and a missing key would keep the stored one.
+      doc.words = args.words;
+      doc.pages.forEach((page: any, i: number) => {
+        const [W, H] = sizeOf(doc, i);
+        page.blocks = follow(page.blocks, args.words, W, H);
+      });
+      return args.words;
+    });
+    return text({ version, words: out, warnings: [] });
+  }
+
   async function previewPng(args: any): Promise<Content> {
     const id: number = args.sheet_id;
     const page = args.page ?? 1;
@@ -167,6 +375,8 @@ export function tools(api: Api) {
     throw new Fail(r.body);
   }
 
+  const id = { type: "integer" };
+  const version = { type: "integer", description: "the version get_sheet or the last write gave" };
   const defs: ToolDef[] = [
     {
       name: "list_sheets",
@@ -221,6 +431,104 @@ export function tools(api: Api) {
       },
     },
     {
+      name: "add_block",
+      description:
+        "Add a block to a page. Warnings: `overlaps block <id>` means it meets that block; `leaves the page` means it goes past the page's edge.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sheet_id: id,
+          version,
+          page: { type: "integer", minimum: 1, description: "1-based" },
+          type: { enum: blockTypes },
+          props: { anyOf: props.variants, description: "the block's settings; partial is fine" },
+          x: { type: "number" },
+          y: { type: "number" },
+          w: { type: "number" },
+          h: { type: "number" },
+        },
+        required: ["sheet_id", "version", "page", "type", "x", "y"],
+        definitions: { ...docDefs, ...props.definitions },
+      },
+    },
+    {
+      name: "update_block",
+      description:
+        "Change a block's props. Warnings mean as for add_block. A locked block is refused.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sheet_id: id,
+          version,
+          block_id: { type: "string" },
+          props: { anyOf: props.variants, description: "the props to change" },
+        },
+        required: ["sheet_id", "version", "block_id", "props"],
+        definitions: { ...docDefs, ...props.definitions },
+      },
+    },
+    {
+      name: "move_block",
+      description: "Move or resize a block. Warnings mean as for add_block. A locked block is refused.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sheet_id: id,
+          version,
+          block_id: { type: "string" },
+          x: { type: "number" },
+          y: { type: "number" },
+          w: { type: "number" },
+          h: { type: "number" },
+        },
+        required: ["sheet_id", "version", "block_id", "x", "y"],
+      },
+    },
+    {
+      name: "delete_block",
+      description: "Remove a block. A locked block is refused.",
+      inputSchema: {
+        type: "object",
+        properties: { sheet_id: id, version, block_id: { type: "string" } },
+        required: ["sheet_id", "version", "block_id"],
+      },
+    },
+    {
+      name: "add_page",
+      description: "Add an empty page after page `after` (1-based), by default at the end.",
+      inputSchema: {
+        type: "object",
+        properties: { sheet_id: id, version, after: { type: "integer", minimum: 0 } },
+        required: ["sheet_id", "version"],
+      },
+    },
+    {
+      name: "set_page",
+      description: "Set a page's orientation, its guide lines, or the sheet's grid in mm. Warns of blocks that leave the page.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          sheet_id: id,
+          version,
+          page: { type: "integer", minimum: 1 },
+          landscape: { type: "boolean" },
+          grid: { type: "number", description: "the sheet's grid in mm" },
+          guides: schema.definitions.Guides,
+        },
+        required: ["sheet_id", "version", "page"],
+      },
+    },
+    {
+      name: "set_words",
+      description:
+        "Set the sheet's word list (doc.words; an empty list removes it). Linked rulings grow a row per word. Warnings: none.",
+      inputSchema: {
+        type: "object",
+        properties: { sheet_id: id, version, words: { type: "array", items: { type: "string" } } },
+        required: ["sheet_id", "version", "words"],
+      },
+    },
+    {
       name: "render_preview",
       description: "Look at one page of a worksheet as a PNG.",
       inputSchema: {
@@ -256,6 +564,20 @@ export function tools(api: Api) {
       }
       case "replace_doc":
         return replaceDoc(args);
+      case "add_block":
+        return addBlock(args);
+      case "update_block":
+        return updateBlock(args);
+      case "move_block":
+        return moveBlock(args);
+      case "delete_block":
+        return deleteBlock(args);
+      case "add_page":
+        return addPage(args);
+      case "set_page":
+        return setPage(args);
+      case "set_words":
+        return setWords(args);
       case "render_preview":
         return previewPng(args);
       default:
@@ -278,6 +600,25 @@ export function tools(api: Api) {
   }
 
   return { list: defs, call };
+}
+
+// Width and height in pixels from a picture's header: PNG, GIF or JPEG.
+function dimensions(buf: Buffer): [number, number] {
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+  if (buf.subarray(0, 3).toString("latin1") === "GIF") return [buf.readUInt16LE(6), buf.readUInt16LE(8)];
+  if (buf[0] === 0xff && buf[1] === 0xd8) {
+    let at = 2;
+    while (at + 9 < buf.length) {
+      if (buf[at] !== 0xff) throw new Fail("The picture's header is broken.");
+      const marker = buf[at + 1];
+      // The frame headers (SOF0 to SOF15, but not DHT, JPG and DAC) hold the size.
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+        return [buf.readUInt16BE(at + 7), buf.readUInt16BE(at + 5)];
+      at += 2 + buf.readUInt16BE(at + 2);
+    }
+  }
+  throw new Fail("The picture is not a PNG, GIF or JPEG.");
 }
 
 function text(value: unknown): Content {
