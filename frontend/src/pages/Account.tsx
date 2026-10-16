@@ -25,7 +25,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
     setTheme(to);
   }
 
-  const load = () => attempt("Die Schlüssel konnten nicht geladen werden.", () => signed(api<Token[]>("/tokens")).then(setTokens));
+  // Quiet when it fails: the list is not what the teacher came for, and the next make or revoke loads it again.
+  const load = () => signed(api<Token[]>("/tokens")).then(setTokens, () => {});
 
   useEffect(() => {
     load();

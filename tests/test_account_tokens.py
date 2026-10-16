@@ -92,6 +92,23 @@ def test_a_blank_name_makes_nothing(account):
     expect(page.get_by_role("listitem")).to_have_count(0)
 
 
+def test_a_list_that_fails_to_load_raises_no_alert(browser, server):
+    context = browser.new_context()
+    cookie = {"name": "session", "value": user().cookies["session"], "url": server}
+    context.add_cookies([cookie])
+    page = context.new_page()
+    # Offline as the account page opens: the alert stays free for what the teacher does.
+    page.route("**/api/tokens", lambda route: route.abort())
+    page.goto(f"{server}/konto")
+    expect(page.get_by_role("button", name="Abmelden")).to_be_visible()
+    page.wait_for_load_state("networkidle")
+    expect(page.get_by_role("alert")).to_have_count(0)
+    page.unroute("**/api/tokens")
+    make(page, "Danach")
+    expect(row(page, "Danach")).to_be_visible()
+    context.close()
+
+
 def test_newest_key_comes_first(account):
     page = account(user())
     make(page, "Erster")
