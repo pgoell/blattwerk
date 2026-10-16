@@ -110,7 +110,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, frameOf, has, hull, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
+import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
 import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
@@ -2595,7 +2595,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A thing lines up by the box around its outlines, a turned block's too, and moves whole.
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    const boxes = things.map((t) => bounds(t.map(outline)));
+    const boxes = things.map((t) => bounds(t.map(inked)));
     // One thing lines up with the page. Several do so with each other, or with the page when the switch says so.
     const lo = among ? Math.min(...boxes.map((b) => b[axis])) : 0;
     const hi = among ? Math.max(...boxes.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
@@ -2621,7 +2621,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
-    const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
+    const row = things.map((t) => ({ t, box: bounds(t.map(inked)) })).sort((a, b) => a.box[axis] - b.box[axis]);
     // Between the outer things, or between the page's edges. One thing goes to the middle of the frame.
     const lo = among ? Math.min(...row.map((r) => r.box[axis])) : 0;
     const hi = among ? Math.max(...row.map((r) => r.box[axis] + r.box[size])) : axis === "x" ? W : H;
