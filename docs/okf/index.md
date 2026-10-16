@@ -4,7 +4,7 @@ okf_version: "0.2"
 
 # Blattomat
 
-Blattomat makes worksheets (Arbeitsblätter) for German primary school (Grundschule). A teacher asks you for a sheet; you make it in their Blattomat account with the tools, and they open it in the editor, changes it and prints it.
+Blattomat makes worksheets (Arbeitsblätter) for German primary school (Grundschule). A teacher asks you for a sheet; you make it in their Blattomat account with the tools, and they open it in the editor, change it and print it.
 
 Language: German for every word that lands on the sheet or that a teacher reads (task texts, headings, the tutorial). English for the reference, the recipes' notes and this index, which are for you.
 
