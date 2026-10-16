@@ -383,15 +383,29 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const shownAt = (axis: "x" | "y", v?: number) => (v === undefined ? undefined : round(v - offset(axis)));
   // The corner stays. A group scales about its top left corner, and with the lock all of it keeps its shape.
   // Loose blocks each keep their own shape.
+  // A group scaled so that its own frame on that side is `to`: the frame is rounded to hundredths, so a few rounds
+  // of correction close the gap to what was typed.
+  const fitted = (side: "w" | "h", to: number) => {
+    const both = lock || sel.some(kept);
+    const grow = (g: number): [number, number] => (side === "w" ? [g, both ? g : 1] : [both ? g : 1, g]);
+    let g = to / own[side];
+    // The frame can miss by a hundredth whatever the factor: the one nearest to what was typed is kept.
+    let best: [number, Block[]] | undefined;
+    for (let i = 0; i < 12; i++) {
+      const out = scaledGroup(sel, ...grow(g));
+      const got = bounds(frameOf(out).level)[side];
+      if (!best || Math.abs(got - to) < best[0]) best = [Math.abs(got - to), out];
+      if (best[0] < 0.005) break;
+      g *= to / got;
+    }
+    return best![1];
+  };
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
     // A group of flat lines has no height to scale from.
     if (to <= 0 || (whole && own[side] <= 0)) return;
     if (whole) {
-      const f = to / own[side];
-      const both = lock || sel.some(kept);
-      const [sx, sy] = side === "w" ? [f, both ? f : 1] : [both ? f : 1, f];
-      place(scaledGroup(sel, sx, sy).map(sized));
+      place(fitted(side, to).map(sized));
       return;
     }
     place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
@@ -403,8 +417,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     // The side named scales; the other too when the shape is kept.
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
     const out = whole
-      ? (([sx, sy]) => scaledGroup(sel, sx, sy))(factors(lock || sel.some(kept)))
-      : // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
+      ? fitted(side, own[side] * f)
+      :// A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
         sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
     place(out.map(sized));
   };
