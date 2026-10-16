@@ -51,6 +51,14 @@ export const INSERTS = {
   }),
 };
 
+// A new maths block: plus exercises up to 20, asked of the server with `limits`; then its props are the limits, what the
+// server made and `look`, 180 mm wide and as high as `mathsHeight` says.
+export const MATHS = {
+  w: 180,
+  limits: (seed: number) => ({ ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as [number, number][], b: [[0, 9], [0, 9]] as [number, number][], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed }),
+  look: { columns: 3, size: 14 },
+};
+
 // The z a new block takes on a page: above every block there.
 export const topZ = (blocks: Block[]) => Math.max(0, ...blocks.map((b) => b.z)) + 1;
 

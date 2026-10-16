@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 type Next = (spec: string, ctx: any) => any;
 
 export async function resolve(spec: string, ctx: { parentURL?: string }, next: Next) {
-  if (spec.startsWith(".") && ctx.parentURL?.startsWith("file:") && !/\.\w+$/.test(spec)) {
+  if (spec.startsWith(".") && ctx.parentURL?.startsWith("file:") && !/\.(ts|tsx|js|mjs|json|css)$/.test(spec)) {
     for (const ext of [".ts", ".tsx"]) {
       if (existsSync(fileURLToPath(new URL(spec + ext, ctx.parentURL)))) return next(spec + ext, ctx);
     }
