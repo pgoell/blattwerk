@@ -851,6 +851,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const onKey = useRef((_e: KeyboardEvent) => {});
   const onPaste = useRef((_e: ClipboardEvent) => {});
   const onDrag = useRef((_e: DragEvent) => {});
+  // A drag that starts in the page, as words dragged in a field do, is the page's own: only one that comes in is taken.
+  const fromPage = useRef(false);
   // The sheet and the page in use as last drawn, for what comes back from the server after them.
   const latest = useRef({ doc: hist.doc, page });
   latest.current = { doc: hist.doc, page };
@@ -880,7 +882,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     window.addEventListener("paste", pasted, true);
     window.addEventListener("dragover", dragged, true);
     window.addEventListener("drop", dragged, true);
+    const began = () => (fromPage.current = true);
+    const ended = () => (fromPage.current = false);
+    window.addEventListener("dragstart", began);
+    window.addEventListener("dragend", ended);
     return () => {
+      window.removeEventListener("dragstart", began);
+      window.removeEventListener("dragend", ended);
       window.removeEventListener("change", chosen);
       window.removeEventListener("keyup", shut);
       window.removeEventListener("keydown", press);
@@ -892,14 +900,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The browser would open a dropped file in place of the editor, so a drag with files is the editor's everywhere.
   // Only the desk takes them, and not while a dialog is open. Text dragged in a field and Moveable's own drags bring
   // no files and stay as they are. The photo field of the feedback dialog takes its own.
+  // A picture dragged from another web page brings no file, only its address: the same rule, for the desk alone.
   onDrag.current = (e) => {
-    if (!e.dataTransfer?.types.includes("Files")) return;
-    if (document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
+    const types = e.dataTransfer?.types ?? [];
+    if (e.type === "drop") fromPage.current = false;
+    const files = types.includes("Files");
+    const link = !files && !fromPage.current && (types.includes("text/uri-list") || types.includes("text/html"));
+    if (!files && !link) return;
+    if (files && document.querySelector("dialog:modal .pick")?.contains(e.target as Node)) return;
     e.preventDefault();
     e.stopPropagation();
     const on = desk.current!.contains(e.target as Node) && !document.querySelector("dialog:modal");
-    if (e.type === "dragover") e.dataTransfer.dropEffect = on ? "copy" : "none";
-    else if (on) dropped([...e.dataTransfer.files], e.clientX, e.clientY);
+    if (e.type === "dragover") e.dataTransfer!.dropEffect = on ? "copy" : "none";
+    else if (on && files) dropped([...e.dataTransfer!.files], e.clientX, e.clientY);
+    else if (on) dropLink(e.dataTransfer!, e.clientX, e.clientY);
   };
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
   // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
@@ -2130,6 +2144,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const [x, y] = [(left - rects[was].left) / k, (top - rects[was].top) / k];
     let rest = files;
     return attempt(NO_PICTURE, () => landed(rest, was, x, y, (still) => void (rest = still)), unfit);
+  }
+  // A picture from a web page comes as its address: a data: address is read here, as a file, and a web address is not
+  // fetched (a browser refuses it across sites, and the server must not ask it). A dragged link with no picture adds nothing.
+  const WEB_PICTURE = "Ein Bild von einer Webseite lässt sich nicht hereinziehen. Kopiere es dort und füge es hier mit Strg+V ein, oder speichere es und ziehe die Datei herein.";
+  function dropLink(data: DataTransfer, left: number, top: number) {
+    const html = data.getData("text/html");
+    const img = html ? new DOMParser().parseFromString(html, "text/html").querySelector("img")?.getAttribute("src") : null;
+    const uri = data.getData("text/uri-list").split("\n").find((line) => line && !line.startsWith("#"));
+    const address = img ?? (uri?.startsWith("data:") ? uri : undefined);
+    if (!address) return;
+    const read = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=]+)$/.exec(address);
+    if (!read) return attempt(WEB_PICTURE, () => Promise.reject(), () => WEB_PICTURE);
+    const [, kind, b64] = read;
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return dropped([new File([bytes], `bild.${kind}`, { type: `image/${kind}` })], left, top);
   }
   // Sends the files and lands those that arrived. Tells which did not, and throws why.
   async function landed(files: File[], was: number, x: number, y: number, keep: (still: File[]) => void) {
