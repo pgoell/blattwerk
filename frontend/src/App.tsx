@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
+import Consent from "./pages/Consent";
 import Failed from "./components/Failed";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
@@ -139,6 +140,7 @@ export default function App() {
             <Route path="/" element={<SheetList />} />
             <Route path="/blatt/:id" element={first && first.id === id ? <Suspense fallback={wait}><Editor key={id} user={user} wait={wait} first={first.sheet} /></Suspense> : wait} />
             <Route path="/feedback/fotos" element={<Photos />} />
+            <Route path="/oauth/authorize" element={<Consent />} />
             {/* Another account starts the page anew: nothing of the one before stays on it, not a key shown once. */}
             <Route path="/konto" element={<Account key={user.id} user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}

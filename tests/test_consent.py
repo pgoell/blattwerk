@@ -1,0 +1,133 @@
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+from playwright.sync_api import expect
+from ui import user
+
+from blattwerk.app import app
+
+AUTH = (
+    "/oauth/authorize?client_id=c&redirect_uri=https%3A%2F%2Fclaude.ai%2Fapi%2Fmcp%2Fauth_callback"
+    "&response_type=code&code_challenge=x&code_challenge_method=S256&state=s"
+)
+CLIENT = {"client_name": "Claude", "redirect_host": "claude.ai", "loopback": False}
+HEADING = "„Claude“ möchte sich mit deinem Blattomat-Konto verbinden"
+
+
+@pytest.fixture
+def signed_in(browser, server):
+    """Opens a page of the app logged in as the given client, and gives the page."""
+    contexts = []
+
+    def start(client, path):
+        context = browser.new_context()
+        contexts.append(context)
+        # The session cookie is Secure and this server speaks http, so it goes by hand.
+        cookie = {"name": "session", "value": client.cookies["session"], "url": server}
+        context.add_cookies([cookie])
+        page = context.new_page()
+        page.goto(f"{server}{path}")
+        return page
+
+    yield start
+    for context in contexts:
+        context.close()
+
+
+def stub_authorize(page, answer, status=200):
+    def fulfill(route):
+        route.fulfill(status=status, content_type="application/json", body=json.dumps(answer))
+
+    page.route("**/api/oauth/authorize*", fulfill)
+
+
+def stub_consent(page, server, sent):
+    def fulfill(route):
+        sent.append(json.loads(route.request.post_data))
+        answer = {"redirect": f"{server}/ueber"}
+        route.fulfill(content_type="application/json", body=json.dumps(answer))
+
+    page.route("**/api/oauth/consent", fulfill)
+
+
+def test_consent_page(signed_in, server):
+    page = signed_in(user(), AUTH)
+    stub_authorize(page, CLIENT)
+    sent = []
+    stub_consent(page, server, sent)
+    page.reload()
+    main = page.locator("main")
+    expect(page.locator("h1")).to_have_text(HEADING)
+    expect(main).to_contain_text("claude.ai")
+    expect(main).to_contain_text("Was es darf")
+    expect(main).to_contain_text("Unter „Konto“")
+    expect(main).not_to_contain_text("läuft auf deinem Computer")
+    page.get_by_role("button", name="Erlauben").click()
+    expect(page).to_have_url(f"{server}/ueber")
+    assert len(sent) == 1
+    assert sent[0]["approve"] is True
+    assert sent[0]["state"] == "s"
+    assert sent[0]["code_challenge"] == "x"
+
+
+def test_consent_deny(signed_in, server):
+    page = signed_in(user(), AUTH)
+    stub_authorize(page, CLIENT)
+    sent = []
+    stub_consent(page, server, sent)
+    page.reload()
+    expect(page.locator("h1")).to_have_text(HEADING)
+    page.get_by_role("button", name="Ablehnen").click()
+    expect(page).to_have_url(f"{server}/ueber")
+    assert len(sent) == 1
+    assert sent[0]["approve"] is False
+
+
+def test_consent_loopback(signed_in):
+    page = signed_in(user(), AUTH)
+    stub_authorize(page, {**CLIENT, "redirect_host": "localhost", "loopback": True})
+    page.reload()
+    expect(page.locator("main")).to_contain_text("Dieses Programm läuft auf deinem Computer")
+
+
+def test_consent_bad_client(signed_in):
+    page = signed_in(user(), AUTH)
+    stub_authorize(page, {"detail": "Dieses Programm ist Blattomat nicht bekannt."}, status=400)
+    page.reload()
+    expect(page.locator("main")).to_contain_text("Dieses Programm ist Blattomat nicht bekannt.")
+    expect(page.get_by_role("button", name="Erlauben")).to_have_count(0)
+
+
+def test_connections_list(signed_in):
+    page = signed_in(user(), "/konto")
+    row = {"id": 7, "name": "Claude", "created": "2026-10-01 10:00:00", "last_used": None}
+    deleted = []
+
+    def listed(route):
+        route.fulfill(content_type="application/json", body=json.dumps([row]))
+
+    def gone(route):
+        deleted.append(route.request.url)
+        route.fulfill(content_type="application/json", body="{}")
+
+    page.route("**/api/connections", listed)
+    page.route("**/api/connections/*", gone)
+    page.reload()
+    item = page.get_by_role("listitem").filter(has_text="Claude")
+    expect(item).to_contain_text("zuletzt benutzt: noch nie")
+    item.get_by_role("button", name="Trennen: Claude").click()
+    dialog = page.locator("dialog[aria-labelledby=ask-unlink]")
+    expect(dialog).to_contain_text("„Claude“ trennen?")
+    assert deleted == []
+    with page.expect_request(lambda req: req.method == "DELETE") as sent:
+        dialog.get_by_role("button", name="Trennen", exact=True).click()
+    assert sent.value.url.endswith("/api/connections/7")
+    assert deleted == [sent.value.url]
+
+
+def test_datenschutz_connector():
+    text = TestClient(app).get("/datenschutz").text
+    section = text.split("<h2>9. ", 1)[1].split("<h2>10. ", 1)[0]
+    assert "https://blattwerk.pgoell.com/mcp" in section
+    assert "Trennen" in section
