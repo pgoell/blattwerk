@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 from test_clipboard import go
 from test_painter import held
 from test_syllables import gap, word
-from ui import TEXT, at, box, pick, reload, sheet, syls, user
+from ui import TEXT, at, box, doc, pick, reload, sheet, syls, user
 
 from blattwerk import pdf
 
@@ -112,7 +112,9 @@ def test_a_block_split_before_the_sheet_mends_moves_its_mend_to_the_sheet(editor
     word(page, "Skate·board").click()
     gap(page, "Skate|board").click()
     expect(word(page, "Skateboard")).to_be_visible()
-    assert "breaks" not in held(page, client)["a"]
+    # One entry for the word: the sheet's, and the same in the block it was mended in.
+    assert held(page, client)["a"]["breaks"] == {"skateboard": []}
+    assert doc(page, client)["breaks"] == {"skateboard": []}
 
 
 def test_a_mend_on_a_table_and_a_text_both_hold(editor):

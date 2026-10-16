@@ -439,9 +439,10 @@ def test_every_kind_that_holds_words_takes_the_colours(editor, kind):
     assert kind != "group" or now["c"] == LINE
 
 
-@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths", "ruling"])
+# A Lineatur with lines takes the colours since #357; Karo has none (tests/test_ruling_bows.py).
+@pytest.mark.parametrize("kind", ["line", "image", "symbol", "maths"])
 def test_a_block_that_holds_no_words_shows_no_colour_switch(editor, kind):
-    """A11: a line, a picture, a symbol, maths and a Lineatur have no colours to switch on."""
+    """A11: a line, a picture, a symbol and maths have no colours to switch on."""
     client = user()
     page = editor(*({**b, "locked": False} for b in fest(client, kind)), client=client)
     pick(page, "fest")

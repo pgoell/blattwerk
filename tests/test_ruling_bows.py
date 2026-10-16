@@ -1,6 +1,9 @@
 """Silbenbögen and Silbenfarbe on a Lineatur's written line: below the text, clear of its lines."""
 
+import io
+
 import pytest
+from PIL import Image
 from playwright.sync_api import expect
 from test_bows import bows, expect_under
 from test_syllables import gap, word
@@ -87,6 +90,31 @@ def test_c4_silbenfarbe_colours_the_letters_of_the_ruling(editor):
     tinted(page, "a").to_have_text([("A", BLUE), ("bend", RED)])
 
 
+def test_a_text_and_a_lineatur_picked_together_show_the_switch_once(editor):
+    page = editor(
+        box("a", "text", {"text": "Abend", "size": 14, "align": "left"}),
+        box("b", "ruling", ABEND, z=2),
+    )
+    pick(page, "a", "b")
+    expect(bows_switch(page)).to_have_count(1)
+
+
+def test_a_row_cut_off_below_shows_no_bow(editor):
+    # Two rows of 8 mm, three lines of text: the third is cut off, and so are its bows.
+    lines = {**ABEND, "kind": "lines", "text": "Abend\nAbend\nAbend", "syllables": True}
+    page = editor(box("a", "ruling", lines, h=16))
+    expect(at(page, "a").locator(".syl")).to_have_count(6)
+    expect(at(page, "a").locator(".unsplit")).to_have_count(0)
+    box_ = at(page, "a").bounding_box()
+    # The strip from 4 mm below the block down to 12 mm: the third row's bows would lie there.
+    mm = box_["height"] / 16
+    shot = page.screenshot(
+        clip={"x": box_["x"], "y": box_["y"] + 20 * mm, "width": box_["width"], "height": 8 * mm}
+    )
+    picture = Image.open(io.BytesIO(shot)).convert("L")
+    assert min(picture.tobytes()) > 200, "a bow of the cut off row shows below the block"
+
+
 def test_the_colours_stay_while_typing_on_a_lineatur(editor):
     page = editor(box("a", "ruling", {**ABEND, "tints": PAIR}))
     at(page, "a").dblclick()
@@ -106,16 +134,17 @@ def test_x1_two_rows_of_text_give_a_bow_per_syllable_in_each(editor):
     expect_under(bows(page, "a"))
 
 
-def test_x2_the_print_page_draws_the_bows_clear_of_the_lines(browser, server):
+@pytest.mark.parametrize("key", ["", "?loesungen"])
+def test_x2_the_print_page_draws_the_bows_clear_of_the_lines(browser, server, key):
     client = user()
-    mine = sheet(client, [box("a", "ruling", {**ABEND, "syllables": True})])["id"]
+    mine = sheet(client, [box("a", "ruling", {**ABEND, "syllables": True, "trace": True})])["id"]
     token = {"X-Render-Token": pdf.new_token(mine)}
     context = browser.new_context(
         viewport={"width": 1400, "height": 1000}, extra_http_headers=token
     )
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     page = context.new_page()
-    page.goto(f"{server}/druck/{mine}")
+    page.goto(f"{server}/druck/{mine}{key}")
     page.wait_for_selector("body.ready", state="attached")
     expect(page.locator(".syl")).to_have_count(2)
     expect(page.locator(".unsplit")).to_have_count(0)

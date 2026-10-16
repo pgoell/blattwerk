@@ -155,3 +155,35 @@ def test_a_column_made_narrower_after_the_first_draw_breaks_the_word(editor):
     )
     lines = page.evaluate(LINES, cell(page, 6).element_handle())
     assert len(lines) == 2 and lines[0] in SACH and lines[0] + lines[1] == "Sachunterricht", lines
+
+
+def test_a_second_word_that_breaks_later_in_the_same_cell_breaks_at_a_syllable(editor):
+    page = editor(box("a", "table", table([WEEK, ["Sachunterricht Erdkunde", "", "", "", "", ""]])))
+    expect(cell(page, 6)).to_contain_text("­")
+    expect(page.locator(".unsplit")).to_have_count(0)
+    # A bigger type breaks Erdkunde too, in a cell that is hyphenated already.
+    page.evaluate(
+        "() => { document.querySelector('[data-cell=\"6\"] p').style.fontSize = '2.2em'; }"
+    )
+    page.wait_for_function(
+        "() => /Erd\\u00ad?kun\\u00adde|Erd\\u00adkun\\u00ad?de/"
+        ".test(document.querySelector('[data-cell=\"6\"] p').textContent)"
+    )
+    expect(page.locator(".unsplit")).to_have_count(0)
+    lines = page.evaluate(LINES, cell(page, 6).element_handle())
+    # Erdkunde breaks at a syllable: a line starts with the rest of it.
+    assert [line for line in lines if line in ("kunde", "kun", "de")], lines
+
+
+def test_a_splitter_that_does_not_load_lets_the_print_go_on(editor):
+    page = editor(box("a", "table", table([WEEK, ["Hallo", "", "", "", "", ""]])))
+    page.route(re.compile(r"syllables.*\.js"), lambda route: route.abort())
+    pick(page, "a")
+    cell(page, 6).dblclick()
+    expect(at(page, "a").locator("textarea")).to_be_focused()
+    page.keyboard.press("Control+a")
+    page.keyboard.type("Sachunterricht")
+    cell(page, 1).click()
+    expect(cell(page, 6)).to_have_text("Sachunterricht")
+    # The PDF waits for no `.unsplit`: with the splitter gone the word breaks as before.
+    expect(page.locator(".unsplit")).to_have_count(0)

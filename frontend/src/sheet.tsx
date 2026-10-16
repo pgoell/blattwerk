@@ -1631,7 +1631,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     </div>
   );
   return (
-    <div>
+    // The bows end where the rows do, with room for the last row's bows: a row cut off below shows no bow.
+    <div className="lined" style={{ "--rows": `${(rows * row + 3) * k}px` } as CSSProperties}>
       <svg className="ruling" data-trace={karoLook} data-fade={karoFade} viewBox={`0 0 ${block.w} ${block.h}`} stroke={block.props.color} strokeWidth={0.2}>
         {/* The middle band lies between a row's second and third line. */}
         {zones && bandOf(block) && each(rows).map((top) => <rect key={top} className="band" y={top + zones[1]} width={block.w} height={zones[2] - zones[1]} fill={bandColorOf(block) ?? block.props.color} fillOpacity={bandColorOf(block) ? 1 : 0.12} stroke="none" />)}
@@ -1762,14 +1763,16 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
   // broken words: they show as a hyphen only where the word breaks. The splitter loads only when a word breaks, and
   // the text it makes is kept until the cells or the breaks change.
   const key = `${cells.join("\u0001")}|${cols.join(",")}|${JSON.stringify(breaks ?? null)}`;
-  const made = useRef<{ key: string; texts: Record<number, string>; pending: boolean }>({ key: "", texts: {}, pending: false });
+  const made = useRef<{ key: string; texts: Record<number, string>; done: Record<number, Set<string>>; pending: boolean }>({ key: "", texts: {}, done: {}, pending: false });
   const [, redraw] = useState(0);
   useLayoutEffect(() => {
     const el = host.current;
     if (!el) return;
     const look = () => {
       const m = made.current;
-      if (m.key !== key) Object.assign(m, { key, texts: {}, pending: false });
+      if (m.key !== key) Object.assign(m, { key, texts: {}, done: {}, pending: false });
+      // A font still on its way draws wider letters: a word that fits would seem to break. The fonts that come in look again.
+      if (document.fonts.status !== "loaded") return;
       const broken = new Map<number, Set<string>>();
       el.querySelectorAll<HTMLElement>(":scope > div[data-cell] > p:not(.open)").forEach((p) => {
         const cell = Number(p.parentElement!.dataset.cell);
@@ -1779,19 +1782,23 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
             const range = document.createRange();
             range.setStart(node, found.index!);
             range.setEnd(node, found.index! + found[0].length);
-            if (new Set(Array.from(range.getClientRects(), (r) => Math.round(r.top))).size < 2) continue;
+            // A word on two lines: its letters' tops lie a line apart, not a pixel.
+            const tops = Array.from(range.getClientRects(), (r) => r.top);
+            if (!tops.length || Math.max(...tops) - Math.min(...tops) < 3) continue;
             const words = broken.get(cell) ?? new Set<string>();
             words.add(found[0].replace(/­/g, ""));
             broken.set(cell, words);
           }
         }
       });
-      if (broken.size === 0 || [...broken.keys()].every((c) => c in m.texts) || m.pending) return;
+      // A word that breaks later in a cell already done (a bigger font, a narrower column) joins the cell's words.
+      if (m.pending || [...broken].every(([c, words]) => [...words].every((w) => m.done[c]?.has(w)))) return;
       m.pending = true;
       redraw((n) => n + 1);
       splitting().then((module) => {
         if (m.key !== key) return;
-        for (const [c, words] of broken) {
+        for (const [c, found] of broken) {
+          const words = (m.done[c] = new Set([...(m.done[c] ?? []), ...found]));
           m.texts[c] = cells.flat()[c].replace(/\p{L}+/gu, (w) => {
             if (!words.has(w)) return w;
             let out = "";
@@ -1806,15 +1813,23 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
         m.pending = false;
         redraw((n) => n + 1);
         look();
+      }, () => {
+        // A splitter that does not load leaves the words as they break, and the print does not wait for it.
+        m.pending = false;
+        redraw((n) => n + 1);
       });
     };
     look();
+    let gone = false;
+    document.fonts.ready.then(() => gone || look());
     // A column that narrows inside a table of the same size changes no size of the table: its cells are watched too.
     const watch = new ResizeObserver(look);
     watch.observe(el);
-    el.querySelectorAll(":scope > div[data-cell]").forEach((c) => watch.observe(c));
+    // And their texts: a bigger type in a cell held to its row's height grows only the text.
+    el.querySelectorAll(":scope > div[data-cell], :scope > div[data-cell] > p").forEach((c) => watch.observe(c));
     document.fonts.addEventListener("loadingdone", look);
     return () => {
+      gone = true;
       watch.disconnect();
       document.fonts.removeEventListener("loadingdone", look);
     };

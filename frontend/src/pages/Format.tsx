@@ -39,7 +39,7 @@ type Props = {
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
   paint: (props: Marks, key?: string) => void;
   // Mends a word's split on every block of the sheet, or with no counts takes the mend back to the module's own split.
-  mendWord: (word: string, counts?: number[]) => void;
+  mendWord: (keys: string[], counts: number[] | undefined, id: string) => void;
   // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
   itemize: (kind: List) => void;
   // Makes the picked words, the cell being edited or else every selected text a gap, or takes the gap off.
@@ -620,7 +620,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
-          {!mode && RULINGS[kindOf(rulings[0].props.kind)].at && bows}
+          {!mode && RULINGS[kindOf(rulings[0].props.kind)].at && !text && !tables.length && bows}
         </>
       )}
       {tables.length > 0 && (
@@ -857,10 +857,11 @@ const syllabled = (b: Block) => ruled(b) ?? worded(b);
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
 // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
 // so there is always one, the names of the props where none is given.
-const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
+const both = (held: Block[], look: Props["look"], style: Props["style"], every: Block[] = held) => (props: object, key = Object.keys(props).join()) => {
   if (held.some(boxed)) look(props, key);
   if (held.some((b) => b.type === "table")) style("table", props, key);
-  if (held.some((b) => b.type === "ruling")) style("ruling", props, key);
+  // `style` reaches every picked Lineatur: only when all of them take syllables, so a Karo picked along stays as it is.
+  if (held.some((b) => b.type === "ruling") && every.every((b) => b.type !== "ruling" || ruled(b))) style("ruling", props, key);
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
@@ -1062,7 +1063,7 @@ function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" 
   useEffect(() => {
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
-  const set = both(held, look, style);
+  const set = both(held, look, style, sel);
   const one = split && held.length === 1 ? syllabled(held[0])! : undefined;
   const fixes = { ...doc.breaks, ...one?.breaks };
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
@@ -1077,7 +1078,7 @@ function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" 
     const now = split!.cuts(word!, fixes);
     const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
     const counts = next && split!.counted(word!, next);
-    mendWord(word!, counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined);
+    mendWord([split!.keyOf(word!), split!.oldKeyOf(word!)], counts &&String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined, held[0].id);
   };
   return (
     <>

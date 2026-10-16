@@ -119,7 +119,7 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
 import { parasFromHtml } from "../pasted";
-import { type Breaks, keyOf as wordKey, oldKeyOf } from "../syllables";
+import type { Breaks } from "../syllables";
 
 // A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
 const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
@@ -621,8 +621,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
   // A mend holds for the word in every block of the sheet: the sheet's entry is set or taken away, and the blocks' own
   // entries for it go, in one step. Counts undefined takes the word back to the module's own split.
-  function mendWord(word: string, counts?: number[]) {
-    const keys = [wordKey(word), oldKeyOf(word)];
+  // The mend stands in the sheet, for every block, and in the block it was made in, which takes it along when copied.
+  // `keys` are the word's key and its old key: the panel has the splitter that makes them, the editor loads none.
+  function mendWord(keys: string[], counts: number[] | undefined, id: string) {
     const rest = (own?: Breaks) => Object.fromEntries(Object.entries(own ?? {}).filter(([key]) => !keys.includes(key)));
     update((doc) => {
       const base = { ...doc };
@@ -633,10 +634,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         ...p,
         blocks: p.blocks.map((b) => {
           const own = (b.props as { breaks?: Breaks }).breaks;
-          if (!own) return b;
+          const here = b.id === id && counts;
+          if (!own && !here) return b;
           const props = { ...b.props } as Record<string, unknown>;
           delete props.breaks;
-          const kept = rest(own);
+          const kept = here ? { ...rest(own), [keys[0]]: counts } : rest(own);
           if (Object.keys(kept).length) props.breaks = kept;
           return { ...b, props } as Block;
         }),
