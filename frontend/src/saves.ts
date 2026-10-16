@@ -367,6 +367,46 @@ export function refused(id: number, e: Refusal) {
   tell();
   signedOut();
 }
+// Tells the other tabs what this one took of a sheet deleted elsewhere: the set fires their storage event, the removal
+// after it leaves no trace in the store.
+function announce(id: number, took: Kept, to: number | null) {
+  try {
+    localStorage.setItem(`ended:${id}`, JSON.stringify({ doc: took.doc, title: took.title, to }));
+    localStorage.removeItem(`ended:${id}`);
+  } catch {
+    // The store is full or shut: the other tabs keep their choice.
+  }
+}
+// The editor of a sheet whose choice another tab ended is told where to go: to the new sheet, or the list.
+const ends = new Map<number, (to: number | null) => void>();
+export function onEnded(id: number, told: (to: number | null) => void) {
+  ends.set(id, told);
+  return () => void ends.delete(id);
+}
+// Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
+// work its change is written back, so the removal of the other tab's record leaves no loss.
+addEventListener("storage", (e) => {
+  const m = /^ended:(\d+)$/.exec(e.key ?? "");
+  if (!m || e.newValue === null) return;
+  const id = Number(m[1]);
+  const s = savers.get(id);
+  if (!s || !s.gone || s.dead || s.choice === "busy") return;
+  let took: Kept & { to: number | null };
+  try {
+    took = JSON.parse(e.newValue);
+  } catch {
+    return;
+  }
+  if (same(took.doc, s.want.doc) && took.title === s.want.title) {
+    kill(s);
+    tell(1);
+    ends.get(id)?.(took.to);
+  } else {
+    keep(s);
+    tell();
+  }
+});
+
 // The sheet's saver and its kept change go: the teacher deleted the sheet here, chose the other version of a clash,
 // or chose what becomes of a sheet deleted elsewhere. The list asks anew after that last one.
 export function forget(id: number) {
@@ -407,6 +447,7 @@ export async function keepAsNew(id: number) {
         // The store is full or shut: that change is lost with the old sheet.
       }
     }
+    announce(id, want, sheet.id);
     forget(id);
     return sheet;
   } catch (e) {
@@ -434,6 +475,7 @@ export async function discard(id: number) {
       throw new Error("401");
     }
     if (s.dead) return false;
+    announce(id, s.want, null);
     forget(id);
     return true;
   } catch (e) {
