@@ -652,6 +652,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function setLock(on: boolean) {
     place(sel.map((b): [string, Partial<Box>] => [b.id, { keep: on || undefined }]));
   }
+  // Where the panel's X and Y count from. Not in the sheet, and kept while the picks change.
+  const [from, setFrom] = useState<"corner" | "centre">("corner");
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
   // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
@@ -4401,6 +4403,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 alone={(b) => thing(b) === b.id}
                 lock={lock}
                 setLock={setLock}
+                from={from}
+                setFrom={setFrom}
                 size={[W, H]}
                 doc={hist.doc}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
