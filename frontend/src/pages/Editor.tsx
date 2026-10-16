@@ -747,6 +747,40 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const slope = at(b.h + 1) - at(b.h);
     return slope > 0.001 ? b.h + (H - at(b.h)) / slope : Infinity;
   };
+  // Whether the block reaches the page's foot. A turned block's place is rounded to 0.01 mm: it may reach a hair past.
+  const atFoot = (b: Block) => footTop(b, sizeOf(hist.doc, page)[1]) <= b.h + 0.05;
+  // A circle, triangle or star with `inside` shrinks its text to its outline in place of growing.
+  const shrinks = (b: Block) => {
+    const shape = boxed(b);
+    return shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star");
+  };
+  // How high the block's frame would be with no height set, in mm. A table's rows are each as high as their highest
+  // cell when its height is not set.
+  const natural = (b: Block) => {
+    const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
+    if (!frame) return undefined;
+    // A turned frame would measure as high as its outline, so the block lies level for the moment.
+    const block = frame.parentElement!;
+    const was = block.style.transform;
+    block.style.transform = "none";
+    // A linked text's frame has a height of its own, which it keeps after the measure.
+    const own = frame.style.height;
+    frame.style.height = "auto";
+    const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
+    frame.style.height = own;
+    block.style.transform = was;
+    return h;
+  };
+  // A picked text at the page's foot whose words need more room than it has: the panel warns. Told from the sheet as
+  // it is, so it holds after an undo, a reload or a paste too. A shape that shrinks its text tells by `overfit`.
+  useLayoutEffect(() => {
+    for (const b of sel) {
+      const p = boxed(b);
+      if (!p || p.list === true || shrinks(b)) continue;
+      const h = atFoot(b) ? natural(b) : undefined;
+      stopped(b.id, h !== undefined && h > b.h + 0.05);
+    }
+  });
   // A box grows with its text, as a PowerPoint text box does, and never shrinks by itself. Only a change the teacher
   // makes is measured, so a sheet that opens stays as saved. The frame says how high it would be with no height
   // set; the top edge stays. The new height adds no step to undo: it belongs to the change that asked for it.
@@ -762,20 +796,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     for (const b of measured) {
       // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
-      if (shape?.inside === true && (shape.kind === "circle" || shape.kind === "triangle" || shape.kind === "star")) continue;
-      // A table's rows are each as high as their highest cell when its height is not set.
-      const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
-      if (!frame) continue;
-      // A turned frame would measure as high as its outline, so the block lies level for the moment.
-      const block = frame.parentElement!;
-      const was = block.style.transform;
-      block.style.transform = "none";
-      // A linked text's frame has a height of its own, which it keeps after the measure.
-      const own = frame.style.height;
-      frame.style.height = "auto";
-      const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
-      frame.style.height = own;
-      block.style.transform = was;
+      if (shrinks(b)) continue;
+      const h = natural(b);
+      if (h === undefined) continue;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
       // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
       // never shrinks by itself. No other change brings a table down: a height the teacher set holds.
@@ -784,8 +807,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       const stops = shape !== undefined && shape.list !== true;
       const top = stops ? footTop(b, H) : Infinity;
       const fit = stops ? Math.max(b.h, Math.min(h, top)) : h;
-      // A turned block's place is rounded to 0.01 mm: one stopped at the foot may reach a hair past it.
-      stopped(b.id, stops && top > b.h - 0.05 && fit < h);
       if (down ? Math.abs(h - b.h) <= 0.05 : fit <= b.h) continue;
       // The edge the words start at stays in its place on the page, turned or not.
       grown.set(b.id, tall(b, fit));
@@ -809,8 +830,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   if (editing) wrote.current = editing;
   overfit.current = (id, mm) => {
     const b = sel.find((x) => x.id === id);
-    // A text that fits again at the foot lifts its warning; the frame tells on every draw, with 0 when it fits.
-    if (b && mm <= 0) stopped(id, false);
+    // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
+    if (b) stopped(id, mm > 0 && atFoot(b));
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
     const shape = b && boxed(b);
@@ -819,7 +840,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
     const top = footTop(b, sizeOf(hist.doc, page)[1]);
     const h = Math.max(b.h, Math.min(want, top));
-    stopped(id, top > b.h - 0.05 && h < want);
     // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
     if (h <= b.h) return;
     // A round circle stays round (#661): it grows as wide as high.
@@ -2179,7 +2199,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const html = data.getData("text/html");
     const img = html ? new DOMParser().parseFromString(html, "text/html").querySelector("img")?.getAttribute("src") : null;
     const uri = data.getData("text/uri-list").split("\n").find((line) => line && !line.startsWith("#"));
-    const address = img ?? (uri?.startsWith("data:") ? uri : undefined);
+    // The address the browser hands over is the picture shown: a lazy picture's `src` may be a blank placeholder.
+    const address = img ? (uri ?? img) : uri?.startsWith("data:image/") ? uri : undefined;
     if (!address) return;
     const read = /^data:image\/(png|jpeg|gif|webp);base64,([A-Za-z0-9+/=]+)$/.exec(address);
     if (!read) return attempt(WEB_PICTURE, () => Promise.reject(), () => WEB_PICTURE);

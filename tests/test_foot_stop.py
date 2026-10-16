@@ -62,6 +62,21 @@ def test_undo_takes_text_and_height_back_in_one_step(editor):
     page.keyboard.press("Control+z")
     (a,) = saved(page, client)
     assert (a["y"], a["h"], a["props"]["text"]) == (270, 12, "Hallo")
+    expect(page.locator(FULL)).to_have_count(0)
+
+
+def test_a_text_cut_at_the_foot_warns_when_the_sheet_opens_again(editor):
+    # Review: the warning comes from the sheet as it is, not from the typing before.
+    page = editor(box("a", "text", {**TEXT, "text": LONG}, x=15, y=280, w=180, h=17))
+    at(page, "a").click()
+    expect(page.locator(FULL)).to_be_visible()
+
+
+def test_a_circle_cut_at_the_foot_warns_when_the_sheet_opens_again(editor):
+    circle = {**RECT, "kind": "circle", "inside": True, "text": LONG}
+    page = editor(box("a", "shape", circle, x=100, y=267, w=30, h=30))
+    at(page, "a").click()
+    expect(page.locator(FULL)).to_be_visible()
 
 
 def test_the_warning_goes_when_the_text_fits_again(editor):

@@ -488,6 +488,16 @@ def test_a_web_picture_address_is_not_fetched_and_the_hint_says_how(editor):
     assert [b["id"] for b in saved(page, client)] == ["a"]
 
 
+def test_a_lazy_picture_is_taken_by_the_address_it_shows_not_its_placeholder(editor):
+    # Review: the <img> holds a blank data: placeholder, the browser hands over the real address.
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    items = [("text/uri-list", HTTP), ("text/html", f'<img src="{data_png()}" data-src="{HTTP}">')]
+    assert drop_items(page, *spot(page, 105, 150), *items) == KEPT
+    expect(page.locator(".notice.fault")).to_contain_text(WEB_PICTURE)
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+
+
 def test_a_link_that_is_no_picture_adds_nothing(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
