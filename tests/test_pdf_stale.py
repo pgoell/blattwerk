@@ -6,7 +6,10 @@ that the PDF shows the saved version. A save that lands in time gives no line at
 
 # ruff: noqa: F811
 
+import re
+
 import pypdf
+import pytest
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_refused_save import ALERT, break_x, open_sheet, stored
@@ -218,6 +221,88 @@ def test_pdf_after_loading_the_other_version_shows_no_line(run):
     with page.expect_download():
         pdf_button(page).click()
     expect(page.locator(ALERT)).to_have_count(0)
+
+
+CLASH_LINE = "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
+PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
+
+
+def pdf_asks(page):
+    """The PDF requests the page sends from now on."""
+    asked = []
+    page.on("request", lambda r: "/pdf" in r.url and asked.append(r.url))
+    return asked
+
+
+def text_of(download):
+    return "".join(p.extract_text() for p in pypdf.PdfReader(download.path()).pages)
+
+
+@pytest.mark.parametrize("button", ["PDF", "Lösungen"])
+def test_main_pdf_waits_in_a_clash_and_says_why(run, button):
+    """#707: in a clash the PDF prints nothing, not the other device's sheet, and says to choose."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    asked = pdf_asks(page)
+    page.locator("header .pdf").get_by_role("button", name=button, exact=True).click()
+    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(ALERT, has_text="deine letzte Änderung")).to_have_count(0)
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_main_pdf_pressed_while_the_save_is_out_waits_when_that_save_clashes(run):
+    """#707: the save the PDF waits for is turned down; it prints nothing and says to choose."""
+    page, gate = start(run)
+    other = run.held("a")
+    other["doc"]["pages"][0]["blocks"][0]["props"]["text"] = "Vom Tool"
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    type_text(page, "Vom MCP")
+    with page.expect_request(gate.asks("PATCH")):
+        page.clock.run_for(2000)
+    page.evaluate(TURNS)
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    answer(run, "a")
+    expect(page.locator(".clash")).to_be_visible()
+    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_main_pdf_prints_the_other_version_once_it_is_loaded(run):
+    """#707: after „Andere Version laden“ the line goes and the PDF holds `Vom Tool` alone."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    pdf_button(page).click()
+    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+    with page.expect_download() as got:
+        pdf_button(page).click()
+    assert "Vom Tool" in text_of(got.value)
+    assert "Vom MCP" not in text_of(got.value)
+
+
+def test_pdf_line_goes_once_this_version_overwrites_the_other(run):
+    """#706: the PDF line goes with „Mit dieser überschreiben“, and the PDF holds what shows."""
+    page, gate = start(run)
+    clash_on_text(run, "Vom MCP")
+    pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
+
+    with page.expect_request(gate.asks("PATCH")):
+        page.locator(".clash").get_by_role("button", name="Mit dieser überschreiben").click()
+    page.evaluate(TURNS)
+    answer(run, "a")
+    expect(page.get_by_role("status").filter(has_text="Gespeichert")).to_have_text("Gespeichert")
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+    with page.expect_download() as got:
+        pdf_button(page).click()
+    assert "Vom MCP" in text_of(got.value)
+    assert "Vom Tool" not in text_of(got.value)
 
 
 def test_variants_pdf_works_again_once_the_other_version_is_loaded(run):
