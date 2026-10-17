@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 
 from blattwerk import pdf, svg
 from blattwerk.auth import Teacher, current_teacher
@@ -11,6 +12,8 @@ from blattwerk.db import Con, Id
 from blattwerk.pictures import path
 
 MAX_BYTES = 15 * 2**20
+# Parsing an SVG takes about 60 times its bytes in memory, so an SVG has a lower limit.
+MAX_SVG_BYTES = 2 * 2**20
 NOSNIFF = {"X-Content-Type-Options": "nosniff"}
 # An SVG opened in a tab runs nothing and loads nothing.
 SVG_CSP = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"}
@@ -32,7 +35,7 @@ def kind(data: bytes) -> str | None:
         return "image/gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
-    if data.removeprefix(b"\xef\xbb\xbf").lstrip().startswith((b"<svg", b"<?xml")):
+    if data.removeprefix(b"\xef\xbb\xbf").lstrip().startswith((b"<svg", b"<?xml", b"<!--")):
         return "image/svg+xml"
     return None
 
@@ -46,9 +49,14 @@ async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
     if type_ is None:
         raise HTTPException(415)
     if type_ == "image/svg+xml":
-        cleaned = svg.clean(data)
+        if len(data) > MAX_SVG_BYTES:
+            raise HTTPException(413)
+        # Cleaning parses the SVG, which takes time, so it leaves the event loop.
+        cleaned = await run_in_threadpool(svg.clean, data)
         if cleaned is None:
             raise HTTPException(415)
+        if len(cleaned) > MAX_BYTES:
+            raise HTTPException(413)
         data = cleaned
     upload_id = con.execute(
         "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], type_)

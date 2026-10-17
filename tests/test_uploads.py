@@ -8,9 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 from ui import picture, sheet
 
-from blattwerk import auth, db, pictures
+from blattwerk import auth, db, pictures, svg
 from blattwerk.app import app
-from blattwerk.uploads import MAX_BYTES
+from blattwerk.uploads import MAX_BYTES, MAX_SVG_BYTES
 
 PASSWORD = "richtig-geheim"
 PNG = b"\x89PNG\r\n\x1a\n not really a picture"
@@ -98,6 +98,17 @@ HOSTILE = {
         svg_of('<set attributeName="href" to="javascript:alert(1)"/>'),
         [b"<set", b"javascript"],
     ),
+    "style-child": (
+        svg_of(
+            "<style><title/>@import url(http://evil/a.css); rect{fill:url(http://evil/x)}</style>"
+        ),
+        [b"evil", b"@import", b"<title"],
+    ),
+    "image-set": (svg_of("""<rect fill='image-set("http://evil/z.png" 1x)'/>"""), [b"evil"]),
+    "webkit-image-set": (
+        svg_of("""<rect style='fill:-webkit-image-set("http://evil/z.png" 1x)'/>"""),
+        [b"evil", b"image-set"],
+    ),
     "other-namespace": (
         svg_of('<x:foo xmlns:x="http://evil.example/ns"><circle r="1"/></x:foo>'),
         [b"evil", b"foo"],
@@ -130,9 +141,9 @@ REFUSED_SVG = {
         '<!ENTITY lol2 "&lol;&lol;&lol;&lol;"><!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;">]>'
         f"{SVG_OPEN}<text>&lol3;</text></svg>"
     ),
-    "doctype": (
+    "doctype-with-subset": (
         '<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
-        '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
+        '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [<!ELEMENT svg ANY>]>'
         f"{SVG_OPEN}</svg>"
     ),
     "xml-stylesheet": (
@@ -208,6 +219,64 @@ def test_svg_is_stored_as_svg(data_dir):
     assert res.headers["content-type"] == "image/svg+xml"
     assert res.content.startswith(b"<svg")
     assert (data_dir / "users" / "1" / "uploads" / str(upload_id)).is_file()
+
+
+ILLUSTRATOR = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+    '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n'
+    f'{SVG_OPEN}<rect id="kept" width="5" height="5"/></svg>'
+).encode()
+
+
+def test_illustrator_doctype_is_taken_and_stored_without_it():
+    client = user("a@example.com")
+    upload_id = send(client, ILLUSTRATOR, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert b'id="kept"' in res.content
+    assert b"DOCTYPE" not in res.content
+
+
+def test_svg_after_a_comment_is_taken():
+    client = user("a@example.com")
+    data = f"<!-- made by x -->\n{CLEAN_SVG.decode()}".encode()
+    upload_id = send(client, data, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert res.status_code == 200
+    assert res.content.startswith(b"<svg")
+    assert b"made by x" not in res.content
+
+
+def test_svg_size_is_written_as_plain_decimals():
+    client = user("a@example.com")
+    exponent = f'<svg {SVG_NS} width="2e2" height="+1e2"><rect width="1" height="1"/></svg>'
+    from_box = f'<svg {SVG_NS} viewBox="0 0 2.50 1e1"><rect width="1" height="1"/></svg>'
+
+    def served(data):
+        upload_id = send(client, data.encode(), "image/svg+xml").json()["id"]
+        return ET.fromstring(client.get(f"/api/uploads/{upload_id}").content)
+
+    root = served(exponent)
+    assert (root.get("width"), root.get("height")) == ("200", "100")
+    root = served(from_box)
+    assert (root.get("width"), root.get("height")) == ("2.5", "10")
+
+
+def test_svg_over_its_own_limit_is_refused_before_cleaning(data_dir):
+    client = user("a@example.com")
+    # Trailing spaces after the root keep it SVG and make it too big.
+    big = CLEAN_SVG + b" " * MAX_SVG_BYTES
+    assert send(client, big, "image/svg+xml").status_code == 413
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+    assert not list(data_dir.glob("users/*/uploads/*"))
+
+
+def test_cleaned_svg_over_the_picture_limit_is_refused(monkeypatch):
+    # Cleaning only shrinks an SVG in practice, so this stands in for a cleaned file that grew.
+    monkeypatch.setattr(svg, "clean", lambda data: b"x" * (MAX_BYTES + 1))
+    client = user("a@example.com")
+    assert send(client, CLEAN_SVG, "image/svg+xml").status_code == 413
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
 
 
 TEXT = b"Kein Bild, nur Text.\n"
