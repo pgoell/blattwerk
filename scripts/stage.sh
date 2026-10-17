@@ -39,6 +39,22 @@ remove() {
   fi
 }
 
+# Makes the test teacher with the email $1 and prints its login. The invite is a secret: it goes
+# through the environment, never on a command line.
+sign_up() {
+  if ! STAGE_INVITE=$(docker exec "$name" /app/.venv/bin/python -m blattwerk invite 2>/dev/null); then
+    echo "stage: the container made no invite for the test teacher" >&2
+    exit 1
+  fi
+  export STAGE_INVITE
+  # The teacher script prints the login, and nothing else on stdout.
+  if ! login=$(docker exec -i -e STAGE_INVITE "$name" /app/.venv/bin/python - http://127.0.0.1:8000 "$1" <"$here/stage-teacher.py"); then
+    echo "stage: the test teacher could not sign up" >&2
+    exit 1
+  fi
+  echo "$login"
+}
+
 if [ $# -ne 1 ]; then set -- usage; fi
 case "$1" in
   up)
@@ -107,19 +123,10 @@ PY
       fi
       sleep 1
     done
-    # The invite is a secret: it goes through the environment, never on a command line.
-    if ! STAGE_INVITE=$(docker exec "$name" /app/.venv/bin/python -m blattwerk invite 2>/dev/null); then
-      echo "stage: the container made no invite for the test teacher" >&2
-      exit 1
-    fi
-    export STAGE_INVITE
-    # The teacher script prints the login, and nothing else on stdout.
-    if ! login=$(docker exec -i -e STAGE_INVITE "$name" /app/.venv/bin/python - http://127.0.0.1:8000 <"$here/stage-teacher.py"); then
-      echo "stage: the test teacher could not sign up" >&2
-      exit 1
-    fi
     echo "URL: http://127.0.0.1:$port"
-    echo "$login"
+    # An invite is used once, so each teacher gets their own.
+    sign_up teacher-run@stage.invalid
+    sign_up teacher-run-2@stage.invalid
     ;;
   down)
     check
