@@ -5,6 +5,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 from ui import (
+    BROWSER,
     FIELD,
     LINE,
     RECT,
@@ -408,6 +409,8 @@ def test_words_from_another_app_paste_as_a_text_block(editor, clip, how):
     if clip == "blocks copied before":
         pick(page, "a", "b")
         page.keyboard.press("Control+c")
+        # The picture lands after the words: wait for it, or it writes over the other app's words.
+        clipboard_picture(page)
     else:
         assert page.evaluate("localStorage.getItem('clip')") is None
     copy_text(page, "Wort")
@@ -621,3 +624,177 @@ def test_two_presses_at_once_on_einfuegen_stack_no_copies(editor):
     button(page, "Einfügen").click()
     expect(blocks(page)).to_have_count(3)
     assert places(saved(page, client)) == [(15, 50), (20, 55), (25, 60)]
+
+
+# The clipboard's items as the browser holds them, and the first picture's bytes in base64.
+CLIPBOARD = """async () => {
+    const items = await navigator.clipboard.read();
+    const types = items.flatMap((item) => item.types).sort();
+    const item = items.find((i) => i.types.includes("image/png"));
+    if (!item) return { types, png: null };
+    const bytes = new Uint8Array(await (await item.getType("image/png")).arrayBuffer());
+    let text = "";
+    for (const b of bytes) text += String.fromCharCode(b);
+    return { types, png: btoa(text) };
+}"""
+# A PNG drawn back to pixels: its size, the red and blue pixels it has, and its top left pixel.
+PIXELS = """async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    let red = 0;
+    let blue = 0;
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
+        if (data[i] > 200 && data[i + 1] < 80 && data[i + 2] < 80) red++;
+        if (data[i + 2] > 200 && data[i] < 80 && data[i + 1] < 80) blue++;
+    }
+    const corner = Array.from(data.slice(0, 4));
+    return { width: bitmap.width, height: bitmap.height, red, blue, corner };
+}"""
+chromium_only = pytest.mark.skipif(
+    BROWSER == "webkit", reason="WebKit on Linux grants the page no clipboard read"
+)
+KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group"]
+
+
+def one(kind, client):
+    """One block of the kind, or two blocks in a group."""
+    kinds = {
+        "text": [box("a", "text", TEXT)],
+        "shape": [box("a", "shape", RECT)],
+        "line": [box("a", "shape", LINE)],
+        "picture": [box("a", "image", picture(upload(client))["props"])],
+        "table": [box("a", "table", TABLE)],
+        "ruling": [box("a", "ruling", RULING)],
+        "maths": [box("a", "maths", maths(client))],
+        "group": [box("a", "shape", RECT, group=["g"]), box("b", "text", TEXT, z=2, group=["g"])],
+    }
+    return kinds[kind]
+
+
+def clipboard_picture(page):
+    """Waits for the copy's picture on the clipboard; gives its item types and its pixels."""
+    # The write is async: five seconds at most.
+    for _ in range(50):
+        got = page.evaluate(CLIPBOARD)
+        if got["png"] is not None:
+            break
+        page.wait_for_timeout(100)
+    assert got["png"] is not None, f"no picture on the clipboard, only {got['types']}"
+    return got["types"], page.evaluate(PIXELS, got["png"])
+
+
+@chromium_only
+@pytest.mark.parametrize("kind", KINDS)
+def test_every_block_type_copied_puts_a_picture_on_the_clipboard(editor, kind):
+    """B1"""
+    client = user()
+    blocks_ = one(kind, client)
+    page = editor(*blocks_, client=client)
+    all_of(page, len(blocks_))
+    page.keyboard.press("Control+c")
+    types, pixels = clipboard_picture(page)
+    assert types == ["image/png", "text/plain"]
+    assert pixels["width"] > 0 and pixels["height"] > 0
+
+
+@chromium_only
+@pytest.mark.parametrize("how", ["Control+c", "Control+x", "Kopieren", "Ausschneiden"])
+def test_copy_cut_and_their_buttons_all_put_the_picture_on_the_clipboard(editor, how):
+    """B1: the keys and the buttons."""
+    client = user()
+    page = editor(box("a", "shape", RECT), client=client)
+    pick(page, "a")
+    if how.startswith("Control"):
+        page.keyboard.press(how)
+    else:
+        button(page, how).click()
+    types, _ = clipboard_picture(page)
+    assert types == ["image/png", "text/plain"]
+
+
+@chromium_only
+def test_a_paste_here_of_the_copy_brings_the_blocks_not_a_picture(editor):
+    """B2"""
+    client = user()
+    page = editor(box("a", "shape", RECT), client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    clipboard_picture(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    assert sorted(b["type"] for b in saved(page, client)) == ["shape", "shape"]
+
+
+@chromium_only
+def test_the_picture_shows_the_copied_blocks_alone(editor):
+    """B3: block b, blue, lies over a and must not show."""
+    client = user()
+    page = editor(
+        box("a", "shape", {**RECT, "fill": "#ff0000"}, z=1, x=15, y=20, w=80, h=20),
+        box("b", "shape", {**RECT, "fill": "#0000ff"}, z=2, x=60, y=30, w=80, h=20),
+        client=client,
+    )
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    types, pixels = clipboard_picture(page)
+    assert types == ["image/png", "text/plain"]
+    assert pixels["blue"] == 0
+    assert pixels["red"] > 0
+
+
+@chromium_only
+def test_several_blocks_make_one_picture_cropped_to_their_hull(editor):
+    """B4 and B5: the hull is 145 by 60 mm, with 1 mm all round, drawn at 4 px per mm."""
+    client = user()
+    page = editor(
+        box("a", "shape", RECT, x=15, y=20, w=80, h=20),
+        box("b", "shape", RECT, z=2, x=120, y=60, w=40, h=20),
+        client=client,
+    )
+    pick(page, "a", "b")
+    page.keyboard.press("Control+c")
+    _, pixels = clipboard_picture(page)
+    assert abs(pixels["width"] - 147 * 4) <= 2
+    assert abs(pixels["height"] - 62 * 4) <= 2
+    # Zoomed in, the picture is the same size. The first one goes, so the second is a new one.
+    page.evaluate("navigator.clipboard.writeText('anders')")
+    page.keyboard.press("Control+Equal")
+    page.keyboard.press("Control+Equal")
+    page.keyboard.press("Control+c")
+    _, zoomed = clipboard_picture(page)
+    assert (zoomed["width"], zoomed["height"]) == (pixels["width"], pixels["height"])
+
+
+@chromium_only
+def test_a_turned_block_shows_turned_in_the_picture(editor):
+    """B8: a 40 by 20 mm rectangle turned 45 degrees is 42 mm wide; its top left corner is empty."""
+    client = user()
+    page = editor(
+        box("a", "shape", {**RECT, "fill": "#ff0000"}, x=40, y=40, w=40, h=20, angle=45),
+        client=client,
+    )
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    _, pixels = clipboard_picture(page)
+    assert pixels["width"] > 40 * 4 + 4
+    assert not (pixels["corner"][0] > 200 and pixels["corner"][1] < 80)
+
+
+@chromium_only
+def test_words_copied_in_an_open_text_stay_the_field_s_no_picture(editor):
+    """B7"""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_have_text("Hallo")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+c")
+    page.wait_for_timeout(300)
+    types = page.evaluate(CLIPBOARD)["types"]
+    assert "image/png" not in types

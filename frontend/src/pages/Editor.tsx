@@ -109,6 +109,7 @@ import { blatt, follow as growRulings, landed as carried, linked, loose as cutLo
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
+import { pictureOf } from "../picture";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -1180,6 +1181,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
+    // The editor's own copy comes with its picture: the blocks come first.
+    if (ownCopy(text.replace(/\r\n/g, "\n")) && !writing.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      paste();
+      return;
+    }
     if (!picture || writing.current) {
       if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
@@ -2529,12 +2537,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
-    if (pending.current === null) return;
     pending.current = null;
-    const landed = navigator.clipboard?.writeText(words);
-    if (!landed) return;
     writing.current++;
-    landed.catch(() => {}).finally(() => writing.current--);
+    toClipboard(held, words).catch(() => {}).finally(() => writing.current--);
+  }
+  // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
+  // picture is drawn after it, and a refused picture still leaves the words.
+  function toClipboard(held: Block[], words: string): Promise<void> {
+    const write = () => navigator.clipboard?.writeText(words) ?? Promise.resolve();
+    try {
+      const png = pictureOf(held, live.current.doc, page);
+      return navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": new Blob([words], { type: "text/plain" }) })]).catch(write);
+    } catch {
+      return write();
+    }
   }
   // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {
@@ -2607,12 +2623,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
   // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
+  // Whether words are the editor's own copy. A copy of the build before left no mark: its words are those of the stored blocks.
+  function ownCopy(words: string) {
+    const [copied, held] = [localStorage.getItem("copied"), clip()];
+    return copied === null ? held.length > 0 && words === wordsOf(held) : copied === hash(words);
+  }
   function typed(got: string, html = "") {
     const words = got.replace(/\r\n/g, "\n");
-    const [copied, held] = [localStorage.getItem("copied"), clip()];
-    // A copy of the build before left no mark: its words are those of the stored blocks.
-    const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
-    if (!words.trim() || own) return false;
+    if (!words.trim() || ownCopy(words)) return false;
     tight.current = true;
     // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
     const paras = parasFromHtml(html);
@@ -2626,15 +2644,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // first, then for words.
   async function pasteAny() {
     if (reading.current) return;
-    if (writing.current) return paste();
+    if (writing.current) {
+      // The blocks are here while the picture is drawn; a second press in the same moment pastes nothing more.
+      reading.current = true;
+      queueMicrotask(() => (reading.current = false));
+      return paste();
+    }
     reading.current = true;
     let words = "";
     let html = "";
     try {
       for (const item of await navigator.clipboard.read()) {
+        // The editor's own copy brings its blocks, though it comes with a picture of them too.
+        if (item.types.includes("text/plain")) {
+          words = await (await item.getType("text/plain")).text();
+          if (ownCopy(words.replace(/\r\n/g, "\n"))) return paste();
+        }
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
-        if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
         if (item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
       }
     } catch {

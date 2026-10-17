@@ -257,7 +257,8 @@ def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
     expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
     page.wait_for_timeout(500)
     expect(row(page, "Doppelt")).to_have_count(1)
-    expect(field).to_have_accessible_description("")
+    # The hint beside the field, and no complaint after it.
+    expect(field).to_have_accessible_description(HINT)
 
 
 def test_enter_on_the_question_keeps_the_key(account):
@@ -297,7 +298,9 @@ def test_a_name_of_81_letters_stays_whole_and_says_so(account):
     field = page.get_by_label("Name des Schlüssels")
     field.fill("x" * 81)
     page.keyboard.press("Enter")
-    expect(field).to_have_accessible_description("Der Name ist zu lang: höchstens 80 Zeichen.")
+    expect(field).to_have_accessible_description(
+        f"{HINT} Der Name ist zu lang: höchstens 80 Zeichen."
+    )
     expect(field).to_have_value("x" * 81)
 
 
