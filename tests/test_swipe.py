@@ -5,7 +5,7 @@ On its side nothing opens by a swipe, and a mouse drag from the edge opens nothi
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, at, bar, box, centre, drag, drawer, expect_picked, swipe, tool
+from ui import TEXT, at, bar, box, centre, drag, drawer, expect_picked, saved, swipe, tool, user
 
 SIDES = pytest.mark.parametrize("side", ["left", "right"])
 
@@ -72,26 +72,35 @@ def test_i_a_finger_drag_of_a_picked_block_at_the_edge_moves_it_and_opens_nothin
     page = editor(text("a", 1), touch=True)
     for _ in range(3):
         tool(page, "Größer").tap()
-    to_edge(page, "a", 10)
+    # The block's left edge lies left of the window's: the finger comes down in the edge zone.
+    to_edge(page, "a", -10)
     at(page, "a").tap()
     expect_picked(page, "a")
-    x, y = centre(at(page, "a"))
+    y = centre(at(page, "a"))[1]
     before = at(page, "a").bounding_box()["x"]
-    swipe(page, (x, y), (x + 40, y), (x + 80, y), (x + 120, y), (x + 160, y))
+    swipe(page, (12, y), (52, y), (92, y), (132, y), (172, y))
     assert at(page, "a").bounding_box()["x"] > before + 20
     shut(page)
 
 
 def test_j_a_brush_drag_from_the_edge_paints_and_opens_nothing(editor):
-    """J: with the brush on, a mouse drag across a text at the left edge opens no drawer."""
-    page = editor(text("a", 1), text("b", 2), touch=True)
-    shut(page)
+    """J: the brush paints a text at the left edge by a mouse drag across it, no drawer opens."""
+    client = user()
+    # "a" is bold and "b" is not; "b" lies at the window's left edge, "a" lies far to the right.
+    a = {**box("a", "text", {**TEXT, "bold": True}, z=2), "y": 120}
+    page = editor(a, text("b", 1), touch=True, client=client)
+    for _ in range(3):
+        tool(page, "Größer").tap()
+    to_edge(page, "b", 6)
     at(page, "a").click()
     expect_picked(page, "a")
     tool(page, "Format übertragen").click()
     y = centre(at(page, "b"))[1]
-    drag(page, (3, y), (60, y), (160, y))
-    shut(page)
+    drag(page, (12, y), (60, y), (120, y))
+    expect(bar(page, "left")).to_have_attribute("aria-pressed", "false")
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    looks = {b["id"]: b["props"].get("bold", False) for b in saved(page, client)}
+    assert looks["b"] is True
 
 
 def test_k_a_mouse_drag_from_the_edge_opens_no_drawer(editor):
