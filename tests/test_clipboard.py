@@ -727,7 +727,10 @@ def test_a_paste_here_of_the_copy_brings_the_blocks_not_a_picture(editor):
     clipboard_picture(page)
     page.keyboard.press("Control+v")
     expect(blocks(page)).to_have_count(2)
-    assert sorted(b["type"] for b in saved(page, client)) == ["shape", "shape"]
+    # The button reads the system's clipboard, picture and words: it brings the blocks too.
+    button(page, "Einfügen").click()
+    expect(blocks(page)).to_have_count(3)
+    assert sorted(b["type"] for b in saved(page, client)) == ["shape"] * 3
 
 
 @chromium_only
