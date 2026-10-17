@@ -5,7 +5,21 @@ On its side nothing opens by a swipe, and a mouse drag from the edge opens nothi
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, at, bar, box, centre, drag, drawer, expect_picked, saved, swipe, tool, user
+from ui import (
+    RECT,
+    TEXT,
+    at,
+    bar,
+    box,
+    centre,
+    drag,
+    drawer,
+    expect_picked,
+    saved,
+    swipe,
+    tool,
+    user,
+)
 
 SIDES = pytest.mark.parametrize("side", ["left", "right"])
 
@@ -50,6 +64,20 @@ def test_g_a_swipe_back_to_its_edge_shuts_the_open_drawer(editor, side):
     else:
         swipe(page, (640, 600), (680, 600), (720, 600), (760, 600), (800, 600))
     expect(bar(page, side)).to_have_attribute("aria-pressed", "false")
+
+
+def test_4_a_swipe_opens_the_format_drawer_beside_the_picked_block(editor):
+    """Implied 4: a swipe opens the Format drawer beside the picked block, as its button does."""
+    page = editor(box("a", "shape", RECT, z=1, x=150, w=50), touch=True)
+    shut(page)
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    y = at(page, "a").bounding_box()["y"] + 400
+    swipe(page, (831, y), (800, y), (760, y), (720, y), (680, y))
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+    page.wait_for_function("document.querySelector('.desk').scrollLeft > 0")
+    place = at(page, "a").bounding_box()
+    assert place["x"] + place["width"] <= page.locator("aside.panel").bounding_box()["x"]
 
 
 def test_h_a_swipe_from_the_edge_over_a_block_moves_nothing_and_opens_nothing(editor):
