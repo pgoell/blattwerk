@@ -514,6 +514,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Upright, at most one panel is open and both start shut. `side` and `pane` keep what the window on its side shows.
   const drawers = useSyncExternalStore(whenTurned, () => DRAWERS.matches);
   const [drawer, setDrawer] = useState<"left" | "right">();
+  // The finger on a drawer's swipe: where it came down, which drawer it may open or shut, and whether it has.
+  const swipe = useRef<{ x: number; y: number; open?: "left" | "right"; shut?: "left" | "right"; decided?: boolean } | undefined>(undefined);
   // Each turn upright starts with both shut.
   useEffect(() => setDrawer(undefined), [drawers]);
   const leaf = leafy && !drawers;
@@ -626,6 +628,40 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }, [editing]);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
+  // An open Format drawer lies over the sheet's right end. The desk scrolls so the picked block, or the caret in the
+  // open text, stays in view beside it: the drawer shows the room on the desk's right, see `.drawn` in styles.css.
+  const drawnRight = drawers && drawer === "right";
+  // The desk's scroll before the drawer moved it: shutting the drawer puts it back.
+  const scrolledFrom = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = desk.current;
+    if (!drawnRight) {
+      if (el && scrolledFrom.current !== undefined) el.scrollLeft = scrolledFrom.current;
+      scrolledFrom.current = undefined;
+      return;
+    }
+    const panel = document.querySelector("aside.panel");
+    if (!el || !panel || !ids.length) return;
+    // The part to keep in view, as its left and right edges on the window.
+    let rect: { left: number; right: number } | undefined;
+    if (editing) {
+      const caret = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : undefined;
+      // A caret at the end of a line may have no size: then the text's box stands in for it.
+      rect = caret && (caret.width || caret.height) ? caret : document.querySelector(`.block[data-id="${editing}"]`)?.getBoundingClientRect();
+    } else {
+      const boxes = ids.map((id) => document.querySelector(`.block[data-id="${id}"]`)?.getBoundingClientRect()).filter((b): b is DOMRect => !!b);
+      if (boxes.length) rect = { left: Math.min(...boxes.map((b) => b.left)), right: Math.max(...boxes.map((b) => b.right)) };
+    }
+    if (!rect) return;
+    // Scroll until the part clears the panel's left edge with a gap, but no further than the desk's own left edge allows.
+    const gap = 16;
+    const dx = rect.right - (panel.getBoundingClientRect().left - gap);
+    const by = dx > 0 ? Math.max(0, Math.min(dx, rect.left - (el.getBoundingClientRect().left + gap))) : 0;
+    if (by > 0) {
+      scrolledFrom.current = el.scrollLeft;
+      el.scrollLeft += by;
+    }
+  }, [drawnRight]);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -1507,6 +1543,63 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     }
     el.addEventListener("touchstart", onTouch, { passive: false });
     return () => el.removeEventListener("touchstart", onTouch);
+  });
+  // On the iPad held upright a swipe in from a window's edge opens that side's drawer, and a swipe of an open drawer
+  // back to its edge shuts it. Only one finger counts, and only a swipe across more than a vertical one: a scroll
+  // of the drawer or a drag of a block keeps its own. Set by hand, as the desk must not pan once a swipe is taken.
+  useEffect(() => {
+    if (!drawers) return;
+    function onStart(e: globalThis.TouchEvent) {
+      swipe.current = undefined;
+      if (e.touches.length !== 1) return;
+      const { clientX: x, clientY: y } = e.touches[0];
+      const on = e.target as Element;
+      const free = !on.closest(".sheet, header, aside, .dock, .moveable-control-box");
+      const panel = drawer && on.closest(drawer === "left" ? "aside.left" : "aside.panel");
+      const shut = panel && !on.closest("input, select, textarea, [draggable=true]") && !tug.current?.held ? drawer : undefined;
+      const open = free && x <= 24 ? "left" : free && x >= innerWidth - 24 ? "right" : undefined;
+      if (open || shut) swipe.current = { x, y, open, shut };
+    }
+    function onMove(e: globalThis.TouchEvent) {
+      const s = swipe.current;
+      if (!s) return;
+      // A thumbnail held for the long press is dragged, not swiped: the drawer stays as it is.
+      if (e.touches.length !== 1 || tug.current?.held) {
+        swipe.current = undefined;
+        return;
+      }
+      const dx = e.touches[0].clientX - s.x;
+      const dy = e.touches[0].clientY - s.y;
+      if (s.decided) return e.preventDefault();
+      if (Math.abs(dx) <= 40 || Math.abs(dx) <= 2 * Math.abs(dy)) {
+        // A scroll that runs up or down first is not a swipe.
+        if (Math.abs(dy) > 40 && Math.abs(dy) > 2 * Math.abs(dx)) swipe.current = undefined;
+        return;
+      }
+      if (s.open === "left" && dx > 0) showLeft(true);
+      else if (s.open === "right" && dx < 0) showRight(true);
+      else if (s.shut === "left" && dx < 0) showLeft(false);
+      else if (s.shut === "right" && dx > 0) showRight(false);
+      else {
+        swipe.current = undefined;
+        return;
+      }
+      s.decided = true;
+      e.preventDefault();
+    }
+    function onEnd() {
+      swipe.current = undefined;
+    }
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onEnd);
+    window.addEventListener("touchcancel", onEnd);
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("touchcancel", onEnd);
+    };
   });
   // Ctrl and the wheel zoom the page about the pointer, and never the window: over the bar and the panels they do
   // nothing, and over the thumbnails they make those larger and smaller, as in PowerPoint. A trackpad's pinch comes
@@ -3977,7 +4070,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     <Words.Provider value={learnt}>
     <Whole.Provider value={hist.doc}>
     <main
-      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
+      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}${drawnRight ? " drawn" : ""}`}
       data-ready="1"
       // The keys end a run of changes as a press of the mouse does: when they take the focus elsewhere, and when
       // they press a button, also one that finds nothing to change. The next change is a step of its own.
@@ -4329,6 +4422,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         <div
           className="desk"
           ref={desk}
+          // How wide the widest page lies on the desk: the room an open Format drawer adds starts past it.
+          style={{ "--reach": `${widest * k}px` } as CSSProperties}
           onScroll={follow}
           onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
           onPointerDown={(e) => {
