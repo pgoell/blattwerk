@@ -24,6 +24,8 @@ function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number })
 
 // The PDF of a clash waits for the teacher's choice, here and in the editor: the server holds the other device's sheet.
 export const CLASH = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst.";
+// A newer version saved in another window, loaded by the press (#720).
+export const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Hier steht jetzt der neue Stand.";
 
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
@@ -84,7 +86,7 @@ function shorts(count: number, doc: Doc, got: Record<string, Variant>): Short[] 
   );
 }
 
-export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash }: {
+export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash, newer: loadNewer, print: printNow, fresh }: {
   id: number;
   doc: Doc;
   count: number;
@@ -95,6 +97,12 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   onClose: () => void;
   // Another device's version waits for the teacher's choice: the preview would not be what prints.
   clash: boolean;
+  // Loads a newer version saved elsewhere before a press; true when the editor has taken it over.
+  newer: (key: boolean) => Promise<boolean>;
+  // Set when the dialog opens from a press: that press prints once at once (undefined: no print, false PDF, true Lösungen).
+  print?: boolean;
+  // A newer version was loaded for this dialog: the line says so.
+  fresh?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [shown, setShown] = useState("A");
@@ -123,6 +131,12 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   useEffect(() => {
     load().then(setGot, () => setFailed("Die Varianten konnten nicht geladen werden."));
   }, []);
+  // A press that opened the dialog on the newer sheet prints once, at once.
+  useEffect(() => {
+    if (printNow === undefined) return;
+    setBusy(true);
+    void print(printNow);
+  }, []);
 
   // The room the preview's pages share, measured as the dialog allows it.
   const box = useRef<HTMLDivElement>(null);
@@ -137,8 +151,12 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   const letter = LETTERS[Math.min(LETTERS.indexOf(shown), count - 1)];
   const variant = letter === "A" ? doc : got[letter]?.doc;
   const blocked = shorts(count, doc, got)[0];
+  // The newer line comes last: a clash, a block or a failure is what the teacher must act on.
+  const line = clash ? CLASH : blocked ? message(blocked) : failed || (fresh ? NEWER : "");
 
   async function print(key: boolean) {
+    // A newer version saved elsewhere is loaded first: this dialog goes, and the editor's new one takes over.
+    if (await loadNewer(key)) return;
     setFailed("");
     try {
       // A load that failed before is tried again here, and what it brings is shown from now on.
@@ -226,9 +244,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
           ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} />)
           : "Lädt …"}
       </div>
-      {(clash ? CLASH : blocked ? message(blocked) : failed) && (
-        <div className="clash" role="alert">{clash ? CLASH : blocked ? message(blocked) : failed}</div>
-      )}
+      {line && <div className="clash" role="alert">{line}</div>}
       <div className="row">
         <button type="button" onClick={shut}>Schließen</button>
         <button type="button" disabled={busy || clash} onClick={() => { setBusy(true); print(true); }}>
