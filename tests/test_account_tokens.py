@@ -76,6 +76,16 @@ def test_revoke_takes_the_key_away(account):
     assert bearer(token).get("/api/sheets").status_code == 401
 
 
+def test_the_revoke_question_names_the_key_and_not_this_device(account):
+    page = account(user())
+    make(page, "Laptop")
+    page.get_by_role("button", name="Widerrufen: Laptop").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text("„Laptop“")
+    expect(dialog).not_to_contain_text("diesem Gerät")
+
+
 def test_last_use_shows_on_the_list(account):
     client = user()
     page = account(client)
