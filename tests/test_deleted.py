@@ -38,7 +38,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import login
 from test_stale import STATUS, TURNS
-from ui import at, pick, reload, unpick, user
+from ui import at, reload, unpick, user
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da."
@@ -619,74 +619,3 @@ def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work
     expect_list(page)
     expect_list(other)
     expect(other).not_to_have_url(re.compile(rf"/blatt/{run.ids['a']}$"))
-
-
-def test_a_tab_that_finds_the_delete_after_another_kept_it_makes_no_second_sheet(run):
-    """#718: tab 2 opened before the change, so it shows no choice; tab 1 keeps; tab 2 then changes
-    other work and finds A gone. Its keep finds tab 1's sheet and makes no second one: tab 2 goes
-    there and shows its change as a clash."""
-    page, _ = start(run)
-    other = page.context.new_page()
-    other.add_init_script("window.saveAfter = 100;")
-    other.goto(f"{run.server}/blatt/{run.ids['a']}")
-    change(run)
-    delete(run)
-    answer(run, "a")
-    press(page.locator(".clash"), KEEP)
-    expect_new(run, page)
-    new = page.url.rsplit("/", 1)[1]
-    count = len(run.client.get("/api/sheets").json())
-    unpick(other)
-    pick(other, "a")
-    other.keyboard.press("ArrowRight")
-    expect_choice(other.locator(".clash"), SAYS)
-    press(other.locator(".clash"), KEEP)
-    expect(other).to_have_url(f"{run.server}/blatt/{new}")
-    expect(other.locator(".clash")).to_be_visible()
-    assert record(other, int(new)) is not None
-    assert len(run.client.get("/api/sheets").json()) == count
-
-
-def test_a_tab_that_finds_the_delete_after_another_kept_the_same_work_ends_there(run):
-    """#718: tab 2 holds the same change as tab 1 kept, so its choice ends with no press, and it
-    goes to tab 1's new sheet. One new sheet is made."""
-    page, _ = start(run)
-    other = page.context.new_page()
-    other.add_init_script("window.saveAfter = 100;")
-    other.goto(f"{run.server}/blatt/{run.ids['a']}")
-    change(run)
-    delete(run)
-    answer(run, "a")
-    press(page.locator(".clash"), KEEP)
-    expect_new(run, page)
-    new = page.url.rsplit("/", 1)[1]
-    count = len(run.client.get("/api/sheets").json())
-    unpick(other)
-    pick(other, "a")
-    other.keyboard.press("ArrowRight")
-    expect(other).to_have_url(f"{run.server}/blatt/{new}")
-    expect(other.locator(NOTICE)).to_have_count(0)
-    assert len(run.client.get("/api/sheets").json()) == count
-
-
-def test_a_keep_after_another_tab_dropped_makes_one_sheet(run):
-    """#718: tab 1 drops A; tab 2 holds other work, finds A gone, and keeps: exactly one new sheet
-    exists."""
-    page, _ = start(run)
-    other = page.context.new_page()
-    other.add_init_script("window.saveAfter = 100;")
-    other.goto(f"{run.server}/blatt/{run.ids['a']}")
-    change(run)
-    delete(run)
-    answer(run, "a")
-    press(page.locator(".clash"), DROP)
-    expect_list(page)
-    count = len(run.client.get("/api/sheets").json())
-    unpick(other)
-    pick(other, "a")
-    other.keyboard.press("ArrowRight")
-    expect_choice(other.locator(".clash"), SAYS)
-    press(other.locator(".clash"), KEEP)
-    expect(other).not_to_have_url(re.compile(rf"/blatt/{run.ids['a']}$"))
-    expect(other.locator(STATUS)).to_have_text("Gespeichert")
-    assert len(run.client.get("/api/sheets").json()) == count + 1

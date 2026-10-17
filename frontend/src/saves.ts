@@ -222,6 +222,9 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
   } else if (e.message === "401" || e.by !== undefined) s.stop = true;
   else s.tries++;
   settle(s, s.gone ? 1 : 0);
+  // Another tab may have taken its choice before this one was gone: that choice is applied now.
+  const heard = s.gone && heardEnd.get(s.id);
+  if (heard && !s.dead && s.choice !== "busy") endWith(s, heard);
   // The session is gone: the app shows the login, and the login brings the saver back to work.
   if (s.stop) signedOut();
 }
@@ -414,6 +417,8 @@ export function onEnded(id: number, told: (to: number | null) => void) {
   ends.set(id, told);
   return () => void ends.delete(id);
 }
+// The last choice another tab took for each sheet deleted elsewhere, whether this tab's saver is gone yet or not (#718).
+const heardEnd = new Map<number, Kept & { to: number | null }>();
 // Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
 // work its change is written back, so the removal of the other tab's record leaves no loss.
 addEventListener("storage", (e) => {
@@ -433,23 +438,29 @@ addEventListener("storage", (e) => {
   const m = /^ended:(\d+)$/.exec(e.key ?? "");
   if (!m || e.newValue === null) return;
   const id = Number(m[1]);
-  const s = savers.get(id);
-  if (!s || !s.gone || s.dead || s.choice === "busy") return;
   let took: Kept & { to: number | null };
   try {
     took = JSON.parse(e.newValue);
   } catch {
     return;
   }
+  heardEnd.set(id, took);
+  const s = savers.get(id);
+  if (!s || !s.gone || s.dead || s.choice === "busy") return;
+  endWith(s, took);
+});
+// Where another tab's choice holds the same work as this saver, this one ends and the editor goes where that tab went.
+// Where it holds other work, the change is kept.
+function endWith(s: Saver, took: Kept & { to: number | null }) {
   if (same(took.doc, s.want.doc) && took.title === s.want.title) {
     kill(s);
     tell(1);
-    ends.get(id)?.(took.to);
+    ends.get(s.id)?.(took.to);
   } else {
     keep(s);
     tell();
   }
-});
+}
 
 // The sheet's saver and its kept change go: the teacher deleted the sheet here, chose the other version of a clash,
 // or chose what becomes of a sheet deleted elsewhere. The list asks anew after that last one.
@@ -480,6 +491,22 @@ export async function keepAsNew(id: number) {
     if (who.id !== s.owner) {
       signedOut();
       throw new Error("401");
+    }
+    // Another tab kept the sheet first: its new sheet is found, not made again. Where this tab holds other work, that work
+    // goes to that sheet as a clash.
+    const heard = heardEnd.get(id);
+    const to = heard?.to;
+    const there = typeof to === "number" ? await ask<Sheet>(`/sheets/${to}`).catch(() => undefined) : undefined;
+    if (heard && there) {
+      if (!s.dead && (!same(s.want.doc, heard.doc) || s.want.title !== heard.title)) {
+        try {
+          localStorage.setItem(key(there.id), JSON.stringify({ owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true }));
+        } catch {
+          // The store is full or shut: that change is lost with the old sheet.
+        }
+      }
+      forget(id);
+      return there;
     }
     // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
     const prior = s.asked;
