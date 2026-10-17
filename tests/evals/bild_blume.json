@@ -1,0 +1,4 @@
+{
+  "prompt": "Zeichne eine einfache Blume mit Blüte, Stängel und zwei Blättern als Bild für Sachunterricht. Lege ein Blatt mit dem Titel Eval Teile der Blume an: oben die Überschrift Teile der Blume, darunter das Bild.",
+  "expect": {"types": ["image", "text"], "text": ["Teile der Blume"]}
+}
