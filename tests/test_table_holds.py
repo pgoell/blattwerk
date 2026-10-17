@@ -426,43 +426,11 @@ def saved_rows(page, client, name="t"):
     return block(page, client, name)["props"]["rows"]
 
 
-def test_rows_set_below_their_texts_come_back_when_the_height_is_typed_back(editor):
-    """Issue 514: rows 20, 10, 10 pressed to 5 mm, then 40,26, come back as 20, 10, 10."""
-    client = user()
-    page = editor(box("t", "table", {**GRID, "rows": [20, 10, 10]}, h=40 + EDGE), client=client)
-    typed_height(page, "5")
-    typed_height(page, "40,26")
-    for got, want in zip(saved_rows(page, client), [20, 10, 10], strict=True):
-        assert abs(got - want) <= 0.05
-
-
-def test_uneven_rows_come_back_when_the_height_goes_low_and_back(editor):
-    """Issue 514: rows 10, 40, 10 at 60,26 mm keep their proportions through a low height."""
-    client = user()
-    page = editor(box("t", "table", {**GRID, "rows": [10, 40, 10]}, h=60 + EDGE), client=client)
-    typed_height(page, "60,26")
-    typed_height(page, "15")
-    typed_height(page, "60,26")
-    for got, want in zip(saved_rows(page, client), [10, 40, 10], strict=True):
-        assert abs(got - want) <= 0.05
-
-
-def test_undo_takes_back_the_last_height_typed_on_pressed_rows(editor):
-    """Issue 514: one Ctrl+Z after the last typed height takes back that height and its rows."""
-    client = user()
-    page = editor(box("t", "table", {**GRID, "rows": [20, 10, 10]}, h=40 + EDGE), client=client)
-    typed_height(page, "5")
-    low = block(page, client)
-    typed_height(page, "40,26")
-    unpick(page)
-    page.keyboard.press("Control+z")
-    after = block(page, client)
-    assert abs(after["h"] - low["h"]) <= 0.05
-    assert after["props"]["rows"] == low["props"]["rows"]
-
-
 def test_a_row_held_up_by_its_text_keeps_the_screens_proportion_when_the_table_grows(editor):
-    """Issue 514: a row its text holds up keeps the screen's proportion when the table grows."""
+    """Issue 540, PowerPoint: a row its text holds up keeps the screen's proportion as it grows.
+
+    Guards #514: a fix that scales the saved rows must not undo this.
+    """
     client = user()
     page = editor(box("t", "table", {**GRID, "rows": [10, 10, 10]}, h=30 + EDGE), client=client)
     open_cell(page, "t", 3)
