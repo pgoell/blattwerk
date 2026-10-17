@@ -801,3 +801,27 @@ def test_words_copied_in_an_open_text_stay_the_field_s_no_picture(editor):
     page.wait_for_timeout(300)
     types = page.evaluate(CLIPBOARD)["types"]
     assert "image/png" not in types
+
+
+@chromium_only
+def test_a_second_copy_while_the_first_ones_picture_is_drawn_wins(editor):
+    """The picture of the first may come later than the second's: the clipboard holds the second."""
+    client = user()
+    page = editor(
+        box("bild", "image", picture(upload(client))["props"]),
+        box("t", "text", {**TEXT, "text": "zweite"}, z=2),
+        client=client,
+    )
+    pick(page, "bild")
+    page.keyboard.press("Control+c")
+    pick(page, "t")
+    page.keyboard.press("Control+c")
+    clipboard_picture(page)
+    page.wait_for_function("async () => (await navigator.clipboard.readText()) === 'zweite'")
+    # The first one's write, if it lands, would show here.
+    page.wait_for_timeout(1000)
+    assert page.evaluate("navigator.clipboard.readText()") == "zweite"
+    unpick(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(3)
+    assert sorted(b["type"] for b in saved(page, client)) == ["image", "text", "text"]

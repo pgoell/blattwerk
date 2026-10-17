@@ -427,12 +427,32 @@ def test_abmelden_leaves_what_was_copied_in_another_app_after_the_copy(editor):
     page = editor(box("a", "shape", RECT), client=a)
     copy_all(page, 1)
     clipboard_picture(page)
-    # Another app's copy takes the window's focus first.
-    page.evaluate("dispatchEvent(new Event('blur'))")
     copy_text(page, "aus Word")
+    # The way to Konto loads the page anew: it knows the copy only by reading the clipboard.
     logout(page)
     assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
 
 
 # The types on the system's clipboard.
 TYPES = "async () => (await navigator.clipboard.read()).flatMap((item) => item.types)"
+
+
+@chromium_only
+def test_abmelden_in_the_same_page_takes_the_copy_off_without_reading(editor):
+    """The page made the copy: the logout empties the clipboard in the click, as Safari wants."""
+    a = user()
+    page = editor(box("a", "shape", RECT), client=a)
+    copy_all(page, 1)
+    clipboard_picture(page)
+    # Another app looked at in between, and no leave to read the clipboard: it knows by itself.
+    page.evaluate("dispatchEvent(new Event('blur'))")
+    page.context.clear_permissions()
+    page.context.grant_permissions(["clipboard-write"])
+    page.evaluate(
+        "history.pushState({}, '', '/konto'); dispatchEvent(new PopStateEvent('popstate'))"
+    )
+    button(page, "Abmelden").click()
+    expect(page.locator("#email")).to_be_visible()
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    assert "image/png" not in page.evaluate(TYPES)
+    assert page.evaluate("navigator.clipboard.readText()") == ""

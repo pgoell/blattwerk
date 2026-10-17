@@ -1287,8 +1287,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
     // Ctrl+Shift+C copies the look of the caret's word, Ctrl+Shift+V lays it on the picked words of the text being
-    // written, as in PowerPoint. The field's own copy and paste are not wanted for them.
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && /^[cv]$/i.test(e.key) && target.closest(".ProseMirror")) {
+    // written, as in PowerPoint. The field's own copy and paste are not wanted for them. With no look picked up,
+    // Ctrl+Shift+V stays the browser's paste of plain words.
+    const lookKey = (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase();
+    if ((lookKey === "c" || (lookKey === "v" && coat)) && target.closest(".sheet .ProseMirror")) {
       e.preventDefault();
       if (e.key.toLowerCase() === "c") dip(part?.marks);
       else wordPaint(sel.find((b) => b.id === editing)!);
@@ -1842,8 +1844,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // says it as false, so the words lose their own bold and colour where the look has none.
   function wordPaint(b: Block) {
     const text = b && boxed(b);
-    if (!field.current || !text || !coat) return false;
-    return tint(field.current, { bold: coat.bold ?? false, italic: coat.italic ?? false, underline: coat.underline ?? false, color: coat.color ?? text.color ?? "#222222" }, text, "");
+    // Only what the look has of words: one from a line or a picture has none, and leaves the words as they are.
+    const has = (name: keyof Coat) => !!coat && name in coat;
+    if (!field.current || !text || !coat || !(["bold", "italic", "underline", "color"] as const).some(has)) return false;
+    const marks: Marks = {};
+    for (const name of ["bold", "italic", "underline"] as const) if (has(name)) marks[name] = coat[name] ?? false;
+    if (has("color")) marks.color = coat.color ?? text.color ?? "#222222";
+    return tint(field.current, marks, text, "");
   }
   openNow.current = (id, el) => {
     clicked.current = undefined;
@@ -1867,15 +1874,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     };
     // The words are picked, not moved: the browser's drag of a selected text would move them.
     const stop = (e: Event) => e.preventDefault();
-    const up = () => {
+    // A drag the browser calls off, or that the window loses, paints nothing.
+    const end = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("blur", end);
       window.removeEventListener("dragstart", stop);
+    };
+    const up = () => {
+      end();
       const view = field.current;
       if (!(opened && view && !view.state.selection.empty && wordPaint(blocks.find((b) => b.id === id)!))) daub(on, page);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", end);
+    window.addEventListener("blur", end);
     window.addEventListener("dragstart", stop);
   }
   // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
@@ -2542,10 +2557,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
   // picture is drawn after it, and a refused picture still leaves the words.
+  // A copy made while an earlier one's picture is still drawn wins: the earlier write is called off.
+  const lastCopy = useRef(0);
   function toClipboard(held: Block[], words: string): Promise<void> {
-    const write = () => navigator.clipboard?.writeText(words) ?? Promise.resolve();
+    const n = ++lastCopy.current;
+    const write = () => (n === lastCopy.current && navigator.clipboard?.writeText(words)) || Promise.resolve();
     try {
-      const png = pictureOf(held, live.current.doc, page);
+      const png = pictureOf(held, live.current.doc, page).then((blob) => (n === lastCopy.current ? blob : Promise.reject(new Error("newer copy"))));
       return navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": new Blob([words], { type: "text/plain" }) })]).catch(write);
     } catch {
       return write();

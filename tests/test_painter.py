@@ -1252,3 +1252,54 @@ def test_a_drag_on_a_shape_with_text_paints_its_words(editor):
     drag(page, "b", "zwei")
     expect_brush(page, False)
     assert painted(held(page, client)["b"]) == [("zwei", True, "#ff0000")]
+
+
+def test_a_drag_with_a_lines_look_leaves_the_words_as_they_are(editor):
+    """A line's look has nothing of words: a drag with it keeps a bold red word's own."""
+    client = user()
+    page = editor(
+        box("l", "shape", LINE),
+        box("b", "text", {**TEXT, "text": "Hallo Welt", "rich": BOLD_RED}, z=2),
+        client=client,
+    )
+    pick(page, "l")
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "b", "Hallo")
+    expect_brush(page, False)
+    assert painted(held(page, client)["b"]) == [("Hallo", True, "#ff0000")]
+
+
+def test_a_drag_the_window_loses_paints_nothing_then_or_later(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "bold": True}),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=2),
+        box("c", "text", TEXT, z=3),
+        client=client,
+    )
+    pick(page, "a")
+    brush(page).click()
+    w = word(page, "b", "zwei")
+    page.mouse.move(w["x"] + 1, w["y"])
+    page.mouse.down()
+    page.mouse.move(w["right"] - 1, w["y"], steps=5)
+    # The window loses the focus with the button still down: the drag is over.
+    page.evaluate("dispatchEvent(new Event('blur'))")
+    page.mouse.up()
+    pick(page, "c")
+    expect_picked(page, "c")
+    expect(page.get_by_label("Rückgängig")).to_be_disabled()
+    assert held(page, client)["b"] == {**TEXT, "text": "eins zwei drei"}
+
+
+def test_ctrl_shift_v_with_no_look_picked_up_stays_the_browsers(editor):
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    # No look to lay: the browser's paste of plain words.
+    assert not stopped(page, "Control+Shift+V")
+    assert stopped(page, "Control+Shift+C")
+    # Once a look is picked up, the key lays it.
+    assert stopped(page, "Control+Shift+V")
