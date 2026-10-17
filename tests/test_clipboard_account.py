@@ -29,6 +29,7 @@ from ui import (
     copy_text,
     expect_picked,
     pick,
+    reload,
     saved,
     sheet,
     unpick,
@@ -161,9 +162,9 @@ def test_the_next_account_pastes_no_words_of_the_one_before(editor, by):
     page = editor(*held, client=a)
     copy_all(page, len(held))
     logout(page)
-    # What outlasts the logout tells the words apart and holds none of them.
+    # The logout took the words off the clipboard, and their mark with them (#763).
     kept = page.evaluate("JSON.stringify(localStorage)")
-    assert "copied" in kept and "Hallo" not in kept and "eins" not in kept
+    assert "copied" not in kept and "Hallo" not in kept and "eins" not in kept
     b, email = someone()
     login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
     before = stored(page, b)
@@ -423,15 +424,16 @@ def test_abmelden_takes_the_copy_and_its_picture_off_the_system_clipboard(editor
 
 
 @chromium_only
-def test_abmelden_leaves_what_was_copied_in_another_app_after_the_copy(editor):
+def test_abmelden_after_a_reload_takes_a_later_copy_of_another_app_too(editor):
+    """#763: the price of the wipe that needs no read: a copy made after the copy goes as well."""
     a = user()
     page = editor(box("a", "shape", RECT), client=a)
     copy_all(page, 1)
     clipboard_picture(page)
     copy_text(page, "aus Word")
-    # The way to Konto loads the page anew: it knows the copy only by reading the clipboard.
+    # The way to Konto loads the page anew: it knows the copy only by its mark, and reads nothing.
     logout(page)
-    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+    assert page.evaluate("navigator.clipboard.readText()") == ""
 
 
 # The types on the system's clipboard.
@@ -770,3 +772,105 @@ def test_the_same_session_pastes_its_own_key_into_a_field(editor):
     assert page.evaluate("navigator.clipboard.readText()") == token
     page.keyboard.press("Control+v")
     expect(field).to_have_value(token)
+
+
+def copied(editor, copy):
+    """A copy of the kind on the system clipboard, made on its page by its account."""
+    if copy == "blocks":
+        a = user()
+        page = editor(box("a", "shape", RECT), client=a)
+        copy_all(page, 1)
+    elif copy == "words":
+        a = user()
+        page = editor(the_text_box(), client=a)
+        copy_in_text(page)
+    else:
+        a, _ = someone()
+        page = editor(box("x", "shape", RECT, w=40), client=a)
+        page.goto(f"{origin(page)}/konto")
+        token = copy_key(page)
+        # The clipboard takes the key after the click: a navigation before that cuts it off.
+        assert page.evaluate("navigator.clipboard.readText()") == token
+    return page, a
+
+
+def to_konto(page, way):
+    """Gets the page to Konto the way named: a reload, a new tab, or the address typed in."""
+    konto = f"{origin(page)}/konto"
+    if way == "reload":
+        reload(page, page.url)
+        page.goto(konto)
+    elif way == "tab":
+        page = page.context.new_page()
+        page.goto(konto)
+    else:
+        page.goto(konto)
+    return page
+
+
+# Records each read of the clipboard and each permission query the page makes from now on.
+RECORD = """() => {
+    window.__asked = [];
+    const clipboard = navigator.clipboard;
+    const readText = clipboard.readText.bind(clipboard);
+    const permissions = navigator.permissions;
+    const query = permissions.query.bind(permissions);
+    clipboard.readText = (...args) => {
+        window.__asked.push("readText");
+        return readText(...args);
+    };
+    permissions.query = (...args) => {
+        window.__asked.push("query");
+        return query(...args);
+    };
+}"""
+
+
+@chromium_only
+@pytest.mark.parametrize("way", ["reload", "tab", "address"])
+@pytest.mark.parametrize("copy", ["blocks", "words", "key"])
+def test_abmelden_after_a_reload_empties_the_clipboard_with_no_read_leave(editor, copy, way):
+    """#763: a page that did not make the copy empties the clipboard in the click, with no read
+    and no permission query."""
+    page, _ = copied(editor, copy)
+    page = to_konto(page, way)
+    page.context.clear_permissions()
+    page.context.grant_permissions(["clipboard-write"])
+    page.evaluate(RECORD)
+    button(page, "Abmelden").click()
+    expect(page.locator("#email")).to_be_visible()
+    asked = page.evaluate("window.__asked")
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+    assert asked == []
+    next_list_paste_nothing(page)
+
+
+@chromium_only
+def test_abmelden_with_no_copy_stored_leaves_the_clipboard(editor):
+    """#763: with no copy of Blattomat's stored, the logout leaves what another app copied."""
+    a = user()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    assert page.evaluate(
+        "[localStorage.getItem('copied'), localStorage.getItem('typed-copy')]"
+    ) == [
+        None,
+        None,
+    ]
+    copy_text(page, "aus Word")
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+
+
+@chromium_only
+def test_after_a_wipe_a_later_abmelden_leaves_another_apps_copy(editor):
+    """#763: the wipe takes the marks off, so the next logout leaves another app's copy alone."""
+    a = user()
+    page = editor(box("a", "shape", RECT), client=a)
+    copy_all(page, 1)
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    page.evaluate("(words) => navigator.clipboard.writeText(words)", "aus Word")
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"

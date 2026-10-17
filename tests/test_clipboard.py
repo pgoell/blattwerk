@@ -410,11 +410,11 @@ def test_words_from_another_app_paste_as_a_text_block(editor, clip, how):
     page = editor(box("a", "shape", RECT, w=40), box("b", "text", TEXT, z=2), client=client)
     if clip == "blocks copied before":
         pick(page, "a", "b")
+        track_writes(page)
         page.keyboard.press("Control+c")
-        # The picture lands after the words: wait for it, or it writes over the other app's words.
-        # WebKit on Linux keeps no picture there, and lets the page read nothing.
-        if BROWSER != "webkit":
-            clipboard_picture(page)
+        # The picture lands after the words: wait for every write, or a late one writes over the
+        # other app's words (#764).
+        writes_landed(page)
     else:
         assert page.evaluate("localStorage.getItem('clip')") is None
     copy_text(page, "Wort")
