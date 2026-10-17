@@ -15,13 +15,11 @@ Only a write of the doc moves the version on. `rename_sheet` changes the title a
 
 ## The fine tools
 
-`add_block`, `update_block`, `move_block`, `delete_block`, `add_page`, `set_page` and `set_words` read the sheet first. If its version is not the one you passed, they write nothing and answer:
-
-The teacher changed this sheet in the editor since you read it (you had version <had>, it is now <now>). Nothing was written. Call get_sheet and make your change on the new doc.
+`add_block`, `update_block`, `move_block`, `delete_block`, `add_page`, `set_page` and `set_words` read the sheet first. If its version is not the one you passed, they write nothing and say so, with both versions ([the text](tools/errors-and-limits.md)).
 
 ## replace_doc
 
-`replace_doc` takes the whole doc and the version that `get_sheet` gave. On the same refusal it tries once more with the new version. It does that only when the doc on the server is still the one `get_sheet` gave: the version moved, the content did not. Otherwise it gives the refusal text above, and writes nothing.
+`replace_doc` takes the whole doc and the version that `get_sheet` gave. On the same refusal it tries once more with the new version. It does that only when you passed the version of this session's last read or write of the sheet and the doc on the server is still that one: the version moved, the content did not. Otherwise it gives the same refusal and writes nothing.
 
 ## What to do
 

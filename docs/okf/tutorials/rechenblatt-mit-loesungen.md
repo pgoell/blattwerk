@@ -40,10 +40,10 @@ The Selbstkontrolle reads the results of the maths block from its `links`. Put i
 5. Call `add_block` with `version` 4. The Selbstkontrolle goes at `y` = 57 + `block.h` + 5 from step 4. Put that value in `y`. Its `links` holds the `block.id` of the maths block. The `form` `"mixed"` lists the results shuffled, each with a box to tick. The answer gives `version` (5) and `block.h`.
 
 ```json
-{"type": "selbstkontrolle", "props": {"form": "mixed", "links": ["<block.id of the maths block>"], "title": "Selbstkontrolle", "size": 14, "turn": "none", "seed": 42}, "x": 15, "y": 185, "w": 180, "h": 60}
+{"type": "selbstkontrolle", "props": {"form": "mixed", "links": ["<block.id of the maths block>"], "title": "Selbstkontrolle", "size": 14, "turn": "none", "seed": 42}, "x": 15, "y": 109, "w": 180, "h": 60}
 ```
 
-The `y` above is an example: the maths block of the example stood at `y` 57 and had `h` 123, so the next `y` is 185.
+The `y` above is an example: if the maths block at `y` 57 came back with `h` 47, the next `y` is 57 + 47 + 5 = 109.
 
 6. Call `render_preview` with `sheet_id` 7. Check that the tasks, the Selbstkontrolle and the heading do not overlap and stay on the page.
 

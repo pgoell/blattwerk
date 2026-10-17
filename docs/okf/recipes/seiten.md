@@ -14,7 +14,7 @@ When a teacher asks for: "Ein Blatt mit zwei Seiten, auf der ersten Seite eine A
 * Page 1 holds the heading, the name line and the text task. Page 2 holds its own heading and a ruling.
 * `pages` lists the pages in print order. Each page has its own `blocks`. Every `y` counts from the top of its own page, so page 2 starts again at 15 mm.
 * Add a page with `add_page`. Its `after` is the number of the page to put it behind, so `after: 1` makes a new page 2.
-* In the editor the button "Neue Seite" adds an empty page at the end. The button "Seite duplizieren" copies the page the teacher is on.
+* In the editor the button "Neue Seite" adds an empty page after the page the teacher is on. The button "Seite duplizieren" copies the page the teacher is on.
 * See [text](../blocks/text.md) and [ruling](../blocks/ruling.md) for the other props.
 
 # Doc

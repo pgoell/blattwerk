@@ -145,6 +145,31 @@ def test_a_correct_tool_call_passes(docs: Path):
     assert "set_words" not in result.stderr
 
 
+def test_a_tool_call_with_a_misspelt_argument(docs: Path):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    call = '{"sheet_id": 7, "version": 2, "page": 1, "landscpe": true}'
+    recipe.write_text(recipe.read_text() + f"\n```json set_page\n{call}\n```\n")
+    result = check(docs)
+    assert result.returncode == 1
+    assert "recipes/uhrzeiten-lesen.md#tool1: set_page: arguments:" in result.stderr
+    assert "'landscpe' was unexpected" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "opening", ["```json  update_block", "```json add-block", "```json set_words "]
+)
+def test_a_json_fence_no_check_can_read(docs: Path, opening: str):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    original = recipe.read_text()
+    recipe.write_text(original + f"\n{opening}\n{{}}\n```\n")
+    result = check(docs)
+    assert result.returncode == 1
+    line = len(original.splitlines()) + 2
+    assert (
+        f"recipes/uhrzeiten-lesen.md:{line}: a json fence must be ```json or ```json <tool>"
+    ) in result.stderr
+
+
 def test_an_add_block_example_with_wrong_props(docs: Path):
     edit(
         docs / "blocks/uhr.md",

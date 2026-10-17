@@ -30,13 +30,13 @@ The button "Varianten drucken" opens a dialog. The teacher picks how many varian
 Variant A is the stored sheet. Letters B to D draw new content from each block's own seed and the letter. The same letter gives the same content on every run.
 
 * Changes: maths (new exercises), suchsel, zahlenmauer, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
-* Stays: a block without a seed prints the same on every letter. Give every block that should change a whole-number `seed`.
+* Stays: a block without a seed prints the same on every letter. Give every block that should change a whole-number seed: `seed` on the seeded blocks; `mix`, `bank` or `holeSeed` on a text or shape; `bank` on a table.
 * Numbers the teacher typed into stones or fields (`typed`) are dropped in B to D.
 
-If a variant cannot fill a maths block, the dialog says: "Variante <letter>: Der Rechnen-Block auf Seite <n> lässt sich nicht neu füllen. Würfle ihn neu, lockere die Vorgaben oder drucke weniger Varianten." Then give that block a new seed with `update_block`, loosen its limits, or tell the teacher to print fewer variants.
+If a variant cannot fill a maths block, the dialog names the block and its page and asks for a new roll, looser limits or fewer variants. Then give that block a new seed with `update_block`, loosen its limits, or tell the teacher to print fewer variants.
 
 ## Locked blocks
 
-A block with `locked: true` belongs to the teacher. The tools refuse to move, change or delete it, with `Block <id> is locked. Nothing was written.` Leave it where it is. Work around it on the rest of the sheet.
+A block with `locked: true` belongs to the teacher. The tools refuse to move, change or delete it ([the text](tools/errors-and-limits.md)). Leave it where it is. Work around it on the rest of the sheet.
 
 See [text](blocks/text.md) and [selbstkontrolle](blocks/selbstkontrolle.md) for the blocks that carry answers and seeds.

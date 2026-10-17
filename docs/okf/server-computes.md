@@ -13,14 +13,14 @@ Some blocks draw their content from a `seed`. Maths blocks get their exercises f
 
 ## Maths exercises
 
-A maths block takes limits: `ops`, `max`, `count`, `format`, `columns`, `seed`, `size` and the rest, on the [maths](blocks/maths.md) page. The server draws the exercises from them and sets the block's height.
+A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest, on the [maths](blocks/maths.md) page. The server draws the exercises from them. `columns` and `size` only lay the tasks out: with the limits they set the block's height, and a change to them draws no new tasks.
 
 * `add_block`: leave `exercises` out of `props`. Props may be partial. The answer gives the block as stored, with its exercises and its real `h`. Place the next block from that answer.
 * `replace_doc`: a doc must carry every maths field, so pass `"exercises": []` and `"loosen": null`. `replace_doc` fills an empty list from the server. A block that already has exercises keeps them.
 * `update_block` with a new limit: the server draws new exercises from the block's seed. Pass a new `seed` for new tasks. The editor's panel does the same.
 * Same seed and same limits give the same tasks. A new seed gives new tasks.
 * `loosen` says which limit is in the way when fewer tasks came than you asked for. It is `null` when the count is met. Then loosen that limit, or ask for fewer exercises.
-* A change that would reach past the page's foot is refused. The text is: `Block <id> would reach past the page's foot. Nothing was written: move it up or ask for fewer exercises.` Move the block up or ask for fewer exercises, then write again.
+* `update_block` refuses a change whose height would reach past the page's foot ([the text](tools/errors-and-limits.md)). Move the block up or ask for fewer exercises, then write again. `add_block` and `replace_doc` only warn that the block leaves the printable area.
 
 ## Other seeded blocks
 

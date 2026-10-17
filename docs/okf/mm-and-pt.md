@@ -38,7 +38,7 @@ A box holds lines one under the other. Three lines of 14 pt need about 19.3 mm. 
 
 ## Maths blocks
 
-Do not work out a maths block's height. The server gives it with the exercises. Read the `h` in the answer and place the next block from there. An `h` you pass wins over the server's height, so leave it out unless you need a box of another height.
+Do not work out a maths block's height. The server gives it with the exercises. Read the `h` in the answer and place the next block from there. With `add_block` an `h` you pass wins over the server's height, so leave it out unless you need a box of another height. With `replace_doc` a maths block with empty `exercises` always gets the server's height.
 
 ## Never px
 
