@@ -221,3 +221,71 @@ def test_a_failed_rename_of_a_refused_sheet_is_tried_again(editor):
     expect(page.locator(ALERT)).to_have_count(0)
     assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] not in (15, "abc")
     assert stored_title(sheet_id) == "Neuer Titel"
+
+
+def break_version(page, url):
+    """Sets each save's version to "x" on its way out: the server refuses it with a 422."""
+
+    def rewrite(route):
+        body = (
+            json.loads(route.request.post_data or "{}") if route.request.method == "PATCH" else {}
+        )
+        if "version" not in body:
+            return route.continue_()
+        body["version"] = "x"
+        route.continue_(post_data=json.dumps(body))
+
+    page.route(url, rewrite)
+
+
+def test_a_pydantic_422_is_not_tried_again_and_says_why(editor):
+    page, sheet_id = open_sheet(editor)
+    break_version(page, f"**/api/sheets/{sheet_id}")
+    patches = []
+    page.on("request", lambda r: patches.append(r) if r.method == "PATCH" else None)
+    page.clock.install()
+
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(ALERT)).to_contain_text("Nicht gespeichert")
+    expect(page.locator(ALERT)).to_contain_text("version")
+
+    # Past a minute of the retries that a refusal without a reason would have made.
+    refused = len(patches)
+    assert refused == 1
+    page.clock.run_for(60000)
+    page.wait_for_timeout(INTERVAL)
+    assert len(patches) == refused
+
+
+def test_a_pydantic_422_keeps_the_change(editor):
+    page, sheet_id = open_sheet(editor)
+    break_version(page, f"**/api/sheets/{sheet_id}")
+
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    moved = at(page, "a").evaluate(LEFT)
+    expect(page.locator(ALERT)).to_contain_text("version")
+    expect(at(page, "a")).to_have_css("left", moved)
+    # The browser's store has the change within a second, so it is awaited, not read at once.
+    page.wait_for_function("id => localStorage.getItem('unsaved:' + id) !== null", arg=sheet_id)
+    assert record(page, sheet_id)["doc"]["pages"][0]["blocks"][0]["x"] != 15
+    assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] == 15
+
+
+def test_a_change_after_a_pydantic_422_is_sent_again(editor):
+    page, sheet_id = open_sheet(editor)
+    break_version(page, f"**/api/sheets/{sheet_id}")
+
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(ALERT)).to_contain_text("version")
+    page.wait_for_function("id => localStorage.getItem('unsaved:' + id) !== null", arg=sheet_id)
+    once = record(page, sheet_id)["doc"]["pages"][0]["blocks"][0]["x"]
+
+    page.unroute(f"**/api/sheets/{sheet_id}")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    expect(page.locator(ALERT)).to_have_count(0)
+    # The change sent holds both moves: neither the start nor the first move alone.
+    assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] not in (15, once)
