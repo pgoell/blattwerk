@@ -747,11 +747,12 @@ body:has(.print) { background: #fff; }
 .moveable-n::after, .moveable-s::after { inset-inline: max(-17px, 5px - var(--across) / 4); border-radius: 0; }
 .moveable-e::after, .moveable-w::after { inset-block: max(-17px, 5px - var(--down) / 4); border-radius: 0; }
 /* The frame stands 8 px outside the block. Each edge's area reaches 8 px less far out and 8 px further in, so it
-   covers what it covered with the handle on the block's edge: 48 px deep, to 7 px inside the block. */
+   covers what it covered with the handle on the block's edge: 48 px deep, to 7 px inside the block. The right
+   edge's area stops 32 px past the block, the desk's padding, so a block at the page's edge does not widen the desk (issue 418). */
 .moveable-n::after { inset-block: -26px -8px; }
 .moveable-s::after { inset-block: -8px -26px; }
 .moveable-w::after { inset-inline: -26px -8px; }
-.moveable-e::after { inset-inline: -8px -26px; }
+.moveable-e::after { inset-inline: -8px -17px; }
 
 /* The right panel: what is selected under Format, the grid and the guide lines under Ansicht. */
 .panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); }
