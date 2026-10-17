@@ -11,6 +11,13 @@ from ui import TEXT, box, pick, sheet, user
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 GONE = re.compile("gelöscht")
+WORD = "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."
+NOTICE = "#root > .notice"
+
+
+def record(page, sheet_id):
+    """What the browser keeps of the sheet's unsaved change."""
+    return page.evaluate("(id) => JSON.parse(localStorage.getItem('unsaved:' + id))", sheet_id)
 
 
 @pytest.fixture
@@ -87,3 +94,60 @@ def test_a_keep_after_another_tab_dropped_makes_one_sheet(tabs):
     expect(page2).not_to_have_url(re.compile(rf"/blatt/{sheet_id}$"))
     expect(page2).to_have_url(re.compile(r"/blatt/\d+$"))
     assert len(client.get("/api/sheets").json()) == count + 1
+
+
+def test_tab_one_keeps_its_own_unsaved_change_when_tab_two_hands_over_its_work(tabs):
+    """Tab 2's work lands on tab 1's new sheet without a write to the store: tab 1's own unsaved
+    record of that sheet stays as it was."""
+    client, sheet_id, page1, page2 = tabs
+    new = change_and_keep(client, sheet_id, page1)
+    page1.route(
+        f"**/api/sheets/{new}",
+        lambda route: None if route.request.method == "PATCH" else route.continue_(),
+    )
+    pick(page1, "a")
+    page1.keyboard.press("ArrowRight")
+    page1.wait_for_function(f"localStorage.getItem('unsaved:{new}') !== null")
+    pick(page2, "a")
+    page2.keyboard.press("ArrowLeft")
+    expect(page2.locator(".clash")).to_contain_text(GONE)
+    page2.get_by_role("button", name=KEEP).click()
+    expect(page2).to_have_url(re.compile(rf"/blatt/{new}$"))
+    expect(page2.locator(".clash")).to_be_visible()
+    assert record(page1, new) is not None
+
+
+def test_a_failed_lookup_of_the_new_sheet_says_so_and_makes_no_second_sheet(tabs):
+    """A 500 from the new sheet's address is a failure, not a missing sheet: the keep says so and
+    makes no second sheet."""
+    client, sheet_id, page1, page2 = tabs
+    new = change_and_keep(client, sheet_id, page1)
+    count = len(client.get("/api/sheets").json())
+    page2.route(
+        f"**/api/sheets/{new}",
+        lambda route: (
+            route.fulfill(status=500) if route.request.method == "GET" else route.continue_()
+        ),
+    )
+    pick(page2, "a")
+    page2.keyboard.press("ArrowLeft")
+    expect(page2.locator(".clash")).to_contain_text(GONE)
+    page2.get_by_role("button", name=KEEP).click()
+    expect(page2.locator(".clash")).to_contain_text(WORD)
+    assert len(client.get("/api/sheets").json()) == count
+
+
+def test_a_tab_reloaded_after_another_kept_still_keeps_into_the_same_new_sheet(tabs):
+    """Tab 2 finds A gone with other work before tab 1 keeps; it is reloaded after that, so it heard
+    no choice in this page. Its keep still lands on tab 1's sheet."""
+    client, sheet_id, page1, page2 = tabs
+    pick(page2, "a")
+    page2.keyboard.press("ArrowLeft")
+    expect(page2.locator(".clash")).to_contain_text(GONE)
+    new = change_and_keep(client, sheet_id, page1)
+    count = len(client.get("/api/sheets").json())
+    page2.reload()
+    expect(page2.locator(NOTICE)).to_contain_text(GONE)
+    page2.locator(NOTICE).get_by_role("button", name=KEEP).click()
+    expect(page2).to_have_url(re.compile(rf"/blatt/{new}$"))
+    assert len(client.get("/api/sheets").json()) == count

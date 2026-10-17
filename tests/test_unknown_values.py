@@ -160,6 +160,20 @@ def test_two_picked_blocks_one_unknown_say_so(editor):
     expect(page.locator(".panel")).to_contain_text("kennt Blattomat nicht")
 
 
+def test_the_hints_button_sets_druckschrift_and_undo_brings_the_name_back(editor):
+    client = user()
+    page = editor(comic("text"), client=client)
+    pick(page, "a")
+    hint = page.locator(".panel .hint", has_text="kennt Blattomat nicht")
+    expect(hint).to_be_visible()
+    page.get_by_role("button", name="In Druckschrift setzen").click()
+    expect(hint).to_have_count(0)
+    assert stored(client, page)["a"]["props"]["font"] == "andika"
+    page.keyboard.press("Control+z")
+    expect(hint).to_be_visible()
+    assert stored(client, page)["a"]["props"]["font"] == "comic"
+
+
 @pytest.mark.parametrize("font", ["comic", "grundschrift"])
 def test_print_and_thumbnail_draw_a_sheet_with_an_unknown_font(browser, server, font):
     client = user()
