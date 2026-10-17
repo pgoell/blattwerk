@@ -1168,6 +1168,86 @@ def test_a_drag_paint_is_one_undo_step(editor):
     assert painted(held(page, client)["b"]) == []
 
 
+def test_a_brush_drag_in_an_open_text_paints_its_words_and_keeps_the_block(editor):
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": "Der Hund ist braun und klein"}), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Home")
+    page.keyboard.press("Control+ArrowRight")
+    page.keyboard.press("Control+Shift+ArrowRight")
+    page.keyboard.press("Control+b")
+    expect(page.locator(f"{FIELD} span[data-bold]")).to_have_text("Hund")
+    x = saved_x(page, client)
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "braun")
+    expect_brush(page, False)
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund", "braun"}
+    page.keyboard.press("Control+z")
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund"}
+
+
+def test_a_brush_from_a_caret_in_a_text_opened_again_paints_the_words_it_crosses_in_place(editor):
+    """#756, as the issue has it: the bold is saved, the text opened again, the caret in it."""
+    client = user()
+    runs = [{"text": "Der "}, {"text": "Hund", "bold": True}, {"text": " ist braun und klein"}]
+    props = {**TEXT, "text": "Der Hund ist braun und klein", "rich": [{"runs": runs}]}
+    page = editor(box("a", "text", props), client=client)
+    x = saved_x(page, client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    w = word(page, "a", "Hund")
+    page.mouse.click((w["x"] + w["right"]) / 2, w["y"])
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "braun")
+    expect_brush(page, False)
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund", "braun"}
+    page.keyboard.press("Control+z")
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund"}
+
+
+def test_a_kept_brush_on_a_picked_group_paints_it_once_and_keeps_the_group_picked(editor):
+    """#756: a press on a picked text goes to the brush first; the click after picks no more."""
+    client = user()
+    group = {"group": ["g"]}
+    page = editor(
+        box("q", "text", {**TEXT, "text": "Quelle", "bold": True}, w=25),
+        box("a", "text", {**TEXT, "text": "eins"}, z=2, w=25, **group),
+        box("b", "text", {**TEXT, "text": "zwei"}, z=3, w=25, **group),
+        client=client,
+    )
+    pick(page, "q")
+    brush(page).dblclick()
+    expect_brush(page, True)
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    # The group's frame lies over the picked block: the press goes where a hand would put it.
+    at(page, "a").click(force=True)
+    expect(brush(page)).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, "a", "b")
+    assert held(page, client)["a"].get("bold") and held(page, client)["b"].get("bold")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+z")
+    expect(at(page, "a").locator("p").first).not_to_have_css("font-weight", "700")
+    assert not held(page, client)["a"].get("bold") and not held(page, client)["b"].get("bold")
+
+
+def saved_x(page, client):
+    return next(b["x"] for b in saved(page, client) if b["id"] == "a")
+
+
 def test_a_plain_look_takes_bold_and_red_off_the_words(editor):
     client = user()
     runs = [{"text": "eins "}, {"text": "zwei", "bold": True, "color": "#ff0000"}]
@@ -1303,3 +1383,28 @@ def test_ctrl_shift_v_with_no_look_picked_up_stays_the_browsers(editor):
     assert stopped(page, "Control+Shift+C")
     # Once a look is picked up, the key lays it.
     assert stopped(page, "Control+Shift+V")
+
+
+def test_a_brush_drag_with_ctrl_in_an_open_text_makes_no_copy_of_the_block(editor):
+    """#756: Moveable hears of the press before the editor does; with Ctrl it would leave a copy."""
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": "Der Hund ist braun und klein"}), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    w = word(page, "a", "Hund")
+    page.mouse.dblclick((w["x"] + w["right"]) / 2, w["y"])
+    page.keyboard.press("Control+b")
+    x = saved_x(page, client)
+    brush(page).click()
+    expect_brush(page, True)
+    w = word(page, "a", "braun")
+    page.keyboard.down("Control")
+    page.mouse.move(w["x"] + 1, w["y"])
+    page.mouse.down()
+    page.mouse.move(w["right"] - 1, w["y"], steps=5)
+    page.mouse.up()
+    page.keyboard.up("Control")
+    expect(page.locator(".block")).to_have_count(1)
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+    assert saved_x(page, client) == x

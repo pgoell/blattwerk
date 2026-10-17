@@ -110,7 +110,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
-import { copied, hash } from "../clip";
+import { copied, hash, mark as markCopy, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -413,6 +413,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
   const [reach, setReach] = useState<number | undefined>(undefined);
   const cellDrag = useRef(false);
+  // A press with the brush in the open text picks its words: Moveable must not drag the block by it.
+  const brushing = useRef(false);
   // The heights of the rows of the picked table as its grid laid them out, in px.
   const [laid, setLaid] = useState("");
   // Where the caret stood in a cell that a new row or column moves to another place.
@@ -1871,7 +1873,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       if (!opened) {
         if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
         opened = true;
-        flushSync(() => openNow.current(id, press.target as Element));
+        if (editing !== id) flushSync(() => openNow.current(id, press.target as Element));
       }
       const view = field.current;
       const from = view?.posAtCoords({ left: start[0], top: start[1] });
@@ -2690,6 +2692,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         // The editor's own copy brings its blocks, though it comes with a picture of them too.
         if (item.types.includes("text/plain")) {
           words = await (await item.getType("text/plain")).text();
+          if (refusedWords(words)) return;
           if (ownCopy(words.replace(/\r\n/g, "\n"))) return paste();
         }
         const type = item.types.find((t) => t.startsWith("image/"));
@@ -3002,6 +3005,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     cellsCopied.current = tsv;
     pending.current = tsv;
     document.execCommand("copy");
+    markCopy(tsv);
     if (pending.current === null) return;
     pending.current = null;
     navigator.clipboard?.writeText(tsv).catch(() => {});
@@ -3488,7 +3492,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         const on = to === page ? unit(id) : grouped([id], pages[to].blocks);
         setAt(to);
         setIds(on);
-        setEditing("");
+        // The open text stays open for its words: a drag selects in it.
+        if (id !== editing) setEditing("");
         const target = blocks.find((b) => b.id === id);
         if (to === page && press && target && boxed(target)) brushDrag(id, press, on);
         else daub(on, to);
@@ -4337,6 +4342,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             // A press of the mouse on a cell of the table being edited picks cells. Moveable takes the focus from the
             // field before the mouse's own event: the field stays open through that.
             cellDrag.current = !touch.current && !!table && editing === table.id && !!(e.target as Element).closest(`[data-id="${table.id}"] [data-cell]`);
+            // A press with the brush on a picked text is the brush's: Moveable, which hears of it before the mouse's
+            // own event, would drag the block (#756). The click after it picks nothing more.
+            const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+            const text = blocks.find((b) => b.id === id);
+            brushing.current = !touch.current && e.button === 0 && !!brush && !!text && !!boxed(text) && ids.includes(text.id);
+            if (brushing.current) {
+              const off = () => setTimeout(() => (brushing.current = false));
+              addEventListener("pointerup", off, { once: true });
+              addEventListener("pointercancel", off, { once: true });
+            }
           }}
           onMouseDown={(e) => {
             // Moveable keeps the press from moving the focus, so an input, or a button reached by the keys, would keep
@@ -4354,6 +4369,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               spot.current = undefined;
               return;
             }
+            // With the brush a press in the open text picks its words, and a drag paints them.
+            // The brush's press on a picked text (see onPointerDown) paints, and its drag picks words.
+            if (brushing.current) return void pick(e.target as Element, e.shiftKey, e.nativeEvent);
             // The right button drags nothing: its menu picks the block.
             if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
@@ -4669,12 +4687,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     onClick={(e) => touch.current && !held.current && pick(e.inputTarget, false)}
                     // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
                     // on the group where the point the mouse reports lies beside what was pressed.
-                    onClickGroup={(e) => cover.current && !held.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    onClickGroup={(e) => cover.current && !held.current && !brushing.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
                     // A press on a cell of the table being edited picks cells: it moves no block.
-                    onDragStart={(e) => (cellDrag.current ? e.stopDrag() : begin([e.target]))}
-                    onDragGroupStart={(e) => begin(e.targets)}
-                    onDrag={(e) => drag([e])}
-                    onDragGroup={(e) => drag(e.events, e)}
+                    onDragStart={(e) => (cellDrag.current || brushing.current ? e.stopDrag() : begin([e.target]))}
+                    onDragGroupStart={(e) => (brushing.current ? e.stopDrag() : begin(e.targets))}
+                    onDrag={(e) => !brushing.current && drag([e])}
+                    onDragGroup={(e) => !brushing.current && drag(e.events, e)}
                     onDragEnd={(e) => leave(e.isDrag)}
                     onDragGroupEnd={(e) => leave(e.isDrag)}
                     // Ctrl resizes about the centre.

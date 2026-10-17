@@ -269,6 +269,7 @@ def test_a_refused_own_zahlenraum_shows_the_blocks_in_the_field(editor):
     page.get_by_label("Zahlenraum").select_option(label="Eigener")
     field = page.get_by_label("Größte Zahl")
     field.fill("100000")
+    field.press("Enter")
     refusal(page)
     expect(field).to_be_focused()
     expect(field).to_have_value("100")
@@ -288,6 +289,7 @@ def test_a_refusal_that_comes_after_more_typing_leaves_the_field_as_typed(editor
     field = page.get_by_label("Größte Zahl")
     with page.expect_request("**/api/maths"):
         field.fill("100000")
+        field.press("Enter")
     # An empty field asks the server nothing: the answer for 100000 stays the last one.
     field.fill("")
     held[0].continue_()
@@ -304,7 +306,8 @@ def test_an_accepted_own_zahlenraum_keeps_what_was_typed_and_undo_shows_the_old(
     pick(page, "m")
     page.get_by_label("Zahlenraum").select_option(label="Eigener")
     field = page.get_by_label("Größte Zahl")
-    asked(lambda page: field.fill("1000"))(page)
+    field.fill("1000")
+    asked(lambda page: field.press("Enter"))(page)
     expect(field).to_have_value("1000")
     field.blur()
     pick(page, "m")
@@ -340,6 +343,7 @@ def test_an_own_zahlenraum_below_one_says_so(editor):
     expect(page.get_by_role("status").filter(has_text="Mindestens 1")).to_be_visible()
     field.fill("50")
     expect(page.get_by_role("status").filter(has_text="Mindestens 1")).to_have_count(0)
+    asked(lambda page: field.press("Enter"))(page)
     field.fill("0")
     field.press("Enter")
     expect(field).to_have_value("50")
@@ -415,4 +419,28 @@ def test_an_own_zahlenraum_with_a_decimal_says_so(editor):
     field.fill("12.5")
     expect(page.get_by_role("status").filter(has_text="Nur ganze Zahlen")).to_be_visible()
     field.press("Enter")
+    expect(field).to_have_value("100")
+
+
+def test_typing_past_the_limit_never_applies_its_first_digits(editor):
+    """#743: typing 1500000 applies no digit on the way. Enter applies 5000, one undo gives 100."""
+    client = user()
+    props = maths(client, ops=["+"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(box("m", "maths", props, y=20, h=height(props)), client=client)
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    field.select_text()
+    field.press_sequentially("1500000")
+    expect(page.get_by_role("status").filter(has_text="Höchstens 1.000.000")).to_be_visible()
+    field.blur()
+    expect(field).to_have_value("100")
+    stored = next(b for b in doc(page, client)["pages"][0]["blocks"] if b["id"] == "m")
+    assert stored["props"]["max"] == 100
+    field.fill("5000")
+    asked(lambda page: field.press("Enter"))(page)
+    expect(field).to_have_value("5000")
+    field.blur()
+    pick(page, "m")
+    page.keyboard.press("Control+z")
     expect(field).to_have_value("100")

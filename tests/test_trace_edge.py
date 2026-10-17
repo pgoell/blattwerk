@@ -221,6 +221,50 @@ def test_no_ink_of_a_plain_first_letter_is_cut_at_the_left(browser, server, font
     assert not cut, (font, cut)
 
 
+JTIP = {"text": "jgf Tgjf", "size": 40, "font": "andika", "trace": False, "align": "left"}
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_an_inside_text_is_cut_at_the_left(browser, server, kind):
+    """#740: a print font's j keeps its tip in a text inside a round or pointed shape, in print."""
+    client = user()
+    shape = {**RECT, **JTIP, "text": "jgf", "kind": kind, "inside": True}
+    blocks = [box("shape", "shape", shape, x=30, y=20, w=100, h=100)]
+    with print_page(browser, server, client, blocks) as page:
+        gained = lifted(page, {"shape": (page.locator(".block"), 150)})
+    assert not any(gained.values()), (kind, gained)
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_an_inside_text_is_cut_at_the_left_on_screen(editor, kind):
+    """#740: the same on the screen, for a text inside a round or pointed shape."""
+    shape = {**RECT, **JTIP, "text": "jgf", "kind": kind, "inside": True}
+    page = editor(box("shape", "shape", shape, x=30, y=20, w=100, h=100))
+    page.add_style_tag(content=HIDE)
+    gained = lifted(page, {"shape": (at(page, "shape"), 150)})
+    assert not any(gained.values()), gained
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_a_round_shape_is_cut_at_the_left(browser, server, kind):
+    """#740: a print font's j keeps its tip in a round or pointed shape, in print."""
+    client = user()
+    blocks = [box("shape", "shape", {**RECT, **JTIP, "kind": kind}, x=30, y=20, w=100, h=100)]
+    with print_page(browser, server, client, blocks) as page:
+        gained = lifted(page, {"shape": (page.locator(".block"), 150)})
+    assert not any(gained.values()), (kind, gained)
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_a_round_shape_is_cut_at_the_left_on_screen(editor, kind):
+    """#740: the same on the screen."""
+    shape = {**RECT, **JTIP, "kind": kind}
+    page = editor(box("shape", "shape", shape, x=30, y=20, w=100, h=100))
+    page.add_style_tag(content=HIDE)
+    gained = lifted(page, {"shape": (at(page, "shape"), 150)})
+    assert not any(gained.values()), gained
+
+
 @pytest.mark.parametrize("font", ["la", "urff"])
 def test_no_ink_of_an_outlined_first_letter_is_cut_at_the_left_on_screen(editor, font):
     page = editor(*four(font, "outline"))
