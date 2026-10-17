@@ -93,12 +93,11 @@ def test_an_open_text_keeps_its_caret_clear_of_the_drawer_and_takes_typing(edito
     expect(page.locator(FIELD)).to_contain_text("z")
 
 
-def test_two_picked_blocks_scroll_the_first_into_view_beside_the_drawer(editor):
-    """D: two blocks at each end picked. The desk scrolls only as far as the left block's edge
-    allows, so the right block may stay under the drawer: both are wider than the room."""
+def test_two_picked_blocks_both_end_in_view_beside_the_drawer(editor):
+    """D: two picked blocks, one under the drawer, both end left of it, inside the desk."""
     page = editor(
-        box("a", "shape", RECT, z=1, x=20, w=30),
-        box("b", "shape", RECT, z=2, x=150, w=50),
+        box("a", "shape", RECT, z=1, x=100, w=30),
+        box("b", "shape", RECT, z=2, x=150, w=40),
         touch=True,
     )
     expect_wide(page)
@@ -106,8 +105,10 @@ def test_two_picked_blocks_scroll_the_first_into_view_beside_the_drawer(editor):
     page.keyboard.press("Control+a")
     expect_picked(page, "a", "b")
     drawer(page, "right")
-    assert scroll(page) > 0
-    assert span(page, ["a"])[0] >= desk_left(page)
+    page.wait_for_function("document.querySelector('.desk').scrollLeft > 0")
+    left, right = span(page, ["a", "b"])
+    assert left >= desk_left(page)
+    assert right <= panel_left(page)
 
 
 def test_shutting_the_drawer_takes_the_scroll_back(editor):
