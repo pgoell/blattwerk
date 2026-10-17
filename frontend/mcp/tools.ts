@@ -415,7 +415,7 @@ export function tools(api: Api) {
       type = "application/octet-stream";
     }
     const r = await api.upload(bytes, type);
-    if (r.status === 413) throw new Fail("The picture is larger than 15 MB.");
+    if (r.status === 413) throw new Fail("The picture is too large: 15 MB at most, an SVG 2 MB.");
     if (r.status === 415) throw new Fail("The server does not take this picture: PNG, JPEG, WebP, GIF, or SVG with a viewBox (no DOCTYPE).");
     const made = expectOk(r);
     // The ratio of what the server stored, which add_block reads too: a cleaned SVG may have taken its size from the viewBox.

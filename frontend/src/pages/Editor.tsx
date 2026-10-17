@@ -2424,7 +2424,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // With no connection or a fault of the server the picture can be sent again. Any other refusal is the file's own:
   // one the server does not take, or one the browser cannot read.
   const NO_PICTURE = "Das Bild konnte nicht hochgeladen werden.";
-  const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP, GIF und SVG bis 15 MB.");
+  const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB, SVG bis 2 MB.");
   async function upload(file?: File, pasted = false) {
     if (!file) return;
     await attempt(
