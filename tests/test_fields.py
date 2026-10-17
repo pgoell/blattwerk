@@ -77,6 +77,26 @@ def test_x_and_y_show_and_set_the_place(editor):
     assert now["y"] < was["y"]
 
 
+@pytest.mark.parametrize("keys", ["Control+z", "Control+y"])
+def test_an_undo_or_redo_from_a_field_drops_what_is_typed_in_it(editor, keys):
+    """Ctrl+Z or Ctrl+Y in a field with a value not yet set: the field shows the sheet's step."""
+    client = user()
+    page = editor(box("a", "shape", RECT), client=client)
+    pick(page, "a")
+    enter(page, "X", "40")
+    if keys == "Control+y":
+        page.keyboard.press("Control+z")
+        expect(field(page, "X")).to_have_value("15")
+    field(page, "X").fill("70")
+    field(page, "X").press(keys)
+    shown = "15" if keys == "Control+z" else "40"
+    expect(field(page, "X")).to_have_value(shown)
+    field(page, "X").press("Tab")
+    expect(field(page, "X")).to_have_value(shown)
+    (a,) = saved(page, client)
+    assert a["x"] == int(shown)
+
+
 def test_width_and_height_show_and_set_the_size(editor):
     client = user()
     page = editor(box("a", "shape", RECT), client=client)

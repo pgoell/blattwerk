@@ -1267,7 +1267,8 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
         onBlur={() => draft !== undefined && commit(read())}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit(read());
-          if (e.key === "Escape") setDraft(undefined);
+          // Ctrl+Z and Ctrl+Y here undo and redo the sheet, whose step takes the place of what was typed.
+          if (e.key === "Escape" || ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key))) setDraft(undefined);
           if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
           e.preventDefault();
           commit(round((draft === undefined ? (value ?? NaN) : read()) + (e.key === "ArrowUp" ? 1 : -1)));

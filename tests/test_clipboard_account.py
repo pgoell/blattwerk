@@ -83,6 +83,8 @@ def login(page, who, on, count):
         if BROWSER == "webkit":
             value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
             page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
+            # The login itself empties the store of copies: wait for that before the next page.
+            page.wait_for_function("localStorage.getItem('clip') === null")
         else:
             expect(page.locator("#email")).to_have_count(0)
     else:
