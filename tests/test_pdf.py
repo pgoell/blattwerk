@@ -329,3 +329,35 @@ def test_pdf_prints_the_new_shapes_and_a_clear_fill(server):
     assert has(19, 171.5, dark) and has(71, 171.5, dark) and has(45, 171.5, white)
     # The fill lets the white page through: pink, neither red nor white.
     assert has(60, 215, b"\xff\x80\x80")
+
+
+def test_pdf_shows_the_placed_svg(server):
+    client = user()
+    square = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        b'<rect width="10" height="10"/></svg>'
+    )
+    up = client.post("/api/uploads", files={"file": ("quadrat.svg", square, "image/svg+xml")})
+    assert up.status_code == 200
+    shown = up.json()["id"]
+    # A square 40 mm wide at 40 mm from the left and the top: its middle is at 60 and 60.
+    picture_block = {
+        **block("image", 40, 40, {"upload": shown, "ratio": 1, "cut": [0, 0, 0, 0]}),
+        "x": 40,
+        "w": 40,
+    }
+    mine = sheet(client, [picture_block])
+    cookie = {"Cookie": f"session={client.cookies['session']}"}
+    res = httpx.get(f"{server}/api/sheets/{mine['id']}/pdf", headers=cookie, timeout=60)
+    assert res.status_code == 200
+    scale = 4
+    bitmap = pypdfium2.PdfDocument(res.content)[0].render(scale=scale, rev_byteorder=True)
+
+    def seen(x, y):
+        """The three colour bytes of the page so many mm from its left and its top."""
+        col, row = (int(mm * scale * 72 / 25.4) for mm in (x, y))
+        start = row * bitmap.stride + col * bitmap.n_channels
+        return bytes(bitmap.buffer[start : start + 3])
+
+    assert max(seen(60, 60)) < 60
+    assert min(seen(150, 250)) > 240
