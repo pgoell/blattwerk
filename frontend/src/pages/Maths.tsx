@@ -71,6 +71,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
       if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
     });
   }
+  // The typed number applies on Enter and on leaving the field, when it is a Zahlenraum; the field then shows the number in use.
+  function commit() {
+    if (typed && !wrong) room(Math.floor(+typed));
+    setTyped(undefined);
+  }
   // A number has as many places as the Zahlenraum; a new place takes any digit.
   function room(max: number) {
     const fit = (places: Range[]) => Array.from(String(max), (_, i) => places[i] ?? [0, 9]);
@@ -173,13 +178,10 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
           min={1}
           max={1000000}
           value={typed ?? p.max}
-          onChange={(e) => {
-            setTyped(e.target.value);
-            if (e.target.validity.valid && e.target.value) room(Math.floor(+e.target.value));
-          }}
-          // Enter and leaving the field show the number the exercises use again.
-          onKeyDown={(e) => e.key === "Enter" && setTyped(undefined)}
-          onBlur={() => setTyped(undefined)}
+          onChange={(e) => setTyped(e.target.value)}
+          // Enter and leaving the field apply what is typed, when it fits, and show the number in use.
+          onKeyDown={(e) => e.key === "Enter" && commit()}
+          onBlur={commit}
         />
       )}
       {own && wrong && <p className="hint" role="status">{wrong} Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
