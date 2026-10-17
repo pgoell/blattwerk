@@ -28,7 +28,7 @@ NO_STORE = "Die Vorlage konnte nicht gespeichert werden."
 NO_DELETE = "Die Vorlage konnte nicht gelöscht werden."
 NO_LOAD = "Die Vorlagen konnten nicht geladen werden."
 NO_PICTURE = "Das Bild konnte nicht hochgeladen werden."
-NO_FILE = "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB."
+NO_FILE = "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP, GIF und SVG bis 15 MB."
 NO_MATHS = "Die Aufgaben konnten nicht erzeugt werden."
 # A text file with a picture's name.
 FAKE = ("bild.png", "image/png", b"Kein Bild.")

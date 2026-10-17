@@ -489,6 +489,92 @@ def test_words_from_another_app_pasted_while_writing_stay_the_fields(editor, kin
     expect(blocks(page)).to_have_count(1)
 
 
+# The copy's blocks now belong to another account, as after its logout without Abmelden.
+OTHER_OWNER = """() => {
+    const held = JSON.parse(localStorage.getItem("clip"));
+    localStorage.setItem("clip", JSON.stringify({ ...held, owner: held.owner + 1 }));
+}"""
+# The copy's mark, as the editor sets it: the hash of the words, see frontend/src/clip.ts.
+MARK = """(words) => {
+    const hash = (words) => [...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0), 5381) >>> 0;
+    localStorage.setItem("copied", String(hash(words)));
+}"""
+
+
+def test_another_accounts_copy_pastes_nothing_into_an_open_text(editor):
+    client = user()
+    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
+    page = editor(box("a", "text", TEXT), target, client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.evaluate(OTHER_OWNER)
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    page.keyboard.type("!")
+    expect(page.locator(FIELD)).to_have_text("Ziel!")
+    expect(blocks(page)).to_have_count(2)
+
+
+@pytest.mark.parametrize("kind", ["cell", "list", "panel"])
+def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
+    client = user()
+    shape = box("a", "table", TABLE) if kind == "cell" else box("a", "text", TEXT)
+    page = editor(shape, client=client, theme="", words=["Hund"])
+    # Words with a tab: a paste into a cell would spread them over the cells.
+    copy_text(page, "Ge\theim")
+    page.evaluate(MARK, "Ge\theim")
+    if kind == "cell":
+        pick(page, "a")
+        page.keyboard.press("Enter")
+        field = page.locator(".block textarea:focus")
+    elif kind == "list":
+        page.get_by_role("tab", name="Lernwörter").click()
+        field = page.get_by_label("Lernwörter", exact=True)
+    else:
+        pick(page, "a")
+        field = page.locator(".panel input.mm").first
+    field.click()
+    expect(field).to_be_focused()
+    before = field.input_value()
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    page.keyboard.type("1")
+    expect(field).to_have_value(before + "1")
+
+
+def test_own_copy_still_pastes_its_words_into_an_open_text(editor):
+    client = user()
+    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
+    page = editor(box("a", "text", TEXT), target, client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    expect(page.locator(FIELD)).to_have_text("ZielHallo")
+
+
+def test_another_apps_words_still_paste_into_an_open_text_after_another_account(editor):
+    client = user()
+    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
+    page = editor(box("a", "text", TEXT), target, client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.evaluate(OTHER_OWNER)
+    copy_text(page, "Wort")
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("End")
+    page.keyboard.press("Control+v")
+    expect(page.locator(FIELD)).to_have_text("ZielWort")
+
+
 def test_with_nothing_selected_cut_and_copy_leave_the_clipboard(editor):
     """I4"""
     client = user()

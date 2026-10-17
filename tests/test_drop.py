@@ -100,6 +100,20 @@ def test_a_dropped_picture_file_becomes_a_picture_block(editor, kind):
     assert (held["w"], held["h"]) == (100, round(100 * height / width, 2))
 
 
+def test_a_dropped_svg_lands_as_a_picture_with_its_ratio(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">'
+        b'<rect width="200" height="100"/></svg>'
+    )
+    drop(page, *spot(page, 105, 150), ("bild.svg", "image/svg+xml", svg))
+    landed(page, 2, width=200)
+    [held] = new(saved(page, client), "a")
+    assert held["type"] == "image"
+    assert held["props"]["ratio"] == pytest.approx(2)
+
+
 def test_the_picture_lands_with_its_middle_under_the_pointer(editor):
     page = editor(box("a", "text", TEXT))
     point = spot(page, 120, 90)
