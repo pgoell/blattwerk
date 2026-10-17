@@ -68,6 +68,48 @@ def test_the_network_coming_back_opens_the_app_as_signed_in(window, server):
     expect(page.get_by_role("alert")).to_have_count(0)
 
 
+def test_the_network_coming_back_during_a_check_is_not_missed(window, server):
+    """#481: an online event while the account check is out asks again when that check fails."""
+    page, _ = window()
+    held = []
+    holding = [True]
+
+    def keep(route):
+        if holding[0]:
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(ME, keep)
+    with page.expect_request(ME):
+        page.goto(server)
+    page.evaluate(ONLINE)
+    holding[0] = False
+    assert held
+    held[0].abort()
+    for route in held[1:]:
+        route.continue_()
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible(timeout=10000)
+    expect(page.get_by_role("alert")).to_have_count(0)
+
+
+def test_the_network_coming_back_during_a_check_that_answers_signs_in_once(window, server):
+    """#481: an online event while a check is out that then answers: one sign-in, no alert."""
+    page, _ = window()
+    held = []
+    page.route(ME, lambda route: held.append(route))
+    with page.expect_request(ME):
+        page.goto(server)
+    with page.expect_request(ME):
+        page.evaluate(ONLINE)
+    for route in held:
+        route.continue_()
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible(timeout=10000)
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_have_count(1)
+    expect(page.get_by_role("alert")).to_have_count(0)
+    expect(page.locator(LOGIN)).to_have_count(0)
+
+
 def test_a_session_that_ran_out_still_shows_the_login(window, server):
     """16: a 401 is signed out, not an unreachable server: the login shows, and no failure page."""
     page, _ = window()
