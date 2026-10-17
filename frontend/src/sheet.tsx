@@ -1280,11 +1280,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // A dotted look takes the dotted cut's reach the same way (DOTTED_SIDE).
   const dotted = traceOf(p) === "dotted";
   const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0, dotted ? DOTTED_SIDE : 0);
-  // A print font's plain text takes it in a text and a rectangle only: a round frame's cut would reach past its curve,
-  // and the fit of a text inside a shape counts the padding, so those print as they did.
-  const square = (p.kind === undefined || p.kind === "rect") && !inside;
   const joined = ["grund", "va", "sas", "la"].includes(font);
-  const side = stroke > 0 || dotted || joined || (wide > 0 && square) ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
+  const side = stroke > 0 || dotted || wide > 0 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A print font's plain text is tight for its sides alone (#489): above and below it cuts where it did.
@@ -1369,6 +1366,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const room = ring || solid ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
+  // A circle's clip grows by the side reach on each side, so its curve keeps the circle's radius as the box grows (#740).
+  const roundR = p.kind === "circle" && side > 0 ? `calc(50% + ${side}em)` : radius;
   const text = (
     <>
       {children ??
@@ -1407,7 +1406,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${radius})`,
+        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${roundR})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -1471,11 +1470,17 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
         return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
       }),
     );
+  // How much wider each paragraph's words are than its room, the padding at its sides (the ink's reach) left out.
+  const widths = () =>
+    [...el.querySelectorAll<HTMLElement>("p")].map((p) => {
+      const s = getComputedStyle(p);
+      const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
+      return (p.scrollWidth - pad) / (p.clientWidth - pad);
+    });
   let scale = 1;
   for (let round = 0; round < 3; round++) {
     const tall = (lowest() - top) / (bottom - top);
-    const wide = [...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth);
-    const across = Math.max(...wide);
+    const across = Math.max(...widths());
     // Too high or too wide: down to the smallest type. A floored shape's word too wide that the smallest type does not fit grows the shape.
     const side = across > 1.01 ? (floor ? Math.max(least, scale / across) : scale / across) : scale;
     const next = Math.min(side, tall > 1.01 ? Math.max(least, scale / tall) : scale);
@@ -1485,7 +1490,7 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   }
   const past = (lowest() - bottom) / zoom;
   // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
-  const left = Math.max(...[...el.querySelectorAll<HTMLElement>("p")].map((p) => p.scrollWidth / p.clientWidth));
+  const left = Math.max(...widths());
   block.style.transform = was;
   return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
 }

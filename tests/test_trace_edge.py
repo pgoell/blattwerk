@@ -221,6 +221,29 @@ def test_no_ink_of_a_plain_first_letter_is_cut_at_the_left(browser, server, font
     assert not cut, (font, cut)
 
 
+JTIP = {"text": "jgf Tgjf", "size": 40, "font": "andika", "trace": False, "align": "left"}
+
+
+@pytest.mark.parametrize("inside", [False, True])
+def test_no_ink_of_a_plain_j_in_a_circle_is_cut_at_the_left(browser, server, inside):
+    """#740: a print font's j keeps its tip in a round shape and in a text inside it, in print."""
+    client = user()
+    shape = {**RECT, **JTIP, "kind": "circle", "inside": inside}
+    blocks = [box("shape", "shape", shape, x=30, y=20, w=100, h=100)]
+    with print_page(browser, server, client, blocks) as page:
+        gained = lifted(page, {"shape": (page.locator(".block"), 150)})
+    assert not any(gained.values()), (inside, gained)
+
+
+def test_no_ink_of_a_plain_j_in_a_circle_is_cut_at_the_left_on_screen(editor):
+    """#740: the same on the screen."""
+    shape = {**RECT, **JTIP, "kind": "circle"}
+    page = editor(box("shape", "shape", shape, x=30, y=20, w=100, h=100))
+    page.add_style_tag(content=HIDE)
+    gained = lifted(page, {"shape": (at(page, "shape"), 150)})
+    assert not any(gained.values()), gained
+
+
 @pytest.mark.parametrize("font", ["la", "urff"])
 def test_no_ink_of_an_outlined_first_letter_is_cut_at_the_left_on_screen(editor, font):
     page = editor(*four(font, "outline"))
