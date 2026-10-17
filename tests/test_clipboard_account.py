@@ -704,3 +704,21 @@ def test_words_copied_in_a_table_cell_paste_nothing_for_the_next_account(editor)
     field.press("Control+v")
     expect(field).to_have_value("")
     assert stored(page, b) == before
+
+
+def test_words_copied_on_the_login_page_paste_there_and_in_the_sheet(editor):
+    """With no one signed in a copy is no account's: it pastes as any other words do."""
+    a, email = someone()
+    page = editor(the_text_box(), client=a)
+    mine = {"id": page.url.rsplit("/", 1)[1]}
+    logout(page)
+    page.fill("#email", email)
+    page.locator("#email").select_text()
+    page.keyboard.press("Control+c")
+    page.fill("#email", "")
+    page.locator("#email").press("Control+v")
+    expect(page.locator("#email")).to_have_value(email)
+    login(page, email, mine, 1)
+    unpick(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)

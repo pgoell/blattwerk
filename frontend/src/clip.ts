@@ -39,6 +39,8 @@ export function refused(words: string) {
 // Marks the words of a copy or cut made on any page: what the browser put out, read after the page's own copy has
 // run. Where none is read, the selection stands in for it.
 export function mark(words: string) {
+  // With no one signed in, as on the login page, the words are no account's.
+  if (me === undefined) return;
   localStorage.setItem(TYPED, JSON.stringify({ owner: me, mark: norm(words) }));
   ours = true;
 }

@@ -1383,3 +1383,28 @@ def test_ctrl_shift_v_with_no_look_picked_up_stays_the_browsers(editor):
     assert stopped(page, "Control+Shift+C")
     # Once a look is picked up, the key lays it.
     assert stopped(page, "Control+Shift+V")
+
+
+def test_a_brush_drag_with_ctrl_in_an_open_text_makes_no_copy_of_the_block(editor):
+    """#756: Moveable hears of the press before the editor does; with Ctrl it would leave a copy."""
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": "Der Hund ist braun und klein"}), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    w = word(page, "a", "Hund")
+    page.mouse.dblclick((w["x"] + w["right"]) / 2, w["y"])
+    page.keyboard.press("Control+b")
+    x = saved_x(page, client)
+    brush(page).click()
+    expect_brush(page, True)
+    w = word(page, "a", "braun")
+    page.keyboard.down("Control")
+    page.mouse.move(w["x"] + 1, w["y"])
+    page.mouse.down()
+    page.mouse.move(w["right"] - 1, w["y"], steps=5)
+    page.mouse.up()
+    page.keyboard.up("Control")
+    expect(page.locator(".block")).to_have_count(1)
+    assert [b["id"] for b in saved(page, client)] == ["a"]
+    assert saved_x(page, client) == x
