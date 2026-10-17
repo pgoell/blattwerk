@@ -2209,7 +2209,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
     }
   }
   // A bow under each syllable, cut where its letters leave a row of squares; a row past the block's rows gets none.
-  const bowed = block.props.syllables && module ? syllables.flatMap(({ plain, hue, offsets }, n) => {
+  const bowed = block.props.syllables && module ? syllables.flatMap(({ plain: syl, hue, offsets }, n) => {
     const runs: { y: number; x0: number; x1: number }[] = [];
     for (const o of offsets) {
       const spot = place.get(o);
@@ -2223,7 +2223,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
       const [X0, X1, Y] = [x0 * row + 0.12 * row, (x1 + 1) * row - 0.12 * row, (y + 0.8) * row];
       const deep = Math.min(0.08 * row, (X1 - X0) / 2);
       return (
-        <path key={`${n}-${y}-${x0}`} className="syl" data-syl={plain} d={`M${X0},${Y} Q${(X0 + X1) / 2},${Y + 2 * deep} ${X1},${Y}`} fill="none" stroke={hue ?? "currentColor"} strokeWidth={Math.max(0.05 * size, 0.15)} />
+        <path key={`${n}-${y}-${x0}`} className="syl" data-syl={syl} d={`M${X0},${Y} Q${(X0 + X1) / 2},${Y + 2 * deep} ${X1},${Y}`} fill="none" stroke={hue ?? "currentColor"} strokeWidth={Math.max(0.05 * size, 0.15)} />
       );
     });
   }) : [];
