@@ -862,8 +862,9 @@ function whole(b: Block): Block {
 // Templates saved before sheets had pages hold one page's blocks.
 export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
-  guides,
-  grid,
+  // A sheet from the API may lack its guides and grid, or hold them wrong: then it has none.
+  guides: guides && typeof guides === "object" && Array.isArray(guides.x) && Array.isArray(guides.y) ? guides : { x: [], y: [] },
+  grid: typeof grid === "number" ? grid : 0,
   landscape,
   words,
   pageNumbers,

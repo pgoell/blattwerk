@@ -28,7 +28,7 @@ type Saver = {
   clash: boolean;
   // The server refused the document for what is wrong in it: nothing of that document is sent again, the change
   // stays unsaved, until the document changes.
-  refused?: { doc: Doc; problems: string[] };
+  refused?: { doc: Doc; problems: string[]; title?: string };
   // The session ran out: nothing goes until a login or the next visit.
   stop: boolean;
   // The sheet was deleted elsewhere: nothing is sent any more, and what the editor shows is kept until the teacher
@@ -84,6 +84,8 @@ const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
 // The refusal that stands: for the document the saver holds now, and only while it is the one refused.
 const refusal = (s: Saver) => (s.refused && same(s.refused.doc, s.want.doc) ? s.refused : undefined);
+// While the document is refused, the title goes alone only where it changed, and not as one the server refused.
+const waits = (s: Saver) => s.want.title === s.saved.title || s.want.title === refusal(s)?.title;
 // The saver's end: nothing of it is sent, heard or written any more.
 function kill(s: Saver) {
   s.dead = true;
@@ -154,7 +156,7 @@ function send(s: Saver, closing = false) {
   if (s.dead || s.out || s.clash || s.stop || s.gone || !unsaved(s)) return;
   // A refused document is not sent again. A title changed since still goes, alone: the server keeps the document.
   const held = refusal(s);
-  if (held && s.want.title === s.saved.title) return;
+  if (held && waits(s)) return;
   const now = (s.out = s.want);
   // The title goes along only when it changed here, so a rename from the list stays.
   const named = now.title === s.saved.title ? {} : { title: now.title.trim() || "Unbenanntes Blatt" };
@@ -207,7 +209,9 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
     e = sheet;
   } else if (e.problems) {
     // The server answered and holds none of this document: it is kept, and not sent again until it changes.
-    s.refused = { doc: now.doc, problems: e.problems };
+    // A title that went alone and was refused too waits for a change of its own, or of the document (#687).
+    const alone = !!s.refused && same(now.doc, s.refused.doc);
+    s.refused = alone ? { ...s.refused!, title: now.title } : { doc: now.doc, problems: e.problems };
     s.tries = 0;
     return settle(s);
   // A title that went alone took no document along: the server holds none of `now` then.
@@ -222,6 +226,9 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
   } else if (e.message === "401" || e.by !== undefined) s.stop = true;
   else s.tries++;
   settle(s, s.gone ? 1 : 0);
+  // Another tab may have taken its choice before this one was gone: that choice is applied now.
+  const heard = s.gone && heardOf(s.id);
+  if (heard && !s.dead && s.choice !== "busy") endWith(s, heard);
   // The session is gone: the app shows the login, and the login brings the saver back to work.
   if (s.stop) signedOut();
 }
@@ -239,7 +246,7 @@ function settle(s: Saver, landed = 0) {
   tell(landed);
   s.idle.splice(0).forEach((done) => done());
   // A refused document waits for a change; a title changed meanwhile still goes.
-  if (!unsaved(s) || s.clash || s.stop || s.gone || (refusal(s) && s.want.title === s.saved.title)) return;
+  if (!unsaved(s) || s.clash || s.stop || s.gone || (refusal(s) && waits(s))) return;
   if (s.tries) plan(s, Math.min(2000 * 2 ** (s.tries - 1), 30000));
   else if (s.open) plan(s, AFTER);
   else send(s);
@@ -260,7 +267,8 @@ export function open(sheet: Sheet): Sheet {
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
-    const record = kept(s.id);
+    const record = handed.get(s.id) ?? kept(s.id);
+    handed.delete(s.id);
     // A change kept by a build from before the Lernwörter takes the sheet's list: so it neither deletes the list
     // when it is sent, nor reads as another version for lacking it.
     if (record && !record.lists && record.doc && sheet.doc.words) {
@@ -376,6 +384,8 @@ export function refused(id: number, e: Refusal) {
 // after it leaves no trace in the store.
 function announce(id: number, took: Kept, to: number | null) {
   try {
+    // Kept for good, so a tab that opens later hears the choice too. Written before the event.
+    localStorage.setItem(`took:${id}`, JSON.stringify({ to, print: print(took) }));
     localStorage.setItem(`ended:${id}`, JSON.stringify({ doc: took.doc, title: took.title, to }));
     localStorage.removeItem(`ended:${id}`);
   } catch {
@@ -414,6 +424,30 @@ export function onEnded(id: number, told: (to: number | null) => void) {
   ends.set(id, told);
   return () => void ends.delete(id);
 }
+// A short fingerprint of a sheet's work, to tell whether two tabs hold the same change (cyrb53, #718).
+function print(k: Kept): string {
+  const text = JSON.stringify({ doc: k.doc, title: k.title });
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return String(4294967296 * (2097151 & h2) + (h1 >>> 0));
+}
+// The choice another tab took for a sheet deleted elsewhere, as the store keeps it (#718).
+function heardOf(id: number): { to: number | null; print: string } | null {
+  try {
+    return JSON.parse(localStorage.getItem(`took:${id}`) ?? "null");
+  } catch {
+    return null;
+  }
+}
+// The records of sheets whose choice was handed over by this tab, for the tab's open to take up (#718).
+const handed = new Map<number, Record>();
 // Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
 // work its change is written back, so the removal of the other tab's record leaves no loss.
 addEventListener("storage", (e) => {
@@ -434,22 +468,22 @@ addEventListener("storage", (e) => {
   if (!m || e.newValue === null) return;
   const id = Number(m[1]);
   const s = savers.get(id);
-  if (!s || !s.gone || s.dead || s.choice === "busy") return;
-  let took: Kept & { to: number | null };
-  try {
-    took = JSON.parse(e.newValue);
-  } catch {
-    return;
-  }
-  if (same(took.doc, s.want.doc) && took.title === s.want.title) {
-    kill(s);
-    tell(1);
-    ends.get(id)?.(took.to);
+  const heard = heardOf(id);
+  if (!s || !s.gone || s.dead || s.choice === "busy" || !heard) return;
+  endWith(s, heard);
+});
+// Where another tab's choice holds the same work as this saver, this one ends and the editor goes where that tab went.
+// Where it holds other work, the change is kept.
+function endWith(s: Saver, heard: { to: number | null; print: string }) {
+  if (print({ doc: s.want.doc, title: s.want.title }) === heard.print) {
+    // The other tab's sheet holds this work: the record goes too, or the next start would ask again.
+    forget(s.id);
+    ends.get(s.id)?.(heard.to);
   } else {
     keep(s);
     tell();
   }
-});
+}
 
 // The sheet's saver and its kept change go: the teacher deleted the sheet here, chose the other version of a clash,
 // or chose what becomes of a sheet deleted elsewhere. The list asks anew after that last one.
@@ -480,6 +514,40 @@ export async function keepAsNew(id: number) {
     if (who.id !== s.owner) {
       signedOut();
       throw new Error("401");
+    }
+    // Another tab kept the sheet first: its new sheet is found, not made again. Where this tab holds other work, that work
+    // goes to that sheet as a clash.
+    const heard = heardOf(id);
+    let there: Sheet | undefined;
+    // A saver of that sheet in this tab would not take the change up: then a sheet is made, and nothing is lost.
+    if (typeof heard?.to === "number" && !savers.has(heard.to)) {
+      try {
+        there = await ask<Sheet>(`/sheets/${heard.to}`);
+      } catch (e) {
+        const { message, by } = e as Refusal;
+        // Another account's 404 says nothing of the sheet: the login shows, as for the check above.
+        if (message === "404" && by !== undefined && by !== s.owner) {
+          signedOut();
+          throw new Error("401");
+        }
+        // Only a 404 served for the owner says that sheet is not there: any other failure ends the press.
+        if (message !== "404" || by !== s.owner) throw e;
+      }
+    }
+    if (heard && there) {
+      // Where this tab holds other work, it goes to that sheet as a clash, through the record `open` takes up. The
+      // store has it too, for a reload before that open.
+      if (!s.dead && print({ doc: s.want.doc, title: s.want.title }) !== heard.print) {
+        const record: Record = { owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true };
+        handed.set(there.id, record);
+        try {
+          localStorage.setItem(key(there.id), JSON.stringify(record));
+        } catch {
+          // The store is full or shut: the change lives on in this window alone.
+        }
+      }
+      forget(id);
+      return there;
     }
     // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
     const prior = s.asked;
@@ -585,8 +653,12 @@ export function enter(owner?: number) {
         const saved = { doc: record.doc, title: record.name ?? record.title ?? "Unbenanntes Blatt" };
         const want = { doc: read(record.doc), title: record.title ?? saved.title };
         const asked = record.asked && { doc: read(record.asked.doc), title: record.asked.title };
-        savers.set(id, { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
+        const s: Saver = { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] };
+        savers.set(id, s);
         tell(1);
+        // Another tab may have chosen for it already (#718).
+        const heard = heardOf(id);
+        if (heard) endWith(s, heard);
       },
     );
   }
