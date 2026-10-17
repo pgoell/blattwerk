@@ -1014,14 +1014,19 @@ export function rowsNeeded(b: RulingBlock): number {
   const { row, at } = RULINGS[kindOf(b.props.kind)];
   if (!at) return Math.max(0, ...squares(text, colsOf(b)).map(([, y]) => y + 1));
   if (typeof document === "undefined") return 0;
+  // A hidden block as wide as this one, so the copy takes the rules of `.block .written` and wraps as drawn.
+  const block = document.createElement("div");
+  block.className = "block";
+  Object.assign(block.style, { position: "absolute", visibility: "hidden", left: "0", top: "0", width: `${b.w * K}px` });
   const p = document.createElement("p");
   p.className = "written";
   const style = Object.fromEntries(Object.entries(writtenStyle(b, K)).map(([name, v]) => [name, typeof v === "number" ? `${v}px` : v]));
-  Object.assign(p.style, style, { position: "absolute", visibility: "hidden", height: "auto", top: "0", left: "0", width: `${b.w * K}px` });
+  Object.assign(p.style, style, { height: "auto" });
   p.textContent = text;
-  document.body.append(p);
+  block.append(p);
+  document.body.append(block);
   const lines = Math.round(p.scrollHeight / (row * K));
-  p.remove();
+  block.remove();
   return lines;
 }
 // The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.

@@ -89,6 +89,15 @@ def test_a9_a_kind_change_grows_the_rows_a_long_text_needs(editor, start, end, h
     assert stored["h"] / row[end] > h / row[start], stored
 
 
+@pytest.mark.parametrize("h, short", [(20, True), (60, False)])
+def test_a9_a_lined_text_counts_its_line_breaks(editor, h, short):
+    """A9: three lines on Lineatur 1 need three rows: one row warns, three do not."""
+    page = editor(box("l", "ruling", {**RULING, "kind": "l1", "text": "Mama\nPapa\nOma"}, h=h))
+    pick(page, "l")
+    expect(page.get_by_label("Art der Lineatur")).to_have_value("l1")
+    expect(page.locator('[data-rows="short"]')).to_have_count(1 if short else 0)
+
+
 def test_i1_each_karo_gets_its_own_rows_and_one_undo_takes_both_back(editor):
     """I1: two picked Karo rulings each grow to their own rows; one undo takes both back."""
     client = user()
@@ -100,7 +109,8 @@ def test_i1_each_karo_gets_its_own_rows_and_one_undo_takes_both_back(editor):
     pick(page, "a", "b")
     kind_to(page, "k7")
     stored = {b["id"]: b for b in saved(page, client)}
-    assert stored["b"]["h"] > 15 and stored["b"]["h"] % 7 < 0.01, stored["b"]
+    # The long text needs more than the 3 rows it had; the short one keeps them.
+    assert stored["b"]["h"] > 21 and stored["b"]["h"] % 7 < 0.01, stored["b"]
     assert stored["a"]["h"] == 21, stored["a"]
     page.keyboard.press("Control+z")
     stored = {b["id"]: b for b in saved(page, client)}
