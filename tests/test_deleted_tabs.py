@@ -227,3 +227,17 @@ def test_when_both_tabs_hold_changes_tab_two_clashes_and_overwrites_nothing(tabs
         page2.locator(".clash").get_by_role("button", name="Mit dieser überschreiben")
     ).to_be_visible()
     assert record(page2, int(new))["doc"]["pages"][0]["blocks"][0]["x"] == 14
+
+
+def test_an_unchanged_tab_follows_the_drop_another_unchanged_tab_chose(tabs):
+    """#736: neither tab has a change. Tab 1 learns of the delete as it gets the focus and drops
+    the sheet; tab 2, as it gets the focus, follows that choice and asks nothing."""
+    _, sheet_id, page1, page2 = tabs
+    page1.evaluate("window.dispatchEvent(new Event('focus'))")
+    expect(page1.locator(".clash")).to_contain_text(GONE)
+    page1.once("dialog", lambda dialog: dialog.accept())
+    page1.get_by_role("button", name=DROP).click()
+    expect(page1).not_to_have_url(re.compile(rf"/blatt/{sheet_id}$"))
+    page2.evaluate("window.dispatchEvent(new Event('focus'))")
+    expect(page2).not_to_have_url(re.compile(rf"/blatt/{sheet_id}$"))
+    expect(page2.locator(".clash")).to_have_count(0)

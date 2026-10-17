@@ -354,6 +354,25 @@ def test_the_clash_bar_keeps_its_buttons_on_one_line_at_1280(run):
     assert abs(load.bounding_box()["y"] - over.bounding_box()["y"]) < 4
 
 
+def test_a_waiting_pdf_still_waits_when_the_choice_fails_and_comes_with_the_next_try(run):
+    """#735: a choice that fails keeps the PDF waiting; the try that works brings it."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    address = f"**/api/sheets/{run.ids['a']}"
+    page.route(address, lambda r: r.abort() if r.request.method == "GET" else r.continue_())
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("Das hat nicht geklappt")
+    expect(page.locator(".clash")).to_contain_text(CLASH_LINE)
+    page.evaluate(TURNS)
+    assert asked == []
+    page.unroute(address)
+    with page.expect_download() as got:
+        page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    assert "Vom Tool" in text_of(got.value)
+
+
 def test_pdf_line_goes_once_this_version_overwrites_the_other(run):
     """#706: the PDF line goes with „Mit dieser überschreiben“, and the PDF holds what shows."""
     page, gate = start(run)

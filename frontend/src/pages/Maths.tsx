@@ -37,6 +37,8 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   // What is typed in the own Zahlenraum, until an undo or a redo changes the number under the field.
   const [typed, setTyped] = useState<string>();
   useEffect(() => setTyped(undefined), [block.props.max]);
+  // Why a typed number is not the Zahlenraum: the exercises keep the one they have.
+  const wrong = !typed ? "" : +typed > 1000000 ? "Höchstens 1.000.000." : +typed < 1 ? "Mindestens 1." : !Number.isInteger(+typed) ? "Nur ganze Zahlen." : "";
   // The props of the last change the page had no room for. The line shows while they would still grow the block past the foot.
   const [denied, setDenied] = useState<MathsProps>();
   const refused = !!denied && overFoot(block, denied, foot);
@@ -180,8 +182,7 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
           onBlur={() => setTyped(undefined)}
         />
       )}
-      {own && typed && +typed > 1000000 && <p className="hint" role="status">Höchstens 1.000.000. Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
-      {own && typed && +typed < 1 && <p className="hint" role="status">Mindestens 1. Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
+      {own && wrong && <p className="hint" role="status">{wrong} Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
       <h2>Nachkommastellen</h2>
       <div className="seg">
         {([0, 1, 2] as const).map((n) => (
