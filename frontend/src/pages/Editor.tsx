@@ -374,9 +374,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     setPdfWaits(false);
     if (!saver?.gone) void pdf(key);
   }, [saver?.clash, saver?.gone]);
-  useEffect(() => onNewer(file.id, () => void newerSheet()), []);
+  useEffect(() => onNewer(file.id, () => void newerSheet(dialogState.current)), []);
   useEffect(() => {
-    const focus = () => void newerSheet();
+    const focus = () => void newerSheet(dialogState.current);
     addEventListener("focus", focus);
     return () => removeEventListener("focus", focus);
   }, []);
@@ -3277,6 +3277,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [letters, setLetters] = useState(opened?.letters ?? true);
   // The button that opened the dialog gets the focus back when it shuts.
   const variantsDoor = useRef<HTMLElement | null>(null);
+  // The dialog's state while it is open, so a newer sheet from another tab or a focus reopens it as it stands.
+  const dialogState = useRef<Opened | undefined>(undefined);
+  dialogState.current = variants ? { count, letters, newer: true } : undefined;
+  // A press that re-mounted the editor has the dialog open: Schließen gives the focus back to the bar's button.
+  useEffect(() => {
+    if (!opened) return;
+    variantsDoor.current = bar.current?.querySelector<HTMLElement>('[aria-label="Varianten drucken"]') ?? bar.current?.querySelector<HTMLElement>(".more") ?? null;
+  }, []);
   // A newer version saved in another window: the dialog opens on it, in the editor that shows it (#720).
   const openVariants = async (door: HTMLElement) => {
     dropFault(NEWER);

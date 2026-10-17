@@ -28,3 +28,16 @@ def test_an_unchanged_tab_learns_of_the_delete_on_focus(editor):
     page = open_then_delete(editor)
     page.evaluate("window.dispatchEvent(new Event('focus'))")
     expect(page.locator(".clash", has_text="gelöscht")).to_be_visible()
+
+
+def test_varianten_pdf_on_a_sheet_deleted_elsewhere_says_so(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    assert client.delete(f"/api/sheets/{sheet_id}").status_code == 200
+
+    page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    line = page.locator("dialog.variants .clash")
+    expect(line).to_contain_text("gelöscht")
+    expect(line).to_contain_text("Als neues Blatt behalten")
