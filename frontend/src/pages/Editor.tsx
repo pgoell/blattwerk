@@ -3204,11 +3204,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const to = round(Math.round(at / by) * by);
     rules(n, (g) => ({ ...g, [axis]: g[axis].map((o, j) => (j === i ? to : o)) }), "drag");
   }
-  // Let go off the page, a guide line is gone.
+  // Let go off the page, a guide line is gone. Its place is read from the document as it stands, not from the last
+  // render: the pointer may be let go before the page has drawn its last move (#525).
   function drop(axis: Axis, i: number, n?: number) {
-    const at = (n === undefined ? guides : pages[n].guides!)[axis][i];
-    if (at >= 0 && at <= (axis === "x" ? W : H)) return;
-    rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
+    const on = (at: number) => at >= 0 && at <= (axis === "x" ? W : H);
+    rules(n, (g) => (on(g[axis][i]) ? g : { ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
