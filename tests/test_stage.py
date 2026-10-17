@@ -17,19 +17,28 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 from playwright.sync_api import expect
 from test_canary import ROOT, make_live, rows, tree
 from ui import BROWSER, PASSWORD, TEXT, box, sheet, upload, user
 
 from blattwerk import auth, db
+from blattwerk.app import app
 
 NAME = "blattwerk-stage"
 IMAGE = "blattwerk-blattwerk:latest"
 EMAIL = "teacher-run@stage.invalid"
+EMAIL_2 = "teacher-run-2@stage.invalid"
 TEACHER = ROOT / "scripts" / "stage-teacher.py"
 INVITE = f"exec {NAME} /app/.venv/bin/python -m blattwerk invite"
 SIGN_UP = f"exec -i -e STAGE_INVITE {NAME} /app/.venv/bin/python - http://127.0.0.1:8000"
-LOGIN = ["URL: http://127.0.0.1:8220", f"E-Mail: {EMAIL}", "Passwort: geheim-aus-dem-stub"]
+LOGIN = [
+    "URL: http://127.0.0.1:8220",
+    f"E-Mail: {EMAIL}",
+    "Passwort: geheim-aus-dem-stub",
+    f"E-Mail: {EMAIL_2}",
+    "Passwort: geheim-aus-dem-stub",
+]
 TAKEN = "LISTEN 0 4096 127.0.0.1:8220 0.0.0.0:*"
 
 # RC_<SUBCOMMAND> sets what a call answers: RC_EXEC for alive.sh, RC_IMAGE for `image inspect`.
@@ -47,7 +56,10 @@ case "$*" in
   *"-e STAGE_INVITE"*)
     printenv STAGE_INVITE > "$DOCKER_LOG.invite"
     cat > "$DOCKER_LOG.stdin"
-    echo "E-Mail: teacher-run@stage.invalid"
+    if [ "${@: -1}" = teacher-run-2@stage.invalid ] && [ "${RC_SIGNUP2:-0}" != 0 ]; then
+      exit "$RC_SIGNUP2"
+    fi
+    echo "E-Mail: ${@: -1}"
     echo "Passwort: geheim-aus-dem-stub"
     exit "${RC_SIGNUP:-0}" ;;
 esac
@@ -196,8 +208,8 @@ def test_a3_up_needs_no_write_in_the_live_folder(tmp_path, live, copy):
 def test_a5_up_makes_a_teacher_who_is_no_admin_and_prints_the_login_last(tmp_path, live, copy):
     before = tree(live)
     result, calls = up(tmp_path)
-    assert result.stdout.splitlines()[-3:] == LOGIN
-    assert calls[-2:] == [INVITE, SIGN_UP]
+    assert result.stdout.splitlines()[-5:] == LOGIN
+    assert calls[-4:] == [INVITE, f"{SIGN_UP} {EMAIL}", INVITE, f"{SIGN_UP} {EMAIL_2}"]
     assert "--admin" not in " ".join(calls)
     # In the copy only: both calls go into the stage's container, and live is as it was.
     assert tree(live) == before
@@ -219,7 +231,7 @@ def test_a7_up_twice_in_a_row_starts_from_a_fresh_copy(tmp_path, live, copy):
     assert [call.split()[0] for call in calls].index("run") > 1
     assert not (copy / "users" / "9").exists()
     assert rows(copy / "blattwerk.db") == rows(live / "blattwerk.db")
-    assert result.stdout.splitlines()[-3:] == LOGIN
+    assert result.stdout.splitlines()[-5:] == LOGIN
 
 
 def test_i4_the_copy_is_for_its_owner_alone(tmp_path, share, copy):
@@ -250,6 +262,17 @@ def test_i2_an_up_that_fails_half_way_leaves_no_container_and_no_copy(tmp_path, 
     assert any(call.startswith("run ") for call in calls) == (case != "the database copy")
     assert "Passwort" not in result.stdout
     assert tree(live) == before
+
+
+def test_i2_a_second_sign_up_that_fails_prints_no_login_and_removes_the_stage(tmp_path, copy):
+    result, calls = run(tmp_path, "up", rc_signup2=1)
+    assert result.returncode != 0
+    assert "stage: " in result.stderr
+    assert not copy.exists()
+    assert calls[-1] == f"rm -f {NAME}"
+    # Neither the URL nor the first teacher's login: the stage is gone, so they would lead nowhere.
+    assert "URL" not in result.stdout
+    assert "Passwort" not in result.stdout
 
 
 @pytest.mark.parametrize("sign", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
@@ -402,12 +425,12 @@ def test_i3_down_with_nothing_to_remove_succeeds(tmp_path, share, copy):
 # ── stage-teacher.py ──
 
 
-def teacher(server, invite):
+def teacher(server, invite, email):
     """Runs the script as the container would: fed on stdin, the invite in the environment."""
     env = {**os.environ, "STAGE_INVITE": invite}
     with TEACHER.open() as script:
         return subprocess.run(
-            [sys.executable, "-", server],
+            [sys.executable, "-", server, email],
             stdin=script,
             env=env,
             capture_output=True,
@@ -422,7 +445,7 @@ def test_a6_the_teacher_sees_nothing_of_another_account(server):
     kept = other.post("/api/templates", json={"name": "Meine", "doc": theirs["doc"]}).json()
     picture = upload(other)
     invite = "/einladung/" + auth.new_link(db.open_db())
-    done = teacher(server, invite)
+    done = teacher(server, invite, EMAIL)
     assert done.returncode == 0, done.stderr
     first, second = done.stdout.splitlines()
     assert first == f"E-Mail: {EMAIL}"
@@ -451,8 +474,50 @@ def test_a6_the_teacher_sees_nothing_of_another_account(server):
     assert [found["id"] for found in other.get("/api/sheets").json()] == [theirs["id"]]
 
 
+def test_a6_the_second_teacher_sees_nothing_of_the_first(server):
+    first_invite = "/einladung/" + auth.new_link(db.open_db())
+    second_invite = "/einladung/" + auth.new_link(db.open_db())
+    done = teacher(server, first_invite, EMAIL)
+    assert done.returncode == 0, done.stderr
+    first_password = done.stdout.splitlines()[1].removeprefix("Passwort: ")
+    done = teacher(server, second_invite, EMAIL_2)
+    assert done.returncode == 0, done.stderr
+    second_password = done.stdout.splitlines()[1].removeprefix("Passwort: ")
+
+    def session_of(email, password):
+        login = httpx.post(f"{server}/api/login", json={"email": email, "password": password})
+        assert login.status_code == 200
+        return SimpleCookie(login.headers["set-cookie"])["session"].value
+
+    def get(session, path):
+        return httpx.get(f"{server}{path}", headers={"Cookie": f"session={session}"})
+
+    # The first teacher makes a sheet, a template and a picture, as the app does for a teacher.
+    first = TestClient(app, base_url="https://testserver")
+    assert first.post("/api/login", json={"email": EMAIL, "password": first_password}).is_success
+    doc = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
+    made = first.post("/api/sheets", json={"title": "Erstes", "doc": doc}).json()
+    kept = first.post("/api/templates", json={"name": "Meine", "doc": doc}).json()
+    picture = upload(first)
+
+    second = session_of(EMAIL_2, second_password)
+    assert get(second, "/api/sheets").json() == []
+    assert get(second, f"/api/sheets/{made['id']}").status_code == 404
+    assert kept["id"] > 0
+    assert all(template["id"] < 0 for template in get(second, "/api/templates").json())
+    assert (
+        httpx.delete(
+            f"{server}/api/templates/{kept['id']}", headers={"Cookie": f"session={second}"}
+        ).status_code
+        == 404
+    )
+    assert get(second, f"/api/uploads/{picture}").status_code == 404
+    # And the first teacher still has what was theirs.
+    assert [found["id"] for found in first.get("/api/sheets").json()] == [made["id"]]
+
+
 def test_a5_a_dead_invite_makes_no_teacher_and_prints_no_login(server):
-    done = teacher(server, "/einladung/nothing")
+    done = teacher(server, "/einladung/nothing", EMAIL)
     assert done.returncode == 1
     assert done.stdout == ""
     assert done.stderr == "stage teacher failed: /api/signup: status 404\n"
