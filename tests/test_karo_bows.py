@@ -111,6 +111,21 @@ def test_k11_bows_and_colours_follow_the_typing(editor):
     expect(letters.nth(7)).to_have_attribute("fill", RED)
 
 
+@pytest.mark.parametrize("mode", ["fold", "copy", "row"])
+def test_k12_a_lernwort_cut_to_the_squares_keeps_the_syllables_of_the_whole_word(editor, mode):
+    # Karo 7 mm, 5 squares across: a fold has its word in the first square, the others in all five.
+    karo = {**RULING, "kind": "k7", "list": mode, "syllables": True, "tints": [BLUE, RED]}
+    page = editor(box("a", "ruling", karo, w=35, h=14), words=["Fenster", "Schmetterling"])
+    found = syls(page, "a")
+    # "Fens" and "ter" as on the lines, not "Fenst"; only the shown letters take a bow.
+    assert found[0] == "Fens", found
+    if mode != "fold":
+        assert found[:2] == ["Fens", "ter"], found
+        unpick(page)
+        letters = at(page, "a").locator("svg.ruling text")
+        expect(letters.nth(4)).to_have_attribute("fill", RED)
+
+
 def printed(browser, server, sheet_id, route=None):
     client = user()
     context = browser.new_context(viewport={"width": 1400, "height": 1000})

@@ -2192,20 +2192,37 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
   const tints = pairOf(block.props.tints);
   const colour = new Map<number, string>();
   const syllables: { plain: string; hue?: string; offsets: number[] }[] = [];
+  // The splitter cuts whole words: a Lernwort cut to the squares keeps the syllables of the whole word, and only its
+  // letters in the squares take a colour or a bow. `start` is where a run lies in the squares' text, `keep` how much
+  // of it stands there.
+  const runs: { start: number; whole: string; keep: number }[] = [];
+  if (!mode) runs.push({ start: 0, whole: text, keep: text.length });
+  else {
+    let start = 0;
+    for (const [i, line] of karo.split("\n").entries()) {
+      const whole = shown[i] ?? "";
+      const c = cut(whole);
+      for (let s = 0; c && s < line.length; s += c.length + 1) runs.push({ start: start + s, whole, keep: c.length });
+      start += line.length + 1;
+    }
+  }
   if (module) {
-    let [offset, word, count] = [0, undefined as number | undefined, 0];
-    for (const piece of module.pieces(shownText, breaks)) {
-      const from = offset;
-      offset += piece.text.length;
-      if (!piece.syl) continue;
-      if (piece.word !== word) {
-        word = piece.word;
-        if (!block.props.tintsAcross) count = 0;
+    let count = 0;
+    for (const { start, whole, keep } of runs) {
+      let [offset, word] = [0, undefined as number | undefined];
+      for (const piece of module.pieces(whole, breaks)) {
+        const from = offset;
+        offset += piece.text.length;
+        if (!piece.syl) continue;
+        if (piece.word !== word) {
+          word = piece.word;
+          if (!block.props.tintsAcross) count = 0;
+        }
+        const hue = tints?.[count++ % 2];
+        const offsets = Array.from({ length: Math.max(0, Math.min(module.shown(piece.text).length, keep - from)) }, (_, j) => start + from + j);
+        if (hue) offsets.forEach((o) => colour.set(o, hue));
+        if (offsets.length) syllables.push({ plain: module.plain(piece.text), hue, offsets });
       }
-      const hue = tints?.[count++ % 2];
-      const offsets = Array.from({ length: module.shown(piece.text).length }, (_, j) => from + j);
-      if (hue) offsets.forEach((o) => colour.set(o, hue));
-      syllables.push({ plain: module.plain(piece.text), hue, offsets });
     }
   }
   // A bow under each syllable, cut where its letters leave a row of squares; a row past the block's rows gets none.
@@ -2223,7 +2240,7 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
       const [X0, X1, Y] = [x0 * row + 0.12 * row, (x1 + 1) * row - 0.12 * row, (y + 0.8) * row];
       const deep = Math.min(0.08 * row, (X1 - X0) / 2);
       return (
-        <path key={`${n}-${y}-${x0}`} className="syl" data-syl={syl} d={`M${X0},${Y} Q${(X0 + X1) / 2},${Y + 2 * deep} ${X1},${Y}`} fill="none" stroke={hue ?? "currentColor"} strokeWidth={Math.max(0.05 * size, 0.15)} />
+        <path key={`${n}-${y}-${x0}`} className="syl" data-syl={syl} d={`M${X0},${Y} Q${(X0 + X1) / 2},${Y + 2 * deep} ${X1},${Y}`} fill="none" stroke={hue ?? "currentColor"} strokeLinecap="round" strokeWidth={Math.max(0.05 * size, 0.15)} />
       );
     });
   }) : [];
