@@ -14,6 +14,7 @@ When a teacher asks for: "Ein Blatt mit Plusaufgaben bis 20 und Selbstkontrolle.
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The maths block makes twelve `+` sums with results up to 20, in three columns. The seed fixes the sums, so the sheet prints the same way each time.
 * The selbstkontrolle block lists the results in a shuffled order, each with a box to tick. Its `links` holds the id of the maths block, so it checks those sums.
+* In the editor these are the button "Rechnen" and the button "Selbstkontrolle" in the menu "Mathe-Blöcke", both in the insert bar, group "Mathe".
 * See [maths](../blocks/maths.md) and [selbstkontrolle](../blocks/selbstkontrolle.md) for the other props.
 
 # Doc

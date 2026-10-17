@@ -1,4 +1,5 @@
 {
   "prompt": "Mach mir ein Blatt mit Lernwörtern, darunter eine Lineatur zum Schreiben. Lege das Blatt mit dem Titel Eval Lernwörter mit Lineatur an.",
+  "recipe": "lernwoerter-silbenboegen",
   "expect": {"types": ["ruling"], "text": []}
 }

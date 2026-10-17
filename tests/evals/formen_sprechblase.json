@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit einer Sprechblase und einem Rahmen zum Ausfüllen. Lege das Blatt mit dem Titel Eval Sprechblase an.",
+  "recipe": "formen-sprechblase",
+  "expect": {"types": ["shape"], "text": ["bubble"]}
+}

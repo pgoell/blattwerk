@@ -36,6 +36,7 @@ Example, a flower with a stem and two leaves. The viewBox is square, so the rati
 
 * The `upload_picture` answer gives the id, for example `{"upload": 1, "ratio": 1}`. The ratio is the width over the height of the picture.
 * Set `w` and `h` so the ratio holds: a square picture at 100 mm wide is 100 mm high.
+* In the editor a teacher puts a picture of their own on the sheet with the button "Bild" in the insert bar, group "Einfügen".
 * See [image](../blocks/image.md) for the other props.
 
 # Doc

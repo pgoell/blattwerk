@@ -117,6 +117,8 @@ run = [
   "npm run schema --prefix frontend -- --check",
   # The block pages in docs/okf/blocks come from the same schema: it fails where a page differs from it.
   "npm run okf --prefix frontend -- --check",
+  # The docs bundle keeps up with the schema, the recipes, the evals and the server's error texts.
+  "uv run python scripts/okf_check.py",
 ]
 
 [tasks.schema]

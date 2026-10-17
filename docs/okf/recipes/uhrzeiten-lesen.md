@@ -13,6 +13,7 @@ When a teacher asks for: "Ein Blatt mit Uhrzeiten zum Lesen, volle und halbe Stu
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The uhr block draws six clocks in three columns, each with a time on the hour or the half hour, from the seed. The pupil writes the time in the box under each clock.
+* In the editor the clocks are the button "Uhr" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe".
 * See [uhr](../blocks/uhr.md) for the other props.
 
 # Doc

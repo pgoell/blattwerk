@@ -14,6 +14,7 @@ When a teacher asks for: "Ein Blatt mit Lernwörtern, Lineatur und Silbenbögen.
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The four words go in the doc's `words` list. The ruling block is kind `l2` and links to that list with `list: "trace"`, so each word gets its own row, printed in grey for the pupil to write over.
 * `syllables: true` draws a bow under each syllable of each listed word.
+* In the editor the ruling is the button "Lineatur" in the insert bar, group "Schule".
 * See [ruling](../blocks/ruling.md) for the kinds.
 
 # Doc
