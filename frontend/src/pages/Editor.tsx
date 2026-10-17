@@ -106,6 +106,7 @@ import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS,
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { made } from "../zahlenmauer";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -356,6 +357,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
   const [editing, setEditing] = useState("");
+  // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
+  const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
+  // Whether the last press was a finger's, and where the handles of the picked table's range stand.
+  const [finger, setFinger] = useState(false);
+  const [grips, setGrips] = useState<{ corner: string; x: number; y: number }[]>([]);
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
@@ -936,6 +942,61 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // A round circle stays round (#661): it grows as wide as high.
     const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
+  };
+  // With a finger, round handles stand at the top left and the bottom right of the picked cells, as on PowerPoint's
+  // iPad. They stand on the sheet as the lines' handles do, at the cells' corners as the block's turn puts them.
+  useLayoutEffect(() => {
+    const page = sheet.current;
+    const block = table && finger && editing === table.id ? page?.querySelector<HTMLElement>(`[data-id="${table.id}"]`) : null;
+    // Measured after each draw, as the open cell's field may move the cells; set only where a place changed.
+    const none = () => setGrips((was) => (was.length ? [] : was));
+    if (!table || !page || !block) return none();
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    const cellAt = (r: number, c: number) => block.querySelector<HTMLElement>(`.table > div[data-cell="${anchorOf(table.props, r * table.props.cols.length + c)}"]`);
+    const [first, last] = [cellAt(r0, c0), cellAt(r1, c1)];
+    if (!first || !last) return none();
+    // A turned cell's box on the screen has the cell's centre still: the corner lies half the cell from there, turned
+    // as the block is. The sheet may be drawn larger or smaller than its own size.
+    const on = page.getBoundingClientRect();
+    const scale = on.width / page.offsetWidth;
+    const [c, s] = dir(table);
+    // The table draws its cells smaller or larger than their own size: the turned box's width tells by how much.
+    const corner = (cell: HTMLElement, side: number) => {
+      const box = cell.getBoundingClientRect();
+      const [w, h] = [cell.offsetWidth, cell.offsetHeight];
+      const drawn = box.width / (w * Math.abs(c) + h * Math.abs(s)) / scale;
+      const [vx, vy] = [(side * w * drawn) / 2, (side * h * drawn) / 2];
+      return { x: (box.left + box.width / 2 - on.left) / scale + vx * c - vy * s, y: (box.top + box.height / 2 - on.top) / scale + vx * s + vy * c };
+    };
+    const now = [
+      { corner: "nw", ...corner(first, -1) },
+      { corner: "se", ...corner(last, 1) },
+    ];
+    setGrips((was) => (JSON.stringify(was) === JSON.stringify(now) ? was : now));
+  });
+  // The cell that stays while a handle is dragged: the corner across from it.
+  const gripFixed = useRef(0);
+  // A finger on a handle picks the cells from the corner across to the cell it lies over, as a mouse drag does. The
+  // open cell is that far corner's: the range is the open cell and `reach`.
+  const gripDown = (e: PointerEvent<HTMLElement>, corner: string) => {
+    if (!table) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cellDrag.current = true;
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    gripFixed.current = anchorOf(table.props, corner === "nw" ? r1 * table.props.cols.length + c1 : r0 * table.props.cols.length + c0);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const gripMove = (e: PointerEvent<HTMLElement>) => {
+    if (!cellDrag.current || !table) return;
+    const over = document.elementsFromPoint(e.clientX, e.clientY).map((el) => el.closest<HTMLElement>("[data-cell]")).find((el) => el && el.closest(`[data-id="${table.id}"]`));
+    if (!over) return;
+    const at = anchorOf(table.props, +over.dataset.cell!);
+    if (gripFixed.current !== slot) setSlot(gripFixed.current);
+    setReach(at === gripFixed.current ? undefined : at);
+  };
+  const gripUp = () => {
+    cellDrag.current = false;
   };
   useEffect(() => {
     const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
@@ -2852,7 +2913,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     mergeKey.current = "";
     setReach(undefined);
     const after = next(b.props, slot, e.shiftKey ? -1 : 1);
-    if (after !== undefined) setSlot(after);
+    if (after !== undefined) {
+      // The next cell's text is picked, so that typing replaces it.
+      entire.current = true;
+      setSlot(after);
+    }
     else if (!e.shiftKey) {
       const rows = b.props.cells.length;
       rank(b, "row", rows, true);
@@ -3276,7 +3341,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // a cell's and a Lineatur's to the end, as a textarea tells no letter for a point.
       else if (touch.current || (!press && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
         clicked.current = point;
-        edit(id, el);
+        openStone(el) || edit(id, el);
       }
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
@@ -3288,6 +3353,36 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
+  // A double click on a stone of the selected Zahlenmauer opens its number field on the stone, as a table cell opens.
+  // Gives whether it did.
+  function openStone(target: Element): boolean {
+    const el = target.closest<SVGGElement>(".stone");
+    const block = target.closest<HTMLElement>(".block");
+    const only = free.length === 1 ? free[0] : undefined;
+    if (!el || !block || only?.type !== "zahlenmauer" || only.id !== block.dataset.id) return false;
+    const wall = Number(el.closest<SVGGElement>(".wall")?.dataset.wall);
+    const at = Number(el.dataset.stone);
+    // The stone's box in the block's own layout, from the svg's units: a turned block's screen box is not its own.
+    const svg = el.closest<SVGSVGElement>("svg")!;
+    const view = svg.viewBox.baseVal;
+    const cell = el.querySelector("rect")!;
+    const scale = Math.min(svg.clientWidth / view.width, svg.clientHeight / view.height);
+    // The svg has no offsets of its own: its box is that of the block's Zahlenmauer, which has.
+    const host = el.closest<HTMLElement>(".zahlenmauer")!;
+    const left = host.offsetLeft + (svg.clientWidth - view.width * scale) / 2 + (cell.x.baseVal.value - view.x) * scale;
+    const top = host.offsetTop + (cell.y.baseVal.value - view.y) * scale;
+    const box = [left, top, cell.width.baseVal.value * scale, cell.height.baseVal.value * scale];
+    setStone({ id: only.id, wall, at, text: String(made(only.props).walls[wall].numbers[at]), box });
+    return true;
+  }
+  // A number typed into a stone, stored as the format panel stores it: one undo step for each stone.
+  function typeStone(b: Block, wall: number, at: number, text: string) {
+    if (b.type !== "zahlenmauer") return;
+    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
+    const others = (b.props.typed ?? []).filter((t) => t[0] !== wall || t[1] !== at);
+    const typed = text === "" ? (others.length ? others : undefined) : [...others, [wall, at, Number(text)]];
+    style("zahlenmauer", { typed }, `typed:${wall}:${at}`);
+  }
   function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
     // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
@@ -3303,6 +3398,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       setEditing(id);
     }
     setSlot(cell ?? +(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
+    // A tap in a cell opens that cell alone, as a press of the mouse does: the cells picked before are let go.
+    setReach(undefined);
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -4043,7 +4140,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               window.addEventListener("pointercancel", let_go);
             }
             touch.current = e.pointerType === "touch";
-            cover.current = moveable.current!.isMoveableElement(e.target as Element);
+            setFinger(touch.current);
+            cover.current =moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
             held.current = false;
             // A press of the mouse on a cell of the table being edited picks cells. Moveable takes the focus from the
@@ -4094,7 +4192,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             const at = anchorOf(table.props, +over.dataset.cell!);
             setReach(at === slot ? undefined : at);
           }}
-          onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
+          onDoubleClick={(e) => brush || openStone(e.target as Element) || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
           // In a field the browser's own menu stays, a finger's and a mouse's alike.
           onContextMenu={(e) => {
@@ -4226,6 +4324,28 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
+                    {stone?.id === b.id && (
+                      <input
+                        className="stone-field"
+                        inputMode="numeric"
+                        aria-label="Zahl im Stein"
+                        autoFocus
+                        value={stone.text}
+                        style={{ left: stone.box[0], top: stone.box[1], width: stone.box[2], height: stone.box[3], fontSize: stone.box[3] * 0.6 }}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onKeyDown={(e) => {
+                          // The keys are the field's: the sheet's own keys do not take the digits or the Enter.
+                          e.stopPropagation();
+                          if (e.key === "Enter" || e.key === "Escape") setStone(null);
+                        }}
+                        onBlur={() => setStone(null)}
+                        onChange={(e) => {
+                          if (!/^\d{0,4}$/.test(e.target.value)) return;
+                          setStone({ ...stone, text: e.target.value });
+                          typeStone(b, stone.wall, stone.at, e.target.value);
+                        }}
+                      />
+                    )}
                     {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>
@@ -4272,6 +4392,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       />
                     )),
                   )}
+                  {/* Over the lines' handles, which run along the cells' edges where these stand. The sheet's touch, a
+                      hold that opens a menu, is not theirs: it took the click of the next tap. */}
+                  {table && grips.map((g) => (
+                    <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
+                  ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {line &&
                     [false, true].map((end) => (

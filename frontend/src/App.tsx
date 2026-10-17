@@ -168,6 +168,8 @@ export default function App() {
 // it is dropped, and the dead sheet's address gives way to the list.
 function Notices({ owner, id }: { owner?: number; id?: string }) {
   const navigate = useNavigate();
+  // Another tab ended the choice here: this one goes where that one went, if it still shows the sheet.
+  useEffect(() => (id ? saves.onEnded(Number(id), (to) => location.pathname === `/blatt/${id}` && navigate(to ? `/blatt/${to}` : "/")) : undefined), [id, navigate]);
   const open = saves.useSaves().list.filter((s) => s.owner === owner && (s.gone ? !s.open : String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late)));
   return open.map((s) => (
     <p key={s.id} className="notice" role={s.gone ? "alert" : "status"}>

@@ -35,6 +35,8 @@ type Saver = {
   // has chosen, to keep it as a new sheet or to drop it. `choice` says how the first of the two stands.
   gone: boolean;
   choice?: "busy" | "failed";
+  // The change last sent as a sheet kept as new, whose answer may not have come.
+  asked?: Kept;
   // What the server refused in the sheet kept as new, where its answer was a refusal.
   choiceProblems?: string[];
   // Another account took over: nothing of this one is sent or heard any more.
@@ -57,7 +59,9 @@ type Saver = {
 // written before there was one has none.
 // `lists` marks a record of a build that knows the Lernwörter: one without it names no list because its build
 // dropped the sheet's, not because the teacher took it away.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean };
+// `asked` is the change a keep of a sheet deleted elsewhere last sent as a new sheet, whose answer may not have come:
+// a press after a reload finds that sheet rather than making a second one.
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed"; choiceProblems?: string[] };
 
 const savers = new Map<number, Saver>();
@@ -116,7 +120,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -367,6 +371,54 @@ export function refused(id: number, e: Refusal) {
   tell();
   signedOut();
 }
+// Tells the other tabs what this one took of a sheet deleted elsewhere: the set fires their storage event, the removal
+// after it leaves no trace in the store.
+function announce(id: number, took: Kept, to: number | null) {
+  try {
+    localStorage.setItem(`ended:${id}`, JSON.stringify({ doc: took.doc, title: took.title, to }));
+    localStorage.removeItem(`ended:${id}`);
+  } catch {
+    // The store is full or shut: the other tabs keep their choice.
+  }
+}
+// The editor of a sheet whose choice another tab ended is told where to go: to the new sheet, or the list.
+const ends = new Map<number, (to: number | null) => void>();
+export function onEnded(id: number, told: (to: number | null) => void) {
+  ends.set(id, told);
+  return () => void ends.delete(id);
+}
+// Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
+// work its change is written back, so the removal of the other tab's record leaves no loss.
+addEventListener("storage", (e) => {
+  // Another tab took a sheet's record out: a tab that still holds unsaved work of it writes its own back. That tab's
+  // removal may reach the store after this tab's own write, which then would be gone with it.
+  const out = /^unsaved:(\d+)$/.exec(e.key ?? "");
+  if (out && e.newValue === null) {
+    const s = savers.get(Number(out[1]));
+    if (s && !s.dead && unsaved(s)) keep(s);
+    return;
+  }
+  const m = /^ended:(\d+)$/.exec(e.key ?? "");
+  if (!m || e.newValue === null) return;
+  const id = Number(m[1]);
+  const s = savers.get(id);
+  if (!s || !s.gone || s.dead || s.choice === "busy") return;
+  let took: Kept & { to: number | null };
+  try {
+    took = JSON.parse(e.newValue);
+  } catch {
+    return;
+  }
+  if (same(took.doc, s.want.doc) && took.title === s.want.title) {
+    kill(s);
+    tell(1);
+    ends.get(id)?.(took.to);
+  } else {
+    keep(s);
+    tell();
+  }
+});
+
 // The sheet's saver and its kept change go: the teacher deleted the sheet here, chose the other version of a clash,
 // or chose what becomes of a sheet deleted elsewhere. The list asks anew after that last one.
 export function forget(id: number) {
@@ -397,9 +449,18 @@ export async function keepAsNew(id: number) {
       signedOut();
       throw new Error("401");
     }
-    const sheet = await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    // A press before this one sent a sheet whose answer never came: the server may hold it, so it is found, not made again.
+    const prior = s.asked;
+    const found = prior && (await ask<Sheet[]>("/sheets")).find((x) => x.title === (prior.title.trim() || "Unbenanntes Blatt") && same(x.doc, prior.doc));
+    if (!found) {
+      s.asked = want;
+      keep(s);
+    }
+    const sheet = found || (await ask<Sheet>("/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body }));
+    // What the new sheet holds: the change asked for, which the found sheet holds too.
+    const took = found && prior ? prior : want;
     // A change made while the server was asked goes along: the new sheet's saver finds it kept, and sends it.
-    if (s.want !== want && !s.dead) {
+    if (!s.dead && (!same(s.want.doc, took.doc) || s.want.title !== took.title)) {
       const record: Record = { owner: s.owner, base: sheet.version, doc: s.want.doc, title: s.want.title, name: sheet.title };
       try {
         localStorage.setItem(key(sheet.id), JSON.stringify(record));
@@ -407,6 +468,7 @@ export async function keepAsNew(id: number) {
         // The store is full or shut: that change is lost with the old sheet.
       }
     }
+    announce(id, took, sheet.id);
     forget(id);
     return sheet;
   } catch (e) {
@@ -434,6 +496,7 @@ export async function discard(id: number) {
       throw new Error("401");
     }
     if (s.dead) return false;
+    announce(id, s.want, null);
     forget(id);
     return true;
   } catch (e) {
@@ -489,7 +552,8 @@ export function enter(owner?: number) {
         if (!record || owner === undefined) return;
         const saved = { doc: record.doc, title: record.name ?? record.title ?? "Unbenanntes Blatt" };
         const want = { doc: read(record.doc), title: record.title ?? saved.title };
-        savers.set(id, { id, owner, base: record.base, saved, want, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
+        const asked = record.asked && { doc: read(record.asked.doc), title: record.asked.title };
+        savers.set(id, { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
         tell(1);
       },
     );
