@@ -476,8 +476,8 @@ addEventListener("storage", (e) => {
 // Where it holds other work, the change is kept.
 function endWith(s: Saver, heard: { to: number | null; print: string }) {
   if (print({ doc: s.want.doc, title: s.want.title }) === heard.print) {
-    kill(s);
-    tell(1);
+    // The other tab's sheet holds this work: the record goes too, or the next start would ask again.
+    forget(s.id);
     ends.get(s.id)?.(heard.to);
   } else {
     keep(s);
@@ -519,18 +519,32 @@ export async function keepAsNew(id: number) {
     // goes to that sheet as a clash.
     const heard = heardOf(id);
     let there: Sheet | undefined;
-    if (typeof heard?.to === "number") {
+    // A saver of that sheet in this tab would not take the change up: then a sheet is made, and nothing is lost.
+    if (typeof heard?.to === "number" && !savers.has(heard.to)) {
       try {
         there = await ask<Sheet>(`/sheets/${heard.to}`);
       } catch (e) {
+        const { message, by } = e as Refusal;
+        // Another account's 404 says nothing of the sheet: the login shows, as for the check above.
+        if (message === "404" && by !== undefined && by !== s.owner) {
+          signedOut();
+          throw new Error("401");
+        }
         // Only a 404 served for the owner says that sheet is not there: any other failure ends the press.
-        if ((e as Refusal).message !== "404" || (e as Refusal).by !== s.owner) throw e;
+        if (message !== "404" || by !== s.owner) throw e;
       }
     }
     if (heard && there) {
-      // Where this tab holds other work, it goes to that sheet as a clash, through the record `open` takes up.
+      // Where this tab holds other work, it goes to that sheet as a clash, through the record `open` takes up. The
+      // store has it too, for a reload before that open.
       if (!s.dead && print({ doc: s.want.doc, title: s.want.title }) !== heard.print) {
-        handed.set(there.id, { owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true });
+        const record: Record = { owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true };
+        handed.set(there.id, record);
+        try {
+          localStorage.setItem(key(there.id), JSON.stringify(record));
+        } catch {
+          // The store is full or shut: the change lives on in this window alone.
+        }
       }
       forget(id);
       return there;
@@ -639,8 +653,12 @@ export function enter(owner?: number) {
         const saved = { doc: record.doc, title: record.name ?? record.title ?? "Unbenanntes Blatt" };
         const want = { doc: read(record.doc), title: record.title ?? saved.title };
         const asked = record.asked && { doc: read(record.asked.doc), title: record.asked.title };
-        savers.set(id, { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] });
+        const s: Saver = { id, owner, base: record.base, saved, want, asked, lost: [], tries: 0, clash: false, stop: false, gone: true, dead: false, open: false, kept: true, late: false, idle: [] };
+        savers.set(id, s);
         tell(1);
+        // Another tab may have chosen for it already (#718).
+        const heard = heardOf(id);
+        if (heard) endWith(s, heard);
       },
     );
   }

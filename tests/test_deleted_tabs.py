@@ -151,3 +151,79 @@ def test_a_tab_reloaded_after_another_kept_still_keeps_into_the_same_new_sheet(t
     page2.locator(NOTICE).get_by_role("button", name=KEEP).click()
     expect(page2).to_have_url(re.compile(rf"/blatt/{new}$"))
     assert len(client.get("/api/sheets").json()) == count
+
+
+def test_a_tab_whose_choice_another_tab_ended_leaves_no_record_to_ask_again(tabs):
+    """Tab 2 holds the work tab 1 kept, and its save finds A gone only after tab 1's keep: its
+    choice ends, and the record of the deleted sheet goes with it: the next start asks nothing."""
+    client, sheet_id, page1, page2 = tabs
+    held = []
+    page2.route(
+        f"**/api/sheets/{sheet_id}",
+        lambda route: held.append(route) if route.request.method == "PATCH" else route.continue_(),
+    )
+    pick(page2, "a")
+    with page2.expect_request(lambda r: r.method == "PATCH"):
+        page2.keyboard.press("ArrowRight")
+    new = change_and_keep(client, sheet_id, page1)
+    held[0].continue_()
+    expect(page2).to_have_url(re.compile(rf"/blatt/{new}$"))
+    page2.goto(page2.url.rsplit("/blatt/", 1)[0])
+    expect(page2.get_by_role("heading", name="Meine Blätter")).to_be_visible()
+    expect(page2.locator(NOTICE)).to_have_count(0)
+    assert record(page2, sheet_id) is None
+
+
+def test_a_keep_from_a_tab_open_on_the_other_tabs_sheet_makes_its_own_and_loses_nothing(tabs):
+    """Tab 2 finds A gone with other work, then opens the sheet tab 1 made: that sheet's editor
+    would not take the change up, so the keep from the line makes a sheet of its own."""
+    client, sheet_id, page1, page2 = tabs
+    pick(page2, "a")
+    page2.keyboard.press("ArrowLeft")
+    expect(page2.locator(".clash")).to_contain_text(GONE)
+    new = change_and_keep(client, sheet_id, page1)
+    page2.goto(page1.url)
+    expect(page2.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+    line = page2.locator(NOTICE)
+    expect(line).to_contain_text(GONE)
+    count = len(client.get("/api/sheets").json())
+    line.get_by_role("button", name=KEEP).click()
+    expect(page2).not_to_have_url(re.compile(rf"/blatt/({new}|{sheet_id})$"))
+    expect(page2).to_have_url(re.compile(r"/blatt/\d+$"))
+    sheets = client.get("/api/sheets").json()
+    assert len(sheets) == count + 1
+    made = client.get(f"/api/sheets/{page2.url.rsplit('/', 1)[1]}").json()
+    assert made["doc"]["pages"][0]["blocks"][0]["x"] == 14
+
+
+def test_when_both_tabs_hold_changes_tab_two_clashes_and_overwrites_nothing(tabs):
+    """Tab 1 keeps A and changes the new sheet again; tab 2 then keeps its other work. Tab 1 ends
+    with its change, saved; tab 2 ends on the same sheet with its own change on screen and the
+    clash's choice; the server holds tab 1's change until tab 2 chooses."""
+    client, sheet_id, page1, page2 = tabs
+    new = change_and_keep(client, sheet_id, page1)
+    pick(page1, "a")
+    page1.keyboard.press("ArrowRight")
+    expect(page1.locator("header [role=status]")).to_have_text("Gespeichert")
+    tab1 = client.get(f"/api/sheets/{new}").json()["doc"]["pages"][0]["blocks"][0]["x"]
+    assert tab1 == 17
+    pick(page2, "a")
+    page2.keyboard.press("ArrowLeft")
+    expect(page2.locator(".clash")).to_contain_text(GONE)
+    page2.get_by_role("button", name=KEEP).click()
+    expect(page2).to_have_url(re.compile(rf"/blatt/{new}$"))
+    clash = page2.locator(".clash")
+    expect(clash.get_by_role("button", name="Andere Version laden")).to_be_visible()
+    expect(clash.get_by_role("button", name="Mit dieser überschreiben")).to_be_visible()
+    # Tab 2 sends nothing while it shows the clash: the server keeps tab 1's change.
+    with page2.expect_request(lambda r: r.method == "GET" and "/api/sheets" in r.url):
+        page2.goto(page2.url.rsplit("/blatt/", 1)[0])
+    assert client.get(f"/api/sheets/{new}").json()["doc"]["pages"][0]["blocks"][0]["x"] == 17
+    expect(page1.locator(".clash")).to_have_count(0)
+    expect(page1.locator("header [role=status]")).to_have_text("Gespeichert")
+    # Tab 2's own change is still kept for the clash: back on the sheet it shows again.
+    page2.goto(page1.url)
+    expect(
+        page2.locator(".clash").get_by_role("button", name="Mit dieser überschreiben")
+    ).to_be_visible()
+    assert record(page2, int(new))["doc"]["pages"][0]["blocks"][0]["x"] == 14
