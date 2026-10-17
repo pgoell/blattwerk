@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit Namenszeile und Punkteangabe für eine Aufgabe."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the points box is the button "Punkte" under Einfügen. Its `max` is the most points the task gives. The total box has `total` set and adds up every task box on the sheet.
+* In the editor the points box is the button "Punkte" in the insert bar, group "Schule". Its `max` is the most points the task gives. The total box has `total` set and adds up every task box on the sheet.
 * See [points](../blocks/points.md) for the other props.
 
 # Doc

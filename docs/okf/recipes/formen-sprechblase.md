@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit einer Sprechblase als Frage und einem Rahmen für die Antwort."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor these are the buttons "Sprechblase" and "Rechteck" in the group "Formen" under Einfügen. The bubble holds the question in its `text` prop, the frame holds the pupil's answer.
+* In the editor these are the buttons "Sprechblase" and "Rechteck" in the insert bar, group "Formen". The bubble holds the question in its `text` prop, the frame holds the pupil's answer.
 * See [shape](../blocks/shape.md) for the other props.
 
 # Doc

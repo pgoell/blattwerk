@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit Symbolen und einer kurzen Aufgabe daneben."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the symbol is the button "Symbol" under Einfügen. Its `code` is the OpenMoji code of the symbol: "270F" Bleistift, "1F3E0" Haus, "2B50" Stern. The teacher finds others in the panel's field "Symbol suchen".
+* In the editor the symbol is the button "Symbol" in the insert bar, group "Einfügen". Its `code` is the OpenMoji code of the symbol: "270F" Bleistift, "1F3E0" Haus, "2B50" Stern. The teacher finds others in the panel's field "Symbol suchen".
 * See [symbol](../blocks/symbol.md) for the other props.
 
 # Doc

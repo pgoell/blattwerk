@@ -11,46 +11,69 @@ import contextlib
 import json
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
+from jsonschema import Draft7Validator
 
 from blattwerk import schema
 
 ROOT = Path(__file__).resolve().parent.parent
 JSON_BLOCK = re.compile(r"```json\n(.*?)\n```", re.S)
-TOOL = re.compile(
-    r"(list|get|create|rename|duplicate|replace|add|update|move|delete|set|upload|render)_[a-z_]+"
-)
 ADD_KEYS = {"type", "props", "x", "y", "w", "h"}
 
 
 def split(path: Path) -> tuple[dict, str]:
-    """The frontmatter, empty when the file has none, and the body."""
+    """The frontmatter, empty when the file has none or it is not closed, and the body."""
     text = path.read_text()
-    if not text.startswith("---\n"):
+    found = re.match(r"---\n(.*?)^---$\n?(.*)", text, re.S | re.M)
+    if not found:
         return {}, text
-    head, body = text[4:].split("\n---\n", 1)
-    return yaml.safe_load(head), body
+    head, body = found.groups()
+    meta = yaml.safe_load(head) if head.strip() else {}
+    return meta if isinstance(meta, dict) else {}, body
 
 
-def when(value) -> str:
-    """A generated.at as the text it is written in, so that times compare as text."""
-    return str(value).replace(" ", "T").replace("+00:00", "Z")
+def when(value) -> datetime:
+    """A generated.at as a time with its offset; none counts as the earliest time."""
+    try:
+        at = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+    return at if at.tzinfo else at.replace(tzinfo=UTC)
+
+
+def types_in(doc) -> set:
+    """The block types a doc uses; a doc of the wrong shape uses none (check_examples says why)."""
+    if not isinstance(doc, dict) or not isinstance(doc.get("pages"), list):
+        return set()
+    pages = [p for p in doc["pages"] if isinstance(p, dict)]
+    blocks = [b for p in pages if isinstance(p.get("blocks"), list) for b in p["blocks"]]
+    return {b.get("type") for b in blocks if isinstance(b, dict)}
 
 
 def resolve(defs: dict, node: dict) -> dict:
     return defs[node["$ref"].split("/")[-1]] if "$ref" in node else node
 
 
-def bare_fields(defs: dict, type_: str) -> list[str]:
-    """The fields of a block and of its props that have no description, a block's type aside."""
+def block_of(defs: dict, type_: str) -> dict:
+    """The schema of one block type: the definition its `if` clause hands the block to."""
     entry = next(
         e for e in defs["Block"]["allOf"] if e["if"]["properties"]["type"]["const"] == type_
     )
-    block = resolve(defs, entry["then"])
+    return resolve(defs, entry["then"])
+
+
+def props_of(defs: dict, type_: str) -> dict:
+    return resolve(defs, block_of(defs, type_)["properties"]["props"])
+
+
+def bare_fields(defs: dict, type_: str) -> list[str]:
+    """The fields of a block and of its props that have no description, a block's type aside."""
+    block = block_of(defs, type_)
     found = [k for k, v in block["properties"].items() if k != "type" and "description" not in v]
-    props = resolve(defs, block["properties"]["props"])
+    props = props_of(defs, type_)
     found += [
         f"props.{k}" for k, v in props.get("properties", {}).items() if "description" not in v
     ]
@@ -90,13 +113,8 @@ def check_how_tos(docs: Path, types: list[str]) -> list[str]:
         if path.name == "index.md":
             continue
         meta, body = split(path)
-        used = {
-            b["type"]
-            for doc in json_blocks(body)
-            for p in doc.get("pages", [])
-            for b in p["blocks"]
-        }
-        covered |= used & set(meta["covers"])
+        used = set().union(*(types_in(doc) for doc in json_blocks(body)))
+        covered |= used & set(meta.get("covers") or [])
     return [
         f"{t} has no how-to in recipes/: write one, or put it on no-recipe-yet.txt on purpose"
         for t in types
@@ -108,11 +126,12 @@ def check_staleness(docs: Path, pages: list[Path]) -> list[str]:
     problems = []
     for path in pages:
         meta, _ = split(path)
-        own = when(meta.get("generated", {}).get("at", ""))
-        for t in meta.get("covers", []):
+        own = when((meta.get("generated") or {}).get("at"))
+        for t in meta.get("covers") or []:
             if not (docs / "blocks" / f"{t}.md").is_file():
                 continue
-            changed = when(split(docs / "blocks" / f"{t}.md")[0]["generated"].get("at", ""))
+            block_meta, _ = split(docs / "blocks" / f"{t}.md")
+            changed = when((block_meta.get("generated") or {}).get("at"))
             if changed > own:
                 problems.append(
                     f"{path.relative_to(docs)} covers {t}, changed at {changed} "
@@ -140,16 +159,37 @@ def check_examples(defs: dict, files: list[Path], docs: Path) -> list[str]:
                 and set(example) <= ADD_KEYS
             ):
                 problems.append(f"{where}: neither a doc nor an add_block call")
+            else:
+                # add_block takes partial props, so the props schema without its `required`.
+                props = props_of(defs, example["type"])
+                check = Draft7Validator({**props, "required": [], "definitions": defs})
+                problems += [
+                    f"{where}: props.{'.'.join(map(str, e.path))}: {e.message}"
+                    for e in check.iter_errors(example.get("props", {}))
+                ]
     return problems
 
 
-def check_tool_names(docs: Path, files: list[Path]) -> list[str]:
-    tools = {t["name"] for t in json.loads((ROOT / "tests/snapshots/mcp_tools.json").read_text())}
+def keys_in(node) -> set:
+    """Every property name a schema names, at any depth."""
+    if isinstance(node, list):
+        return set().union(*map(keys_in, node)) if node else set()
+    if not isinstance(node, dict):
+        return set()
+    own = set(node["properties"]) if isinstance(node.get("properties"), dict) else set()
+    return own.union(*map(keys_in, node.values()))
+
+
+def check_tool_names(defs: dict, docs: Path, files: list[Path]) -> list[str]:
+    snapshot = json.loads((ROOT / "tests/snapshots/mcp_tools.json").read_text())
+    tools = {t["name"] for t in snapshot}
+    # A snake_case word in backticks is a tool unless it is an argument or a field of a doc.
+    known = keys_in(snapshot) | keys_in(defs) | {"okf_version"}
     problems = []
     for path in files:
-        words = set(re.findall(r"`([^`\s]+)`", path.read_text()))
+        words = set(re.findall(r"`([a-z]+(?:_[a-z]+)+)(?:\([^`]*\))?`", path.read_text()))
         for word in sorted(words):
-            if TOOL.fullmatch(word) and word not in tools:
+            if word not in tools and word not in known:
                 problems.append(
                     f"{path.relative_to(docs)}: names the tool {word}, "
                     "which the server does not have"
@@ -223,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
         *check_how_tos(docs, types),
         *check_staleness(docs, hand),
         *check_examples(defs, files, docs),
-        *check_tool_names(docs, files),
+        *check_tool_names(defs, docs, files),
         *check_evals(docs, args.evals),
         *check_error_texts(docs, args.tools_src),
     ]

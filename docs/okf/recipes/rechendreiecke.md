@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit Rechendreiecken bis 20, einige Zahlen gegeben."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the triangles are the button "Rechendreieck" in the menu "Mathe-Blöcke" under Einfügen. `given` says which fields show their number: "mix" gives two inner fields and one outer field.
+* In the editor the triangles are the button "Rechendreieck" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `given` says which fields show their number: "mix" gives two inner fields and one outer field.
 * See [rechendreieck](../blocks/rechendreieck.md) for the other props.
 
 # Doc

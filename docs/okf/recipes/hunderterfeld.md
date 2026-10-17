@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit einem Hunderterfeld, einige Zahlen fehlen."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the field is the button "Hunderterfeld" in the menu "Mathe-Blöcke" under Einfügen. `look` "tafel" draws the numbers, "punkte" draws dots. `show` "random" hides `hide` numbers, picked from `seed`.
+* In the editor the field is the button "Hunderterfeld" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `look` "tafel" draws the numbers, "punkte" draws dots. `show` "random" hides `hide` numbers, picked from `seed`.
 * See [hunderterfeld](../blocks/hunderterfeld.md) for the other props.
 
 # Doc

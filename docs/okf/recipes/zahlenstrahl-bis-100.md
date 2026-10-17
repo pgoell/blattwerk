@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
 When a teacher asks for: "Ein Blatt mit einem Zahlenstrahl bis 100, mit Kästchen zum Ausfüllen."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the line is the button "Zahlenstrahl" in the menu "Mathe-Blöcke" under Einfügen. `tasks` "random" puts the boxes and arrows on ticks chosen from `seed`. `major` sets the long ticks, and `labels` "major" prints their numbers.
+* In the editor the line is the button "Zahlenstrahl" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `tasks` "random" puts the boxes and arrows on ticks chosen from `seed`. `major` sets the long ticks, and `labels` "major" prints their numbers.
 * See [zahlenstrahl](../blocks/zahlenstrahl.md) for the other props.
 
 # Doc

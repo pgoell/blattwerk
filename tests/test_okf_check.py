@@ -105,6 +105,45 @@ def test_a_tool_the_server_does_not_have(docs: Path):
     assert "names the tool add_picture, which the server does not have" in result.stderr
 
 
+@pytest.mark.parametrize("named", ["`make_sheet`", "`add_picture(svg)`"])
+def test_a_tool_of_any_name_the_server_does_not_have(docs: Path, named: str):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    recipe.write_text(recipe.read_text() + f"\nCall {named} first.\n")
+    result = check(docs)
+    assert result.returncode == 1
+    tool = named.strip("`").split("(")[0]
+    assert f"names the tool {tool}, which the server does not have" in result.stderr
+
+
+def test_an_add_block_example_with_wrong_props(docs: Path):
+    edit(
+        docs / "blocks/uhr.md",
+        '{"type": "uhr", "props": {}}',
+        '{"type": "uhr", "props": {"count": "viele"}}',
+    )
+    result = check(docs)
+    assert result.returncode == 1
+    assert "blocks/uhr.md#1: props.count:" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "# Notes\n",
+        "---\ntitle: open\n",
+        "---\n---\n",
+        "---\ntype: How-to\ncovers: [uhr]\n---\n\n```json\n[1, 2]\n```\n",
+        '---\ntype: How-to\ncovers: [uhr]\n---\n\n```json\n{"pages": [{}]}\n```\n',
+    ],
+    ids=["no-frontmatter", "not-closed", "empty", "a-list", "a-page-without-blocks"],
+)
+def test_an_odd_doc_gives_a_message_not_a_crash(docs: Path, text: str):
+    (docs / "recipes/odd.md").write_text(text)
+    result = check(docs)
+    assert "Traceback" not in result.stderr, result.stderr
+    assert result.returncode == 1
+
+
 def test_a_recipe_without_an_eval_task(tmp_path: Path, docs: Path):
     evals = tmp_path / "evals"
     shutil.copytree(EVALS, evals)
@@ -117,17 +156,17 @@ def test_a_recipe_without_an_eval_task(tmp_path: Path, docs: Path):
     assert f"recipes/{stem}.md has no eval task" in result.stderr
 
 
-def test_an_error_text_missing_from_the_reference(docs: Path):
+# One text from TOKEN_MESSAGE, one from a `new Fail(...)`, one from `stale`.
+@pytest.mark.parametrize(
+    "words", ["token is not valid", "is locked. Nothing was written.", "since you read it"]
+)
+def test_an_error_text_missing_from_the_reference(docs: Path, words: str):
     page = docs / "tools/errors-and-limits.md"
-    lines = [
-        line
-        for line in page.read_text().splitlines(keepends=True)
-        if "token is not valid" not in line
-    ]
+    lines = [line for line in page.read_text().splitlines(keepends=True) if words not in line]
     page.write_text("".join(lines))
     result = check(docs)
     assert result.returncode == 1
-    assert "token is not valid" in result.stderr
+    assert words in result.stderr
 
 
 def test_the_checks_pass_on_the_repo():
