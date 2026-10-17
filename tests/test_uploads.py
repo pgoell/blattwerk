@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import threading
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -8,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from ui import picture, sheet
 
-from blattwerk import auth, db, pictures, svg
+from blattwerk import auth, db, pictures, svg, uploads
 from blattwerk.app import app
 from blattwerk.uploads import MAX_BYTES, MAX_SVG_BYTES
 
@@ -521,3 +522,26 @@ def test_file_of_another_system_user_is_never_swept(monkeypatch):
     save(client, made)
     later_save(client)
     assert there(upload_id)
+
+
+def test_no_more_than_two_svgs_are_parsed_at_once(monkeypatch):
+    """A teacher's many uploads at once do not each take their memory: two parse, the rest wait."""
+    now, most, lock = 0, 0, threading.Lock()
+
+    def slow(data):
+        nonlocal now, most
+        with lock:
+            now += 1
+            most = max(most, now)
+        time.sleep(0.05)
+        with lock:
+            now -= 1
+        return data
+
+    monkeypatch.setattr(svg, "clean", slow)
+    threads = [threading.Thread(target=uploads.parsed, args=(b"<svg/>",)) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert most == 2

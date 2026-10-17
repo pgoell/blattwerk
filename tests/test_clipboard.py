@@ -560,6 +560,7 @@ def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
     expect(field).to_have_value(before + "1")
 
 
+@pytest.mark.skipif(BROWSER == "webkit", reason="WebKit on Linux grants the page no clipboard read")
 def test_own_copy_still_pastes_its_words_into_an_open_text(editor):
     client = user()
     target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)

@@ -779,7 +779,7 @@ HOSTILE = (
 )
 REFUSED = (
     "The server does not take this picture: PNG, JPEG, WebP, GIF, "
-    "or SVG with a viewBox (no DOCTYPE)."
+    "or SVG with a viewBox (no entities)."
 )
 
 

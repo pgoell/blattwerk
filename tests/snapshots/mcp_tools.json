@@ -12514,7 +12514,7 @@
           "type": "string"
         },
         "svg": {
-          "description": "the SVG picture as text, with a viewBox and no DOCTYPE",
+          "description": "the SVG picture as text, with a viewBox and no entities",
           "type": "string"
         }
       },

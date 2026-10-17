@@ -58,7 +58,11 @@ URL = re.compile(r"url\s*\([^)]*\)?", re.IGNORECASE)
 
 
 def clean(data: bytes) -> bytes | None:
-    """The SVG as it may be shown, or None when it is no SVG or cannot be made safe."""
+    """The SVG as it may be shown, or None when it is no SVG or cannot be made safe.
+
+    The scan for entities reads the bytes as they are: only bytes that `uploads.kind` took as an
+    SVG, which start in ASCII, come here.
+    """
     data = DOCTYPE.sub(b"", data)
     if any(word in data.lower() for word in REFUSED):
         return None

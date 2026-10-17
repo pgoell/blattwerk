@@ -416,7 +416,7 @@ export function tools(api: Api) {
     }
     const r = await api.upload(bytes, type);
     if (r.status === 413) throw new Fail("The picture is too large: 15 MB at most, an SVG 2 MB.");
-    if (r.status === 415) throw new Fail("The server does not take this picture: PNG, JPEG, WebP, GIF, or SVG with a viewBox (no DOCTYPE).");
+    if (r.status === 415) throw new Fail("The server does not take this picture: PNG, JPEG, WebP, GIF, or SVG with a viewBox (no entities).");
     const made = expectOk(r);
     // The ratio of what the server stored, which add_block reads too: a cleaned SVG may have taken its size from the viewBox.
     const { props } = await picture(made.id);
@@ -584,7 +584,7 @@ export function tools(api: Api) {
       inputSchema: {
         type: "object",
         properties: {
-          svg: { type: "string", description: "the SVG picture as text, with a viewBox and no DOCTYPE" },
+          svg: { type: "string", description: "the SVG picture as text, with a viewBox and no entities" },
           data: { type: "string", description: "the picture's bytes as base64: PNG, JPEG, WebP or GIF" },
         },
       },

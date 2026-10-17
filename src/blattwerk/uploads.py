@@ -1,5 +1,6 @@
 """Uploads: the pictures of image blocks, kept per user on the data volume."""
 
+import threading
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
@@ -14,6 +15,8 @@ from blattwerk.pictures import path
 MAX_BYTES = 15 * 2**20
 # Parsing an SVG takes about 60 times its bytes in memory, so an SVG has a lower limit.
 MAX_SVG_BYTES = 2 * 2**20
+# And so no more than two are parsed at once, whatever the threads.
+PARSING = threading.BoundedSemaphore(2)
 NOSNIFF = {"X-Content-Type-Options": "nosniff"}
 # An SVG opened in a tab runs nothing and loads nothing.
 SVG_CSP = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"}
@@ -40,6 +43,11 @@ def kind(data: bytes) -> str | None:
     return None
 
 
+def parsed(data: bytes) -> bytes | None:
+    with PARSING:
+        return svg.clean(data)
+
+
 @router.post("/uploads")
 async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
     data = await file.read(MAX_BYTES + 1)
@@ -52,7 +60,7 @@ async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
         if len(data) > MAX_SVG_BYTES:
             raise HTTPException(413)
         # Cleaning parses the SVG, which takes time, so it leaves the event loop.
-        cleaned = await run_in_threadpool(svg.clean, data)
+        cleaned = await run_in_threadpool(parsed, data)
         if cleaned is None:
             raise HTTPException(415)
         if len(cleaned) > MAX_BYTES:
