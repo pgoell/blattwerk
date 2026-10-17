@@ -25,9 +25,11 @@ from ui import (
     png,
     saved,
     sheet,
+    track_writes,
     unpick,
     upload,
     user,
+    writes_landed,
 )
 
 STAR = {"code": "2B50"}
@@ -580,11 +582,12 @@ def test_another_apps_words_still_paste_into_an_open_text_after_another_account(
     target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
     page = editor(box("a", "text", TEXT), target, client=client)
     pick(page, "a")
+    track_writes(page)
     page.keyboard.press("Control+c")
     page.evaluate(OTHER_OWNER)
-    # The picture lands after the words: wait for it, or it writes over the other app's words.
-    if BROWSER != "webkit":
-        clipboard_picture(page)
+    # The copy's picture lands after its words, and a refused picture falls back to words: wait for
+    # every write, or a late one writes over the other app's words.
+    writes_landed(page)
     copy_text(page, "Wort")
     pick(page, "b")
     page.keyboard.press("Enter")
