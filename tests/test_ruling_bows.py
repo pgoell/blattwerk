@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 from playwright.sync_api import expect
 from test_bows import bows, expect_under
+from test_painter import held
 from test_syllables import gap, word
 from test_tints import BLUE, PAIR, RED, tint_switch, tinted
 from ui import RULING, at, box, pick, sheet, syls, user
@@ -48,10 +49,48 @@ def test_c2_each_bow_lies_below_its_baseline_and_clear_of_the_drawn_lines(editor
         assert not [y for y in lines if top < y < bottom], (kind, one, lines)
 
 
-def test_c3_a_karo_ruling_shows_no_bows_switch(editor):
+@pytest.mark.parametrize("kind", ["k5", "k7"])
+def test_a_karo_ruling_shows_both_switches(editor, kind):
+    page = editor(box("a", "ruling", {**ABEND, "kind": kind}))
+    pick(page, "a")
+    expect(bows_switch(page)).to_be_visible()
+    expect(tint_switch(page)).to_be_visible()
+
+
+@pytest.mark.parametrize("switch", ["Silbenbögen", "Silbenfarbe"])
+def test_a_karo_undo_and_redo_take_and_give_back_the_switch(editor, switch):
     page = editor(box("a", "ruling", {**ABEND, "kind": "k5"}))
     pick(page, "a")
-    expect(page.get_by_role("button", name="Silbenbögen", exact=True)).to_have_count(0)
+    button = bows_switch(page) if switch == "Silbenbögen" else tint_switch(page)
+    button.click()
+    expect(button).to_have_attribute("aria-pressed", "true")
+    page.keyboard.press("Control+z")
+    expect(button).to_have_attribute("aria-pressed", "false")
+    page.keyboard.press("Control+y")
+    expect(button).to_have_attribute("aria-pressed", "true")
+
+
+def test_a_kind_change_keeps_the_bows_and_the_colours(editor):
+    page = editor(box("a", "ruling", {**ABEND, "syllables": True, "tints": PAIR}))
+    pick(page, "a")
+    kind = page.locator(".panel").get_by_label("Art der Lineatur", exact=True)
+    kind.select_option("k5")
+    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true")
+    kind.select_option("l1")
+    expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
+    expect(tint_switch(page)).to_have_attribute("aria-pressed", "true")
+
+
+def test_c3_mending_a_word_on_a_karo_moves_its_bows(editor):
+    client = user()
+    karo = {**ABEND, "kind": "k5", "text": "Fenster Maus", "syllables": True}
+    page = editor(box("a", "ruling", karo), client=client)
+    pick(page, "a")
+    word(page, "Maus").click()
+    gap(page, "Ma|us").click()
+    expect(word(page, "Ma·us")).to_be_visible()
+    assert held(page, client)["a"]["breaks"] == {"maus": [2]}
 
 
 def test_c4_the_bows_switch_on_then_one_undo_takes_it_off(editor):
@@ -99,13 +138,15 @@ def test_a_text_and_a_lineatur_picked_together_show_the_switch_once(editor):
     expect(bows_switch(page)).to_have_count(1)
 
 
-def test_a_karo_picked_along_leaves_the_switch_working_for_the_lineatur(editor):
+def test_a_karo_picked_along_takes_the_bows_with_the_lineatur(editor):
+    client = user()
     karo = {**ABEND, "kind": "k5"}
-    page = editor(box("a", "ruling", ABEND), box("k", "ruling", karo, z=2))
+    page = editor(box("a", "ruling", ABEND), box("k", "ruling", karo, z=2), client=client)
     pick(page, "a", "k")
     bows_switch(page).click()
-    expect(at(page, "a").locator(".syl")).to_have_count(2)
     expect(bows_switch(page)).to_have_attribute("aria-pressed", "true")
+    stored = held(page, client)
+    assert stored["a"]["syllables"] and stored["k"]["syllables"]
 
 
 def test_a_row_cut_off_below_shows_no_bow(editor):

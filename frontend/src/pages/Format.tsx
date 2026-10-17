@@ -678,7 +678,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
-          {RULINGS[kindOf(rulings[0].props.kind)].at && !text && !tables.length && bows}
+          {!text && !tables.length && bows}
         </>
       )}
       {tables.length > 0 && (
@@ -919,8 +919,8 @@ const unknownFont = (fonts: unknown[]) => fonts.find((f): f is string => typeof 
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
-// A Lineatur with lines takes the bows and the colours too, on its written line and on its Lernwörter list, but not on Karo.
-const ruled = (b: Block) => (b.type === "ruling" && RULINGS[kindOf(b.props.kind)].at ? b.props : undefined);
+// A Lineatur takes the bows and the colours too, on its written line and on its Lernwörter list, Karo included.
+const ruled = (b: Block) => (b.type === "ruling" ? b.props : undefined);
 const syllabled = (b: Block) => ruled(b) ?? worded(b);
 // A stored seed that is a finite number, or none: a seed that is no number counts as no seed.
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
@@ -929,9 +929,8 @@ const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n 
 const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
   if (held.some(boxed)) look(props, key);
   if (held.some((b) => b.type === "table")) style("table", props, key);
-  // Only the Lineaturen that take syllables: a Karo picked along stays as it is.
-  const lined = held.filter((b) => b.type === "ruling" && ruled(b)).map((b) => b.id);
-  if (lined.length) style("ruling", props, key, lined);
+  const rulings = held.filter((b) => b.type === "ruling").map((b) => b.id);
+  if (rulings.length) style("ruling", props, key, rulings);
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
