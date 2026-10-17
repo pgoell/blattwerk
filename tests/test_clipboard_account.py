@@ -534,6 +534,18 @@ def test_the_same_session_pastes_its_own_words_of_an_open_text_into_a_field(edit
     assert "Hund" in field.input_value()
 
 
+def test_the_same_session_pastes_its_own_words_of_an_open_text_on_the_sheet_as_a_text(editor):
+    """Outside a field the words make a text block, as words copied elsewhere do."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    unpick(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    [new] = [b for b in saved(page, a) if b["id"] != "t"]
+    assert (new["type"], new["props"]["text"]) == ("text", "Der Hund ist braun und klein")
+
+
 CELLS = {"cells": [["Katze", "Maus"], ["", ""]], "cols": [1, 1], "size": 14, "align": "center"}
 
 

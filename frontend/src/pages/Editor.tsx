@@ -4359,10 +4359,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               return;
             }
             // With the brush a press in the open text picks its words, and a drag paints them.
-            const block = (e.target as Element).closest<HTMLElement>(".block");
-            const text = blocks.find((b) => b.id === block?.dataset.id);
-            brushing.current = !touch.current && e.button === 0 && !!brush && !!text && !!boxed(text);
-            if (brushing.current) return void pick(e.target as Element, e.shiftKey, e.nativeEvent);
+            // Other blocks go the way they went before the brush painted words (#756).
+            const block = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+            brushing.current = !touch.current && e.button === 0 && !!brush && !!block && block === editing;
+            if (brushing.current) {
+              addEventListener("pointerup", () => (brushing.current = false), { once: true });
+              return void pick(e.target as Element, e.shiftKey, e.nativeEvent);
+            }
             // The right button drags nothing: its menu picks the block.
             if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.
