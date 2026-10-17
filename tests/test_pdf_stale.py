@@ -20,7 +20,7 @@ from ui import FIELD, pick, unpick
 STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
 VARIANTS_STALE = "Die Varianten zeigen den zuletzt gespeicherten Stand"
 # In a clash the PDF waits for the choice (#707).
-CLASH_LINE = "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
+CLASH_LINE = "Danach kommt dein PDF."
 # The PDF's line, whichever it says.
 PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
 
@@ -291,6 +291,67 @@ def test_main_pdf_prints_the_other_version_once_it_is_loaded(run):
         pdf_button(page).click()
     assert "Vom Tool" in text_of(got.value)
     assert "Vom MCP" not in text_of(got.value)
+
+
+def test_the_clash_bar_names_no_pdf_before_one_is_pressed(run):
+    """#735: the bar names the PDF only once a PDF was pressed in the clash."""
+    page, _ = start(run)
+    clash(run)
+    bar = page.locator(".clash")
+    expect(bar).to_be_visible()
+    expect(bar).to_contain_text("anderen Fenster")
+    expect(bar).not_to_contain_text("PDF")
+
+
+@pytest.mark.parametrize(
+    "choice", ["Andere Version laden", "Mit dieser überschreiben"], ids=["load", "overwrite"]
+)
+def test_a_pdf_pressed_in_a_clash_comes_after_the_choice(run, choice):
+    """#735: a PDF pressed in the clash comes after the choice, without a second press."""
+    page, gate = start(run)
+    clash_on_text(run, "Vom MCP")
+    with page.expect_download() as got:
+        pdf_button(page).click()
+        if choice == "Andere Version laden":
+            page.locator(".clash").get_by_role("button", name=choice, exact=True).click()
+        else:
+            with page.expect_request(gate.asks("PATCH")):
+                page.locator(".clash").get_by_role("button", name=choice, exact=True).click()
+            page.evaluate(TURNS)
+            answer(run, "a")
+    text = text_of(got.value)
+    if choice == "Andere Version laden":
+        assert "Vom Tool" in text
+        assert "Vom MCP" not in text
+    else:
+        assert "Vom MCP" in text
+
+
+def test_a_waiting_pdf_does_not_print_when_the_choice_finds_the_sheet_deleted(run):
+    """#735: a PDF waiting for the choice does not print a sheet the choice finds deleted."""
+    page, _ = start(run)
+    clash(run)
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("gelöscht")
+    keep = page.locator(".clash").get_by_role("button", name="Als neues Blatt behalten")
+    expect(keep).to_be_visible()
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_the_clash_bar_keeps_its_buttons_on_one_line_at_1280(run):
+    """#735: at 1280 px the two buttons of the clash bar sit on one line."""
+    page, _ = start(run)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    clash(run)
+    load = page.locator(".clash").get_by_role("button", name="Andere Version laden")
+    over = page.locator(".clash").get_by_role("button", name="Mit dieser überschreiben")
+    expect(load).to_be_visible()
+    expect(over).to_be_visible()
+    assert abs(load.bounding_box()["y"] - over.bounding_box()["y"]) < 4
 
 
 def test_pdf_line_goes_once_this_version_overwrites_the_other(run):

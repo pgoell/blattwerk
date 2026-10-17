@@ -413,7 +413,9 @@ export function onNewer(id: number, told: () => void) {
 export async function newer(id: number, last: () => Kept) {
   const s = savers.get(id);
   if (!s || unsaved(s)) return;
-  const sheet = await ask<Sheet>(`/sheets/${id}`).catch(() => undefined);
+  // A 404 that the saver's owner gets: the sheet is deleted elsewhere, and the change is kept as such.
+  const sheet = await ask<Sheet>(`/sheets/${id}`).catch((e: Refusal) => (e.message === "404" && e.by === s.owner ? e : undefined));
+  if (sheet instanceof Error) return void refused(id, sheet);
   const now = last();
   if (!sheet || savers.get(id) !== s || s.dead || unsaved(s) || now.doc !== s.want.doc || now.title !== s.want.title || sheet.version <= s.base) return;
   return open(sheet);
