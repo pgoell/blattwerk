@@ -396,6 +396,32 @@ export function tools(api: Api) {
     throw new Fail(r.body);
   }
 
+  // A picture into the teacher's account: SVG text, or the base64 of a raster picture. Its id goes to add_block.
+  async function uploadPicture(args: any): Promise<Content> {
+    const { svg, data } = args;
+    if ((svg === undefined) === (data === undefined)) throw new Fail("Give one of svg (SVG text) or data (base64 of a PNG, JPEG, WebP or GIF), not both.");
+    let bytes: Buffer;
+    let type: string;
+    if (svg !== undefined) {
+      if (typeof svg !== "string") throw new Fail("svg must be the text of an SVG picture.");
+      bytes = Buffer.from(svg, "utf8");
+      type = "image/svg+xml";
+    } else {
+      // Strict: Buffer.from drops a space or a stray character, so the bytes would be another picture. Decoding and
+      // encoding again gives the text back only when it is base64 as written (a regex overflows on a picture this size).
+      if (typeof data !== "string") throw new Fail("data must be the picture as base64 text.");
+      bytes = Buffer.from(data, "base64");
+      if (bytes.toString("base64") !== data) throw new Fail("data must be base64, with no spaces or line breaks.");
+      type = "application/octet-stream";
+    }
+    const r = await api.upload(bytes, type);
+    if (r.status === 413) throw new Fail("The picture is larger than 15 MB.");
+    if (r.status === 415) throw new Fail("The server does not take this picture: PNG, JPEG, WebP, GIF, or SVG with a viewBox (no DOCTYPE).");
+    const made = expectOk(r);
+    const [width, height] = dimensions(bytes);
+    return text({ upload: made.id, ratio: width / height });
+  }
+
   const id = { type: "integer" };
   const version = { type: "integer", description: "the version get_sheet or the last write gave" };
   const defs: ToolDef[] = [
@@ -551,6 +577,18 @@ export function tools(api: Api) {
       },
     },
     {
+      name: "upload_picture",
+      description:
+        "Upload a picture (SVG text or base64 PNG, JPEG, WebP) into the teacher's account; place it with add_block, type image, props.upload. How: blattomat://okf/recipes/bild-zeichnen.md.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          svg: { type: "string", description: "the SVG picture as text, with a viewBox and no DOCTYPE" },
+          data: { type: "string", description: "the picture's bytes as base64: PNG, JPEG, WebP or GIF" },
+        },
+      },
+    },
+    {
       name: "render_preview",
       description: "Look at one page of a worksheet as a PNG.",
       inputSchema: {
@@ -602,6 +640,8 @@ export function tools(api: Api) {
         return setWords(args);
       case "render_preview":
         return previewPng(args);
+      case "upload_picture":
+        return uploadPicture(args);
       default:
         throw new Fail(`No tool named ${name}.`);
     }
@@ -637,8 +677,22 @@ function orientation(buf: Buffer, tiff: number): number {
   return 1;
 }
 
+// The size of an SVG picture: the root's numeric width and height, or else the viewBox's.
+function svgSize(svg: string): [number, number] {
+  const root = svg.match(/<svg\b[^>]*>/)?.[0] ?? "";
+  const attr = (name: string) => Number(root.match(new RegExp(`\\s${name}\\s*=\\s*["']([\\d.]+)(?:px)?["']`))?.[1]);
+  let [w, h] = [attr("width"), attr("height")];
+  if (!(w > 0 && h > 0)) {
+    const box = root.match(/\sviewBox\s*=\s*["']([^"']*)["']/)?.[1].trim().split(/[\s,]+/).map(Number);
+    [w, h] = box ? [box[2], box[3]] : [0, 0];
+  }
+  if (!(w > 0 && h > 0)) throw new Fail("The SVG picture has no size: it needs a viewBox.");
+  return [w, h];
+}
+
 // Width and height in pixels from a picture's header: PNG, GIF, JPEG or WebP, as the browser shows it.
 function dimensions(buf: Buffer): [number, number] {
+  if (/^\s*<(svg|\?xml)/.test(buf.subarray(0, 64).toString("latin1"))) return svgSize(buf.toString("utf8"));
   if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
     return [buf.readUInt32BE(16), buf.readUInt32BE(20)];
   if (buf.subarray(0, 3).toString("latin1") === "GIF") return [buf.readUInt16LE(6), buf.readUInt16LE(8)];
