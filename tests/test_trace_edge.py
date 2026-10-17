@@ -245,9 +245,20 @@ def test_no_ink_of_a_plain_j_in_an_inside_text_is_cut_at_the_left_on_screen(edit
     assert not any(gained.values()), gained
 
 
-def test_no_ink_of_a_plain_j_in_a_circle_is_cut_at_the_left_on_screen(editor):
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_a_round_shape_is_cut_at_the_left(browser, server, kind):
+    """#740: a print font's j keeps its tip in a round or pointed shape, in print."""
+    client = user()
+    blocks = [box("shape", "shape", {**RECT, **JTIP, "kind": kind}, x=30, y=20, w=100, h=100)]
+    with print_page(browser, server, client, blocks) as page:
+        gained = lifted(page, {"shape": (page.locator(".block"), 150)})
+    assert not any(gained.values()), (kind, gained)
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle"])
+def test_no_ink_of_a_plain_j_in_a_round_shape_is_cut_at_the_left_on_screen(editor, kind):
     """#740: the same on the screen."""
-    shape = {**RECT, **JTIP, "kind": "circle"}
+    shape = {**RECT, **JTIP, "kind": kind}
     page = editor(box("shape", "shape", shape, x=30, y=20, w=100, h=100))
     page.add_style_tag(content=HIDE)
     gained = lifted(page, {"shape": (at(page, "shape"), 150)})
