@@ -48,7 +48,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   const p = pending ?? block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
-  const tried = (props: MathsProps) => setDenied(apply(props) ? undefined : props);
+  const tried = (props: MathsProps) => {
+    const ok = apply(props);
+    setDenied(ok ? undefined : props);
+    return ok;
+  };
 
   // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
   // stays as set, and the line above the page asks again with it.
@@ -59,8 +63,10 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
       if (n !== asked.current) return;
-      tried({ ...next, ...made });
+      const ok = tried({ ...next, ...made });
       setPending(undefined);
+      // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
+      if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
     });
   }
   // A number has as many places as the Zahlenraum; a new place takes any digit.
