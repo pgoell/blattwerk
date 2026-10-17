@@ -8,7 +8,7 @@ const AFTER = (window as { saveAfter?: number }).saveAfter ?? 2000;
 // Each sheet has one saver, and it outlives the editor: a save that is out, fails or never answers when the teacher
 // has left the sheet is still seen through, and no load waits for it. The editor says what the sheet holds now and
 // reads from here whether that is saved.
-type Kept = { doc: Doc; title: string };
+export type Kept = { doc: Doc; title: string };
 type Saver = {
   id: number;
   owner: number;
@@ -178,6 +178,7 @@ function send(s: Saver, closing = false) {
         s.base = sheet.version;
         s.saved = now;
         s.lost = [];
+        announceSaved(s.id, sheet.version);
       }
       s.tries = 0;
       settle(s, 1);
@@ -381,6 +382,32 @@ function announce(id: number, took: Kept, to: number | null) {
     // The store is full or shut: the other tabs keep their choice.
   }
 }
+// Tells the other tabs that a save of this sheet landed: their set fires the storage event, the removal leaves no trace.
+function announceSaved(id: number, version: number) {
+  try {
+    localStorage.setItem(`saved:${id}`, String(version));
+    localStorage.removeItem(`saved:${id}`);
+  } catch {
+    // The store is full or shut: the other tabs keep what they show.
+  }
+}
+// The editor of a sheet is told that a newer version was saved in another tab (#720).
+const fresh = new Map<number, () => void>();
+export function onNewer(id: number, told: () => void) {
+  fresh.set(id, told);
+  return () => void fresh.delete(id);
+}
+// A window with no change of its own learns of a newer version saved elsewhere, and the editor loads it (#720). Gives
+// the sheet to show, or nothing where there is none newer, or where a change was made here meanwhile: `last` is what
+// the editor holds now, so a key typed while the server was asked keeps the window as it is.
+export async function newer(id: number, last: () => Kept) {
+  const s = savers.get(id);
+  if (!s || unsaved(s)) return;
+  const sheet = await ask<Sheet>(`/sheets/${id}`).catch(() => undefined);
+  const now = last();
+  if (!sheet || savers.get(id) !== s || s.dead || unsaved(s) || now.doc !== s.want.doc || now.title !== s.want.title || sheet.version <= s.base) return;
+  return open(sheet);
+}
 // The editor of a sheet whose choice another tab ended is told where to go: to the new sheet, or the list.
 const ends = new Map<number, (to: number | null) => void>();
 export function onEnded(id: number, told: (to: number | null) => void) {
@@ -396,6 +423,11 @@ addEventListener("storage", (e) => {
   if (out && e.newValue === null) {
     const s = savers.get(Number(out[1]));
     if (s && !s.dead && unsaved(s)) keep(s);
+    return;
+  }
+  const saved = /^saved:(\d+)$/.exec(e.key ?? "");
+  if (saved) {
+    if (e.newValue !== null) fresh.get(Number(saved[1]))?.();
     return;
   }
   const m = /^ended:(\d+)$/.exec(e.key ?? "");
