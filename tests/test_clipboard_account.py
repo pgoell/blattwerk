@@ -661,7 +661,8 @@ def test_a_word_copied_then_again_in_another_app_pastes_as_a_text_block(editor):
     page = editor(box("t", "text", {**TEXT, "text": "Hund"}), client=a)
     copy_in_text(page)
     logout(page)
-    copy_text(page, "Hund")
+    # Another app's copy, on the login page: no sheet to unpick.
+    page.evaluate("(words) => navigator.clipboard.writeText(words)", "Hund")
     b, email = someone()
     login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
     page.keyboard.press("Control+v")
