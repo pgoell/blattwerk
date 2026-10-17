@@ -899,11 +899,9 @@ body:has(.print) { background: #fff; }
   .panel { justify-self: end; }
   .dock { z-index: 5; }
   /* An open Format drawer: a strip of room past the sheet's right end, so the desk can scroll the picked block clear
-     of the drawer. The desk lays its sheet and the strip in a row, so the strip follows a zoomed sheet too. The
-     desk's padding stays as it is, so the sheet keeps its fit. */
-  .editor.drawn .desk { display: flex; }
-  .editor.drawn .desk > *, .editor.drawn .desk::after { flex: none; }
-  .editor.drawn .desk::after { content: ""; width: 280px; }
+     of the drawer. It reaches past the desk or the widest page, whichever is wider (`--reach`, set by Editor.tsx), so
+     it follows a zoomed sheet too. The desk's padding stays as it is, so the sheet keeps its fit. */
+  .editor.drawn .desk::after { content: ""; display: block; width: calc(max(100%, var(--reach)) + 280px); height: 1px; margin-top: -1px; }
 }
 
 /* Silbenbögen: the bows under the syllables of a block's words, drawn over the block by sheet.tsx, which measures

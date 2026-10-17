@@ -177,3 +177,31 @@ def test_shutting_the_drawer_gives_back_a_zoomed_desk_its_scroll(editor):
     bar(page, "right").tap()
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
     assert scroll(page) == before
+
+
+def test_a_zoomed_sheet_keeps_its_pages_one_under_the_other_and_its_right_end_clears(editor):
+    """A, implied 1: zoomed in, a block at the sheet's right end clears the drawer too, and the
+    pages stay one under the other while the drawer is open."""
+    page = editor(
+        box("a", "shape", RECT, z=1, x=150, w=50),
+        more=(box("b", "shape", RECT, z=1),),
+        touch=True,
+    )
+    expect_wide(page)
+    for _ in range(3):
+        tool(page, "Größer").tap()
+    sheets = page.locator(".sheet")
+    first, second = (sheets.nth(n).bounding_box() for n in (0, 1))
+    page.evaluate("() => { const d = document.querySelector('.desk'); d.scrollLeft = 1e6; }")
+    at(page, "a").tap()
+    expect_picked(page, "a")
+    before = scroll(page)
+    drawer(page, "right")
+    page.wait_for_function(f"document.querySelector('.desk').scrollLeft > {before}")
+    place = at(page, "a").bounding_box()
+    assert place["x"] + place["width"] <= panel_left(page)
+    now = [sheets.nth(n).bounding_box() for n in (0, 1)]
+    assert now[0]["x"] == now[1]["x"]
+    assert now[1]["y"] - now[0]["y"] == second["y"] - first["y"]
+    bar(page, "right").tap()
+    page.wait_for_function(f"document.querySelector('.desk').scrollLeft === {before}")

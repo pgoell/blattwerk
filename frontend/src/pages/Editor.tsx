@@ -4422,6 +4422,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         <div
           className="desk"
           ref={desk}
+          // How wide the widest page lies on the desk: the room an open Format drawer adds starts past it.
+          style={{ "--reach": `${widest * k}px` } as CSSProperties}
           onScroll={follow}
           onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
           onPointerDown={(e) => {
