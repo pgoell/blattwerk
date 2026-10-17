@@ -66,6 +66,70 @@ def test_varianten_in_a_quiet_window_open_on_the_newer_sheet(editor):
     expect(page.locator("dialog.variants .preview")).to_contain_text("Vom Tool")
 
 
+@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
+def test_variants_pdf_in_an_open_dialog_loads_the_newer_sheet_first(editor, button):
+    """#733: a newer version saved while the dialog is open: its press shows and prints it."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    save_by_the_api(client, sheet_id, "Vom Tool")
+
+    with page.expect_download() as got:
+        page.locator("dialog.variants").get_by_role("button", name=button, exact=True).click()
+    expect(at(page, "a")).to_contain_text("Vom Tool")
+    expect(page.locator("dialog.variants .preview")).to_contain_text("Vom Tool")
+    expect(page.locator("dialog.variants .clash", has_text=NEWER)).to_have_count(1)
+    assert "Vom Tool" in text_of(got.value)
+
+
+def test_variants_keep_count_and_letters_when_a_newer_sheet_loads(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    page.locator("dialog.variants").get_by_label("3", exact=True).check()
+    page.locator("dialog.variants").get_by_label("Buchstabe auf jedem Blatt").uncheck()
+    save_by_the_api(client, sheet_id, "Vom Tool")
+
+    with page.expect_request(lambda r: "/pdf?" in r.url) as request, page.expect_download():
+        page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    expect(at(page, "a")).to_contain_text("Vom Tool")
+    expect(page.locator("dialog.variants").get_by_label("3", exact=True)).to_be_checked()
+    letters = page.locator("dialog.variants").get_by_label("Buchstabe auf jedem Blatt")
+    expect(letters).not_to_be_checked()
+    assert "varianten=3&buchstaben=false" in request.value.url
+
+
+def test_varianten_dialog_stays_open_when_another_tab_saves(editor):
+    page, _ = open_sheet(editor)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    dialog.get_by_label("3", exact=True).check()
+    dialog.get_by_label("Buchstabe auf jedem Blatt").uncheck()
+    save_in_other_window(page, "neu")
+
+    expect(at(page, "a")).to_contain_text("neu")
+    expect(dialog.locator(".preview")).to_contain_text("neu")
+    expect(dialog.get_by_label("3", exact=True)).to_be_checked()
+    expect(dialog.get_by_label("Buchstabe auf jedem Blatt")).not_to_be_checked()
+
+
+def test_schliessen_after_a_press_from_the_dialog_gives_the_focus_back(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    save_by_the_api(client, sheet_id, "Vom Tool")
+
+    with page.expect_download():
+        page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    expect(at(page, "a")).to_contain_text("Vom Tool")
+    page.locator("dialog.variants").get_by_role("button", name="Schließen", exact=True).click()
+    bar_button = page.locator("header .top").get_by_label("Varianten drucken", exact=True)
+    expect(bar_button).to_be_focused()
+
+
 def test_the_line_of_the_newer_sheet_goes_with_the_next_pdf(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)

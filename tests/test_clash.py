@@ -51,7 +51,7 @@ from ui import at, pick, reload, user
 from blattwerk import sheets
 
 LOAD, OVER = CHOICES
-SAYS = "Dieses Blatt wurde auf einem anderen Gerät geändert."
+SAYS = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert."
 LISTED = "„a“ wurde auf einem anderen Gerät geändert. Öffne das Blatt, um zu wählen."
 WAITS = unsaved("a", "Melde dich neu an, dann wird sie gespeichert.")
 # Notes from here on whether the page said that the sheet is not there, for however short a time.

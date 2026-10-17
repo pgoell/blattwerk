@@ -14,7 +14,7 @@ from playwright.sync_api import expect
 from test_feed_print import sheet_id
 from test_maths_fit import inside
 from test_painter import paint
-from ui import at, box, maths, pick, user
+from ui import at, box, doc, maths, pick, user
 
 FOOT = 297  # the page's height in mm
 PT = 25.4 / 72  # mm per point, as sheet.tsx
@@ -312,6 +312,40 @@ def test_an_accepted_own_zahlenraum_keeps_what_was_typed_and_undo_shows_the_old(
     expect(field).to_have_value("100")
 
 
+def test_an_own_zahlenraum_above_the_limit_says_so_and_shows_the_used_number(editor):
+    """#734: 50000000 is above the limit: a line says so, and Enter shows the number in use."""
+    client = user()
+    props = maths(client, ops=["+"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(box("m", "maths", props, y=20, h=height(props)), client=client)
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    field.fill("50000000")
+    expect(page.get_by_role("status").filter(has_text="Höchstens 1.000.000")).to_be_visible()
+    field.press("Enter")
+    stored = next(b for b in doc(page, client)["pages"][0]["blocks"] if b["id"] == "m")
+    expect(field).to_have_value(str(stored["props"]["max"]))
+    expect(page.get_by_role("status").filter(has_text="Höchstens 1.000.000")).to_have_count(0)
+
+
+def test_an_own_zahlenraum_below_one_says_so(editor):
+    """#734: 0 is below the limit: a line says so, and Enter shows the number the exercises use."""
+    client = user()
+    props = maths(client, ops=["+"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(box("m", "maths", props, y=20, h=height(props)), client=client)
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    field.fill("0")
+    expect(page.get_by_role("status").filter(has_text="Mindestens 1")).to_be_visible()
+    field.fill("50")
+    expect(page.get_by_role("status").filter(has_text="Mindestens 1")).to_have_count(0)
+    field.fill("0")
+    field.press("Enter")
+    expect(field).to_have_value("50")
+    expect(page.get_by_role("status").filter(has_text="Mindestens 1")).to_have_count(0)
+
+
 def test_a2_a_block_sized_by_hand_does_not_grow_past_the_foot(editor):
     """A2 by hand: a block of 20 mm counts growth from its own foot: one column more is refused."""
     client = user()
@@ -368,3 +402,17 @@ def test_i4_the_painter_does_not_grow_a_block_sized_by_hand(editor):
     pick(page, "m")
     expect(tasks(page).nth(2)).to_have_text("14 pt")
     on_sheet(page, "m")
+
+
+def test_an_own_zahlenraum_with_a_decimal_says_so(editor):
+    """#734: 12.5 is no Zahlenraum: a line says so, and the exercises keep theirs."""
+    client = user()
+    props = maths(client, ops=["+"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(box("m", "maths", props, y=20, h=height(props)), client=client)
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    field.fill("12.5")
+    expect(page.get_by_role("status").filter(has_text="Nur ganze Zahlen")).to_be_visible()
+    field.press("Enter")
+    expect(field).to_have_value("100")

@@ -534,7 +534,9 @@ def test_a_kept_change_of_a_sheet_changed_elsewhere_asks_which_version_stays(run
     page, _, sent = again(run)
     expect_ready(page, 1)
     banner = page.locator(".clash")
-    expect(banner).to_contain_text("Dieses Blatt wurde auf einem anderen Gerät geändert.")
+    expect(banner).to_contain_text(
+        "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert."
+    )
     for name in ("Andere Version laden", "Mit dieser überschreiben"):
         expect(banner.get_by_role("button", name=name)).to_be_visible()
     expect(at(page, "a")).to_have_css("left", moved)

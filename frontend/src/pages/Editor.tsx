@@ -13,6 +13,7 @@ import {
   type MouseEvent as Click,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   type TouchEvent,
 } from "react";
 import { flushSync } from "react-dom";
@@ -97,7 +98,7 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
-import Variants, { CLASH } from "../components/Variants";
+import Variants, { NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
@@ -261,7 +262,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there. `n` counts the loads.
   // `variants` opens the print variants in a sheet loaded anew for them.
-  const [file, setFile] = useState<{ sheet: Sheet | null | "failed"; n: number; variants?: boolean }>();
+  const [file, setFile] = useState<{ sheet: Sheet | null | "failed"; n: number; variants?: Opened }>();
   const show = (sheet: Sheet | null | "failed") => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1 }));
   // The tries after a load that failed. Each asks anew, with the loading page up meanwhile.
   const [tries, setTries] = useState(0);
@@ -270,6 +271,8 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     setTries((n) => n + 1);
   };
   const here = useRef(true);
+  // A PDF pressed in a clash, Lösungen where true: it comes once the teacher has chosen, also in the editor a load starts anew.
+  const waiting = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     here.current = true;
     return () => void (here.current = false);
@@ -314,7 +317,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   }
   // The newer sheet of another window is shown where this window has no change of its own (#720).
   // At once: the saver is the new sheet's already, and a key typed into the old editor meanwhile would be lost.
-  const renew = (sheet: Sheet, variants = false) => void (here.current && flushSync(() => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1, variants }))));
+  const renew = (sheet: Sheet, variants?: Opened) => void (here.current && flushSync(() => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1, variants }))));
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
   // browser kept waits through a load that failed, and shows with the try that brings the sheet.
@@ -328,13 +331,17 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} renew={renew} opened={file.variants} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} renew={renew} opened={file.variants} waiting={waiting} />;
 }
 
-// A newer version saved in another window: the editor shows it (#720).
-const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Hier steht jetzt der neue Stand.";
+// The print variants opened in an editor loaded anew: the dialog's choice as it was, and the press that loaded it.
+// `print` prints at once, Lösungen where true; `newer` says that a newer version was loaded for it.
+type Opened = { count: number; letters: boolean; print?: boolean; newer?: boolean };
 
-function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: boolean) => void; opened?: boolean }) {
+// The clash bar. A PDF pressed in the clash adds its own sentence to it.
+const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Wähle, welche Version gilt.";
+
+function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -348,7 +355,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   named.current = title;
   // Loads the newer sheet of another window, where this one has no change: it says so, and shows the sheet (#720).
   // With `variants` the new editor opens the print variants. A press asks anew, so the line of a load before goes.
-  async function newerSheet(variants = false) {
+  async function newerSheet(variants?: Opened) {
     const sheet = await newer(file.id, () => ({ doc: live.current.doc, title: named.current }));
     if (sheet) {
       note(NEWER, NEWER);
@@ -358,9 +365,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   // The clash bar says it all then: no second red line.
   useEffect(() => void (saver?.clash && dropFault(NEWER)), [saver?.clash]);
-  useEffect(() => onNewer(file.id, () => void newerSheet()), []);
+  // A PDF pressed in the clash waits for the choice. It prints once the choice has ended, unless the sheet is gone.
+  const [pdfWaits, setPdfWaits] = useState(waiting.current !== undefined);
   useEffect(() => {
-    const focus = () => void newerSheet();
+    if (saver?.clash || waiting.current === undefined) return;
+    const key = waiting.current;
+    waiting.current = undefined;
+    setPdfWaits(false);
+    if (!saver?.gone) void pdf(key);
+  }, [saver?.clash, saver?.gone]);
+  useEffect(() => onNewer(file.id, () => void newerSheet(dialogState.current)), []);
+  useEffect(() => {
+    const focus = () => void newerSheet(dialogState.current);
     addEventListener("focus", focus);
     return () => removeEventListener("focus", focus);
   }, []);
@@ -3219,6 +3235,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The session is asked for first: where it is gone the login shows, and nothing goes to the PDF's address. The
   // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
   // the server gives it. With no limit of time: a long sheet takes long to print.
+  // The PDF waits for the clash's choice, and the bar says so.
+  const holdPdf = (key: boolean) => void (waiting.current = key, setPdfWaits(true));
   async function pdf(key: boolean) {
     // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
     const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
@@ -3226,12 +3244,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     await attempt(what, async () => {
       // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
       // the save it waits for is the one turned down.
-      if (inClash(file.id)) return;
+      if (inClash(file.id)) return holdPdf(key);
       // A newer version saved in another window is what prints: the editor shows it first (#720).
       dropFault(NEWER);
       await newerSheet();
+      // Deleted elsewhere: the PDF has no sheet to print, and the line names the choice.
+      if (isGone(file.id)) throw new Error("404");
       const current = await flush(file.id);
-      if (inClash(file.id)) return;
+      if (inClash(file.id)) return holdPdf(key);
       await ask("/me");
       const res = await signed(
         fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {
@@ -3251,14 +3271,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
 
   // The print variants: the dialog's choice lives here, so it stays while the editor is open.
   const [variants, setVariants] = useState(!!opened);
-  const [count, setCount] = useState(2);
-  const [letters, setLetters] = useState(true);
+  // What opened the dialog: a press that came with a newer sheet prints once, and the line stays while the dialog is open.
+  const [fromPress, setFromPress] = useState(opened);
+  const [count, setCount] = useState(opened?.count ?? 2);
+  const [letters, setLetters] = useState(opened?.letters ?? true);
   // The button that opened the dialog gets the focus back when it shuts.
   const variantsDoor = useRef<HTMLElement | null>(null);
+  // The dialog's state while it is open, so a newer sheet from another tab or a focus reopens it as it stands.
+  const dialogState = useRef<Opened | undefined>(undefined);
+  dialogState.current = variants ? { count, letters, newer: true } : undefined;
+  // A press that re-mounted the editor has the dialog open: Schließen gives the focus back to the bar's button.
+  useEffect(() => {
+    if (!opened) return;
+    variantsDoor.current = bar.current?.querySelector<HTMLElement>('[aria-label="Varianten drucken"]') ?? bar.current?.querySelector<HTMLElement>(".more") ?? null;
+  }, []);
   // A newer version saved in another window: the dialog opens on it, in the editor that shows it (#720).
   const openVariants = async (door: HTMLElement) => {
     dropFault(NEWER);
-    if (await newerSheet(true)) return;
+    if (await newerSheet({ count, letters, newer: true })) return;
     variantsDoor.current = door;
     setVariants(true);
   };
@@ -3981,7 +4011,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} clash={!!saver?.clash} />
+            <Variants
+              id={file.id}
+              doc={hist.doc}
+              count={count}
+              setCount={setCount}
+              letters={letters}
+              setLetters={setLetters}
+              opener={variantsDoor}
+              onClose={() => { setVariants(false); setFromPress(undefined); }}
+              clash={!!saver?.clash}
+              newer={(key) => newerSheet({ count, letters, print: key, newer: true })}
+              print={fromPress?.print}
+              fresh={fromPress?.newer}
+            />
           )}
         </div>
         {saver?.refused && (
@@ -3996,7 +4039,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         )}
         {saver?.clash && (
           <div className="clash" role="alert">
-            {CLASH}
+            {CLASH_BAR}
+            {pdfWaits && " Danach kommt dein PDF."}
             <button disabled={choice === "busy"} onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
             <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
