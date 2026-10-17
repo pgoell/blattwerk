@@ -177,10 +177,22 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       </div>
       <div className="card">
         <label>Zugang für Claude</label>
-        <p className="hint">Mit einem Schlüssel kann Claude Desktop Blätter in deinem Konto anlegen und ändern. Gib jedem Gerät einen eigenen Namen.</p>
+        <p className="hint">Claude ist ein KI-Assistent der Firma Anthropic aus den USA. Du schreibst Claude in ganzen Sätzen, was du brauchst, und Claude macht daraus Arbeitsblätter.</p>
+        <p className="hint">Mit der Erweiterung für Claude Desktop und einem Schlüssel von hier darf Claude in deinem Konto Blätter anlegen und ändern. Dafür sieht Claude die Titel und Inhalte deiner Blätter, auch die Lernwörter, und Bilder der Seiten. Das und was du Claude schreibst, geht an Anthropic.</p>
+        <p className="hint">Willst du aufhören, entfern die Erweiterung in Claude Desktop und klick unten beim Schlüssel auf Widerrufen. Gib jedem Gerät einen eigenen Namen.</p>
         <p>
           <a href="/blattomat.mcpb" download="blattomat.mcpb">
             Erweiterung für Claude Desktop herunterladen
+          </a>
+        </p>
+        <p>
+          <a href="/anleitung/claude" target="_blank" rel="noopener">
+            So installierst du die Erweiterung
+          </a>
+        </p>
+        <p>
+          <a href="/datenschutz#claude" target="_blank" rel="noopener">
+            Was an Anthropic geht: Datenschutz, Abschnitt 9
           </a>
         </p>
         {left && <p role="status" className="notice">{left}</p>}
