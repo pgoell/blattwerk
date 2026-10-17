@@ -3,7 +3,6 @@
 shape
 points
 symbol
-image
 table
 rechendreieck
 zahlenstrahl

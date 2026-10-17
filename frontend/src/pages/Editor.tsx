@@ -222,7 +222,7 @@ const APPLE = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const round = (n: number) => Math.round(n * 100) / 100;
 // The pictures the server takes.
-const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
 // The grid's lines along one side of the page.
 const lines = (cell: number, max: number) => (cell ? Array.from({ length: Math.floor(max / cell) + 1 }, (_, i) => i * cell) : []);
 const idOf = (el: Element) => (el as HTMLElement).dataset.id!;
@@ -1166,6 +1166,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // sheet as from anywhere else; one that comes with words, as cells copied in Excel do, stays the field's.
   // Outside a field, words copied in another app make a text block; the editor's own bring the copied blocks.
   onPaste.current = (e) => {
+    // Another account's copy: its words stay on the system's clipboard after its logout. No field or text of this account takes them.
+    if (localStorage.getItem("copied") === hash((e.clipboardData?.getData("text/plain") ?? "").replace(/\r\n/g, "\n")) && !clip().length) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (document.querySelector("dialog:modal")) return;
     // Words with tabs, or the cells copied, spread over the table's cells from the open one on: one step of undo.
     const text = e.clipboardData?.getData("text/plain") ?? "";
@@ -2393,23 +2399,32 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // An empty text opens for typing; a pasted one comes with its words.
     if (rest.type === "text" && !rest.props.text) setEditing(id);
   }
+  // The picture as the server holds it, measured once it decodes.
+  async function served(id: number) {
+    const img = new Image();
+    img.src = `/api/uploads/${id}`;
+    await img.decode();
+    return { width: img.naturalWidth, height: img.naturalHeight };
+  }
   // A picture goes to the server first; the block holds its number and its shape, and starts within 100 mm.
   async function sent(file: File) {
     const body = new FormData();
     body.append("file", file);
     // What the server says counts before what the browser makes of the file: WebKit reads no file while it has no
     // connection, and the file is not the one to blame then.
-    const drawn = createImageBitmap(file);
-    drawn.catch(() => {});
+    // Chromium cannot decode an SVG here: the server's cleaned copy is measured instead.
+    const svg = file.type === "image/svg+xml";
+    const drawn = svg ? null : createImageBitmap(file);
+    drawn?.catch(() => {});
     const { id } = await signed(api<{ id: number }>("/uploads", { method: "POST", body }));
-    const { width, height } = await drawn;
+    const { width, height } = drawn ? await drawn : await served(id);
     const w = round(Math.min(100, (100 * width) / height));
     return { w, h: round((w * height) / width), type: "image" as const, props: { upload: id, ratio: width / height, cut: [0, 0, 0, 0] } };
   }
   // With no connection or a fault of the server the picture can be sent again. Any other refusal is the file's own:
   // one the server does not take, or one the browser cannot read.
   const NO_PICTURE = "Das Bild konnte nicht hochgeladen werden.";
-  const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB.");
+  const unfit = (s: string) => (s === "offline" || s.startsWith("5") ? undefined : "Das Bild ließ sich nicht hochladen. Es gehen JPEG, PNG, WebP und GIF bis 15 MB, SVG bis 2 MB.");
   async function upload(file?: File, pasted = false) {
     if (!file) return;
     await attempt(

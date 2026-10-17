@@ -6,11 +6,16 @@ import time
 import uuid
 
 import httpx
+from test_oauth import grant
 from ui import user
 
 from blattwerk import remote
 
 SNAPSHOT = remote.ROOT / "tests/snapshots/mcp_tools.json"
+SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">'
+    '<rect width="200" height="100"/></svg>'
+)
 
 
 def key_for(client):
@@ -128,3 +133,36 @@ def test_mcp_get_and_delete_answer_405_after_auth(server, monkeypatch):
         )
         assert response.status_code == 405
         assert response.headers["allow"] == "POST"
+
+
+def test_upload_picture_through_mcp_with_oauth(server):
+    teacher = user()
+    _client_id, token = grant(teacher)
+    headers = {
+        "accept": "application/json, text/event-stream",
+        "content-type": "application/json",
+        "authorization": f"Bearer {token['access_token']}",
+    }
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "0"},
+        },
+    }
+    assert (
+        httpx.post(f"{server}/mcp", json=initialize, headers=headers, timeout=60).status_code == 200
+    )
+    call = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "upload_picture", "arguments": {"svg": SVG}},
+    }
+    answer = httpx.post(f"{server}/mcp", json=call, headers=headers, timeout=60).json()["result"]
+    assert not answer.get("isError"), answer
+    picture = json.loads(answer["content"][0]["text"])["upload"]
+    assert teacher.get(f"/api/uploads/{picture}").status_code == 200

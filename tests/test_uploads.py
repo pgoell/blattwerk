@@ -1,15 +1,17 @@
 import os
 import sqlite3
+import threading
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from ui import picture, sheet
 
-from blattwerk import auth, db, pictures
+from blattwerk import auth, db, pictures, svg, uploads
 from blattwerk.app import app
-from blattwerk.uploads import MAX_BYTES
+from blattwerk.uploads import MAX_BYTES, MAX_SVG_BYTES
 
 PASSWORD = "richtig-geheim"
 PNG = b"\x89PNG\r\n\x1a\n not really a picture"
@@ -56,9 +58,225 @@ def test_uploads_belong_to_one_user():
 
 def test_only_pictures_of_a_sane_size():
     client = user("a@example.com")
+    # This SVG has no size to give it, so it is refused, onload or not. Cleaning is tested below.
     assert send(client, b"<svg onload='alert(1)'/>", "image/svg+xml").status_code == 415
     assert send(client, b"%PDF", "application/pdf").status_code == 415
     assert send(client, b"x" * (MAX_BYTES + 1)).status_code == 413
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+
+
+SVG_NS = 'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
+SVG_OPEN = f'<svg {SVG_NS} viewBox="0 0 10 10">'
+CLEAN_SVG = f'{SVG_OPEN}<rect width="5" height="5"/></svg>'.encode()
+
+
+def svg_of(inner, root_attrs='viewBox="0 0 10 10"'):
+    """An SVG with a size and a shape that must survive the cleaning."""
+    kept = '<rect id="kept" width="5" height="5"/>'
+    return f"<svg {SVG_NS} {root_attrs}>{inner}{kept}</svg>".encode()
+
+
+# Each hostile part, the words that must be gone from the served bytes afterwards.
+HOSTILE = {
+    "script": (svg_of("<script>alert(1)</script>"), [b"script", b"alert"]),
+    "onload": (svg_of("", 'viewBox="0 0 10 10" onload="alert(1)"'), [b"onload", b"alert"]),
+    "onclick": (svg_of('<circle r="1" onclick="alert(1)"/>'), [b"onclick", b"alert"]),
+    "a-href": (svg_of('<a href="http://x"><circle r="1"/></a>'), [b"http://x", b"<a"]),
+    "use-href": (svg_of('<use href="http://evil/x.svg#a"/>'), [b"evil"]),
+    "use-xlink-href": (svg_of('<use xlink:href="http://evil"/>'), [b"evil"]),
+    "fill-url": (svg_of('<circle r="1" fill="url(http://evil/x)"/>'), [b"evil"]),
+    "style-url": (svg_of('<circle r="1" style="fill:url(https://evil)"/>'), [b"evil"]),
+    "style-import": (svg_of("<style>@import url(http://evil);</style>"), [b"evil", b"@import"]),
+    "foreignObject": (
+        svg_of(
+            '<foreignObject><body xmlns="http://www.w3.org/1999/xhtml">'
+            '<img src="x" onerror="alert(1)"/></body></foreignObject>'
+        ),
+        [b"foreignObject", b"onerror", b"alert"],
+    ),
+    "javascript-href": (svg_of('<use href="javascript:alert(1)"/>'), [b"javascript", b"alert"]),
+    "set": (
+        svg_of('<set attributeName="href" to="javascript:alert(1)"/>'),
+        [b"<set", b"javascript"],
+    ),
+    "style-child": (
+        svg_of(
+            "<style><title/>@import url(http://evil/a.css); rect{fill:url(http://evil/x)}</style>"
+        ),
+        [b"evil", b"@import", b"<title"],
+    ),
+    "image-set": (svg_of("""<rect fill='image-set("http://evil/z.png" 1x)'/>"""), [b"evil"]),
+    "webkit-image-set": (
+        svg_of("""<rect style='fill:-webkit-image-set("http://evil/z.png" 1x)'/>"""),
+        [b"evil", b"image-set"],
+    ),
+    "other-namespace": (
+        svg_of('<x:foo xmlns:x="http://evil.example/ns"><circle r="1"/></x:foo>'),
+        [b"evil", b"foo"],
+    ),
+}
+
+
+@pytest.mark.parametrize("data, gone", list(HOSTILE.values()), ids=list(HOSTILE))
+def test_hostile_svg_is_cleaned_before_it_is_stored(data, gone):
+    client = user("a@example.com")
+    upload_id = send(client, data, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert res.status_code == 200
+    assert b'id="kept"' in res.content
+    for word in gone:
+        assert word not in res.content
+
+
+# Each one is refused before it is read, so each starts with a head that makes it look like SVG.
+REFUSED_SVG = {
+    "internal-entity": (
+        f'<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY e "x">]>{SVG_OPEN}<text>&e;</text></svg>'
+    ),
+    "external-entity": (
+        f'<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY e SYSTEM "file:///etc/passwd">]>'
+        f"{SVG_OPEN}<text>&e;</text></svg>"
+    ),
+    "billion-laughs": (
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">'
+        '<!ENTITY lol2 "&lol;&lol;&lol;&lol;"><!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;">]>'
+        f"{SVG_OPEN}<text>&lol3;</text></svg>"
+    ),
+    "doctype-with-subset": (
+        '<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+        '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [<!ELEMENT svg ANY>]>'
+        f"{SVG_OPEN}</svg>"
+    ),
+    "xml-stylesheet": (
+        '<?xml version="1.0"?><?xml-stylesheet href="http://evil/x.css" type="text/css"?>'
+        f"{SVG_OPEN}</svg>"
+    ),
+}
+
+
+@pytest.mark.parametrize("data", list(REFUSED_SVG.values()), ids=list(REFUSED_SVG))
+def test_svg_with_entities_or_doctype_is_refused(data_dir, data):
+    client = user("a@example.com")
+    assert send(client, data.encode(), "image/svg+xml").status_code == 415
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+    assert not list(data_dir.glob("users/*/uploads/*"))
+
+
+NOT_SVG = {
+    "broken-xml": f'<?xml version="1.0"?><svg {SVG_NS}><rect></svg>',
+    "html-root": '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body/></html>',
+    "no-namespace": '<svg viewBox="0 0 10 10"><rect width="1" height="1"/></svg>',
+    "no-size": f'<svg {SVG_NS}><rect width="1" height="1"/></svg>',
+}
+
+
+@pytest.mark.parametrize("data", list(NOT_SVG.values()), ids=list(NOT_SVG))
+def test_svg_that_is_not_svg_is_refused(data_dir, data):
+    client = user("a@example.com")
+    assert send(client, data.encode(), "image/svg+xml").status_code == 415
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+    assert not list(data_dir.glob("users/*/uploads/*"))
+
+
+def test_svg_gets_width_height_and_viewbox():
+    client = user("a@example.com")
+    only_box = f'<svg {SVG_NS} viewBox="0 0 30 20"><rect width="1" height="1"/></svg>'
+    only_size = f'<svg {SVG_NS} width="40px" height="25"><rect width="1" height="1"/></svg>'
+    grad = (
+        f'{SVG_OPEN}<defs><linearGradient id="grad"/></defs>'
+        '<rect width="5" height="5" fill="url(#grad)"/></svg>'
+    )
+
+    def served(data):
+        upload_id = send(client, data.encode(), "image/svg+xml").json()["id"]
+        return client.get(f"/api/uploads/{upload_id}").content
+
+    root = ET.fromstring(served(only_box))
+    assert (root.get("width"), root.get("height")) == ("30", "20")
+    root = ET.fromstring(served(only_size))
+    assert (root.get("width"), root.get("height")) == ("40", "25")
+    assert root.get("viewBox") == "0 0 40 25"
+    assert b'fill="url(#grad)"' in served(grad)
+
+
+def test_svg_answer_carries_csp_and_nosniff():
+    client = user("a@example.com")
+    svg_id = send(client, CLEAN_SVG, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{svg_id}")
+    assert res.headers["content-security-policy"] == (
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    )
+    assert res.headers["x-content-type-options"] == "nosniff"
+    png_id = send(client).json()["id"]
+    res = client.get(f"/api/uploads/{png_id}")
+    assert res.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" not in res.headers
+
+
+def test_svg_is_stored_as_svg(data_dir):
+    client = user("a@example.com")
+    upload_id = send(client, CLEAN_SVG, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert res.headers["content-type"] == "image/svg+xml"
+    assert res.content.startswith(b"<svg")
+    assert (data_dir / "users" / "1" / "uploads" / str(upload_id)).is_file()
+
+
+ILLUSTRATOR = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+    '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n'
+    f'{SVG_OPEN}<rect id="kept" width="5" height="5"/></svg>'
+).encode()
+
+
+def test_illustrator_doctype_is_taken_and_stored_without_it():
+    client = user("a@example.com")
+    upload_id = send(client, ILLUSTRATOR, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert b'id="kept"' in res.content
+    assert b"DOCTYPE" not in res.content
+
+
+def test_svg_after_a_comment_is_taken():
+    client = user("a@example.com")
+    data = f"<!-- made by x -->\n{CLEAN_SVG.decode()}".encode()
+    upload_id = send(client, data, "image/svg+xml").json()["id"]
+    res = client.get(f"/api/uploads/{upload_id}")
+    assert res.status_code == 200
+    assert res.content.startswith(b"<svg")
+    assert b"made by x" not in res.content
+
+
+def test_svg_size_is_written_as_plain_decimals():
+    client = user("a@example.com")
+    exponent = f'<svg {SVG_NS} width="2e2" height="+1e2"><rect width="1" height="1"/></svg>'
+    from_box = f'<svg {SVG_NS} viewBox="0 0 2.50 1e1"><rect width="1" height="1"/></svg>'
+
+    def served(data):
+        upload_id = send(client, data.encode(), "image/svg+xml").json()["id"]
+        return ET.fromstring(client.get(f"/api/uploads/{upload_id}").content)
+
+    root = served(exponent)
+    assert (root.get("width"), root.get("height")) == ("200", "100")
+    root = served(from_box)
+    assert (root.get("width"), root.get("height")) == ("2.5", "10")
+
+
+def test_svg_over_its_own_limit_is_refused_before_cleaning(data_dir):
+    client = user("a@example.com")
+    # Trailing spaces after the root keep it SVG and make it too big.
+    big = CLEAN_SVG + b" " * MAX_SVG_BYTES
+    assert send(client, big, "image/svg+xml").status_code == 413
+    assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
+    assert not list(data_dir.glob("users/*/uploads/*"))
+
+
+def test_cleaned_svg_over_the_picture_limit_is_refused(monkeypatch):
+    # Cleaning only shrinks an SVG in practice, so this stands in for a cleaned file that grew.
+    monkeypatch.setattr(svg, "clean", lambda data: b"x" * (MAX_BYTES + 1))
+    client = user("a@example.com")
+    assert send(client, CLEAN_SVG, "image/svg+xml").status_code == 413
     assert db.open_db().execute("SELECT count(*) FROM uploads").fetchone()[0] == 0
 
 
@@ -304,3 +522,26 @@ def test_file_of_another_system_user_is_never_swept(monkeypatch):
     save(client, made)
     later_save(client)
     assert there(upload_id)
+
+
+def test_no_more_than_two_svgs_are_parsed_at_once(monkeypatch):
+    """A teacher's many uploads at once do not each take their memory: two parse, the rest wait."""
+    now, most, lock = 0, 0, threading.Lock()
+
+    def slow(data):
+        nonlocal now, most
+        with lock:
+            now += 1
+            most = max(most, now)
+        time.sleep(0.05)
+        with lock:
+            now -= 1
+        return data
+
+    monkeypatch.setattr(svg, "clean", slow)
+    threads = [threading.Thread(target=uploads.parsed, args=(b"<svg/>",)) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert most == 2

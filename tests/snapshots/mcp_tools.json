@@ -12504,5 +12504,22 @@
       "type": "object"
     },
     "name": "update_block"
+  },
+  {
+    "description": "Upload a picture (SVG text or base64 PNG, JPEG, WebP, GIF) into the teacher's account; place it with add_block, type image, props.upload. How: blattomat://okf/recipes/bild-zeichnen.md.",
+    "inputSchema": {
+      "properties": {
+        "data": {
+          "description": "the picture's bytes as base64: PNG, JPEG, WebP or GIF",
+          "type": "string"
+        },
+        "svg": {
+          "description": "the SVG picture as text, with a viewBox and no entities",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "upload_picture"
   }
 ]
