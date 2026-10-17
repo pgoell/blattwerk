@@ -28,7 +28,7 @@ type Saver = {
   clash: boolean;
   // The server refused the document for what is wrong in it: nothing of that document is sent again, the change
   // stays unsaved, until the document changes.
-  refused?: { doc: Doc; problems: string[] };
+  refused?: { doc: Doc; problems: string[]; title?: string };
   // The session ran out: nothing goes until a login or the next visit.
   stop: boolean;
   // The sheet was deleted elsewhere: nothing is sent any more, and what the editor shows is kept until the teacher
@@ -84,6 +84,8 @@ const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
 // The refusal that stands: for the document the saver holds now, and only while it is the one refused.
 const refusal = (s: Saver) => (s.refused && same(s.refused.doc, s.want.doc) ? s.refused : undefined);
+// While the document is refused, the title goes alone only where it changed, and not as one the server refused.
+const waits = (s: Saver) => s.want.title === s.saved.title || s.want.title === refusal(s)?.title;
 // The saver's end: nothing of it is sent, heard or written any more.
 function kill(s: Saver) {
   s.dead = true;
@@ -154,7 +156,7 @@ function send(s: Saver, closing = false) {
   if (s.dead || s.out || s.clash || s.stop || s.gone || !unsaved(s)) return;
   // A refused document is not sent again. A title changed since still goes, alone: the server keeps the document.
   const held = refusal(s);
-  if (held && s.want.title === s.saved.title) return;
+  if (held && waits(s)) return;
   const now = (s.out = s.want);
   // The title goes along only when it changed here, so a rename from the list stays.
   const named = now.title === s.saved.title ? {} : { title: now.title.trim() || "Unbenanntes Blatt" };
@@ -207,7 +209,9 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
     e = sheet;
   } else if (e.problems) {
     // The server answered and holds none of this document: it is kept, and not sent again until it changes.
-    s.refused = { doc: now.doc, problems: e.problems };
+    // A title that went alone and was refused too waits for a change of its own, or of the document (#687).
+    const alone = !!s.refused && same(now.doc, s.refused.doc);
+    s.refused = alone ? { ...s.refused!, title: now.title } : { doc: now.doc, problems: e.problems };
     s.tries = 0;
     return settle(s);
   // A title that went alone took no document along: the server holds none of `now` then.
@@ -242,7 +246,7 @@ function settle(s: Saver, landed = 0) {
   tell(landed);
   s.idle.splice(0).forEach((done) => done());
   // A refused document waits for a change; a title changed meanwhile still goes.
-  if (!unsaved(s) || s.clash || s.stop || s.gone || (refusal(s) && s.want.title === s.saved.title)) return;
+  if (!unsaved(s) || s.clash || s.stop || s.gone || (refusal(s) && waits(s))) return;
   if (s.tries) plan(s, Math.min(2000 * 2 ** (s.tries - 1), 30000));
   else if (s.open) plan(s, AFTER);
   else send(s);

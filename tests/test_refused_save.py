@@ -258,6 +258,36 @@ def test_a_pydantic_422_is_not_tried_again_and_says_why(editor):
     assert len(patches) == refused
 
 
+def test_a_title_pydantic_refuses_is_not_sent_again_and_again(editor):
+    """#687: an empty title on the wire draws pydantic's 422. The document and the title alone go
+    once each, and then nothing goes until the teacher changes something."""
+    page, sheet_id = open_sheet(editor)
+
+    def empty(route):
+        body = (
+            json.loads(route.request.post_data or "{}") if route.request.method == "PATCH" else {}
+        )
+        if "title" not in body:
+            return route.continue_()
+        patches.append(body)
+        body["title"] = ""
+        route.continue_(post_data=json.dumps(body))
+
+    patches = []
+    page.route(f"**/api/sheets/{sheet_id}", empty)
+    page.clock.install()
+    page.get_by_label("Titel").fill("Neuer Titel")
+    expect(page.locator(ALERT)).to_contain_text("title")
+    seen = [len(patches)]
+    for ms in (1000, 2000, 4000, 8000, 60000):
+        page.clock.run_for(ms)
+        page.wait_for_timeout(INTERVAL)
+        seen.append(len(patches))
+    assert seen[-1] <= 2, seen
+    assert seen[-1] == seen[-2], seen
+    assert stored_title(sheet_id) != ""
+
+
 def test_a_pydantic_422_keeps_the_change(editor):
     page, sheet_id = open_sheet(editor)
     break_version(page, f"**/api/sheets/{sheet_id}")
