@@ -169,7 +169,7 @@ def test_a_block_that_holds_no_words_shows_no_switch(editor, kind):
 
 
 def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
-    """A10: the switch of a text changes neither a Lineatur on Karo nor a line picked with it."""
+    """A10: the switch of a text leaves a line picked with it; a Karo takes it (#676)."""
     client = user()
     karo = {**RULING, "kind": "k5"}
     blocks = [
@@ -182,7 +182,7 @@ def test_a_block_with_no_words_picked_along_stays_as_it_is(editor):
     switch(page).click()
     bows(page, "a").to_have_text(BOWS)
     now = held(page, client)
-    assert (now["r"], now["l"]) == (karo, LINE)
+    assert (now["r"], now["l"]) == ({**karo, "syllables": True}, LINE)
 
 
 def test_the_format_of_the_words_passes_a_line_picked_along_and_the_stroke_reaches_it(editor):

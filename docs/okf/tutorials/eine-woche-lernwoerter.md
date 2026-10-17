@@ -4,7 +4,7 @@ title: A week of Lernwörter sheets
 description: For Claude. One Montag sheet with a word list and a trace ruling, copied for Dienstag to Freitag, each copy with its own words.
 tags: [tutorial, lernwoerter, silbenboegen, klasse-1]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-17T20:50:00Z }
 ---
 
 # A week of Lernwörter sheets

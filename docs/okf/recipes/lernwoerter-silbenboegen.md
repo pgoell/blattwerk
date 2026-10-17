@@ -4,7 +4,7 @@ title: "Lernwörter mit Lineatur und Silbenbögen"
 description: Four Lernwörter on a two-line ruling, each word in grey to write over with a bow under each syllable.
 tags: [lernwoerter, silben, lineatur, klasse-1]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-17T20:50:00Z }
 ---
 
 # Lernwörter mit Lineatur und Silbenbögen

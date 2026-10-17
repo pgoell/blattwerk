@@ -4,7 +4,7 @@ title: "Block: ruling"
 description: "The Lineatur's kind and colour, and the words it may show on its rows."
 tags: [block, ruling]
 covers: [ruling]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-17T20:43:14Z }
 ---
 
 # ruling
@@ -50,10 +50,10 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | houseTint | string | `room`, `all` | no | Tints the house: "room" for the room alone, "all" for roof, room and cellar. Left out, the house is not tinted. |
 | band | boolean |  | no | Whether the middle band between the lines is tinted. Left out, the kind's own default applies. |
 | bandColor | string |  | no | The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used. |
-| syllables | boolean |  | no | Draws an arc under each syllable of the text on the lines. Left out, no arcs. |
-| breaks | object |  | no | The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply. |
-| tints | list of string |  | no | Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour. |
-| tintsAcross | boolean |  | no | Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again. |
+| syllables | boolean |  | no | Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs. |
+| breaks | object |  | no | The word breaks set by hand for the text on the lines or in the squares. They win over the sheet's breaks. Left out, the sheet's apply. |
+| tints | list of string |  | no | Two colours, such as #1a56db and #e02424, that colour the syllables in turn, on the lines or in the squares. Left out, no colour. |
+| tintsAcross | boolean |  | no | Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again. |
 
 # Examples
 
