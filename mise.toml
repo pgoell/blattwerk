@@ -31,9 +31,10 @@ description = "Run the frontend dev server, proxying /api to :8000"
 run = "npm run dev --prefix frontend"
 
 [tasks.deps]
-description = "Install frontend/node_modules when a fresh git worktree has none"
-# Also when node_modules predates the mcpb tool, which `npm run build` needs.
-run = "test -d frontend/node_modules/@anthropic-ai/mcpb || npm ci --prefix frontend"
+description = "Install frontend/node_modules when it is missing, half-written or older than the lock file"
+# npm writes node_modules/.package-lock.json as the last step of an install: a missing or older one means redo it.
+# npm install can write both in the same tick: as old as the lock is new enough.
+run = "test -f frontend/node_modules/.package-lock.json && ! test frontend/package-lock.json -nt frontend/node_modules/.package-lock.json || npm ci --prefix frontend"
 
 [tasks.build]
 description = "Build the frontend into the package"

@@ -210,6 +210,17 @@ def test_no_ink_of_an_outlined_first_letter_is_cut_at_the_left(browser, server, 
     assert not cut, (font, cut)
 
 
+@pytest.mark.parametrize("font", ["andika", "urff", "nord", "sued"])
+def test_no_ink_of_a_plain_first_letter_is_cut_at_the_left(browser, server, font):
+    """#489: a print font's j reaches left of its place, and the print keeps its tip."""
+    client = user()
+    with print_page(browser, server, client, four(font, False)) as page:
+        items = {name: (page.locator(".block").nth(i), 150) for i, name in enumerate(NAMES)}
+        gained = lifted(page, items)
+    cut = {name: count for name, count in gained.items() if count}
+    assert not cut, (font, cut)
+
+
 @pytest.mark.parametrize("font", ["la", "urff"])
 def test_no_ink_of_an_outlined_first_letter_is_cut_at_the_left_on_screen(editor, font):
     page = editor(*four(font, "outline"))
@@ -392,8 +403,9 @@ def test_a_plain_and_a_grey_text_keep_their_cut(browser, server):
         assert re.fullmatch(r"calc\([\d.]+em \+ 1px\)", cut["up"]), cut
 
 
-def test_a_grey_and_a_plain_lineatur_keep_their_style(editor):
-    """The mend touches the outline and the dotted look only: other Lineaturen draw as they did."""
+def test_a_grey_and_a_plain_lineatur_reach_as_far_as_their_font(editor):
+    """#489: a plain or grey Lineatur's box reaches left as far as its font, and its padding gives
+    the room back, so no letter moves."""
     page = editor(
         box(
             "plain",
@@ -419,4 +431,6 @@ def test_a_grey_and_a_plain_lineatur_keep_their_style(editor):
         inline = field.evaluate(
             "el => ({ left: el.style.left, width: el.style.width, padding: el.style.paddingLeft })"
         )
-        assert inline == {"left": "", "width": "", "padding": ""}, name
+        ext = inline["padding"]
+        assert re.fullmatch(r"\d+px", ext) and ext != "0px", inline
+        assert inline == {"left": f"-{ext}", "width": f"calc(100% + {ext})", "padding": ext}, name
