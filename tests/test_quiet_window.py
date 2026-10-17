@@ -60,13 +60,23 @@ def test_varianten_in_a_quiet_window_open_on_the_newer_sheet(editor):
     sheet_id = int(page.url.rsplit("/", 1)[1])
     save_by_the_api(client, sheet_id, "Vom Tool")
 
-    door = page.locator("header .top").get_by_label("Varianten drucken", exact=True)
-    door.click()
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
     expect(at(page, "a")).to_contain_text("Vom Tool")
     expect(page.locator(".fault", has_text=NEWER)).to_have_count(1)
-    expect(page.locator("dialog.variants")).to_have_count(0)
-    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
     expect(page.locator("dialog.variants .preview")).to_contain_text("Vom Tool")
+
+
+def test_the_line_of_the_newer_sheet_goes_with_the_next_pdf(editor):
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    save_by_the_api(client, sheet_id, "Vom Tool")
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(".fault", has_text=NEWER)).to_have_count(1)
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(".fault", has_text=NEWER)).to_have_count(0)
 
 
 def test_a_window_with_a_change_is_not_reloaded_over_it(editor):
