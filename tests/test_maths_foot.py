@@ -258,6 +258,38 @@ def test_i3_a_block_below_the_edge_says_so_and_can_still_shrink(editor):
     assert at(page, "m").bounding_box()["height"] < before - 1, "the block did not get shorter"
 
 
+def test_a_refused_own_zahlenraum_shows_the_blocks_in_the_field(editor):
+    """#479: a refused own Zahlenraum leaves the field the block's number, not the refused one."""
+    client = user()
+    props = maths(client, ops=["/"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    field.fill("100000")
+    refusal(page)
+    expect(field).to_be_focused()
+    expect(field).to_have_value("100")
+
+
+def test_an_accepted_own_zahlenraum_keeps_what_was_typed_and_undo_shows_the_old(editor):
+    """#479: a fitting own Zahlenraum keeps the typed number, and one undo shows the old one."""
+    client = user()
+    props = maths(client, ops=["/"], max=100, count=12, columns=3, size=14, format="written")
+    page = editor(box("m", "maths", props, y=20, h=height(props)), client=client)
+    pick(page, "m")
+    page.get_by_label("Zahlenraum").select_option(label="Eigener")
+    field = page.get_by_label("Größte Zahl")
+    asked(lambda page: field.fill("1000"))(page)
+    expect(field).to_have_value("1000")
+    field.blur()
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    expect(field).to_have_value("100")
+
+
 def test_a2_a_block_sized_by_hand_does_not_grow_past_the_foot(editor):
     """A2 by hand: a block of 20 mm counts growth from its own foot: one column more is refused."""
     client = user()
