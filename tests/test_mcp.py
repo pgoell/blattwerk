@@ -130,6 +130,7 @@ def test_lists_the_seven_tools(server, tmp_path):
                 "add_page",
                 "set_page",
                 "set_words",
+                "upload_picture",
             ]
         )
     finally:

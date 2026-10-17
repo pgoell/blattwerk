@@ -566,6 +566,9 @@ def test_another_apps_words_still_paste_into_an_open_text_after_another_account(
     pick(page, "a")
     page.keyboard.press("Control+c")
     page.evaluate(OTHER_OWNER)
+    # The picture lands after the words: wait for it, or it writes over the other app's words.
+    if BROWSER != "webkit":
+        clipboard_picture(page)
     copy_text(page, "Wort")
     pick(page, "b")
     page.keyboard.press("Enter")
