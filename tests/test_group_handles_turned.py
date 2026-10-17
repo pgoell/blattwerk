@@ -6,7 +6,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fields import by_id, enter, field, number
 from test_group_scale_turned import SHAPES, pick_group, turned_group
-from ui import LINE, RECT, box, centre, drag, pick, saved, user
+from ui import LINE, RECT, at, box, centre, drag, pick, saved, user
 
 # Handles in order: nw, ne, sw, se (Editor.tsx draws the four `i.end` as [0, 1, 2, 3]).
 SE = 3
@@ -119,23 +119,61 @@ def test_the_opposite_corner_stays_where_it_was_on_the_screen(editor):
     assert handle(page, SE) != pytest.approx(nw, abs=1.5)
 
 
-def test_loose_blocks_turned_alike_with_a_line_keep_level_handles_that_size_along_the_page(editor):
-    """Not one group: no own frame, so the handles stand on the level box and a drag scales it."""
-    client = user()
+def loose_turned_and_line(editor, client):
+    """A rectangle 40 by 30 turned 30 degrees, and a loose line under it. Not one group."""
     rect = box("r", "shape", RECT, x=60, y=60, w=40, h=30, angle=30)
     line = box("l", "shape", LINE, z=2, x=60, y=120, w=50, h=10)
     page = editor(rect, line, client=client)
     pick(page, "r", "l")
     expect(page.locator(".sheet i.end")).to_have_count(4)
+    expect(page.locator(".sheet .turned-frame")).to_have_count(0)
+    return page
+
+
+def hull_on_screen(page, *names):
+    """The box round the blocks as drawn: a turned block's own box is the box round its outline."""
+    boxes = [at(page, name).bounding_box() for name in names]
+    left = min(b["x"] for b in boxes)
+    top = min(b["y"] for b in boxes)
+    right = max(b["x"] + b["width"] for b in boxes)
+    bottom = max(b["y"] + b["height"] for b in boxes)
+    return left, top, right, bottom
+
+
+def test_loose_blocks_turned_alike_with_a_line_have_handles_on_the_hull_of_their_outlines(editor):
+    """Not one group: no own frame, so the handles stand on the box round the turned outlines."""
+    page = loose_turned_and_line(editor, user())
+    left, top, right, bottom = hull_on_screen(page, "r", "l")
     nw, ne, sw, se = (handle(page, i) for i in (0, 1, 2, 3))
     assert (nw[1], sw[0]) == (pytest.approx(ne[1], abs=1), pytest.approx(nw[0], abs=1))
     assert (se[0], se[1]) == (pytest.approx(ne[0], abs=1), pytest.approx(sw[1], abs=1))
-    expect(page.locator(".sheet .turned-frame")).to_have_count(0)
+    # Each handle stands on its hull corner, 8 px out to the frame's padding, as a group's do.
+    assert nw == pytest.approx((left - 8, top - 8), abs=3)
+    assert se == pytest.approx((right + 8, bottom + 8), abs=3)
+
+
+def test_a_corner_drag_of_loose_blocks_scales_from_the_hull_opposite_corner_stays(editor):
+    page = loose_turned_and_line(editor, user())
+    left, top, right, _bottom = hull_on_screen(page, "r", "l")
+    se = handle(page, SE)
     drag(page, se, (se[0] + 20, se[1] + 20), (se[0] + 40, se[1] + 40))
-    blocks = by_id(saved(page, client))
-    # The rectangle stays turned as it was and grows; the line grows along the page.
-    assert blocks["r"]["angle"] == 30 and blocks["r"]["w"] > 40
-    assert blocks["l"]["w"] > 50
+    # The hull's top left corner stays put; its bottom right one has grown.
+    grown = hull_on_screen(page, "r", "l")
+    assert grown[:2] == pytest.approx((left, top), abs=1.5)
+    assert grown[2] > right + 10
+
+
+def test_one_undo_takes_back_a_corner_drag_of_loose_blocks(editor):
+    client = user()
+    page = loose_turned_and_line(editor, client)
+    before = saved(page, client)
+    se = handle(page, SE)
+    drag(page, se, (se[0] + 20, se[1] + 20), (se[0] + 40, se[1] + 40))
+    after = saved(page, client)
+    assert after != before
+    page.keyboard.press("Control+z")
+    expect(page.locator(".sheet i.end")).to_have_count(4)
+    assert saved(page, client) == before
 
 
 def test_a_level_group_with_a_line_keeps_its_handles_after_another_turn(editor):

@@ -765,8 +765,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const ownFrame = oneGroup && sel.some(isLine) ? frameOf(sel) : undefined;
   const mixed = !!ownFrame && !ownFrame.turn && sel.some((b) => !isLine(b) && b.angle);
   const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) && !mixed ? (ownFrame ?? { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
-  const group = frame && bounds(frame.level);
   const turnedLine = !!frame?.turn;
+  // Loose blocks show the box round their turned outlines, as PowerPoint does, where their handles stand.
+  const group = frame && (turnedLine ? bounds(frame.level) : hull(sel));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -3160,7 +3161,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     // A turned group scales in its own frame: the pointer turns back to it, and the factor is taken there.
     const { turn, about, level } = turnedLine ? frameOf(start.current) : { turn: 0, about: [0, 0] as [number, number], level: start.current };
-    const { x, y, w, h } = bounds(level);
+    const { x, y, w, h } = turnedLine ? bounds(level) : hull(level);
     const [px, py] = turn ? turnedAt(point(e) as [number, number], -turn, about) : point(e);
     const half = mod & CENTRE ? 2 : 1;
     const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
@@ -3204,11 +3205,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const to = round(Math.round(at / by) * by);
     rules(n, (g) => ({ ...g, [axis]: g[axis].map((o, j) => (j === i ? to : o)) }), "drag");
   }
-  // Let go off the page, a guide line is gone.
+  // The tab of a guide line held now: its page, axis and number.
+  const sliding = useRef("");
+  // Let go off the page, a guide line is gone. Its place is read from the document as it stands, not from the last
+  // render: the pointer may be let go before the page has drawn its last move (#525).
   function drop(axis: Axis, i: number, n?: number) {
-    const at = (n === undefined ? guides : pages[n].guides!)[axis][i];
-    if (at >= 0 && at <= (axis === "x" ? W : H)) return;
-    rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
+    const on = (at: number) => at >= 0 && at <= (axis === "x" ? W : H);
+    rules(n, (g) => (on(g[axis][i]) ? g : { ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
@@ -4385,16 +4388,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
               {[undefined, n].flatMap((at) =>
                 (["x", "y"] as const).flatMap((axis) =>
-                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
+                  // A sheet's line past a smaller page is not drawn there, unless its tab is held on that page: the
+                  // tab must stay to hear its letting go (#525).
+                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1] && sliding.current !== `${n}${axis}${i}`) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
                       <b
                         data-axis={axis}
                         data-i={i}
                         data-page={at}
                         // The right button drags nothing: its menu removes this one line, and picks no block.
-                        onPointerDown={(e) => e.button === 0 && grip(e)}
+                        onPointerDown={(e) => e.button === 0 && ((sliding.current = `${n}${axis}${i}`), grip(e))}
                         onPointerMove={(e) => slide(e, axis, i, at)}
-                        onLostPointerCapture={() => drop(axis, i, at)}
+                        onLostPointerCapture={() => ((sliding.current = ""), drop(axis, i, at))}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();

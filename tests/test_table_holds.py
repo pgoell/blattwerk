@@ -422,6 +422,27 @@ def test_undo_brings_back_the_height_and_rows_before_a_typed_height(editor):
     assert after["props"].get("rows") == start["props"].get("rows")
 
 
+def saved_rows(page, client, name="t"):
+    return block(page, client, name)["props"]["rows"]
+
+
+def test_a_row_held_up_by_its_text_keeps_the_screens_proportion_when_the_table_grows(editor):
+    """Issue 540, PowerPoint: a row its text holds up keeps the screen's proportion as it grows.
+
+    Guards #514: a fix that scales the saved rows must not undo this.
+    """
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [10, 10, 10]}, h=30 + EDGE), client=client)
+    open_cell(page, "t", 3)
+    page.keyboard.type(" ".join(f"wort{n}" for n in range(8)))
+    page.keyboard.press("Escape")
+    ratio = mm_height(page, cell(page, "t", 3)) / mm_height(page, cell(page, "t", 6))
+    typed_height(page, 90)
+    rows = saved_rows(page, client)
+    assert abs(rows[1] / rows[2] - ratio) <= 0.05 * ratio
+    assert abs(rows[0] - rows[2]) <= 0.05
+
+
 def test_a_turned_table_holds_its_typed_height(editor):
     """Issue 540: a turned table keeps a typed height when long text is typed and deleted."""
     client = user()
