@@ -83,28 +83,27 @@ addEventListener(
   true,
 );
 
-// Empties the clipboard of the editor's copy. Where this page made it, at once, in the click that allows it: what
-// was copied in another app since goes too. After a reload the page knows the copy only by reading the clipboard,
-// which it does where it may without asking.
-export async function wipe() {
-  if (ours) {
-    ours = false;
-    return navigator.clipboard
-      ?.writeText("")
-      .then(() => localStorage.removeItem(TYPED))
-      .catch(() => {});
-  }
-  const mark = localStorage.getItem("copied");
-  const words = typed()?.mark;
-  if (!mark && !words) return;
-  try {
-    const leave = await navigator.permissions.query({ name: "clipboard-read" as PermissionName });
-    if (leave.state !== "granted") return;
-    const text = (await navigator.clipboard.readText()).replace(/\r\n/g, "\n");
-    if (hash(text) === mark || (words && norm(text) === words)) await navigator.clipboard.writeText("");
-    // The copy is gone or was never there: a later copy from another app must not be refused by this mark.
-    localStorage.removeItem(TYPED);
-  } catch {
-    // A browser that cannot tell leaves the clipboard as it is.
-  }
+// Empties the clipboard of the editor's copy, at once, in the click that allows it: wherever a mark of one is stored,
+// made by this page or by one before a reload. It reads nothing and asks for nothing, so what was copied in another
+// app since goes too (#763). The marks go with the copy; a refused write keeps them, and the paste stays refused.
+export function wipe() {
+  const clipboard = navigator.clipboard;
+  if (!clipboard || (!ours && !localStorage.getItem("copied") && !typed())) return;
+  ours = false;
+  const late = writes.size ? Promise.all(writes) : undefined;
+  const done = clipboard.writeText("");
+  // A copy's write still on its way lands after this one and puts the copy back: empty it again then, and keep the
+  // marks till that is done.
+  done
+    .then(() => late?.then(() => clipboard.writeText("")))
+    .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied")))
+    .catch(() => {});
+  return done.catch(() => {});
+}
+
+// The editor's copies still on their way to the clipboard, for the wipe.
+const writes = new Set<Promise<unknown>>();
+export function onTheWay(write: Promise<unknown>) {
+  writes.add(write);
+  write.finally(() => writes.delete(write));
 }

@@ -110,7 +110,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
-import { copied, hash, mark as markCopy, refused as refusedWords } from "../clip";
+import { copied, hash, mark as markCopy, onTheWay, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -2578,7 +2578,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     pending.current = null;
     copied();
     writing.current++;
-    toClipboard(held, words).catch(() => {}).finally(() => writing.current--);
+    onTheWay(toClipboard(held, words).catch(() => {}).finally(() => writing.current--));
   }
   // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
   // picture is drawn after it, and a refused picture still leaves the words.

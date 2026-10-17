@@ -237,6 +237,36 @@ def copy_text(page, words):
     page.evaluate("(words) => navigator.clipboard.writeText(words)", words)
 
 
+def track_writes(page):
+    """Keeps every clipboard write the page starts, so writes_landed can wait for them."""
+    page.evaluate(
+        """() => {
+            window.writes = [];
+            for (const name of ["write", "writeText"]) {
+                const real = navigator.clipboard[name].bind(navigator.clipboard);
+                navigator.clipboard[name] = (...args) => {
+                    const done = real(...args);
+                    window.writes.push(done.catch(() => {}));
+                    return done;
+                };
+            }
+        }"""
+    )
+
+
+def writes_landed(page):
+    """Waits until the clipboard writes the page started have landed, a fallback write included."""
+    page.evaluate(
+        """async () => {
+            let seen = -1;
+            while (seen !== window.writes.length) {
+                seen = window.writes.length;
+                await Promise.all(window.writes);
+            }
+        }"""
+    )
+
+
 def drop(page, x, y, *files, text=None):
     """Drops files on the point of the window, as a drag from the file manager ends there.
 
