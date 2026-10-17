@@ -110,7 +110,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
-import { copied, hash } from "../clip";
+import { copied, hash, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -2690,6 +2690,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         // The editor's own copy brings its blocks, though it comes with a picture of them too.
         if (item.types.includes("text/plain")) {
           words = await (await item.getType("text/plain")).text();
+          if (refusedWords(words)) return;
           if (ownCopy(words.replace(/\r\n/g, "\n"))) return paste();
         }
         const type = item.types.find((t) => t.startsWith("image/"));

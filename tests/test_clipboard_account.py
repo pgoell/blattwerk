@@ -456,3 +456,153 @@ def test_abmelden_in_the_same_page_takes_the_copy_off_without_reading(editor):
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     assert "image/png" not in page.evaluate(TYPES)
     assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+def copy_in_text(page):
+    """Copies the whole line of the open text, as a user does: Enter, Home, Shift+End, Ctrl+C."""
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Home")
+    page.keyboard.press("Shift+End")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+
+
+def open_list(page):
+    """Opens the Lernwörter panel with nothing picked and gives its field."""
+    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
+    return page.get_by_label("Lernwörter", exact=True)
+
+
+def the_text_box():
+    return box("t", "text", {**TEXT, "text": "Der Hund ist braun und klein"})
+
+
+@pytest.mark.parametrize("by", ["keys", "button"])
+def test_words_copied_in_an_open_text_paste_nothing_for_the_next_account(editor, by):
+    """#757: the words of a copy in an open text stay on the system's clipboard after the logout."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    before = stored(page, b)
+    if by == "keys":
+        field = open_list(page)
+        field.press("Control+v")
+        expect(field).to_have_value("")
+    else:
+        button(page, "Einfügen").click()
+        # The button reads the clipboard first, which takes a moment: a late paste would show here.
+        page.wait_for_timeout(500)
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, b) == before
+
+
+@chromium_only
+def test_abmelden_empties_the_clipboard_of_words_copied_in_an_open_text(editor):
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+def test_the_same_account_after_a_new_login_pastes_no_words_of_an_open_text(editor):
+    a, email = someone()
+    page = editor(the_text_box(), client=a)
+    mine = {"id": page.url.rsplit("/", 1)[1]}
+    copy_in_text(page)
+    logout(page)
+    login(page, email, mine, 1)
+    assert a.post("/api/login", json={"email": email, "password": PASSWORD}).status_code == 200
+    before = stored(page, a)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, a) == before
+
+
+def test_the_same_session_pastes_its_own_words_of_an_open_text_into_a_field(editor):
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    field = open_list(page)
+    field.press("Control+v")
+    expect(field).not_to_have_value("")
+    assert "Hund" in field.input_value()
+
+
+CELLS = {"cells": [["Katze", "Maus"], ["", ""]], "cols": [1, 1], "size": 14, "align": "center"}
+
+
+def in_b_sheet():
+    return [
+        box("x", "shape", RECT, w=40),
+        box("t", "text", {**TEXT, "text": "Bleibt"}, z=2),
+        box("c", "table", {**CELLS, "size": 14}, z=3, h=60),
+    ]
+
+
+@pytest.mark.parametrize("target", ["list", "text", "cell", "sheet", "key"])
+def test_the_next_account_pastes_no_words_of_the_one_before_into_any_target(editor, target):
+    """#757: a copy's words stay on the clipboard; no field of the next account takes them."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, in_b_sheet()), 3)
+    before = stored(page, b)
+    if target == "list":
+        field = open_list(page)
+        field.press("Control+v")
+        expect(field).to_have_value("")
+    elif target == "text":
+        pick(page, "t")
+        page.keyboard.press("Enter")
+        page.keyboard.press("End")
+        page.keyboard.press("Control+v")
+    elif target == "cell":
+        pick(page, "c")
+        at(page, "c").locator('.table > div[data-cell="0"]').dblclick()
+        expect(at(page, "c").locator("textarea")).to_be_focused()
+        page.keyboard.press("Control+v")
+    elif target == "sheet":
+        unpick(page)
+        page.keyboard.press("Control+v")
+    else:
+        page.goto(f"{origin(page)}/konto")
+        field = page.get_by_label("Name des Schlüssels")
+        field.click()
+        field.press("Control+v")
+        expect(field).to_have_value("")
+        page.go_back()
+        ready(page, 3)
+    if target != "key":
+        expect(blocks(page)).to_have_count(3)
+    assert stored(page, b) == before
+
+
+@chromium_only
+def test_words_copied_in_a_table_cell_paste_nothing_for_the_next_account(editor):
+    """#757: a table cell's copy counts as the editor's: the next account's list gets none."""
+    a = user()
+    page = editor(box("c", "table", CELLS), client=a)
+    pick(page, "c")
+    at(page, "c").locator('.table > div[data-cell="0"]').dblclick()
+    expect(at(page, "c").locator("textarea")).to_be_focused()
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    assert page.evaluate("navigator.clipboard.readText()") == "Katze"
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    before = stored(page, b)
+    field = open_list(page)
+    field.press("Control+v")
+    expect(field).to_have_value("")
+    assert stored(page, b) == before
