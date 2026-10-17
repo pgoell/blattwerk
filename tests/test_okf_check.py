@@ -108,11 +108,7 @@ def test_a_tool_the_server_does_not_have(docs: Path):
 def test_a_recipe_without_an_eval_task(tmp_path: Path, docs: Path):
     evals = tmp_path / "evals"
     shutil.copytree(EVALS, evals)
-    named = next(
-        (p for p in sorted(evals.glob("*.json")) if "recipe" in json.loads(p.read_text())), None
-    )
-    if named is None:
-        pytest.skip("no eval names a recipe yet")
+    named = next(p for p in sorted(evals.glob("*.json")) if "recipe" in json.loads(p.read_text()))
     task = json.loads(named.read_text())
     stem = task.pop("recipe")
     named.write_text(json.dumps(task, ensure_ascii=False, indent=2))
@@ -123,8 +119,6 @@ def test_a_recipe_without_an_eval_task(tmp_path: Path, docs: Path):
 
 def test_an_error_text_missing_from_the_reference(docs: Path):
     page = docs / "tools/errors-and-limits.md"
-    if not page.is_file():
-        pytest.skip("tools/errors-and-limits.md is not written yet")
     lines = [
         line
         for line in page.read_text().splitlines(keepends=True)
