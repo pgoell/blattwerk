@@ -98,7 +98,7 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
-import Variants, { CLASH } from "../components/Variants";
+import Variants, { CLASH, NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
@@ -337,9 +337,6 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
 // The print variants opened in an editor loaded anew: the dialog's choice as it was, and the press that loaded it.
 // `print` prints at once, Lösungen where true; `newer` says that a newer version was loaded for it.
 type Opened = { count: number; letters: boolean; print?: boolean; newer?: boolean };
-
-// A newer version saved in another window: the editor shows it (#720).
-const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Hier steht jetzt der neue Stand.";
 
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
@@ -3258,6 +3255,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
 
   // The print variants: the dialog's choice lives here, so it stays while the editor is open.
   const [variants, setVariants] = useState(!!opened);
+  // What opened the dialog: a press that came with a newer sheet prints once, and the line stays while the dialog is open.
+  const [fromPress, setFromPress] = useState(opened);
   const [count, setCount] = useState(opened?.count ?? 2);
   const [letters, setLetters] = useState(opened?.letters ?? true);
   // The button that opened the dialog gets the focus back when it shuts.
@@ -3265,7 +3264,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // A newer version saved in another window: the dialog opens on it, in the editor that shows it (#720).
   const openVariants = async (door: HTMLElement) => {
     dropFault(NEWER);
-    if (await newerSheet({ count, letters })) return;
+    if (await newerSheet({ count, letters, newer: true })) return;
     variantsDoor.current = door;
     setVariants(true);
   };
@@ -3988,7 +3987,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} clash={!!saver?.clash} />
+            <Variants
+              id={file.id}
+              doc={hist.doc}
+              count={count}
+              setCount={setCount}
+              letters={letters}
+              setLetters={setLetters}
+              opener={variantsDoor}
+              onClose={() => { setVariants(false); setFromPress(undefined); }}
+              clash={!!saver?.clash}
+              newer={(key) => newerSheet({ count, letters, print: key, newer: true })}
+              print={fromPress?.print}
+              fresh={fromPress?.newer}
+            />
           )}
         </div>
         {saver?.refused && (
