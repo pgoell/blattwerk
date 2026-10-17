@@ -142,7 +142,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 What one account copied must not reach the next account on the same computer: not in a text, not on the sheet, not in another app. Check it in the tool's window, where the clipboard is the window's own:
 
 1. As the first teacher, on a sheet: pick a block, or words in an open text, and `key Control+c`. `paste-elsewhere` shows what the clipboard holds.
-2. `open /konto`, `click "Abmelden"`. The form `Anmelden` shows.
+2. `where "Gespeichert"` until it prints a match: before that, `open` meets the box that asks about unsaved work. Then `open /konto`, `click "Abmelden"`. The form `Anmelden` shows.
 3. Sign in as the second teacher: `click "E-Mail"`, `type "teacher-run-2@stage.invalid"`, `click "Passwort"`, `type "<the second password>"`, `key Enter`. The window stays on `/konto`: `open /`, `where "Neues Blatt"` until it prints a match.
 4. `click "Neues Blatt"`, `click "Beenden"` if the tour opens, then paste each way a teacher would: `key Control+v` on the sheet, `click "Einfügen"`, `key Control+v` in an open text, and `paste-elsewhere`. None may bring what the first teacher copied.
 5. Sign out and sign in as the first teacher again, the same way, and `open /`.
