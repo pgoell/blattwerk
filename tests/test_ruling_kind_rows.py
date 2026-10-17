@@ -1,5 +1,6 @@
 """A Lineatur's rows grow with its kind when its text needs them: all letters stay drawn."""
 
+import pytest
 from playwright.sync_api import expect
 from test_karo_bows import printed
 from ui import RULING, at, box, pick, saved, sheet, user
@@ -49,7 +50,7 @@ def test_a7_one_undo_takes_the_kind_and_the_rows_back(editor):
     pick(page, "l")
     kind_to(page, "k7")
     expect(page.get_by_label("Art der Lineatur")).to_have_value("k7")
-    page.get_by_label("Rückgängig", exact=True).click()
+    page.keyboard.press("Control+z")
     expect(page.get_by_label("Art der Lineatur")).to_have_value("k5")
     expect(page.get_by_text("3 Zeilen")).to_be_visible()
 
@@ -70,3 +71,76 @@ def test_i2_a_kind_change_to_a_finer_karo_keeps_rows_when_the_text_fits(editor):
     pick(page, "l")
     kind_to(page, "k5")
     expect(page.get_by_text("5 Zeilen")).to_be_visible()
+
+
+LONG = TEXT * 3
+
+
+@pytest.mark.parametrize("start, end, h", [("l4", "l1", 20), ("k5", "l1", 15), ("l1", "k5", 40)])
+def test_a9_a_kind_change_grows_the_rows_a_long_text_needs(editor, start, end, h):
+    """A9: a kind change to or from a lined kind grows the rows when the text wraps over them."""
+    client = user()
+    page = editor(box("l", "ruling", {**RULING, "kind": start, "text": LONG}, h=h), client=client)
+    pick(page, "l")
+    kind_to(page, end)
+    expect(page.get_by_label("Art der Lineatur")).to_have_value(end)
+    row = {"l1": 20, "l4": 10, "k5": 5}
+    stored = saved(page, client)[0]
+    assert stored["h"] / row[end] > h / row[start], stored
+
+
+def test_i1_each_karo_gets_its_own_rows_and_one_undo_takes_both_back(editor):
+    """I1: two picked Karo rulings each grow to their own rows; one undo takes both back."""
+    client = user()
+    page = editor(
+        box("a", "ruling", {**RULING, "kind": "k5", "text": "Hallo"}, h=15),
+        box("b", "ruling", {**RULING, "kind": "k5", "text": TEXT}, h=15, z=2),
+        client=client,
+    )
+    pick(page, "a", "b")
+    kind_to(page, "k7")
+    stored = {b["id"]: b for b in saved(page, client)}
+    assert stored["b"]["h"] > 15 and stored["b"]["h"] % 7 < 0.01, stored["b"]
+    assert stored["a"]["h"] == 21, stored["a"]
+    page.keyboard.press("Control+z")
+    stored = {b["id"]: b for b in saved(page, client)}
+    assert stored["a"]["h"] == 15 and stored["b"]["h"] == 15, stored
+    assert stored["a"]["props"]["kind"] == stored["b"]["props"]["kind"] == "k5"
+
+
+def test_i3_minus_takes_a_row_from_a_full_karo_and_plus_adds_one(editor):
+    """I3: "Eine Zeile weniger" on a full Karo shows the short hint; "mehr" adds a row."""
+    page = editor(karo())
+    pick(page, "l")
+    kind_to(page, "k7")
+    expect(page.locator('[data-rows="short"]')).to_have_count(0)
+    page.get_by_label("Eine Zeile weniger").click()
+    expect(page.locator('[data-rows="short"]')).to_be_visible()
+    page.get_by_label("Eine Zeile mehr").click()
+    expect(page.get_by_text("4 Zeilen")).to_be_visible()
+
+
+def test_i4_a_kind_change_near_the_foot_grows_at_most_to_the_foot(editor):
+    """I4: a k5 Karo with 5 rows left above the foot grows to those 5 rows of 7 mm and warns."""
+    client = user()
+    text = TEXT * 2
+    block = box("l", "ruling", {**RULING, "kind": "k5", "text": text}, h=25, y=258.5)
+    page = editor(block, client=client)
+    pick(page, "l")
+    kind_to(page, "k7")
+    assert saved(page, client)[0]["h"] == 35, saved(page, client)[0]
+    expect(page.locator('[data-rows="short"]')).to_be_visible()
+
+
+def test_i5_the_syllable_bows_match_a_tall_block_with_the_same_text(editor):
+    """I5: after k5 to k7 the bows are those of a tall k7 block with the same text."""
+    page = editor(
+        box("l", "ruling", {**RULING, "kind": "k5", "text": TEXT, "syllables": True}, h=15),
+        box("t", "ruling", {**RULING, "kind": "k7", "text": TEXT, "syllables": True}, h=140, z=2),
+    )
+    pick(page, "l")
+    kind_to(page, "k7")
+    expect(at(page, "l").locator(LETTERS)).to_have_count(len(TEXT))
+    bows = at(page, "t").locator(".syl").count()
+    assert bows > 0
+    expect(at(page, "l").locator(".syl")).to_have_count(bows)
