@@ -765,8 +765,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const ownFrame = oneGroup && sel.some(isLine) ? frameOf(sel) : undefined;
   const mixed = !!ownFrame && !ownFrame.turn && sel.some((b) => !isLine(b) && b.angle);
   const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) && !mixed ? (ownFrame ?? { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
-  const group = frame && bounds(frame.level);
   const turnedLine = !!frame?.turn;
+  // Loose blocks show the box round their turned outlines, as PowerPoint does, where their handles stand.
+  const group = frame && (turnedLine ? bounds(frame.level) : hull(sel));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -3160,7 +3161,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     // A turned group scales in its own frame: the pointer turns back to it, and the factor is taken there.
     const { turn, about, level } = turnedLine ? frameOf(start.current) : { turn: 0, about: [0, 0] as [number, number], level: start.current };
-    const { x, y, w, h } = bounds(level);
+    const { x, y, w, h } = turnedLine ? bounds(level) : hull(level);
     const [px, py] = turn ? turnedAt(point(e) as [number, number], -turn, about) : point(e);
     const half = mod & CENTRE ? 2 : 1;
     const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
