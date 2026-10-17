@@ -92,10 +92,8 @@ def anleitung_claude() -> str:
         docs = Path(os.environ["BLATTWERK_DOCS"])
     text = (docs / "tutorials" / "dein-erstes-blatt-mit-claude.md").read_text(encoding="utf-8")
     # Strip the YAML frontmatter, the block between the first two `---` lines.
-    body = markdown.markdown(text.split("---", 2)[2])
-    # Schritt 3 has a paragraph between steps 3 and 4, so its second list must go on at 4.
-    second = "<ol>\n<li>Auf der Installationsseite"
-    body = body.replace(second, '<ol start="4">\n<li>Auf der Installationsseite', 1)
+    # sane_lists keeps a list's first number: Schritt 3 goes on at 4 after its paragraph.
+    body = markdown.markdown(text.split("---", 2)[2], extensions=["sane_lists"])
     return ANLEITUNG_HEAD + body + "</main>\n</body>\n</html>\n"
 
 

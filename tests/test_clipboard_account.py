@@ -76,12 +76,15 @@ def login(page, who, on, count):
         page.fill("#password", PASSWORD)
         with page.expect_response("**/api/login") as answer:
             button(page, "Anmelden").click()
-        expect(page.locator("#email")).to_have_count(0)
+        assert answer.value.ok
         # The session cookie is Secure and this server speaks http: Chromium keeps it for
-        # 127.0.0.1 all the same, WebKit does not, so there it goes by hand.
+        # 127.0.0.1 all the same, WebKit does not, so there it goes by hand. Till then the page's
+        # calls get 401 and the form comes back after some ms (#727).
         if BROWSER == "webkit":
             value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
             page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
+        else:
+            expect(page.locator("#email")).to_have_count(0)
     else:
         cookie = {"name": "session", "value": who.cookies["session"], "url": origin(page)}
         page.context.add_cookies([cookie])

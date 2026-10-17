@@ -188,11 +188,15 @@ def test_another_account_pastes_no_pages(editor):
     page.fill("#password", PASSWORD)
     with page.expect_response("**/api/login") as answer:
         button(page, "Anmelden").click()
-    expect(page.locator("#email")).to_have_count(0)
+    assert answer.value.ok
     if BROWSER == "webkit":
-        # As in tests/test_clipboard_account.py: WebKit drops the Secure cookie of this http server.
+        # As in tests/test_clipboard_account.py: WebKit drops the Secure cookie of this http server,
+        # so the page's next calls get 401 and the form comes back after some ms (#727).
+        # The cookie goes by hand.
         value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
         page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
+    else:
+        expect(page.locator("#email")).to_have_count(0)
     page.goto(f"{origin(page)}/blatt/{sheet(b, [box('x', 'shape', RECT, w=40)])['id']}")
     expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
     expect(page.locator(".sheet[data-page]")).to_have_count(1)

@@ -42,6 +42,59 @@ def test_breite_then_hoehe_after_a_handle_drag_both_show_what_was_typed(editor, 
     expect(field(page, "Breite")).to_have_value("80")
 
 
+# Holds React's scheduler, which posts its work through a MessageChannel, until `free` is called:
+# so the end of a drag lands late, as it does under load in CI (#727).
+HOLD = """() => {
+  const post = MessagePort.prototype.postMessage, held = [];
+  MessagePort.prototype.postMessage = function (...a) { held.push(() => post.apply(this, a)); };
+  window.free = () => new Promise((done) => {
+    MessagePort.prototype.postMessage = post;
+    held.splice(0).forEach((go) => go());
+    const tick = new MessageChannel();
+    tick.port1.onmessage = done;
+    tick.port2.postMessage(0);
+  });
+}"""
+
+# React's scheduler 100 ms late, as a loaded runner may make it.
+LATE = """() => {
+  const post = MessagePort.prototype.postMessage;
+  MessagePort.prototype.postMessage = function (...a) {
+    setTimeout(() => post.apply(this, a), 100);
+  };
+}"""
+# One trip through a MessageChannel: it comes after the scheduler's task posted before it.
+TICK = """() => new Promise((done) => {
+  const c = new MessageChannel();
+  c.port1.onmessage = done;
+  c.port2.postMessage(0);
+})"""
+
+
+def settled(page, label):
+    """What the field shows once the drag's last step is on the screen: React's scheduler
+    carries it in a task of its own, after the mouse is up (#727). It holds still over one tick."""
+    before, now = None, number(page, label)
+    while now != before:
+        page.evaluate(TICK)
+        before, now = now, number(page, label)
+    return now
+
+
+def test_a_size_typed_before_a_late_drag_end_lands_is_kept(editor):
+    """A size typed while the drag's last step is on its way counts on Enter, as typed."""
+    page = turned_group(editor, user(), *SHAPES)
+    page.evaluate(HOLD)
+    drag_se_outward(page)
+    field(page, "Breite").fill("80")
+    page.evaluate("free()")
+    expect(field(page, "Breite")).to_have_value("80")
+    field(page, "Breite").press("Enter")
+    expect(field(page, "Breite")).to_have_value("80")
+    enter(page, "Breite %", "50")
+    expect(field(page, "Breite")).to_have_value("40")
+
+
 def test_breite_percent_after_a_handle_drag_halves_the_shown_width(editor):
     page = turned_group(editor, user(), *SHAPES)
     drag_se_outward(page)
@@ -73,8 +126,9 @@ def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
 
 def test_a_drag_and_an_undo_after_a_typed_size_show_the_measured_size(editor):
     page = turned_group(editor, user(), *SHAPES)
+    page.evaluate(LATE)
     drag_se_outward(page)
-    measured = number(page, "Breite")
+    measured = settled(page, "Breite")
     enter(page, "Breite", "80")
     expect(field(page, "Breite")).to_have_value("80")
     page.keyboard.press("Control+z")
