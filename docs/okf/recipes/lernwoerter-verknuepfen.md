@@ -4,7 +4,7 @@ title: "Lernwörter verknüpfen"
 description: Five Lernwörter in the sheet's list, a ruling that copies them, and a text that blanks out their vowels.
 tags: [lernwoerter, lineatur, luecken, verknuepft, klasse-1]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-17T20:50:00Z }
 ---
 
 # Lernwörter verknüpfen

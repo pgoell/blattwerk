@@ -4,7 +4,7 @@ title: Page model
 description: How a Blattomat sheet is laid out, A4 in mm, the box of each block, z order, pages, guide lines and the grid.
 tags: [page, layout, doc]
 covers: [text, shape, ruling, name, points, symbol, image, maths, table, suchsel, zahlenmauer, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-17T20:50:00Z }
 ---
 
 # Page model

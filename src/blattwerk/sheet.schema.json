@@ -1164,19 +1164,19 @@
             },
             "syllables": {
               "type": "boolean",
-              "description": "Draws an arc under each syllable of the text on the lines. Left out, no arcs."
+              "description": "Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs."
             },
             "breaks": {
               "$ref": "#/definitions/Breaks",
-              "description": "The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply."
+              "description": "The word breaks set by hand for the text on the lines or in the squares. They win over the sheet's breaks. Left out, the sheet's apply."
             },
             "tints": {
               "$ref": "#/definitions/Tints",
-              "description": "Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour."
+              "description": "Two colours, such as #1a56db and #e02424, that colour the syllables in turn, on the lines or in the squares. Left out, no colour."
             },
             "tintsAcross": {
               "type": "boolean",
-              "description": "Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again."
+              "description": "Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again."
             }
           },
           "required": [

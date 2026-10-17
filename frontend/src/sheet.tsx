@@ -292,13 +292,13 @@ export type RulingBlock = Box & {
     band?: boolean;
     /** The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used. */
     bandColor?: string;
-    /** Draws an arc under each syllable of the text on the lines. Left out, no arcs. */
+    /** Draws an arc under each syllable of the text on the lines or in the squares. Left out, no arcs. */
     syllables?: boolean;
-    /** The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply. */
+    /** The word breaks set by hand for the text on the lines or in the squares. They win over the sheet's breaks. Left out, the sheet's apply. */
     breaks?: Breaks;
-    /** Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour. */
+    /** Two colours, such as #1a56db and #e02424, that colour the syllables in turn, on the lines or in the squares. Left out, no colour. */
     tints?: Tints;
-    /** Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again. */
+    /** Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again. */
     tintsAcross?: boolean;
   };
 };
@@ -989,14 +989,15 @@ const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { t
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.props.kind)].row + 0.05);
 export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.props.kind)].row + 0.05);
-// The square each character of a Karo's text stands in, as [column, row, character]: a row is filled, then the
-// next begins.
+// The square each character of a Karo's text stands in, as [column, row, character, offset]: a row is filled, then the
+// next begins. The offset is where the character lies in the text, in UTF-16 units.
 export function squares(text: string, cols: number) {
-  const out: [number, number, string][] = [];
-  let [x, y] = [0, 0];
+  const out: [number, number, string, number][] = [];
+  let [x, y, i] = [0, 0, 0];
   for (const ch of text) {
     if (ch === "\n" || x === cols) [x, y] = [0, y + 1];
-    if (ch !== "\n") out.push([x++, y, ch]);
+    if (ch !== "\n") out.push([x++, y, ch, i]);
+    i += ch.length;
   }
   return out;
 }
@@ -2179,6 +2180,53 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
         return Array.from({ length: reps }, () => c).join(" ");
       }).join("\n")
     : shown.map(cut).join("\n");
+  // Karo's syllables: the splitter cuts the text in the squares, and each syllable gets its colour in turn and its bow.
+  // `failed` lets a page print without the bows when the splitter does not load.
+  const on = !at && !!(block.props.syllables || pairOf(block.props.tints));
+  const module = useSplitter(on);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => void (on && splitting().catch(() => setFailed(true))), [on]);
+  const shownText = mode ? karo : text;
+  const letters = !at && cols > 0 ? squares(shownText, cols) : [];
+  const place = new Map(letters.map(([x, y, , o]) => [o, [x, y]]));
+  const tints = pairOf(block.props.tints);
+  const colour = new Map<number, string>();
+  const syllables: { plain: string; hue?: string; offsets: number[] }[] = [];
+  if (module) {
+    let [offset, word, count] = [0, undefined as number | undefined, 0];
+    for (const piece of module.pieces(shownText, breaks)) {
+      const from = offset;
+      offset += piece.text.length;
+      if (!piece.syl) continue;
+      if (piece.word !== word) {
+        word = piece.word;
+        if (!block.props.tintsAcross) count = 0;
+      }
+      const hue = tints?.[count++ % 2];
+      const offsets = Array.from({ length: module.shown(piece.text).length }, (_, j) => from + j);
+      if (hue) offsets.forEach((o) => colour.set(o, hue));
+      syllables.push({ plain: module.plain(piece.text), hue, offsets });
+    }
+  }
+  // A bow under each syllable, cut where its letters leave a row of squares; a row past the block's rows gets none.
+  const bowed = block.props.syllables && module ? syllables.flatMap(({ plain, hue, offsets }, n) => {
+    const runs: { y: number; x0: number; x1: number }[] = [];
+    for (const o of offsets) {
+      const spot = place.get(o);
+      if (!spot || spot[1] >= rows) continue;
+      const [x, y] = spot;
+      const last = runs[runs.length - 1];
+      if (last && last.y === y && last.x1 === x - 1) last.x1 = x;
+      else runs.push({ y, x0: x, x1: x });
+    }
+    return runs.map(({ y, x0, x1 }) => {
+      const [X0, X1, Y] = [x0 * row + 0.12 * row, (x1 + 1) * row - 0.12 * row, (y + 0.8) * row];
+      const deep = Math.min(0.08 * row, (X1 - X0) / 2);
+      return (
+        <path key={`${n}-${y}-${x0}`} className="syl" data-syl={plain} d={`M${X0},${Y} Q${(X0 + X1) / 2},${Y + 2 * deep} ${X1},${Y}`} fill="none" stroke={hue ?? "currentColor"} strokeWidth={Math.max(0.05 * size, 0.15)} />
+      );
+    });
+  }) : [];
   const each = (n: number) => Array.from({ length: n }, (_, i) => i * row);
   const ys = at ? each(rows).flatMap((top) => at.map((y) => top + y)) : each(rows + 1);
   const list = useRef<HTMLDivElement>(null);
@@ -2236,8 +2284,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
           );
         })}
         {!at && each(cols + 1).map((x) => <line key={x} x1={x} x2={x} y2={rows * row} />)}
-        {!at && cols > 0 && squares(mode ? karo : text, cols).map(([x, y, ch], i) => y < rows && (
-          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" fill={mode ? (plain ? "currentColor" : "#aaaaaa") : karoLook === "grey" ? "#aaaaaa" : karoLook === "outline" ? "none" : "currentColor"} stroke={karoLook === "outline" ? "currentColor" : "none"} strokeWidth={karoLook === "outline" ? size * 0.035 : undefined} opacity={karoFade && fadeAt(karoFade === "row" ? x : y, karoFade === "row" ? cols : rows)}>
+        {letters.map(([x, y, ch, o], i) => y < rows && (
+          <text key={-i - 1} x={(x + 0.5) * row} y={(y + 0.5) * row} fontFamily="Andika" fontSize={size} textAnchor="middle" dominantBaseline="central" fill={colour.get(o) && karoLook !== "outline" ? colour.get(o) : mode ? (plain ? "currentColor" : "#aaaaaa") : karoLook === "grey" ? "#aaaaaa" : karoLook === "outline" ? "none" : "currentColor"} stroke={colour.get(o) && karoLook === "outline" ? colour.get(o) : karoLook === "outline" ? "currentColor" : "none"} strokeWidth={karoLook === "outline" ? size * 0.035 : undefined} opacity={karoFade && fadeAt(karoFade === "row" ? x : y, karoFade === "row" ? cols : rows)}>
             {ch}
           </text>
         ))}
@@ -2254,6 +2302,8 @@ function Lines({ block, k, children }: { block: RulingBlock; k: number; children
             </text>
           </>
         )}
+        {bowed}
+        {on && !module && !failed && <g className="unsplit" />}
       </svg>
       {mode ? (
         <>
