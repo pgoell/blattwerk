@@ -904,7 +904,12 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
           </optgroup>
         ))}
       </select>
-      {unknown && <p className="hint">Die Schrift „{unknown}“ kennt Blattomat nicht: Der Block druckt in Druckschrift.</p>}
+      {unknown && (
+        <p className="hint">
+          Die Schrift „{unknown}“ kennt Blattomat nicht: Der Block druckt in Druckschrift.
+          <button onClick={() => onChange("andika")}>In Druckschrift setzen</button>
+        </p>
+      )}
     </>
   );
 }
