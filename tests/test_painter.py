@@ -1280,14 +1280,37 @@ def test_a_brush_drag_across_words_of_a_text_in_a_picked_group_paints_them_and_k
     expect_brush(page, True)
     drag(page, "b", "zwei")
     expect_brush(page, False)
-    expect_picked(page, *picked)
+    # The text is open alone in its group, as PowerPoint picks a text inside a group.
+    expect_picked(page, "b")
     assert saved_xs(page, client) == xs
     bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["b"]) if is_bold}
     assert bold == {"zwei"}
+    # The other texts of the group keep their own words.
+    texts = {name: props["text"] for name, props in held(page, client).items()}
+    others = {"c": "fern"} if len(group) > 1 else {}
+    assert texts == {"a": "eins", "b": "eins zwei drei", **others}
     page.keyboard.press("Control+z")
     assert saved_xs(page, client) == xs
     bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["b"]) if is_bold}
     assert bold == set()
+
+
+def test_a_brush_drag_on_a_locked_text_paints_it_whole_and_opens_no_field(editor):
+    """A locked text takes no words: the drag paints the block, as a click does."""
+    client = user()
+    page = editor(
+        box("q", "text", {**TEXT, "text": "Quelle", "bold": True}, w=25),
+        box("a", "text", {**TEXT, "text": "eins zwei drei"}, z=2, w=25, y=120, locked=True),
+        client=client,
+    )
+    pick(page, "q")
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "zwei")
+    expect_brush(page, False)
+    expect(page.locator(FIELD)).to_have_count(0)
+    a = held(page, client)["a"]
+    assert (a["text"], a.get("bold"), painted(a)) == ("eins zwei drei", True, [])
 
 
 def test_a_brush_drag_with_ctrl_across_a_text_in_a_picked_group_makes_no_copy(editor):

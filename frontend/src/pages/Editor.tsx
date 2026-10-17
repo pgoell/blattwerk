@@ -1868,20 +1868,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   };
   // A drag with the brush over a text or a shape with words: the field opens at the press, and the words the pointer
   // crosses take the look. A press that does not move paints the whole block, as a click does.
-  function brushDrag(id: string, press: globalThis.MouseEvent, on: string[]) {
+  function brushDrag(id: string, el: Element, press: globalThis.MouseEvent, on: string[]) {
     const start: [number, number] = [press.clientX, press.clientY];
     let opened = false;
     const move = (e: globalThis.PointerEvent) => {
       if (!opened) {
         if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
         opened = true;
-        // The text opens with its group picked: `edit` opens only a block picked alone. A linked text has no words
-        // of its own to pick: it is painted whole.
-        if (editing !== id && !tied(blocks.find((b) => b.id === id)!))
-          flushSync(() => {
-            entire.current = false;
-            setEditing(id);
-          });
+        if (editing !== id) {
+          // A text of a picked group is picked alone, as the field's words go to every picked block. A locked or a
+          // linked text opens no field: its group stays picked, and it is painted whole.
+          if (on.length > 1) flushSync(() => setIds([id]));
+          flushSync(() => openNow.current(id, el));
+          if (on.length > 1 && !field.current) flushSync(() => setIds(on));
+        }
       }
       const view = field.current;
       const from = view?.posAtCoords({ left: start[0], top: start[1] });
@@ -3503,7 +3503,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         // The open text stays open for its words: a drag selects in it.
         if (id !== editing) setEditing("");
         const target = blocks.find((b) => b.id === id);
-        if (to === page && press && target && boxed(target)) brushDrag(id, press, on);
+        if (to === page && press && target && boxed(target)) brushDrag(id, el, press, on);
         else daub(on, to);
         spot.current = undefined;
         return;
@@ -4353,7 +4353,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             // A press with the brush on a picked text is the brush's: Moveable, which hears of it before the mouse's
             // own event, would drag the block (#756). The click after it picks nothing more.
             // Under Moveable's frame the block is the one the point finds, as onClickCapture finds it.
-            const hit = cover.current ? document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block")) : undefined;
+            // A handle of the frame resizes or turns: only its area lies over the text.
+            const hit = cover.current && (e.target as Element).matches(".moveable-area") ? document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block")) : undefined;
             brushed.current = hit ?? (e.target as Element);
             const id = brushed.current.closest<HTMLElement>(".block")?.dataset.id;
             const text = blocks.find((b) => b.id === id);
