@@ -36,21 +36,25 @@ export function refused(words: string) {
   return !!t && words.trim() !== "" && t.mark === norm(words) && (t.owner === undefined || t.owner !== me);
 }
 
-addEventListener(
-  "copy",
-  (e) => {
+// Marks the words of a copy or cut made on any page: what the browser put out, read after the page's own copy has
+// run. Where none is read, the selection stands in for it.
+export function mark(words: string) {
+  localStorage.setItem(TYPED, JSON.stringify({ owner: me, mark: norm(words) }));
+  ours = true;
+}
+for (const kind of ["copy", "cut"]) {
+  addEventListener(kind, (e) => {
     const el = e.target as HTMLTextAreaElement;
-    if (!el.closest?.(".sheet")) return;
-    const words =
-      el.matches?.("textarea, input") && el.selectionStart !== null
-        ? el.value.slice(el.selectionStart, el.selectionEnd ?? 0)
-        : String(getSelection() ?? "");
-    if (!words.trim()) return;
-    localStorage.setItem(TYPED, JSON.stringify({ owner: me, mark: norm(words) }));
-    ours = true;
-  },
-  true,
-);
+    let words = (e as ClipboardEvent).clipboardData?.getData("text/plain") ?? "";
+    if (!words.trim()) {
+      words =
+        el.matches?.("textarea, input") && el.selectionStart !== null
+          ? el.value.slice(el.selectionStart, el.selectionEnd ?? 0)
+          : String(getSelection() ?? "");
+    }
+    if (words.trim()) mark(words);
+  });
+}
 
 // Another account's copy, or one made before a logout, pastes into no field on any page. Caught on the way down,
 // before the editor or a field takes it.
@@ -83,7 +87,10 @@ addEventListener(
 export async function wipe() {
   if (ours) {
     ours = false;
-    return navigator.clipboard?.writeText("").catch(() => {});
+    return navigator.clipboard
+      ?.writeText("")
+      .then(() => localStorage.removeItem(TYPED))
+      .catch(() => {});
   }
   const mark = localStorage.getItem("copied");
   const words = typed()?.mark;
@@ -93,6 +100,8 @@ export async function wipe() {
     if (leave.state !== "granted") return;
     const text = (await navigator.clipboard.readText()).replace(/\r\n/g, "\n");
     if (hash(text) === mark || (words && norm(text) === words)) await navigator.clipboard.writeText("");
+    // The copy is gone or was never there: a later copy from another app must not be refused by this mark.
+    localStorage.removeItem(TYPED);
   } catch {
     // A browser that cannot tell leaves the clipboard as it is.
   }

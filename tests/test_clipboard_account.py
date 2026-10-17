@@ -585,6 +585,91 @@ def test_the_next_account_pastes_no_words_of_the_one_before_into_any_target(edit
     assert stored(page, b) == before
 
 
+def next_list_paste_nothing(page):
+    """Logs in as the next account, pastes into its Lernwörter list; its sheet stays as it was."""
+    b, email = someone()
+    login(page, email, sheet(b, in_b_sheet()), 3)
+    before = stored(page, b)
+    field = open_list(page)
+    field.press("Control+v")
+    expect(field).to_have_value("")
+    assert stored(page, b) == before
+
+
+def test_a_cut_in_an_open_text_pastes_nothing_for_the_next_account(editor):
+    """#757: a cut is a copy too."""
+    a, _ = someone()
+    page = editor(the_text_box(), client=a)
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Home")
+    page.keyboard.press("Shift+End")
+    page.keyboard.press("Control+x")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    logout(page)
+    next_list_paste_nothing(page)
+
+
+def test_two_table_cells_copied_paste_nothing_for_the_next_account(editor):
+    """#757: the cells' text, copied as a whole, is the editor's copy too."""
+    a, _ = someone()
+    page = editor(box("c", "table", CELLS), client=a)
+    pick(page, "c")
+    at(page, "c").locator('.table > div[data-cell="0"]').dblclick()
+    expect(at(page, "c").locator("textarea")).to_be_focused()
+    at(page, "c").locator('.table > div[data-cell="1"]').click(modifiers=["Shift"])
+    expect(at(page, "c").locator(".table > div.picked")).to_have_count(2)
+    page.keyboard.press("Control+c")
+    assert page.evaluate("navigator.clipboard.readText()") == "Katze\tMaus"
+    logout(page)
+    next_list_paste_nothing(page)
+
+
+def test_words_picked_in_the_list_field_paste_nothing_for_the_next_account(editor):
+    """#757: a copy in the side panel's Lernwörter field is a copy in a field of the editor."""
+    a, _ = someone()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    field = open_list(page)
+    field.fill("Hund\nKatze")
+    field.press("Control+a")
+    field.press("Control+c")
+    logout(page)
+    next_list_paste_nothing(page)
+
+
+GAPPED = {
+    **TEXT,
+    "text": "Der Hund bellt",
+    "rich": [{"runs": [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " bellt"}]}],
+}
+
+
+def test_a_text_with_a_gap_copied_whole_pastes_nothing_for_the_next_account(editor):
+    """#757: the words of a Lückentext's copy are the copy's words, as the editor's own."""
+    a, _ = someone()
+    page = editor(box("t", "text", GAPPED), client=a)
+    copy_in_text(page)
+    logout(page)
+    next_list_paste_nothing(page)
+
+
+@chromium_only
+def test_a_word_copied_then_again_in_another_app_pastes_as_a_text_block(editor):
+    """#757: after the logout the copy's mark is gone: a word from another app is a text again."""
+    a = user()
+    page = editor(box("t", "text", {**TEXT, "text": "Hund"}), client=a)
+    copy_in_text(page)
+    logout(page)
+    copy_text(page, "Hund")
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(2)
+    [new] = [b for b in saved(page, b) if b["id"] != "x"]
+    assert (new["type"], new["props"]["text"]) == ("text", "Hund")
+
+
 @chromium_only
 def test_words_copied_in_a_table_cell_paste_nothing_for_the_next_account(editor):
     """#757: a table cell's copy counts as the editor's: the next account's list gets none."""

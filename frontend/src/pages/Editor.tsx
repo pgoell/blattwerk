@@ -110,7 +110,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
-import { copied, hash, refused as refusedWords } from "../clip";
+import { copied, hash, mark as markCopy, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -3005,6 +3005,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     cellsCopied.current = tsv;
     pending.current = tsv;
     document.execCommand("copy");
+    markCopy(tsv);
     if (pending.current === null) return;
     pending.current = null;
     navigator.clipboard?.writeText(tsv).catch(() => {});
