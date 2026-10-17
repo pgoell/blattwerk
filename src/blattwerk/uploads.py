@@ -5,20 +5,24 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
-from blattwerk import pdf
+from blattwerk import pdf, svg
 from blattwerk.auth import Teacher, current_teacher
 from blattwerk.db import Con, Id
 from blattwerk.pictures import path
 
 MAX_BYTES = 15 * 2**20
+NOSNIFF = {"X-Content-Type-Options": "nosniff"}
+# An SVG opened in a tab runs nothing and loads nothing.
+SVG_CSP = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"}
 
 router = APIRouter(prefix="/api")
 
 
 def kind(data: bytes) -> str | None:
-    """The type the first bytes show, for the four a browser draws and no others: no SVG, no PDF.
+    """The type the first bytes show: the four a browser draws, and SVG, which is cleaned first.
 
     What a file declares is no evidence: the type is the bytes', or the file is no picture.
+    No PDF.
     """
     if data.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -28,6 +32,8 @@ def kind(data: bytes) -> str | None:
         return "image/gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    if data.removeprefix(b"\xef\xbb\xbf").lstrip().startswith((b"<svg", b"<?xml")):
+        return "image/svg+xml"
     return None
 
 
@@ -39,6 +45,11 @@ async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
     type_ = kind(data)
     if type_ is None:
         raise HTTPException(415)
+    if type_ == "image/svg+xml":
+        cleaned = svg.clean(data)
+        if cleaned is None:
+            raise HTTPException(415)
+        data = cleaned
     upload_id = con.execute(
         "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], type_)
     ).lastrowid
@@ -67,7 +78,9 @@ def serve(
     # Someone else's picture is as missing as one that never was, and so is a row whose file a
     # sweep deleted before it failed to delete the row.
     if not row or not path(user_id, upload_id).is_file():
-        raise HTTPException(404)
+        raise HTTPException(404, headers=NOSNIFF)
     # An upload never changes, so the browser may keep it.
-    headers = {"Cache-Control": "private, max-age=31536000, immutable"}
+    headers = {"Cache-Control": "private, max-age=31536000, immutable", **NOSNIFF}
+    if row["type"] == "image/svg+xml":
+        headers |= SVG_CSP
     return FileResponse(path(user_id, upload_id), media_type=row["type"], headers=headers)
