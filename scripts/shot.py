@@ -47,6 +47,11 @@ with ui.serving() as base, sync_playwright() as p:
         for b in blocks:
             if b.get("type") == "image" and b["props"].get("upload") == "png":
                 b["props"]["upload"] = ui.upload(client)
+            # One whose upload is a file's path, as a drawn SVG, gets that file.
+            elif b.get("type") == "image" and isinstance(b["props"].get("upload"), str):
+                file = Path(b["props"]["upload"])
+                sent = client.post("/api/uploads", files={"file": (file.name, file.read_bytes())})
+                b["props"]["upload"] = sent.json()["id"]
     # The browser whose limits pixels.py holds.
     browser = getattr(p, ui.BROWSER).launch()
     if whole:
