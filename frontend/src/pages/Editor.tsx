@@ -3198,9 +3198,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     await attempt(what, async () => {
       // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
       // the save it waits for is the one turned down.
-      if (inClash(file.id)) return note(what, CLASH);
+      if (inClash(file.id)) return;
       const current = await flush(file.id);
-      if (inClash(file.id)) return note(what, CLASH);
+      if (inClash(file.id)) return;
       await ask("/me");
       const res = await signed(
         fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {
@@ -3962,7 +3962,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         )}
         {saver?.clash && (
           <div className="clash" role="alert">
-            Dieses Blatt wurde auf einem anderen Gerät geändert.
+            {CLASH}
             <button disabled={choice === "busy"} onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
             <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
