@@ -418,8 +418,9 @@ export function tools(api: Api) {
     if (r.status === 413) throw new Fail("The picture is larger than 15 MB.");
     if (r.status === 415) throw new Fail("The server does not take this picture: PNG, JPEG, WebP, GIF, or SVG with a viewBox (no DOCTYPE).");
     const made = expectOk(r);
-    const [width, height] = dimensions(bytes);
-    return text({ upload: made.id, ratio: width / height });
+    // The ratio of what the server stored, which add_block reads too: a cleaned SVG may have taken its size from the viewBox.
+    const { props } = await picture(made.id);
+    return text({ upload: made.id, ratio: props.ratio });
   }
 
   const id = { type: "integer" };
