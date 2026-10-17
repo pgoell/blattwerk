@@ -461,6 +461,20 @@ def test_undo_takes_back_the_last_height_typed_on_pressed_rows(editor):
     assert after["props"]["rows"] == low["props"]["rows"]
 
 
+def test_a_row_held_up_by_its_text_keeps_the_screens_proportion_when_the_table_grows(editor):
+    """Issue 514: a row its text holds up keeps the screen's proportion when the table grows."""
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [10, 10, 10]}, h=30 + EDGE), client=client)
+    open_cell(page, "t", 3)
+    page.keyboard.type(" ".join(f"wort{n}" for n in range(8)))
+    page.keyboard.press("Escape")
+    ratio = mm_height(page, cell(page, "t", 3)) / mm_height(page, cell(page, "t", 6))
+    typed_height(page, 90)
+    rows = saved_rows(page, client)
+    assert abs(rows[1] / rows[2] - ratio) <= 0.05 * ratio
+    assert abs(rows[0] - rows[2]) <= 0.05
+
+
 def test_a_turned_table_holds_its_typed_height(editor):
     """Issue 540: a turned table keeps a typed height when long text is typed and deleted."""
     client = user()
