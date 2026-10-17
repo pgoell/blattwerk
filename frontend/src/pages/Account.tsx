@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, post, type Refusal, type User } from "../api";
 import { attempt, status } from "../fault";
 import { signed } from "../saves";
+import { wipe } from "../clip";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
 const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
@@ -162,7 +163,13 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       <h1>Konto</h1>
       <div className="card">
         <p>Angemeldet als {user.email}</p>
-        <button type="button" onClick={() => attempt("Abmelden hat nicht geklappt.", () => signed(post("/logout")).then(onGone))}>Abmelden</button>
+        <button
+          type="button"
+          // The editor's copy leaves the system's clipboard in the click, which lets the page write there.
+          onClick={() => attempt("Abmelden hat nicht geklappt.", () => Promise.all([wipe(), signed(post("/logout"))]).then(onGone))}
+        >
+          Abmelden
+        </button>
       </div>
       <div className="card">
         <label>Darstellung</label>
@@ -179,7 +186,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         <label>Zugang für Claude</label>
         <p className="hint">Claude ist ein KI-Assistent der Firma Anthropic aus den USA. Du schreibst Claude in ganzen Sätzen, was du brauchst, und Claude macht daraus Arbeitsblätter.</p>
         <p className="hint">Mit der Erweiterung für Claude Desktop und einem Schlüssel von hier darf Claude in deinem Konto Blätter anlegen und ändern. Dafür sieht Claude die Titel und Inhalte deiner Blätter, auch die Lernwörter, und Bilder der Seiten. Das und was du Claude schreibst, geht an Anthropic.</p>
-        <p className="hint">Willst du aufhören, entfern die Erweiterung in Claude Desktop und klick unten beim Schlüssel auf Widerrufen. Gib jedem Gerät einen eigenen Namen.</p>
+        <p className="hint">Willst du aufhören, entfern die Erweiterung in Claude Desktop und klick unten beim Schlüssel auf Widerrufen.</p>
         <p>
           <a href="/blattomat.mcpb" download="blattomat.mcpb">
             Erweiterung für Claude Desktop herunterladen
@@ -197,16 +204,18 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         </p>
         {left && <p role="status" className="notice">{left}</p>}
         <form onSubmit={create}>
+          <label htmlFor="key-name">Name des Schlüssels, z. B. Laptop Schule</label>
           <input
-            aria-label="Name des Schlüssels"
-            aria-describedby="name-note"
-            placeholder="Claude Desktop"
+            id="key-name"
+            type="text"
+            aria-describedby="name-hint name-note"
             value={name}
             onChange={(e) => {
               setName(e.target.value);
               setFieldNote("");
             }}
-          />{" "}
+          />
+          <p id="name-hint" className="hint">Gib jedem Schlüssel einen eigenen Namen, einen je Gerät.</p>
           <button type="submit">Schlüssel erstellen</button>
           <p id="name-note" className="hint">{fieldNote}</p>
         </form>

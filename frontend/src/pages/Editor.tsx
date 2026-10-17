@@ -100,6 +100,7 @@ import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
 import Variants, { NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
+import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
@@ -108,6 +109,8 @@ import { blatt, follow as growRulings, landed as carried, linked, loose as cutLo
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
+import { pictureOf } from "../picture";
+import { copied, hash } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -397,6 +400,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [brush, setBrush] = useState(0);
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
+  // Opens a text's field for a drag of the brush, from the latest render: the drag's listeners outlive the press.
+  const openNow = useRef((_id: string, _el: Element) => {});
   const [editing, setEditing] = useState("");
   // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
   const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
@@ -1177,6 +1182,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
+    // The editor's own copy comes with its picture: the blocks come first.
+    if (ownCopy(text.replace(/\r\n/g, "\n")) && !writing.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      paste();
+      return;
+    }
     if (!picture || writing.current) {
       if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
@@ -1274,6 +1286,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // and its number fields, and on its lists only undo and redo are the sheet's. A number field that holds a number
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
+    // Ctrl+Shift+C copies the look of the caret's word, Ctrl+Shift+V lays it on the picked words of the text being
+    // written, as in PowerPoint. The field's own copy and paste are not wanted for them. With no look picked up,
+    // Ctrl+Shift+V stays the browser's paste of plain words.
+    const lookKey = (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase();
+    if ((lookKey === "c" || (lookKey === "v" && coat)) && target.closest(".sheet .ProseMirror")) {
+      e.preventDefault();
+      if (e.key.toLowerCase() === "c") dip(part?.marks);
+      else wordPaint(sel.find((b) => b.id === editing)!);
+      return;
+    }
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. A locked
     // block, a table and a line on its own do not turn, as the buttons of the panel do not.
@@ -1817,6 +1839,59 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // A field says "not bold" where a block says nothing: both are the same look. A band switched off is a look too:
     // it stays false, or the target would fall back to its kind's default, which is on for Lineatur 1 and 2.
     setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false && name !== "band" ? undefined : from[name]])));
+  }
+  // Lays the brush's look on the picked words of a text being written, in one undo step. A look that says "not bold"
+  // says it as false, so the words lose their own bold and colour where the look has none.
+  function wordPaint(b: Block) {
+    const text = b && boxed(b);
+    // Only what the look has of words: one from a line or a picture has none, and leaves the words as they are.
+    const has = (name: keyof Coat) => !!coat && name in coat;
+    if (!field.current || !text || !coat || !(["bold", "italic", "underline", "color"] as const).some(has)) return false;
+    const marks: Marks = {};
+    for (const name of ["bold", "italic", "underline"] as const) if (has(name)) marks[name] = coat[name] ?? false;
+    if (has("color")) marks.color = coat.color ?? text.color ?? "#222222";
+    return tint(field.current, marks, text, "");
+  }
+  openNow.current = (id, el) => {
+    clicked.current = undefined;
+    edit(id, el);
+  };
+  // A drag with the brush over a text or a shape with words: the field opens at the press, and the words the pointer
+  // crosses take the look. A press that does not move paints the whole block, as a click does.
+  function brushDrag(id: string, press: globalThis.MouseEvent, on: string[]) {
+    const start: [number, number] = [press.clientX, press.clientY];
+    let opened = false;
+    const move = (e: globalThis.PointerEvent) => {
+      if (!opened) {
+        if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
+        opened = true;
+        flushSync(() => openNow.current(id, press.target as Element));
+      }
+      const view = field.current;
+      const from = view?.posAtCoords({ left: start[0], top: start[1] });
+      const to = view?.posAtCoords({ left: e.clientX, top: e.clientY });
+      if (view && from && to) view.dispatch(view.state.tr.setSelection(TextSelection.between(view.state.doc.resolve(from.pos), view.state.doc.resolve(to.pos))));
+    };
+    // The words are picked, not moved: the browser's drag of a selected text would move them.
+    const stop = (e: Event) => e.preventDefault();
+    // A drag the browser calls off, or that the window loses, paints nothing.
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("blur", end);
+      window.removeEventListener("dragstart", stop);
+    };
+    const up = () => {
+      end();
+      const view = field.current;
+      if (!(opened && view && !view.state.selection.empty && wordPaint(blocks.find((b) => b.id === id)!))) daub(on, page);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", end);
+    window.addEventListener("blur", end);
+    window.addEventListener("dragstart", stop);
   }
   // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
   // there. All of it is one undo step, and none where nothing changes.
@@ -2458,9 +2533,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const writing = useRef(0);
   // A copy with no words still stamps the system's clipboard, with a blank.
   const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
-  // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
-  // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
-  const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
   // The sheet's mends go along with the copied texts and tables, so a paste into another sheet keeps them. A block's own entry wins.
   const carrying = (bs: Block[]): Block[] => {
     const mends = live.current.doc.breaks;
@@ -2478,12 +2550,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     localStorage.setItem("copied", hash(words));
     pending.current = words;
     document.execCommand("copy");
-    if (pending.current === null) return;
     pending.current = null;
-    const landed = navigator.clipboard?.writeText(words);
-    if (!landed) return;
+    copied();
     writing.current++;
-    landed.catch(() => {}).finally(() => writing.current--);
+    toClipboard(held, words).catch(() => {}).finally(() => writing.current--);
+  }
+  // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
+  // picture is drawn after it, and a refused picture still leaves the words.
+  // A copy made while an earlier one's picture is still drawn wins: the earlier write is called off.
+  const lastCopy = useRef(0);
+  function toClipboard(held: Block[], words: string): Promise<void> {
+    const n = ++lastCopy.current;
+    const write = () => (n === lastCopy.current && navigator.clipboard?.writeText(words)) || Promise.resolve();
+    try {
+      const png = pictureOf(held, live.current.doc, page).then((blob) => (n === lastCopy.current ? blob : Promise.reject(new Error("newer copy"))));
+      return navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": new Blob([words], { type: "text/plain" }) })]).catch(write);
+    } catch {
+      return write();
+    }
   }
   // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {
@@ -2556,12 +2640,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The system's clipboard holds the words of the newest copy. Words that are not the copied blocks' own were copied
   // in another app, or in a field: they make a text block that grows to hold them, as in PowerPoint. Says whether
   // they did. The editor's own words never do, for this account or the next: there the blocks' owner decides.
+  // Whether words are the editor's own copy. A copy of the build before left no mark: its words are those of the stored blocks.
+  function ownCopy(words: string) {
+    const [copied, held] = [localStorage.getItem("copied"), clip()];
+    return copied === null ? held.length > 0 && words === wordsOf(held) : copied === hash(words);
+  }
   function typed(got: string, html = "") {
     const words = got.replace(/\r\n/g, "\n");
-    const [copied, held] = [localStorage.getItem("copied"), clip()];
-    // A copy of the build before left no mark: its words are those of the stored blocks.
-    const own = copied === null ? held.length && words === wordsOf(held) : copied === hash(words);
-    if (!words.trim() || own) return false;
+    if (!words.trim() || ownCopy(words)) return false;
     tight.current = true;
     // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
     const paras = parasFromHtml(html);
@@ -2575,15 +2661,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // first, then for words.
   async function pasteAny() {
     if (reading.current) return;
-    if (writing.current) return paste();
+    if (writing.current) {
+      // The blocks are here while the picture is drawn; a second press in the same moment pastes nothing more.
+      reading.current = true;
+      queueMicrotask(() => (reading.current = false));
+      return paste();
+    }
     reading.current = true;
     let words = "";
     let html = "";
     try {
       for (const item of await navigator.clipboard.read()) {
+        // The editor's own copy brings its blocks, though it comes with a picture of them too.
+        if (item.types.includes("text/plain")) {
+          words = await (await item.getType("text/plain")).text();
+          if (ownCopy(words.replace(/\r\n/g, "\n"))) return paste();
+        }
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) return upload(new File([await item.getType(type)], "bild", { type }), true);
-        if (item.types.includes("text/plain")) words = await (await item.getType("text/plain")).text();
         if (item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
       }
     } catch {
@@ -3379,7 +3474,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         setAt(to);
         setIds(on);
         setEditing("");
-        daub(on, to);
+        const target = blocks.find((b) => b.id === id);
+        if (to === page && press && target && boxed(target)) brushDrag(id, press, on);
+        else daub(on, to);
         spot.current = undefined;
         return;
       }

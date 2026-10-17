@@ -142,6 +142,8 @@ def test_the_tutorial_names_what_the_teacher_does_herself():
     assert "Erweiterung für Claude Desktop herunterladen" in body
     assert "Erweiterung für Claude Desktop herunterladen" in account
     assert 'download="blattomat.mcpb"' in account and "`blattomat.mcpb`" in body
-    # The key's name field starts empty (a placeholder only), and an empty name makes no key.
-    assert 'useState("")' in account and 'placeholder="Claude Desktop"' in account
+    # The key's name field is empty, the example in its label (#737); an empty name makes no key.
+    assert 'useState("")' in account and "placeholder" not in account
+    assert "Name des Schlüssels, z. B. Laptop Schule" in account
+    assert "**Name des Schlüssels**" in body
     assert "schreib einen Namen in das Feld" in body

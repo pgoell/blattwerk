@@ -25,7 +25,7 @@ Der Schlüssel erlaubt Claude, in deinem Blattomat-Konto Blätter anzulegen und 
 
 1. Melde dich bei [Blattomat](https://blattwerk.pgoell.com) an.
 2. Klick oben auf **Konto**.
-3. Unter **Zugang für Claude** schreib einen Namen in das Feld, zum Beispiel „Claude Desktop“. Klick auf **Schlüssel erstellen**.
+3. Unter **Zugang für Claude** schreib einen Namen in das Feld **Name des Schlüssels**, zum Beispiel „Laptop Schule“. Klick auf **Schlüssel erstellen**.
 4. Klick auf **Kopieren** und leg den Schlüssel kurz in eine Notiz. Blattomat zeigt ihn nur dieses eine Mal.
 
 Gib den Schlüssel niemandem weiter. Ist er weg oder in falschen Händen, klick daneben auf **Widerrufen** und mach einen neuen.
