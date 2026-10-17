@@ -1875,8 +1875,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       if (!opened) {
         if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
         opened = true;
-        // The text opens with its group picked: `edit` opens only a block picked alone.
-        if (editing !== id) flushSync(() => setEditing(id));
+        // The text opens with its group picked: `edit` opens only a block picked alone. A linked text has no words
+        // of its own to pick: it is painted whole.
+        if (editing !== id && !tied(blocks.find((b) => b.id === id)!))
+          flushSync(() => {
+            entire.current = false;
+            setEditing(id);
+          });
       }
       const view = field.current;
       const from = view?.posAtCoords({ left: start[0], top: start[1] });
