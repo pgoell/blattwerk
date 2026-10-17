@@ -1,0 +1,5 @@
+{
+  "prompt": "Ein Lückentext: Der Hund bellt laut, die Katze schläft im Korb. Die Wörter Hund, laut, Katze und Korb sind Lücken, darunter eine Wortbox. Lege das Blatt mit dem Titel Eval Lückentext an.",
+  "recipe": "loesungen",
+  "expect": {"types": ["text"], "text": ["Hund", "Korb"]}
+}

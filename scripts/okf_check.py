@@ -21,6 +21,7 @@ from blattwerk import schema
 
 ROOT = Path(__file__).resolve().parent.parent
 JSON_BLOCK = re.compile(r"```json\n(.*?)\n```", re.S)
+TOOL_FENCE = re.compile(r"```json ([a-z]+(?:_[a-z]+)*)\n(.*?)\n```", re.S)
 ADD_KEYS = {"type", "props", "x", "y", "w", "h"}
 
 
@@ -207,6 +208,33 @@ def check_tool_names(defs: dict, docs: Path, files: list[Path]) -> list[str]:
     return problems
 
 
+def check_tool_calls(docs: Path, files: list[Path]) -> list[str]:
+    """A ```json <tool> fence is a call: its body must pass that tool's input schema."""
+    snapshot = json.loads((ROOT / "tests/snapshots/mcp_tools.json").read_text())
+    schemas = {t["name"]: t["inputSchema"] for t in snapshot}
+    problems = []
+    for path in files:
+        for n, (tool, text) in enumerate(TOOL_FENCE.findall(split(path)[1]), 1):
+            where = f"{path.relative_to(docs)}#tool{n}"
+            if tool not in schemas:
+                problems.append(
+                    f"{path.relative_to(docs)}: the fence names the tool {tool}, "
+                    "which the server does not have"
+                )
+                continue
+            try:
+                call = json.loads(text)
+            except ValueError as error:
+                problems.append(f"{where}: {tool}: not JSON: {error}")
+                continue
+            check = Draft7Validator(schemas[tool])
+            problems += [
+                f"{where}: {tool}: {'.'.join(map(str, e.path)) or 'arguments'}: {e.message}"
+                for e in check.iter_errors(call)
+            ]
+    return problems
+
+
 def check_evals(docs: Path, evals: Path) -> list[str]:
     problems = []
     named = {}
@@ -274,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         *check_staleness(docs, hand),
         *check_examples(defs, files, docs),
         *check_tool_names(defs, docs, files),
+        *check_tool_calls(docs, files),
         *check_evals(docs, args.evals),
         *check_error_texts(docs, args.tools_src),
     ]

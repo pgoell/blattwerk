@@ -1,0 +1,5 @@
+{
+  "prompt": "Ein Blatt mit zwölf Plusaufgaben bis 20 und einem Suchsel mit den Wörtern Hund, Katze, Maus, Pferd und Igel, als Varianten zum Drucken. Lege das Blatt mit dem Titel Eval Varianten an.",
+  "recipe": "varianten",
+  "expect": {"types": ["maths", "suchsel"], "text": ["Hund", "Katze"]}
+}

@@ -15,3 +15,10 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Rechendreiecke](rechendreiecke.md): A heading, a name line, and four Rechendreiecke with some fields given and the rest to fill in.
 * [Zahlenstrahl bis 100](zahlenstrahl-bis-100.md): A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 * [Hunderterfeld](hunderterfeld.md): A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.
+* [Ein Blatt mit zwei Seiten](seiten.md): Two pages: a heading, a name line and a text task on page 1, then a heading and a ruling on page 2.
+* [Ein Blatt quer](quer.md): A sheet turned landscape, with a heading and a table across its full width.
+* [Hilfslinien setzen](hilfslinien.md): Two columns of text that line up on the sheet's guides at 15, 105 and 195 mm.
+* [Lernwörter verknüpfen](lernwoerter-verknuepfen.md): Five Lernwörter in the sheet's list, a ruling that copies them, and a text that blanks out their vowels.
+* [Silbenbögen und Silbenfarbe](silbenboegen.md): A text with a bow under each syllable, the syllables in two colours.
+* [Varianten zum Drucken](varianten.md): A maths block and a suchsel with seeds, so each printed variant gets its own tasks and grid.
+* [Lückentext mit Lösungen](loesungen.md): A text with four gaps for the pupil, a word box under it, and the answer key shown for the teacher.

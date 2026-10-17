@@ -171,3 +171,12 @@ def test_a_recipe_names_the_editors_buttons_as_they_are(path):
     assert labels, f'{name(path)}: name the button for the block, as: the button "Tabelle"'
     unknown = [label for label in labels if label not in BUTTONS]
     assert unknown == [], f"{name(path)}: no such button in Editor.tsx: {unknown}"
+
+
+@pytest.mark.parametrize("path", HAND_PAGES, ids=name)
+def test_a_page_names_only_buttons_the_editor_has(path):
+    _, body = split(path)
+    named = re.findall(r'buttons? "([^"]+)"(?: and "([^"]+)")?', body)
+    labels = [label for pair in named for label in pair if label]
+    unknown = [label for label in labels if label not in BUTTONS]
+    assert unknown == [], f"{name(path)}: no such button in Editor.tsx: {unknown}"
