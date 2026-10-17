@@ -495,10 +495,10 @@ def test_words_copied_in_an_open_text_paste_nothing_for_the_next_account(editor,
         expect(field).to_have_value("")
     else:
         button(page, "Einfügen").click()
-        # The button reads the clipboard first, which takes a moment: a late paste would show here.
-        page.wait_for_timeout(500)
     expect(blocks(page)).to_have_count(1)
     assert stored(page, b) == before
+    # A paste still on its way, as the button's is while it reads the clipboard, would show here.
+    assert [b["type"] for b in own(page, b, 2)] == ["shape", "shape"]
 
 
 @chromium_only
