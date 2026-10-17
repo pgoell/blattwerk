@@ -32,8 +32,10 @@ from ui import (
     reload,
     saved,
     sheet,
+    track_writes,
     unpick,
     user,
+    writes_landed,
 )
 
 from blattwerk import db
@@ -813,6 +815,11 @@ RECORD = """() => {
     window.__asked = [];
     const clipboard = navigator.clipboard;
     const readText = clipboard.readText.bind(clipboard);
+    const read = clipboard.read.bind(clipboard);
+    clipboard.read = (...args) => {
+        window.__asked.push("read");
+        return read(...args);
+    };
     const permissions = navigator.permissions;
     const query = permissions.query.bind(permissions);
     clipboard.readText = (...args) => {
@@ -829,7 +836,9 @@ RECORD = """() => {
 @chromium_only
 @pytest.mark.parametrize("way", ["reload", "tab", "address"])
 @pytest.mark.parametrize("copy", ["blocks", "words", "key"])
-def test_abmelden_after_a_reload_empties_the_clipboard_with_no_read_leave(editor, copy, way):
+def test_abmelden_on_a_page_that_did_not_copy_empties_the_clipboard_with_no_read_leave(
+    editor, copy, way
+):
     """#763: a page that did not make the copy empties the clipboard in the click, with no read
     and no permission query."""
     page, _ = copied(editor, copy)
@@ -843,6 +852,49 @@ def test_abmelden_after_a_reload_empties_the_clipboard_with_no_read_leave(editor
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     assert page.evaluate("navigator.clipboard.readText()") == ""
     assert asked == []
+    next_list_paste_nothing(page)
+
+
+@chromium_only
+def test_a_copy_write_landing_after_abmelden_is_emptied_too(editor):
+    """#763: a copy write still on its way at the logout lands on the clipboard; the wipe empties it
+    then."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    # Fault injection: the copy's write lands 1.5 s late.
+    page.evaluate(
+        """() => {
+            const write = navigator.clipboard.write.bind(navigator.clipboard);
+            navigator.clipboard.write = (...args) =>
+                new Promise((done) => setTimeout(done, 1500)).then(() => write(...args));
+        }"""
+    )
+    track_writes(page)
+    pick(page, "t")
+    page.keyboard.press("Control+c")
+    page.evaluate(
+        "history.pushState({}, '', '/konto'); dispatchEvent(new PopStateEvent('popstate'))"
+    )
+    button(page, "Abmelden").click()
+    expect(page.locator("#email")).to_be_visible()
+    writes_landed(page)
+    page.wait_for_function("localStorage.getItem('copied') === null")
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+    next_list_paste_nothing(page)
+
+
+@chromium_only
+def test_a_refused_wipe_keeps_the_marks_and_the_next_account_pastes_nothing(editor):
+    """#763: when the wipe is refused the marks stay, so the words still on the clipboard paste
+    nowhere."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    page.goto(f"{origin(page)}/konto")
+    page.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error()); }")
+    button(page, "Abmelden").click()
+    expect(page.locator("#email")).to_be_visible()
+    assert page.evaluate("localStorage.getItem('typed-copy')") is not None
     next_list_paste_nothing(page)
 
 

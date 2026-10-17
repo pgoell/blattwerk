@@ -87,10 +87,23 @@ addEventListener(
 // made by this page or by one before a reload. It reads nothing and asks for nothing, so what was copied in another
 // app since goes too (#763). The marks go with the copy; a refused write keeps them, and the paste stays refused.
 export function wipe() {
-  if (!ours && !localStorage.getItem("copied") && !typed()) return;
+  const clipboard = navigator.clipboard;
+  if (!clipboard || (!ours && !localStorage.getItem("copied") && !typed())) return;
   ours = false;
-  return navigator.clipboard
-    ?.writeText("")
+  const late = writes.size ? Promise.all(writes) : undefined;
+  const done = clipboard.writeText("");
+  // A copy's write still on its way lands after this one and puts the copy back: empty it again then, and keep the
+  // marks till that is done.
+  done
+    .then(() => late?.then(() => clipboard.writeText("")))
     .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied")))
     .catch(() => {});
+  return done.catch(() => {});
+}
+
+// The editor's copies still on their way to the clipboard, for the wipe.
+const writes = new Set<Promise<unknown>>();
+export function onTheWay(write: Promise<unknown>) {
+  writes.add(write);
+  write.finally(() => writes.delete(write));
 }
