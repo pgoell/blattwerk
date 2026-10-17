@@ -2,6 +2,7 @@
 
 import math
 
+import pytest
 from playwright.sync_api import expect
 from test_zoom import wheel
 from ui import BROWSER, at, bar, box, centre, doc, finger, user
@@ -136,6 +137,10 @@ def test_the_handles_of_a_turned_table_stand_at_its_cells_corners(editor):
     expect_corners(page, 4, 4, turned=True)
 
 
+@pytest.mark.skipif(
+    BROWSER == "webkit",
+    reason="the iPad's WebKit has no wheel, and a key in the field stays the field's",
+)
 def test_the_handles_follow_a_zoom(editor):
     """Review: after a zoom the handles kept their old place."""
     page = editor(box("t", "table", GRID), touch=True)
