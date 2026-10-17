@@ -1228,8 +1228,12 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   const [draft, setDraft] = useState<string>();
   // Whether the mouse that is down brought the focus.
   const fresh = useRef(false);
-  // The field follows the sheet: a drag or an undo takes the place of what was typed.
-  useEffect(() => setDraft(undefined), [value]);
+  const input = useRef<HTMLInputElement>(null);
+  // The field follows the sheet: a drag or an undo takes the place of what was typed. Not while the teacher types in
+  // it: the end of a drag can land late, after the first key (#727), and Enter would then find nothing to set.
+  useEffect(() => {
+    if (document.activeElement !== input.current) setDraft(undefined);
+  }, [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
   const read = () => {
     const text = draft?.trim() ?? "";
@@ -1246,6 +1250,7 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
     <label>
       {label}
       <input
+        ref={input}
         className="mm"
         type="text"
         inputMode="decimal"
@@ -1262,7 +1267,8 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
         onBlur={() => draft !== undefined && commit(read())}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit(read());
-          if (e.key === "Escape") setDraft(undefined);
+          // Ctrl+Z and Ctrl+Y here undo and redo the sheet, whose step takes the place of what was typed.
+          if (e.key === "Escape" || ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key))) setDraft(undefined);
           if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
           e.preventDefault();
           commit(round((draft === undefined ? (value ?? NaN) : read()) + (e.key === "ArrowUp" ? 1 : -1)));
