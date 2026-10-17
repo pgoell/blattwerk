@@ -2302,6 +2302,12 @@ function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k
       // Not clientWidth: that is whole pixels, and a column is seldom a whole number of them wide.
       const { width, height } = svg.getBoundingClientRect();
       const [across, down] = [width / zoom, height / zoom];
+      // WebKit paints an svg from a whole pixel (measured: the floor, in CSS pixels), so its lines lie off by the rest.
+      if (keepsFractions()) {
+        const { left, top } = svg.getBoundingClientRect();
+        const [dx, dy] = [left - Math.floor(left), top - Math.floor(top)].map((v) => v / zoom);
+        svg.querySelector("g")!.setAttribute("transform", `translate(${-0.5 + dx} ${-0.5 + dy})`);
+      }
       for (const line of svg.querySelectorAll<SVGLineElement>("line[data-period]")) {
         const side = line.dataset.side;
         const length = side === "top" || side === "bottom" ? across : down;
