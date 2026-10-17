@@ -1,5 +1,5 @@
 {
   "prompt": "Ein Text mit den Wörtern Hase, Igel und Banane, mit Silbenbögen und den Silben in zwei Farben. Lege das Blatt mit dem Titel Eval Silbenbögen an.",
   "recipe": "silbenboegen",
-  "expect": {"types": ["text"], "text": ["Hase", "Igel", "Banane", "\"syllables\": true"]}
+  "expect": {"types": ["text"], "text": ["Hase", "Igel", "Banane"], "match": ["\"syllables\": true"]}
 }

@@ -1,5 +1,5 @@
 {
   "prompt": "Ein Blatt mit zwei Seiten. Seite 1 hat die Überschrift Der Igel, eine Namenszeile und eine Schreibaufgabe. Seite 2 hat die Überschrift Mehr vom Igel und Linien zum Schreiben. Lege das Blatt mit dem Titel Eval Zwei Seiten an.",
   "recipe": "seiten",
-  "expect": {"types": ["text", "name", "ruling"], "text": ["Der Igel", "Mehr vom Igel"]}
+  "expect": {"types": ["text", "name", "ruling"], "text": ["Der Igel", "Mehr vom Igel"], "pages": 2}
 }

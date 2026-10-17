@@ -1,5 +1,5 @@
 {
   "prompt": "Ein Blatt mit zwei Spalten, links das Wort Links, rechts das Wort Rechts, beide Spalten sauber auf Hilfslinien. Lege das Blatt mit dem Titel Eval Hilfslinien an.",
   "recipe": "hilfslinien",
-  "expect": {"types": ["text"], "text": ["Links", "Rechts"]}
+  "expect": {"types": ["text"], "text": ["Links", "Rechts"], "match": ["\"[xy]\": \\[\\d"]}
 }

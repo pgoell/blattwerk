@@ -9,6 +9,7 @@ MCP server of a local app on a fresh data folder. Not for CI: it spends the subs
 """
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -62,13 +63,20 @@ def layout_problems(doc: dict) -> list[str]:
     return problems
 
 
-def missing(doc: dict, expect: dict) -> list[str]:
-    """The block types and words the doc lacks; words match in any string, any case."""
+def missing(doc: dict, expect: dict, reply: str = "") -> list[str]:
+    """The block types and words the doc lacks; words match in any string, any case. Optional:
+    `match`, patterns the doc's JSON must hold (such as a Quer page); `pages`, the fewest pages;
+    `reply`, words Claude's last answer must say (such as the button the teacher presses)."""
     types = {b.get("type") for page in doc.get("pages", []) for b in page.get("blocks", [])}
-    text = json.dumps(doc, ensure_ascii=False).lower()
-    return [t for t in expect["types"] if t not in types] + [
-        w for w in expect["text"] if w.lower() not in text
-    ]
+    dump = json.dumps(doc, ensure_ascii=False)
+    pages = len(doc.get("pages", []))
+    return (
+        [t for t in expect["types"] if t not in types]
+        + [w for w in expect["text"] if w.lower() not in dump.lower()]
+        + [f"/{p}/" for p in expect.get("match", []) if not re.search(p, dump)]
+        + ([f"{expect['pages']} pages, has {pages}"] if pages < expect.get("pages", 0) else [])
+        + [f"reply: {w}" for w in expect.get("reply", []) if w.lower() not in reply.lower()]
+    )
 
 
 def run_claude(prompt: str, config: Path, cwd: Path) -> dict:
@@ -134,7 +142,7 @@ def main(names: list[str]) -> int:
                 checks = [False, False, False, False]
                 notes.append(f"{name}: no sheet titled {title!r}; {run.get('error', '')}")
             else:
-                wrong = missing(doc, tasks[name]["expect"])
+                wrong = missing(doc, tasks[name]["expect"], str(run.get("result", "")))
                 schema_faults = schema.problems(doc)
                 layout = layout_problems(doc)
                 checks = [True, not schema_faults, not layout, not wrong]
