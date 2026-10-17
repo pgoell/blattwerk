@@ -13,6 +13,7 @@ When a teacher asks for: "Ein Suchsel mit Tieren, die Wörter stehen darunter."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The suchsel block hides five animal words in a grid of 12 by 10 squares. The words run down, and the list under the grid gives them in capitals. The seed sets the letters, so the sheet prints the same way each time.
+* In the editor the word search is the button "Suchsel" under Einfügen.
 * See [suchsel](../blocks/suchsel.md) for the other props.
 
 # Doc

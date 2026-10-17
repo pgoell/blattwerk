@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit drei Symbolen, jedes mit einer kurzen Aufgabe daneben. Lege das Blatt mit dem Titel Eval Symbole an.",
+  "recipe": "symbole-aufgaben",
+  "expect": {"types": ["symbol"], "text": []}
+}

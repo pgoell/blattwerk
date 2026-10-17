@@ -23,6 +23,7 @@ Work like this: `create_sheet`; `add_block` for each block, or `replace_doc` wit
 # Reference
 
 * [Blocks](blocks/index.md): one page per block type, generated from the sheet's schema.
+* [Tools](tools/index.md): each tool's errors and limits.
 
 # How-to
 

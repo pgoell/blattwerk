@@ -13,6 +13,7 @@ When a teacher asks for: "Ein Blatt mit Zahlenmauern zum Rechnen, Zahlen bis 20.
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
 * The zahlenmauer block draws four walls with three stones at the foot of each, every stone above is the sum of the two under it. The foot stones are given, the rest is for the pupil to fill in.
+* In the editor the walls are the button "Zahlenmauer" in the menu "Mathe-Blöcke" under Einfügen.
 * See [zahlenmauer](../blocks/zahlenmauer.md) for the other props.
 
 # Doc

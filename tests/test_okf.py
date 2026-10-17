@@ -13,7 +13,13 @@ DOCS = ROOT / "docs/okf"
 SCHEMA = json.loads((ROOT / "src/blattwerk/sheet.schema.json").read_text())
 TYPES = SCHEMA["definitions"]["Block"]["properties"]["type"]["enum"]
 # The Diátaxis kind of each folder's concepts.
-KINDS = {"": "Explanation", "blocks": "Reference", "recipes": "How-to", "tutorials": "Tutorial"}
+KINDS = {
+    "": "Explanation",
+    "blocks": "Reference",
+    "tools": "Reference",
+    "recipes": "How-to",
+    "tutorials": "Tutorial",
+}
 FILES = sorted(DOCS.rglob("*.md"))
 CONCEPTS = [f for f in FILES if f.name != "index.md"]
 INDEXES = [f for f in FILES if f.name == "index.md"]
@@ -147,3 +153,21 @@ def test_the_tutorial_names_what_the_teacher_does_herself():
     assert "Name des Schlüssels, z. B. Laptop Schule" in account
     assert "**Name des Schlüssels**" in body
     assert "schreib einen Namen in das Feld" in body
+
+
+RECIPES = [f for f in CONCEPTS if f.parent == DOCS / "recipes"]
+EDITOR = (ROOT / "frontend/src/pages/Editor.tsx").read_text()
+# The editor's buttons: a Tool's label, a menu entry's label, and the shapes' names.
+BUTTONS = set(re.findall(r'label[=:] ?"([^"]+)"', EDITOR)) | set(
+    re.findall(r'\["\w+", "([^"]+)", \w+\]', EDITOR)
+)
+
+
+@pytest.mark.parametrize("path", RECIPES, ids=name)
+def test_a_recipe_names_the_editors_buttons_as_they_are(path):
+    _, body = split(path)
+    named = re.findall(r'buttons? "([^"]+)"(?: and "([^"]+)")?', body)
+    labels = [label for pair in named for label in pair if label]
+    assert labels, f'{name(path)}: name the button for the block, as: the button "Tabelle"'
+    unknown = [label for label in labels if label not in BUTTONS]
+    assert unknown == [], f"{name(path)}: no such button in Editor.tsx: {unknown}"
