@@ -1060,7 +1060,7 @@ export function spliced(props: TableBlock["props"], axis: "row" | "col", i: numb
 let keepsFraction: boolean | undefined;
 // Each font's whole-pixel ascent and descent by family and size, from a canvas.
 const metrics = new Map<string, [number, number]>();
-function keepsFractions() {
+export function keepsFractions() {
   if (keepsFraction === undefined) {
     if (typeof document === "undefined") return false;
     // Monospace: the measure does not wait for a font to load.

@@ -671,6 +671,9 @@ body:has(.print) { background: #fff; }
    The print never sets --px, so it keeps .25mm; a browser that knows no round() draws --gl. */
 .gap { --gl: max(.25mm, var(--px, 0px)); --gs: var(--gl); background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(50% + .5em - var(--gs)) / 100% var(--gs); }
 @supports (width: round(up, 1px, 1px)) { .gap { --gs: max(.25mm, round(up, var(--px, 0px), 1px)); } }
+/* In WebKit's editor (`.fractions`, Editor.tsx) that band drew a long gap's line with a quarter less ink than the print
+   (#411). A gradient with hard stops in the same place draws it as dark. Chromium and the print keep the band. */
+.fractions .gap { background: linear-gradient(to bottom, transparent calc(50% + .5em - 1.5 * var(--gs)), currentColor 0, currentColor calc(50% + .5em - .5 * var(--gs)), transparent 0); }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
 .solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
