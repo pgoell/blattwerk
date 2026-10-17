@@ -626,6 +626,29 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }, [editing]);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
+  // An open Format drawer lies over the sheet's right end. The desk scrolls so the picked block, or the caret in the
+  // open text, stays in view beside it: the drawer shows the room on the desk's right, see `.drawn` in styles.css.
+  const drawnRight = drawers && drawer === "right";
+  useLayoutEffect(() => {
+    const el = desk.current;
+    const panel = document.querySelector("aside.panel");
+    if (!drawnRight || !el || !panel || !ids.length) return;
+    // The part to keep in view, as its left and right edges on the window.
+    let rect: { left: number; right: number } | undefined;
+    if (editing) {
+      const caret = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : undefined;
+      // A caret at the end of a line may have no size: then the text's box stands in for it.
+      rect = caret && (caret.width || caret.height) ? caret : document.querySelector(`.block[data-id="${editing}"]`)?.getBoundingClientRect();
+    } else {
+      const boxes = ids.map((id) => document.querySelector(`.block[data-id="${id}"]`)?.getBoundingClientRect()).filter((b): b is DOMRect => !!b);
+      if (boxes.length) rect = { left: Math.min(...boxes.map((b) => b.left)), right: Math.max(...boxes.map((b) => b.right)) };
+    }
+    if (!rect) return;
+    // Scroll until the part clears the panel's left edge with a gap, but no further than the desk's own left edge allows.
+    const gap = 16;
+    const dx = rect.right - (panel.getBoundingClientRect().left - gap);
+    if (dx > 0) el.scrollLeft += Math.max(0, Math.min(dx, rect.left - (el.getBoundingClientRect().left + gap)));
+  }, [drawnRight]);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -3977,7 +4000,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     <Words.Provider value={learnt}>
     <Whole.Provider value={hist.doc}>
     <main
-      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}`}
+      className={`editor${leaf ? " leaf" : ""}${brush ? " brush" : ""}${pan ? " pan" : ""}${panning ? " panning" : ""}${drawnRight ? " drawn" : ""}`}
       data-ready="1"
       // The keys end a run of changes as a press of the mouse does: when they take the focus elsewhere, and when
       // they press a button, also one that finds nothing to change. The next change is a step of its own.
