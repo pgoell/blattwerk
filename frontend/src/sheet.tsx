@@ -856,6 +856,11 @@ export const EMPTY: Doc = { pages: [{ blocks: [] }], guides: { x: [], y: [] }, g
 
 // A maths block saved with no digit ranges takes any digit in each place of its Zahlenraum.
 function whole(b: Block): Block {
+  // A Karo whose text needs more rows than it has grows to them, as a sheet saved before the kind changed did not.
+  if (b.type === "ruling" && !RULINGS[kindOf(b.props.kind)].at && !listOf(b)) {
+    const need = rowsNeeded(b);
+    if (need > rowsOf(b)) return { ...b, ...tall(b, Math.round(need * RULINGS[kindOf(b.props.kind)].row * 100) / 100) };
+  }
   if (b.type !== "maths" || (b.props.a && b.props.b)) return b;
   const any = Array.from(String(b.props.max), (): Range => [0, 9]);
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
@@ -1000,6 +1005,24 @@ export function squares(text: string, cols: number) {
     i += ch.length;
   }
   return out;
+}
+// The rows a Lineatur's text needs. A Karo counts its squares; a lined kind takes the height the text has on the page,
+// measured with the fonts in place. None with no text, a list, or no page to measure on.
+export function rowsNeeded(b: RulingBlock): number {
+  const { text } = b.props;
+  if (listOf(b) || !text) return 0;
+  const { row, at } = RULINGS[kindOf(b.props.kind)];
+  if (!at) return Math.max(0, ...squares(text, colsOf(b)).map(([, y]) => y + 1));
+  if (typeof document === "undefined") return 0;
+  const p = document.createElement("p");
+  p.className = "written";
+  const style = Object.fromEntries(Object.entries(writtenStyle(b, K)).map(([name, v]) => [name, typeof v === "number" ? `${v}px` : v]));
+  Object.assign(p.style, style, { position: "absolute", visibility: "hidden", height: "auto", top: "0", left: "0", width: `${b.w * K}px` });
+  p.textContent = text;
+  document.body.append(p);
+  const lines = Math.round(p.scrollHeight / (row * K));
+  p.remove();
+  return lines;
 }
 // The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
 export function lowest(b: Box) {
