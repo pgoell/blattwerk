@@ -15,6 +15,7 @@ from ui import (
     drag,
     drawer,
     expect_picked,
+    finger,
     saved,
     swipe,
     tool,
@@ -164,3 +165,19 @@ def test_8_on_its_side_an_edge_swipe_changes_nothing(editor):
     swipe(page, (3, 400), (30, 400), (60, 400), (100, 400), (160, 400))
     swipe(page, (1191, 400), (1160, 400), (1120, 400), (1080, 400), (1040, 400))
     assert page.locator(panels).evaluate_all("els => els.map((el) => el.className)") == before
+
+
+def test_a_held_thumbnail_dragged_sideways_keeps_the_drawer_open(editor):
+    """A thumbnail held for the long press, then dragged sideways, keeps the Seiten drawer open."""
+    page = editor(text("a", 1), pages=[{"blocks": [text("b", 1)]}], touch=True, theme="")
+    drawer(page, "left")
+    # The strip's thumbnails are not buttons here, so they are found by their number.
+    second = page.locator('.pages [data-thumb="1"]')
+    x, y = centre(second)
+    with finger(page, (x, y)) as touch:
+        # The long press needs real time: the strip's own timer starts the drag after 500 ms.
+        page.wait_for_timeout(800)
+        touch("touchMove", (x - 30, y))
+        touch("touchMove", (x - 60, y))
+        touch("touchMove", (x - 90, y))
+    expect(bar(page, "left")).to_have_attribute("aria-pressed", "true")

@@ -1552,7 +1552,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     function onMove(e: globalThis.TouchEvent) {
       const s = swipe.current;
       if (!s) return;
-      if (e.touches.length !== 1) {
+      // A thumbnail held for the long press is dragged, not swiped: the drawer stays as it is.
+      if (e.touches.length !== 1 || tug.current?.held) {
         swipe.current = undefined;
         return;
       }
