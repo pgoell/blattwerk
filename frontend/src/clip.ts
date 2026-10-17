@@ -36,6 +36,21 @@ export function refused(words: string) {
   return !!t && words.trim() !== "" && t.mark === norm(words) && (t.owner === undefined || t.owner !== me);
 }
 
+// Whether the store holds a mark of a copy made by another account than `id`, or by none it knows: the login of `id`
+// takes that copy off the system's clipboard.
+export function othersCopy(id: number) {
+  const t = typed();
+  if (t && t.owner !== id) return true;
+  if (!localStorage.getItem("copied")) return false;
+  let owner: unknown;
+  try {
+    owner = JSON.parse(localStorage.getItem("clip") ?? "null")?.owner;
+  } catch {
+    // A broken store holds no account's copy.
+  }
+  return owner !== id;
+}
+
 // Marks the words of a copy or cut made on any page: what the browser put out, read after the page's own copy has
 // run. Where none is read, the selection stands in for it.
 export function mark(words: string) {
