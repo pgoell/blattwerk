@@ -131,9 +131,11 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   useEffect(() => {
     load().then(setGot, () => setFailed("Die Varianten konnten nicht geladen werden."));
   }, []);
-  // A press that opened the dialog on the newer sheet prints once, at once.
+  // A press that opened the dialog on the newer sheet prints once, at once: also where the effect runs twice.
+  const printed = useRef(false);
   useEffect(() => {
-    if (printNow === undefined) return;
+    if (printNow === undefined || printed.current) return;
+    printed.current = true;
     setBusy(true);
     void print(printNow);
   }, []);
