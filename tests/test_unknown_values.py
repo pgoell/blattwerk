@@ -133,9 +133,37 @@ def test_a_known_and_an_unknown_font_picked_together_open_the_panel(editor):
     assert not errors, errors
 
 
-def test_print_and_thumbnail_draw_a_sheet_with_an_unknown_font(browser, server):
+@pytest.mark.parametrize("kind", ["text", "shape", "ruling", "table"])
+def test_the_panel_says_an_unknown_font_prints_as_druckschrift(editor, kind):
+    known = comic(kind)
+    known["props"] = {**known["props"], "font": "nord"}
+    page = editor(comic(kind), box("b", kind, known["props"], z=2))
+    pick(page, "a")
+    expect(page.locator(".panel")).to_contain_text("kennt Blattomat nicht")
+    pick(page, "b")
+    expect(page.locator(".panel")).not_to_contain_text("kennt Blattomat nicht")
+
+
+def test_picking_a_known_font_takes_the_line_away_and_undo_brings_it_back(editor):
+    page = editor(comic("text"))
+    pick(page, "a")
+    expect(page.locator(".panel")).to_contain_text("kennt Blattomat nicht")
+    page.get_by_label("Schriftart", exact=True).select_option("nord")
+    expect(page.locator(".panel")).not_to_contain_text("kennt Blattomat nicht")
+    page.keyboard.press("Control+z")
+    expect(page.locator(".panel")).to_contain_text("kennt Blattomat nicht")
+
+
+def test_two_picked_blocks_one_unknown_say_so(editor):
+    page = editor(comic("text"), box("b", "text", {**TEXT, "font": "nord"}, z=2))
+    pick(page, "a", "b")
+    expect(page.locator(".panel")).to_contain_text("kennt Blattomat nicht")
+
+
+@pytest.mark.parametrize("font", ["comic", "grundschrift"])
+def test_print_and_thumbnail_draw_a_sheet_with_an_unknown_font(browser, server, font):
     client = user()
-    mine = sheet(client, [comic("text")])["id"]
+    mine = sheet(client, [box("a", "text", {**TEXT, "font": font})])["id"]
     context = browser.new_context()
     context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
     context.add_init_script("localStorage.setItem('tour', '1')")

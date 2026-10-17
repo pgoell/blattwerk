@@ -534,7 +534,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {text && (
         <>
           <h2>Schrift</h2>
-          <FontSelect label="Schriftart" value={fontOf(text.font)} onChange={(font) => look({ font })} />
+          <FontSelect label="Schriftart" value={fontOf(text.font)} unknown={unknownFont(sel.map((b) => boxed(b)?.font))} onChange={(font) => look({ font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
             <output>{text.size} pt</output>
@@ -673,7 +673,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
           {RULINGS[kindOf(rulings[0].props.kind)].at && (
-            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} onChange={(font) => style("ruling", { font })} />
+            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} unknown={unknownFont(rulings.map((b) => b.props.font))} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
@@ -731,7 +731,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
               </div>
             </>
           )}
-          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} onChange={(font) => style("table", { font })} />
+          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => style("table", { font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
             <output>{tables[0].props.size} pt</output>
@@ -888,23 +888,29 @@ function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fa
 }
 
 // A native font menu in FONT_GROUPS' order, each font shown in its own face.
-function FontSelect({ label, value: stored, onChange }: { label: string; value: unknown; onChange: (font: string) => void }) {
+function FontSelect({ label, value: stored, unknown, onChange }: { label: string; value: unknown; unknown?: string; onChange: (font: string) => void }) {
   // A font nobody knows shows as Druckschrift, the font it draws in.
   const value = fontOf(stored);
   return (
-    <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
-      {FONT_GROUPS.map(([group, fonts]) => (
-        <optgroup key={group} label={group}>
-          {fonts.map((font) => (
-            <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
-              {FONTS[font][0]}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <>
+      <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
+        {FONT_GROUPS.map(([group, fonts]) => (
+          <optgroup key={group} label={group}>
+            {fonts.map((font) => (
+              <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
+                {FONTS[font][0]}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {unknown && <p className="hint">Die Schrift „{unknown}“ kennt Blattomat nicht: Der Block druckt in Druckschrift.</p>}
+    </>
   );
 }
+
+// The first font of the picked blocks that the app does not know, if one holds one.
+const unknownFont = (fonts: unknown[]) => fonts.find((f): f is string => typeof f === "string" && !Object.hasOwn(FONTS, f));
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
