@@ -5,6 +5,7 @@ came of it. The last test runs the command line itself, in a real window: start,
 verbs alone, stop.
 """
 
+import base64
 import importlib.util
 import os
 import re
@@ -35,8 +36,10 @@ from ui import (
     expect_picked,
     maths,
     pick,
+    png,
     saved,
     sheet,
+    unpick,
     user,
 )
 
@@ -985,6 +988,39 @@ def test_paste_elsewhere_takes_a_picture_copied_in_the_window(editor):
     assert re.fullmatch(r"another app's field took a picture of \d+ x \d+ px", said), said
 
 
+def test_paste_elsewhere_takes_the_words_and_the_picture_of_one_copy(editor):
+    page = editor(box("a", "text", ONE))
+    unpick(page)
+    # One copy with a picture and words: the words must survive the picture's wait.
+    page.evaluate(
+        """async (b64) => {
+            const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            const picture = new Blob([bytes], { type: "image/png" });
+            const words = new Blob(["Hallo"], { type: "text/plain" });
+            await navigator.clipboard.write([
+                new ClipboardItem({ "image/png": picture, "text/plain": words }),
+            ]);
+        }""",
+        base64.b64encode(png()).decode(),
+    )
+    said = tool.paste_elsewhere(page)
+    assert re.fullmatch(
+        r"another app's field took the words \"Hallo\" and a picture of \d+ x \d+ px", said
+    ), said
+
+
+def test_paste_elsewhere_says_only_the_types_when_the_clipboard_holds_html_alone(editor):
+    page = editor(box("a", "text", ONE))
+    unpick(page)
+    page.evaluate(
+        """async () => {
+            const html = new Blob(["<b>Hallo</b>"], { type: "text/html" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": html })]);
+        }"""
+    )
+    assert tool.paste_elsewhere(page) == "another app's field took only text/html"
+
+
 def test_pdf_in_a_clash_says_it_waits_and_the_choice_saves_the_file(editor, folder):
     client = user()
     page = editor(box("a", "text", ONE), client=client)
@@ -998,9 +1034,14 @@ def test_pdf_in_a_clash_says_it_waits_and_the_choice_saves_the_file(editor, fold
     tool.key(page, "Enter")
     tool.type_(page, "Mein")
     expect(page.locator(".clash")).to_be_visible()
+    with pytest.raises(tool.Refused, match="waits for a choice"):
+        tool.pdf(page)
+    # Once the bar waits, another PDF, or a target that is no button of the bar, is refused at once.
     started = time.monotonic()
     with pytest.raises(tool.Refused, match="waits for a choice"):
         tool.pdf(page)
-    assert time.monotonic() - started < 30
+    with pytest.raises(tool.Refused, match="waits for a choice"):
+        tool.pdf(page, "Lösungen")
+    assert time.monotonic() - started < 10
     path = Path(tool.pdf(page, "Mit dieser überschreiben"))
     assert path.parent == folder and path.read_bytes().startswith(b"%PDF")

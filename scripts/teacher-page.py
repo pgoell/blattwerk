@@ -342,6 +342,15 @@ def screenshot(page: Page, name: str = "screen") -> str:
     return str(path)
 
 
+# The clash bar's words: it waits for one of its two buttons, which makes the file.
+WAITS = "Danach kommt dein PDF"
+CHOICES = ("Andere Version laden", "Mit dieser überschreiben")
+WAIT_REFUSAL = (
+    'the PDF waits for a choice in the clash bar: pdf "Andere Version laden" or '
+    'pdf "Mit dieser überschreiben" makes it and saves the file'
+)
+
+
 def pdf(page: Page, target: str = "PDF") -> str:
     x, y = point(page, target)
     had = page.evaluate_handle("document.activeElement")
@@ -350,22 +359,18 @@ def pdf(page: Page, target: str = "PDF") -> str:
     def keep(download) -> None:
         downloads.append(download)
 
-    # The bar says it waits once a PDF was asked for: then this click is the teacher's choice.
-    choosing = page.locator(".clash", has_text="Danach kommt dein PDF").is_visible()
+    # Once the bar says it waits, only one of its two buttons is a choice that makes the file.
+    waiting = page.locator(".clash", has_text=WAITS).is_visible()
+    if waiting and target not in CHOICES:
+        raise Refused(WAIT_REFUSAL)
     page.on("download", keep)
     try:
         page.mouse.click(x, y)
         late = time.monotonic() + 60
         while not downloads:
             # In a clash the PDF waits for the bar's choice: no file comes until one is made.
-            if (
-                not choosing
-                and page.locator(".clash", has_text="Danach kommt dein PDF").is_visible()
-            ):
-                raise Refused(
-                    'the PDF waits for a choice in the clash bar: pdf "Andere Version laden" or '
-                    'pdf "Mit dieser überschreiben" makes it and saves the file'
-                )
+            if not waiting and page.locator(".clash", has_text=WAITS).is_visible():
+                raise Refused(WAIT_REFUSAL)
             if time.monotonic() > late:
                 raise Refused(f"no file came down after the click at {x:g},{y:g}")
             page.wait_for_timeout(100)
@@ -406,21 +411,34 @@ def drop(page: Page, file: str, target: str) -> str:
     return shown(page, f"dropped {path.name} at {x:g},{y:g}")
 
 
-# What a paste brings: the words, and each picture with its type, size and px.
+# What a paste brings: the clipboard's types and words, and each file with its type and size, and
+# its px where it is a picture.
 RECORD = """() => {
     window.took = null;
     document.getElementById("field").addEventListener("paste", async (e) => {
+        // Chromium empties the clipboard's data once this handler's first part ends: read it now.
         const data = e.clipboardData;
+        const types = [...data.types];
+        const words = data.getData("text/plain");
         const files = [...data.files];
         const pictures = [];
-        for (const file of files) {
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            await img.decode();
-            const { naturalWidth: width, naturalHeight: height } = img;
-            pictures.push({ type: file.type, size: file.size, width, height });
+        try {
+            for (const file of files) {
+                const picture = { type: file.type, size: file.size };
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                try {
+                    await img.decode();
+                    picture.width = img.naturalWidth;
+                    picture.height = img.naturalHeight;
+                } catch (error) {
+                    // Not a picture: the file is named by its type and size alone.
+                }
+                pictures.push(picture);
+            }
+        } finally {
+            window.took = { types, words, pictures };
         }
-        window.took = { words: data.getData("text/plain"), pictures };
     });
 }"""
 
@@ -436,7 +454,8 @@ def paste_elsewhere(page: Page) -> str:
         other.keyboard.press("Control+v")
         with suppress(Late):
             other.wait_for_function("window.took !== null", timeout=2000)
-        took: dict = other.evaluate("window.took") or {"words": "", "pictures": []}
+        empty = {"types": [], "words": "", "pictures": []}
+        took: dict = other.evaluate("window.took") or empty
     finally:
         other.close()
     page.bring_to_front()
@@ -444,10 +463,15 @@ def paste_elsewhere(page: Page) -> str:
     if took["words"]:
         parts.append(f'the words "{took["words"]}"')
     for picture in took["pictures"]:
-        parts.append(f"a picture of {picture['width']} x {picture['height']} px")
-    if not parts:
-        return "another app's field took nothing: the clipboard is empty"
-    return f"another app's field took {' and '.join(parts)}"
+        if "width" in picture:
+            parts.append(f"a picture of {picture['width']} x {picture['height']} px")
+        else:
+            parts.append(f"a file of {picture['type'] or 'unknown type'}, {picture['size']} bytes")
+    if parts:
+        return f"another app's field took {' and '.join(parts)}"
+    if took["types"]:
+        return f"another app's field took only {', '.join(took['types'])}"
+    return "another app's field took nothing: the clipboard is empty"
 
 
 def expire(page: Page) -> str:
