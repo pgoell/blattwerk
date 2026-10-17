@@ -501,6 +501,21 @@ MARK = """(words) => {
 }"""
 
 
+def test_another_accounts_copy_pastes_nothing_into_a_field_outside_the_editor(editor):
+    """#751: the account page's field takes none of it either."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.evaluate(OTHER_OWNER)
+    page.goto(f"{page.url.rsplit('/blatt/', 1)[0]}/konto")
+    field = page.locator("#key-name")
+    field.click()
+    page.keyboard.press("Control+v")
+    page.keyboard.type("!")
+    expect(field).to_have_value("!")
+
+
 def test_another_accounts_copy_pastes_nothing_into_an_open_text(editor):
     client = user()
     target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
+import { signedIn } from "./clip";
 import Blank from "./components/Blank";
 import Consent from "./pages/Consent";
 import Failed from "./components/Failed";
@@ -84,6 +85,7 @@ export default function App() {
     return () => removeEventListener("online", back);
   }, []);
   if (user) was.current = user.id;
+  signedIn(user?.id);
 
   // A login or a logout empties the block clipboard: what one account copied is not the next one's. An unsaved
   // change stays in the browser's store for its owner, and the savers hear who is there now.
