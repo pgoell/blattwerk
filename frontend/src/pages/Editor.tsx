@@ -415,6 +415,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const cellDrag = useRef(false);
   // A press with the brush in the open text picks its words: Moveable must not drag the block by it.
   const brushing = useRef(false);
+  // The element a brush press lands on: the text under Moveable's frame, not the frame.
+  const brushed = useRef<Element | undefined>(undefined);
   // The heights of the rows of the picked table as its grid laid them out, in px.
   const [laid, setLaid] = useState("");
   // Where the caret stood in a cell that a new row or column moves to another place.
@@ -1866,14 +1868,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   };
   // A drag with the brush over a text or a shape with words: the field opens at the press, and the words the pointer
   // crosses take the look. A press that does not move paints the whole block, as a click does.
-  function brushDrag(id: string, press: globalThis.MouseEvent, on: string[]) {
+  function brushDrag(id: string, el: Element, press: globalThis.MouseEvent, on: string[]) {
     const start: [number, number] = [press.clientX, press.clientY];
     let opened = false;
     const move = (e: globalThis.PointerEvent) => {
       if (!opened) {
         if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
         opened = true;
-        if (editing !== id) flushSync(() => openNow.current(id, press.target as Element));
+        if (editing !== id) {
+          // A text of a picked group is picked alone, as the field's words go to every picked block. A locked or a
+          // linked text opens no field: its group stays picked, and it is painted whole.
+          if (on.length > 1) flushSync(() => setIds([id]));
+          flushSync(() => openNow.current(id, el));
+          if (on.length > 1 && !field.current) flushSync(() => setIds(on));
+        }
       }
       const view = field.current;
       const from = view?.posAtCoords({ left: start[0], top: start[1] });
@@ -3495,7 +3503,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         // The open text stays open for its words: a drag selects in it.
         if (id !== editing) setEditing("");
         const target = blocks.find((b) => b.id === id);
-        if (to === page && press && target && boxed(target)) brushDrag(id, press, on);
+        if (to === page && press && target && boxed(target)) brushDrag(id, el, press, on);
         else daub(on, to);
         spot.current = undefined;
         return;
@@ -4344,7 +4352,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             cellDrag.current = !touch.current && !!table && editing === table.id && !!(e.target as Element).closest(`[data-id="${table.id}"] [data-cell]`);
             // A press with the brush on a picked text is the brush's: Moveable, which hears of it before the mouse's
             // own event, would drag the block (#756). The click after it picks nothing more.
-            const id = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
+            // Under Moveable's frame the block is the one the point finds, as onClickCapture finds it.
+            // A handle of the frame resizes or turns: only its area lies over the text.
+            const hit = cover.current && (e.target as Element).matches(".moveable-area") ? document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.closest(".block")) : undefined;
+            brushed.current = hit ?? (e.target as Element);
+            const id = brushed.current.closest<HTMLElement>(".block")?.dataset.id;
             const text = blocks.find((b) => b.id === id);
             brushing.current = !touch.current && e.button === 0 && !!brush && !!text && !!boxed(text) && ids.includes(text.id);
             if (brushing.current) {
@@ -4371,7 +4383,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             }
             // With the brush a press in the open text picks its words, and a drag paints them.
             // The brush's press on a picked text (see onPointerDown) paints, and its drag picks words.
-            if (brushing.current) return void pick(e.target as Element, e.shiftKey, e.nativeEvent);
+            if (brushing.current) return void pick(brushed.current!, e.shiftKey, e.nativeEvent);
             // The right button drags nothing: its menu picks the block.
             if (touch.current || e.button === 2 || moveable.current!.isMoveableElement(e.target as Element)) return;
             // A press on a picked block may drag it. Only a click that stays on its spot picks a block out of its group.

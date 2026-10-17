@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, post, type Refusal, type User } from "../api";
 import { attempt, status } from "../fault";
 import { signed } from "../saves";
-import { wipe } from "../clip";
+import { mark, wipe } from "../clip";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
 const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
@@ -223,7 +223,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
           <div data-testid="new-token">
             <p className="hint">Nur jetzt sichtbar. Kopiere den Schlüssel jetzt; Blattomat zeigt ihn nicht noch einmal.</p>
             <code>{made.token}</code>{" "}
-            <button type="button" className="plain" onClick={() => navigator.clipboard.writeText(made.token).catch(() => {})}>
+            <button type="button" className="plain" onClick={() => navigator.clipboard.writeText(made.token).then(() => mark(made.token)).catch(() => {})}>
               Kopieren
             </button>
           </div>

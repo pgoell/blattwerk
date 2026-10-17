@@ -2,6 +2,7 @@
 
 import re
 
+import pytest
 from playwright.sync_api import expect
 from ui import (
     FIELD,
@@ -1246,6 +1247,90 @@ def test_a_kept_brush_on_a_picked_group_paints_it_once_and_keeps_the_group_picke
 
 def saved_x(page, client):
     return next(b["x"] for b in saved(page, client) if b["id"] == "a")
+
+
+def saved_xs(page, client):
+    return {b["id"]: b["x"] for b in saved(page, client)}
+
+
+def group_texts(client, group, extra=False):
+    """Texts "a" (bold) and "b" (plain) in `group`; with `extra`, "c" in the outer group only."""
+    blocks = [
+        box("a", "text", {**TEXT, "text": "eins", "bold": True}, z=2, w=25, group=group),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=3, w=25, group=group),
+    ]
+    if extra:
+        blocks.append(box("c", "text", {**TEXT, "text": "fern"}, z=4, w=25, group=group[:1], y=120))
+    return blocks
+
+
+@pytest.mark.parametrize("group", [["g"], ["g", "inner"]], ids=["group", "nested"])
+def test_a_brush_drag_across_words_of_a_text_in_a_picked_group_paints_them_and_keeps_the_group(
+    editor, group
+):
+    """#761: the press lands on the group's frame; the words it crosses still take the look."""
+    client = user()
+    page = editor(*group_texts(client, group, extra=len(group) > 1), client=client)
+    xs = saved_xs(page, client)
+    # A click on "a" picks its outer group too: "c" comes along when "inner" is nested in "g".
+    picked = ("a", "b", "c") if len(group) > 1 else ("a", "b")
+    at(page, "a").click()
+    expect_picked(page, *picked)
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "b", "zwei")
+    expect_brush(page, False)
+    # The text is open alone in its group, as PowerPoint picks a text inside a group.
+    expect_picked(page, "b")
+    assert saved_xs(page, client) == xs
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["b"]) if is_bold}
+    assert bold == {"zwei"}
+    # The other texts of the group keep their own words.
+    texts = {name: props["text"] for name, props in held(page, client).items()}
+    others = {"c": "fern"} if len(group) > 1 else {}
+    assert texts == {"a": "eins", "b": "eins zwei drei", **others}
+    page.keyboard.press("Control+z")
+    assert saved_xs(page, client) == xs
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["b"]) if is_bold}
+    assert bold == set()
+
+
+def test_a_brush_drag_on_a_locked_text_paints_it_whole_and_opens_no_field(editor):
+    """A locked text takes no words: the drag paints the block, as a click does."""
+    client = user()
+    page = editor(
+        box("q", "text", {**TEXT, "text": "Quelle", "bold": True}, w=25),
+        box("a", "text", {**TEXT, "text": "eins zwei drei"}, z=2, w=25, y=120, locked=True),
+        client=client,
+    )
+    pick(page, "q")
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "zwei")
+    expect_brush(page, False)
+    expect(page.locator(FIELD)).to_have_count(0)
+    a = held(page, client)["a"]
+    assert (a["text"], a.get("bold"), painted(a)) == ("eins zwei drei", True, [])
+
+
+def test_a_brush_drag_with_ctrl_across_a_text_in_a_picked_group_makes_no_copy(editor):
+    """#761: as #756, with Ctrl held; Moveable must not copy the group."""
+    client = user()
+    page = editor(*group_texts(client, ["g"]), client=client)
+    xs = saved_xs(page, client)
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    brush(page).click()
+    expect_brush(page, True)
+    w = word(page, "b", "zwei")
+    page.keyboard.down("Control")
+    page.mouse.move(w["x"] + 1, w["y"])
+    page.mouse.down()
+    page.mouse.move(w["right"] - 1, w["y"], steps=5)
+    page.mouse.up()
+    page.keyboard.up("Control")
+    expect(page.locator(".block")).to_have_count(2)
+    assert saved_xs(page, client) == xs
 
 
 def test_a_plain_look_takes_bold_and_red_off_the_words(editor):

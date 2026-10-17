@@ -1,6 +1,7 @@
 """The block clipboard belongs to the account: the next one on the same browser gets none of it."""
 
 import json
+import re
 from uuid import uuid4
 
 import pytest
@@ -722,3 +723,50 @@ def test_words_copied_on_the_login_page_paste_there_and_in_the_sheet(editor):
     unpick(page)
     page.keyboard.press("Control+v")
     expect(blocks(page)).to_have_count(2)
+
+
+def copy_key(page):
+    """Makes a key on Konto and copies it with its button; gives the key."""
+    page.get_by_label("Name des Schlüssels").fill("Kopie")
+    page.keyboard.press("Enter")
+    shown = page.locator("[data-testid=new-token] code")
+    expect(shown).to_have_text(re.compile(r"^bt_"))
+    page.get_by_test_id("new-token").get_by_role("button", name="Kopieren").click()
+    return shown.inner_text()
+
+
+@chromium_only
+def test_abmelden_empties_the_clipboard_of_a_key_copied_on_konto(editor):
+    """#760: the key copied on Konto leaves the system clipboard at Abmelden."""
+    a, _ = someone()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    page.goto(f"{origin(page)}/konto")
+    token = copy_key(page)
+    assert page.evaluate("navigator.clipboard.readText()") == token
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+def test_the_next_account_pastes_no_key_copied_on_konto(editor):
+    """#760: the next account pastes no key copied on Konto."""
+    a, _ = someone()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    page.goto(f"{origin(page)}/konto")
+    copy_key(page)
+    logout(page)
+    next_list_paste_nothing(page)
+
+
+def test_the_same_session_pastes_its_own_key_into_a_field(editor):
+    """#760: the account that copied a key on Konto pastes it back there."""
+    a, _ = someone()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    page.goto(f"{origin(page)}/konto")
+    token = copy_key(page)
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("")
+    field.focus()
+    # The copy's mark is set once the clipboard has taken the key: wait for it before the paste.
+    assert page.evaluate("navigator.clipboard.readText()") == token
+    page.keyboard.press("Control+v")
+    expect(field).to_have_value(token)
