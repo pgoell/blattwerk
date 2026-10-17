@@ -10,6 +10,8 @@
     wheel TARGET DY        turns the wheel over TARGET by DY px; less than 0 is up
     key KEYS [N]           presses a key or a chord N times: Escape, ArrowRight, Control+z
     type TEXT              types the text where the focus is
+    drop FILE TARGET       drops a file of the run folder on the page at TARGET, as from the desktop
+    paste-elsewhere        pastes the clipboard into another app's field; says what it took
     where NAME             prints where the name is on the page, or what holds it; changes nothing
     value NAME             prints what the field of that name holds: a colour, a slider's number
     resize W H             sets the window's size
@@ -37,8 +39,10 @@ The files lie in /tmp/teacher-run, or where TEACHER_PAGE_DIR says. The window op
 http://127.0.0.1:8220; TEACHER_PAGE_URL names another server, for the tests only.
 """
 
+import base64
 import inspect
 import json
+import mimetypes
 import os
 import posixpath
 import re
@@ -341,16 +345,109 @@ def screenshot(page: Page, name: str = "screen") -> str:
 def pdf(page: Page, target: str = "PDF") -> str:
     x, y = point(page, target)
     had = page.evaluate_handle("document.activeElement")
+    downloads: list = []
+
+    def keep(download) -> None:
+        downloads.append(download)
+
+    # The bar says it waits once a PDF was asked for: then this click is the teacher's choice.
+    choosing = page.locator(".clash", has_text="Danach kommt dein PDF").is_visible()
+    page.on("download", keep)
     try:
-        with page.expect_download(timeout=60000) as coming:
-            page.mouse.click(x, y)
-    except Late:
-        raise Refused(f"no file came down after the click at {x:g},{y:g}") from None
-    path = STATE / Path(coming.value.suggested_filename).name
-    coming.value.save_as(path)
+        page.mouse.click(x, y)
+        late = time.monotonic() + 60
+        while not downloads:
+            # In a clash the PDF waits for the bar's choice: no file comes until one is made.
+            if (
+                not choosing
+                and page.locator(".clash", has_text="Danach kommt dein PDF").is_visible()
+            ):
+                raise Refused(
+                    'the PDF waits for a choice in the clash bar: pdf "Andere Version laden" or '
+                    'pdf "Mit dieser überschreiben" makes it and saves the file'
+                )
+            if time.monotonic() > late:
+                raise Refused(f"no file came down after the click at {x:g},{y:g}")
+            page.wait_for_timeout(100)
+    finally:
+        page.remove_listener("download", keep)
+    coming = downloads[0]
+    path = STATE / Path(coming.suggested_filename).name
+    coming.save_as(path)
     # The click gave the focus to the bar's button: a slider that had it takes the next key again.
     had.evaluate("el => el.focus()")
     return str(path)
+
+
+DROP = """([x, y, name, type, b64]) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File([bytes], name, { type }));
+    const under = document.elementFromPoint(x, y);
+    const init = { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true };
+    for (const kind of ["dragenter", "dragover", "drop"]) {
+        under.dispatchEvent(new DragEvent(kind, init));
+    }
+}"""
+
+
+def drop(page: Page, file: str, target: str) -> str:
+    """Drops a file of the run folder on the page, as a file dragged from the desktop is dropped."""
+    # Playwright cannot drag a file from outside the browser: the bytes go in by the page instead.
+    path = (STATE / file).resolve()
+    if not path.is_relative_to(STATE.resolve()):
+        raise Refused(f'"{file}" is outside the run folder {STATE}: only its files can be dropped')
+    if not path.is_file():
+        raise Refused(f'there is no file "{file}" in {STATE}')
+    x, y = point(page, target)
+    kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    data = base64.b64encode(path.read_bytes()).decode()
+    page.evaluate(DROP, [x, y, path.name, kind, data])
+    return shown(page, f"dropped {path.name} at {x:g},{y:g}")
+
+
+# What a paste brings: the words, and each picture with its type, size and px.
+RECORD = """() => {
+    window.took = null;
+    document.getElementById("field").addEventListener("paste", async (e) => {
+        const data = e.clipboardData;
+        const files = [...data.files];
+        const pictures = [];
+        for (const file of files) {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await img.decode();
+            const { naturalWidth: width, naturalHeight: height } = img;
+            pictures.push({ type: file.type, size: file.size, width, height });
+        }
+        window.took = { words: data.getData("text/plain"), pictures };
+    });
+}"""
+
+
+def paste_elsewhere(page: Page) -> str:
+    """Pastes the clipboard into a field of another app, a second page of the browser, and says
+    what the field took. The app's page keeps its focus."""
+    other = page.context.new_page()
+    try:
+        other.set_content('<div id="field" contenteditable="true"></div>')
+        other.evaluate(RECORD)
+        other.focus("#field")
+        other.keyboard.press("Control+v")
+        with suppress(Late):
+            other.wait_for_function("window.took !== null", timeout=2000)
+        took: dict = other.evaluate("window.took") or {"words": "", "pictures": []}
+    finally:
+        other.close()
+    page.bring_to_front()
+    parts = []
+    if took["words"]:
+        parts.append(f'the words "{took["words"]}"')
+    for picture in took["pictures"]:
+        parts.append(f"a picture of {picture['width']} x {picture['height']} px")
+    if not parts:
+        return "another app's field took nothing: the clipboard is empty"
+    return f"another app's field took {' and '.join(parts)}"
 
 
 def expire(page: Page) -> str:
@@ -419,6 +516,8 @@ VERBS: dict[str, Callable[..., str]] = {
     "wheel": wheel,
     "key": key,
     "type": type_,
+    "drop": drop,
+    "paste-elsewhere": paste_elsewhere,
     "where": where,
     "value": value,
     "resize": resize,
