@@ -1,6 +1,6 @@
 """Makes the stage's test teacher and prints its login.
 
-    STAGE_INVITE=<token> python - <url> < scripts/stage-teacher.py
+    STAGE_INVITE=<token> python - <url> <email> < scripts/stage-teacher.py
 
 Runs in the stage's container with the image's own python, fed on stdin, so it is one file and
 needs the standard library only. It signs the teacher up with the invite, logs in once, and wants
@@ -18,8 +18,8 @@ from http.cookies import SimpleCookie
 from typing import Never
 from urllib.parse import urljoin
 
-EMAIL = "teacher-run@stage.invalid"
 url = sys.argv[1]
+EMAIL = sys.argv[2]
 step = "invite"
 
 
