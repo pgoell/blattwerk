@@ -1703,8 +1703,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             if (to <= 0) return { ...b, ...patch };
             // The saved rows keep their proportions unless a text holds a row up: then the screen's rows do (#540).
             const saved = rows.map((h) => (h * to) / sum(rows));
-            const held = saved.every((h, i) => h >= screen[i] - 0.05);
-            return { ...b, ...patch, props: { ...b.props, rows: held ? saved : screen.map((h) => (h * to) / sum(screen)) } } as Block;
+            const fits = saved.every((h, i) => h >= screen[i] - 0.05);
+            return { ...b, ...patch, props: { ...b.props, rows: fits ? saved : screen.map((h) => (h * to) / sum(screen)) } } as Block;
           }
           const f = (patch!.h! - EDGE) / (b.h - EDGE);
           return { ...b, ...patch, props: { ...b.props, rows: rows.map((h) => h * f) } } as Block;
