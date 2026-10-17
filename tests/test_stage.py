@@ -17,11 +17,13 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 from playwright.sync_api import expect
 from test_canary import ROOT, make_live, rows, tree
 from ui import BROWSER, PASSWORD, TEXT, box, sheet, upload, user
 
 from blattwerk import auth, db
+from blattwerk.app import app
 
 NAME = "blattwerk-stage"
 IMAGE = "blattwerk-blattwerk:latest"
@@ -54,6 +56,9 @@ case "$*" in
   *"-e STAGE_INVITE"*)
     printenv STAGE_INVITE > "$DOCKER_LOG.invite"
     cat > "$DOCKER_LOG.stdin"
+    if [ "${@: -1}" = teacher-run-2@stage.invalid ] && [ "${RC_SIGNUP2:-0}" != 0 ]; then
+      exit "$RC_SIGNUP2"
+    fi
     echo "E-Mail: ${@: -1}"
     echo "Passwort: geheim-aus-dem-stub"
     exit "${RC_SIGNUP:-0}" ;;
@@ -257,6 +262,17 @@ def test_i2_an_up_that_fails_half_way_leaves_no_container_and_no_copy(tmp_path, 
     assert any(call.startswith("run ") for call in calls) == (case != "the database copy")
     assert "Passwort" not in result.stdout
     assert tree(live) == before
+
+
+def test_i2_a_second_sign_up_that_fails_prints_no_login_and_removes_the_stage(tmp_path, copy):
+    result, calls = run(tmp_path, "up", rc_signup2=1)
+    assert result.returncode != 0
+    assert "stage: " in result.stderr
+    assert not copy.exists()
+    assert calls[-1] == f"rm -f {NAME}"
+    # Neither the URL nor the first teacher's login: the stage is gone, so they would lead nowhere.
+    assert "URL" not in result.stdout
+    assert "Passwort" not in result.stdout
 
 
 @pytest.mark.parametrize("sign", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
@@ -476,17 +492,28 @@ def test_a6_the_second_teacher_sees_nothing_of_the_first(server):
     def get(session, path):
         return httpx.get(f"{server}{path}", headers={"Cookie": f"session={session}"})
 
-    first = session_of(EMAIL, first_password)
-    second = session_of(EMAIL_2, second_password)
+    # The first teacher makes a sheet, a template and a picture, as the app does for a teacher.
+    first = TestClient(app, base_url="https://testserver")
+    assert first.post("/api/login", json={"email": EMAIL, "password": first_password}).is_success
     doc = {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0}
-    made = httpx.post(
-        f"{server}/api/sheets",
-        json={"title": "Erstes", "doc": doc},
-        headers={"Cookie": f"session={first}"},
-    )
-    assert made.is_success
+    made = first.post("/api/sheets", json={"title": "Erstes", "doc": doc}).json()
+    kept = first.post("/api/templates", json={"name": "Meine", "doc": doc}).json()
+    picture = upload(first)
+
+    second = session_of(EMAIL_2, second_password)
     assert get(second, "/api/sheets").json() == []
-    assert get(second, f"/api/sheets/{made.json()['id']}").status_code == 404
+    assert get(second, f"/api/sheets/{made['id']}").status_code == 404
+    assert kept["id"] > 0
+    assert all(template["id"] < 0 for template in get(second, "/api/templates").json())
+    assert (
+        httpx.delete(
+            f"{server}/api/templates/{kept['id']}", headers={"Cookie": f"session={second}"}
+        ).status_code
+        == 404
+    )
+    assert get(second, f"/api/uploads/{picture}").status_code == 404
+    # And the first teacher still has what was theirs.
+    assert [found["id"] for found in first.get("/api/sheets").json()] == [made["id"]]
 
 
 def test_a5_a_dead_invite_makes_no_teacher_and_prints_no_login(server):

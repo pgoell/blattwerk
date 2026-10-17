@@ -123,10 +123,12 @@ PY
       fi
       sleep 1
     done
+    # An invite is used once, so each teacher gets their own. Nothing is printed before both exist.
+    first=$(sign_up teacher-run@stage.invalid) || exit 1
+    second=$(sign_up teacher-run-2@stage.invalid) || exit 1
     echo "URL: http://127.0.0.1:$port"
-    # An invite is used once, so each teacher gets their own.
-    sign_up teacher-run@stage.invalid
-    sign_up teacher-run-2@stage.invalid
+    echo "$first"
+    echo "$second"
     ;;
   down)
     check
