@@ -241,7 +241,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
             if (back !== null) rowButtons.current.get(back)?.focus();
           }}
         >
-          <p id="ask-revoke">Schlüssel „{ask?.name}“ widerrufen? Claude Desktop auf diesem Gerät verliert den Zugang.</p>
+          <p id="ask-revoke">Schlüssel „{ask?.name}“ widerrufen? Was diesen Schlüssel nutzt, verliert den Zugang.</p>
           <div className="row">
             <button type="button" onClick={() => ask && confirmRevoke(ask)}>
               Widerrufen

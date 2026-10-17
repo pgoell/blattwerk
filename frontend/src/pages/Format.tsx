@@ -368,7 +368,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
-  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} />;
+  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />;
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
@@ -678,7 +678,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
-          {!mode && RULINGS[kindOf(rulings[0].props.kind)].at && !text && !tables.length && bows}
+          {RULINGS[kindOf(rulings[0].props.kind)].at && !text && !tables.length && bows}
         </>
       )}
       {tables.length > 0 && (
@@ -908,8 +908,8 @@ function FontSelect({ label, value: stored, onChange }: { label: string; value: 
 
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
-// A Lineatur with lines takes the bows and the colours too, on its written line, but not on Karo or a Lernwörter list.
-const ruled = (b: Block) => (b.type === "ruling" && RULINGS[kindOf(b.props.kind)].at && !listOf(b) ? b.props : undefined);
+// A Lineatur with lines takes the bows and the colours too, on its written line and on its Lernwörter list, but not on Karo.
+const ruled = (b: Block) => (b.type === "ruling" && RULINGS[kindOf(b.props.kind)].at ? b.props : undefined);
 const syllabled = (b: Block) => ruled(b) ?? worded(b);
 // A stored seed that is a finite number, or none: a seed that is no number counts as no seed.
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
@@ -1107,7 +1107,7 @@ function Mix({ sel, look, words: sheet }: Pick<Props, "sel" | "look" | "words">)
 // unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
 // its words stand below too, each as it is split, to mend by hand: a click on a word shows its letters, and a click
 // between two of them sets a break there or takes it away.
-function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" | "part" | "look" | "style" | "mendWord" | "doc">) {
+function Syllables({ sel, part, look, style, mendWord, doc, words }: Pick<Props, "sel" | "part" | "look" | "style" | "mendWord" | "doc" | "words">) {
   const held = sel.filter(syllabled);
   const bowsOn = held.every((b) => syllabled(b)!.syllables);
   // A stored pair that is garbage colours nothing, so the switch is off for it.
@@ -1129,7 +1129,9 @@ function Syllables({ sel, part, look, style, mendWord, doc }: Pick<Props, "sel" 
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
-  const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text ?? "").filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
+  // A Lineatur on the Lernwörter list has the sheet's words, not a text of its own.
+  const linked = !!one && held[0].type === "ruling" && listOf(held[0]) !== undefined;
+  const all = one ? split!.words(linked ? words.join("\n") : "cells" in one ? one.cells.flat().join("\n") : one.text ?? "").filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
   // module splits it needs no entry. The mend holds for the word in every block of the sheet.

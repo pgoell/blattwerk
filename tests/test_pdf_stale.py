@@ -139,12 +139,21 @@ def test_a_change_typed_while_the_pdf_waits_lands_and_no_line_shows(editor):
     expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
 
 
+def test_one_red_bar_in_a_clash_after_pdf(run):
+    """#725: a PDF pressed in a clash adds no second red line: the bar of the clash says it once."""
+    page, _ = start(run)
+    clash(run)
+    pdf_button(page).click()
+    bars = page.locator("[role=alert]", has_text="auf einem anderen Gerät geändert")
+    expect(bars).to_have_count(1)
+
+
 def test_pdf_line_goes_once_the_other_version_is_loaded(run):
     """#699: the PDF line of the clash goes once the other version is loaded."""
     page, _ = start(run)
     clash(run)
     pdf_button(page).click()
-    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
 
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
@@ -205,7 +214,7 @@ def test_pdf_line_goes_once_the_change_is_kept_as_a_new_sheet(run):
     page, _ = start(run)
     clash(run)
     pdf_button(page).click()
-    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
 
     assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
@@ -243,7 +252,7 @@ def test_main_pdf_waits_in_a_clash_and_says_why(run, button):
     clash_on_text(run, "Vom MCP")
     asked = pdf_asks(page)
     page.locator("header .pdf").get_by_role("button", name=button, exact=True).click()
-    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
     expect(page.locator(ALERT, has_text="deine letzte Änderung")).to_have_count(0)
     page.evaluate(TURNS)
     assert asked == []
@@ -263,7 +272,7 @@ def test_main_pdf_pressed_while_the_save_is_out_waits_when_that_save_clashes(run
     pdf_button(page).click()
     answer(run, "a")
     expect(page.locator(".clash")).to_be_visible()
-    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
     page.evaluate(TURNS)
     assert asked == []
 
@@ -273,7 +282,7 @@ def test_main_pdf_prints_the_other_version_once_it_is_loaded(run):
     page, _ = start(run)
     clash_on_text(run, "Vom MCP")
     pdf_button(page).click()
-    expect(page.locator(".fault", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
 
     page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
     expect(page.locator(".clash")).to_have_count(0)
