@@ -33,7 +33,8 @@ run = "npm run dev --prefix frontend"
 [tasks.deps]
 description = "Install frontend/node_modules when it is missing, half-written or older than the lock file"
 # npm writes node_modules/.package-lock.json as the last step of an install: a missing or older one means redo it.
-run = "test frontend/node_modules/.package-lock.json -nt frontend/package-lock.json || npm ci --prefix frontend"
+# npm install can write both in the same tick: as old as the lock is new enough.
+run = "test -f frontend/node_modules/.package-lock.json && ! test frontend/package-lock.json -nt frontend/node_modules/.package-lock.json || npm ci --prefix frontend"
 
 [tasks.build]
 description = "Build the frontend into the package"

@@ -8,7 +8,7 @@ from pixels import INK, LOADED, dark, grey
 from playwright.sync_api import expect
 from test_pixels import PLACES, faults, planted
 from test_zoom import expect_width, wheel, width
-from ui import TEXT, block, sheet, user
+from ui import BROWSER, TEXT, block, sheet, user
 
 from blattwerk import pdf
 
@@ -236,3 +236,26 @@ def test_merged_and_sized_cells_with_lines_print_as_the_screen_shows_them(browse
     client = user()
     lined = {**SIZED, "lineStyle": "dashed", "lineWidth": 3, "edges": OUTLINE}
     assert not faults(browser, server, client, table(lined))
+
+
+# The rest of each edge's box past its whole CSS pixel, against the shift its lines have (WebKit).
+SHIFTS = """[...document.querySelectorAll('.scaled svg.edge')].map((svg) => {
+  const zoom = svg.parentElement.getBoundingClientRect().width / svg.parentElement.offsetWidth || 1;
+  const left = svg.getBoundingClientRect().left;
+  const moved = svg.querySelector('g').getAttribute('transform');
+  const shift = Number(moved.match(/translate\\(([-\\d.e]+)/)[1]);
+  return Math.abs((left - Math.floor(left)) / zoom - (shift + 0.5));
+})"""
+
+
+def test_a_wider_window_keeps_a_tables_lines_on_its_edges(browser, server):
+    """#547 review: a window one pixel wider moves the page half a pixel; WebKit's shift follows."""
+    if BROWSER != "webkit":
+        pytest.skip("Chromium shifts no line")
+    client = user()
+    context, shown, paper = open_both(browser, server, client, table({"lineWidth": 3}))
+    size = shown.viewport_size
+    shown.set_viewport_size({"width": size["width"] + 1, "height": size["height"]})
+    shown.wait_for_function(f"Math.max(...{SHIFTS}) < 0.01")
+    paper.close()
+    context.close()

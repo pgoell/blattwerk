@@ -91,6 +91,13 @@ def test_lock_newer_than_install_installs(tmp_path):
     assert run_deps(tmp_path)
 
 
+def test_an_install_as_old_as_the_lock_is_kept(tmp_path):
+    """npm install writes the lock and the install's copy in the same tick."""
+    project(tmp_path)
+    complete_install(tmp_path, mtime=1000)
+    assert not run_deps(tmp_path)
+
+
 def test_complete_and_fresh_install_is_kept(tmp_path):
     project(tmp_path)
     complete_install(tmp_path, mtime=2000)
