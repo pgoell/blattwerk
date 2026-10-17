@@ -98,7 +98,7 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
-import Variants, { CLASH, NEWER } from "../components/Variants";
+import Variants, { NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
@@ -338,6 +338,9 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
 // `print` prints at once, Lösungen where true; `newer` says that a newer version was loaded for it.
 type Opened = { count: number; letters: boolean; print?: boolean; newer?: boolean };
 
+// The clash bar. A PDF pressed in the clash adds its own sentence to it.
+const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Wähle, welche Version gilt.";
+
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
@@ -362,6 +365,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   // The clash bar says it all then: no second red line.
   useEffect(() => void (saver?.clash && dropFault(NEWER)), [saver?.clash]);
+  // A PDF pressed in the clash waits for the choice. It prints once the choice has ended, unless the sheet is gone.
+  const [pdfWaits, setPdfWaits] = useState(waiting.current !== undefined);
+  useEffect(() => {
+    if (saver?.clash || waiting.current === undefined) return;
+    const key = waiting.current;
+    waiting.current = undefined;
+    setPdfWaits(false);
+    if (!saver?.gone) void pdf(key);
+  }, [saver?.clash, saver?.gone]);
   useEffect(() => onNewer(file.id, () => void newerSheet()), []);
   useEffect(() => {
     const focus = () => void newerSheet();
@@ -3223,6 +3235,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The session is asked for first: where it is gone the login shows, and nothing goes to the PDF's address. The
   // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
   // the server gives it. With no limit of time: a long sheet takes long to print.
+  // The PDF waits for the clash's choice, and the bar says so.
+  const holdPdf = (key: boolean) => void (waiting.current = key, setPdfWaits(true));
   async function pdf(key: boolean) {
     // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
     const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
@@ -3230,12 +3244,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     await attempt(what, async () => {
       // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
       // the save it waits for is the one turned down.
-      if (inClash(file.id)) return;
+      if (inClash(file.id)) return holdPdf(key);
       // A newer version saved in another window is what prints: the editor shows it first (#720).
       dropFault(NEWER);
       await newerSheet();
+      // Deleted elsewhere: the PDF has no sheet to print, and the line names the choice.
+      if (isGone(file.id)) throw new Error("404");
       const current = await flush(file.id);
-      if (inClash(file.id)) return;
+      if (inClash(file.id)) return holdPdf(key);
       await ask("/me");
       const res = await signed(
         fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {
@@ -4015,7 +4031,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         )}
         {saver?.clash && (
           <div className="clash" role="alert">
-            {CLASH}
+            {CLASH_BAR}
+            {pdfWaits && " Danach kommt dein PDF."}
             <button disabled={choice === "busy"} onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
             <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
