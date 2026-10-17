@@ -1280,11 +1280,15 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // A dotted look takes the dotted cut's reach the same way (DOTTED_SIDE).
   const dotted = traceOf(p) === "dotted";
   const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0, dotted ? DOTTED_SIDE : 0);
-  const side = wide > 0 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
+  // A print font's plain text takes it in a text and a rectangle only: a round frame's cut would reach past its curve,
+  // and the fit of a text inside a shape counts the padding, so those print as they did.
+  const square = (p.kind === undefined || p.kind === "rect") && !inside;
+  const joined = ["grund", "va", "sas", "la"].includes(font);
+  const side = stroke > 0 || dotted || joined || (wide > 0 && square) ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
   // A print font's plain text is tight for its sides alone (#489): above and below it cuts where it did.
-  const level = above > 0 || below > 0 || stroke > 0 || dotted || ["grund", "va", "sas", "la"].includes(font);
+  const level = above > 0 || below > 0 || stroke > 0 || dotted || joined;
   // An outline's stroke and a dotted cut's dots reach a pixel past the measured ink, and a pixel more with the page's
   // rounding (#503): the paragraph takes one pixel more above and below for them.
   const fringe = stroke > 0 || dotted ? 2 : 1;
