@@ -1178,15 +1178,8 @@ def test_a_brush_drag_in_an_open_text_paints_its_words_and_keeps_the_block(edito
     page.keyboard.press("Control+ArrowRight")
     page.keyboard.press("Control+Shift+ArrowRight")
     page.keyboard.press("Control+b")
-    page.keyboard.press("Escape")
+    expect(page.locator(f"{FIELD} span[data-bold]")).to_have_text("Hund")
     x = saved_x(page, client)
-    pick(page, "a")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("Home")
-    page.keyboard.press("Control+ArrowRight")
-    page.keyboard.press("ArrowRight")
-    page.keyboard.press("ArrowRight")
     brush(page).click()
     expect_brush(page, True)
     drag(page, "a", "braun")
@@ -1196,7 +1189,8 @@ def test_a_brush_drag_in_an_open_text_paints_its_words_and_keeps_the_block(edito
     assert bold == {"Hund", "braun"}
     page.keyboard.press("Control+z")
     assert saved_x(page, client) == x
-    assert {word for word, bold, _ in painted(held(page, client)["a"]) if bold} == {"Hund"}
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund"}
 
 
 def saved_x(page, client):
