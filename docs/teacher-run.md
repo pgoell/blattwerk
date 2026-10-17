@@ -31,7 +31,9 @@ Allowed:
   - `value NAME`: prints what the field of that name holds and changes nothing: a colour as `#rrggbb`, a slider's number.
   - `resize W H`
   - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more. NAME takes letters, digits, `_`, commas and `-` only: no spaces and no dots.
-  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key.
+  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key. While the bar "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert" waits for a choice, the PDF waits too, and `pdf` says so at once: then `pdf "Andere Version laden"` or `pdf "Mit dieser überschreiben"` makes the choice and saves the file that comes after it.
+  - `drop FILE TARGET`: drops the file `/tmp/teacher-run/FILE` at the target, as a teacher drags a file from the desktop onto the sheet. Only a file in `/tmp/teacher-run` drops.
+  - `paste-elsewhere`: stands for another app, such as Word or a mail: pastes with Control+V into a field of its own and prints what that field took, words or a picture or nothing. The app's page and its focus stay as they were.
   - `expire`: ends the window's sign-in, as if the session had run out; the page stays as it is.
   - `box yes VERB [ARGS]` or `box no VERB [ARGS]`: runs that verb and answers the box it meets. A verb without `box` answers no. A box comes with a delete (its button's name ends in `löschen`) and when `open` would leave unsaved work; the output names its words.
   - `tidy`: deletes each `TR*.pdf` in the downloads folder and each PDF in `/tmp/teacher-run`, and names each one it deleted. It needs no window.
@@ -87,19 +89,21 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
    mise -C /home/pascal/Code/blattwerk run stage:up
    ```
 
-   It starts a copy of the live app on a copy of the live data. Its last three lines are:
+   It starts a copy of the live app on a copy of the live data. Its last five lines are:
 
    ```
    URL: http://127.0.0.1:8220
    E-Mail: teacher-run@stage.invalid
    Passwort: <a fresh password each time>
+   E-Mail: teacher-run-2@stage.invalid
+   Passwort: <another fresh password>
    ```
 
-   Only this machine reaches the stage. The test teacher is a new account with no sheets and no templates of its own, and it is no admin.
+   Only this machine reaches the stage. The two test teachers are new accounts with no sheets and no templates of their own, and neither is an admin. You work as the first. The second is there to check that what one account copied never reaches the next: see "Two teachers".
 
 ## Sign in
 
-1. `new_page` with `http://127.0.0.1:8220`, then `resize_page` to 1280 by 1024. Signed out, every path shows the form `Anmelden`.
+1. Run `date +%s` and take its number as N. `new_page` with `http://127.0.0.1:8220` and `isolatedContext` `teacher-run-N`, then `resize_page` to 1280 by 1024. Signed out, every path shows the form `Anmelden`. The context is new and empty for each run: each stage copies the same live data, so its first upload gets the same address as the first upload of the stage before, and a browser that kept the old picture would show it in place of the new one. The tool's window needs nothing of the kind: each `start` gives it an empty browser.
 2. Fill `E-Mail` and `Passwort` with the two values the stage printed and click `Anmelden`.
 3. You land on `Meine Blätter` with the line "Noch kein Blatt. Leg dein erstes an."
 4. Sign in to the tool's window now, so it is ready when a step needs it:
@@ -115,7 +119,7 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
 - `Neues Blatt` on `Meine Blätter` opens an empty sheet in the editor. The logo at the top left leads back to `Meine Blätter`.
 - After `Neues Blatt` or a click on a sheet, the page first shows the editor's frame with an empty white page, and after a moment the word `Lädt` on it: the sheet is loading. In the MCP page, `wait_for` the text `Gespeichert` before the first snapshot of a sheet, and the text `Neues Blatt` before the first snapshot of `Meine Blätter`. The answer of `wait_for` is a snapshot of the whole page, and a long one: use it, and take no `take_snapshot` right after it. On a sheet with a Lernwörter list, that answer is very long (a row repeats each word some 20 times): there, `take_snapshot` with a `filePath` writes the page to a file, and `grep` searches the file. In the tool's window `last.png` may still show the page before: run `where "Gespeichert"` or `where "Neues Blatt"` until it prints a match, then `screenshot`.
 - A snapshot's uids change after every menu, tab or new block. Take a fresh snapshot before each click by uid.
-- The tour (`Rundgang`) opens the first time the editor opens on a device, as the app remembers that in the browser. The tool's window starts a fresh browser at each `start`, so the tour opens there on the first sheet. The MCP browser has seen the tour long ago, so it does not open there: to see it in the MCP page, click `Rundgang` in the bar (it may lie under `Mehr`). Close it with `Beenden`.
+- The tour (`Rundgang`) opens the first time the editor opens on a device, as the app remembers that in the browser. Both windows start with an empty browser, so the tour opens in each on its first sheet. Close it with `Beenden`. To see it again, click `Rundgang` in the bar (it may lie under `Mehr`).
 - The window is 1280 px wide. The bar at the top holds the tabs `Start`, `Ansicht` and `Vorlagen`, the field `Titel`, `Rückgängig`, `Wiederholen`, and at the right `Lösungen` and `PDF`. The left panel starts with `Mehrere`, which lets you pick several blocks, and then holds what you can put on the sheet: `Text`, `Überschrift`, `Bild`, `Symbol`, `Tabelle`, `Lineatur`, `Namenszeile`, `Punkte`, `Rechnen`, `Strecke`, shapes, and `Neue Seite`. The right panel shows the settings of the block you picked; the button `Format und Ansicht` shows and hides it. If the bar has no tabs, the button `Seiten und Vorlagen` opens pages and templates, and the right panel has the tabs `Format` and `Ansicht`.
 - Many buttons are icons. Find a control by its name in `take_snapshot`. A screenshot of the MCP page never shows a name: that Chrome has no mouse, and the app shows an icon's name only to a mouse. In the tool's window `hover "<name>"` or `hover X,Y` shows the name of an icon in the bar or the left panel as a teacher sees it: read `last.png`. What a pull request claims "with a mouse", try in the tool's window.
 - A new block lands at the top of the page and is picked, often on top of the one before. Place the blocks below one another in the order of the recipe, so that none overlaps. The plain way, in the MCP page: `fill` the field `Y` of the right panel with the millimetres from the page's top, then `press_key` Enter. In the tool's window the same is `click "Y"`, `key Control+a`, `type "40"`, `key Enter`, for 40 millimetres. An upright page is 297 high, and `Höhe` beside it is the block's own height. In the tool's window, `drag X,Y X2,Y2` from the block's middle moves it as a teacher does.
@@ -129,7 +133,21 @@ The MCP browser is shared with other sessions. Open your own page with `new_page
   - a control of the right panel below the window's lower edge, such as the slider `Randstärke` or the buttons `Jedes n-te Wort` and `Lösungswörter`: `click` it, and the tool turns the panel to it. `wheel` is needed only for a point given as `X,Y`, or to bring something into view for a screenshot, as `wheel X,Y 400` with X,Y read off the screenshot;
   - a colour, with the block picked: `click "Füllung"` (or `Farbe`, `Rand`), then `key ArrowUp 60`, `key ArrowRight 60`, `key Enter`. The picker is a window of its own that the mouse cannot reach: keys only. One arrow is a step too small to see: 60 up make the colour lighter, 60 to the right give it a tint. From pure black the arrows to the right alone change nothing, and a colour as light and as strong as it can be (`#ff0000`) moves with `ArrowDown` and `ArrowLeft` only. A changed border is hard to tell in a picture: read the colour before and after, with `value "Rand"` (or `value "Füllung"`, `value "Farbe"`);
   - a list that must be seen open (`Art der Lineatur`, `Schriftart`): `click` it, `key ArrowDown`, `key Enter`.
+- A file from the desktop, in the tool's window: `drop bild.png X,Y` drops `/tmp/teacher-run/bild.png` on the sheet at X,Y. The `Bild` button is the other way in.
+- After any sign in, the window stays on the path it showed: a sign in after `Abmelden` on `Konto` stays on `/konto`, and one after `expire` stays on the sheet. `open /` leads to `Meine Blätter`.
 - A gap of two words: `key Enter` opens the text, `key Home` puts the caret at its start, `key Control+Shift+ArrowRight 2` picks two words, then `click "Lücke"` makes them a gap. Pick the words first: without a pick, `Lücke` gaps the word under the caret or the whole block.
+
+## Two teachers
+
+What one account copied must not reach the next account on the same computer: not in a text, not on the sheet, not in another app. Check it in the tool's window, where the clipboard is the window's own:
+
+1. As the first teacher, on a sheet: pick a block, or words in an open text, and `key Control+c`. `paste-elsewhere` shows what the clipboard holds.
+2. `open /konto`, `click "Abmelden"`. The form `Anmelden` shows.
+3. Sign in as the second teacher: `click "E-Mail"`, `type "teacher-run-2@stage.invalid"`, `click "Passwort"`, `type "<the second password>"`, `key Enter`. The window stays on `/konto`: `open /`, `where "Neues Blatt"` until it prints a match.
+4. `click "Neues Blatt"`, `click "Beenden"` if the tour opens, then paste each way a teacher would: `key Control+v` on the sheet, `click "Einfügen"`, `key Control+v` in an open text, and `paste-elsewhere`. None may bring what the first teacher copied.
+5. Sign out and sign in as the first teacher again, the same way, and `open /`.
+
+The MCP page stays signed in as the first teacher all along.
 
 ## Export and compare
 
@@ -244,6 +262,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 5. Then try to break it:
    - the steps in an odd order;
    - with the session run out: `expire`, then go on working; the MCP page stays signed in.
+   - where a pull request is about what an account copies or sees: across the two teachers, as "Two teachers" says;
    - `Rückgängig` and `Wiederholen` after each step, and several times in a row;
    - with several blocks picked (the button `Mehrere`, or `click` and `shift-click`);
    - while a text, a cell or a menu is open;

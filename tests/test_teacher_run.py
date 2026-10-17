@@ -62,6 +62,9 @@ LABELS = [
     "Meine Vorlagen",
     "Name der Vorlage",
     "Dieses Blatt als Vorlage",
+    "Abmelden",
+    "Andere Version laden",
+    "Mit dieser überschreiben",
 ]
 
 
@@ -695,3 +698,39 @@ def test_d13_a_long_wait_for_answer_is_read_from_a_file():
     how = section("## How the editor works")
     assert "On a sheet with a Lernwörter list, that answer is very long" in how
     assert "`take_snapshot` with a `filePath` writes the page to a file" in how
+
+
+def test_758_1_the_stage_names_two_teachers_and_the_brief_pastes_across_them():
+    start = section("## Start the stage")
+    assert "Its last five lines are" in start
+    assert "E-Mail: teacher-run@stage.invalid" in start
+    assert "E-Mail: teacher-run-2@stage.invalid" in start
+    two = section("## Two teachers")
+    steps = ["`key Control+c`", '`click "Abmelden"`', "teacher-run-2@stage.invalid", "`open /`"]
+    at = [two.index(step) for step in steps]
+    assert at == sorted(at)
+    # Each way a teacher pastes, the other app's field too.
+    for way in ("`key Control+v`", '`click "Einfügen"`', "`paste-elsewhere`"):
+        assert way in two, way
+
+
+def test_758_2_the_brief_drops_a_file_from_the_run_folder():
+    assert "`drop FILE TARGET`" in section("## Rules")
+    assert "`drop bild.png X,Y`" in section("## How the editor works")
+
+
+def test_758_4_the_brief_says_how_a_pdf_comes_while_the_clash_bar_waits():
+    rules = section("## Rules")
+    assert '`pdf "Andere Version laden"` or `pdf "Mit dieser überschreiben"`' in rules
+
+
+def test_758_5_after_a_sign_in_the_window_stays_where_it_was():
+    how = section("## How the editor works")
+    assert "After any sign in, the window stays on the path it showed" in how
+    assert "stays on `/konto`" in how
+
+
+def test_758_6_the_mcp_page_opens_in_a_context_of_its_own_for_each_run():
+    sign_in = section("## Sign in")
+    assert "`date +%s`" in sign_in
+    assert "`isolatedContext` `teacher-run-N`" in sign_in
