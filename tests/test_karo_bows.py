@@ -99,6 +99,18 @@ def test_k8_a_decomposed_umlaut_does_not_shift_the_colours(editor):
     expect(letters.nth(5)).to_have_attribute("fill", RED)
 
 
+def test_k11_bows_and_colours_follow_the_typing(editor):
+    page = editor(box("a", "ruling", {**KARO, "tints": [BLUE, RED]}))
+    at(page, "a").dblclick()
+    page.keyboard.press("End")
+    page.keyboard.type(" Abend")
+    assert syls(page, "a") == ["A", "bend", "A", "bend"]
+    letters = at(page, "a").locator("svg.ruling text")
+    expect(letters).to_have_count(11)
+    expect(letters.nth(6)).to_have_attribute("fill", BLUE)
+    expect(letters.nth(7)).to_have_attribute("fill", RED)
+
+
 def printed(browser, server, sheet_id, route=None):
     client = user()
     context = browser.new_context(viewport={"width": 1400, "height": 1000})
