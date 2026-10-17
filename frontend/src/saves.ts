@@ -223,7 +223,7 @@ async function fail(s: Saver, now: Kept, e: Refusal) {
   else s.tries++;
   settle(s, s.gone ? 1 : 0);
   // Another tab may have taken its choice before this one was gone: that choice is applied now.
-  const heard = s.gone && heardEnd.get(s.id);
+  const heard = s.gone && heardOf(s.id);
   if (heard && !s.dead && s.choice !== "busy") endWith(s, heard);
   // The session is gone: the app shows the login, and the login brings the saver back to work.
   if (s.stop) signedOut();
@@ -263,7 +263,8 @@ export function open(sheet: Sheet): Sheet {
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
-    const record = kept(s.id);
+    const record = handed.get(s.id) ?? kept(s.id);
+    handed.delete(s.id);
     // A change kept by a build from before the Lernwörter takes the sheet's list: so it neither deletes the list
     // when it is sent, nor reads as another version for lacking it.
     if (record && !record.lists && record.doc && sheet.doc.words) {
@@ -379,6 +380,8 @@ export function refused(id: number, e: Refusal) {
 // after it leaves no trace in the store.
 function announce(id: number, took: Kept, to: number | null) {
   try {
+    // Kept for good, so a tab that opens later hears the choice too. Written before the event.
+    localStorage.setItem(`took:${id}`, JSON.stringify({ to, print: print(took) }));
     localStorage.setItem(`ended:${id}`, JSON.stringify({ doc: took.doc, title: took.title, to }));
     localStorage.removeItem(`ended:${id}`);
   } catch {
@@ -417,8 +420,30 @@ export function onEnded(id: number, told: (to: number | null) => void) {
   ends.set(id, told);
   return () => void ends.delete(id);
 }
-// The last choice another tab took for each sheet deleted elsewhere, whether this tab's saver is gone yet or not (#718).
-const heardEnd = new Map<number, Kept & { to: number | null }>();
+// A short fingerprint of a sheet's work, to tell whether two tabs hold the same change (cyrb53, #718).
+function print(k: Kept): string {
+  const text = JSON.stringify({ doc: k.doc, title: k.title });
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return String(4294967296 * (2097151 & h2) + (h1 >>> 0));
+}
+// The choice another tab took for a sheet deleted elsewhere, as the store keeps it (#718).
+function heardOf(id: number): { to: number | null; print: string } | null {
+  try {
+    return JSON.parse(localStorage.getItem(`took:${id}`) ?? "null");
+  } catch {
+    return null;
+  }
+}
+// The records of sheets whose choice was handed over by this tab, for the tab's open to take up (#718).
+const handed = new Map<number, Record>();
 // Another tab took the sheet deleted elsewhere. Where it holds the same work its choice ends, and where it holds other
 // work its change is written back, so the removal of the other tab's record leaves no loss.
 addEventListener("storage", (e) => {
@@ -438,24 +463,18 @@ addEventListener("storage", (e) => {
   const m = /^ended:(\d+)$/.exec(e.key ?? "");
   if (!m || e.newValue === null) return;
   const id = Number(m[1]);
-  let took: Kept & { to: number | null };
-  try {
-    took = JSON.parse(e.newValue);
-  } catch {
-    return;
-  }
-  heardEnd.set(id, took);
   const s = savers.get(id);
-  if (!s || !s.gone || s.dead || s.choice === "busy") return;
-  endWith(s, took);
+  const heard = heardOf(id);
+  if (!s || !s.gone || s.dead || s.choice === "busy" || !heard) return;
+  endWith(s, heard);
 });
 // Where another tab's choice holds the same work as this saver, this one ends and the editor goes where that tab went.
 // Where it holds other work, the change is kept.
-function endWith(s: Saver, took: Kept & { to: number | null }) {
-  if (same(took.doc, s.want.doc) && took.title === s.want.title) {
+function endWith(s: Saver, heard: { to: number | null; print: string }) {
+  if (print({ doc: s.want.doc, title: s.want.title }) === heard.print) {
     kill(s);
     tell(1);
-    ends.get(s.id)?.(took.to);
+    ends.get(s.id)?.(heard.to);
   } else {
     keep(s);
     tell();
@@ -494,16 +513,20 @@ export async function keepAsNew(id: number) {
     }
     // Another tab kept the sheet first: its new sheet is found, not made again. Where this tab holds other work, that work
     // goes to that sheet as a clash.
-    const heard = heardEnd.get(id);
-    const to = heard?.to;
-    const there = typeof to === "number" ? await ask<Sheet>(`/sheets/${to}`).catch(() => undefined) : undefined;
+    const heard = heardOf(id);
+    let there: Sheet | undefined;
+    if (typeof heard?.to === "number") {
+      try {
+        there = await ask<Sheet>(`/sheets/${heard.to}`);
+      } catch (e) {
+        // Only a 404 served for the owner says that sheet is not there: any other failure ends the press.
+        if ((e as Refusal).message !== "404" || (e as Refusal).by !== s.owner) throw e;
+      }
+    }
     if (heard && there) {
-      if (!s.dead && (!same(s.want.doc, heard.doc) || s.want.title !== heard.title)) {
-        try {
-          localStorage.setItem(key(there.id), JSON.stringify({ owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true }));
-        } catch {
-          // The store is full or shut: that change is lost with the old sheet.
-        }
+      // Where this tab holds other work, it goes to that sheet as a clash, through the record `open` takes up.
+      if (!s.dead && print({ doc: s.want.doc, title: s.want.title }) !== heard.print) {
+        handed.set(there.id, { owner: s.owner, base: 0, doc: s.want.doc, title: s.want.title, name: there.title, lists: true });
       }
       forget(id);
       return there;
