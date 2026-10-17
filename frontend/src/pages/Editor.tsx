@@ -3208,6 +3208,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const to = round(Math.round(at / by) * by);
     rules(n, (g) => ({ ...g, [axis]: g[axis].map((o, j) => (j === i ? to : o)) }), "drag");
   }
+  // The tab of a guide line held now: its page, axis and number.
+  const sliding = useRef("");
   // Let go off the page, a guide line is gone. Its place is read from the document as it stands, not from the last
   // render: the pointer may be let go before the page has drawn its last move (#525).
   function drop(axis: Axis, i: number, n?: number) {
@@ -4389,16 +4391,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
               {[undefined, n].flatMap((at) =>
                 (["x", "y"] as const).flatMap((axis) =>
-                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
+                  // A sheet's line past a smaller page is not drawn there, unless its tab is held on that page: the
+                  // tab must stay to hear its letting go (#525).
+                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1] && sliding.current !== `${n}${axis}${i}`) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
                       <b
                         data-axis={axis}
                         data-i={i}
                         data-page={at}
                         // The right button drags nothing: its menu removes this one line, and picks no block.
-                        onPointerDown={(e) => e.button === 0 && grip(e)}
+                        onPointerDown={(e) => e.button === 0 && ((sliding.current = `${n}${axis}${i}`), grip(e))}
                         onPointerMove={(e) => slide(e, axis, i, at)}
-                        onLostPointerCapture={() => drop(axis, i, at)}
+                        onLostPointerCapture={() => ((sliding.current = ""), drop(axis, i, at))}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();

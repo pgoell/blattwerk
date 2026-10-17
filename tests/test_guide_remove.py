@@ -7,7 +7,7 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from ui import TEXT, at, box, expect_picked, pick
+from ui import TEXT, at, box, doc, expect_picked, pick, user
 
 HINT = (
     "Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen "
@@ -93,6 +93,31 @@ def test_a_guide_let_go_off_the_sheet_before_the_page_draws_its_last_move_goes(e
     expect(all_tabs).to_have_text([before[0], before[2]])
     page.keyboard.press("Control+z")
     expect(all_tabs).to_have_text(before)
+
+
+@pytest.mark.parametrize("thing", ["guide", "own guide"])
+def test_a_guide_dragged_off_the_right_edge_is_gone_from_the_sheet(editor, thing):
+    """#525: past the right edge the held tab leaves the page; let go, the guide is gone."""
+    client = user()
+    page = editor(box("a", "text", TEXT, x=60, w=60), client=client)
+    at(page, "a").click()
+    page.get_by_role("tab", name="Ansicht").click()
+    if thing == "own guide":
+        page.get_by_role("button", name="Nur diese Seite").click()
+    for _ in range(2):
+        page.get_by_role("button", name="Senkrecht").click()
+    all_tabs = tabs(page, thing)
+    expect(all_tabs).to_have_count(2)
+    x, y = centre(all_tabs.nth(1))
+    sheet = page.locator(".sheet").first.bounding_box()
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(sheet["x"] + sheet["width"] + 20, y, steps=5)
+    page.mouse.up()
+    expect(all_tabs).to_have_count(1)
+    stored = doc(page, client)
+    guides = stored["guides"] if thing == "guide" else stored["pages"][0]["guides"]
+    assert len(guides["x"]) == 1
 
 
 @pytest.mark.parametrize("thing", ["guide", "own guide"])
