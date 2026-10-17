@@ -1029,6 +1029,22 @@ export function rowsNeeded(b: RulingBlock): number {
   block.remove();
   return lines;
 }
+// A sheet whose Lineatur on lines holds more text than its rows show, as one stored before its kind changed: each
+// such block grows to the rows its text needs. It measures, so only once the fonts are in. The same doc when none grows.
+export function lengthened(doc: Doc): Doc {
+  let grew = false;
+  const pages = doc.pages.map((p) => ({
+    ...p,
+    blocks: p.blocks.map((b) => {
+      if (b.type !== "ruling" || !RULINGS[kindOf(b.props.kind)].at) return b;
+      const need = rowsNeeded(b);
+      if (need <= rowsOf(b)) return b;
+      grew = true;
+      return { ...b, ...tall(b, Math.round(need * RULINGS[kindOf(b.props.kind)].row * 100) / 100) };
+    }),
+  }));
+  return grew ? { ...doc, pages } : doc;
+}
 // The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
 export function lowest(b: Box) {
   const [c, s] = dir(b);

@@ -65,6 +65,25 @@ def test_a8_a_stored_karo_too_short_draws_all_letters(editor, browser, server):
     expect(printing.locator("svg.ruling text")).to_have_count(len(TEXT))
 
 
+def test_a8_a_stored_lined_ruling_too_short_grows_on_load_and_in_print(editor, browser, server):
+    """A8: a stored Lineatur 1 of one row with three lines opens and prints with three rows."""
+    client = user()
+    lined = box("l", "ruling", {**RULING, "kind": "l1", "text": "Mama\nPapa\nOma"}, h=20)
+    page = editor(lined, client=client)
+    # Three rows of 20 mm: the box is 60 mm high for its width in mm.
+    page.wait_for_function(
+        """w => {
+            const b = document.querySelector('.block[data-id="l"]');
+            return Math.abs(b.offsetHeight / b.offsetWidth - 60 / w) < 0.01;
+        }""",
+        arg=lined["w"],
+    )
+    printing = printed(browser, server, sheet(client, [lined])["id"])
+    written = printing.locator(".written")
+    assert written.evaluate("p => p.scrollHeight <= p.clientHeight + 1")
+    assert printing.locator("svg.ruling line").count() >= 3 * 4
+
+
 def test_i2_a_kind_change_to_a_finer_karo_keeps_rows_when_the_text_fits(editor):
     """I2: k7 to k5 with a short text that fits keeps its rows."""
     page = editor(box("l", "ruling", {**RULING, "kind": "k7", "text": "Hallo"}, h=35))
@@ -89,13 +108,15 @@ def test_a9_a_kind_change_grows_the_rows_a_long_text_needs(editor, start, end, h
     assert stored["h"] / row[end] > h / row[start], stored
 
 
-@pytest.mark.parametrize("h, short", [(20, True), (60, False)])
-def test_a9_a_lined_text_counts_its_line_breaks(editor, h, short):
-    """A9: three lines on Lineatur 1 need three rows: one row warns, three do not."""
-    page = editor(box("l", "ruling", {**RULING, "kind": "l1", "text": "Mama\nPapa\nOma"}, h=h))
+def test_a9_a_lined_text_counts_its_line_breaks(editor):
+    """A9: three lines on Lineatur 1 need three rows: three do not warn, two do."""
+    page = editor(box("l", "ruling", {**RULING, "kind": "l1", "text": "Mama\nPapa\nOma"}, h=60))
     pick(page, "l")
-    expect(page.get_by_label("Art der Lineatur")).to_have_value("l1")
-    expect(page.locator('[data-rows="short"]')).to_have_count(1 if short else 0)
+    expect(page.get_by_text("3 Zeilen")).to_be_visible()
+    expect(page.locator('[data-rows="short"]')).to_have_count(0)
+    page.get_by_label("Eine Zeile weniger").click()
+    expect(page.get_by_text("2 Zeilen")).to_be_visible()
+    expect(page.locator('[data-rows="short"]')).to_be_visible()
 
 
 def test_i1_each_karo_gets_its_own_rows_and_one_undo_takes_both_back(editor):

@@ -104,7 +104,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -350,6 +350,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
+  // A Lineatur on lines stored too short for its text grows to its rows once the fonts are in, as a Karo does on
+  // load. No step to undo: the sheet opens so.
+  useEffect(() => {
+    document.fonts.ready.then(() =>
+      setHist((h) => {
+        const doc = lengthened(h.doc);
+        return doc === h.doc ? h : { ...h, doc };
+      }),
+    );
+  }, []);
   const [title, setTitle] = useState(file.title);
   // The sheet's saver: what the server holds, whether a save failed, and whether the server holds a newer document
   // than the one this editor is based on.
