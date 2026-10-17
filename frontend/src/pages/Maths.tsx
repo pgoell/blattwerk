@@ -175,9 +175,13 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
             setTyped(e.target.value);
             if (e.target.validity.valid && e.target.value) room(Math.floor(+e.target.value));
           }}
+          // Enter and leaving the field show the number the exercises use again.
+          onKeyDown={(e) => e.key === "Enter" && setTyped(undefined)}
           onBlur={() => setTyped(undefined)}
         />
       )}
+      {own && typed && +typed > 1000000 && <p className="hint" role="status">Höchstens 1.000.000. Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
+      {own && typed && +typed < 1 && <p className="hint" role="status">Mindestens 1. Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
       <h2>Nachkommastellen</h2>
       <div className="seg">
         {([0, 1, 2] as const).map((n) => (
