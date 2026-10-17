@@ -66,22 +66,54 @@ import { rng } from "./zahlenmauer";
 
 export type Tint = 1 | 2;
 export type HunderterfeldProps = {
+  /** What is drawn: "tafel" the Hundertertafel with its numbers in a 10 by 10 grid, "punkte" a field of 10 by 10 dots. Default "tafel". */
   look: "tafel" | "punkte";
+  /** The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1. */
   from: 0 | 1;
+  /** Which numbers of the Tafel show. "all": every number. "none": no number. "random": all but `hide` cells, picked from the seed, are hidden. "free": all but the cells in `hidden` show. Default "all". */
   show: "all" | "none" | "random" | "free";
+  /** Number of cells hidden with `show` "random". Default 20.
+   * @minimum 0
+   * @maximum 100
+   */
   hide: number;
+  /** Cell indices (0 to 99, row by row from the top left) whose number is hidden with `show` "free". */
   hidden?: number[];
+  /** Which cells of the Tafel are tinted. "none": no cell. "even": the even numbers. "times": the multiples of `times` up to 10 times `times`. "row": the row `line`. "column": the column `line`. "free": the cells in `tints`. Default "none". */
   tint: "none" | "even" | "times" | "row" | "column" | "free";
+  /** The row of the Einmaleins that "times" tints, 1 to 10. Default 2.
+   * @minimum 1
+   * @maximum 10
+   */
   times: number;
+  /** The row or column tinted with "row" or "column", counted from the top or the left, 1 to 10. Default 1.
+   * @minimum 1
+   * @maximum 10
+   */
   line: number;
+  /** The colour of a tint from "even", "times", "row" or "column": 1 yellow, 2 blue. Default 1. */
   color: Tint;
+  /** Each tinted cell with its colour, for tint "free": [cell index 0 to 99, colour 1 yellow or 2 blue]. */
   tints?: [number, Tint][];
+  /** Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false. */
   cut: boolean;
+  /** Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing. */
   shape?: number[];
+  /** The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.
+   * @minimum 0
+   * @maximum 99
+   */
   given?: number;
+  /** With "count", the first `dots` dots are filled, row by row. With "free", the dots in `filled` are. Default "count". */
   fill: "count" | "free";
+  /** Number of filled dots with `fill` "count", counted row by row from the top left. Default 0.
+   * @minimum 0
+   * @maximum 100
+   */
   dots: number;
+  /** Cell indices (0 to 99) of the filled dots with `fill` "free". */
   filled?: number[];
+  /** Seed for the random hidden cells with `show` "random". The same seed always hides the same cells. */
   seed: number;
 };
 

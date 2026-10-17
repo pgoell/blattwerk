@@ -25,7 +25,9 @@ mise run test:native    # tests/test_native.py in a real window under xvfb; need
 mise run test:native -- tests/test_native.py::test_name  # one of them; test:one and test:flaky deselect a native test
 mise run test:model     # vitest and fast-check on the sheet model (frontend/src/*.test.ts), no browser; `mise run test` runs it too
 mise run shot -- sheet.json out/                       # the editor and the PDF as PNG
-mise run lint           # ruff check, ruff format --check, ty check, tsc
+mise run lint           # ruff check, ruff format --check, ty check, tsc, the schema's and the block pages' drift and descriptions
+mise run eval           # tests/evals/ against claude -p through the MCP on a local server; on the subscription, not in CI
+mise run eval -- uhr_lesen  # one task
 mise run dev:api        # backend on :8000
 mise run dev:web        # frontend dev server, proxies /api
 mise run stage:up       # the live image on a copy of the live data, on 127.0.0.1:8220; prints a test teacher's login
@@ -45,6 +47,7 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 ## Conventions
 
 - Conventional Commits (`feat:`, `fix:`, `chore:` ...). The `commit-msg` hook rejects anything else.
+- A new block type or prop needs a TSDoc description on each field, then `mise run schema`; a new kind of task also needs a recipe in `docs/okf/recipes/` (or the type on `no-recipe-yet.txt` there, on purpose). A hand-written page in `docs/okf/` whose `covers` names a changed type fails until you read it and bump its `generated.at`. A change to the MCP tools or to `frontend/src/sheet.tsx`: run `mise run eval` and put the score before and after in the PR.
 - The `pre-push` hook runs lint and the commit check only. It does not run the suite: run `mise run test` before a push.
 - Default branch is `master`. With branch protection applied (`mise run repo:apply-settings`), changes land through PRs that pass Lint, Test and Commits.
 - A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start, stop or remove docker containers and images, or write under `~/.local/share/blattwerk/` or the deploy's copy `~/.local/share/blattwerk-canary/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.

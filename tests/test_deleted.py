@@ -38,7 +38,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import login
 from test_stale import STATUS, TURNS
-from ui import at, unpick, user
+from ui import at, reload, unpick, user
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da."
@@ -328,6 +328,64 @@ def test_a_change_made_while_the_new_sheet_is_made_goes_into_it(run):
     assert len(run.client.get("/api/sheets").json()) == 3
 
 
+def test_a_keep_whose_answer_never_came_makes_no_second_sheet_on_the_next_press(run):
+    """4: the new sheet was made and its answer never came. The next press finds that sheet and
+    makes no second one."""
+    page, _, _ = deleted(run)
+    page.route(
+        f"{run.server}/api/sheets",
+        lambda route: route.fetch() if route.request.method == "POST" else route.continue_(),
+    )
+    banner = page.locator(".clash")
+    with page.expect_request(makes):
+        banner.get_by_role("button", name=KEEP).click()
+    page.clock.run_for(20000)
+    expect(banner).to_contain_text(WORD)
+    banner.get_by_role("button", name=KEEP).click()
+    expect_new(run, page)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
+def test_a_second_press_finds_the_sheet_made_and_takes_the_newer_change(run):
+    """4, follow-up A: the first press's sheet is found, not made again, and it takes the change
+    made since the first press."""
+    page, _, _ = deleted(run)
+    page.route(
+        f"{run.server}/api/sheets",
+        lambda route: route.fetch() if route.request.method == "POST" else route.continue_(),
+    )
+    banner = page.locator(".clash")
+    with page.expect_request(makes):
+        banner.get_by_role("button", name=KEEP).click()
+    page.clock.run_for(20000)
+    expect(banner).to_contain_text(WORD)
+    unpick(page)
+    nudge(run)
+    banner.get_by_role("button", name=KEEP).click()
+    expect_new(run, page, x=17)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
+def test_a_keep_asked_before_a_reload_finds_the_sheet_made_and_makes_no_second(run):
+    """4, follow-up B: the press's answer never came and the page reloaded. The next press, on the
+    reloaded page, finds the sheet made and makes no second one."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    page.route(
+        f"{run.server}/api/sheets",
+        lambda route: route.fetch() if route.request.method == "POST" else route.continue_(),
+    )
+    with page.expect_request(makes):
+        page.locator(".clash").get_by_role("button", name=KEEP).click()
+    page.clock.resume()
+    reload(page, f"{run.server}/blatt/{a}")
+    line = page.locator(NOTICE)
+    expect_choice(line, LINE)
+    press(line, KEEP)
+    expect_new(run, page)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
 def tab_to(page, press):
     for _ in range(40):
         page.keyboard.press("Tab")
@@ -497,3 +555,67 @@ def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run, butto
     expect(line).to_contain_text(PDF_GONE)
     expect(line.get_by_role("button", name="Erneut versuchen")).to_have_count(0)
     expect_choice(page.locator(".clash"), SAYS)
+
+
+def test_a_keep_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
+    """1: tab 2 holds what tab 1 kept, so its choice ends, and it opens the new sheet. One sheet
+    is made."""
+    page, _, _ = deleted(run)
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{run.ids['a']}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), KEEP)
+    expect_new(run, page)
+    new = page.url.rsplit("/", 1)[1]
+    expect(other).to_have_url(f"{run.server}/blatt/{new}")
+    expect(other.locator(NOTICE)).to_have_count(0)
+    assert len(run.client.get("/api/sheets").json()) == 3
+
+
+def test_another_tab_with_other_work_keeps_its_choice_and_its_record(run):
+    """3: tab 2 holds a change other than the one tab 1 kept, so its choice stands and its record
+    is written back."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    other = page.context.new_page()
+    other.add_init_script(
+        f"const k = JSON.parse(localStorage.getItem('unsaved:{a}') ?? 'null');"
+        f"if (k) {{"
+        f" k.doc.pages[0].blocks[0].x = 17;"
+        f" localStorage.setItem('unsaved:{a}', JSON.stringify(k));"
+        f" }}"
+    )
+    other.goto(f"{run.server}/blatt/{a}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), KEEP)
+    expect(page).not_to_have_url(re.compile(rf"/blatt/{a}$"))
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    assert len(run.client.get("/api/sheets").json()) == 3
+    other.wait_for_function(f"(localStorage.getItem('unsaved:{a}') ?? '').includes('\"x\":17')")
+    expect_choice(other.locator(NOTICE), LINE)
+    assert kept_x(other, run) == 17
+
+
+def test_a_tab_writes_its_record_back_when_another_tab_takes_it_out(run):
+    """CI: the other tab's removal of the record may reach the store after this tab wrote it back.
+    A tab with unsaved work writes its record again whenever another tab takes it out."""
+    page, _, _ = deleted(run)
+    a = run.ids["a"]
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{a}")
+    expect_choice(other.locator(NOTICE), LINE)
+    page.evaluate(f"() => localStorage.removeItem('unsaved:{a}')")
+    other.wait_for_function(f"localStorage.getItem('unsaved:{a}') !== null")
+    expect_choice(other.locator(NOTICE), LINE)
+
+
+def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
+    """2: tab 2 holds what tab 1 dropped, so its choice ends, and it goes to the list."""
+    page, _, _ = deleted(run)
+    other = page.context.new_page()
+    other.goto(f"{run.server}/blatt/{run.ids['a']}")
+    expect_choice(other.locator(NOTICE), LINE)
+    press(page.locator(".clash"), DROP)
+    expect_list(page)
+    expect_list(other)
+    expect(other).not_to_have_url(re.compile(rf"/blatt/{run.ids['a']}$"))

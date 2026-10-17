@@ -1,0 +1,3753 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Doc",
+  "definitions": {
+    "Doc": {
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Page"
+          },
+          "description": "The pages of the sheet, in print order."
+        },
+        "guides": {
+          "$ref": "#/definitions/Guides",
+          "description": "The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge."
+        },
+        "grid": {
+          "type": "number",
+          "description": "The grid's cell on every page in mm. 0 for no grid."
+        },
+        "landscape": {
+          "type": "boolean",
+          "description": "Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright."
+        },
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The sheet's Lernwörter (words to learn), one to a line as typed. Left out, the sheet has none."
+        },
+        "breaks": {
+          "$ref": "#/definitions/Breaks",
+          "description": "The word breaks set by hand for the whole sheet: each word in lower case, with the places it breaks at, as counts of characters. Left out, the module's own breaks apply."
+        },
+        "pageNumbers": {
+          "type": "object",
+          "properties": {
+            "on": {
+              "type": "boolean",
+              "description": "Whether page numbers print at all. Left out, they do not."
+            },
+            "at": {
+              "type": "string",
+              "enum": [
+                "bottom",
+                "right",
+                "outer",
+                "top"
+              ],
+              "description": "Where the number prints: \"bottom\" centred at the foot, \"right\" at the foot's right, \"outer\" at the outer foot corner (left on even pages, right on odd), \"top\" at the top right. Left out, \"bottom\"."
+            },
+            "form": {
+              "type": "string",
+              "enum": [
+                "n",
+                "seite",
+                "of",
+                "seiteVon"
+              ],
+              "description": "How the number reads: \"n\" for 2, \"seite\" for Seite 2, \"of\" for 2 / 5, \"seiteVon\" for Seite 2 von 5. Left out, \"n\"."
+            },
+            "notFirst": {
+              "type": "boolean",
+              "description": "Leaves the number off the first page. Left out, the first page is numbered."
+            },
+            "black": {
+              "type": "boolean",
+              "description": "Prints the number in black. Left out, it is grey."
+            }
+          },
+          "description": "The page numbers printed on each page. Left out, none are printed."
+        }
+      },
+      "required": [
+        "pages",
+        "guides",
+        "grid"
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Block"
+          },
+          "description": "The blocks printed on this page, drawn in order."
+        },
+        "guides": {
+          "$ref": "#/definitions/Guides",
+          "description": "The page's own guide lines in mm, beside the sheet's. Left out, the page has none of its own."
+        },
+        "grid": {
+          "type": "number",
+          "description": "The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies."
+        },
+        "landscape": {
+          "type": "boolean",
+          "description": "Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies."
+        }
+      },
+      "required": [
+        "blocks"
+      ]
+    },
+    "Block": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "x",
+        "y",
+        "w",
+        "h",
+        "props"
+      ],
+      "properties": {
+        "type": {
+          "description": "What the block is; the other fields depend on it.",
+          "type": "string",
+          "enum": [
+            "text",
+            "shape",
+            "ruling",
+            "name",
+            "points",
+            "symbol",
+            "image",
+            "maths",
+            "table",
+            "suchsel",
+            "zahlenmauer",
+            "rechendreieck",
+            "zahlenstrahl",
+            "hunderterfeld",
+            "uhr",
+            "selbstkontrolle"
+          ]
+        },
+        "id": {
+          "description": "Unique id of the block on its sheet.",
+          "type": "string"
+        },
+        "x": {
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+          "type": "number"
+        },
+        "w": {
+          "description": "Width of the block in mm, before any turn.",
+          "type": "number"
+        },
+        "h": {
+          "description": "Height of the block in mm, before any turn.",
+          "type": "number"
+        },
+        "props": {
+          "description": "The block's own settings; which fields it holds depends on `type`.",
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/TextBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "shape"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ShapeBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ruling"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/RulingBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "name"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/NameBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "points"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/PointsBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "symbol"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SymbolBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ImageBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "maths"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/MathsBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/TableBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "suchsel"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SuchselBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenmauer"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenmauerBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "rechendreieck"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/RechendreieckBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenstrahl"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenstrahlBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "hunderterfeld"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/HunderterfeldBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "uhr"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/UhrBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "selbstkontrolle"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/SelbstkontrolleBlock"
+          }
+        }
+      ]
+    },
+    "TextBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "text"
+        },
+        "props": {
+          "$ref": "#/definitions/TextProps",
+          "description": "The text box's words and look."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "TextProps": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`."
+        },
+        "rich": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Para"
+          },
+          "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it."
+        },
+        "syllables": {
+          "type": "boolean",
+          "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off."
+        },
+        "breaks": {
+          "$ref": "#/definitions/Breaks",
+          "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
+        },
+        "tints": {
+          "$ref": "#/definitions/Tints",
+          "description": "The two colours the syllables take in turn, the first and then the second, such as blue and red. Absent means the syllables are not coloured in turn."
+        },
+        "tintsAcross": {
+          "type": "boolean",
+          "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour."
+        },
+        "gapWidth": {
+          "type": "number",
+          "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
+          "maximum": 200
+        },
+        "bank": {
+          "type": "number",
+          "description": "Seed for the box of hidden words set under the text (Lösungswörter). The box shows the words shuffled in an order this seed sets. Absent means no box."
+        },
+        "lines": {
+          "type": "number",
+          "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers."
+        },
+        "linesFrom": {
+          "type": "number",
+          "description": "The number of the first line, for the numbering in `lines`. Absent means 1.",
+          "minimum": 1,
+          "maximum": 9999
+        },
+        "mix": {
+          "type": "number",
+          "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling."
+        },
+        "mixFirst": {
+          "type": "boolean",
+          "description": "True keeps the first letter of each scrambled word in place. Absent means the first letter is scrambled too."
+        },
+        "mixCaps": {
+          "type": "boolean",
+          "description": "True sets the letters of the scrambled words in capitals."
+        },
+        "mixLine": {
+          "type": "string",
+          "enum": [
+            "after",
+            "under"
+          ],
+          "description": "Where the pupil writes each scrambled word: \"after\" puts a line after it, \"under\" a line under it. Absent means no line, except that a list draws it after each word."
+        },
+        "list": {
+          "type": "boolean",
+          "description": "True makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern). Its own text stays as it is and is not shown."
+        },
+        "listCols": {
+          "type": "number",
+          "description": "The number of columns the list words fill, column by column. Absent means 1.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "holes": {
+          "type": "string",
+          "enum": [
+            "one",
+            "second",
+            "vowels"
+          ],
+          "description": "Lückenwörter for a linked text: \"one\" gives one letter of each word as a gap, \"second\" every second letter, \"vowels\" the vowels. Absent means no gaps."
+        },
+        "holeSeed": {
+          "type": "number",
+          "description": "Seed that picks which letters become gaps under `holes`. The same seed gives the same gaps on every draw. Absent means 0."
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of the text in pt (points)."
+        },
+        "align": {
+          "$ref": "#/definitions/Align",
+          "description": "Horizontal alignment of the lines in the box: \"left\", \"center\" or \"right\"."
+        },
+        "font": {
+          "$ref": "#/definitions/Font",
+          "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "True sets the whole text in bold. Absent means off."
+        },
+        "italic": {
+          "type": "boolean",
+          "description": "True sets the whole text in italic. Absent means off."
+        },
+        "underline": {
+          "type": "boolean",
+          "description": "True underlines the whole text. Absent means off."
+        },
+        "color": {
+          "type": "string",
+          "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222."
+        },
+        "spacing": {
+          "type": "number",
+          "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "valign": {
+          "$ref": "#/definitions/Valign",
+          "description": "Vertical place of the text in its box: \"top\", \"middle\" or \"bottom\". Absent means top."
+        },
+        "kind": {
+          "$ref": "#/definitions/Kind",
+          "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+        },
+        "fill": {
+          "type": "string",
+          "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill."
+        },
+        "opacity": {
+          "type": "number",
+          "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "stroke": {
+          "type": "string",
+          "description": "Colour of the border as a hex colour. \"none\" or absent means no border."
+        },
+        "strokeOpacity": {
+          "type": "number",
+          "description": "How solid the border is: 0 is invisible, 1 is solid. Absent means 1.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "inside": {
+          "type": "boolean",
+          "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off."
+        },
+        "floor": {
+          "type": "boolean",
+          "description": "Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off."
+        },
+        "strokeWidth": {
+          "type": "number",
+          "description": "Width of the border in mm. Absent means 0.5.",
+          "maximum": 3
+        },
+        "dash": {
+          "type": "string",
+          "enum": [
+            "dashed",
+            "dotted"
+          ],
+          "description": "Style of the border: \"dashed\" for dashes, \"dotted\" for dots. Absent means a solid border."
+        },
+        "trace": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "const": "outline"
+            },
+            {
+              "type": "string",
+              "const": "dotted"
+            }
+          ],
+          "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+        },
+        "fade": {
+          "$ref": "#/definitions/Fade",
+          "description": "How the grey of a trace text fades: \"row\" fades each row from left to right, \"rows\" fades the rows step by step down the block. Absent means no fade. Needs `trace`."
+        }
+      },
+      "required": [
+        "text",
+        "size",
+        "align"
+      ]
+    },
+    "Para": {
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Run"
+          },
+          "description": "The stretches of the paragraph in reading order, each with its own look."
+        },
+        "list": {
+          "$ref": "#/definitions/List",
+          "description": "Makes the paragraph an item of a list: \"bullet\" for a dot, \"number\" for a count. Absent means no list."
+        },
+        "level": {
+          "type": "number",
+          "description": "How far the paragraph is moved in, in steps, from 0 (flush left) to 2. Absent means 0.",
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      "required": [
+        "runs"
+      ]
+    },
+    "Run": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The words of this stretch. In a gap, the answer: the pupil's sheet shows a line in its place."
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "True makes the stretch bold, false makes it plain. Absent takes the block's setting."
+        },
+        "italic": {
+          "type": "boolean",
+          "description": "True makes the stretch italic, false makes it upright. Absent takes the block's setting."
+        },
+        "underline": {
+          "type": "boolean",
+          "description": "True underlines the stretch, on top of the block's own underline. Absent means no extra underline."
+        },
+        "color": {
+          "type": "string",
+          "description": "Colour of the stretch as a hex colour, such as \"#e02424\", on top of the block's colour. Absent takes the block's colour."
+        },
+        "gap": {
+          "type": "boolean",
+          "description": "True makes the stretch a gap of a Lückentext. On the pupil's sheet it is a line to write on, as wide as its words. The editor shows the words in grey, the answer key in the gap's colour."
+        }
+      },
+      "required": [
+        "text"
+      ]
+    },
+    "List": {
+      "type": "string",
+      "enum": [
+        "bullet",
+        "number"
+      ]
+    },
+    "Breaks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      }
+    },
+    "Tints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "Align": {
+      "type": "string",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "Font": {
+      "type": "string",
+      "enum": [
+        "andika",
+        "nord",
+        "sued",
+        "grund",
+        "urff",
+        "va",
+        "sas",
+        "la"
+      ]
+    },
+    "Valign": {
+      "type": "string",
+      "enum": [
+        "top",
+        "middle",
+        "bottom"
+      ]
+    },
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "rect",
+        "rounded",
+        "circle",
+        "triangle",
+        "star",
+        "bubble",
+        "line",
+        "arrow",
+        "double"
+      ]
+    },
+    "Fade": {
+      "type": "string",
+      "enum": [
+        "row",
+        "rows"
+      ]
+    },
+    "ShapeBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "shape"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "$ref": "#/definitions/Kind",
+              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+            },
+            "fill": {
+              "type": "string",
+              "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill."
+            },
+            "stroke": {
+              "type": "string",
+              "description": "Colour of the border as a hex colour. \"none\" or absent means no border."
+            },
+            "strokeWidth": {
+              "type": "number",
+              "description": "Width of the border in mm. Absent means 0.5.",
+              "maximum": 3
+            },
+            "from": {
+              "$ref": "#/definitions/Corner",
+              "description": "For a line or an arrow: the corner of the box where it starts, \"nw\" top left, \"ne\" top right, \"sw\" bottom left, \"se\" bottom right. The line runs to the opposite corner. Absent means \"nw\"."
+            },
+            "ticks": {
+              "type": "boolean",
+              "description": "True puts a short cross stroke at each end of a line. Absent means no ticks."
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "show",
+                "key"
+              ],
+              "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length."
+            },
+            "text": {
+              "type": "string",
+              "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`."
+            },
+            "rich": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Para"
+              },
+              "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it."
+            },
+            "syllables": {
+              "type": "boolean",
+              "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off."
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks",
+              "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints",
+              "description": "The two colours the syllables take in turn, the first and then the second, such as blue and red. Absent means the syllables are not coloured in turn."
+            },
+            "tintsAcross": {
+              "type": "boolean",
+              "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour."
+            },
+            "gapWidth": {
+              "type": "number",
+              "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
+              "maximum": 200
+            },
+            "bank": {
+              "type": "number",
+              "description": "Seed for the box of hidden words set under the text (Lösungswörter). The box shows the words shuffled in an order this seed sets. Absent means no box."
+            },
+            "lines": {
+              "type": "number",
+              "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers."
+            },
+            "linesFrom": {
+              "type": "number",
+              "description": "The number of the first line, for the numbering in `lines`. Absent means 1.",
+              "minimum": 1,
+              "maximum": 9999
+            },
+            "mix": {
+              "type": "number",
+              "description": "Seed for the scrambled words (Schüttelwörter). Each word shows its letters in another order, the same on every draw. Absent means no scrambling."
+            },
+            "mixFirst": {
+              "type": "boolean",
+              "description": "True keeps the first letter of each scrambled word in place. Absent means the first letter is scrambled too."
+            },
+            "mixCaps": {
+              "type": "boolean",
+              "description": "True sets the letters of the scrambled words in capitals."
+            },
+            "mixLine": {
+              "type": "string",
+              "enum": [
+                "after",
+                "under"
+              ],
+              "description": "Where the pupil writes each scrambled word: \"after\" puts a line after it, \"under\" a line under it. Absent means no line, except that a list draws it after each word."
+            },
+            "list": {
+              "type": "boolean",
+              "description": "True makes the text draw the sheet's Lernwörter, one word to a paragraph (Text aus Lernwörtern). Its own text stays as it is and is not shown."
+            },
+            "listCols": {
+              "type": "number",
+              "description": "The number of columns the list words fill, column by column. Absent means 1.",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "holes": {
+              "type": "string",
+              "enum": [
+                "one",
+                "second",
+                "vowels"
+              ],
+              "description": "Lückenwörter for a linked text: \"one\" gives one letter of each word as a gap, \"second\" every second letter, \"vowels\" the vowels. Absent means no gaps."
+            },
+            "holeSeed": {
+              "type": "number",
+              "description": "Seed that picks which letters become gaps under `holes`. The same seed gives the same gaps on every draw. Absent means 0."
+            },
+            "size": {
+              "type": "number",
+              "description": "Font size of the text in pt (points)."
+            },
+            "align": {
+              "$ref": "#/definitions/Align",
+              "description": "Horizontal alignment of the lines in the box: \"left\", \"center\" or \"right\"."
+            },
+            "font": {
+              "$ref": "#/definitions/Font",
+              "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "bold": {
+              "type": "boolean",
+              "description": "True sets the whole text in bold. Absent means off."
+            },
+            "italic": {
+              "type": "boolean",
+              "description": "True sets the whole text in italic. Absent means off."
+            },
+            "underline": {
+              "type": "boolean",
+              "description": "True underlines the whole text. Absent means off."
+            },
+            "color": {
+              "type": "string",
+              "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222."
+            },
+            "spacing": {
+              "type": "number",
+              "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "valign": {
+              "$ref": "#/definitions/Valign",
+              "description": "Vertical place of the text in its box: \"top\", \"middle\" or \"bottom\". Absent means top."
+            },
+            "opacity": {
+              "type": "number",
+              "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "strokeOpacity": {
+              "type": "number",
+              "description": "How solid the border is: 0 is invisible, 1 is solid. Absent means 1.",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "inside": {
+              "type": "boolean",
+              "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off."
+            },
+            "floor": {
+              "type": "boolean",
+              "description": "Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off."
+            },
+            "dash": {
+              "type": "string",
+              "enum": [
+                "dashed",
+                "dotted"
+              ],
+              "description": "Style of the border: \"dashed\" for dashes, \"dotted\" for dots. Absent means a solid border."
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ],
+              "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade",
+              "description": "How the grey of a trace text fades: \"row\" fades each row from left to right, \"rows\" fades the rows step by step down the block. Absent means no fade. Needs `trace`."
+            }
+          },
+          "required": [
+            "fill",
+            "kind",
+            "stroke",
+            "strokeWidth"
+          ],
+          "description": "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "Corner": {
+      "type": "string",
+      "enum": [
+        "nw",
+        "ne",
+        "sw",
+        "se"
+      ]
+    },
+    "RulingBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "ruling"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "$ref": "#/definitions/Ruling",
+              "description": "The ruled pattern (Lineatur) kind: its line pattern and school level, one of the RULINGS keys, such as \"l1\" for Lineatur 1 (Klasse 1). Required."
+            },
+            "color": {
+              "type": "string",
+              "description": "The colour of the lines, as a six digit hex colour such as #1a56db."
+            },
+            "text": {
+              "type": "string",
+              "description": "Text printed on the lines, in the block's font. Left out, the lines stand alone."
+            },
+            "font": {
+              "$ref": "#/definitions/Font",
+              "description": "The font of the text printed on the lines. Left out, the default font is used."
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ],
+              "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade",
+              "description": "How the trace fades as the pupil writes on: \"row\" along each row, \"rows\" from row to row. Left out, it does not fade."
+            },
+            "list": {
+              "$ref": "#/definitions/ListMode",
+              "description": "Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list."
+            },
+            "from": {
+              "type": "number",
+              "description": "Index of the first word to learn the block shows, counted from 0, so a ruled pattern run on over several pages picks up where the last one stopped. Left out, 0.",
+              "minimum": 0
+            },
+            "folds": {
+              "type": "number",
+              "description": "Number of empty columns to write in on a fold sheet (Knickblatt), after the words. 2 or 3. Any other value gives 2.",
+              "minimum": 2,
+              "maximum": 3
+            },
+            "house": {
+              "type": "boolean",
+              "description": "Draws a house on the lines of a kind with zones, marking its room, roof and cellar. Left out, no house."
+            },
+            "houseTint": {
+              "type": "string",
+              "enum": [
+                "room",
+                "all"
+              ],
+              "description": "Tints the house: \"room\" for the room alone, \"all\" for roof, room and cellar. Left out, the house is not tinted."
+            },
+            "band": {
+              "type": "boolean",
+              "description": "Whether the middle band between the lines is tinted. Left out, the kind's own default applies."
+            },
+            "bandColor": {
+              "type": "string",
+              "description": "The band's colour, as a six digit hex colour such as #ffe066. Left out, the line colour, paler, is used."
+            },
+            "syllables": {
+              "type": "boolean",
+              "description": "Draws an arc under each syllable of the text on the lines. Left out, no arcs."
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks",
+              "description": "The word breaks set by hand for the text on the lines. They win over the sheet's breaks. Left out, the sheet's apply."
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints",
+              "description": "Two colours, such as #1a56db and #e02424, that colour the syllables in turn. Left out, no colour."
+            },
+            "tintsAcross": {
+              "type": "boolean",
+              "description": "Carries the colour turn on from word to word, instead of starting again with each word. Left out, it starts again."
+            }
+          },
+          "required": [
+            "kind",
+            "color"
+          ],
+          "description": "The Lineatur's kind and colour, and the words it may show on its rows."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "Ruling": {
+      "type": "string",
+      "enum": [
+        "l1",
+        "l2",
+        "l3",
+        "l4",
+        "lines",
+        "k5",
+        "k7"
+      ]
+    },
+    "ListMode": {
+      "type": "string",
+      "enum": [
+        "copy",
+        "trace",
+        "row",
+        "fold"
+      ]
+    },
+    "NameBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "name"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The words of the name line in order, such as \"Name\", \"Datum\" and \"Klasse\". Left out, the line uses FIELDS."
+            }
+          },
+          "description": "The line the pupil writes their name (and date, class) on."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "PointsBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "points"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "max": {
+              "type": "number",
+              "description": "The most points the task gives, printed in the box."
+            },
+            "total": {
+              "type": "boolean",
+              "description": "Marks the box as the sheet's total: it shows the sum of all the task boxes. Left out, it is a task box."
+            }
+          },
+          "required": [
+            "max"
+          ],
+          "description": "A box the teacher writes the points scored in, beside the most there are."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SymbolBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "symbol"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "The OpenMoji code of the symbol, its file name in the symbol set, such as \"270F\" for a pencil. See SYMBOLS for all of them."
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "description": "Which symbol (a pictogram such as a pencil or scissors) the block shows, scaled to the box."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ImageBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "image"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "upload": {
+              "type": "number",
+              "description": "The id of the uploaded picture file, as the server stores it."
+            },
+            "ratio": {
+              "type": "number",
+              "description": "The picture's width over its height, from the picture as uploaded. 1 for a square."
+            },
+            "cut": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none."
+            },
+            "opacity": {
+              "type": "number",
+              "description": "How solid the picture prints: 1 for full strength, 0 for see-through. Left out, 1.",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "upload",
+            "ratio",
+            "cut"
+          ],
+          "description": "Which uploaded picture the block shows, and how it is cropped."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "MathsBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "maths"
+        },
+        "props": {
+          "$ref": "#/definitions/MathsProps",
+          "description": "The maths block's limits, layout and exercises."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "MathsProps": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "number",
+          "description": "Number of columns the exercises stand in side by side across the block.",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of a row or a gap, in pt. The editor steps it by 2 pt and never goes below 8.",
+          "minimum": 8
+        },
+        "numbering": {
+          "type": "string",
+          "description": "How the exercises are numbered on the sheet, as the editor's numbering control sets it."
+        },
+        "exercises": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Exercise"
+          },
+          "description": "The exercises the server made for the limits, in the order they stand on the sheet."
+        },
+        "loosen": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The limits in the way when fewer exercises came than asked for, by name, such as \"max\" or \"carry\". null when the count is met."
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Op"
+          },
+          "description": "The operations the tasks may use: \"+\" plus, \"-\" minus, \"*\" times and \"/\" divided by. At least one."
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: no number or result lies above it. The editor offers 10, 20, 100, 1000 and 1000000.",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "a": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits the first number may have, one range of 0 to 9 per place, units first. A place left out takes any digit."
+        },
+        "b": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits the second number may have, one range of 0 to 9 per place, units first. A place left out takes any digit."
+        },
+        "c": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit."
+        },
+        "carry": {
+          "type": "string",
+          "enum": [
+            "none",
+            "required",
+            "either"
+          ],
+          "description": "Whether a plus or minus task must carry (Übertrag): \"none\" never, \"required\" always, \"either\" both kinds."
+        },
+        "rest": {
+          "type": "boolean",
+          "description": "Whether a division leaves a remainder. false, the default, gives even divisions only."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "row",
+            "gap",
+            "written",
+            "compare"
+          ],
+          "description": "How each task is written: \"row\" as a line of numbers, \"gap\" as a line with a gap to fill, \"written\" as a column calculation on squared paper, \"compare\" as comparisons with a ring to fill."
+        },
+        "count": {
+          "type": "number",
+          "description": "How many tasks the block makes.",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "seed": {
+          "type": "number",
+          "description": "The number the tasks are drawn from. The same seed and limits give the same tasks; a new seed draws new ones."
+        },
+        "sides": {
+          "type": "string",
+          "enum": [
+            "nn",
+            "tn",
+            "tt"
+          ],
+          "description": "What stands on each side of a comparison: \"nn\" number and number, \"tn\" term and number, \"tt\" term and term. Default \"tn\". Only comparisons use it."
+        },
+        "close": {
+          "type": "boolean",
+          "description": "Whether the sides of a comparison lie close together, 1 or 2 units or tens apart. Default false. Only comparisons use it."
+        },
+        "equal": {
+          "type": "string",
+          "enum": [
+            "none",
+            "some"
+          ],
+          "description": "Whether comparisons have equal sides: \"none\" never, \"some\" about one in five. Default \"some\". Only comparisons use it."
+        },
+        "numbers": {
+          "type": "number",
+          "enum": [
+            2,
+            3
+          ],
+          "description": "How many numbers a task has: 2 or 3. Default 2."
+        },
+        "pvs": {
+          "type": "boolean",
+          "description": "Whether times and divide tasks mix with plus and minus tasks, with the times or divide worked out first (Punkt vor Strich). Default false."
+        },
+        "brackets": {
+          "type": "boolean",
+          "description": "Whether about half of the tasks put brackets round the plus or minus part (Klammern). Default false."
+        },
+        "decimals": {
+          "type": "number",
+          "enum": [
+            0,
+            1,
+            2
+          ],
+          "description": "Places after the comma in plus and minus tasks: 0 for whole numbers, 1 for tenths or 2 for hundredths. Default 0."
+        },
+        "money": {
+          "type": "boolean",
+          "description": "Whether the numbers are money, always with two places after the comma. Default false."
+        },
+        "af": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits of the first number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
+        },
+        "bf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits of the second number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
+        },
+        "cf": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Range"
+          },
+          "description": "The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit."
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "none",
+            "swap",
+            "reverse",
+            "neighbour"
+          ],
+          "description": "Families of related tasks: \"none\" makes single tasks, \"swap\" a task with its swapped numbers, \"reverse\" with its opposite operation, \"neighbour\" with its neighbouring tasks. A family has two or three tasks. Default \"none\"."
+        },
+        "moves": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b"
+          ],
+          "description": "Which number a neighbouring task moves: \"a\" the first, the default, or \"b\" the second."
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "a",
+              "b",
+              "c",
+              "result"
+            ]
+          },
+          "description": "What a gap may hide: any of the numbers \"a\", \"b\" and \"c\", or the \"result\". Left out, a gap hides any number and never the result."
+        },
+        "zero": {
+          "type": "boolean",
+          "description": "Whether 0 may be a number and a result. Default true."
+        },
+        "one": {
+          "type": "boolean",
+          "description": "Whether 1 may be a factor or a divisor in times and divide tasks. Default true."
+        },
+        "distinct": {
+          "type": "boolean",
+          "description": "Whether tasks with equal numbers are left out. Default false."
+        },
+        "small": {
+          "type": "boolean",
+          "description": "Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false."
+        }
+      },
+      "required": [
+        "carry",
+        "columns",
+        "count",
+        "exercises",
+        "format",
+        "loosen",
+        "max",
+        "ops",
+        "rest",
+        "seed",
+        "size"
+      ]
+    },
+    "Exercise": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Calc"
+        },
+        {
+          "$ref": "#/definitions/Compare"
+        }
+      ]
+    },
+    "Calc": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "$ref": "#/definitions/Op",
+          "description": "The operation between a and b: \"+\" plus, \"-\" minus, \"*\" times or \"/\" divided by."
+        },
+        "a": {
+          "type": "number",
+          "description": "The first number of the task."
+        },
+        "b": {
+          "type": "number",
+          "description": "The second number of the task."
+        },
+        "result": {
+          "type": "number",
+          "description": "The result of a op b, the number a gap hides when no other is named in hide."
+        },
+        "rest": {
+          "type": "number",
+          "description": "What a division leaves over, 0 when it divides evenly."
+        },
+        "hide": {
+          "type": "string",
+          "enum": [
+            "a",
+            "b",
+            "c"
+          ],
+          "description": "The number a gap stands for: \"a\", \"b\" or \"c\". Left out, the gap hides the result."
+        },
+        "grid": {
+          "$ref": "#/definitions/Grid",
+          "description": "The working on squared paper for this task. Left out, the task has none."
+        },
+        "op2": {
+          "$ref": "#/definitions/Op",
+          "description": "The second operation of a task of three numbers, between b and c. Left out for a task of two numbers."
+        },
+        "c": {
+          "type": "number",
+          "description": "The third number of a task of three numbers. Left out for a task of two numbers."
+        },
+        "paren": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "description": "The brackets of a task of three numbers: \"left\" for (a op b) op2 c, \"right\" for a op (b op2 c)."
+        },
+        "family": {
+          "type": "number",
+          "description": "Which family of tasks this task belongs to, counted from 0. Left out, the task stands on its own."
+        }
+      },
+      "required": [
+        "op",
+        "a",
+        "b",
+        "result",
+        "rest"
+      ]
+    },
+    "Op": {
+      "type": "string",
+      "enum": [
+        "+",
+        "-",
+        "*",
+        "/"
+      ]
+    },
+    "Grid": {
+      "type": "object",
+      "properties": {
+        "cols": {
+          "type": "number",
+          "description": "Width of the squared grid, in squares."
+        },
+        "rows": {
+          "type": "number",
+          "description": "Height of the squared grid, in squares."
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "items": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "maxItems": 4
+          },
+          "description": "The characters in the squares, each as [column, row, character, kind], counted from 0. Kind 0 prints on the sheet, 1 is the answer key's and 2 a small carry of the answer key's."
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "description": "The lines of the grid, each as [from column, to column, row it lies above, kind], counted from 0; kind as for cells."
+        }
+      },
+      "required": [
+        "cols",
+        "rows",
+        "cells",
+        "lines"
+      ]
+    },
+    "Compare": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "$ref": "#/definitions/Side",
+          "description": "The side left of the sign."
+        },
+        "right": {
+          "$ref": "#/definitions/Side",
+          "description": "The side right of the sign."
+        },
+        "sign": {
+          "type": "string",
+          "enum": [
+            "<",
+            ">",
+            "="
+          ],
+          "description": "The sign the pupil writes in the ring: \"<\" less than, \">\" more than or \"=\" equal."
+        }
+      },
+      "required": [
+        "left",
+        "right",
+        "sign"
+      ]
+    },
+    "Side": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "description": "The number on this side. With no op it is the whole side."
+        },
+        "op": {
+          "$ref": "#/definitions/Op",
+          "description": "The sign of the term on this side. Left out, the side is the plain number in value."
+        },
+        "a": {
+          "type": "number",
+          "description": "The first number of the term."
+        },
+        "b": {
+          "type": "number",
+          "description": "The second number of the term."
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "Range": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "TableBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "table"
+        },
+        "props": {
+          "type": "object",
+          "properties": {
+            "lineStyle": {
+              "$ref": "#/definitions/LineStyle",
+              "description": "The style of every line of the table: \"solid\", \"dashed\", \"dotted\" or \"none\". Left out, solid."
+            },
+            "lineWidth": {
+              "type": "number",
+              "description": "The width of every line of the table, in mm, from 0.25 to 3. Left out, 0.25.",
+              "minimum": 0.25,
+              "maximum": 3
+            },
+            "cut": {
+              "type": "boolean",
+              "description": "Whether scissors mark a cutting line (Schneidelinie) at the left end of the top line. Left out, no."
+            },
+            "edges": {
+              "$ref": "#/definitions/Edges",
+              "description": "The style and width of single lines, per edge of a cell. Left out, every line takes lineStyle and lineWidth."
+            },
+            "cells": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": "The text of each cell, as cells[row][column], counted from 0. A cell holds one plain text."
+            },
+            "cols": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "The width share of each column, as parts of the sum of all of them. Only the ratios between columns count."
+            },
+            "size": {
+              "type": "number",
+              "description": "Font size of the cell text, in pt."
+            },
+            "align": {
+              "$ref": "#/definitions/Align",
+              "description": "Horizontal alignment of the cell text: \"left\", \"center\" or \"right\"."
+            },
+            "font": {
+              "$ref": "#/definitions/Font",
+              "description": "Font of the cell text. Left out, the default font."
+            },
+            "color": {
+              "type": "string",
+              "description": "Colour of the cell text. Left out, the default colour."
+            },
+            "line": {
+              "type": "string",
+              "description": "Colour of the table's lines."
+            },
+            "head": {
+              "type": "boolean",
+              "description": "Whether the first row is printed in bold. Default false."
+            },
+            "syllables": {
+              "type": "boolean",
+              "description": "Whether the words in the cells are split into syllables, with hyphens at the breaks. Default false."
+            },
+            "breaks": {
+              "$ref": "#/definitions/Breaks",
+              "description": "The teacher's own syllable breaks: each word in lower case as the key, with the places it breaks at as the value."
+            },
+            "tints": {
+              "$ref": "#/definitions/Tints",
+              "description": "The two colours the syllables take in turn, first then second."
+            },
+            "tintsAcross": {
+              "type": "boolean",
+              "description": "Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour."
+            },
+            "gaps": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "boolean"
+                }
+              },
+              "description": "Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does."
+            },
+            "gapWidth": {
+              "type": "number",
+              "description": "Width of the gaps in mm, all the same. The editor takes 5 mm or more.",
+              "minimum": 5
+            },
+            "bank": {
+              "type": "number",
+              "description": "A word bank printed under the table for the gaps. Left out, there is none."
+            },
+            "trace": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "const": "outline"
+                },
+                {
+                  "type": "string",
+                  "const": "dotted"
+                }
+              ],
+              "description": "How the cell text shows as a trace to write over: true for grey, \"outline\" for letters with a line round them and no fill, \"dotted\" for dotted letters. Left out, no trace."
+            },
+            "fade": {
+              "$ref": "#/definitions/Fade",
+              "description": "Makes the trace fade step by step until it is gone: \"row\" along each row, \"rows\" from row to row. Left out, no fade."
+            },
+            "spans": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Span"
+              },
+              "description": "Merged cells, each as [row, column, rows, columns]: the cell where it starts and how many rows and columns it covers, counted from 0."
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "description": "The lowest height of each row, in mm. A row still grows when its text needs more."
+            }
+          },
+          "required": [
+            "align",
+            "cells",
+            "cols",
+            "size"
+          ],
+          "description": "The table's text, layout and lines."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "LineStyle": {
+      "type": "string",
+      "enum": [
+        "solid",
+        "dashed",
+        "dotted",
+        "none"
+      ]
+    },
+    "Edges": {
+      "type": "object",
+      "properties": {
+        "h": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Edge"
+            }
+          },
+          "description": "The lines across the table: h[row][column] is the line above that cell, and h[rows] the line under the last row. Null means the table's own line."
+        },
+        "v": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Edge"
+            }
+          },
+          "description": "The lines down the table: v[row][column] is the line left of that cell, and v[row][columns] the line right of the last column. Null means the table's own line."
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ]
+    },
+    "Edge": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "style": {
+              "$ref": "#/definitions/LineStyle",
+              "description": "The style of this one line: \"solid\", \"dashed\", \"dotted\" or \"none\". Left out, the table's line style."
+            },
+            "width": {
+              "type": "number",
+              "description": "The width of this one line, in mm, from 0.25 to 3. Left out, the table's line width.",
+              "minimum": 0.25,
+              "maximum": 3
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Span": {
+      "type": "array",
+      "minItems": 4,
+      "items": [
+        {
+          "type": "number",
+          "title": "row"
+        },
+        {
+          "type": "number",
+          "title": "col"
+        },
+        {
+          "type": "number",
+          "title": "rows"
+        },
+        {
+          "type": "number",
+          "title": "cols"
+        }
+      ],
+      "maxItems": 4,
+      "description": "A merged cell: where it starts, counted from 0, and how many rows and columns it covers."
+    },
+    "SuchselBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "suchsel"
+        },
+        "props": {
+          "$ref": "#/definitions/SuchselProps",
+          "description": "The word search's settings: the grid, the words and how they run."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SuchselProps": {
+      "type": "object",
+      "properties": {
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The words to hide in the grid, one entry per word, as the teacher typed them."
+        },
+        "cols": {
+          "type": "number",
+          "description": "Number of squares across the grid.",
+          "minimum": 6,
+          "maximum": 20
+        },
+        "rows": {
+          "type": "number",
+          "description": "Number of squares down the grid.",
+          "minimum": 6,
+          "maximum": 20
+        },
+        "ways": {
+          "$ref": "#/definitions/Ways",
+          "description": "The directions the words may run: \"across\" only, \"down\" too, \"diag\" (diagonal) too, or \"back\" (backwards) too. Each level includes the ones before."
+        },
+        "caps": {
+          "type": "boolean",
+          "description": "Whether every letter shows as a capital. If not, every letter is small."
+        },
+        "umlauts": {
+          "type": "boolean",
+          "description": "Whether ä, ö, ü and ß stay. If not, they become AE, OE, UE and SS."
+        },
+        "show": {
+          "type": "string",
+          "enum": [
+            "words",
+            "count"
+          ],
+          "description": "Whether the hidden words print under the grid (\"words\") or only how many there are (\"count\")."
+        },
+        "seed": {
+          "type": "number",
+          "description": "The number that sets the layout of the grid. The same seed gives the same grid."
+        }
+      },
+      "required": [
+        "words",
+        "cols",
+        "rows",
+        "ways",
+        "caps",
+        "umlauts",
+        "show",
+        "seed"
+      ]
+    },
+    "Ways": {
+      "type": "string",
+      "enum": [
+        "across",
+        "down",
+        "diag",
+        "back"
+      ]
+    },
+    "ZahlenmauerBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenmauer"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenmauerProps",
+          "description": "The wall block's settings: the stones, the walls and the numbers shown."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenmauerProps": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "type": "number",
+          "enum": [
+            3,
+            4,
+            5
+          ],
+          "description": "Number of stones in the lowest row of each wall: 3, 4 or 5."
+        },
+        "count": {
+          "type": "number",
+          "description": "Number of walls in the block.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of walls standing side by side.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: no stone lies above it. One of 10, 20, 100 or 1000."
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "+",
+            "*"
+          ],
+          "description": "How a stone is made from the two under it: \"+\" the sum, \"*\" the product."
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "base",
+            "mix",
+            "free"
+          ],
+          "description": "Which stones show a number: \"base\" the base row only, \"mix\" per wall a mix that needs the way back, \"free\" the stones marked in free."
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "Per stone index, true shows that stone's number when given is \"free\". The same for every wall."
+        },
+        "empty": {
+          "type": "boolean",
+          "description": "Whether no stone shows a number. Default false."
+        },
+        "seed": {
+          "type": "number",
+          "description": "The number that sets the walls. The same seed gives the same walls."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Typed"
+          },
+          "description": "Numbers the teacher typed into stones, each as [wall, stone index, value], counted from 0. A stone's index counts from the left end of the base row, a row at a time."
+        }
+      },
+      "required": [
+        "base",
+        "count",
+        "columns",
+        "max",
+        "op",
+        "given",
+        "empty",
+        "seed"
+      ]
+    },
+    "Typed": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "RechendreieckBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "rechendreieck"
+        },
+        "props": {
+          "$ref": "#/definitions/RechendreieckProps",
+          "description": "The calculation triangles (Rechendreiecke) and which of their fields are given."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "RechendreieckProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of triangles on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of triangles per row. Default 4.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20."
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "inner",
+            "mix",
+            "outer",
+            "free"
+          ],
+          "description": "Which fields show their number. \"inner\": the three inner fields (easy). \"mix\": two inner fields and one outer field (medium). \"outer\": the three outer fields (hard). \"free\": the fields flagged in `free`. Default \"inner\"."
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "With `given` \"free\": one flag per field, index 0 to 5 (inner 0 to 2, outer 3 to 5). A flagged field shows its number. Missing or invalid: the three inner fields."
+        },
+        "empty": {
+          "type": "boolean",
+          "description": "When true, no field shows a number, so the pupil fills in every field. Default false."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random triangles. The same seed always gives the same triangles."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FieldTyped"
+          },
+          "description": "Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "max",
+        "given",
+        "empty",
+        "seed"
+      ]
+    },
+    "FieldTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "A number the teacher typed into a field: the triangle's index (from 0), the field's index (0 to 5), the value (0 to 9999)."
+    },
+    "ZahlenstrahlBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenstrahl"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenstrahlProps",
+          "description": "The number line (Zahlenstrahl): its range, ticks and the tasks on it."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenstrahlProps": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "number",
+          "description": "The number of the first tick, from 0 up. The line starts here. Default 0.",
+          "minimum": 0,
+          "maximum": 999999
+        },
+        "end": {
+          "type": "number",
+          "description": "The number of the last tick, above `start`. The last tick is the last multiple of `minor` that is not above it. Default 20.",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "minor": {
+          "type": "number",
+          "description": "The step between two ticks (small ticks), in whole numbers. Default 1.",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "major": {
+          "type": "number",
+          "description": "The step between two long ticks. A multiple of `minor`. A tick is long when its number minus `start` is a multiple of it. The first tick is always long. Default 5."
+        },
+        "labels": {
+          "type": "string",
+          "enum": [
+            "all",
+            "major",
+            "ends",
+            "none"
+          ],
+          "description": "Which ticks show their number. \"all\": every tick. \"major\": the long ticks. \"ends\": the first and the last tick. \"none\": no tick. Default \"major\"."
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of the numbers, in pt. Does not change with the block's size. Default 12.",
+          "minimum": 8,
+          "maximum": 24
+        },
+        "cut": {
+          "type": "boolean",
+          "description": "Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false."
+        },
+        "tasks": {
+          "type": "string",
+          "enum": [
+            "random",
+            "free"
+          ],
+          "description": "\"random\": boxes and arrows go on ticks chosen from the seed. \"free\": the ticks in `marks` get their task. Default \"random\"."
+        },
+        "boxes": {
+          "type": "number",
+          "description": "Number of boxes placed on the line with `tasks` \"random\". Default 3.",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "arrows": {
+          "type": "number",
+          "description": "Number of arrows placed on the line with `tasks` \"random\". Default 0.",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Mark"
+          },
+          "description": "The ticks picked in \"free\" mode, each [number, \"box\" or \"arrow\"]. An entry that is not a tick is kept but not drawn."
+        },
+        "jumps": {
+          "type": "boolean",
+          "description": "Draws jump arcs above the line, from the first tick on. Default false."
+        },
+        "jump": {
+          "type": "number",
+          "description": "Width of each jump arc, a multiple of `minor`. Default `major`."
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": "A text for each jump arc, by index. A missing or empty entry shows \"+\" and the jump width."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random tasks. The same seed always gives the same tasks."
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "minor",
+        "major",
+        "labels",
+        "size",
+        "cut",
+        "tasks",
+        "boxes",
+        "arrows",
+        "jumps",
+        "seed"
+      ]
+    },
+    "Mark": {
+      "type": "array",
+      "minItems": 2,
+      "items": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/definitions/Task"
+        }
+      ],
+      "maxItems": 2,
+      "description": "A tick the teacher picked in \"free\" mode: [the tick's number, its task]."
+    },
+    "Task": {
+      "type": "string",
+      "enum": [
+        "box",
+        "arrow"
+      ],
+      "description": "A task on a tick: \"box\" an empty box to write the number in, \"arrow\" an arrow to draw to the tick."
+    },
+    "HunderterfeldBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hunderterfeld"
+        },
+        "props": {
+          "$ref": "#/definitions/HunderterfeldProps",
+          "description": "The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "HunderterfeldProps": {
+      "type": "object",
+      "properties": {
+        "look": {
+          "type": "string",
+          "enum": [
+            "tafel",
+            "punkte"
+          ],
+          "description": "What is drawn: \"tafel\" the Hundertertafel with its numbers in a 10 by 10 grid, \"punkte\" a field of 10 by 10 dots. Default \"tafel\"."
+        },
+        "from": {
+          "type": "number",
+          "enum": [
+            0,
+            1
+          ],
+          "description": "The first number of the Tafel: 1 gives 1 to 100, 0 gives 0 to 99. Default 1."
+        },
+        "show": {
+          "type": "string",
+          "enum": [
+            "all",
+            "none",
+            "random",
+            "free"
+          ],
+          "description": "Which numbers of the Tafel show. \"all\": every number. \"none\": no number. \"random\": all but `hide` cells, picked from the seed, are hidden. \"free\": all but the cells in `hidden` show. Default \"all\"."
+        },
+        "hide": {
+          "type": "number",
+          "description": "Number of cells hidden with `show` \"random\". Default 20.",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Cell indices (0 to 99, row by row from the top left) whose number is hidden with `show` \"free\"."
+        },
+        "tint": {
+          "type": "string",
+          "enum": [
+            "none",
+            "even",
+            "times",
+            "row",
+            "column",
+            "free"
+          ],
+          "description": "Which cells of the Tafel are tinted. \"none\": no cell. \"even\": the even numbers. \"times\": the multiples of `times` up to 10 times `times`. \"row\": the row `line`. \"column\": the column `line`. \"free\": the cells in `tints`. Default \"none\"."
+        },
+        "times": {
+          "type": "number",
+          "description": "The row of the Einmaleins that \"times\" tints, 1 to 10. Default 2.",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "line": {
+          "type": "number",
+          "description": "The row or column tinted with \"row\" or \"column\", counted from the top or the left, 1 to 10. Default 1.",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "color": {
+          "$ref": "#/definitions/Tint",
+          "description": "The colour of a tint from \"even\", \"times\", \"row\" or \"column\": 1 yellow, 2 blue. Default 1."
+        },
+        "tints": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/definitions/Tint"
+              }
+            ],
+            "maxItems": 2
+          },
+          "description": "Each tinted cell with its colour, for tint \"free\": [cell index 0 to 99, colour 1 yellow or 2 blue]."
+        },
+        "cut": {
+          "type": "boolean",
+          "description": "Cut-out (Ausschnitt): when true, only the cells in `shape` are drawn, and the cell `given` shows its number while the other cells stay empty for the pupil to fill in. Default false."
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Cell indices (0 to 99) drawn with `cut`. Default a cross: 34, 43, 44, 45, 54. An empty list draws nothing."
+        },
+        "given": {
+          "type": "number",
+          "description": "The cell index (0 to 99) that shows its number with `cut`. If it is not in `shape`, the lowest cell of `shape` is used. Default 44.",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "fill": {
+          "type": "string",
+          "enum": [
+            "count",
+            "free"
+          ],
+          "description": "With \"count\", the first `dots` dots are filled, row by row. With \"free\", the dots in `filled` are. Default \"count\"."
+        },
+        "dots": {
+          "type": "number",
+          "description": "Number of filled dots with `fill` \"count\", counted row by row from the top left. Default 0.",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "filled": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Cell indices (0 to 99) of the filled dots with `fill` \"free\"."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random hidden cells with `show` \"random\". The same seed always hides the same cells."
+        }
+      },
+      "required": [
+        "look",
+        "from",
+        "show",
+        "hide",
+        "tint",
+        "times",
+        "line",
+        "color",
+        "cut",
+        "fill",
+        "dots",
+        "seed"
+      ]
+    },
+    "Tint": {
+      "type": "number",
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "UhrBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "uhr"
+        },
+        "props": {
+          "$ref": "#/definitions/UhrProps",
+          "description": "The clock faces, their times and the task: read the time or draw the hands."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "UhrProps": {
+      "type": "object",
+      "properties": {
+        "numbers": {
+          "type": "string",
+          "enum": [
+            "all",
+            "quarters",
+            "none"
+          ],
+          "description": "The numbers on the face. \"all\": 1 to 12. \"quarters\": only 12, 3, 6 and 9. \"none\": no numbers. Default \"all\"."
+        },
+        "minutes": {
+          "type": "boolean",
+          "description": "Draws the 60 minute ticks. The 12 hour ticks are always drawn. Default true."
+        },
+        "ring": {
+          "type": "boolean",
+          "description": "Draws a second ring with 13 to 24 inside the numbers. Not drawn when `numbers` is \"none\". Default false."
+        },
+        "task": {
+          "type": "string",
+          "enum": [
+            "read",
+            "draw"
+          ],
+          "description": "\"read\": the hands are drawn and the pupil writes the time under the clock. \"draw\": no hands, the time is written under the clock and the pupil draws the hands. Default \"read\"."
+        },
+        "answer": {
+          "type": "string",
+          "enum": [
+            "box",
+            "line"
+          ],
+          "description": "The empty answer under a clock with task \"read\". \"box\": a digital box `__:__ Uhr`. \"line\": a writing line. Default \"box\"."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "12",
+            "24",
+            "words"
+          ],
+          "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"words\": in words, such as \"halb vier\". Default \"12\"."
+        },
+        "region": {
+          "type": "string",
+          "enum": [
+            "nach",
+            "viertel"
+          ],
+          "description": "The form of the time in words, with format \"words\". \"nach\": \"viertel nach drei\" and \"viertel vor vier\". \"viertel\": \"viertel vier\" and \"dreiviertel vier\". Default \"nach\"."
+        },
+        "count": {
+          "type": "number",
+          "description": "Number of clocks on the sheet, 1 to 12. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "cols": {
+          "type": "number",
+          "description": "Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "step": {
+          "type": "number",
+          "enum": [
+            60,
+            30,
+            15,
+            5,
+            1
+          ],
+          "description": "The minutes that random times keep to: 60 full hours, 30 half hours, 15 quarter hours, 5 or 1 minute. Default 15."
+        },
+        "fill": {
+          "type": "string",
+          "enum": [
+            "random",
+            "free"
+          ],
+          "description": "\"random\": every time is drawn from the seed. \"free\": each clock takes its time from `times`, and from the seed where that is missing. Default \"random\"."
+        },
+        "times": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "The time of each clock in minutes since 0:00 (0 to 1439), in clock order. A missing or -1 entry takes a random time. Used with fill \"free\"."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random times. The same seed always gives the same times."
+        }
+      },
+      "required": [
+        "numbers",
+        "minutes",
+        "ring",
+        "task",
+        "answer",
+        "format",
+        "region",
+        "count",
+        "cols",
+        "step",
+        "fill",
+        "seed"
+      ]
+    },
+    "SelbstkontrolleBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "selbstkontrolle"
+        },
+        "props": {
+          "$ref": "#/definitions/SelbstkontrolleProps",
+          "description": "The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "SelbstkontrolleProps": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "$ref": "#/definitions/Form",
+          "description": "How the child checks her results. \"mixed\": the results in a shuffled list, each with a box to tick. \"word\": a Lösungswort with a letter box under each task. \"sum\": one control sum per linked block. Default \"mixed\"."
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ids of the linked maths blocks of the sheet, in the order the teacher ticked them. Default none."
+        },
+        "word": {
+          "type": "string",
+          "description": "The Lösungswort the child builds from the letters, as the teacher typed it. Used with form \"word\" only. Default \"\"."
+        },
+        "title": {
+          "type": "string",
+          "description": "The heading of the block. An empty heading prints none. Default \"Selbstkontrolle\"."
+        },
+        "size": {
+          "type": "number",
+          "description": "Font size of the text in pt, except the heading, which is 1.2 times it. Default 14.",
+          "minimum": 8,
+          "maximum": 24
+        },
+        "turn": {
+          "$ref": "#/definitions/Turn",
+          "description": "Turns the block for the child to read it later. \"none\": not turned. \"upside\": the whole content turned by 180 degrees. \"fold\": a dashed fold line along the top, with \"Hier umknicken\" over it, and the content turned by 180 degrees under it, so the child folds it back. Default \"none\"."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the shuffle of form \"mixed\" and of the table of form \"word\". The same seed always gives the same order."
+        }
+      },
+      "required": [
+        "form",
+        "links",
+        "word",
+        "title",
+        "size",
+        "turn",
+        "seed"
+      ]
+    },
+    "Form": {
+      "type": "string",
+      "enum": [
+        "mixed",
+        "word",
+        "sum"
+      ]
+    },
+    "Turn": {
+      "type": "string",
+      "enum": [
+        "none",
+        "upside",
+        "fold"
+      ]
+    },
+    "Guides": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "The upright guide lines, each the distance in mm from the paper's left edge."
+        },
+        "y": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "The flat guide lines, each the distance in mm from the paper's top edge."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

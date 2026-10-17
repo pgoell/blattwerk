@@ -1,0 +1,85 @@
+"""Aligning a thing to the page by what it draws: a line's stroke and arrow head count (#677)."""
+
+import pytest
+from test_align import button
+from test_fields import enter
+from test_group_scale_turned import ARROW, SHAPES, pick_group
+from ui import LINE, box, pick, user
+
+# Every drawn element of the block, as the page shows it, and the page's own sides.
+INK = """(name) => {
+    const page = document.querySelector('.sheet').getBoundingClientRect();
+    // The drawn shapes only. A rotated box is wider than its ink, so a polygon's
+    // points are moved onto the screen one by one.
+    const drawn = [...document.querySelectorAll(`.sheet .block[data-id="${name}"] *`)]
+        .filter((el) => !["svg", "g"].includes(el.tagName))
+        .flatMap((el) => {
+            if (el.tagName === "polygon") {
+                const m = el.getScreenCTM();
+                return [...el.points].map((p) => {
+                    const q = new DOMPoint(p.x, p.y).matrixTransform(m);
+                    return { left: q.x, right: q.x, top: q.y, bottom: q.y };
+                });
+            }
+            const r = el.getBoundingClientRect();
+            const box = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+            return r.width > 0 || r.height > 0 ? [box] : [];
+        });
+    const mm = page.width / 210;
+    return {
+        left: (Math.min(...drawn.map((r) => r.left)) - page.left) / mm,
+        right: (page.right - Math.max(...drawn.map((r) => r.right))) / mm,
+        top: (Math.min(...drawn.map((r) => r.top)) - page.top) / mm,
+        bottom: (page.bottom - Math.max(...drawn.map((r) => r.bottom))) / mm,
+    };
+}"""
+
+
+def ink(page, *names):
+    """The gap in mm from each page edge to the nearest thing the blocks draw."""
+    gaps = [page.evaluate(INK, name) for name in names]
+    return {side: min(gap[side] for gap in gaps) for side in ("left", "right", "top", "bottom")}
+
+
+@pytest.mark.parametrize(
+    "name, side",
+    [
+        ("Links", "left"),
+        ("Rechts", "right"),
+        ("Oben", "top"),
+        ("Unten", "bottom"),
+    ],
+)
+def test_a_turned_group_with_a_line_lines_up_by_what_it_draws(editor, name, side):
+    page = editor(*SHAPES, client=user())
+    pick_group(page, "a", "b")
+    enter(page, "Drehung", "30")
+    button(page, name).click()
+    gap = ink(page, "a", "b")
+    assert gap[side] == pytest.approx(0, abs=0.5)
+    assert all(v >= -0.5 for v in gap.values())
+
+
+@pytest.mark.parametrize("name, side", [("Rechts", "right"), ("Oben", "top")])
+def test_a_lone_slanted_arrow_lines_up_by_its_head_and_stroke(editor, name, side):
+    """A lone steep arrow up to the right: its head's barbs stay on the page."""
+    page = editor(
+        box("a", "shape", {**ARROW, "strokeWidth": 1.5, "from": "sw"}, x=40, y=60, w=5, h=40),
+        client=user(),
+    )
+    pick(page, "a")
+    button(page, name).click()
+    gap = ink(page, "a")
+    assert gap[side] == pytest.approx(0, abs=0.5)
+    assert all(v >= -0.2 for v in gap.values())
+
+
+@pytest.mark.parametrize("more", [{"ticks": True}, {"label": "show"}])
+def test_a_level_line_with_ticks_or_its_length_lines_up_by_them(editor, more):
+    """A Strecke's ticks reach across the line, its length stands above it: Oben keeps both on."""
+    page = editor(box("a", "shape", {**LINE, **more}, x=40, y=60, w=60, h=1), client=user())
+    pick(page, "a")
+    button(page, "Oben").click()
+    gap = ink(page, "a")
+    assert gap["top"] == pytest.approx(0, abs=0.5)
+    assert gap["top"] >= -0.2

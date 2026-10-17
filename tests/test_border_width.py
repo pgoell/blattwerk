@@ -195,8 +195,11 @@ PLACES = """() => {
     const k = page.getBoundingClientRect().width / parseFloat(getComputedStyle(page).width);
     return [...page.querySelectorAll('.frame')].map((frame) => {
         const from = frame.getBoundingClientRect();
-        const r = frame.querySelector('p').getBoundingClientRect();
-        return [(r.x - from.x) / k, (r.y - from.y) / k, r.width / k, r.height / k];
+        // Where the text starts: the paragraph's room at the sides for its ink (#489) left out.
+        const p = frame.querySelector('p'), r = p.getBoundingClientRect(), s = getComputedStyle(p);
+        const [left, right] = [parseFloat(s.paddingLeft), parseFloat(s.paddingRight)];
+        const x = (r.x - from.x) / k + left;
+        return [x, (r.y - from.y) / k, r.width / k - left - right, r.height / k];
     });
 }"""
 # The rows the words break into in a box 60 mm wide, as sheets saved before this change have them.

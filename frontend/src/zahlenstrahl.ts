@@ -63,23 +63,58 @@
 
 import { rng } from "./zahlenmauer";
 
+/** A task on a tick: "box" an empty box to write the number in, "arrow" an arrow to draw to the tick. */
 export type Task = "box" | "arrow";
+/** A tick the teacher picked in "free" mode: [the tick's number, its task]. */
 export type Mark = [number, Task];
 export type ZahlenstrahlProps = {
+  /** The number of the first tick, from 0 up. The line starts here. Default 0.
+   * @minimum 0
+   * @maximum 999999
+   */
   start: number;
+  /** The number of the last tick, above `start`. The last tick is the last multiple of `minor` that is not above it. Default 20.
+   * @minimum 0
+   * @maximum 1000000
+   */
   end: number;
+  /** The step between two ticks (small ticks), in whole numbers. Default 1.
+   * @minimum 1
+   * @maximum 1000000
+   */
   minor: number;
+  /** The step between two long ticks. A multiple of `minor`. A tick is long when its number minus `start` is a multiple of it. The first tick is always long. Default 5. */
   major: number;
+  /** Which ticks show their number. "all": every tick. "major": the long ticks. "ends": the first and the last tick. "none": no tick. Default "major". */
   labels: "all" | "major" | "ends" | "none";
+  /** Font size of the numbers, in pt. Does not change with the block's size. Default 12.
+   * @minimum 8
+   * @maximum 24
+   */
   size: number;
+  /** Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false. */
   cut: boolean;
+  /** "random": boxes and arrows go on ticks chosen from the seed. "free": the ticks in `marks` get their task. Default "random". */
   tasks: "random" | "free";
+  /** Number of boxes placed on the line with `tasks` "random". Default 3.
+   * @minimum 0
+   * @maximum 12
+   */
   boxes: number;
+  /** Number of arrows placed on the line with `tasks` "random". Default 0.
+   * @minimum 0
+   * @maximum 6
+   */
   arrows: number;
+  /** The ticks picked in "free" mode, each [number, "box" or "arrow"]. An entry that is not a tick is kept but not drawn. */
   marks?: Mark[];
+  /** Draws jump arcs above the line, from the first tick on. Default false. */
   jumps: boolean;
+  /** Width of each jump arc, a multiple of `minor`. Default `major`. */
   jump?: number;
+  /** A text for each jump arc, by index. A missing or empty entry shows "+" and the jump width. */
   arcs?: (string | null)[];
+  /** Seed for the random tasks. The same seed always gives the same tasks. */
   seed: number;
 };
 

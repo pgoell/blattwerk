@@ -63,6 +63,14 @@ CREATE TABLE IF NOT EXISTS links (
     admin INTEGER NOT NULL DEFAULT 0,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used TEXT
+);
 CREATE TABLE IF NOT EXISTS templates {TEMPLATES};
 CREATE TABLE IF NOT EXISTS sheets {SHEETS};
 CREATE TABLE IF NOT EXISTS uploads {UPLOADS};
@@ -75,6 +83,37 @@ CREATE TABLE IF NOT EXISTS leftovers (
     user_id INTEGER PRIMARY KEY,
     since TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     error TEXT NOT NULL
+);
+-- A program that registered itself (RFC 7591). Public: it has no secret.
+CREATE TABLE IF NOT EXISTS oauth_clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    redirect_uris TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- An authorization code, by its hash. Deleted when it is used.
+CREATE TABLE IF NOT EXISTS oauth_codes (
+    hash TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES oauth_clients (id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    redirect_uri TEXT NOT NULL,
+    challenge TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    expires TEXT NOT NULL
+);
+-- A connected program: one teacher's yes to one client, with its current tokens' hashes.
+CREATE TABLE IF NOT EXISTS oauth_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL REFERENCES oauth_clients (id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    access_hash TEXT NOT NULL,
+    access_expires TEXT NOT NULL,
+    refresh_hash TEXT NOT NULL,
+    refresh_expires TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used TEXT
 );
 """
 

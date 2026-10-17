@@ -1,0 +1,443 @@
+"""A PDF, or a variants print, says so when the server holds an older sheet than the editor shows.
+
+The PDF prints what the server holds. Where the last change has not been saved, the teacher is told
+that the PDF shows the saved version. A save that lands in time gives no line at all.
+"""
+
+# ruff: noqa: F811
+
+import re
+
+import pypdf
+import pytest
+from playwright.sync_api import expect
+from test_loading import window  # noqa: F401
+from test_refused_save import ALERT, break_x, open_sheet, stored
+from test_saves import answer, clash, run, start  # noqa: F401
+from test_stale import TURNS
+from ui import FIELD, pick, unpick
+
+STALE = "Das PDF zeigt den zuletzt gespeicherten Stand"
+VARIANTS_STALE = "Die Varianten zeigen den zuletzt gespeicherten Stand"
+# In a clash the PDF waits for the choice (#707).
+CLASH_LINE = "Danach kommt dein PDF."
+# The PDF's line, whichever it says.
+PDF_LINE = re.compile(f"{STALE}|{re.escape(CLASH_LINE)}")
+
+
+def pdf_button(page):
+    return page.get_by_role("button", name="PDF", exact=True)
+
+
+def type_text(page, text):
+    """Replaces the text of block a with `text`, and leaves the block picked."""
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    page.keyboard.type(text)
+    expect(page.locator(FIELD)).to_have_text(text)
+
+
+def answer_with(status):
+    """A route for a sheet: each save gets the status, every other request goes on."""
+
+    def handle(route):
+        if route.request.method == "PATCH":
+            route.fulfill(status=status, body="")
+        else:
+            route.continue_()
+
+    return handle
+
+
+def test_failed_save_pdf_says_it_prints_the_saved_version(editor):
+    page, sheet_id = open_sheet(editor)
+    page.route(f"**/api/sheets/{sheet_id}", answer_with(500))
+    type_text(page, "du")
+
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_contain_text(STALE)
+
+
+def test_refused_save_pdf_says_it_prints_the_saved_version(editor):
+    page, sheet_id = open_sheet(editor)
+    break_x(page, f"**/api/sheets/{sheet_id}")
+    pick(page, "a")
+    page.keyboard.press("ArrowRight")
+
+    with page.expect_download():
+        pdf_button(page).click()
+    # The save's own refusal stays on the page too: the PDF's line is the one to find.
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(1)
+
+
+def test_hanging_save_pdf_says_it_prints_the_saved_version(editor):
+    """The save never gets an answer: after the editor's 20 s limit the PDF goes on, and says so."""
+    page, sheet_id = open_sheet(editor)
+
+    def hang(route):
+        if route.request.method != "PATCH":
+            route.continue_()
+
+    page.route(f"**/api/sheets/{sheet_id}", hang)
+    type_text(page, "du")
+
+    with page.expect_download(timeout=30000):
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_contain_text(STALE)
+
+
+def test_slow_save_that_lands_pdf_prints_the_new_sheet(editor):
+    """The save takes 1.5 s and lands: the PDF waits, holds the new text, and no line shows."""
+    page, sheet_id = open_sheet(editor)
+    held = []
+
+    def hold(route):
+        if route.request.method == "PATCH":
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(f"**/api/sheets/{sheet_id}", hold)
+    type_text(page, "du")
+
+    with page.expect_download(timeout=30000) as got:
+        pdf_button(page).click()
+        while not held:
+            page.wait_for_timeout(50)
+        page.wait_for_timeout(1500)
+        held[0].continue_()
+    text = "".join(p.extract_text() for p in pypdf.PdfReader(got.value.path()).pages)
+    assert "du" in text
+    expect(page.locator(ALERT)).to_have_count(0)
+
+
+def test_a_change_typed_while_the_pdf_waits_lands_and_no_line_shows(editor):
+    """The first save is held; the PDF waits; a newer change lands in its wait. No line shows."""
+    page, sheet_id = open_sheet(editor)
+    held = []
+
+    def hold_first(route):
+        if route.request.method == "PATCH" and not held:
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route(f"**/api/sheets/{sheet_id}", hold_first)
+    type_text(page, "du")
+    while not held:
+        page.wait_for_timeout(50)
+
+    with page.expect_download(timeout=30000):
+        pdf_button(page).click()
+        unpick(page)
+        pick(page, "a")
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(1500)
+        held[0].continue_()
+    assert stored(sheet_id)["pages"][0]["blocks"][0]["x"] != 15
+    expect(page.locator(ALERT, has_text=STALE)).to_have_count(0)
+
+
+def test_one_red_bar_in_a_clash_after_pdf(run):
+    """#725: a PDF pressed in a clash adds no second red line: the bar of the clash says it once."""
+    page, _ = start(run)
+    clash(run)
+    pdf_button(page).click()
+    bars = page.locator("[role=alert]", has_text="auf einem anderen Gerät geändert")
+    expect(bars).to_have_count(1)
+
+
+def test_pdf_line_goes_once_the_other_version_is_loaded(run):
+    """#699: the PDF line of the clash goes once the other version is loaded."""
+    page, _ = start(run)
+    clash(run)
+    pdf_button(page).click()
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+
+
+def test_variants_pdf_is_off_in_a_clash_and_says_why(run):
+    """#698: the dialog's PDF waits for the teacher's choice, and says so."""
+    page, _ = start(run)
+    clash(run)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog).to_contain_text(
+        "Dieses Blatt wurde auf einem anderen Gerät geändert. "
+        "Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst."
+    )
+    expect(dialog).not_to_contain_text("deine letzte Änderung")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+
+
+def clash_on_text(run, mine):
+    """B saves the text `Vom Tool`; A types `mine` and its save is refused: the banner stands."""
+    other = run.held("a")
+    other["doc"]["pages"][0]["blocks"][0]["props"]["text"] = "Vom Tool"
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    gate = run.gates["a"]
+    type_text(run.page, mine)
+    with run.page.expect_request(gate.asks("PATCH")):
+        run.page.clock.run_for(2000)
+    run.page.evaluate(TURNS)
+    answer(run, "a")
+    expect(run.page.locator(".clash")).to_be_visible()
+
+
+def test_variants_print_shows_and_prints_the_other_version_after_the_choice(run):
+    """#698: in the clash the dialog's PDF waits; after „Andere Version laden“ the preview and the
+    PDF both hold `Vom Tool`, and not A's `Vom MCP`."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_disabled()
+    expect(dialog.locator(".clash")).to_be_visible()
+    dialog.get_by_role("button", name="Schließen").click()
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    expect(dialog.locator(".preview")).to_contain_text("Vom Tool")
+    with page.expect_download() as got:
+        dialog.get_by_role("button", name="PDF", exact=True).click()
+    text = "".join(p.extract_text() for p in pypdf.PdfReader(got.value.path()).pages)
+    assert "Vom Tool" in text
+    assert "Vom MCP" not in text
+
+
+def test_pdf_line_goes_once_the_change_is_kept_as_a_new_sheet(run):
+    """#699: the sheet was deleted elsewhere; „Als neues Blatt behalten“ takes the PDF line away."""
+    page, _ = start(run)
+    clash(run)
+    pdf_button(page).click()
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
+
+    assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("gelöscht")
+    page.locator(".clash").get_by_role("button", name="Als neues Blatt behalten").click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+
+
+def test_pdf_after_loading_the_other_version_shows_no_line(run):
+    """#699, beyond the brief: after the other version, a PDF with nothing unsaved says nothing."""
+    page, _ = start(run)
+    clash(run)
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_have_count(0)
+
+
+def pdf_asks(page):
+    """The PDF requests the page sends from now on."""
+    asked = []
+    page.on("request", lambda r: "/pdf" in r.url and asked.append(r.url))
+    return asked
+
+
+def text_of(download):
+    return "".join(p.extract_text() for p in pypdf.PdfReader(download.path()).pages)
+
+
+@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "loesungen"])
+def test_main_pdf_waits_in_a_clash_and_says_why(run, button):
+    """#707: in a clash the PDF prints nothing, not the other device's sheet, and says to choose."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    asked = pdf_asks(page)
+    page.locator("header .pdf").get_by_role("button", name=button, exact=True).click()
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
+    expect(page.locator(ALERT, has_text="deine letzte Änderung")).to_have_count(0)
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_main_pdf_pressed_while_the_save_is_out_waits_when_that_save_clashes(run):
+    """#707: the save the PDF waits for is turned down; it prints nothing and says to choose."""
+    page, gate = start(run)
+    other = run.held("a")
+    other["doc"]["pages"][0]["blocks"][0]["props"]["text"] = "Vom Tool"
+    assert run.client.patch(f"/api/sheets/{run.ids['a']}", json=other).status_code == 200
+    type_text(page, "Vom MCP")
+    with page.expect_request(gate.asks("PATCH")):
+        page.clock.run_for(2000)
+    page.evaluate(TURNS)
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    answer(run, "a")
+    expect(page.locator(".clash")).to_be_visible()
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_main_pdf_prints_the_other_version_once_it_is_loaded(run):
+    """#707: after „Andere Version laden“ the line goes and the PDF holds `Vom Tool` alone."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    pdf_button(page).click()
+    expect(page.locator(".clash", has_text=CLASH_LINE)).to_have_count(1)
+
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+    with page.expect_download() as got:
+        pdf_button(page).click()
+    assert "Vom Tool" in text_of(got.value)
+    assert "Vom MCP" not in text_of(got.value)
+
+
+def test_the_clash_bar_names_no_pdf_before_one_is_pressed(run):
+    """#735: the bar names the PDF only once a PDF was pressed in the clash."""
+    page, _ = start(run)
+    clash(run)
+    bar = page.locator(".clash")
+    expect(bar).to_be_visible()
+    expect(bar).to_contain_text("anderen Fenster")
+    expect(bar).not_to_contain_text("PDF")
+
+
+@pytest.mark.parametrize(
+    "choice", ["Andere Version laden", "Mit dieser überschreiben"], ids=["load", "overwrite"]
+)
+def test_a_pdf_pressed_in_a_clash_comes_after_the_choice(run, choice):
+    """#735: a PDF pressed in the clash comes after the choice, without a second press."""
+    page, gate = start(run)
+    clash_on_text(run, "Vom MCP")
+    with page.expect_download() as got:
+        pdf_button(page).click()
+        if choice == "Andere Version laden":
+            page.locator(".clash").get_by_role("button", name=choice, exact=True).click()
+        else:
+            with page.expect_request(gate.asks("PATCH")):
+                page.locator(".clash").get_by_role("button", name=choice, exact=True).click()
+            page.evaluate(TURNS)
+            answer(run, "a")
+    text = text_of(got.value)
+    if choice == "Andere Version laden":
+        assert "Vom Tool" in text
+        assert "Vom MCP" not in text
+    else:
+        assert "Vom MCP" in text
+
+
+def test_a_waiting_pdf_does_not_print_when_the_choice_finds_the_sheet_deleted(run):
+    """#735: a PDF waiting for the choice does not print a sheet the choice finds deleted."""
+    page, _ = start(run)
+    clash(run)
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    assert run.client.delete(f"/api/sheets/{run.ids['a']}").status_code == 200
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("gelöscht")
+    keep = page.locator(".clash").get_by_role("button", name="Als neues Blatt behalten")
+    expect(keep).to_be_visible()
+    page.evaluate(TURNS)
+    assert asked == []
+
+
+def test_the_clash_bar_keeps_its_buttons_on_one_line_at_1280(run):
+    """#735: at 1280 px the two buttons of the clash bar sit on one line."""
+    page, _ = start(run)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    clash(run)
+    load = page.locator(".clash").get_by_role("button", name="Andere Version laden")
+    over = page.locator(".clash").get_by_role("button", name="Mit dieser überschreiben")
+    expect(load).to_be_visible()
+    expect(over).to_be_visible()
+    assert abs(load.bounding_box()["y"] - over.bounding_box()["y"]) < 4
+
+
+def test_a_waiting_pdf_still_waits_when_the_choice_fails_and_comes_with_the_next_try(run):
+    """#735: a choice that fails keeps the PDF waiting; the try that works brings it."""
+    page, _ = start(run)
+    clash_on_text(run, "Vom MCP")
+    asked = pdf_asks(page)
+    pdf_button(page).click()
+    address = f"**/api/sheets/{run.ids['a']}"
+    page.route(address, lambda r: r.abort() if r.request.method == "GET" else r.continue_())
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_contain_text("Das hat nicht geklappt")
+    expect(page.locator(".clash")).to_contain_text(CLASH_LINE)
+    page.evaluate(TURNS)
+    assert asked == []
+    page.unroute(address)
+    with page.expect_download() as got:
+        page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    assert "Vom Tool" in text_of(got.value)
+
+
+def test_pdf_line_goes_once_this_version_overwrites_the_other(run):
+    """#706: the PDF line goes with „Mit dieser überschreiben“, and the PDF holds what shows."""
+    page, gate = start(run)
+    clash_on_text(run, "Vom MCP")
+    pdf_button(page).click()
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(1)
+
+    with page.expect_request(gate.asks("PATCH")):
+        page.locator(".clash").get_by_role("button", name="Mit dieser überschreiben").click()
+    page.evaluate(TURNS)
+    answer(run, "a")
+    expect(page.get_by_role("status").filter(has_text="Gespeichert")).to_have_text("Gespeichert")
+    expect(page.locator(ALERT, has_text=PDF_LINE)).to_have_count(0)
+    with page.expect_download() as got:
+        pdf_button(page).click()
+    assert "Vom MCP" in text_of(got.value)
+    assert "Vom Tool" not in text_of(got.value)
+
+
+def test_variants_pdf_works_again_once_the_other_version_is_loaded(run):
+    """#698, beyond the brief: after the choice the dialog prints again."""
+    page, _ = start(run)
+    clash(run)
+    page.locator(".clash").get_by_role("button", name="Andere Version laden").click()
+    expect(page.locator(".clash")).to_have_count(0)
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog.get_by_role("button", name="PDF", exact=True)).to_be_enabled()
+    with page.expect_download() as got:
+        dialog.get_by_role("button", name="PDF", exact=True).click()
+    assert pypdf.PdfReader(got.value.path()).pages
+    expect(dialog.locator(".clash")).to_have_count(0)
+
+
+def test_variants_print_after_failed_save_says_so(editor):
+    page, sheet_id = open_sheet(editor)
+    page.route(f"**/api/sheets/{sheet_id}", answer_with(500))
+    type_text(page, "du")
+
+    page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    dialog = page.locator("dialog[open]")
+    with page.expect_download():
+        dialog.get_by_role("button", name="PDF", exact=True).click()
+    expect(dialog.locator(ALERT)).to_contain_text(VARIANTS_STALE)
+
+
+def test_the_line_goes_once_a_current_pdf_is_made(editor):
+    """After the save works again, the next PDF removes the line."""
+    page, sheet_id = open_sheet(editor)
+    page.route(f"**/api/sheets/{sheet_id}", answer_with(500))
+    type_text(page, "du")
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_contain_text(STALE)
+
+    page.unroute(f"**/api/sheets/{sheet_id}")
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_have_count(0)
+
+
+def test_a_pdf_of_a_saved_sheet_says_nothing(editor):
+    page, _ = open_sheet(editor)
+    type_text(page, "du")
+
+    with page.expect_download():
+        pdf_button(page).click()
+    expect(page.locator(ALERT)).to_have_count(0)

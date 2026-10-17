@@ -1,6 +1,7 @@
 """Accounts: invite-only sign-up, login, password reset links and the admin calls."""
 
 import hashlib
+import hmac
 import logging
 import secrets
 import shutil
@@ -13,7 +14,7 @@ from typing import Annotated
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from blattwerk import db
 from blattwerk.db import Con, Id
@@ -72,6 +73,67 @@ def current_user(con: Con, session: Annotated[str | None, Cookie()] = None) -> s
 User = Annotated[sqlite3.Row, Depends(current_user)]
 
 
+def token_user(con: sqlite3.Connection, request: Request, token: str) -> sqlite3.Row:
+    """The user an API token belongs to. A bad token is a try per IP: 429 after TRIES of them.
+
+    A good token goes through whatever the tries: a school shares one address.
+    """
+    row = None
+    table = "tokens"
+    parts = token.split("_", 2)
+    if len(parts) == 3 and db.ID.fullmatch(parts[1]) and int(parts[1]) < 2**63:
+        if parts[0] == "bt":
+            row = con.execute(
+                "SELECT tokens.id AS token_id, tokens.hash, 0 AS expired, users.* FROM tokens"
+                " JOIN users ON users.id = tokens.user_id WHERE tokens.id = ?",
+                (int(parts[1]),),
+            ).fetchone()
+        elif parts[0] == "bo":
+            # An OAuth token is the access token of a connected program's grant.
+            table = "oauth_grants"
+            row = con.execute(
+                "SELECT oauth_grants.id AS token_id, oauth_grants.access_hash AS hash,"
+                " oauth_grants.access_expires <= datetime('now') AS expired, users.*"
+                " FROM oauth_grants JOIN users ON users.id = oauth_grants.user_id"
+                " WHERE oauth_grants.id = ?",
+                (int(parts[1]),),
+            ).fetchone()
+    if not row or not hmac.compare_digest(row["hash"], digest(token)):
+        key = f"token:{request.client.host if request.client else ''}"
+        con.execute(
+            "DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",)
+        )
+        if (
+            con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0]
+            >= TRIES
+        ):
+            raise HTTPException(429)
+        con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
+        raise HTTPException(401)
+    if row["expired"]:
+        # Not a guess, so no try is counted: the program refreshes its token.
+        raise HTTPException(401)
+    with suppress(sqlite3.Error):
+        con.execute(
+            f"UPDATE {table} SET last_used = CURRENT_TIMESTAMP WHERE id = ?", (row["token_id"],)
+        )
+    return row
+
+
+def current_teacher(
+    request: Request, con: Con, session: Annotated[str | None, Cookie()] = None
+) -> sqlite3.Row:
+    # With an Authorization header the cookie is ignored: a bad token beside a good cookie is 401.
+    header = request.headers.get("authorization")
+    if header is None:
+        return current_user(con, session)
+    scheme, _, token = header.partition(" ")
+    return token_user(con, request, token if scheme.lower() == "bearer" else "")
+
+
+Teacher = Annotated[sqlite3.Row, Depends(current_teacher)]
+
+
 def current_admin(user: User) -> sqlite3.Row:
     # 404, not 403: the admin pages do not exist for anyone else.
     if not user["admin"]:
@@ -82,10 +144,10 @@ def current_admin(user: User) -> sqlite3.Row:
 Admin = Annotated[sqlite3.Row, Depends(current_admin)]
 
 
-def limit(con: sqlite3.Connection, key: str) -> None:
+def limit(con: sqlite3.Connection, key: str, tries: int = TRIES) -> None:
     # Kept in the database, so a restart does not hand out fresh tries.
     con.execute("DELETE FROM attempts WHERE created <= datetime('now', ?)", (f"-{WINDOW} seconds",))
-    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= TRIES:
+    if con.execute("SELECT count(*) FROM attempts WHERE key = ?", (key,)).fetchone()[0] >= tries:
         raise HTTPException(429)
     con.execute("INSERT INTO attempts (key) VALUES (?)", (key,))
 
@@ -185,6 +247,61 @@ def delete_account(user: User, response: Response, con: Con) -> dict:
     return {}
 
 
+class NewToken(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def stripped(cls, value: str) -> str:
+        value = value.strip()
+        if not 1 <= len(value) <= 80:
+            raise ValueError("a name of 1 to 80 characters")
+        return value
+
+
+# Cookie only, like the admin calls: a token cannot mint or list tokens.
+@router.post("/tokens")
+def make_token(body: NewToken, user: User, con: Con) -> dict:
+    # One transaction: no row keeps an empty hash, and two creates cannot both pass the name check.
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        names = con.execute("SELECT name FROM tokens WHERE user_id = ?", (user["id"],))
+        if any(row["name"].strip().casefold() == body.name.casefold() for row in names):
+            raise HTTPException(
+                422, "Diesen Namen hat schon ein Schlüssel. Gib jedem Gerät einen eigenen Namen."
+            )
+        row = con.execute(
+            "INSERT INTO tokens (user_id, hash, name) VALUES (?, '', ?) RETURNING id",
+            (user["id"], body.name),
+        ).fetchone()
+        token = f"bt_{row['id']}_{secrets.token_urlsafe(32)}"
+        # Only the hash is stored: this answer is the one place the token is shown.
+        con.execute("UPDATE tokens SET hash = ? WHERE id = ?", (digest(token), row["id"]))
+    except BaseException:
+        con.execute("ROLLBACK")
+        raise
+    con.execute("COMMIT")
+    made = con.execute("SELECT id, name, created, last_used FROM tokens WHERE id = ?", (row["id"],))
+    return {**dict(made.fetchone()), "token": token}
+
+
+@router.get("/tokens")
+def tokens(user: User, con: Con) -> list[dict]:
+    rows = con.execute(
+        "SELECT id, name, created, last_used FROM tokens WHERE user_id = ? ORDER BY id DESC",
+        (user["id"],),
+    )
+    return [dict(row) for row in rows]
+
+
+@router.delete("/tokens/{token_id}")
+def revoke(token_id: Id, user: User, con: Con) -> dict:
+    cur = con.execute("DELETE FROM tokens WHERE id = ? AND user_id = ?", (token_id, user["id"]))
+    if not cur.rowcount:
+        raise HTTPException(404)
+    return {}
+
+
 def remove(folder: Path) -> str | None:
     """One try to delete a folder. Gives the first error, or None when the folder is gone."""
     errors = []
@@ -239,6 +356,9 @@ def reset(body: Reset, response: Response, con: Con) -> dict:
     user_id = take_link(con, body.token, invite=False)["user_id"]
     con.execute("UPDATE users SET password = ? WHERE id = ?", (hasher.hash(body.password), user_id))
     con.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM tokens WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM oauth_grants WHERE user_id = ?", (user_id,))
+    con.execute("DELETE FROM oauth_codes WHERE user_id = ?", (user_id,))
     return start_session(con, response, user_id)
 
 

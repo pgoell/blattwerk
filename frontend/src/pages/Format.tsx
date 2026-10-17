@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, PT, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -25,7 +25,7 @@ import type { LineStyle, Pen } from "../edges";
 type Props = {
   sel: Block[];
   // Sets props on every selected block of one type.
-  style: (type: Block["type"], props: object, key?: string) => void;
+  style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   // Adds `by` to the score of each picked score box, each from its own number.
   bump: (by: number) => void;
   // Sets what a text and a shape share on every selected one of them.
@@ -38,6 +38,8 @@ type Props = {
   feed: (props: object, key?: string) => void;
   // Sets bold, italic, underline or colour on the words picked in the text being edited, or else as `look` does.
   paint: (props: Marks, key?: string) => void;
+  // Mends a word's split on every block of the sheet, or with no counts takes the mend back to the module's own split.
+  mendWord: (keys: string[], counts: number[] | undefined, id: string) => void;
   // Makes a list of the paragraphs the caret stands in, or else of all the selected texts.
   itemize: (kind: List) => void;
   // Makes the picked words, the cell being edited or else every selected text a gap, or takes the gap off.
@@ -60,6 +62,10 @@ type Props = {
   laid: number[];
   // The ids of the blocks whose text the page's foot cuts short.
   full: string[];
+  // The ids of the picked shapes whose text grew them back after a smaller size from this panel.
+  held: string[];
+  // Tells the editor which blocks this panel resizes.
+  onSize: (ids: string[]) => void;
   // Sets the width of the picked columns, or the height of the picked rows, in mm; or evens them out.
   sizeCells: (axis: "col" | "row", mm: number) => void;
   evenCells: (axis: "col" | "row") => void;
@@ -88,6 +94,9 @@ type Props = {
   // Whether a new width sets the height to match, in the fields and on the handles.
   lock: boolean;
   setLock: (on: boolean) => void;
+  // Where X and Y count from: the page's top left corner, or its centre. Kept by the editor, not in the sheet.
+  from: "corner" | "centre";
+  setFrom: (from: "corner" | "centre") => void;
   // The width and height in mm of the page in use.
   size: number[];
   // The whole sheet, for the maths blocks a Selbstkontrolle can check.
@@ -141,6 +150,36 @@ const endsOf = (b: ShapeBlock) => [
   [b.x + (far(b, 1, false) ? b.w : 0), b.y + (far(b, 0, false) ? b.h : 0)],
   [b.x + (far(b, 1, true) ? b.w : 0), b.y + (far(b, 0, true) ? b.h : 0)],
 ];
+// The box a thing lines up by: a line draws its stroke round its ends and an arrow head there (a double's at both),
+// so its box takes them in. Any other block lines up by its outline.
+export const inked = (b: Block): Box => {
+  if (!isLine(b)) return outline(b);
+  const [s, e] = endsOf(b);
+  const [dx, dy] = [e[0] - s[0], e[1] - s[1]];
+  const len = Math.hypot(dx, dy) || 1;
+  const [u, p] = [[dx / len, dy / len], [-dy / len, dx / len]];
+  const sw = b.props.strokeWidth ?? 0.5;
+  const head = b.props.kind === "line" ? 0 : 2 + sw * 3;
+  const at = ([x, y]: number[], along: number, across: number) => [x + u[0] * along + p[0] * across, y + u[1] * along + p[1] * across];
+  const points = [
+    at(s, 0, sw / 2), at(s, 0, -sw / 2), at(e, 0, sw / 2), at(e, 0, -sw / 2),
+    at(e, -head, head / 2), at(e, -head, -head / 2),
+    ...(b.props.kind === "double" ? [at(s, head, head / 2), at(s, head, -head / 2)] : []),
+    // Ticks stand 1.5 mm to each side of the ends (`Line` in sheet.tsx draws them).
+    ...(b.props.ticks ? [s, e].flatMap((end) => [at(end, 0, 1.5), at(end, 0, -1.5)]) : []),
+  ];
+  // The length stands 2 mm over the middle, on the side that reads upright: its em box, with a char at most 0.6 em.
+  if (b.props.label) {
+    const fs = 12 * PT;
+    const half = (`${(Math.round(len * 10) / 100).toLocaleString("de")} cm`.length * 0.6 * fs) / 2;
+    const side = u[0] < 0 ? -1 : 1;
+    const mid = [(s[0] + e[0]) / 2, (s[1] + e[1]) / 2];
+    for (const along of [-half, half]) for (const across of [-2 - 1.2 * fs, -2 + 0.35 * fs]) points.push(at(mid, along, side * across));
+  }
+  const [xs, ys] = [points.map(([x]) => x), points.map(([, y]) => y)];
+  const [x, y] = [Math.min(...xs), Math.min(...ys)];
+  return { ...b, x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+};
 // The blocks turned as one by `by` degrees about the middle of the box around them, as the handle turns a
 // selection and PowerPoint a group: each block's centre goes round, and its angle goes on. One block turns on its
 // spot. Quarters are exact, and a line goes by them only. `about` is the point to turn about, when the caller
@@ -174,13 +213,15 @@ export const scaled = (bs: Block[], sx: number, sy: number, [ox, oy]: [number, n
 // A group that is turned scales in its own frame: it goes level about its middle, scales there, and turns back, so
 // a line in it still lies along the box. A group is turned when all its blocks but the lines share one angle; one with
 // blocks turned each their own way scales along the page, each block by the axis it lies along.
-const scaledGroup = (bs: Block[], sx: number, sy: number): Block[] => {
+// `at` is the point that stays, in the level frame: the level box's top left corner unless one is given.
+export const scaledGroup = (bs: Block[], sx: number, sy: number, at?: [number, number]): Block[] => {
   const { turn, about, level } = frameOf(bs);
   const lb = bounds(level);
-  return turn ? swung(scaled(level, sx, sy, [lb.x, lb.y]), turn, about) : scaled(bs, sx, sy, [lb.x, lb.y]);
+  const o = at ?? [lb.x, lb.y];
+  return turn ? swung(scaled(level, sx, sy, o), turn, about) : scaled(bs, sx, sy, o);
 };
 // A group's own frame: its blocks laid level about its middle when it is turned, as they are when it is not.
-const frameOf = (bs: Block[]) => {
+export const frameOf = (bs: Block[]) => {
   const angles = new Set(bs.filter((b) => !isLine(b)).map((b) => b.angle ?? 0));
   const turn = angles.size === 1 ? [...angles][0] : 0;
   const all = hull(bs);
@@ -188,7 +229,7 @@ const frameOf = (bs: Block[]) => {
   return { turn, about, level: turn ? swung(bs, -turn, about) : bs };
 };
 // A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
-const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
+export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
 const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
@@ -216,6 +257,9 @@ export const mirrored = (bs: Block[], axis: Axis): Block[] => {
 // Whether the words picked in the field have a look, or with no field every selected text: as in PowerPoint, a
 // look goes on unless all have it. A text has it when all its words do, of their own or through the block; one
 // with no words has what the block has.
+// What a size typed on these blocks is remembered by: their places, sizes and angles.
+const signature = (bs: Block[]) => JSON.stringify(bs.map((b) => [b.id, b.x, b.y, b.w, b.h, b.angle ?? 0]));
+
 export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "italic" | "underline") =>
   part
     ? !!part.marks[name]
@@ -258,12 +302,14 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
   // The line style and width that a border button or the pen draws with while a cell is open. It starts at the table's.
   const [pen, setPen] = useState<Pen>({ style: "solid", width: 0.25 });
+  // The size last typed for a group, with the blocks it was typed on: the frame may not land on it.
+  const [typed, setTyped] = useState<{ sig: string; w?: number; h?: number }>();
   const fixed = sel.some((b) => b.locked);
   const level = fixed || sel.some((b) => b.type === "table" || (isLine(b) && alone(b)));
   const plain = fixed || !sel.some((b) => !alone(b) || b.type === "image" || b.type === "symbol" || b.type === "shape" || drawn(b));
@@ -322,7 +368,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const { mark } = sel[0];
   // The Silbenbögen and the Silbenfarbe stand once, with the text settings or else with the table's, and go to all
   // that hold words. What is mended by hand belongs to one block: another pick starts anew.
-  const bows = <Syllables key={sel.find(worded)?.id} sel={sel} part={part} look={look} style={style} />;
+  const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />;
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, so the block's height follows.
@@ -366,22 +412,35 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   const box = bounds(sel);
   // Its width and height are those of its own frame, the box it has at 0 degrees, as in PowerPoint.
   const own = whole ? bounds(frameOf(sel).level) : box;
+  // What the panel shows for a group's side: what was typed, while the group is as it was left, else its frame.
+  const shownOwn = (side: "w" | "h") => (typed && typed.sig === signature(sel) && typed[side] !== undefined ? typed[side] : round(own[side]));
   const shared = (of: (b: Block) => number) => (whole ? undefined : sel.every((b) => of(b) === of(sel[0])) ? of(sel[0]) : undefined);
   // A picture, a symbol and a Hunderterfeld always keep their shape.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = lock || shaped;
   const move = (axis: Axis, to: number) => place(sel.map((b) => [b.id, { [axis]: whole ? round(b[axis] + to - box[axis]) : to }]));
+  // The distance from the page's corner to where X and Y count from: nothing, or half the page in Mitte.
+  const offset = (axis: "x" | "y") => (from === "centre" ? (axis === "x" ? W : H) / 2 : 0);
+  const shownAt = (axis: "x" | "y", v?: number) => (v === undefined ? undefined : round(v - offset(axis)));
   // The corner stays. A group scales about its top left corner, and with the lock all of it keeps its shape.
   // Loose blocks each keep their own shape.
+  // A group scaled once by `f` on its sides; the field then shows what was typed, as the frame may not land on it.
+  // `to` is the value of `side` the field shows after; the other side shows its own value, scaled when both scale.
+  const scaleWhole = (side: "w" | "h", f: number, to: number) => {
+    const both = lock || sel.some(kept);
+    const out = scaledGroup(sel, ...(side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]) as [number, number]);
+    const other = side === "w" ? "h" : "w";
+    const rest = both ? round(shownOwn(other) * f) : shownOwn(other);
+    setTyped({ sig: signature(out), ...(side === "w" ? { w: to, h: rest } : { w: rest, h: to }) });
+    place(out.map(sized));
+  };
   const resize = (side: "w" | "h", to: number) => {
     const other = side === "w" ? "h" : "w";
     // A group of flat lines has no height to scale from.
     if (to <= 0 || (whole && own[side] <= 0)) return;
+    onSize(sel.map((b) => b.id));
     if (whole) {
-      const f = to / own[side];
-      const both = lock || sel.some(kept);
-      const [sx, sy] = side === "w" ? [f, both ? f : 1] : [both ? f : 1, f];
-      place(scaledGroup(sel, sx, sy).map(sized));
+      scaleWhole(side, to / shownOwn(side), to);
       return;
     }
     place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
@@ -389,13 +448,16 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
   // A percent scales the box from its top left corner, or about the group's; a loose block keeps its own shape when it is kept.
   const percent = (side: "w" | "h", p: number) => {
     if (!(p > 0)) return;
+    onSize(sel.map((b) => b.id));
     const f = p / 100;
     // The side named scales; the other too when the shape is kept.
     const factors = (both: boolean): [number, number] => (side === "w" ? [f, both ? f : 1] : [both ? f : 1, f]);
-    const out = whole
-      ? (([sx, sy]) => scaledGroup(sel, sx, sy))(factors(lock || sel.some(kept)))
-      : // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
-        sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
+    if (whole) {
+      scaleWhole(side, f, shownOwn(side) * f);
+      return;
+    }
+    // A loose block scales its own width and height, as its Breite and Höhe do, also when it is turned.
+    const out = sel.map((b) => (([sx, sy]) => ({ ...b, w: round(b.w * sx), h: round(b.h * sy) }))(factors(kept(b))));
     place(out.map(sized));
   };
   // A picture goes back to the size it had when it came in, as the editor sets a new one: uncropped, cut
@@ -426,6 +488,12 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
         </p>
       )}
+      {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
+      {sel.some((b) => held.includes(b.id)) && (
+        <p className="hint" role="status" data-held="text">
+          Der Text braucht diese Höhe. Mit kleinerer Schrift oder kürzerem Text lässt sich die Form kleiner stellen.
+        </p>
+      )}
       {/* A table that a new column made wider than the page is cut too, at the right edge. */}
       {sel.some((b) => b.type === "table" && rightmost(b) > W + 0.01) && (
         <p className="hint warn" role="status" data-edge="over">
@@ -434,10 +502,19 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       )}
       <div className="geo">
         <h2>Position und Größe in mm</h2>
-        <Num label="X" value={whole ? round(box.x) : shared((b) => b.x)} disabled={fixed} onCommit={(n) => move("x", n)} />
-        <Num label="Y" value={whole ? round(box.y) : shared((b) => b.y)} disabled={fixed} onCommit={(n) => move("y", n)} />
-        <Num label="Breite" value={whole ? round(own.w) : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
-        <Num label="Höhe" value={whole ? round(own.h) : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
+        <label>
+          von
+          <select aria-label="von" value={from} onChange={(e) => setFrom(e.target.value as "corner" | "centre")}>
+            <option value="corner">Ecke oben links</option>
+            <option value="centre">Mitte</option>
+          </select>
+        </label>
+        <span />
+        {/* In Mitte the place counts from the page's centre: a block at 15 mm shows -90 in a page 210 mm wide. */}
+        <Num label="X" units value={shownAt("x", whole ? box.x : shared((b) => b.x))} disabled={fixed} onCommit={(n) => move("x", n + offset("x"))} />
+        <Num label="Y" units value={shownAt("y", whole ? box.y : shared((b) => b.y))} disabled={fixed} onCommit={(n) => move("y", n + offset("y"))} />
+        <Num label="Breite" units value={whole ? shownOwn("w") : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
+        <Num label="Höhe" units value={whole ? shownOwn("h") : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
         <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
         <span>
           °
@@ -457,7 +534,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
       {text && (
         <>
           <h2>Schrift</h2>
-          <FontSelect label="Schriftart" value={fontOf(text.font)} onChange={(font) => look({ font })} />
+          <FontSelect label="Schriftart" value={fontOf(text.font)} unknown={unknownFont(sel.map((b) => boxed(b)?.font))} onChange={(font) => look({ font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => look({ size: Math.max(8, text.size - 2) })}>−</button>
             <output>{text.size} pt</output>
@@ -596,11 +673,12 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
           {RULINGS[kindOf(rulings[0].props.kind)].at && (
-            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} onChange={(font) => style("ruling", { font })} />
+            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} unknown={unknownFont(rulings.map((b) => b.props.font))} onChange={(font) => style("ruling", { font })} />
           )}
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
+          {RULINGS[kindOf(rulings[0].props.kind)].at && !text && !tables.length && bows}
         </>
       )}
       {tables.length > 0 && (
@@ -653,7 +731,7 @@ export default function Format({ sel, style, bump, look, traced, link, feed, pai
               </div>
             </>
           )}
-          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} onChange={(font) => style("table", { font })} />
+          <FontSelect label="Schriftart der Tabelle" value={fontOf(tables[0].props.font)} unknown={unknownFont(tables.map((b) => b.props.font))} onChange={(font) => style("table", { font })} />
           <div className="seg">
             <button aria-label="Schrift kleiner" onClick={() => style("table", { size: Math.max(8, tables[0].props.size - 2) })}>−</button>
             <output>{tables[0].props.size} pt</output>
@@ -810,26 +888,40 @@ function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fa
 }
 
 // A native font menu in FONT_GROUPS' order, each font shown in its own face.
-function FontSelect({ label, value: stored, onChange }: { label: string; value: unknown; onChange: (font: string) => void }) {
+function FontSelect({ label, value: stored, unknown, onChange }: { label: string; value: unknown; unknown?: string; onChange: (font: string) => void }) {
   // A font nobody knows shows as Druckschrift, the font it draws in.
   const value = fontOf(stored);
   return (
-    <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
-      {FONT_GROUPS.map(([group, fonts]) => (
-        <optgroup key={group} label={group}>
-          {fonts.map((font) => (
-            <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
-              {FONTS[font][0]}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <>
+      <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
+        {FONT_GROUPS.map(([group, fonts]) => (
+          <optgroup key={group} label={group}>
+            {fonts.map((font) => (
+              <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
+                {FONTS[font][0]}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {unknown && (
+        <p className="hint">
+          Die Schrift „{unknown}“ kennt Blattomat nicht: Der Block druckt in Druckschrift.
+          <button onClick={() => onChange("andika")}>In Druckschrift setzen</button>
+        </p>
+      )}
+    </>
   );
 }
 
+// The first font of the picked blocks that the app does not know, if one holds one.
+const unknownFont = (fonts: unknown[]) => fonts.find((f): f is string => typeof f === "string" && !Object.hasOwn(FONTS, f));
+
 // What a block that holds words says of its syllables: a text, a shape with text and a table.
 const worded = (b: Block) => (b.type === "table" ? b.props : boxed(b));
+// A Lineatur with lines takes the bows and the colours too, on its written line and on its Lernwörter list, but not on Karo.
+const ruled = (b: Block) => (b.type === "ruling" && RULINGS[kindOf(b.props.kind)].at ? b.props : undefined);
+const syllabled = (b: Block) => ruled(b) ?? worded(b);
 // A stored seed that is a finite number, or none: a seed that is no number counts as no seed.
 const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
 // A text and a shape take it through `look`, a table through `style`: the key they share makes one undo step,
@@ -837,6 +929,9 @@ const seedOf = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n 
 const both = (held: Block[], look: Props["look"], style: Props["style"]) => (props: object, key = Object.keys(props).join()) => {
   if (held.some(boxed)) look(props, key);
   if (held.some((b) => b.type === "table")) style("table", props, key);
+  // Only the Lineaturen that take syllables: a Karo picked along stays as it is.
+  const lined = held.filter((b) => b.type === "ruling" && ruled(b)).map((b) => b.id);
+  if (lined.length) style("ruling", props, key, lined);
 };
 
 // The gaps of a Lückentext for every selected block that holds words: the switch of the gaps, the width they all
@@ -1023,14 +1118,14 @@ function Mix({ sel, look, words: sheet }: Pick<Props, "sel" | "look" | "words">)
 // unless all have them, as bold. With Silbenfarbe on, the pair and the choices for it stand below. With one such block
 // its words stand below too, each as it is split, to mend by hand: a click on a word shows its letters, and a click
 // between two of them sets a break there or takes it away.
-function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "look" | "style">) {
-  const held = sel.filter(worded);
-  const bowsOn = held.every((b) => worded(b)!.syllables);
+function Syllables({ sel, part, look, style, mendWord, doc, words }: Pick<Props, "sel" | "part" | "look" | "style" | "mendWord" | "doc" | "words">) {
+  const held = sel.filter(syllabled);
+  const bowsOn = held.every((b) => syllabled(b)!.syllables);
   // A stored pair that is garbage colours nothing, so the switch is off for it.
-  const tintsOn = held.every((b) => pairOf(worded(b)!.tints));
-  const pair = pairOf(held[0] && worded(held[0])!.tints) ?? TINTS;
+  const tintsOn = held.every((b) => pairOf(syllabled(b)!.tints));
+  const pair = pairOf(held[0] && syllabled(held[0])!.tints) ?? TINTS;
   const greys = pair[0] === GREYS[0] && pair[1] === GREYS[1];
-  const across = held.every((b) => worded(b)!.tintsAcross);
+  const across = held.every((b) => syllabled(b)!.tintsAcross);
   const split = useSplitter(bowsOn || tintsOn);
   // The word whose letters show, as `breaks` names it.
   const [open, setOpen] = useState<string>();
@@ -1039,24 +1134,23 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
     if (split && part?.word) setOpen(split.keyOf(part.word));
   }, [split, part?.word]);
   const set = both(held, look, style);
-  const one = split && held.length === 1 ? worded(held[0])! : undefined;
-  const fixes = one?.breaks ?? {};
+  const one = split && held.length === 1 ? syllabled(held[0])! : undefined;
+  const fixes = { ...doc.breaks, ...one?.breaks };
   // Whether the teacher split the word, under its key or under the old one: "constructor" is a word too, and every object has one.
   const own = (w?: string) => !!w && [split!.keyOf(w), split!.oldKeyOf(w)].some((key) => Object.hasOwn(fixes, key) && Array.isArray(fixes[key]));
   // Each word once, however it is written: a split holds for "Abend" and "abend" alike.
   const keys = new Set<string>();
-  const all = one ? split!.words("cells" in one ? one.cells.flat().join("\n") : one.text).filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
+  // A Lineatur on the Lernwörter list has the sheet's words, not a text of its own.
+  const linked = !!one && held[0].type === "ruling" && listOf(held[0]) !== undefined;
+  const all = one ? split!.words(linked ? words.join("\n") : "cells" in one ? one.cells.flat().join("\n") : one.text ?? "").filter((w) => !keys.has(split!.keyOf(w)) && keys.add(split!.keyOf(w))) : [];
   const word = all.find((w) => split!.keyOf(w) === open);
   // Sets or removes the break at `at`, or with none takes the word back to its own split. A word split as the
-  // module splits it needs no entry, and a block with no entry no `breaks`. The entry is kept in characters of the composed word, and an
-  // entry under the old key goes, so the word has one entry.
+  // module splits it needs no entry. The mend holds for the word in every block of the sheet.
   const mend = (at?: number) => {
     const now = split!.cuts(word!, fixes);
     const next = at === undefined ? undefined : now.includes(at) ? now.filter((cut) => cut !== at) : [...now, at].sort((a, b) => a - b);
     const counts = next && split!.counted(word!, next);
-    const rest = Object.fromEntries(Object.entries(fixes).filter(([key]) => key !== open && key !== split!.oldKeyOf(word!)));
-    const breaks = counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? { ...rest, [open!]: counts } : rest;
-    set({ breaks: Object.keys(breaks).length ? breaks : undefined });
+    mendWord([split!.keyOf(word!), split!.oldKeyOf(word!)], counts && String(counts) !== String(split!.counted(word!, split!.split(word!))) ? counts : undefined, held[0].id);
   };
   return (
     <>
@@ -1124,16 +1218,29 @@ function Syllables({ sel, part, look, style }: Pick<Props, "sel" | "part" | "loo
   );
 }
 
+// The size of each unit in mm, for a length typed with one: 72 pt is an inch.
+const UNITS: Record<string, number> = { mm: 1, cm: 10, pt: 25.4 / 72, in: 25.4 };
+
 // A field for a number. What is typed counts on Enter or when the field is left, and Escape drops it. An arrow up
-// or down steps by one. `value` is absent where the selected blocks differ.
-function Num({ label, value, disabled, onCommit }: { label: string; value?: number; disabled: boolean; onCommit: (n: number) => void }) {
+// or down steps by one. `value` is absent where the selected blocks differ. With `units` a length may carry mm, cm,
+// pt or in.
+function Num({ label, value, disabled, units, onCommit }: { label: string; value?: number; disabled: boolean; units?: boolean; onCommit: (n: number) => void }) {
   const [draft, setDraft] = useState<string>();
   // Whether the mouse that is down brought the focus.
   const fresh = useRef(false);
-  // The field follows the sheet: a drag or an undo takes the place of what was typed.
-  useEffect(() => setDraft(undefined), [value]);
+  const input = useRef<HTMLInputElement>(null);
+  // The field follows the sheet: a drag or an undo takes the place of what was typed. Not while the teacher types in
+  // it: the end of a drag can land late, after the first key (#727), and Enter would then find nothing to set.
+  useEffect(() => {
+    if (document.activeElement !== input.current) setDraft(undefined);
+  }, [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
-  const read = () => (/^-?\d+([.,]\d+)?$/.test(draft?.trim() ?? "") ? round(Number(draft!.replace(",", "."))) : NaN);
+  const read = () => {
+    const text = draft?.trim() ?? "";
+    const unit = units && /^(-?\d+(?:[.,]\d+)?)\s*(mm|cm|pt|in)$/i.exec(text);
+    if (unit) return round(Number(unit[1].replace(",", ".")) * UNITS[unit[2].toLowerCase()]);
+    return /^-?\d+([.,]\d+)?$/.test(text) ? round(Number(text.replace(",", "."))) : NaN;
+  };
   // Without a draft the blur that follows Enter finds nothing to set.
   const commit = (n: number) => {
     setDraft(undefined);
@@ -1143,6 +1250,7 @@ function Num({ label, value, disabled, onCommit }: { label: string; value?: numb
     <label>
       {label}
       <input
+        ref={input}
         className="mm"
         type="text"
         inputMode="decimal"
@@ -1159,7 +1267,8 @@ function Num({ label, value, disabled, onCommit }: { label: string; value?: numb
         onBlur={() => draft !== undefined && commit(read())}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit(read());
-          if (e.key === "Escape") setDraft(undefined);
+          // Ctrl+Z and Ctrl+Y here undo and redo the sheet, whose step takes the place of what was typed.
+          if (e.key === "Escape" || ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key))) setDraft(undefined);
           if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
           e.preventDefault();
           commit(round((draft === undefined ? (value ?? NaN) : read()) + (e.key === "ArrowUp" ? 1 : -1)));

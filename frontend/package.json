@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node mcpb.mjs",
+    "mcpb": "node mcpb.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "schema": "node schema.mjs",
+    "okf": "node okf.mjs"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
@@ -17,6 +20,7 @@
     "@fontsource-variable/playwrite-de-la": "^5.3.0",
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "hyphen": "^1.14.1",
     "lucide-react": "^1.55.0",
     "modern-screenshot": "^4.7.0",
@@ -32,10 +36,13 @@
     "react-selecto": "^1.26.3"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
+    "@types/node": "22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "fast-check": "^4.10.2",
+    "ts-json-schema-generator": "2.9.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.3"

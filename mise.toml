@@ -31,14 +31,16 @@ description = "Run the frontend dev server, proxying /api to :8000"
 run = "npm run dev --prefix frontend"
 
 [tasks.deps]
-description = "Install frontend/node_modules when a fresh git worktree has none"
-run = "test -d frontend/node_modules || npm ci --prefix frontend"
+description = "Install frontend/node_modules when it is missing, half-written or older than the lock file"
+# npm writes node_modules/.package-lock.json as the last step of an install: a missing or older one means redo it.
+# npm install can write both in the same tick: as old as the lock is new enough.
+run = "test -f frontend/node_modules/.package-lock.json && ! test frontend/package-lock.json -nt frontend/node_modules/.package-lock.json || npm ci --prefix frontend"
 
 [tasks.build]
 description = "Build the frontend into the package"
 # Skipped while the build is newer than its sources: a build under a running test would swap the files it serves.
-sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts"]
-outputs = ["src/blattwerk/static/index.html"]
+sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts", "frontend/mcp/**/*", "frontend/mcpb.mjs", "docs/okf/**/*", "src/blattwerk/sheet.schema.json"]
+outputs = ["src/blattwerk/static/index.html", "src/blattwerk/static/blattomat.mcpb"]
 depends = ["deps"]
 run = "npm run build --prefix frontend"
 
@@ -82,6 +84,11 @@ description = "Print a sheet: the editor as PNG and the PDF as PNG, into the fol
 depends = ["build"]
 run = "uv run python scripts/shot.py"
 
+[tasks.eval]
+description = "Run the teacher tasks in tests/evals against Claude through the MCP, on the subscription; not in CI"
+depends = ["build", "deps"]
+run = "uv run python scripts/eval.py"
+
 # ─── Stage ──────────────────────────────────────────────────────────────────
 
 [tasks."stage:up"]
@@ -106,6 +113,18 @@ run = [
   "uv run ruff format --check",
   "uv run ty check",
   "npm run typecheck --prefix frontend",
+  # The schema the server checks a saved sheet against comes from the types: it fails where they moved apart.
+  "npm run schema --prefix frontend -- --check",
+  # The block pages in docs/okf/blocks come from the same schema: it fails where a page differs from it.
+  "npm run okf --prefix frontend -- --check",
+]
+
+[tasks.schema]
+description = "Write src/blattwerk/sheet.schema.json from the sheet's types in frontend/src"
+depends = ["deps"]
+run = [
+  "npm run schema --prefix frontend",
+  "npm run okf --prefix frontend",
 ]
 
 [tasks.fmt]

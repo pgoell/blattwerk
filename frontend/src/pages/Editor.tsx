@@ -13,6 +13,7 @@ import {
   type MouseEvent as Click,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   type TouchEvent,
 } from "react";
 import { flushSync } from "react-dom";
@@ -89,7 +90,7 @@ import {
 import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useNavigate, useParams } from "react-router";
-import { api, post, type User } from "../api";
+import { api, post, type Refusal, type User } from "../api";
 import { DRAWERS, opening } from "../components/Blank";
 import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
@@ -97,28 +98,35 @@ import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
-import Variants from "../components/Variants";
+import Variants, { NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
-import { attempt, status } from "../fault";
-import { ask, attach, discard, flush, get, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { attempt, drop as dropFault, note, status } from "../fault";
+import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { Draw, FIELDS, K, MARGIN, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
+import { made } from "../zahlenmauer";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, has, hull, mirrored, norm, outline, swung } from "./Format";
+import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, newSeed } from "./Maths";
-import { DEFAULTS as DREIECK, heightFor, sane as saneDreieck } from "../rechendreieck";
-import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "../zahlenstrahl";
-import { DEFAULTS as FELD } from "../hunderterfeld";
-import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "../uhr";
-import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "../selbstkontrolle";
-import { heightFor as heightForMauer, sane as saneMauer } from "../zahlenmauer";
+import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
+import type { Breaks } from "../syllables";
+
+// The line a PDF gives when it fails, and the line it keeps while the sheet's change is not saved.
+const pdfFault = "Das PDF konnte nicht erstellt werden.";
+
+// A point turned by `by` degrees about `about`, in the same sense as a block turns (Format's swung).
+const turnedAt = ([x, y]: [number, number], by: number, [cx, cy]: [number, number]): [number, number] => {
+  const [c, s] = [Math.cos((by * Math.PI) / 180), Math.sin((by * Math.PI) / 180)];
+  const [dx, dy] = [x - cx, y - cy];
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+};
 
 type Template = { id: number; name: string; doc: Doc; group?: string };
 // A new block's type and settings; `add` gives it its place.
@@ -145,10 +153,9 @@ const takes = (b: Block): readonly (keyof Coat)[] => {
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.
 const BARE: Record<string, string | number> = { fill: "none", stroke: "none", strokeWidth: 0.5, valign: "top" };
-// The frames a text or a shape can have.
-const FRAMES: [Kind, string][] = [["rect", "Eckig"], ["rounded", "Abgerundet"], ["circle", "Rund"], ["triangle", "Dreieck"], ["star", "Stern"], ["bubble", "Sprechblase"]];
-// A new shape's width in mm, where it is not 60.
-const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 40 };
+// The frames a text or a shape can have: the kinds from insert.ts, with their labels.
+const FRAME_LABELS: Record<string, string> = { rect: "Eckig", rounded: "Abgerundet", circle: "Rund", triangle: "Dreieck", star: "Stern", bubble: "Sprechblase" };
+const FRAMES: [Kind, string][] = FRAME_KINDS.map((kind) => [kind, FRAME_LABELS[kind]]);
 const DASHES = [[undefined, "Durchgezogen", "───"], ["dashed", "Gestrichelt", "╌╌╌"], ["dotted", "Gepunktet", "┈┈┈"]] as const;
 const LABELS = [[undefined, "Keine"], ["show", "Blatt"], ["key", "Lösungen"]] as const;
 const SHAPES: [Kind, string, LucideIcon][] = [
@@ -254,7 +261,8 @@ const Thumb = memo(Paper);
 export default function Editor({ user, wait, first }: { user: User; wait: ReactNode; first: ReturnType<typeof get> }) {
   const { id } = useParams();
   // undefined while the sheet is loading, null when it is not there. `n` counts the loads.
-  const [file, setFile] = useState<{ sheet: Sheet | null | "failed"; n: number }>();
+  // `variants` opens the print variants in a sheet loaded anew for them.
+  const [file, setFile] = useState<{ sheet: Sheet | null | "failed"; n: number; variants?: Opened }>();
   const show = (sheet: Sheet | null | "failed") => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1 }));
   // The tries after a load that failed. Each asks anew, with the loading page up meanwhile.
   const [tries, setTries] = useState(0);
@@ -263,6 +271,8 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     setTries((n) => n + 1);
   };
   const here = useRef(true);
+  // A PDF pressed in a clash, Lösungen where true: it comes once the teacher has chosen, also in the editor a load starts anew.
+  const waiting = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     here.current = true;
     return () => void (here.current = false);
@@ -278,7 +288,11 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   const ended = (end: "failed" | void) => void (here.current && setChoice(end || undefined));
   // The two answers to a sheet deleted elsewhere: what shows becomes a new sheet, which opens, or it is dropped.
   const navigate = useNavigate();
-  const keep = () => void keepAsNew(Number(id)).then((sheet) => sheet && sheet !== "failed" && navigate(`/blatt/${sheet.id}`));
+  const keep = () => void keepAsNew(Number(id)).then((sheet) => {
+    if (!sheet || sheet === "failed") return;
+    dropFault(pdfFault);
+    navigate(`/blatt/${sheet.id}`);
+  });
   // Only from the dead sheet's own address: the teacher may have gone on while the server was asked.
   const drop = () => void discard(Number(id)).then((gone) => gone && location.pathname === `/blatt/${id}` && navigate("/"));
   function load() {
@@ -286,6 +300,7 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
     ask<Sheet>(`/sheets/${id}`).then(
       (sheet) => {
         ended();
+        dropFault(pdfFault);
         const other = here.current && reset(sheet);
         if (other) show(other);
       },
@@ -294,8 +309,15 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   }
   function over() {
     setChoice("busy");
-    overwrite(Number(id)).then(ended);
+    overwrite(Number(id)).then((end) => {
+      // Where this version took the other's place: what shows is what the next PDF prints.
+      if (!inClash(Number(id)) && !isGone(Number(id))) dropFault(pdfFault);
+      ended(end);
+    });
   }
+  // The newer sheet of another window is shown where this window has no change of its own (#720).
+  // At once: the saver is the new sheet's already, and a key typed into the old editor meanwhile would be lost.
+  const renew = (sheet: Sheet, variants?: Opened) => void (here.current && flushSync(() => setFile((was) => ({ sheet, n: (was?.n ?? 0) + 1, variants }))));
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
   // browser kept waits through a load that failed, and shows with the try that brings the sheet.
@@ -309,10 +331,17 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} renew={renew} opened={file.variants} waiting={waiting} />;
 }
 
-function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void }) {
+// The print variants opened in an editor loaded anew: the dialog's choice as it was, and the press that loaded it.
+// `print` prints at once, Lösungen where true; `newer` says that a newer version was loaded for it.
+type Opened = { count: number; letters: boolean; print?: boolean; newer?: boolean };
+
+// The clash bar. A PDF pressed in the clash adds its own sentence to it.
+const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Wähle, welche Version gilt.";
+
+function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -324,6 +353,33 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const saver = useSaves().list.find((s) => s.id === file.id);
   const named = useRef(title);
   named.current = title;
+  // Loads the newer sheet of another window, where this one has no change: it says so, and shows the sheet (#720).
+  // With `variants` the new editor opens the print variants. A press asks anew, so the line of a load before goes.
+  async function newerSheet(variants?: Opened) {
+    const sheet = await newer(file.id, () => ({ doc: live.current.doc, title: named.current }));
+    if (sheet) {
+      note(NEWER, NEWER);
+      renew(sheet, variants);
+    }
+    return !!sheet;
+  }
+  // The clash bar says it all then: no second red line.
+  useEffect(() => void (saver?.clash && dropFault(NEWER)), [saver?.clash]);
+  // A PDF pressed in the clash waits for the choice. It prints once the choice has ended, unless the sheet is gone.
+  const [pdfWaits, setPdfWaits] = useState(waiting.current !== undefined);
+  useEffect(() => {
+    if (saver?.clash || waiting.current === undefined) return;
+    const key = waiting.current;
+    waiting.current = undefined;
+    setPdfWaits(false);
+    if (!saver?.gone) void pdf(key);
+  }, [saver?.clash, saver?.gone]);
+  useEffect(() => onNewer(file.id, () => void newerSheet(dialogState.current)), []);
+  useEffect(() => {
+    const focus = () => void newerSheet(dialogState.current);
+    addEventListener("focus", focus);
+    return () => removeEventListener("focus", focus);
+  }, []);
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
@@ -342,6 +398,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
   const [editing, setEditing] = useState("");
+  // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
+  const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
+  // Whether the last press was a finger's, and where the handles of the picked table's range stand.
+  const [finger, setFinger] = useState(false);
+  const [grips, setGrips] = useState<{ corner: string; x: number; y: number }[]>([]);
   // The cell of the table being edited, counted row by row.
   const [slot, setSlot] = useState(0);
   // The far corner of a selection of cells in the table being edited, and whether a drag picks cells.
@@ -611,6 +672,33 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  // A mend holds for the word in every block of the sheet, in one step: it stands in the sheet, and in the block it was
+  // made in, which takes it along when copied; the other blocks' own entries for it go. Counts undefined takes the word
+  // back to the module's own split everywhere.
+  // `keys` are the word's key and its old key: the panel has the splitter that makes them, the editor loads none.
+  function mendWord(keys: string[], counts: number[] | undefined, id: string) {
+    const rest = (own?: Breaks) => Object.fromEntries(Object.entries(own ?? {}).filter(([key]) => !keys.includes(key)));
+    update((doc) => {
+      const base = { ...doc };
+      delete base.breaks;
+      const mended = counts ? { ...rest(doc.breaks), [keys[0]]: counts } : rest(doc.breaks);
+      if (Object.keys(mended).length) base.breaks = mended;
+      const pages = doc.pages.map((p) => ({
+        ...p,
+        blocks: p.blocks.map((b) => {
+          const own = (b.props as { breaks?: Breaks }).breaks;
+          const here = b.id === id && counts;
+          if (!own && !here) return b;
+          const props = { ...b.props } as Record<string, unknown>;
+          delete props.breaks;
+          const kept = here ? { ...rest(own), [keys[0]]: counts } : rest(own);
+          if (Object.keys(kept).length) props.breaks = kept;
+          return { ...b, props } as Block;
+        }),
+      }));
+      return { ...base, pages };
+    });
+  }
   // Page numbers are sheet-wide. A change turns them on and keeps the rest; "Aus" turns them off and keeps the rest too.
   const folio = pageNumbersOf(hist.doc);
   // A click on what is already set makes no step to undo.
@@ -652,6 +740,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function setLock(on: boolean) {
     place(sel.map((b): [string, Partial<Box>] => [b.id, { keep: on || undefined }]));
   }
+  // Where the panel's X and Y count from. Not in the sheet, and kept while the picks change.
+  const [from, setFrom] = useState<"corner" | "centre">("corner");
   // What may be deleted, cut, moved, sized, turned and written in, as in PowerPoint: no locked block, and no block of
   // a group with a locked one, picked whole or in part. Such a group stays as a whole, so it keeps its shape.
   // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
@@ -684,9 +774,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const cropping = sel.length === 1 && sel[0].type === "image" && sel[0].id === draft?.id ? sel[0] : undefined;
   // Picked as one group, they show one frame, as in PowerPoint: their own outlines go, and the frame lies outside them.
   const oneGroup = sel.length > 1 && (sel[0].group ?? []).some((g) => sel.every((b) => b.group?.includes(g)));
-  // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. They scale
-  // along the page, so a turned group has none: its frame is turned, and they would stand where no block is.
-  const group = free.length > 1 && free.length === sel.length && sel.some(isLine) && !(oneGroup && sel.some((b) => !isLine(b) && b.angle)) ? bounds(sel) : undefined;
+  // Moveable collapses a selection that holds a flat line, so one with a line gets its own corner handles. A turned
+  // one shows them on its turned frame: they size it in its own frame, where its blocks lie level.
+  // Loose blocks keep a level frame, however they are turned. A group whose blocks are turned each their own way has
+  // no frame of its own to size it in, so it has none: the handles would stand off Moveable's frame round them.
+  const ownFrame = oneGroup && sel.some(isLine) ? frameOf(sel) : undefined;
+  const mixed = !!ownFrame && !ownFrame.turn && sel.some((b) => !isLine(b) && b.angle);
+  const frame = free.length > 1 && free.length === sel.length && sel.some(isLine) && !mixed ? (ownFrame ?? { turn: 0, about: [0, 0] as [number, number], level: sel }) : undefined;
+  const turnedLine = !!frame?.turn;
+  // Loose blocks show the box round their turned outlines, as PowerPoint does, where their handles stand.
+  const group = frame && (turnedLine ? bounds(frame.level) : hull(sel));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
   const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
@@ -743,6 +840,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }, [blocks, k]);
   // The ids whose text the page's foot cuts short: the panel warns about them.
   const [full, setFull] = useState<string[]>([]);
+  // The blocks the panel resized last, and the picked shapes whose text grew them back: the panel says why they stay.
+  const panelSized = useRef<string[]>([]);
+  const [heldIds, setHeldIds] = useState<string[]>([]);
+  const pickedKey = ids.join(" ");
+  useEffect(() => {
+    panelSized.current = [];
+    setHeldIds([]);
+  }, [pickedKey]);
   const stopped = (id: string, on: boolean) =>
     setFull((f) => (f.includes(id) === on ? f : on ? [...f, id] : f.filter((x) => x !== id)));
   // The height at which a block's lowest point meets the page's foot `H`, or Infinity when it never does. Lowest is
@@ -802,7 +907,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     for (const b of measured) {
       // A circle, triangle or star with `inside` shrinks its text to its outline: it grows only by `overfit` (below).
       const shape = boxed(b);
-      if (shrinks(b)) continue;
+      if (shrinks(b)) {
+        // A saved shape prints as it did. The teacher's change gives a picked one the floor: its type stays at 10 pt,
+        // and the grow that follows is told by `overfit` on the next draw, so the flag is set again for it.
+        // A locked one cannot grow, so it keeps its old type.
+        if (shape && shape.floor !== true && !b.locked && sel.some((s) => s.id === b.id)) {
+          grown.set(b.id, { props: { ...b.props, floor: true } } as Partial<Block>);
+          tight.current = true;
+        }
+        continue;
+      }
       const h = natural(b);
       if (h === undefined) continue;
       const kept = b.type === "table" ? heightsOf(b.props) : undefined;
@@ -830,21 +944,40 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
 
   // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
-  const overfit = useRef((_id: string, _mm: number) => {});
+  const overfit = useRef((_id: string, _lack: { down: number; across: number }) => {});
   // The block last written in.
   const wrote = useRef("");
   if (editing) wrote.current = editing;
-  overfit.current = (id, mm) => {
+  overfit.current = (id, { down: mm, across }) => {
     const b = sel.find((x) => x.id === id);
     // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
-    if (b) stopped(id, mm > 0 && atFoot(b));
+    if (b) stopped(id, (mm > 0 || across > 1) && atFoot(b));
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
     const shape = b && boxed(b);
-    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || mm <= 0) return;
+    if (!b || !shape || !(tight.current || wrote.current === id) || b.locked || (mm <= 0 && across <= 1)) return;
+    if (panelSized.current.includes(id)) setHeldIds((h) => (h.includes(id) ? h : [...h, id]));
+    const H = sizeOf(hist.doc, page);
+    if (across > 1) {
+      // A word too wide for the inner box: the shape grows as wide as high, by the share its words and lines lack,
+      // its top left corner stays, up to the foot and the page's right edge, by its outline when it is turned.
+      const grownBy = (s: number) => ({ ...b, ...tall(b, Math.ceil(b.h * s * 100) / 100), w: Math.ceil(b.w * s * 100) / 100 }) as Block;
+      const fits = (s: number) => lowest(grownBy(s)) <= H[1] + 0.01 && outline(grownBy(s)).x + outline(grownBy(s)).w <= H[0] + 0.01;
+      // The share it lacks, or the largest that fits, found by halving: the outline's reach grows with the share.
+      let [lo, s] = [1, Math.max(across, 1 + mm / b.h)];
+      for (let i = 0; i < 12 && !fits(s); i++) {
+        const mid = (lo + s) / 2;
+        if (fits(mid)) lo = mid;
+        else s = mid;
+      }
+      if (!fits(s)) s = lo;
+      if (!(s > 1)) return;
+      setHist((st) => ({ ...st, doc: { ...st.doc, pages: st.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, Math.ceil(x.h * s * 100) / 100), w: Math.ceil(x.w * s * 100) / 100 } as Block) : x)) } : p)) } }));
+      return;
+    }
     const [up, , low] = fitOf(shape.kind, b.w, b.h);
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
-    const top = footTop(b, sizeOf(hist.doc, page)[1]);
+    const top = footTop(b, H[1]);
     const h = Math.max(b.h, Math.min(want, top));
     // At the foot there is nothing to grow: no new state, or the frame would tell again at once.
     if (h <= b.h) return;
@@ -852,8 +985,63 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const round = shape.kind === "circle" && b.w === b.h ? { w: h } : {};
     setHist((s) => ({ ...s, doc: { ...s.doc, pages: s.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, h), ...round } as Block) : x)) } : p)) } }));
   };
+  // With a finger, round handles stand at the top left and the bottom right of the picked cells, as on PowerPoint's
+  // iPad. They stand on the sheet as the lines' handles do, at the cells' corners as the block's turn puts them.
+  useLayoutEffect(() => {
+    const page = sheet.current;
+    const block = table && finger && editing === table.id ? page?.querySelector<HTMLElement>(`[data-id="${table.id}"]`) : null;
+    // Measured after each draw, as the open cell's field may move the cells; set only where a place changed.
+    const none = () => setGrips((was) => (was.length ? [] : was));
+    if (!table || !page || !block) return none();
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    const cellAt = (r: number, c: number) => block.querySelector<HTMLElement>(`.table > div[data-cell="${anchorOf(table.props, r * table.props.cols.length + c)}"]`);
+    const [first, last] = [cellAt(r0, c0), cellAt(r1, c1)];
+    if (!first || !last) return none();
+    // A turned cell's box on the screen has the cell's centre still: the corner lies half the cell from there, turned
+    // as the block is. The sheet may be drawn larger or smaller than its own size.
+    const on = page.getBoundingClientRect();
+    const scale = on.width / page.offsetWidth;
+    const [c, s] = dir(table);
+    // The table draws its cells smaller or larger than their own size: the turned box's width tells by how much.
+    const corner = (cell: HTMLElement, side: number) => {
+      const box = cell.getBoundingClientRect();
+      const [w, h] = [cell.offsetWidth, cell.offsetHeight];
+      const drawn = box.width / (w * Math.abs(c) + h * Math.abs(s)) / scale;
+      const [vx, vy] = [(side * w * drawn) / 2, (side * h * drawn) / 2];
+      return { x: (box.left + box.width / 2 - on.left) / scale + vx * c - vy * s, y: (box.top + box.height / 2 - on.top) / scale + vx * s + vy * c };
+    };
+    const now = [
+      { corner: "nw", ...corner(first, -1) },
+      { corner: "se", ...corner(last, 1) },
+    ];
+    setGrips((was) => (JSON.stringify(was) === JSON.stringify(now) ? was : now));
+  });
+  // The cell that stays while a handle is dragged: the corner across from it.
+  const gripFixed = useRef(0);
+  // A finger on a handle picks the cells from the corner across to the cell it lies over, as a mouse drag does. The
+  // open cell is that far corner's: the range is the open cell and `reach`.
+  const gripDown = (e: PointerEvent<HTMLElement>, corner: string) => {
+    if (!table) return;
+    e.preventDefault();
+    e.stopPropagation();
+    cellDrag.current = true;
+    const [r0, c0, r1, c1] = rectOf(table.props, slot, reach ?? slot);
+    gripFixed.current = anchorOf(table.props, corner === "nw" ? r1 * table.props.cols.length + c1 : r0 * table.props.cols.length + c0);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const gripMove = (e: PointerEvent<HTMLElement>) => {
+    if (!cellDrag.current || !table) return;
+    const over = document.elementsFromPoint(e.clientX, e.clientY).map((el) => el.closest<HTMLElement>("[data-cell]")).find((el) => el && el.closest(`[data-id="${table.id}"]`));
+    if (!over) return;
+    const at = anchorOf(table.props, +over.dataset.cell!);
+    if (gripFixed.current !== slot) setSlot(gripFixed.current);
+    setReach(at === gripFixed.current ? undefined : at);
+  };
+  const gripUp = () => {
+    cellDrag.current = false;
+  };
   useEffect(() => {
-    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<number>).detail);
+    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
     const desk = sheet.current!;
     desk.addEventListener("overfit", on);
     return () => desk.removeEventListener("overfit", on);
@@ -1537,44 +1725,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       key,
     );
   }
-  function style(type: Block["type"], props: object, key?: string) {
+  // `only` names the picked blocks of the type that take the props, where not all of them do.
+  function style(type: Block["type"], props: object, key?: string, only?: string[]) {
     if (type === "table" || key === "words") tight.current = true;
     change(
       (bs) =>
         bs.map((b) => {
-          if (!ids.includes(b.id) || b.type !== type) return b;
+          if (!ids.includes(b.id) || b.type !== type || (only && !only.includes(b.id))) return b;
           const next = { ...b, props: { ...b.props, ...fresh(b, props) } } as Block;
-          return { ...next, ...grown(b, next) } as Block;
+          return { ...next, ...grown(b, next, hist.doc, H) } as Block;
         }),
       key,
     );
-  }
-  // A maths block grows downward when a change in its panel needs more room, to the page's foot at most, in the same
-  // undo step; it never shrinks by itself. A Zahlenstrahl grows by what its line rises, so the line keeps its place.
-  // The blocks that grow so that their drawing keeps the size of the default block's: the height their props need at
-  // width w, and the props that change it (#588, #598).
-  const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, string[]]>> = {
-    rechendreieck: [(p, w) => heightFor(saneDreieck(p), w), ["count", "columns"]],
-    zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
-    uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
-  };
-  function grown(b: Block, next: Block): Partial<Box> {
-    const foot = Math.max(b.h, H - MARGIN - b.y);
-    if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
-      const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
-      if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
-    }
-    // A Selbstkontrolle grows with its form, its links or its word, as its content needs, and needs the sheet to count its tasks.
-    if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (["form", "links", "word", "size", "title", "turn"] as const).some((key) => next.props[key] !== b.props[key])) {
-      const need = round(Math.min(heightForSelbst(saneSelbst(next.props), hist.doc, b.w), foot));
-      if (need > b.h) return tall(b, need);
-    }
-    const grow = GROWS[b.type];
-    if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
-      const need = round(Math.min(grow[0](next.props, b.w), foot));
-      if (need > b.h) return tall(b, need);
-    }
-    return {};
   }
   // The text typed into a ruling is set, and in the same change the block grows by whole rows when the text needs more
   // rows than it has. A Karo needs the rows of its squares. A Lineatur's field scrolls past its last row, so its
@@ -2112,13 +2274,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The block lands on page `n` of the sheet as last drawn, and that page is in use from then on.
   // A block the teacher inserts goes under the lowest block of the page, at its left edge, when it fits above the
   // margin there. Words and pictures pasted from another app keep the place at the top of the view.
-  // The boxes the blocks fill on a page: a turned block counts with the box it fills, turned about its middle.
-  const filled = (blocks: Block[]) =>
-    blocks.map((b) => {
-      const [c, s] = dir(b).map(Math.abs);
-      const [w, h] = [b.w * c + b.h * s, b.w * s + b.h * c];
-      return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
-    });
   // The first spot of page `p` where a w x h box keeps 5 mm from every block, scanned in rows from the top, in steps of 5 mm.
   function freeSpot(doc: Doc, p: number, w: number, h: number) {
     const [W, H] = sizeOf(doc, p);
@@ -2260,13 +2415,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     // The session run out says nothing, and a picture that can be sent again counts before a file's own fault.
     if (why.length) throw why.find((e) => e?.message === "401") ?? why.find((e) => !unfit(status(e))) ?? why[0];
   }
+  // What an insert button makes, from insert.ts.
+  const addInsert = (f: Insert) => add(f.w, f.h, f);
   // A maths block starts with plus exercises up to 20; the server makes them.
   async function addMaths() {
-    const limits = { ops: ["+" as const], max: 20, a: [[0, 9], [0, 9]] as Range[], b: [[0, 9], [0, 9]] as Range[], carry: "either" as const, rest: false, format: "row" as const, count: 12, seed: newSeed() };
+    const limits = MATHS.limits(newSeed());
     await attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const where = mark();
-      const props = { ...limits, ...(await generate(limits)), columns: 3, size: 14 };
-      calm(() => add(180, mathsHeight(props), { type: "maths", props }, where()));
+      const props = { ...limits, ...(await generate(limits)), ...MATHS.look };
+      calm(() => add(MATHS.w, mathsHeight(props), { type: "maths", props }, where()));
     });
   }
   // `got` is the sheet's Lernwörter when the blocks bring a list the sheet lacks: it comes in the same step.
@@ -2304,11 +2461,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
   // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
   const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
+  // The sheet's mends go along with the copied texts and tables, so a paste into another sheet keeps them. A block's own entry wins.
+  const carrying = (bs: Block[]): Block[] => {
+    const mends = live.current.doc.breaks;
+    if (!mends) return bs;
+    return bs.map((b) => ("text" in b.props || "cells" in b.props ? ({ ...b, props: { ...b.props, breaks: { ...mends, ...(b.props as { breaks?: Breaks }).breaks } } } as Block) : b));
+  };
   function copy(held = sel) {
     if (!held.length) return;
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
-    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: carrying(held), ...(linkedAny && { words: live.current.doc.words }) }));
     // The newest copy wins: pages copied before are no longer what a paste on a thumbnail brings.
     localStorage.removeItem("pages");
     const words = wordsOf(held);
@@ -2356,7 +2519,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   function storePages(ns: number[]) {
     const held = [...ns].sort((a, b) => a - b).map((i) => live.current.doc.pages[i]);
     const linkedAny = held.some((p) => p.blocks.some(tied));
-    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held, ...(linkedAny && { words: live.current.doc.words }) }));
+    localStorage.setItem("pages", JSON.stringify({ owner: user.id, pages: held.map((p) => ({ ...p, blocks: carrying(p.blocks) })), ...(linkedAny && { words: live.current.doc.words }) }));
   }
   // The pasted pages come after page `after`, with blocks of their own, and are the choice from then on. One step of undo.
   function pastePages(after: number) {
@@ -2527,7 +2690,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // A thing lines up by the box around its outlines, a turned block's too, and moves whole.
   function align(axis: Axis, at: number) {
     const size = axis === "x" ? "w" : "h";
-    const boxes = things.map((t) => bounds(t.map(outline)));
+    const boxes = things.map((t) => bounds(t.map(inked)));
     // One thing lines up with the page. Several do so with each other, or with the page when the switch says so.
     const lo = among ? Math.min(...boxes.map((b) => b[axis])) : 0;
     const hi = among ? Math.max(...boxes.map((b) => b[axis] + b[size])) : axis === "x" ? W : H;
@@ -2553,7 +2716,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   }
   function distribute(axis: Axis) {
     const size = axis === "x" ? "w" : "h";
-    const row = things.map((t) => ({ t, box: bounds(t.map(outline)) })).sort((a, b) => a.box[axis] - b.box[axis]);
+    const row = things.map((t) => ({ t, box: bounds(t.map(inked)) })).sort((a, b) => a.box[axis] - b.box[axis]);
     // Between the outer things, or between the page's edges. One thing goes to the middle of the frame.
     const lo = among ? Math.min(...row.map((r) => r.box[axis])) : 0;
     const hi = among ? Math.max(...row.map((r) => r.box[axis] + r.box[size])) : axis === "x" ? W : H;
@@ -2792,7 +2955,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     mergeKey.current = "";
     setReach(undefined);
     const after = next(b.props, slot, e.shiftKey ? -1 : 1);
-    if (after !== undefined) setSlot(after);
+    if (after !== undefined) {
+      // The next cell's text is picked, so that typing replaces it.
+      entire.current = true;
+      setSlot(after);
+    }
     else if (!e.shiftKey) {
       const rows = b.props.cells.length;
       rank(b, "row", rows, true);
@@ -3008,12 +3175,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // tenth, not flip.
   function scale(e: PointerEvent, right: boolean, low: boolean) {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const { x, y, w, h } = bounds(start.current);
-    const [px, py] = point(e);
+    // A turned group scales in its own frame: the pointer turns back to it, and the factor is taken there.
+    const { turn, about, level } = turnedLine ? frameOf(start.current) : { turn: 0, about: [0, 0] as [number, number], level: start.current };
+    const { x, y, w, h } = turnedLine ? bounds(level) : hull(level);
+    const [px, py] = turn ? turnedAt(point(e) as [number, number], -turn, about) : point(e);
     const half = mod & CENTRE ? 2 : 1;
     const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
     const [sw, sh] = [(right ? w : -w) / half, (low ? h : -h) / half];
     let s = Math.max(0.1, w && (px - fx) / sw, h && (py - fy) / sh);
+    if (turn) {
+      setGuide([]);
+      place(scaledGroup(start.current, s, s, [fx, fy]).map(resized), "drag");
+      return;
+    }
     // The dragged corner snaps to the guides a block drag snaps to. The group keeps its shape, so only the nearer
     // of the two guides holds it.
     const [mx, my] = [fx + sw * s, fy + sh * s];
@@ -3047,11 +3221,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
     const to = round(Math.round(at / by) * by);
     rules(n, (g) => ({ ...g, [axis]: g[axis].map((o, j) => (j === i ? to : o)) }), "drag");
   }
-  // Let go off the page, a guide line is gone.
+  // The tab of a guide line held now: its page, axis and number.
+  const sliding = useRef("");
+  // Let go off the page, a guide line is gone. Its place is read from the document as it stands, not from the last
+  // render: the pointer may be let go before the page has drawn its last move (#525).
   function drop(axis: Axis, i: number, n?: number) {
-    const at = (n === undefined ? guides : pages[n].guides!)[axis][i];
-    if (at >= 0 && at <= (axis === "x" ? W : H)) return;
-    rules(n, (g) => ({ ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
+    const on = (at: number) => at >= 0 && at <= (axis === "x" ? W : H);
+    rules(n, (g) => (on(g[axis][i]) ? g : { ...g, [axis]: g[axis].filter((_, j) => j !== i) }), "drag");
   }
 
   // The PDF is made of what the server holds, so a change still waiting is saved first: after a save under way,
@@ -3059,11 +3235,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The session is asked for first: where it is gone the login shows, and nothing goes to the PDF's address. The
   // PDF is fetched, so a failure leaves the sheet where it is, and goes to the browser as a download under the name
   // the server gives it. With no limit of time: a long sheet takes long to print.
+  // The PDF waits for the clash's choice, and the bar says so.
+  const holdPdf = (key: boolean) => void (waiting.current = key, setPdfWaits(true));
   async function pdf(key: boolean) {
     // A sheet deleted elsewhere: another try ends the same, so the line names the choice and has no button.
     const deleted = "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde auf einem anderen Gerät gelöscht. Wähle „Als neues Blatt behalten“, dann gibt es wieder ein PDF.";
-    await attempt("Das PDF konnte nicht erstellt werden.", async () => {
-      await flush(file.id);
+    const what = pdfFault;
+    await attempt(what, async () => {
+      // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
+      // the save it waits for is the one turned down.
+      if (inClash(file.id)) return holdPdf(key);
+      // A newer version saved in another window is what prints: the editor shows it first (#720).
+      dropFault(NEWER);
+      await newerSheet();
+      // Deleted elsewhere: the PDF has no sheet to print, and the line names the choice.
+      if (isGone(file.id)) throw new Error("404");
+      const current = await flush(file.id);
+      if (inClash(file.id)) return holdPdf(key);
       await ask("/me");
       const res = await signed(
         fetch(`/api/sheets/${file.id}/pdf${key ? "?solved=true" : ""}`).then((res) => {
@@ -3077,16 +3265,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       link.click();
       // After the browser has taken the file.
       setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      if (!current) note(what, "Das PDF zeigt den zuletzt gespeicherten Stand, nicht deine letzte Änderung: sie ist noch nicht gespeichert.");
     }, (s) => (s === "404" && isGone(file.id) ? deleted : undefined));
   }
 
   // The print variants: the dialog's choice lives here, so it stays while the editor is open.
-  const [variants, setVariants] = useState(false);
-  const [count, setCount] = useState(2);
-  const [letters, setLetters] = useState(true);
+  const [variants, setVariants] = useState(!!opened);
+  // What opened the dialog: a press that came with a newer sheet prints once, and the line stays while the dialog is open.
+  const [fromPress, setFromPress] = useState(opened);
+  const [count, setCount] = useState(opened?.count ?? 2);
+  const [letters, setLetters] = useState(opened?.letters ?? true);
   // The button that opened the dialog gets the focus back when it shuts.
   const variantsDoor = useRef<HTMLElement | null>(null);
-  const openVariants = (door: HTMLElement) => {
+  // The dialog's state while it is open, so a newer sheet from another tab or a focus reopens it as it stands.
+  const dialogState = useRef<Opened | undefined>(undefined);
+  dialogState.current = variants ? { count, letters, newer: true } : undefined;
+  // A press that re-mounted the editor has the dialog open: Schließen gives the focus back to the bar's button.
+  useEffect(() => {
+    if (!opened) return;
+    variantsDoor.current = bar.current?.querySelector<HTMLElement>('[aria-label="Varianten drucken"]') ?? bar.current?.querySelector<HTMLElement>(".more") ?? null;
+  }, []);
+  // A newer version saved in another window: the dialog opens on it, in the editor that shows it (#720).
+  const openVariants = async (door: HTMLElement) => {
+    dropFault(NEWER);
+    if (await newerSheet({ count, letters, newer: true })) return;
     variantsDoor.current = door;
     setVariants(true);
   };
@@ -3096,18 +3298,26 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const storing = useRef(false);
   async function store() {
     const made = { name: name.trim() };
-    await attempt("Die Vorlage konnte nicht gespeichert werden.", async () => {
-      if (storing.current) return;
-      storing.current = true;
-      try {
-        // The page as it stands at the try: a later one stores what the teacher sees then.
-        const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
-        setTemplates((ts) => [...ts, saved]);
-        setName((now) => (now.trim() === made.name ? "" : now));
-      } finally {
-        storing.current = false;
-      }
-    });
+    await attempt(
+      "Die Vorlage konnte nicht gespeichert werden.",
+      async () => {
+        if (storing.current) return;
+        storing.current = true;
+        try {
+          // The page as it stands at the try: a later one stores what the teacher sees then.
+          const saved = await signed(post<Template>("/templates", { ...made, doc: live.current.doc }));
+          setTemplates((ts) => [...ts, saved]);
+          setName((now) => (now.trim() === made.name ? "" : now));
+        } finally {
+          storing.current = false;
+        }
+      },
+      // A template the server refuses names what is wrong in it, and a try again would end the same.
+      (_, e) => {
+        const problems = (e as Refusal).problems;
+        return problems ? `Die Vorlage konnte nicht gespeichert werden: das Blatt passt nicht zum Format. ${problems.join("; ")}` : undefined;
+      },
+    );
   }
   // A template takes the place of the sheet; undo brings the sheet back. A built-in one gets fresh seeds, and its
   // maths blocks fresh exercises from the server; a block whose request fails keeps its own. The sheet keeps its
@@ -3195,7 +3405,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // a cell's and a Lineatur's to the end, as a textarea tells no letter for a point.
       else if (touch.current || (!press && sel.length === 1 && free.length === 1 && writable(free[0]) && !tied(free[0]))) {
         clicked.current = point;
-        edit(id, el);
+        openStone(el) || edit(id, el);
       }
       // Level lines in a row leave Moveable's group area no height, so a press on one lands here.
       else if (press && ids.length > 1) moveable.current!.dragStart(press);
@@ -3207,6 +3417,36 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   // The blocks that open for writing at once on a key or a second click: those with words of their own.
   const writable = (b: Block) => b.type === "ruling" || b.type === "table" || b.type === "text" || (b.type === "shape" && !isLine(b));
   // `el` is what was pressed: in a table, the cell that gets the caret. `all` picks all the text there.
+  // A double click on a stone of the selected Zahlenmauer opens its number field on the stone, as a table cell opens.
+  // Gives whether it did.
+  function openStone(target: Element): boolean {
+    const el = target.closest<SVGGElement>(".stone");
+    const block = target.closest<HTMLElement>(".block");
+    const only = free.length === 1 ? free[0] : undefined;
+    if (!el || !block || only?.type !== "zahlenmauer" || only.id !== block.dataset.id) return false;
+    const wall = Number(el.closest<SVGGElement>(".wall")?.dataset.wall);
+    const at = Number(el.dataset.stone);
+    // The stone's box in the block's own layout, from the svg's units: a turned block's screen box is not its own.
+    const svg = el.closest<SVGSVGElement>("svg")!;
+    const view = svg.viewBox.baseVal;
+    const cell = el.querySelector("rect")!;
+    const scale = Math.min(svg.clientWidth / view.width, svg.clientHeight / view.height);
+    // The svg has no offsets of its own: its box is that of the block's Zahlenmauer, which has.
+    const host = el.closest<HTMLElement>(".zahlenmauer")!;
+    const left = host.offsetLeft + (svg.clientWidth - view.width * scale) / 2 + (cell.x.baseVal.value - view.x) * scale;
+    const top = host.offsetTop + (cell.y.baseVal.value - view.y) * scale;
+    const box = [left, top, cell.width.baseVal.value * scale, cell.height.baseVal.value * scale];
+    setStone({ id: only.id, wall, at, text: String(made(only.props).walls[wall].numbers[at]), box });
+    return true;
+  }
+  // A number typed into a stone, stored as the format panel stores it: one undo step for each stone.
+  function typeStone(b: Block, wall: number, at: number, text: string) {
+    if (b.type !== "zahlenmauer") return;
+    // The stored entries as they are, so that the walls beyond `count` keep their numbers.
+    const others = (b.props.typed ?? []).filter((t) => t[0] !== wall || t[1] !== at);
+    const typed = text === "" ? (others.length ? others : undefined) : [...others, [wall, at, Number(text)]];
+    style("zahlenmauer", { typed }, `typed:${wall}:${at}`);
+  }
   function edit(id?: string, el?: Element, all = false, cell?: number) {
     if (!id || free.length !== 1 || free[0].id !== id || el?.closest(".bar")) return;
     // A linked Lineatur, text or shape has no text of its own: the list is what it shows.
@@ -3222,6 +3462,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       setEditing(id);
     }
     setSlot(cell ?? +(el?.closest<HTMLElement>("[data-cell]")?.dataset.cell ?? 0));
+    // A tap in a cell opens that cell alone, as a press of the mouse does: the cells picked before are let go.
+    setReach(undefined);
     if (free[0].type === "image") setDraft({ id, cut: free[0].props.cut });
   }
   // The whole picture's box on the page, in mm, from the block's box and its stored cut.
@@ -3538,12 +3780,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const inBar = (label: string) => !more.some((item) => item.label === label);
   // The maths blocks, picked from the "Mathe-Blöcke" menu.
   const mathBlocks: Item[] = [
-    { label: "Zahlenmauer", icon: BrickWall, run: () => add(180, 60, { type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: newSeed() } }) },
-    { label: "Rechendreieck", icon: TriangleDashed, run: () => add(180, 50, { type: "rechendreieck", props: { ...DREIECK, seed: newSeed() } }) },
-    { label: "Zahlenstrahl", icon: MoveRight, run: () => add(180, 30, { type: "zahlenstrahl", props: { ...STRAHL, seed: newSeed() } }) },
-    { label: "Hunderterfeld", icon: Grid3x3, run: () => add(100, 100, { type: "hunderterfeld", props: { ...FELD, seed: newSeed() } }) },
-    { label: "Uhr", icon: Clock3, run: () => add(180, 58.5, { type: "uhr", props: { ...UHR, seed: newSeed() } }) },
-    { label: "Selbstkontrolle", icon: ListChecks, run: () => add(180, 30, { type: "selbstkontrolle", props: { ...SELBST, seed: newSeed() } }) },
+    { label: "Zahlenmauer", icon: BrickWall, run: () => addInsert(INSERTS.zahlenmauer(newSeed())) },
+    { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
+    { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },
+    { label: "Hunderterfeld", icon: Grid3x3, run: () => addInsert(INSERTS.hunderterfeld(newSeed())) },
+    { label: "Uhr", icon: Clock3, run: () => addInsert(INSERTS.uhr(newSeed())) },
+    { label: "Selbstkontrolle", icon: ListChecks, run: () => addInsert(INSERTS.selbstkontrolle(newSeed())) },
   ];
   // What can go on the page. A divider's name is its group's heading in Blattform's left panel.
   const tools = (
@@ -3557,8 +3799,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
         onClick={() => setMulti(!multi)}
       />
       <i className="sep" data-name="Einfügen" />
-      <Tool icon={Type} label="Text" data-tour="text" onClick={() => add(80, 12, { type: "text", props: { text: "", size: 14, align: "left" } })} />
-      <Tool icon={Heading} label="Überschrift" onClick={() => add(180, 14, { type: "text", props: { text: "", size: 24, align: "center", bold: true } })} />
+      <Tool icon={Type} label="Text" data-tour="text" onClick={() => addInsert(INSERTS.text())} />
+      <Tool icon={Heading} label="Überschrift" onClick={() => addInsert(INSERTS.heading())} />
       <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
       <input
         ref={picker}
@@ -3571,13 +3813,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           e.target.value = "";
         }}
       />
-      <Tool icon={Smile} label="Symbol" onClick={() => add(20, 20, { type: "symbol", props: { code: "270F" } })} />
-      <Tool icon={Table} label="Tabelle" onClick={() => add(180, 30, { type: "table", props: { cells: Array.from({ length: 3 }, () => ["", "", ""]), cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } })} />
+      <Tool icon={Smile} label="Symbol" onClick={() => addInsert(INSERTS.symbol())} />
+      <Tool icon={Table} label="Tabelle" onClick={() => addInsert(INSERTS.table())} />
       <i className="sep" data-name="Schule" />
-      <Tool icon={Rows3} label="Lineatur" onClick={() => add(180, 60, { type: "ruling", props: { kind: "l1", color: "#555555" } })} />
-      <Tool icon={UserPen} label="Namenszeile" onClick={() => add(180, 10, { type: "name", props: {} })} />
-      <Tool icon={SquareSlash} label="Punkte" onClick={() => add(40, 12, { type: "points", props: { max: 10 } })} />
-      <Tool icon={Grid3x3} label="Suchsel" onClick={() => add(120, 140, { type: "suchsel", props: { words: [], cols: 10, rows: 10, ways: "down", caps: true, umlauts: true, show: "words", seed: newSeed() } })} />
+      <Tool icon={Rows3} label="Lineatur" onClick={() => addInsert(INSERTS.ruling())} />
+      <Tool icon={UserPen} label="Namenszeile" onClick={() => addInsert(INSERTS.name())} />
+      <Tool icon={SquareSlash} label="Punkte" onClick={() => addInsert(INSERTS.points())} />
+      <Tool icon={Grid3x3} label="Suchsel" onClick={() => addInsert(INSERTS.suchsel(newSeed()))} />
       {/* What makes exercises, a group to a subject. */}
       <i className="sep" data-name="Mathe" />
       <Tool icon={Calculator} label="Rechnen" data-tour="maths" onClick={addMaths} />
@@ -3591,7 +3833,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           setMathMenu({ x: box.left, y: box.top - 4 });
         }}
       />
-      <Tool icon={Ruler} label="Strecke" onClick={() => add(50, 0, { type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } })} />
+      <Tool icon={Ruler} label="Strecke" onClick={() => addInsert(INSERTS.strecke())} />
       <i className="sep" data-name="Formen" />
       <span className="shapes">
         {SHAPES.map(([kind, label, icon]) => (
@@ -3599,13 +3841,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             key={kind}
             icon={icon}
             label={label}
-            onClick={() =>
-              add(WIDTHS[kind] ?? 60, FRAMES.some(([frame]) => frame === kind) ? 40 : 0, {
-                type: "shape",
-                // A shape that holds text keeps it inside its outline (#128).
-                props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(FRAMES.some(([frame]) => frame === kind) && { inside: true }) },
-              })
-            }
+            onClick={() => addInsert(INSERTS.shape(kind))}
           />
         ))}
       </span>
@@ -3775,12 +4011,36 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             </button>
           </span>
           {variants && (
-            <Variants id={file.id} doc={hist.doc} count={count} setCount={setCount} letters={letters} setLetters={setLetters} opener={variantsDoor} onClose={() => setVariants(false)} />
+            <Variants
+              id={file.id}
+              doc={hist.doc}
+              count={count}
+              setCount={setCount}
+              letters={letters}
+              setLetters={setLetters}
+              opener={variantsDoor}
+              onClose={() => { setVariants(false); setFromPress(undefined); }}
+              clash={!!saver?.clash}
+              newer={(key) => newerSheet({ count, letters, print: key, newer: true })}
+              print={fromPress?.print}
+              fresh={fromPress?.newer}
+            />
           )}
         </div>
+        {saver?.refused && (
+          <div className="clash" role="alert">
+            Nicht gespeichert: Das Blatt passt nicht zum Format.
+            <ul>
+              {saver.refused.map((problem, i) => (
+                <li key={i}>{problem}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {saver?.clash && (
           <div className="clash" role="alert">
-            Dieses Blatt wurde auf einem anderen Gerät geändert.
+            {CLASH_BAR}
+            {pdfWaits && " Danach kommt dein PDF."}
             <button disabled={choice === "busy"} onClick={reload}>Andere Version laden</button>
             {/* Based on the version the server has now, this document takes its place; a change that lands in between clashes again. */}
             <button disabled={choice === "busy"} onClick={over}>Mit dieser überschreiben</button>
@@ -3793,7 +4053,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da.
             <button disabled={saver.choice === "busy"} onClick={asNew}>Als neues Blatt behalten</button>
             <button disabled={saver.choice === "busy"} onClick={discard}>Verwerfen</button>
-            {saver.choice && <span>{saver.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+            {saver.choice && (
+              <span>
+                {saver.choice === "busy" ? "Lädt …" : saver.choiceProblems ? `Das hat nicht geklappt: das Blatt passt nicht zum Format. ${saver.choiceProblems.join("; ")}` : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}
+              </span>
+            )}
           </div>
         )}
       </header>
@@ -3954,7 +4218,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               window.addEventListener("pointercancel", let_go);
             }
             touch.current = e.pointerType === "touch";
-            cover.current = moveable.current!.isMoveableElement(e.target as Element);
+            setFinger(touch.current);
+            cover.current =moveable.current!.isMoveableElement(e.target as Element);
             // The hold before is over with the next press, not with its own lift: Moveable hears of that lift later.
             held.current = false;
             // A press of the mouse on a cell of the table being edited picks cells. Moveable takes the focus from the
@@ -4005,7 +4270,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             const at = anchorOf(table.props, +over.dataset.cell!);
             setReach(at === slot ? undefined : at);
           }}
-          onDoubleClick={(e) => brush || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
+          onDoubleClick={(e) => brush || openStone(e.target as Element) || edit((e.target as Element).closest<HTMLElement>(".block")?.dataset.id, e.target as Element)}
           // A held finger gets no menu, and a mouse the editor's own, unless a field keeps the browser's.
           // In a field the browser's own menu stays, a finger's and a mouse's alike.
           onContextMenu={(e) => {
@@ -4037,7 +4302,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
             >
               {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
                   beside them, in px of the screen. */}
-              <div className="scaled" style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
+              <div className={keepsFractions() ? "scaled fractions" : "scaled"} style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
                 <PageNumber doc={hist.doc} page={n} />
                 {p.blocks.map((b) => (
 
@@ -4137,6 +4402,28 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         ))
                       ) : undefined}
                     </Draw>
+                    {stone?.id === b.id && (
+                      <input
+                        className="stone-field"
+                        inputMode="numeric"
+                        aria-label="Zahl im Stein"
+                        autoFocus
+                        value={stone.text}
+                        style={{ left: stone.box[0], top: stone.box[1], width: stone.box[2], height: stone.box[3], fontSize: stone.box[3] * 0.6 }}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onKeyDown={(e) => {
+                          // The keys are the field's: the sheet's own keys do not take the digits or the Enter.
+                          e.stopPropagation();
+                          if (e.key === "Enter" || e.key === "Escape") setStone(null);
+                        }}
+                        onBlur={() => setStone(null)}
+                        onChange={(e) => {
+                          if (!/^\d{0,4}$/.test(e.target.value)) return;
+                          setStone({ ...stone, text: e.target.value });
+                          typeStone(b, stone.wall, stone.at, e.target.value);
+                        }}
+                      />
+                    )}
                     {b.type === "text" && stepOf(b.props.lines) > 0 && <Numbers block={b} />}
                     <Mark block={b} k={K} n={ns.get(b.id)} />
                   </div>
@@ -4145,16 +4432,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               {/* The sheet's guide lines lie on every page; a page's own are drawn dotted. */}
               {[undefined, n].flatMap((at) =>
                 (["x", "y"] as const).flatMap((axis) =>
-                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1]) || (
+                  // A sheet's line past a smaller page is not drawn there, unless its tab is held on that page: the
+                  // tab must stay to hear its letting go (#525).
+                  (at === undefined ? guides : (p.guides ?? NONE))[axis].map((mm, i) => (at === undefined && mm > sizes[n][axis === "x" ? 0 : 1] && sliding.current !== `${n}${axis}${i}`) || (
                     <i key={`${at}${axis}${i}`} className={`rule ${axis}${at === undefined ? "" : " own"}`} style={axis === "x" ? { left: mm * k } : { top: mm * k }}>
                       <b
                         data-axis={axis}
                         data-i={i}
                         data-page={at}
                         // The right button drags nothing: its menu removes this one line, and picks no block.
-                        onPointerDown={(e) => e.button === 0 && grip(e)}
+                        onPointerDown={(e) => e.button === 0 && ((sliding.current = `${n}${axis}${i}`), grip(e))}
                         onPointerMove={(e) => slide(e, axis, i, at)}
-                        onLostPointerCapture={() => drop(axis, i, at)}
+                        onLostPointerCapture={() => ((sliding.current = ""), drop(axis, i, at))}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -4183,6 +4472,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                       />
                     )),
                   )}
+                  {/* Over the lines' handles, which run along the cells' edges where these stand. The sheet's touch, a
+                      hold that opens a menu, is not theirs: it took the click of the next tap. */}
+                  {table && grips.map((g) => (
+                    <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
+                  ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
                   {line &&
                     [false, true].map((end) => (
@@ -4195,13 +4489,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                         onLostPointerCapture={() => setGuide([])}
                       />
                     ))}
+                  {/* Moveable's frame round a turned group with a line takes in the line's level box, so the group's own
+                      frame is drawn here, where its handles stand. */}
+                  {turnedLine &&
+                    ((nw, off) => (
+                      <div
+                        className="turned-frame"
+                        style={{ left: nw[0] * k + off[0], top: nw[1] * k + off[1], width: group!.w * k + FRAME.left + FRAME.right, height: group!.h * k + FRAME.top + FRAME.bottom, transform: `rotate(${frame!.turn}deg)` }}
+                      />
+                    ))(turnedAt([group!.x, group!.y], frame!.turn, frame!.about), turnedAt([-FRAME.left, -FRAME.top], frame!.turn, [0, 0]))}
                   {group &&
-                    [0, 1, 2, 3].map((i) => (
+                    [0, 1, 2, 3].map((i) => {
+                      // On the frame's corners, which stand outside the group's. A turned frame turns them about its middle.
+                      const at = turnedAt([group.x + (i % 2) * group.w, group.y + (i >> 1) * group.h], frame!.turn, frame!.about);
+                      const off = turnedAt([i % 2 ? FRAME.right : -FRAME.left, i >> 1 ? FRAME.bottom : -FRAME.top], frame!.turn, [0, 0]);
+                      return (
                       <i
                         key={i}
                         className="end"
-                        // On the frame's corners, which stand outside the group's.
-                        style={{ left: (group.x + (i % 2) * group.w) * k + (i % 2 ? FRAME.right : -FRAME.left), top: (group.y + (i >> 1) * group.h) * k + (i >> 1 ? FRAME.bottom : -FRAME.top) }}
+                        style={{ left: at[0] * k + off[0], top: at[1] * k + off[1] }}
                         onPointerDown={(e) => {
                           grip(e);
                           start.current = free;
@@ -4213,21 +4519,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                           setGuide([]);
                         }}
                       />
-                    ))}
+                      );
+                    })}
                   <Moveable
                     ref={moveable}
                     // In crop mode the frame's handles stand in for Moveable's.
                     target={cropping ? [] : targets}
                     draggable={free.length === sel.length}
                     resizable={free.length === sel.length && !sel.some(isLine)}
-                    renderDirections={handles}
+                    renderDirections={turnedLine ? [] : handles}
+                    hideDefaultLines={turnedLine}
                     // A lone line keeps its own handles at its ends, and has no frame.
                     padding={sel.length === 1 && isLine(sel[0]) ? undefined : FRAME}
                     // Each loose block has its own outline from Moveable, which the padding does not reach. Blocks of one
                     // group keep only the frame about them all, so the outlines do not cut their letters.
                     hideChildMoveableDefaultLines={oneGroup}
                     // Loose blocks turned alike would get a frame turned about their middle. Their frame stays level.
-                    useDefaultGroupRotate={!oneGroup}
+                    // A turned group with a line has blocks of two angles: its frame takes the group's own.
+                    useDefaultGroupRotate={!oneGroup || !!turnedLine}
+                    defaultGroupRotate={turnedLine ? frame!.turn : 0}
                     origin={false}
                     checkInput
                     // Two fingers zoom the desk and are none of Moveable's. Waiting for a second one outside the block,
@@ -4372,6 +4682,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 style={style}
                 bump={bump}
                 look={look}
+                mendWord={mendWord}
                 traced={traced}
                 paint={paint}
                 itemize={itemize}
@@ -4390,6 +4701,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 unmerge={unmerge}
                 laid={laidMm}
                 full={full}
+                held={heldIds}
+                onSize={(ids) => (panelSized.current = ids)}
                 sizeCells={sizeCells}
                 evenCells={evenCells}
                 lines={drawLines}
@@ -4401,6 +4714,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
                 alone={(b) => thing(b) === b.id}
                 lock={lock}
                 setLock={setLock}
+                from={from}
+                setFrom={setFrom}
                 size={[W, H]}
                 doc={hist.doc}
                 crop={sel.length === 1 && free[0]?.type === "image" ? () => (cropping ? done() : edit(free[0].id)) : undefined}
@@ -4603,7 +4918,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
               <button
                 disabled={!learnt.length}
                 title="Eine Lineatur zum Falten: links die Wörter, rechts leere Spalten zum Üben aus dem Gedächtnis."
-                onClick={() => add(W - 2 * MARGIN, Math.max(1, Math.min(learnt.length, Math.floor((H - 2 * MARGIN) / RULINGS.l3.row))) * RULINGS.l3.row, { type: "ruling", props: { kind: "l3", color: "#222222", list: "fold", folds: 2 } })}
+                onClick={() => addInsert(INSERTS.wordList(learnt.length, [W, H], RULINGS.l3.row))}
               >
                 Knickblatt
               </button>

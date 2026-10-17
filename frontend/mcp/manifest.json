@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "blattomat",
+  "display_name": "Blattomat",
+  "description": "Claude legt Arbeitsblätter in deinem Blattomat-Konto an und ändert sie.",
+  "author": {
+    "name": "Pascal Goellner"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "BLATTWERK_TOKEN": "${user_config.api_key}",
+        "BLATTWERK_URL": "${user_config.url}",
+        "BLATTWERK_DOCS": "${__dirname}/okf"
+      }
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "API-Schlüssel",
+      "description": "Der Schlüssel von deiner Blattomat-Kontoseite, unter Zugang für Claude",
+      "sensitive": true,
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "title": "Adresse",
+      "description": "Nur ändern, wenn du Blattomat auf einem anderen Server nutzt",
+      "default": "https://blattwerk.pgoell.com",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

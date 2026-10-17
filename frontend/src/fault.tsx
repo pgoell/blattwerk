@@ -16,7 +16,7 @@ function show(to: Fault[]) {
   faults = to;
   heard.forEach((hear) => hear());
 }
-const drop = (what: string) => faults.some((f) => f.what === what) && show(faults.filter((f) => f.what !== what));
+export const drop = (what: string) => faults.some((f) => f.what === what) && show(faults.filter((f) => f.what !== what));
 
 // What went wrong, as the HTTP status where the server answered, "offline" where no answer came (the browser's
 // fetch refuses with a TypeError, a request given up after 20 s with an AbortError), and "" for anything else.
@@ -47,6 +47,12 @@ export async function attempt<T>(what: string, run: () => Promise<T>, own?: (sta
     const fault = text ? { what, text } : { what, text: `${what} ${why(s)}`, retry: () => void attempt(what, run, own) };
     show([...faults.filter((f) => f.what !== what), fault]);
   }
+}
+
+// A line that says something without a try: the action is done, and the teacher must know more. The next try of the
+// same `what` takes it away, as for a failure.
+export function note(what: string, text: string) {
+  show([...faults.filter((f) => f.what !== what), { what, text }]);
 }
 
 // Another account's login takes every line away: its button would act for the account before.

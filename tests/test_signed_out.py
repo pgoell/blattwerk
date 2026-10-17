@@ -459,7 +459,16 @@ def before(window, server, call):
     page.on("dialog", lambda d: (d.type == "alert" and alerts.append(d.message), d.accept()))
     # A failure nobody caught counts as one: the call's own catch must take the 401.
     page.on("pageerror", lambda error: alerts.append(str(error)))
-    page.goto(start)
+    if start == server + "/konto":
+        # Konto loads its keys and programs after its heading shows. A load still out when the
+        # test takes the cookies finds the session gone and brings the login before the call.
+        with (
+            page.expect_response(re.compile("/api/tokens$")),
+            page.expect_response(re.compile("/api/connections$")),
+        ):
+            page.goto(start)
+    else:
+        page.goto(start)
     shown(page, server, start)
     if ready:
         ready(page)

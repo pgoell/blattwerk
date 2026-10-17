@@ -37,6 +37,8 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   // What is typed in the own Zahlenraum, until an undo or a redo changes the number under the field.
   const [typed, setTyped] = useState<string>();
   useEffect(() => setTyped(undefined), [block.props.max]);
+  // Why a typed number is not the Zahlenraum: the exercises keep the one they have.
+  const wrong = !typed ? "" : +typed > 1000000 ? "Höchstens 1.000.000." : +typed < 1 ? "Mindestens 1." : !Number.isInteger(+typed) ? "Nur ganze Zahlen." : "";
   // The props of the last change the page had no room for. The line shows while they would still grow the block past the foot.
   const [denied, setDenied] = useState<MathsProps>();
   const refused = !!denied && overFoot(block, denied, foot);
@@ -48,7 +50,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
   const p = pending ?? block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
-  const tried = (props: MathsProps) => setDenied(apply(props) ? undefined : props);
+  const tried = (props: MathsProps) => {
+    const ok = apply(props);
+    setDenied(ok ? undefined : props);
+    return ok;
+  };
 
   // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
   // stays as set, and the line above the page asks again with it.
@@ -59,8 +65,10 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
       if (n !== asked.current) return;
-      tried({ ...next, ...made });
+      const ok = tried({ ...next, ...made });
       setPending(undefined);
+      // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
+      if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
     });
   }
   // A number has as many places as the Zahlenraum; a new place takes any digit.
@@ -169,9 +177,12 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
             setTyped(e.target.value);
             if (e.target.validity.valid && e.target.value) room(Math.floor(+e.target.value));
           }}
+          // Enter and leaving the field show the number the exercises use again.
+          onKeyDown={(e) => e.key === "Enter" && setTyped(undefined)}
           onBlur={() => setTyped(undefined)}
         />
       )}
+      {own && wrong && <p className="hint" role="status">{wrong} Die Aufgaben gehen bis {p.max.toLocaleString("de")}.</p>}
       <h2>Nachkommastellen</h2>
       <div className="seg">
         {([0, 1, 2] as const).map((n) => (

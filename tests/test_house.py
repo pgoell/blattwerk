@@ -253,13 +253,15 @@ def test_band_fill(editor, band_color, fill, opacity):
 
 @pytest.mark.parametrize("kind", ["l1", "l2", "l3", "l4"])
 def test_a_plain_block_draws_as_before(editor, kind):
-    """A8: a block with only kind and colour has no house, its text at no padding, its old bands."""
+    """A8: a block with only kind and colour has no house, its text where it was, its old bands.
+
+    The box reaches left as far as Andika's letters, and its padding gives that room back (#489).
+    """
     page = editor(lineature("a", kind, text="Hallo"))
     expect(houses(page, "a")).to_have_count(0)
     written = at(page, "a").locator(".written").first
-    expect(written).to_have_css("padding-left", "0px")
-    style = written.get_attribute("style") or ""
-    assert "padding" not in style and "box-sizing" not in style, style
+    side = written.evaluate("el => [el.style.left, el.style.paddingLeft]")
+    assert side[0] == f"-{side[1]}", side
     bands = at(page, "a").locator("rect.band")
     if kind not in ("l1", "l2"):
         expect(bands).to_have_count(0)

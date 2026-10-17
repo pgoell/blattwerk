@@ -8,8 +8,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
 from blattwerk import pictures
-from blattwerk.auth import User
+from blattwerk.auth import Teacher
 from blattwerk.db import Con, Id, Whole
+from blattwerk.schema import check, refuse_any_fault
 
 router = APIRouter(prefix="/api")
 
@@ -51,7 +52,7 @@ def public(row: sqlite3.Row | None, user: sqlite3.Row) -> dict:
 
 
 @router.get("/sheets")
-def sheets(user: User, con: Con) -> list[dict]:
+def sheets(user: Teacher, con: Con) -> list[dict]:
     rows = con.execute(
         f"SELECT {COLUMNS} FROM sheets WHERE user_id = ? ORDER BY updated DESC, id DESC",
         (user["id"],),
@@ -60,7 +61,10 @@ def sheets(user: User, con: Con) -> list[dict]:
 
 
 @router.post("/sheets")
-def create(body: Sheet, user: User, con: Con) -> dict:
+def create(body: Sheet, user: Teacher, con: Con, strict: bool = False) -> dict:
+    check(body.doc)
+    if strict:
+        refuse_any_fault(body.doc)
     pictures.touch(user["id"], body.doc)
     return public(
         con.execute(
@@ -105,15 +109,18 @@ def keep_words(con: sqlite3.Connection, sheet_id: int, user: sqlite3.Row, doc: d
 
 
 @router.get("/sheets/{sheet_id}")
-def sheet(sheet_id: Id, user: User, con: Con) -> dict:
+def sheet(sheet_id: Id, user: Teacher, con: Con) -> dict:
     return find(con, sheet_id, user)
 
 
 @router.patch("/sheets/{sheet_id}")
-def save(sheet_id: Id, body: Change, user: User, con: Con) -> dict:
+def save(sheet_id: Id, body: Change, user: Teacher, con: Con, strict: bool = False) -> dict:
     # Only a new document moves the version on, so a rename from the list neither needs one
     # nor gets in the way of an open editor's next save.
     if body.doc is not None:
+        check(body.doc)
+        if strict:
+            refuse_any_fault(body.doc)
         keep_words(con, sheet_id, user, body.doc)
     doc = body.doc and json.dumps(body.doc)
     if body.doc is not None:
@@ -137,7 +144,7 @@ def save(sheet_id: Id, body: Change, user: User, con: Con) -> dict:
 
 
 @router.post("/sheets/{sheet_id}/duplicate")
-def duplicate(sheet_id: Id, user: User, con: Con) -> dict:
+def duplicate(sheet_id: Id, user: Teacher, con: Con) -> dict:
     # The copy's title stays within the 80 characters a save allows.
     return public(
         con.execute(
@@ -151,7 +158,7 @@ def duplicate(sheet_id: Id, user: User, con: Con) -> dict:
 
 
 @router.delete("/sheets/{sheet_id}")
-def delete(sheet_id: Id, user: User, con: Con) -> dict:
+def delete(sheet_id: Id, user: Teacher, con: Con) -> dict:
     touch_stored(con, sheet_id, user)
     cur = con.execute("DELETE FROM sheets WHERE id = ? AND user_id = ?", (sheet_id, user["id"]))
     if not cur.rowcount:

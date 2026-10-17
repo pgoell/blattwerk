@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import Blank from "./components/Blank";
+import Consent from "./pages/Consent";
 import Failed from "./components/Failed";
 import Feedback, { forgetDraft } from "./components/Feedback";
 import Logo from "./components/Logo";
@@ -33,6 +34,10 @@ export default function App() {
   // shows the loading page while a try is out.
   const [down, setDown] = useState(false);
   const [trying, setTrying] = useState(false);
+  // Where the account is unknown and no failure page stands, the network back asks here: that page is gone during a
+  // try, and an online event then would be lost with the try's failure (#481). Where it stands, its own listener asks.
+  const askHere = useRef(false);
+  askHere.current = user === undefined && !(down && !trying);
   // Each try takes the next number, and only the newest one's answer counts: an older try that answers late is no
   // answer about the account now. A sign-in takes a number too, so a check still out before it is outdated.
   const tries = useRef(0);
@@ -60,6 +65,8 @@ export default function App() {
   };
   useEffect(() => {
     check();
+    const back = () => askHere.current && check();
+    addEventListener("online", back);
     saves.onSignedOut(() => setUser(null));
     // A sheet served for another account: somebody signed in in another tab. The window asks who, one request at a
     // time, and goes on as at that one's login. Where the answer names the account the window holds, the sheet was
@@ -74,6 +81,7 @@ export default function App() {
         .then((to) => to.id !== was.current && enter(to), () => {})
         .finally(() => (asking = false));
     });
+    return () => removeEventListener("online", back);
   }, []);
   if (user) was.current = user.id;
 
@@ -139,7 +147,9 @@ export default function App() {
             <Route path="/" element={<SheetList />} />
             <Route path="/blatt/:id" element={first && first.id === id ? <Suspense fallback={wait}><Editor key={id} user={user} wait={wait} first={first.sheet} /></Suspense> : wait} />
             <Route path="/feedback/fotos" element={<Photos />} />
-            <Route path="/konto" element={<Account user={user} onGone={() => enter(null)} />} />
+            <Route path="/oauth/authorize" element={<Consent />} />
+            {/* Another account starts the page anew: nothing of the one before stays on it, not a key shown once. */}
+            <Route path="/konto" element={<Account key={user.id} user={user} onGone={() => enter(null)} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}
             <Route path="*" element={<main><h1>Seite nicht gefunden</h1></main>} />
           </Route>
@@ -165,6 +175,8 @@ export default function App() {
 // it is dropped, and the dead sheet's address gives way to the list.
 function Notices({ owner, id }: { owner?: number; id?: string }) {
   const navigate = useNavigate();
+  // Another tab ended the choice here: this one goes where that one went, if it still shows the sheet.
+  useEffect(() => (id ? saves.onEnded(Number(id), (to) => location.pathname === `/blatt/${id}` && navigate(to ? `/blatt/${to}` : "/")) : undefined), [id, navigate]);
   const open = saves.useSaves().list.filter((s) => s.owner === owner && (s.gone ? !s.open : String(s.id) !== id && s.unsaved && (s.clash || s.failed || s.late)));
   return open.map((s) => (
     <p key={s.id} className="notice" role={s.gone ? "alert" : "status"}>
@@ -177,7 +189,11 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
           <button type="button" disabled={s.choice === "busy"} onClick={() => void saves.discard(s.id).then((gone) => gone && location.pathname === `/blatt/${s.id}` && navigate("/"))}>
             Verwerfen
           </button>
-          {s.choice && <span>{s.choice === "busy" ? "Lädt …" : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}</span>}
+          {s.choice && (
+            <span>
+              {s.choice === "busy" ? "Lädt …" : s.choiceProblems ? `Das hat nicht geklappt: das Blatt passt nicht zum Format. ${s.choiceProblems.join("; ")}` : "Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal."}
+            </span>
+          )}
         </>
       ) : s.stopped ? (
         // First of all: without a login a clash has no sheet to open either.
@@ -186,6 +202,8 @@ function Notices({ owner, id }: { owner?: number; id?: string }) {
         <>
           „{s.title}“ wurde auf einem anderen Gerät geändert. <Link to={`/blatt/${s.id}`}>Öffne das Blatt</Link>, um zu wählen.
         </>
+      ) : s.refused ? (
+        `„${s.title}“ ist nicht gespeichert: das Blatt passt nicht zum Format.`
       ) : (
         `Die letzte Änderung an „${s.title}“ ist noch nicht gespeichert. Blattomat versucht es weiter.`
       )}

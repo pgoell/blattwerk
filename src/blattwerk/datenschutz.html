@@ -35,7 +35,7 @@
   <h2>4. Benutzerkonto und Anmeldung</h2>
   <p>Für Ihr Konto speichern wir Ihre E-Mail-Adresse, Ihr Passwort in gehashter Form (Argon2, nicht im Klartext) und das Datum der Anmeldung. Die E-Mail-Adresse dient allein der Anmeldung; wir schicken Ihnen darüber keine Werbung.</p>
   <p>Nach der Anmeldung setzt Blattomat ein Cookie namens „session“. Es hält Sie bis zu 90 Tage angemeldet, ist technisch notwendig und wird nicht zur Auswertung Ihres Verhaltens genutzt. Beim Abmelden wird es gelöscht. Weitere Cookies gibt es nicht.</p>
-  <p>Um das Erraten von Passwörtern zu erschweren, zählt der Server Anmeldeversuche je E-Mail-Adresse und IP-Adresse für 15 Minuten im Arbeitsspeicher.</p>
+  <p>Um das Erraten von Passwörtern zu erschweren, zählt der Server Anmeldeversuche je E-Mail-Adresse und IP-Adresse für 15 Minuten in seiner Datenbank. Ebenso zählt er je IP-Adresse falsche Schlüssel und die Anmeldungen von Programmen (Abschnitt 9).</p>
   <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung des Kontos) und für den Schutz der Anmeldung Art. 6 Abs. 1 lit. f DSGVO.</p>
   <p>Sie können Ihr Konto jederzeit unter „Konto“ selbst löschen. Dabei werden das Konto und alles, was Sie geschickt haben, sofort entfernt.</p>
 
@@ -61,11 +61,35 @@
   <h2>8. Schriften und externe Inhalte</h2>
   <p>Blattomat lädt keine Schriften, Skripte oder Bilder von fremden Servern.</p>
 
-  <h2>9. Ihre Rechte</h2>
+  <h2 id="claude">9. Claude (freiwillig)</h2>
+  <p>Sie können Blattomat mit Claude nutzen. Das ist freiwillig. Es gibt zwei Wege.</p>
+  <p><strong>(a) Erweiterung für Claude Desktop.</strong> Es passiert nur, wenn Sie die Erweiterung für Claude Desktop installieren und Claude bitten, etwas in Blattomat zu tun.</p>
+  <p>Empfänger ist Anthropic PBC in San Francisco, USA. Die Daten gehen also in die USA. Claude legt auf Ihre Bitte Blätter an und ändert sie.</p>
+  <p>Dafür gibt die Erweiterung an Claude folgende Daten weiter:</p>
+  <ul>
+    <li>die Titel der Blätter,</li>
+    <li>den Inhalt der Blätter: Texte, Aufgaben und Lernwörter,</li>
+    <li>Bilder der Blattseiten (Vorschau),</li>
+    <li>was Sie Claude schreiben.</li>
+  </ul>
+  <p>Bei (a) sendet der Server von Blattomat selbst nichts an Anthropic. Die Erweiterung auf Ihrem Computer gibt die Daten an Claude Desktop weiter.</p>
+  <p>Der Schlüssel für Blattomat bleibt auf Ihrem Computer. Nach Angaben von Anthropic speichert Claude Desktop ihn verschlüsselt in der sicheren Ablage des Betriebssystems, im Schlüsselbund (macOS) oder in der Anmeldeinformationsverwaltung (Windows). Die Erweiterung schickt den Schlüssel nur an Blattomat.</p>
+  <p>Anthropic verarbeitet diese Daten nach Ihrem eigenen Vertrag mit Anthropic. Mehr dazu: <a href="https://www.anthropic.com/legal/privacy">Datenschutzerklärung von Anthropic</a>.</p>
+  <p>Schreiben Sie keine Namen, Fotos oder anderen Angaben von Schülerinnen und Schülern in Blätter oder in Nachrichten an Claude.</p>
+  <p>Zum Beenden entfernen Sie die Erweiterung in Claude Desktop. Den Schlüssel widerrufen Sie unter „Konto“ mit einem Klick auf „Widerrufen“.</p>
+
+  <p><strong>(b) Connector.</strong> Sie können Blattomat auch als Connector in Claude eintragen, in claude.ai oder in Claude Desktop. Die Adresse ist die von Blattomat mit „/mcp“ am Ende. Den Connector erlauben Sie auf einer Seite von Blattomat.</p>
+  <p>Dann antwortet der Server von Blattomat den Servern von Anthropic direkt. Er schickt ihnen die Daten, die Claude anfragt: die gleiche Liste wie bei der Erweiterung. Das geschieht nur, wenn Sie den Connector eintragen, erlauben und Claude um etwas bitten.</p>
+  <p>Empfänger ist auch hier Anthropic PBC in San Francisco, USA. Die Daten gehen also in die USA.</p>
+  <p>Claude erhält dafür einen Schlüssel für Blattomat, der eine Stunde gilt, und einen Schlüssel zum Erneuern. Blattomat speichert von beiden nur den Hash, nie den Schlüssel selbst.</p>
+  <p>Zu jeder Verbindung speichert Blattomat den Namen, den das Programm sich selbst gibt, seine Rücksprungadresse, wann Sie es erlaubt haben und wann es zuletzt zugegriffen hat. „Trennen“ löscht die Verbindung sofort. Name und Rücksprungadresse eines Programms ohne Verbindung löscht Blattomat nach einem Tag, sobald sich wieder ein Programm anmeldet.</p>
+  <p>Zum Beenden entfernen Sie den Connector in Claude. Dann klicken Sie unter „Konto“ bei „Verbundene Programme“ auf „Trennen“.</p>
+
+  <h2>10. Ihre Rechte</h2>
   <p>Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f (Art. 21). Eine Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3). Eine E-Mail an die oben genannte Adresse genügt.</p>
   <p>Sie können sich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden, <a href="https://datenschutz.hessen.de">datenschutz.hessen.de</a>.</p>
 
-  <h2>10. Änderungen</h2>
+  <h2>11. Änderungen</h2>
   <p>Wenn Blattomat wächst, passen wir diese Erklärung an, bevor die neue Funktion online geht.</p>
 
   <p><a href="/impressum">Impressum</a></p>

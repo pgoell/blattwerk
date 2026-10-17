@@ -14,10 +14,13 @@ import argparse
 import io
 import json
 import os
+import queue
 import re
 import secrets
 import sqlite3
+import subprocess
 import sys
+import threading
 import urllib.error
 import urllib.request
 from http.cookies import SimpleCookie
@@ -99,6 +102,48 @@ def read_only() -> None:
     status = ask("/api/me")[0]
     if status != 401:
         fail(f"status {status}")
+    # Only the image names the child behind /mcp, so the step runs there.
+    script = os.environ.get("BLATTWERK_MCP_HTTP")
+    if script:
+        remote(script)
+
+
+def remote(script: str) -> None:
+    """The route /mcp and the Node child behind it. Sends no token, so nothing is counted."""
+    passed("remote")
+    # Anonymous /mcp says where its metadata is, so a remote client can start the sign-in.
+    headers = {"Content-Type": "application/json"}
+    request = urllib.request.Request(urljoin(args.url, "/mcp"), b"{}", headers)
+    try:
+        urllib.request.urlopen(request, timeout=30)
+        status, challenge = 200, ""
+    except urllib.error.HTTPError as error:
+        status, challenge = error.code, error.headers.get("WWW-Authenticate", "")
+    if status != 401 or "resource_metadata=" not in challenge:
+        fail(f"status {status}, challenge {challenge!r}")
+    # The child starts in this image: node runs, and the bundle says its port.
+    # Its stderr stays out of the job log, which is public.
+    child = subprocess.Popen(
+        ["node", script],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    assert child.stdout is not None
+    out = child.stdout
+    # A thread reads the line, so a child that never prints cannot hang the deploy.
+    lines: queue.Queue[str] = queue.Queue()
+    threading.Thread(target=lambda: lines.put(out.readline()), daemon=True).start()
+    try:
+        line = lines.get(timeout=30)
+    except queue.Empty:
+        line = ""
+    finally:
+        child.kill()
+        child.wait()
+    if '"port"' not in line:
+        fail(f"the MCP child gave {line!r}")
 
 
 def users() -> None:

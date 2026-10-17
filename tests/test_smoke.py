@@ -185,6 +185,26 @@ def test_read_only_passes_and_leaves_every_row_count(server, data_dir):
     assert counts() == before
 
 
+def test_read_only_in_the_image_tries_the_route_and_the_child_behind_mcp(
+    server, data_dir, monkeypatch
+):
+    user()
+    before = counts()
+    # The image names the bundle; `mise run build` makes it here.
+    bundle = SCRIPT.parent.parent / "frontend/.mcp-http/http.mjs"
+    assert bundle.is_file(), "build the frontend first: mise run build"
+    monkeypatch.setenv("BLATTWERK_MCP_HTTP", str(bundle))
+    run = smoke("--read-only", server, data=data_dir)
+    assert run.stderr == ""
+    assert run.stdout.splitlines() == [*HALF, "remote", "users", "smoke ok"]
+    assert counts() == before
+    monkeypatch.setenv("BLATTWERK_MCP_HTTP", str(data_dir / "missing.mjs"))
+    broken = smoke("--read-only", server, data=data_dir)
+    assert broken.returncode == 1
+    # Node's own error names paths: it stays out of the public log.
+    assert broken.stderr == "smoke failed: remote: the MCP child gave ''\n"
+
+
 def test_read_only_sends_three_gets_and_nothing_else(data_dir):
     user()
     file = data_dir / "blattwerk.db"

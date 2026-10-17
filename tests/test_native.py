@@ -26,7 +26,8 @@ LISTS = [
     ("Schriftart der Tabelle", "table", TABLE, "andika"),
 ]
 # What Tab stops at from the panel's first field on, down to the kinds of border.
-START = ["X", "Y", "Breite", "Höhe", "Drehung", "Seitenverhältnis sperren", "Breite %", "Höhe %"]
+START = ["von", "X", "Y", "Breite", "Höhe", "Drehung"]
+START += ["Seitenverhältnis sperren", "Breite %", "Höhe %"]
 FONT = ["Schriftart", "Schrift kleiner", "Schrift größer", "Fett", "Kursiv", "Unterstrichen"]
 PLACE = ["Aufzählung", "Nummerierung", "Links", "Mitte", "Rechts", "Oben", "Mitte", "Unten"]
 TURN = [

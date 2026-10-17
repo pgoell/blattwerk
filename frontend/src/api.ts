@@ -1,11 +1,21 @@
 export type User = { id: number; email: string; admin: boolean };
 
 // Throws the HTTP status as the error message, so callers can tell 401 from 429. `by` is the user a sheet's 404 was
-// served for, where the server named one.
-export type Refusal = Error & { by?: number };
+// served for, where the server named one. `problems` is what the server found wrong in a sheet it refused (a 422).
+export type Refusal = Error & { by?: number; problems?: string[]; detail?: string };
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init);
-  if (!res.ok) throw Object.assign(new Error(String(res.status)), { by: Number(res.headers.get("X-User")) || undefined });
+  if (!res.ok) {
+    const body = await res.json().catch(() => undefined);
+    const problems = body?.detail?.problems;
+    // pydantic's 422 lists each field that is wrong: its place in the body, then what is wrong with it.
+    const fields = res.status === 422 && Array.isArray(body?.detail) ? body.detail.map((e: { loc?: string[]; msg: string }) => (e.loc ? `${e.loc.slice(1).join(".")}: ${e.msg}` : e.msg)) : undefined;
+    throw Object.assign(new Error(String(res.status)), {
+      by: Number(res.headers.get("X-User")) || undefined,
+      problems: Array.isArray(problems) ? problems.map(String) : fields,
+      detail: typeof body?.detail === "string" ? body.detail : undefined,
+    });
+  }
   return res.json();
 }
 

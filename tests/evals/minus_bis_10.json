@@ -1,0 +1,4 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt Minusaufgaben bis 10. Lege das Blatt mit dem Titel Eval Minus bis 10 an.",
+  "expect": {"types": ["maths"], "text": ["Minus"]}
+}

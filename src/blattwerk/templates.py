@@ -8,9 +8,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from blattwerk import pictures
-from blattwerk.auth import User
+from blattwerk.auth import Teacher, User
 from blattwerk.db import Con, Id
 from blattwerk.maths import Settings, generate
+from blattwerk.schema import check
 
 router = APIRouter(prefix="/api")
 
@@ -516,7 +517,7 @@ class Template(BaseModel):
 
 
 @router.get("/templates")
-def templates(user: User, con: Con) -> list[dict]:
+def templates(user: Teacher, con: Con) -> list[dict]:
     rows = con.execute(
         "SELECT id, name, doc FROM templates WHERE user_id = ? ORDER BY name", (user["id"],)
     )
@@ -527,6 +528,7 @@ def templates(user: User, con: Con) -> list[dict]:
 
 @router.post("/templates")
 def save(body: Template, user: User, con: Con) -> dict:
+    check(body.doc)
     pictures.touch(user["id"], body.doc)
     cur = con.execute(
         "INSERT INTO templates (user_id, name, doc) VALUES (?, ?, ?)",
