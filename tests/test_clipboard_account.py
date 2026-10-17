@@ -456,3 +456,77 @@ def test_abmelden_in_the_same_page_takes_the_copy_off_without_reading(editor):
     page.context.grant_permissions(["clipboard-read", "clipboard-write"])
     assert "image/png" not in page.evaluate(TYPES)
     assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+def copy_in_text(page):
+    """Copies the whole line of the open text, as a user does: Enter, Home, Shift+End, Ctrl+C."""
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Home")
+    page.keyboard.press("Shift+End")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+
+
+def open_list(page):
+    """Opens the Lernwörter panel with nothing picked and gives its field."""
+    page.locator(".panel").get_by_role("button", name="Lernwörter", exact=True).click()
+    return page.get_by_label("Lernwörter", exact=True)
+
+
+def the_text_box():
+    return box("t", "text", {**TEXT, "text": "Der Hund ist braun und klein"})
+
+
+@pytest.mark.parametrize("by", ["keys", "button"])
+def test_words_copied_in_an_open_text_paste_nothing_for_the_next_account(editor, by):
+    """#757: the words of a copy in an open text stay on the system's clipboard after the logout."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    logout(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    before = stored(page, b)
+    if by == "keys":
+        field = open_list(page)
+        field.press("Control+v")
+        expect(field).to_have_value("")
+    else:
+        button(page, "Einfügen").click()
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, b) == before
+
+
+@chromium_only
+def test_abmelden_empties_the_clipboard_of_words_copied_in_an_open_text(editor):
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+def test_the_same_account_after_a_new_login_pastes_no_words_of_an_open_text(editor):
+    a, email = someone()
+    page = editor(the_text_box(), client=a)
+    mine = {"id": page.url.rsplit("/", 1)[1]}
+    copy_in_text(page)
+    logout(page)
+    login(page, email, mine, 1)
+    assert a.post("/api/login", json={"email": email, "password": PASSWORD}).status_code == 200
+    before = stored(page, a)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(1)
+    assert stored(page, a) == before
+
+
+def test_the_same_session_pastes_its_own_words_of_an_open_text_into_a_field(editor):
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    field = open_list(page)
+    field.press("Control+v")
+    expect(field).not_to_have_value("")
+    assert "Hund" in field.input_value()
