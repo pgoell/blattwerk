@@ -23,12 +23,27 @@ function hullOf(blocks: Block[]) {
   return { x, y, w: Math.max(...xs) + ROOM - x, h: Math.max(...ys) + ROOM - y };
 }
 
+// A style sheet's rules as text. One from another address may not be read, and the sheet needs none of those.
+function rules(sheet: CSSStyleSheet) {
+  try {
+    return [...sheet.cssRules].map((r) => r.cssText).join("\n");
+  } catch {
+    return "";
+  }
+}
+
 // A PNG of the blocks alone, cropped to where they lie, drawn as the sheet draws them on page `n`, whose size they keep.
 export async function pictureOf(blocks: Block[], doc: Doc, n: number): Promise<Blob> {
   const { domToCanvas } = await import("modern-screenshot");
+  // Drawn in a closed room of its own, with the page's styles, so nothing that looks for the sheet's blocks finds these.
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;left:-100000px;top:0";
+  const room = host.attachShadow({ mode: "closed" });
+  const style = document.createElement("style");
+  style.textContent = [...document.styleSheets].map(rules).join("\n");
   const box = document.createElement("div");
-  box.style.cssText = "position:fixed;left:-100000px;top:0";
-  document.body.append(box);
+  room.append(style, box);
+  document.body.append(host);
   const root = createRoot(box);
   try {
     // Only these blocks: no page number and none of the rest of the sheet.
@@ -45,6 +60,6 @@ export async function pictureOf(blocks: Block[], doc: Doc, n: number): Promise<B
     return await new Promise<Blob>((done, fail) => out.toBlob((blob) => (blob ? done(blob) : fail(new Error("no picture"))), "image/png"));
   } finally {
     root.unmount();
-    box.remove();
+    host.remove();
   }
 }
