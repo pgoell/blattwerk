@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { FileDown, FileCheck } from "lucide-react";
 import { api } from "../api";
-import { ask, flush, signed } from "../saves";
+import { ask, flush, isGone, signed } from "../saves";
 import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
 import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
@@ -159,6 +159,11 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   async function print(key: boolean) {
     // A newer version saved elsewhere is loaded first: this dialog goes, and the editor's new one takes over.
     if (await loadNewer(key)) return;
+    // A sheet deleted elsewhere has no PDF: the line says so and the dialog stays for the reader.
+    if (isGone(id)) {
+      setBusy(false);
+      return setFailed("Das PDF konnte nicht erstellt werden. Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät gelöscht. Schließe den Dialog und wähle „Als neues Blatt behalten“.");
+    }
     setFailed("");
     try {
       // A load that failed before is tried again here, and what it brings is shown from now on.
