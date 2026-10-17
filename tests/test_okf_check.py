@@ -134,8 +134,14 @@ def test_an_add_block_example_with_wrong_props(docs: Path):
         "---\n---\n",
         "---\ntype: How-to\ncovers: [uhr]\n---\n\n```json\n[1, 2]\n```\n",
         '---\ntype: How-to\ncovers: [uhr]\n---\n\n```json\n{"pages": [{}]}\n```\n',
+        "---\ntitle: [x\n---\nbody\n",
+        "---\ntitle: x\n\nSome text: a: b\n\n---\n\nbody\n",
+        "---\ngenerated: soon\ncovers: text\n---\nbody\n",
     ],
-    ids=["no-frontmatter", "not-closed", "empty", "a-list", "a-page-without-blocks"],
+    ids=[
+        *["no-frontmatter", "not-closed", "empty", "a-list", "a-page-without-blocks"],
+        *["bad-yaml", "not-closed-with-a-rule-below", "fields-of-the-wrong-kind"],
+    ],
 )
 def test_an_odd_doc_gives_a_message_not_a_crash(docs: Path, text: str):
     (docs / "recipes/odd.md").write_text(text)

@@ -25,14 +25,24 @@ ADD_KEYS = {"type", "props", "x", "y", "w", "h"}
 
 
 def split(path: Path) -> tuple[dict, str]:
-    """The frontmatter, empty when the file has none or it is not closed, and the body."""
+    """The frontmatter, empty when the file has none or it does not read, and the body.
+    A broken frontmatter is tests/test_okf.py's to report; here `generated` is always a mapping
+    and `covers` a list."""
     text = path.read_text()
     found = re.match(r"---\n(.*?)^---$\n?(.*)", text, re.S | re.M)
     if not found:
         return {}, text
     head, body = found.groups()
-    meta = yaml.safe_load(head) if head.strip() else {}
-    return meta if isinstance(meta, dict) else {}, body
+    try:
+        meta = yaml.safe_load(head) if head.strip() else {}
+    except yaml.YAMLError:
+        meta = {}
+    meta = meta if isinstance(meta, dict) else {}
+    if not isinstance(meta.get("generated"), dict):
+        meta["generated"] = {}
+    if not isinstance(meta.get("covers"), list):
+        meta["covers"] = []
+    return meta, body
 
 
 def when(value) -> datetime:
