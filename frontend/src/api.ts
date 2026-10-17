@@ -8,9 +8,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => undefined);
     const problems = body?.detail?.problems;
+    // pydantic's 422 lists each field that is wrong: its place in the body, then what is wrong with it.
+    const fields = res.status === 422 && Array.isArray(body?.detail) ? body.detail.map((e: { loc?: string[]; msg: string }) => (e.loc ? `${e.loc.slice(1).join(".")}: ${e.msg}` : e.msg)) : undefined;
     throw Object.assign(new Error(String(res.status)), {
       by: Number(res.headers.get("X-User")) || undefined,
-      problems: Array.isArray(problems) ? problems.map(String) : undefined,
+      problems: Array.isArray(problems) ? problems.map(String) : fields,
       detail: typeof body?.detail === "string" ? body.detail : undefined,
     });
   }
