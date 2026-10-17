@@ -110,6 +110,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
+import { copied, hash } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -2517,9 +2518,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const writing = useRef(0);
   // A copy with no words still stamps the system's clipboard, with a blank.
   const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
-  // A mark of the copied words, apart from the blocks: a logout takes the blocks away, and the words still lie on
-  // the system's clipboard, where the next account must not get them as a text. The mark gives no word away.
-  const hash = (words: string) => String([...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0)!, 5381) >>> 0);
   // The sheet's mends go along with the copied texts and tables, so a paste into another sheet keeps them. A block's own entry wins.
   const carrying = (bs: Block[]): Block[] => {
     const mends = live.current.doc.breaks;
@@ -2538,6 +2536,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     pending.current = words;
     document.execCommand("copy");
     pending.current = null;
+    copied();
     writing.current++;
     toClipboard(held, words).catch(() => {}).finally(() => writing.current--);
   }

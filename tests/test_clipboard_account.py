@@ -9,6 +9,8 @@ from test_clipboard import (
     all_of,
     blocks,
     button,
+    chromium_only,
+    clipboard_picture,
     every,
     expect_picture,
     no_picture,
@@ -405,3 +407,32 @@ def test_a_paste_that_finds_nothing_is_quiet(editor, clip):
     expect(at(page, "t")).to_be_visible()
     assert sorted(b["id"] for b in saved(page, client)) == ["t", "x"]
     assert dialogs == []
+
+
+@chromium_only
+def test_abmelden_takes_the_copy_and_its_picture_off_the_system_clipboard(editor):
+    """#139: at a shared computer the next one finds no picture of the sheets on the clipboard."""
+    a = user()
+    page = editor(box("a", "shape", RECT), client=a)
+    copy_all(page, 1)
+    clipboard_picture(page)
+    logout(page)
+    assert "image/png" not in page.evaluate(TYPES)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+@chromium_only
+def test_abmelden_leaves_what_was_copied_in_another_app_after_the_copy(editor):
+    a = user()
+    page = editor(box("a", "shape", RECT), client=a)
+    copy_all(page, 1)
+    clipboard_picture(page)
+    # Another app's copy takes the window's focus first.
+    page.evaluate("dispatchEvent(new Event('blur'))")
+    copy_text(page, "aus Word")
+    logout(page)
+    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+
+
+# The types on the system's clipboard.
+TYPES = "async () => (await navigator.clipboard.read()).flatMap((item) => item.types)"

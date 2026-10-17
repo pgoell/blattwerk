@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, post, type Refusal, type User } from "../api";
 import { attempt, status } from "../fault";
 import { signed } from "../saves";
+import { wipe } from "../clip";
 
 // The theme: Blattform until the teacher picks another; "" is the device's own. index.html sets it before the first paint.
 const THEMES = [["leaf", "Blattform"], ["", "System"], ["light", "Hell"], ["dark", "Dunkel"]];
@@ -162,7 +163,13 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       <h1>Konto</h1>
       <div className="card">
         <p>Angemeldet als {user.email}</p>
-        <button type="button" onClick={() => attempt("Abmelden hat nicht geklappt.", () => signed(post("/logout")).then(onGone))}>Abmelden</button>
+        <button
+          type="button"
+          // The editor's copy leaves the system's clipboard in the click, which lets the page write there.
+          onClick={() => attempt("Abmelden hat nicht geklappt.", () => Promise.all([wipe(), signed(post("/logout"))]).then(onGone))}
+        >
+          Abmelden
+        </button>
       </div>
       <div className="card">
         <label>Darstellung</label>
