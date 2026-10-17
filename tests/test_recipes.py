@@ -14,7 +14,6 @@ ROOT = Path(__file__).parent.parent
 RECIPES = sorted(p for p in (ROOT / "docs/okf/recipes").glob("*.md") if p.name != "index.md")
 MARGIN = 15
 TOLERANCE = 0.5
-PAPER_W, PAPER_H = 210, 297
 
 
 def doc_of(path):
@@ -32,13 +31,20 @@ def boxes_of(doc):
     return [b for page in doc["pages"] for b in page["blocks"]]
 
 
-def assert_clear(rects, label):
-    """Each rect (x, y, w, h) lies within the margin and no two rects meet."""
+def paper_of(doc, page):
+    """The paper of a page in mm, width and height: Quer when the page or the sheet says so."""
+    quer = page.get("landscape", doc.get("landscape", False))
+    return (297, 210) if quer else (210, 297)
+
+
+def assert_clear(rects, label, paper):
+    """Each rect (x, y, w, h) lies within the margin of the paper and no two rects meet."""
+    paper_w, paper_h = paper
     for name, (x, y, w, h) in rects.items():
         assert x >= MARGIN - TOLERANCE, f"{label} {name}: {x} mm from the left edge"
         assert y >= MARGIN - TOLERANCE, f"{label} {name}: {y} mm from the top edge"
-        assert x + w <= PAPER_W - MARGIN + TOLERANCE, f"{label} {name}: past the right margin"
-        assert y + h <= PAPER_H - MARGIN + TOLERANCE, f"{label} {name}: past the bottom margin"
+        assert x + w <= paper_w - MARGIN + TOLERANCE, f"{label} {name}: past the right margin"
+        assert y + h <= paper_h - MARGIN + TOLERANCE, f"{label} {name}: past the bottom margin"
     names = list(rects)
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
@@ -48,13 +54,14 @@ def assert_clear(rects, label):
             assert not meet, f"{label}: {a} and {b} overlap"
 
 
-def drawn_boxes(browser_page):
-    """Each block the print page draws: its box (x, y, w, h) in mm, and whether its content fits."""
+def drawn_boxes(browser_page, doc):
+    """Per page of the print, each block the page draws: its box (x, y, w, h) in mm, and whether
+    its content fits."""
+    widths = [paper_of(doc, page)[0] for page in doc["pages"]]
     return browser_page.evaluate(
-        """() => {
-            const paper = document.querySelector('.print .paper');
+        """(widths) => [...document.querySelectorAll('.print .paper')].map((paper, i) => {
             const p = paper.getBoundingClientRect();
-            const k = 210 / p.width;
+            const k = widths[i] / p.width;
             const out = {};
             for (const el of paper.querySelectorAll('.block[data-block]')) {
                 const r = el.getBoundingClientRect();
@@ -66,7 +73,8 @@ def drawn_boxes(browser_page):
                 };
             }
             return out;
-        }"""
+        })""",
+        widths,
     )
 
 
@@ -86,7 +94,12 @@ def test_recipe(path, server, browser):
     assert preview.status_code == 200
 
     blocks = boxes_of(doc)
-    assert_clear({b["id"]: (b["x"], b["y"], b["w"], b["h"]) for b in blocks}, "doc")
+    for n, page_doc in enumerate(doc["pages"], 1):
+        assert_clear(
+            {b["id"]: (b["x"], b["y"], b["w"], b["h"]) for b in page_doc["blocks"]},
+            f"doc page {n}",
+            paper_of(doc, page_doc),
+        )
 
     context = browser.new_context(
         viewport={"width": 1400, "height": 1400},
@@ -120,12 +133,18 @@ def test_recipe(path, server, browser):
                 })""",
                 ["Hase", "Igel", "Maus", "Katze"],
             )
-        drawn = drawn_boxes(page)
+        drawn_pages = drawn_boxes(page, doc)
     finally:
         context.close()
 
+    drawn = {k: v for found in drawn_pages for k, v in found.items()}
     assert set(drawn) == {b["id"] for b in blocks}
-    assert_clear({k: tuple(v["box"]) for k, v in drawn.items()}, "print")
+    for n, (found, page_doc) in enumerate(zip(drawn_pages, doc["pages"], strict=True), 1):
+        assert_clear(
+            {k: tuple(v["box"]) for k, v in found.items()},
+            f"print page {n}",
+            paper_of(doc, page_doc),
+        )
     overflowing = [k for k, v in drawn.items() if not v["fits"]]
     assert overflowing == [], (
         f"content overflows its box: {[drawn[k]['size'] for k in overflowing]}"

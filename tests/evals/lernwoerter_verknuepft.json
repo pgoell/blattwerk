@@ -1,0 +1,5 @@
+{
+  "prompt": "Ein Blatt mit den Lernwörtern Hase, Igel, Maus, Katze und Fisch, eine Lineatur zum Abschreiben der Wörter und ein Lückentext aus denselben Wörtern. Lege das Blatt mit dem Titel Eval Lernwörter verknüpft an.",
+  "recipe": "lernwoerter-verknuepfen",
+  "expect": {"types": ["ruling", "text"], "text": ["Hase", "Igel", "Maus", "Katze", "Fisch"], "match": ["\"words\": \\[\"", "\"list\": (\"(copy|trace|row|fold)\"|true)"]}
+}

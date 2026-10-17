@@ -4,7 +4,7 @@ title: Page model
 description: How a Blattomat sheet is laid out, A4 in mm, the box of each block, z order, pages, guide lines and the grid.
 tags: [page, layout, doc]
 covers: [text, shape, ruling, name, points, symbol, image, maths, table, suchsel, zahlenmauer, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-16T00:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
 ---
 
 # Page model
@@ -51,4 +51,4 @@ Blocks must not meet. Stack them down the page: the next block's `y` is the last
 
 ## Lernwörter
 
-`doc.words` holds the sheet's word list, one word to an entry. A Lineatur with `list` set shows them, one to a row; `set_words` changes the list and every linked block with it. A linked Lineatur draws no Silbenbögen today (#695): for bows, put the words in the Lineatur's own `text`, as the recipe does. See the recipe [Lernwörter mit Lineatur und Silbenbögen](recipes/lernwoerter-silbenboegen.md).
+`doc.words` holds the sheet's word list, one word to an entry. A Lineatur with `list` set shows them, one to a row; `set_words` changes the list and every linked block with it. A linked Lineatur with `syllables: true` draws a bow under each syllable. See the recipe [Lernwörter mit Lineatur und Silbenbögen](recipes/lernwoerter-silbenboegen.md).

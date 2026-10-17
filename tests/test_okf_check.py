@@ -115,6 +115,61 @@ def test_a_tool_of_any_name_the_server_does_not_have(docs: Path, named: str):
     assert f"names the tool {tool}, which the server does not have" in result.stderr
 
 
+def test_a_tool_call_with_a_string_for_a_list(docs: Path):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    call = '{"sheet_id": 7, "version": 2, "words": "Hase"}'
+    recipe.write_text(recipe.read_text() + f"\n```json set_words\n{call}\n```\n")
+    result = check(docs)
+    assert result.returncode == 1
+    assert "recipes/uhrzeiten-lesen.md#tool1: set_words: words:" in result.stderr
+    assert "is not of type 'array'" in result.stderr
+
+
+def test_a_tool_call_naming_a_tool_the_server_does_not_have(docs: Path):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    recipe.write_text(recipe.read_text() + '\n```json make_sheet\n{"title": "Uhr"}\n```\n')
+    result = check(docs)
+    assert result.returncode == 1
+    assert (
+        "recipes/uhrzeiten-lesen.md: the fence names the tool make_sheet, "
+        "which the server does not have"
+    ) in result.stderr
+
+
+def test_a_correct_tool_call_passes(docs: Path):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    call = '{"sheet_id": 7, "version": 2, "words": ["Hase", "Igel"]}'
+    recipe.write_text(recipe.read_text() + f"\n```json set_words\n{call}\n```\n")
+    result = check(docs)
+    assert "#tool" not in result.stderr
+    assert "set_words" not in result.stderr
+
+
+def test_a_tool_call_with_a_misspelt_argument(docs: Path):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    call = '{"sheet_id": 7, "version": 2, "page": 1, "landscpe": true}'
+    recipe.write_text(recipe.read_text() + f"\n```json set_page\n{call}\n```\n")
+    result = check(docs)
+    assert result.returncode == 1
+    assert "recipes/uhrzeiten-lesen.md#tool1: set_page: arguments:" in result.stderr
+    assert "'landscpe' was unexpected" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "opening", ["```json  update_block", "```json add-block", "```json set_words "]
+)
+def test_a_json_fence_no_check_can_read(docs: Path, opening: str):
+    recipe = docs / "recipes/uhrzeiten-lesen.md"
+    original = recipe.read_text()
+    recipe.write_text(original + f"\n{opening}\n{{}}\n```\n")
+    result = check(docs)
+    assert result.returncode == 1
+    line = len(original.splitlines()) + 2
+    assert (
+        f"recipes/uhrzeiten-lesen.md:{line}: a json fence must be ```json or ```json <tool>"
+    ) in result.stderr
+
+
 def test_an_add_block_example_with_wrong_props(docs: Path):
     edit(
         docs / "blocks/uhr.md",

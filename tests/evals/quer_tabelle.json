@@ -1,0 +1,5 @@
+{
+  "prompt": "Ein Blatt quer mit der Überschrift Die Wochentage und einer Tabelle über die ganze Breite mit den Wochentagen Montag bis Freitag. Lege das Blatt mit dem Titel Eval Quer an.",
+  "recipe": "quer",
+  "expect": {"types": ["text", "table"], "text": ["Die Wochentage", "Montag", "Freitag"], "match": ["\"landscape\": true"]}
+}
