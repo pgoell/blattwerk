@@ -1026,6 +1026,36 @@ def test_another_accounts_login_writes_an_empty_clipboard_over_the_copy(editor):
     assert "" in page.evaluate("window.wrote")
 
 
+# Keeps each clipboard write of whole items: the event it was begun in, and what its text came to.
+ITEM_LOG = """() => {
+    window.items = [];
+    const real = navigator.clipboard.write.bind(navigator.clipboard);
+    navigator.clipboard.write = (items) => {
+        const seen = { event: window.event?.type };
+        window.items.push(seen);
+        items[0].getType("text/plain").then((b) => b.text()).then(
+            (t) => (seen.text = t),
+            () => (seen.text = "refused"),
+        );
+        return real(items);
+    };
+}"""
+
+
+@pytest.mark.parametrize("same", [False, True])
+def test_the_login_click_itself_begins_the_wipe(editor, same):
+    """#772, A1 and A3: the write starts in the login's own submit, as Safari wants; it empties
+    the clipboard for another account and writes nothing for the same one."""
+    a, mine = someone()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    run_out(page)
+    page.evaluate(ITEM_LOG)
+    form_login(page, mine if same else someone()[1])
+    page.wait_for_function("window.items.length === 1 && 'text' in window.items[0]")
+    assert page.evaluate("window.items") == [{"event": "submit", "text": "refused" if same else ""}]
+
+
 def test_the_same_account_signing_in_again_writes_no_clipboard(editor):
     """#772, checklist W: the account's own form login writes nothing to the clipboard."""
     a, email = someone()

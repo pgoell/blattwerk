@@ -51,6 +51,18 @@ export function othersCopy(id: number) {
   return owner !== id;
 }
 
+// The login's own wipe, begun in its click, as Safari lets only a write begun there through: the write waits for the
+// answer, empties the clipboard when it names another account than the copy's, and with the same account writes
+// nothing. The wipe in `enter` comes after it for a browser without such a write.
+export function wipeAt(login: Promise<{ id: number }>) {
+  const clipboard = navigator.clipboard;
+  if (!clipboard?.write || typeof ClipboardItem === "undefined" || (!localStorage.getItem("copied") && !typed())) return;
+  const empty = login.then((to) => (othersCopy(to.id) ? new Blob([""], { type: "text/plain" }) : Promise.reject(new Error("own copy"))));
+  // A failed login rejects it too; that is no fault.
+  empty.catch(() => {});
+  clipboard.write([new ClipboardItem({ "text/plain": empty })]).catch(() => {});
+}
+
 // Marks the words of a copy or cut made on any page: what the browser put out, read after the page's own copy has
 // run. Where none is read, the selection stands in for it.
 export function mark(words: string) {

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { post, type User } from "../api";
+import { wipeAt } from "../clip";
 import AuthShell from "../components/AuthShell";
 import { status as reason, why } from "../fault";
 
@@ -9,7 +10,9 @@ export default function Login({ onDone }: { onDone: (user: User) => void }) {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     try {
-      onDone(await post<User>("/login", Object.fromEntries(new FormData(e.currentTarget))));
+      const login = post<User>("/login", Object.fromEntries(new FormData(e.currentTarget)));
+      wipeAt(login);
+      onDone(await login);
     } catch (err) {
       // With no connection or a fault of the server the password is not the one to blame.
       const s = reason(err);
