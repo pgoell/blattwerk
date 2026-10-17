@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { api } from "../api";
-import { K, Paper, bowed, read, type Doc } from "../sheet";
+import { K, Paper, bowed, lengthened, read, type Doc } from "../sheet";
 
 // What the server's Chromium prints into the PDF: every page of a sheet at its true size, `?loesungen` with the
 // answers. No one is logged in there; the server lets Chromium in by the token it sends along.
@@ -20,9 +20,12 @@ export default function Print() {
     document.body.getBoundingClientRect();
     const pictures = [...document.images].map((img) => img.decode().catch(() => {}));
     // The bows of a text are measured once its font is in, so they come last.
-    Promise.all([document.fonts.ready, ...pictures])
-      .then(bowed)
-      .then(() => document.body.classList.add("ready"));
+    Promise.all([document.fonts.ready, ...pictures]).then(() => {
+      // A Lineatur on lines stored too short for its text grows first, and is drawn so before the print.
+      const next = lengthened(doc);
+      if (next !== doc) return setDoc(next);
+      return bowed().then(() => document.body.classList.add("ready"));
+    });
   }, [doc]);
 
   return (

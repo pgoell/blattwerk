@@ -5,7 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
-import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, PT, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
+import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, PT, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsNeeded, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
@@ -371,10 +371,20 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const bows = <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />;
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
-  // A ruling keeps its rows when its type changes, so the block's height follows.
+  // A ruling keeps its rows when its type changes, and grows to the rows its text needs, up to the foot of the page.
+  // A kind change never takes rows away; the buttons give the rows themselves.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
-    place(rulings.map((b) => [b.id, tall(b, round(Math.max(1, rows ?? rowsOf(b)) * RULINGS[kindOf(kind)].row))]), "ruling");
+    const row = RULINGS[kindOf(kind)].row;
+    place(
+      rulings.map((b) => {
+        if (rows !== undefined) return [b.id, tall(b, round(Math.max(1, rows) * row))];
+        const next = { ...b, props: { ...b.props, kind } };
+        const n = Math.max(rowsOf(b), Math.min(rowsNeeded(next), Math.floor((H - b.y) / row + 0.05)));
+        return [b.id, tall(b, round(Math.max(1, n) * row))];
+      }),
+      "ruling",
+    );
   };
   // A ruling fills the room between the margins along the way it lies: both ends go out from its centre until a
   // corner would cross a margin. A slanted one stays as it is when it lies past a margin along its way and has
@@ -486,6 +496,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {sel.some((b) => full.includes(b.id)) && (
         <p className="hint warn" role="status" data-foot="full">
           Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
+        </p>
+      )}
+      {rulings.some((b) => rowsNeeded(b) > rowsOf(b)) && (
+        <p className="hint warn" role="status" data-rows="short">
+          Der Text braucht mehr Zeilen, als die Lineatur hat. Was nicht hineinpasst, wird nicht gedruckt.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useMatch, useNavigate } from "react-router";
 import { api, type User } from "./api";
-import { dropOwner, signedIn } from "./clip";
+import { dropOwner, othersCopy, signedIn, wipe } from "./clip";
 import Blank from "./components/Blank";
 import Consent from "./pages/Consent";
 import Failed from "./components/Failed";
@@ -91,6 +91,7 @@ export default function App() {
   // change stays in the browser's store for its owner, and the savers hear who is there now.
   const [entered, setEntered] = useState(0);
   const enter = (to: User | null) => {
+    if (to && othersCopy(to.id)) wipe();
     localStorage.removeItem("clip");
     dropOwner();
     localStorage.removeItem("pages");
