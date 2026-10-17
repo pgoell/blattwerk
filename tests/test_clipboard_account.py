@@ -1056,6 +1056,24 @@ def test_the_login_click_itself_begins_the_wipe(editor, same):
     assert page.evaluate("window.items") == [{"event": "submit", "text": "refused" if same else ""}]
 
 
+@chromium_only
+def test_the_same_account_signing_in_a_second_time_keeps_the_clipboard(editor):
+    """#772, A3: a second login of the same account wipes nothing either, not another app's copy."""
+    a, mine = someone()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    run_out(page)
+    form_login(page, mine)
+    copy_text(page, "aus Word")
+    run_out(page)
+    page.evaluate(ITEM_LOG)
+    form_login(page, mine)
+    page.wait_for_function("window.items.length === 1 && 'text' in window.items[0]")
+    assert page.evaluate("window.items")[0]["text"] == "refused"
+    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+
+
 def test_the_same_account_signing_in_again_writes_no_clipboard(editor):
     """#772, checklist W: the account's own form login writes nothing to the clipboard."""
     a, email = someone()
