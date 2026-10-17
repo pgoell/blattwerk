@@ -631,10 +631,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // An open Format drawer lies over the sheet's right end. The desk scrolls so the picked block, or the caret in the
   // open text, stays in view beside it: the drawer shows the room on the desk's right, see `.drawn` in styles.css.
   const drawnRight = drawers && drawer === "right";
+  // The desk's scroll before the drawer moved it: shutting the drawer puts it back.
+  const scrolledFrom = useRef<number | undefined>(undefined);
   useLayoutEffect(() => {
     const el = desk.current;
+    if (!drawnRight) {
+      if (el && scrolledFrom.current !== undefined) el.scrollLeft = scrolledFrom.current;
+      scrolledFrom.current = undefined;
+      return;
+    }
     const panel = document.querySelector("aside.panel");
-    if (!drawnRight || !el || !panel || !ids.length) return;
+    if (!el || !panel || !ids.length) return;
     // The part to keep in view, as its left and right edges on the window.
     let rect: { left: number; right: number } | undefined;
     if (editing) {
@@ -649,7 +656,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // Scroll until the part clears the panel's left edge with a gap, but no further than the desk's own left edge allows.
     const gap = 16;
     const dx = rect.right - (panel.getBoundingClientRect().left - gap);
-    if (dx > 0) el.scrollLeft += Math.max(0, Math.min(dx, rect.left - (el.getBoundingClientRect().left + gap)));
+    const by = dx > 0 ? Math.max(0, Math.min(dx, rect.left - (el.getBoundingClientRect().left + gap))) : 0;
+    if (by > 0) {
+      scrolledFrom.current = el.scrollLeft;
+      el.scrollLeft += by;
+    }
   }, [drawnRight]);
   const sheet = useRef<HTMLDivElement>(null);
   const moveable = useRef<Moveable>(null);
