@@ -1218,6 +1218,32 @@ def test_a_brush_from_a_caret_in_a_text_opened_again_paints_the_words_it_crosses
     assert bold == {"Hund"}
 
 
+def test_a_kept_brush_on_a_picked_group_paints_it_once_and_keeps_the_group_picked(editor):
+    """#756: a press on a picked text goes to the brush first; the click after picks no more."""
+    client = user()
+    group = {"group": ["g"]}
+    page = editor(
+        box("q", "text", {**TEXT, "text": "Quelle", "bold": True}, w=25),
+        box("a", "text", {**TEXT, "text": "eins"}, z=2, w=25, **group),
+        box("b", "text", {**TEXT, "text": "zwei"}, z=3, w=25, **group),
+        client=client,
+    )
+    pick(page, "q")
+    brush(page).dblclick()
+    expect_brush(page, True)
+    at(page, "a").click()
+    expect_picked(page, "a", "b")
+    # The group's frame lies over the picked block: the press goes where a hand would put it.
+    at(page, "a").click(force=True)
+    expect(brush(page)).to_have_attribute("aria-pressed", "true")
+    expect_picked(page, "a", "b")
+    assert held(page, client)["a"].get("bold") and held(page, client)["b"].get("bold")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+z")
+    expect(at(page, "a").locator("p").first).not_to_have_css("font-weight", "700")
+    assert not held(page, client)["a"].get("bold") and not held(page, client)["b"].get("bold")
+
+
 def saved_x(page, client):
     return next(b["x"] for b in saved(page, client) if b["id"] == "a")
 

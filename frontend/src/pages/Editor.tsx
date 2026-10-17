@@ -4360,11 +4360,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               return;
             }
             // With the brush a press in the open text picks its words, and a drag paints them.
-            // Other blocks go the way they went before the brush painted words (#756).
+            // A picked one Moveable would drag; the press is the brush's, and the click after it picks nothing more (#756).
             const block = (e.target as Element).closest<HTMLElement>(".block")?.dataset.id;
-            brushing.current = !touch.current && e.button === 0 && !!brush && !!block && block === editing;
+            const text = blocks.find((b) => b.id === block);
+            brushing.current = !touch.current && e.button === 0 && !!brush && !!text && !!boxed(text) && ids.includes(text.id);
             if (brushing.current) {
-              addEventListener("pointerup", () => (brushing.current = false), { once: true });
+              addEventListener("pointerup", () => setTimeout(() => (brushing.current = false)), { once: true });
               return void pick(e.target as Element, e.shiftKey, e.nativeEvent);
             }
             // The right button drags nothing: its menu picks the block.
@@ -4682,7 +4683,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     onClick={(e) => touch.current && !held.current && pick(e.inputTarget, false)}
                     // A press on a block is the desk's to pick by. Moveable drags by it too, and would take it for a click
                     // on the group where the point the mouse reports lies beside what was pressed.
-                    onClickGroup={(e) => cover.current && !held.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
+                    onClickGroup={(e) => cover.current && !held.current && !brushing.current && pick(e.inputTarget, e.inputEvent.shiftKey)}
                     // A press on a cell of the table being edited picks cells: it moves no block.
                     onDragStart={(e) => (cellDrag.current || brushing.current ? e.stopDrag() : begin([e.target]))}
                     onDragGroupStart={(e) => (brushing.current ? e.stopDrag() : begin(e.targets))}
