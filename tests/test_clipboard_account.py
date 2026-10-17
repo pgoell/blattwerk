@@ -926,3 +926,112 @@ def test_after_a_wipe_a_later_abmelden_leaves_another_apps_copy(editor):
     page.evaluate("(words) => navigator.clipboard.writeText(words)", "aus Word")
     logout(page)
     assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+
+
+def run_out(page):
+    """The session ends with no logout, and the login form comes back. No clip is needed."""
+    page.context.clear_cookies()
+    page.reload()
+    expect(page.locator("#email")).to_be_visible()
+
+
+def form_login(page, email):
+    """Logs in on the form and waits for the login's clipboard step, before any navigation."""
+    page.fill("#email", email)
+    page.fill("#password", PASSWORD)
+    with page.expect_response("**/api/login") as answer:
+        button(page, "Anmelden").click()
+    assert answer.value.ok
+    if BROWSER == "webkit":
+        value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
+        page.context.add_cookies([{"name": "session", "value": value, "url": origin(page)}])
+    page.wait_for_function("localStorage.getItem('clip') === null")
+
+
+CLIPBOARD_LOG = """() => {
+    window.wrote = [];
+    const real = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = (t) => (window.wrote.push(t), real(t).catch(() => {}));
+}"""
+
+
+@chromium_only
+def test_a_session_that_runs_out_then_another_login_takes_the_copy_off_the_clipboard(editor):
+    """#772, checklist A1: a login after a run-out save empties the clipboard."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    page.context.clear_cookies()
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    page.keyboard.type("x")
+    expect(page.locator("#email")).to_be_visible()
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+@chromium_only
+def test_a_session_left_by_reload_then_another_login_takes_the_copy_off_the_clipboard(editor):
+    """#772, checklist A2: a login after a run-out reload empties the clipboard."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    run_out(page)
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    assert page.evaluate("navigator.clipboard.readText()") == ""
+
+
+@chromium_only
+def test_the_same_account_signing_in_again_keeps_its_copy_on_the_clipboard(editor):
+    """#772, checklist A3: the account's own login leaves its copy on the system's clipboard."""
+    a, email = someone()
+    page = editor(the_text_box(), client=a)
+    mine = {"id": page.url.rsplit("/", 1)[1]}
+    copy_in_text(page)
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    words = page.evaluate("navigator.clipboard.readText()")
+    assert words
+    run_out(page)
+    login(page, email, mine, 1)
+    assert page.evaluate("navigator.clipboard.readText()") == words
+
+
+@chromium_only
+def test_another_apps_copy_survives_a_login_when_blattomat_stored_no_copy(editor):
+    """#772, checklist I6: with no copy stored, a login leaves another app's copy alone."""
+    a = user()
+    page = editor(box("x", "shape", RECT, w=40), client=a)
+    copy_text(page, "aus Word")
+    page.context.clear_cookies()
+    page.reload()
+    expect(page.locator("#email")).to_be_visible()
+    b, email = someone()
+    login(page, email, sheet(b, [box("x", "shape", RECT, w=40)]), 1)
+    assert page.evaluate("navigator.clipboard.readText()") == "aus Word"
+
+
+def test_another_accounts_login_writes_an_empty_clipboard_over_the_copy(editor):
+    """#772, checklist W: another account's form login writes "" to the clipboard."""
+    a = user()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    run_out(page)
+    page.evaluate(CLIPBOARD_LOG)
+    _, email = someone()
+    form_login(page, email)
+    assert "" in page.evaluate("window.wrote")
+
+
+def test_the_same_account_signing_in_again_writes_no_clipboard(editor):
+    """#772, checklist W: the account's own form login writes nothing to the clipboard."""
+    a, email = someone()
+    page = editor(the_text_box(), client=a)
+    copy_in_text(page)
+    run_out(page)
+    page.evaluate(CLIPBOARD_LOG)
+    form_login(page, email)
+    assert page.evaluate("window.wrote") == []
