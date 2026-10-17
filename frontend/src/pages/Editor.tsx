@@ -101,7 +101,7 @@ import Variants, { CLASH } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
-import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
@@ -311,6 +311,8 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
       ended(end);
     });
   }
+  // The newer sheet of another window is shown where this window has no change of its own (#720).
+  const renew = (sheet: Sheet) => void (here.current && show(sheet));
   // The sheet's saver says what shows: the answer, or a change that is still unsaved. An answer that comes when the
   // teacher has gone on is not for the saver either, nor is the late answer of a try before this one. A change the
   // browser kept waits through a load that failed, and shows with the try that brings the sheet.
@@ -324,10 +326,13 @@ export default function Editor({ user, wait, first }: { user: User; wait: ReactN
   if (file.sheet === "failed") return <main><Failed retry={retry}><h1>Das Blatt konnte nicht geladen werden</h1></Failed></main>;
   if (!file.sheet) return <main><h1>Blatt nicht gefunden</h1></main>;
   // A sheet loaded anew starts the editor over.
-  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} />;
+  return <Canvas key={file.n} file={file.sheet} user={user} reload={load} over={over} choice={choice} asNew={keep} discard={drop} renew={renew} />;
 }
 
-function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void }) {
+// A newer version saved in another window: the editor shows it (#720).
+const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Hier steht jetzt der neue Stand.";
+
+function Canvas({ file, user, reload, over, choice, asNew, discard, renew }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet) => void }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
@@ -339,6 +344,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
   const saver = useSaves().list.find((s) => s.id === file.id);
   const named = useRef(title);
   named.current = title;
+  // Loads the newer sheet of another window, where this one has no change: it says so, and shows the sheet (#720).
+  async function newerSheet() {
+    const sheet = await newer(file.id, () => ({ doc: live.current.doc, title: named.current }));
+    if (sheet) {
+      note(NEWER, NEWER);
+      renew(sheet);
+    }
+    return !!sheet;
+  }
+  useEffect(() => onNewer(file.id, () => void newerSheet()), []);
+  useEffect(() => {
+    const focus = () => void newerSheet();
+    addEventListener("focus", focus);
+    return () => removeEventListener("focus", focus);
+  }, []);
   // Whether a new guide line or grid is for the page in use alone.
   const [own, setOwn] = useState(false);
   const [at, setAt] = useState(0);
@@ -3199,6 +3219,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
       // In a clash the server holds the other device's sheet: the PDF waits until the teacher has chosen. Also where
       // the save it waits for is the one turned down.
       if (inClash(file.id)) return;
+      // A newer version saved in another window is what prints: the editor shows it first (#720).
+      await newerSheet();
       const current = await flush(file.id);
       if (inClash(file.id)) return;
       await ask("/me");
@@ -3920,7 +3942,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard }: { file: Sh
           <Feedback className="ib" aria-label="Feedback" opener={inBar("Feedback") ? undefined : feedback}>
             <MessageSquare size={16} aria-hidden />
           </Feedback>
-          {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={(e) => openVariants(e.currentTarget)} />}
+          {inBar("Varianten drucken") && <Tool icon={Layers} label="Varianten drucken" onClick={async (e) => { const door = e.currentTarget; if (!(await newerSheet())) openVariants(door); }} />}
           {more.length > 0 && (
             <Tool
               icon={Ellipsis}
