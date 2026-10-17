@@ -161,7 +161,7 @@ def test_consent_after_the_login_with_the_real_server(window, server):  # noqa: 
 
 def test_datenschutz_connector():
     text = TestClient(app).get("/datenschutz").text
-    section = text.split("<h2>9. ", 1)[1].split("<h2>10. ", 1)[0]
+    section = text.split('<h2 id="claude">9. ', 1)[1].split("<h2>10. ", 1)[0]
     assert "„/mcp“" in section
     assert "Trennen" in section
     connector = section.split("(b) Connector.", 1)[1]
