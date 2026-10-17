@@ -1168,6 +1168,41 @@ def test_a_drag_paint_is_one_undo_step(editor):
     assert painted(held(page, client)["b"]) == []
 
 
+def test_a_brush_drag_in_an_open_text_paints_its_words_and_keeps_the_block(editor):
+    client = user()
+    page = editor(box("a", "text", {**TEXT, "text": "Der Hund ist braun und klein"}), client=client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Home")
+    page.keyboard.press("Control+ArrowRight")
+    page.keyboard.press("Control+Shift+ArrowRight")
+    page.keyboard.press("Control+b")
+    page.keyboard.press("Escape")
+    x = saved_x(page, client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Home")
+    page.keyboard.press("Control+ArrowRight")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("ArrowRight")
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "braun")
+    expect_brush(page, False)
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund", "braun"}
+    page.keyboard.press("Control+z")
+    assert saved_x(page, client) == x
+    assert {word for word, bold, _ in painted(held(page, client)["a"]) if bold} == {"Hund"}
+
+
+def saved_x(page, client):
+    return next(b["x"] for b in saved(page, client) if b["id"] == "a")
+
+
 def test_a_plain_look_takes_bold_and_red_off_the_words(editor):
     client = user()
     runs = [{"text": "eins "}, {"text": "zwei", "bold": True, "color": "#ff0000"}]
