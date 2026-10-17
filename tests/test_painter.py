@@ -1193,6 +1193,31 @@ def test_a_brush_drag_in_an_open_text_paints_its_words_and_keeps_the_block(edito
     assert bold == {"Hund"}
 
 
+def test_a_brush_from_a_caret_in_a_text_opened_again_paints_the_words_it_crosses_in_place(editor):
+    """#756, as the issue has it: the bold is saved, the text opened again, the caret in it."""
+    client = user()
+    runs = [{"text": "Der "}, {"text": "Hund", "bold": True}, {"text": " ist braun und klein"}]
+    props = {**TEXT, "text": "Der Hund ist braun und klein", "rich": [{"runs": runs}]}
+    page = editor(box("a", "text", props), client=client)
+    x = saved_x(page, client)
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    w = word(page, "a", "Hund")
+    page.mouse.click((w["x"] + w["right"]) / 2, w["y"])
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "a", "braun")
+    expect_brush(page, False)
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund", "braun"}
+    page.keyboard.press("Control+z")
+    assert saved_x(page, client) == x
+    bold = {word.strip() for word, is_bold, _ in painted(held(page, client)["a"]) if is_bold}
+    assert bold == {"Hund"}
+
+
 def saved_x(page, client):
     return next(b["x"] for b in saved(page, client) if b["id"] == "a")
 
