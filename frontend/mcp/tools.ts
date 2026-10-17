@@ -580,7 +580,7 @@ export function tools(api: Api) {
     {
       name: "upload_picture",
       description:
-        "Upload a picture (SVG text or base64 PNG, JPEG, WebP) into the teacher's account; place it with add_block, type image, props.upload. How: blattomat://okf/recipes/bild-zeichnen.md.",
+        "Upload a picture (SVG text or base64 PNG, JPEG, WebP, GIF) into the teacher's account; place it with add_block, type image, props.upload. How: blattomat://okf/recipes/bild-zeichnen.md.",
       inputSchema: {
         type: "object",
         properties: {
