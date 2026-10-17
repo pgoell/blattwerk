@@ -14,6 +14,7 @@ from ui import (
     apart,
     at,
     box,
+    caret,
     expect_picked,
     maths,
     pick,
@@ -962,8 +963,8 @@ def test_the_brush_works_from_an_open_text(editor):
     pick(page, "a")
     page.keyboard.press("Enter")
     expect(page.locator(FIELD)).to_be_focused()
-    # In the field the keys are the browser's and pick nothing up.
-    assert not stopped(page, "Control+Shift+C")
+    # In the field Ctrl+Shift+C copies the look of the caret's word, not the browser's.
+    assert stopped(page, "Control+Shift+C")
     expect_brush(page, False)
     page.keyboard.press("Control+a")
     page.keyboard.press("Control+b")
@@ -1032,8 +1033,221 @@ def test_escape_in_an_open_text_ends_the_brush(editor):
     expect_picked(page, "b")
     page.keyboard.press("Enter")
     expect(page.locator(FIELD)).to_be_focused()
-    # Ctrl+Shift+V is the browser's in the field: it pastes plain text there.
-    assert not stopped(page, "Control+Shift+V")
+    # Ctrl+Shift+V in the field gives the caret's word the look, and is not the browser's.
+    assert stopped(page, "Control+Shift+V")
     page.keyboard.press("Escape")
     expect(page.locator(".ProseMirror")).to_have_count(0)
     expect_brush(page, False)
+
+
+def word(page, name, text):
+    """The screen box of the first `text` in the block `name`: its middle height and both sides."""
+    return page.evaluate(
+        """([name, text]) => {
+            const el = document.querySelector(`.block[data-id="${name}"]`);
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                const i = node.textContent.indexOf(text);
+                if (i < 0) continue;
+                const range = document.createRange();
+                range.setStart(node, i);
+                range.setEnd(node, i + text.length);
+                const r = range.getBoundingClientRect();
+                return { x: r.left, right: r.right, y: r.top + r.height / 2 };
+            }
+            return null;
+        }""",
+        [name, text],
+    )
+
+
+def drag(page, name, text):
+    """Presses on the start of `text` in the block `name`, drags across it and lets go."""
+    w = word(page, name, text)
+    page.mouse.move(w["x"] + 1, w["y"])
+    page.mouse.down()
+    page.mouse.move(w["right"] - 1, w["y"], steps=5)
+    page.mouse.up()
+
+
+def runs_of(props):
+    return [run for para in props.get("rich", []) for run in para["runs"]]
+
+
+def painted(props):
+    """The words of a text that have a bold or a red look of their own, as (words, bold, colour)."""
+    return [
+        (run["text"], run.get("bold", False), run.get("color"))
+        for run in runs_of(props)
+        if run.get("bold") or run.get("color")
+    ]
+
+
+# A word "Hallo" in bold red, as the source of a look.
+BOLD_RED = [{"runs": [{"text": "Hallo", "bold": True, "color": "#ff0000"}, {"text": " Welt"}]}]
+
+
+def test_a_drag_paints_only_the_words_it_crosses(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hallo Welt", "rich": BOLD_RED}),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=2),
+        client=client,
+    )
+    caret(page, "Hallo", 2)
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "b", "zwei")
+    expect_brush(page, False)
+    b = held(page, client)["b"]
+    # Only the dragged word takes the bold and the red, the rest of the text keeps its own look.
+    assert b.get("bold") is not True and b.get("color") != "#ff0000"
+    assert painted(b) == [("zwei", True, "#ff0000")]
+
+
+def test_ctrl_shift_c_in_an_open_text_copies_the_word_look(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hallo Welt", "rich": BOLD_RED}),
+        box("b", "text", {**TEXT, "text": "du"}, z=2),
+        client=client,
+    )
+    caret(page, "Hallo", 2)
+    assert stopped(page, "Control+Shift+C")
+    # The field stays open and focused, and nothing reaches the system clipboard.
+    expect(page.locator(FIELD)).to_be_focused()
+    assert page.evaluate("localStorage.getItem('clip')") is None
+    pick(page, "b")
+    page.keyboard.press("Control+Shift+V")
+    expect_picked(page, "b")
+    b = held(page, client)["b"]
+    assert b["bold"] is True and b["color"] == "#ff0000"
+
+
+def test_ctrl_shift_v_in_an_open_text_paints_the_picked_words(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hallo Welt", "rich": BOLD_RED}),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=2),
+        client=client,
+    )
+    caret(page, "Hallo", 2)
+    assert stopped(page, "Control+Shift+C")
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    page.keyboard.press("Home")
+    for _ in range(5):
+        page.keyboard.press("ArrowRight")
+    for _ in range(4):
+        page.keyboard.press("Shift+ArrowRight")
+    text = page.locator(FIELD).inner_text()
+    assert stopped(page, "Control+Shift+V")
+    expect(page.locator(f"{FIELD} span[data-bold]")).to_have_text("zwei")
+    # The keys paste no text into the field.
+    assert page.locator(FIELD).inner_text() == text
+    expect(page.locator(FIELD)).to_be_focused()
+    unpick(page)
+    b = held(page, client)["b"]
+    assert painted(b) == [("zwei", True, "#ff0000")]
+
+
+def test_a_drag_paint_is_one_undo_step(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "text": "Hallo Welt", "rich": BOLD_RED}),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=2),
+        client=client,
+    )
+    caret(page, "Hallo", 2)
+    brush(page).click()
+    drag(page, "b", "zwei")
+    expect(page.get_by_label("Rückgängig")).to_be_enabled()
+    page.get_by_label("Rückgängig").click()
+    expect(page.get_by_label("Rückgängig")).to_be_disabled()
+    assert painted(held(page, client)["b"]) == []
+
+
+def test_a_plain_look_takes_bold_and_red_off_the_words(editor):
+    client = user()
+    runs = [{"text": "eins "}, {"text": "zwei", "bold": True, "color": "#ff0000"}]
+    rich = [{"runs": [*runs, {"text": " drei"}]}]
+    page = editor(
+        box("a", "text", TEXT),
+        box("b", "text", {**TEXT, "text": "eins zwei drei", "rich": rich}, z=2),
+        client=client,
+    )
+    pick(page, "a")
+    brush(page).click()
+    expect_brush(page, True)
+    drag(page, "b", "zwei")
+    expect_brush(page, False)
+    # The words lose their bold and red: a block with no colour of its own has the default ink.
+    left = painted(held(page, client)["b"])
+    assert [look for look in left if look[1] or look[2] == "#ff0000"] == []
+
+
+def test_a_double_click_keeps_the_brush_for_each_drag(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "bold": True, "color": "#ff0000"}),
+        box("b", "text", {**TEXT, "text": "eins zwei drei"}, z=2),
+        client=client,
+    )
+    pick(page, "a")
+    brush(page).dblclick()
+    expect_brush(page, True)
+    drag(page, "b", "zwei")
+    expect_brush(page, True)
+    drag(page, "b", "drei")
+    expect_brush(page, True)
+    page.keyboard.press("Escape")
+    expect_brush(page, False)
+    red = [("zwei", True, "#ff0000"), ("drei", True, "#ff0000")]
+    assert painted(held(page, client)["b"]) == red
+
+
+def test_a_drag_over_a_line_or_a_picture_paints_the_whole_block(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "stroke": "#0000ff", "strokeWidth": 2}),
+        box("l", "shape", LINE, z=2),
+        box("p", "image", picture(upload(client))["props"], z=3),
+        client=client,
+    )
+    pick(page, "a")
+    brush(page).click()
+    expect_brush(page, True)
+    # A line has no words: the drag over it paints it whole, as a click does.
+    box_ = at(page, "l").bounding_box()
+    page.mouse.move(box_["x"] + 2, box_["y"] + box_["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(box_["x"] + box_["width"] - 2, box_["y"] + box_["height"] / 2, steps=5)
+    page.mouse.up()
+    expect_picked(page, "l")
+    expect_brush(page, False)
+    assert held(page, client)["l"]["stroke"] == "#0000ff"
+    # A picture has no words either: the same drag leaves it picked, and the brush spent.
+    brush(page).click()
+    expect_brush(page, True)
+    box_ = at(page, "p").bounding_box()
+    page.mouse.move(box_["x"] + 2, box_["y"] + box_["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(box_["x"] + box_["width"] - 2, box_["y"] + box_["height"] / 2, steps=5)
+    page.mouse.up()
+    expect_picked(page, "p")
+    expect_brush(page, False)
+
+
+def test_a_drag_on_a_shape_with_text_paints_its_words(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**TEXT, "bold": True, "color": "#ff0000"}),
+        box("b", "shape", {**RECT, "text": "eins zwei drei"}, z=2),
+        client=client,
+    )
+    pick(page, "a")
+    brush(page).click()
+    drag(page, "b", "zwei")
+    expect_brush(page, False)
+    assert painted(held(page, client)["b"]) == [("zwei", True, "#ff0000")]

@@ -100,6 +100,7 @@ import ZoomList from "../components/ZoomList";
 import Tour from "../components/Tour";
 import Variants, { NEWER } from "../components/Variants";
 import { changed, fresh, redone, returned, undone, type Hist, type Step } from "../history";
+import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
@@ -397,6 +398,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [brush, setBrush] = useState(0);
   // What the words picked in a field have of their own, read before the press on the brush ends the field.
   const wet = useRef<Marks>(undefined);
+  // Opens a text's field for a drag of the brush, from the latest render: the drag's listeners outlive the press.
+  const openNow = useRef((_id: string, _el: Element) => {});
   const [editing, setEditing] = useState("");
   // The stone of a Zahlenmauer opened by a double click: its block, wall and stone, the number as typed, and its box in the block.
   const [stone, setStone] = useState<{ id: string; wall: number; at: number; text: string; box: number[] } | null>(null);
@@ -1274,6 +1277,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // and its number fields, and on its lists only undo and redo are the sheet's. A number field that holds a number
     // for the panel alone keeps them.
     const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
+    // Ctrl+Shift+C copies the look of the caret's word, Ctrl+Shift+V lays it on the picked words of the text being
+    // written, as in PowerPoint. The field's own copy and paste are not wanted for them.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && /^[cv]$/i.test(e.key) && target.closest(".ProseMirror")) {
+      e.preventDefault();
+      if (e.key.toLowerCase() === "c") dip(part?.marks);
+      else wordPaint(sel.find((b) => b.id === editing)!);
+      return;
+    }
     if (!ours && !shut && target.closest(".ProseMirror, textarea, input, select")) return;
     // Alt+Left and Alt+Right turn the picked blocks 15° counter-clockwise and clockwise, as in PowerPoint. A locked
     // block, a table and a line on its own do not turn, as the buttons of the panel do not.
@@ -1817,6 +1828,46 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // A field says "not bold" where a block says nothing: both are the same look. A band switched off is a look too:
     // it stays false, or the target would fall back to its kind's default, which is on for Lineatur 1 and 2.
     setCoat(Object.fromEntries(takes(source).map((name) => [name, from[name] === false && name !== "band" ? undefined : from[name]])));
+  }
+  // Lays the brush's look on the picked words of a text being written, in one undo step. A look that says "not bold"
+  // says it as false, so the words lose their own bold and colour where the look has none.
+  function wordPaint(b: Block) {
+    const text = b && boxed(b);
+    if (!field.current || !text || !coat) return false;
+    return tint(field.current, { bold: coat.bold ?? false, italic: coat.italic ?? false, underline: coat.underline ?? false, color: coat.color ?? text.color ?? "#222222" }, text, "");
+  }
+  openNow.current = (id, el) => {
+    clicked.current = undefined;
+    edit(id, el);
+  };
+  // A drag with the brush over a text or a shape with words: the field opens at the press, and the words the pointer
+  // crosses take the look. A press that does not move paints the whole block, as a click does.
+  function brushDrag(id: string, press: globalThis.MouseEvent, on: string[]) {
+    const start: [number, number] = [press.clientX, press.clientY];
+    let opened = false;
+    const move = (e: globalThis.PointerEvent) => {
+      if (!opened) {
+        if (Math.hypot(e.clientX - start[0], e.clientY - start[1]) <= 3) return;
+        opened = true;
+        flushSync(() => openNow.current(id, press.target as Element));
+      }
+      const view = field.current;
+      const from = view?.posAtCoords({ left: start[0], top: start[1] });
+      const to = view?.posAtCoords({ left: e.clientX, top: e.clientY });
+      if (view && from && to) view.dispatch(view.state.tr.setSelection(TextSelection.between(view.state.doc.resolve(from.pos), view.state.doc.resolve(to.pos))));
+    };
+    // The words are picked, not moved: the browser's drag of a selected text would move them.
+    const stop = (e: Event) => e.preventDefault();
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("dragstart", stop);
+      const view = field.current;
+      if (!(opened && view && !view.state.selection.empty && wordPaint(blocks.find((b) => b.id === id)!))) daub(on, page);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("dragstart", stop);
   }
   // Lays the look on blocks of page `n`. Each takes what it has, and its words lose what they had of their own
   // there. All of it is one undo step, and none where nothing changes.
@@ -3379,7 +3430,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         setAt(to);
         setIds(on);
         setEditing("");
-        daub(on, to);
+        const target = blocks.find((b) => b.id === id);
+        if (to === page && press && target && boxed(target)) brushDrag(id, press, on);
+        else daub(on, to);
         spot.current = undefined;
         return;
       }
