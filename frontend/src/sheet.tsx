@@ -781,7 +781,8 @@ const INK: Record<Font, readonly [number, number]> = {
 // How far a font's ink reaches left of its place or right of its advance, in em, the largest over ASCII and the
 // German capitals and signs (#76). Measured in Chromium with canvas measureText at 1000 px, regular cut, rounded up
 // to two decimals.
-const SIDE: Partial<Record<Font, number>> = { andika: 0.04, nord: 0.02, sued: 0.02, grund: 0.1, urff: 0.06, va: 0.21, sas: 0.24, la: 0.29 };
+// Andika's j reaches 0.094 em left (#489).
+const SIDE: Partial<Record<Font, number>> = { andika: 0.1, nord: 0.02, sued: 0.02, grund: 0.1, urff: 0.06, va: 0.21, sas: 0.24, la: 0.29 };
 // Trace text (Nachspurtext), for the children to write over, in a text, a shape, a table and a Lineatur. A block
 // stores `trace`: true for grey, "outline" for letters with a line around them and no fill (Umriss), "dotted" for the
 // font's own dotted cut (gepunktet). Sheets saved before have true or nothing. `fade` makes the trace text lighter
@@ -1125,7 +1126,8 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   const fraction = baselineFraction(family, size * s * k, row * k);
   // An outline or a dotted cut reaches past the box's left edge: the box takes `ext` px more to the left and its
   // padding takes them back, so no letter moves. Whole px, as the cut is (see `.frame` in styles.css).
-  const reach = look === "outline" ? Math.max(SIDE[fontOf(b.props.font)] ?? 0, 0.12) + 0.035 : look === "dotted" ? DOTTED_SIDE : 0;
+  // A plain or grey text reaches as far as its font's letters (#489).
+  const reach = look === "outline" ? Math.max(SIDE[fontOf(b.props.font)] ?? 0, 0.12) + 0.035 : look === "dotted" ? DOTTED_SIDE : (SIDE[fontOf(b.props.font)] ?? 0);
   const ext = reach ? Math.ceil(reach * size * s * k) + 1 : 0;
   return {
     ...((indent > 0 || ext > 0) && { paddingLeft: indent * k + ext, boxSizing: "border-box" as const }),
@@ -1272,15 +1274,17 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const above = reach(Math.max(0, INK[font][0] - FONTS[font][2] - s / 2)) + stroke;
   const below = reach(Math.max(0, INK[font][1] + FONTS[font][2] - s / 2)) + stroke;
   // How far a joined script's letters reach past their place to each side, and the outline's stroke with them.
-  // A plain text takes the side reach only in a joined script, where a letter reaches 0.1 em or more past its place: a
-  // print font's plain text draws as it did before. An outline takes it in every font, and 0.12 em at least: Andika's
+  // A plain text takes the side reach in every font whose letters reach past their place: Andika's j lost its left
+  // tip at the paragraph's edge (#489). An outline takes it in every font, and 0.12 em at least: Andika's
   // j reaches further in its outline than the upright cut's measure says. A slanted text leans 0.15 em further.
   // A dotted look takes the dotted cut's reach the same way (DOTTED_SIDE).
   const dotted = traceOf(p) === "dotted";
   const wide = Math.max(SIDE[font] ?? 0, stroke > 0 ? 0.12 : 0, dotted ? DOTTED_SIDE : 0);
-  const side = stroke > 0 || dotted || wide >= 0.1 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
+  const side = wide > 0 ? wide + stroke + (p.italic ? 0.15 : 0) : 0;
   // A pixel more each way (below): a browser smooths the edge of a letter over the row beside it.
   const tight = above > 0 || below > 0 || side > 0;
+  // A print font's plain text is tight for its sides alone (#489): above and below it cuts where it did.
+  const level = above > 0 || below > 0 || stroke > 0 || dotted || ["grund", "va", "sas", "la"].includes(font);
   // An outline's stroke and a dotted cut's dots reach a pixel past the measured ink, and a pixel more with the page's
   // rounding (#503): the paragraph takes one pixel more above and below for them.
   const fringe = stroke > 0 || dotted ? 2 : 1;
@@ -1387,7 +1391,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       style={{
         ...textStyle(p, k),
         ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
-        ...(tight && { "--ink-up": `calc(${above}em + ${fringe}px)`, "--ink-down": `calc(${below}em + ${fringe}px)`, "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
+        ...(tight && { "--ink-up": level ? `calc(${above}em + ${fringe}px)` : "0px", "--ink-down": level ? `calc(${below}em + ${fringe}px)` : "0px", "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
         // A linked text grows to hold its words, past the height it is stored with.

@@ -260,19 +260,22 @@ def test_the_default_spacing_draws_as_before(editor, key, kind, spacing):
     clip = clip_of(at(page, "a"))
     before = page.screenshot(clip=clip)
     if not reaches:
-        expect(frame).not_to_have_class(re.compile(r"\btight\b"))
+        # A print font takes its side reach (#489), and nothing above or below.
         styles = frame.locator("p").first.evaluate(
             """el => {
                 const s = getComputedStyle(el);
                 return [s.paddingTop, s.paddingBottom, s.marginTop, s.marginBottom, s.overflow];
             }"""
         )
-        assert styles == ["0px", "0px", "0px", "0px", "hidden"]
-        assert frame.evaluate("el => el.style.clipPath").startswith("inset(-1px")
+        assert styles[:4] == ["0px", "0px", "0px", "0px"]
         page.add_style_tag(content=OLD_RULES)
         after = page.screenshot(clip=clip)
         a, b = Image.open(BytesIO(before)).convert("RGB"), Image.open(BytesIO(after)).convert("RGB")
-        assert ImageChops.difference(a, b).getbbox() is None
+        # The old rules cut a rich text's paragraph at its sides again: there the j keeps its tip
+        # now (#489). Between the sides nothing differs.
+        width, height = a.size
+        inner = (width // 10, 0, width - width // 10, height)
+        assert ImageChops.difference(a, b).crop(inner).getbbox() is None
         return
     # The paragraph's own box, without its new padding: the letters inside it may not move.
     expect(frame).to_have_class(re.compile(r"\btight\b"))
@@ -311,12 +314,11 @@ ALL_FONTS = ["andika", "nord", "sued", "grund", "urff", "va", "sas", "la"]
 
 @pytest.mark.parametrize("italic", [False, True])
 @pytest.mark.parametrize("align", ["left", "right"])
-@pytest.mark.parametrize("key", REACHES_AT_13)
+@pytest.mark.parametrize("key", ALL_FONTS)
 def test_no_ink_is_cut_at_the_sides(editor, key, align, italic):
-    """A1: a joined script's letters reach past their place, and no ink is cut at either side.
+    """A1: a font's letters reach past their place, and no ink is cut at either side.
 
-    j reaches left of its place and f right of it. The print fonts' plain text keeps its sides as
-    sheets saved before had them (#489).
+    j reaches left of its place and f right of it, in a print font too (#489).
     """
     props = {**TEXT, "font": key, "size": 40, "align": align, "text": "jgf Tgjf", "italic": italic}
     page = editor(box("a", "text", props, x=10, y=40, w=90, h=30))
@@ -330,7 +332,7 @@ def test_no_ink_is_cut_at_the_sides(editor, key, align, italic):
     assert abs(count - full) <= 0.005 * full, (count, full)
 
 
-@pytest.mark.parametrize("key", REACHES_AT_13)
+@pytest.mark.parametrize("key", ALL_FONTS)
 def test_the_sides_keep_the_line_breaks(editor, key):
     """A1: the side padding moves no letter and breaks no line of a wrapping text."""
     props = {**TEXT, "font": key, "size": 20, "align": "left", "text": "Hallo gjpß Tgjp " * 6}
