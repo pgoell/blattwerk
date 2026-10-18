@@ -203,7 +203,7 @@ export type TextProps = {
   strokeOpacity?: number;
   /** True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off. */
   inside?: boolean;
-  /** Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1]. */
+  /** Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1]. */
   tail?: [number, number];
   /** How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.
    * @minimum 0.1
@@ -1422,6 +1422,12 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // that border took, not the stroke's, so their texts keep their place and break their lines where they did.
   const room = ring || solid ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
+  // The clip's four sides, top, right, bottom and left, as CSS inset values; a bubble's tail grows its side by the px it reaches out.
+  const tops = tight ? `calc(-1px - ${above}em)` : "-1px";
+  const rights = tight && side > 0 ? `calc(-1px - ${side}em)` : "-1px";
+  const bottoms = cut !== undefined ? `calc(100% - ${cut}px)` : tight ? (below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px") : p.syllables ? "calc(-1px - .3em)" : "-1px";
+  const [tailUp, tailRight, tailDown, tailLeft] = tailReach(block).map((mm) => mm * k);
+  const grow = (v: string, px: number) => (px > 0 ? `calc(${v} - ${px}px)` : v);
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   // A circle's clip grows by the side reach on each side, so its curve keeps the circle's radius as the box grows (#740).
   const roundR = p.kind === "circle" && side > 0 ? `calc(50% + ${side}em)` : radius;
@@ -1463,7 +1469,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${roundR})`,
+        clipPath: `inset(${grow(tops, tailUp)} ${grow(rights, tailRight)} ${grow(bottoms, tailDown)} ${grow(rights, tailLeft)} round ${roundR})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -1671,22 +1677,28 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number, p: Partia
 // of the width wide, on the foot of the body, between its round corners. Absent, the tail is the one it always had.
 function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): number[][] {
   if (!tail) return [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]];
-  const tipX = clamp(tail[0] * w, e, w - e);
+  const tipX = tail[0] * w;
   // The base lies right of a tip at a fifth of the width, as the tail always did, and slides to its left as the tip
   // goes to four fifths: no jump on the way.
   const from = tipX + 0.05 * w - 0.25 * w * clamp((tipX / w - 0.2) / 0.6, 0, 1);
   const [lo, hi] = [e + r, w - e - r - 0.15 * w];
   const base = hi < lo ? (w - 0.15 * w) / 2 : clamp(from, lo, hi);
-  return [[base + 0.15 * w, low], [tipX, clamp(tail[1] * h, low, h - e)], [base, low]];
+  return [[base + 0.15 * w, low], [tipX, tail[1] * h], [base, low]];
 }
 // A value kept within a range.
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-// A sheet may come from anywhere: a tail is two numbers, its across kept in 0 to 1 and its down in 0.75 to 1. Anything
+// A sheet may come from anywhere: a tail is two numbers, each kept from -1 to 2 (one box beyond each edge). Anything
 // else is none, and so is a number that is no number for `tip` and `inner`, which keep their range too.
 export function tailOf(p: Partial<TextProps>): [number, number] | undefined {
   const t = p.tail;
   if (!Array.isArray(t) || t.length !== 2 || !Number.isFinite(t[0]) || !Number.isFinite(t[1])) return undefined;
-  return [clamp(t[0], 0, 1), clamp(t[1], 0.75, 1)];
+  return [clamp(t[0], -1, 2), clamp(t[1], -1, 2)];
+}
+// How far a bubble's tail reaches past its box, in mm: top, right, bottom and left. None for a tail inside the box.
+export function tailReach(b: { w: number; h: number; props: Partial<TextProps> }): [number, number, number, number] {
+  if (b.props.kind !== "bubble") return [0, 0, 0, 0];
+  const [tx, ty] = tailOf(b.props) ?? [0.2, 1];
+  return [Math.max(0, -ty * b.h), Math.max(0, (tx - 1) * b.w), Math.max(0, (ty - 1) * b.h), Math.max(0, -tx * b.w)];
 }
 export function innerOf(p: Partial<TextProps>): number | undefined {
   const v = p.inner;
@@ -1736,7 +1748,7 @@ export function adjusted(kind: Kind | undefined, w: number, h: number, at: [numb
   const [x, y] = at;
   const thou = (v: number) => Math.round(v * 1000) / 1000;
   if (kind === "triangle") return { tip: thou(clamp(x / w, 0, 1)) };
-  if (kind === "bubble") return { tail: [thou(clamp(x / w, 0, 1)), thou(clamp(y / h, 0.75, 1))] };
+  if (kind === "bubble") return { tail: [thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))] };
   if (kind === "star") {
     // The point in POINTS.star's unit square, projected on the ray from its middle through inner corner 9.
     const [u, v] = [(x / w - 0.5) * 1.902, 1 - (y * 1.809) / h];
