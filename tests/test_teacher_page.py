@@ -829,6 +829,26 @@ def test_close_tabs_shuts_a_tab_the_page_opened_and_names_it(editor):
     assert not page.is_closed()
 
 
+def test_a_verb_that_fails_after_a_tab_opened_still_closes_the_tab(editor, monkeypatch):
+    """Review of #738: a tab left open would be the next verb's page, so a failure closes it too."""
+    page = editor(box("a", "text", ONE))
+
+    @contextmanager
+    def joined():
+        yield page
+
+    def fails(page):
+        with page.context.expect_page():
+            page.evaluate("window.open('about:blank')")
+        raise tool.Refused("failed after the click")
+
+    monkeypatch.setattr(tool, "joined", joined)
+    monkeypatch.setitem(tool.VERBS, "fails", fails)
+    with pytest.raises(tool.Refused, match="failed after the click"):
+        tool.verb("fails", (), False)
+    assert page.context.pages == [page]
+
+
 def test_expire_drops_the_session_and_the_page_stays(editor):
     page = editor(box("a", "text", ONE))
     said = tool.expire(page)

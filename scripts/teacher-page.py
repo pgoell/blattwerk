@@ -726,14 +726,17 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     NOTES.clear()
     with joined() as page:
         asked = answered(page, yes)
+        # A tab left open would be the next verb's page: it goes also when the verb fails.
         try:
-            said = VERBS[name](page, *args)
-        except Error as error:
-            # A box answered no stops the navigation it came with: the page stays where it is.
-            if not asked or yes or "ERR_ABORTED" not in error.message:
-                raise
-            said = f"the page stayed on {page.url}"
-        closed = close_tabs(page)
+            try:
+                said = VERBS[name](page, *args)
+            except Error as error:
+                # A box answered no stops the navigation it came with: the page stays where it is.
+                if not asked or yes or "ERR_ABORTED" not in error.message:
+                    raise
+                said = f"the page stayed on {page.url}"
+        finally:
+            closed = close_tabs(page)
         place = here(page)
     lines = []
     for kind, text in asked:
