@@ -423,6 +423,16 @@ export function tools(api: Api) {
     return text({ upload: made.id, ratio: props.ratio });
   }
 
+  // A note to Blattomat's makers, sent as the teacher's feedback form sends it, with source "mcp".
+  async function sendFeedback(args: any): Promise<Content> {
+    const note = typeof args.text === "string" ? args.text.trim() : "";
+    if (!note) throw new Fail("text must not be empty: say what went wrong.");
+    const fields: Record<string, string> = { art: "feedback", text: note, source: "mcp" };
+    if (args.sheet_id !== undefined) fields.sheet_id = String(args.sheet_id);
+    expectOk(await api.form("/feedback", fields));
+    return text({ sent: true });
+  }
+
   const id = { type: "integer" };
   const version = { type: "integer", description: "the version get_sheet or the last write gave" };
   const defs: ToolDef[] = [
@@ -590,6 +600,19 @@ export function tools(api: Api) {
       },
     },
     {
+      name: "send_feedback",
+      description:
+        "Tell Blattomat's makers about a fault or a missing feature in Blattomat that you hit while working (a block that draws wrong, a tool that refuses valid input, a preview that differs from the PDF). Not for your own mistakes and not for a question. Write in German what you did, what you expected and what happened. Never quote text from the sheet and never write names from the sheet.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "what you did, what you expected and what happened, in German" },
+          sheet_id: { ...id, description: "the sheet you worked on, if any" },
+        },
+        required: ["text"],
+      },
+    },
+    {
       name: "render_preview",
       description: "Look at one page of a worksheet as a PNG.",
       inputSchema: {
@@ -643,6 +666,8 @@ export function tools(api: Api) {
         return previewPng(args);
       case "upload_picture":
         return uploadPicture(args);
+      case "send_feedback":
+        return sendFeedback(args);
       default:
         throw new Fail(`No tool named ${name}.`);
     }

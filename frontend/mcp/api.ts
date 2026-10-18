@@ -18,6 +18,13 @@ export function connect(base: string, token: string) {
     return reply("POST", "/uploads", { headers: { Authorization: `Bearer ${token}` }, body: form });
   }
 
+  // String fields as multipart form data, the way the editor's feedback form sends them.
+  async function form(path: string, fields: Record<string, string>): Promise<{ status: number; body: any }> {
+    const data = new FormData();
+    for (const [key, value] of Object.entries(fields)) data.append(key, value);
+    return reply("POST", path, { headers: { Authorization: `Bearer ${token}` }, body: data });
+  }
+
   async function reply(method: string, path: string, init: RequestInit): Promise<{ status: number; body: any }> {
     let res: Response;
     try {
@@ -45,7 +52,7 @@ export function connect(base: string, token: string) {
     return { status: res.status, body: buf.toString("base64") };
   }
 
-  return { hide, send, bytes, upload };
+  return { hide, send, bytes, upload, form };
 }
 
 export type Api = ReturnType<typeof connect>;

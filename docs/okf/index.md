@@ -14,7 +14,7 @@ Every file named here is a resource of this server: the link `blocks/uhr.md` is 
 
 Before you write a block, read its page under [blocks](blocks/index.md): it lists every prop with its values. Before you build a whole sheet, look for a recipe that is close and start from its doc.
 
-Work like this: `create_sheet`; `add_block` for each block, or `replace_doc` with a recipe's doc; read the warnings in each answer (`overlaps block <id>`, `leaves the page's printable area`) and fix them with `move_block`; `render_preview` to look at the page before you say you are done.
+Work like this: `create_sheet`; `add_block` for each block, or `replace_doc` with a recipe's doc; read the warnings in each answer (`overlaps block <id>`, `leaves the page's printable area`) and fix them with `move_block`; `render_preview` to look at the page before you say you are done. If Blattomat itself does something wrong (not your own mistake), tell its makers with `send_feedback`, without sheet text or names.
 
 You cannot print. When the teacher asks for answers or for variants, end by naming her button: "Lösungen zeigen" for the answers, "Varianten drucken" for variants ([what she does herself](teacher-does.md)).
 

@@ -176,6 +176,19 @@ def test_feedback_lands_in_the_users_folder(data_dir):
     assert len(list(out.iterdir())) == 5
 
 
+def test_feedback_from_the_app_drops_source(data_dir):
+    client = user("a@example.com")
+    res = client.post("/api/feedback", data={"text": "x", "source": "mcp"})
+    out = data_dir / "users" / "1" / "feedback" / res.json()["saved"]
+    assert json.loads((out / "feedback.json").read_text()) == {"text": "x"}
+
+
+def test_feedback_with_a_bad_token_is_401(data_dir):
+    client = TestClient(app, base_url="https://testserver")
+    res = client.post("/api/feedback", data={"text": "x"}, headers={"Authorization": "Bearer nope"})
+    assert res.status_code == 401
+
+
 def test_delete_account_removes_user_and_feedback(data_dir):
     client = user("a@example.com")
     other = user("b@example.com")
