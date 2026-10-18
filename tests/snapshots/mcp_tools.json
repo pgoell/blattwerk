@@ -2254,7 +2254,7 @@
                   "type": "boolean"
                 },
                 "tail": {
-                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
                   "items": {
                     "type": "number"
                   },
@@ -3089,7 +3089,7 @@
               "type": "boolean"
             },
             "tail": {
-              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
               "items": {
                 "type": "number"
               },
@@ -3888,7 +3888,7 @@
                   "type": "boolean"
                 },
                 "tail": {
-                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
                   "items": {
                     "type": "number"
                   },
@@ -6798,7 +6798,7 @@
                   "type": "boolean"
                 },
                 "tail": {
-                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
                   "items": {
                     "type": "number"
                   },
@@ -7643,7 +7643,7 @@
               "type": "boolean"
             },
             "tail": {
-              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
               "items": {
                 "type": "number"
               },
@@ -10651,7 +10651,7 @@
                   "type": "boolean"
                 },
                 "tail": {
-                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
                   "items": {
                     "type": "number"
                   },
@@ -11486,7 +11486,7 @@
               "type": "boolean"
             },
             "tail": {
-              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
               "items": {
                 "type": "number"
               },
@@ -12280,7 +12280,7 @@
                   "type": "boolean"
                 },
                 "tail": {
-                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1].",
                   "items": {
                     "type": "number"
                   },

@@ -1606,7 +1606,8 @@ function cutAt(el: HTMLElement) {
     for (const q of r.getClientRects()) {
       if (q.width < 1 || q.height < 1) continue;
       const bottom = ((inside ? lineFoot(q, p, zoom) : q.bottom) - box.top) / zoom;
-      if (bottom <= foot + 0.5) whole = Math.max(whole, bottom);
+      // A line that fits is kept to the foot of its glyphs, so no tail of a g is cut.
+      if (bottom <= foot + 0.5) whole = Math.max(whole, (q.bottom - box.top) / zoom);
       else past = true;
     }
   }
