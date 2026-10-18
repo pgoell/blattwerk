@@ -4458,6 +4458,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         ref={stage}
         onMouseUp={(e) => e.button === 1 && e.preventDefault()}
         onAuxClick={(e) => e.button === 1 && e.preventDefault()}
+        // Capture: Moveable's frame over a picked block would hear the press first otherwise. The hand lies beside the desk, so the stage takes its press too.
+        onPointerDownCapture={(e) => {
+          if (e.button !== 1 || e.pointerType !== "mouse") return;
+          e.stopPropagation();
+          middlePan(e.clientX, e.clientY);
+        }}
+        // The press is not cancelled as a pointer: Chrome then sends no mouseup, and a middle paste would follow it.
+        onMouseDownCapture={(e) => {
+          if (e.button !== 1) return;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
       >
         <div
           className="desk"
@@ -4466,18 +4478,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
           style={{ "--reach": `${widest * k}px` } as CSSProperties}
           onScroll={follow}
           onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
-          // Capture: Moveable's frame over a picked block would hear the press first otherwise.
-          onPointerDownCapture={(e) => {
-            if (e.button !== 1 || e.pointerType !== "mouse") return;
-            e.stopPropagation();
-            middlePan(e.clientX, e.clientY);
-          }}
-          // The press is not cancelled as a pointer: Chrome then sends no mouseup, and a middle paste would follow it.
-          onMouseDownCapture={(e) => {
-            if (e.button !== 1) return;
-            e.preventDefault();
-            e.stopPropagation();
-          }}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
               scrollHeld.current = true;

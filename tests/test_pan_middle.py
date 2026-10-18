@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_zoom import PANNING, expect_scroll, fit, roomy, scroll, settled
+from test_zoom import HAND, PANNING, expect_scroll, fit, roomy, scroll, settled
 from ui import FIELD, TEXT, at, box, centre, expect_picked, pick
 
 # The middle button's events, first to hear of them; read after, whether the app cancelled each one.
@@ -66,6 +66,24 @@ def test_middle_drag_moves_the_desk(editor, zoom):
     expect(page.locator("main.editor")).not_to_have_class(PANNING)
     settled(page)
     expect_picked(page)
+
+
+def test_middle_drag_pans_while_space_holds_the_hand(editor):
+    """#163: the hand lies over the desk while Space is down, and a middle drag still pans."""
+    page = editor(box("a", "text", TEXT))
+    roomy(page)
+    corner = page.locator(".desk").bounding_box()
+    start = (corner["x"] + 10, corner["y"] + 10)
+    # A click on the empty desk first, so nothing else has the focus.
+    page.mouse.click(*start)
+    page.evaluate(WATCH)
+    page.keyboard.down("Space")
+    expect(page.locator(HAND)).to_have_count(1)
+    middle(page, start, 100, 60)
+    seen = page.evaluate(SEEN)
+    page.keyboard.up("Space")
+    assert seen and all(cancelled for _, cancelled in seen), seen
+    expect(page.locator("main.editor")).not_to_have_class(PANNING)
 
 
 def test_middle_drag_pans_on_an_unpicked_block(editor):
