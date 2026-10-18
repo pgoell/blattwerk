@@ -3004,6 +3004,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Moveable reports px of the layout, the document keeps mm. It reads the new size back at once, so render before returning.
   // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
   const drag = (events: OnDrag[], finger: { clientX: number; clientY: number } = events[0]) => {
+    edgeScroll(finger.clientX, finger.clientY);
     // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
     // moved, the blocks are new ones, and they follow the finger back there too. Of a group only the event of the
     // whole says where the finger is: those of its blocks say where a snap would put them.
@@ -3013,7 +3014,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     owed.current = still ? events : undefined;
     if (still) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
-    const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
+    // The desk's scroll has moved the blocks by `deskShift` since Moveable last measured them.
+    const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K + deskShift.current }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
       // A turned block snaps by its outline.
       const [lo, hi] = span(to.map(outline), axis);
@@ -3031,11 +3033,83 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     owed.current = undefined;
     ahead.current = hist.future;
     start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!);
+    deskShift.current = 0;
   };
+  // Near the top or the bottom of the desk a block drag scrolls it, faster the nearer the pointer is to the edge, and the
+  // blocks go with it so they stay under the pointer. The scroll goes on while the pointer rests there.
+  const deskShift = useRef(0);
+  const deskAuto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
+  function edgeScroll(x: number, y: number) {
+    const view = desk.current!.getBoundingClientRect();
+    const zone = 40;
+    const down = (y - (view.bottom - zone)) / zone;
+    const up = (view.top + zone - y) / zone;
+    const a = deskAuto.current;
+    a.x = x;
+    a.y = y;
+    a.speed = (down > 0 ? Math.min(1, down) : up > 0 ? -Math.min(1, up) : 0) * 12;
+    if (!a.speed) stopDeskScroll();
+    else if (!a.frame) a.frame = requestAnimationFrame(deskStep);
+  }
+  function stopDeskScroll() {
+    const a = deskAuto.current;
+    cancelAnimationFrame(a.frame);
+    a.frame = 0;
+    a.speed = 0;
+    a.last = 0;
+    a.rest = 0;
+  }
+  // Px per 1/60 s, as the panel's scroll: the desk keeps its pace on a slow machine too.
+  function deskStep(now: number) {
+    const a = deskAuto.current;
+    a.frame = 0;
+    if (!a.speed || !moveable.current?.isDragging()) return;
+    const dt = a.last ? Math.min(now - a.last, 100) : 1000 / 60;
+    a.last = now;
+    a.rest += (a.speed * dt) / (1000 / 60);
+    const px = Math.trunc(a.rest);
+    a.rest -= px;
+    if (px) {
+      desk.current!.scrollTop += px;
+      const mm = px / k;
+      deskShift.current += mm;
+      const ids = start.current.map((b) => b.id);
+      change((bs) => bs.map((b) => (ids.includes(b.id) ? { ...b, y: b.y + mm } : b)), "drag");
+    }
+    a.frame = requestAnimationFrame(deskStep);
+  }
   // With Ctrl held when a move ends, copies stay where the blocks began.
   const leave = (moved: boolean) => {
     owed.current = undefined;
+    stopDeskScroll();
     if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+    else if (moved) toPageUnder();
+  };
+  // A drop over another page moves the blocks to it, where they lie under the pointer: one step with the drag.
+  const toPageUnder = () => {
+    const ids = start.current.map((b) => b.id);
+    const first = sheet.current!.querySelector(`.block[data-id="${ids[0]}"]`);
+    if (!first) return;
+    const r = first.getBoundingClientRect();
+    const [cx, cy] = [r.left + r.width / 2, r.top + r.height / 2];
+    const to = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].find((el) => {
+      const p = el.getBoundingClientRect();
+      return cx >= p.left && cx <= p.right && cy >= p.top && cy <= p.bottom;
+    });
+    const n = +(to?.dataset.page ?? page);
+    if (!to || n === page) return;
+    const shift = (sheet.current!.getBoundingClientRect().top - to.getBoundingClientRect().top) / k;
+    const moving = live.current.doc.pages[page].blocks.filter((b) => ids.includes(b.id)).map((b) => ({ ...b, y: b.y + shift }));
+    update(
+      (doc) => ({
+        ...doc,
+        pages: doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.filter((b) => !ids.includes(b.id)) } : i === n ? { ...p, blocks: [...p.blocks, ...moving] } : p)),
+      }),
+      "drag",
+      n,
+      page,
+    );
+    setAt(n);
   };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
