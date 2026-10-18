@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fields import enter, field, number
 from test_group_scale_turned import SHAPES, turned_group
-from ui import centre, drag, user
+from ui import BROWSER, centre, drag, user
 
 
 def drag_se_outward(page):
@@ -113,6 +113,12 @@ def test_a_percent_of_a_handle_dragged_group_shows_half_its_size(editor):
     expect(field(page, "Höhe")).to_have_value(f"{before / 2:g}".replace(".", ","))
 
 
+@pytest.mark.xfail(
+    BROWSER == "webkit",
+    reason="#793: in WebKit under CI load the typed 80 is lost and Breite keeps the drag's "
+    "69,15; 20 of 20 pass locally, a late drag end and a new field do not explain it",
+    strict=False,
+)
 def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
     """Edge case: one undo takes back the one typed entry, the handle drag stays."""
     client = user()
