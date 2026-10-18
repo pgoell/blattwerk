@@ -1672,7 +1672,9 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number, p: Partia
 function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): number[][] {
   if (!tail) return [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]];
   const tipX = clamp(tail[0] * w, e, w - e);
-  const from = tipX < w / 2 ? tipX + 0.05 * w : tipX - 0.2 * w;
+  // The base lies right of a tip at a fifth of the width, as the tail always did, and slides to its left as the tip
+  // goes to four fifths: no jump on the way.
+  const from = tipX + 0.05 * w - 0.25 * w * clamp((tipX / w - 0.2) / 0.6, 0, 1);
   const [lo, hi] = [e + r, w - e - r - 0.15 * w];
   const base = hi < lo ? (w - 0.15 * w) / 2 : clamp(from, lo, hi);
   return [[base + 0.15 * w, low], [tipX, clamp(tail[1] * h, low, h - e)], [base, low]];

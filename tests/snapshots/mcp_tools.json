@@ -2145,6 +2145,12 @@
                   ],
                   "type": "string"
                 },
+                "inner": {
+                  "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+                  "maximum": 0.9,
+                  "minimum": 0.1,
+                  "type": "number"
+                },
                 "inside": {
                   "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
                   "type": "boolean"
@@ -2247,6 +2253,15 @@
                   "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
                   "type": "boolean"
                 },
+                "tail": {
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
                 "text": {
                   "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
                   "type": "string"
@@ -2262,6 +2277,12 @@
                 "tintsAcross": {
                   "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
                   "type": "boolean"
+                },
+                "tip": {
+                  "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "trace": {
                   "anyOf": [
@@ -2967,6 +2988,12 @@
               ],
               "type": "string"
             },
+            "inner": {
+              "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+              "maximum": 0.9,
+              "minimum": 0.1,
+              "type": "number"
+            },
             "inside": {
               "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
               "type": "boolean"
@@ -3061,6 +3088,15 @@
               "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
               "type": "boolean"
             },
+            "tail": {
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
             "text": {
               "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
               "type": "string"
@@ -3072,6 +3108,12 @@
             "tintsAcross": {
               "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
               "type": "boolean"
+            },
+            "tip": {
+              "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "trace": {
               "anyOf": [
@@ -3737,6 +3779,12 @@
                   ],
                   "type": "string"
                 },
+                "inner": {
+                  "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+                  "maximum": 0.9,
+                  "minimum": 0.1,
+                  "type": "number"
+                },
                 "inside": {
                   "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
                   "type": "boolean"
@@ -3839,6 +3887,15 @@
                   "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
                   "type": "boolean"
                 },
+                "tail": {
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
                 "text": {
                   "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
                   "type": "string"
@@ -3854,6 +3911,12 @@
                 "tintsAcross": {
                   "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
                   "type": "boolean"
+                },
+                "tip": {
+                  "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "trace": {
                   "anyOf": [
@@ -6626,6 +6689,12 @@
                   ],
                   "type": "string"
                 },
+                "inner": {
+                  "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+                  "maximum": 0.9,
+                  "minimum": 0.1,
+                  "type": "number"
+                },
                 "inside": {
                   "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
                   "type": "boolean"
@@ -6728,6 +6797,15 @@
                   "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
                   "type": "boolean"
                 },
+                "tail": {
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
                 "text": {
                   "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
                   "type": "string"
@@ -6743,6 +6821,12 @@
                 "tintsAcross": {
                   "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
                   "type": "boolean"
+                },
+                "tip": {
+                  "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "trace": {
                   "anyOf": [
@@ -7458,6 +7542,12 @@
               ],
               "type": "string"
             },
+            "inner": {
+              "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+              "maximum": 0.9,
+              "minimum": 0.1,
+              "type": "number"
+            },
             "inside": {
               "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
               "type": "boolean"
@@ -7552,6 +7642,15 @@
               "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
               "type": "boolean"
             },
+            "tail": {
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
             "text": {
               "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
               "type": "string"
@@ -7563,6 +7662,12 @@
             "tintsAcross": {
               "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
               "type": "boolean"
+            },
+            "tip": {
+              "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "trace": {
               "anyOf": [
@@ -10437,6 +10542,12 @@
                   ],
                   "type": "string"
                 },
+                "inner": {
+                  "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+                  "maximum": 0.9,
+                  "minimum": 0.1,
+                  "type": "number"
+                },
                 "inside": {
                   "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
                   "type": "boolean"
@@ -10539,6 +10650,15 @@
                   "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
                   "type": "boolean"
                 },
+                "tail": {
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
                 "text": {
                   "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
                   "type": "string"
@@ -10554,6 +10674,12 @@
                 "tintsAcross": {
                   "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
                   "type": "boolean"
+                },
+                "tip": {
+                  "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "trace": {
                   "anyOf": [
@@ -11259,6 +11385,12 @@
               ],
               "type": "string"
             },
+            "inner": {
+              "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+              "maximum": 0.9,
+              "minimum": 0.1,
+              "type": "number"
+            },
             "inside": {
               "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
               "type": "boolean"
@@ -11353,6 +11485,15 @@
               "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
               "type": "boolean"
             },
+            "tail": {
+              "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
             "text": {
               "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
               "type": "string"
@@ -11364,6 +11505,12 @@
             "tintsAcross": {
               "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
               "type": "boolean"
+            },
+            "tip": {
+              "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "trace": {
               "anyOf": [
@@ -12024,6 +12171,12 @@
                   ],
                   "type": "string"
                 },
+                "inner": {
+                  "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
+                  "maximum": 0.9,
+                  "minimum": 0.1,
+                  "type": "number"
+                },
                 "inside": {
                   "description": "True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off.",
                   "type": "boolean"
@@ -12126,6 +12279,15 @@
                   "description": "True draws a bow under each syllable of each word (Silbenbögen). Absent means off.",
                   "type": "boolean"
                 },
+                "tail": {
+                  "description": "Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1].",
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
                 "text": {
                   "description": "The words of the text as one plain string, with no look of their own. Always the same words as `rich`.",
                   "type": "string"
@@ -12141,6 +12303,12 @@
                 "tintsAcross": {
                   "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour.",
                   "type": "boolean"
+                },
+                "tip": {
+                  "description": "Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "trace": {
                   "anyOf": [

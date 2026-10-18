@@ -1337,6 +1337,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
       }
+      adjusting.current = undefined;
       // A drag that has changed nothing yet has no step to take back.
       if (mergeKey.current === "drag") setHist((h) => returned(h, ahead.current));
       mergeKey.current = "";
@@ -3435,7 +3436,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   // Moves the point of a picked speech bubble, star or triangle with the pointer, and sets its props on each picked block of the same kind.
   function adjust(e: PointerEvent, b: Block) {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId) && adjusting.current !== e.pointerId) return;
+    // A pointer with no button down holds nothing, whatever it held before.
+    if (!e.buttons || (!e.currentTarget.hasPointerCapture(e.pointerId) && adjusting.current !== e.pointerId)) return;
     const p = b.props as TextProps;
     const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
     const [px, py] = turnedAt(point(e) as [number, number], -(b.angle ?? 0), [cx, cy]);
@@ -4823,6 +4825,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       }}
                       onPointerUp={() => (adjusting.current = undefined)}
                       onPointerCancel={() => (adjusting.current = undefined)}
+                      onLostPointerCapture={() => (adjusting.current = undefined)}
                       onTouchStart={(e) => e.stopPropagation()}
                       onPointerMove={(e) => adjust(e, b)}
                     />

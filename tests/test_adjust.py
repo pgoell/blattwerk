@@ -170,6 +170,27 @@ def test_a_drag_is_one_undo_step(editor):
     assert a["props"]["tip"] == pytest.approx(tip, abs=0.001)
 
 
+def test_escape_lets_go_of_the_handle(editor):
+    client = user()
+    page = editor(box("a", "shape", BUBBLE, x=60, y=60, w=60, h=40), client=client)
+    k = mm(page)
+    pick(page, "a")
+    start = centre(handle(page, "a"))
+    page.mouse.move(*start)
+    page.mouse.down()
+    page.mouse.move(start[0] + 10 * k, start[1], steps=5)
+    page.keyboard.press("Escape")
+    outline = at(page, "a").locator(OUTLINE)
+    before = outline.get_attribute("d")
+    # Let go away from the handle, then pass over it with no button down: the tail stays.
+    page.mouse.move(start[0] + 10 * k, start[1] + 40 * k, steps=5)
+    page.mouse.up()
+    there = centre(handle(page, "a"))
+    page.mouse.move(*there)
+    page.mouse.move(there[0] + 20 * k, there[1], steps=5)
+    expect(outline).to_have_attribute("d", before)
+
+
 def test_the_value_survives_reload_and_copy(editor):
     client = user()
     page = editor(box("a", "shape", BUBBLE, x=60, y=60, w=60, h=40), client=client)
@@ -249,6 +270,12 @@ def test_the_handle_keeps_clear_of_the_others(editor):
             box_control = control.bounding_box()
             if box_control:
                 assert not overlap(grab.bounding_box(), box_control), name
+                # The finger area leaves the middle of each other handle to that handle.
+                x, y = centre(control)
+                hit = page.evaluate(
+                    "([x, y]) => !!document.elementFromPoint(x, y).closest('.adjust')", [x, y]
+                )
+                assert not hit, name
         # A small drag changes the shape's value and nothing of the box.
         start = centre(grab)
         drag(page, start, (start[0] + 1 * k, start[1]))
