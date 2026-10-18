@@ -686,17 +686,22 @@ SOURCES = {
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
     "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
 }
-# The sources that paste a picture another app copied, which WebKit's clipboard does not hold.
-PASTES = ("ctrl v", "einfügen")
+# The sources that paste a picture another app copied, "ctrl v" and "einfügen", which WebKit's
+# clipboard does not hold.
 NO_PICTURE = pytest.mark.webkit_xfail(
     204, "headless WebKit on Linux keeps no picture on the clipboard"
 )
+# Not strict: four times in CI it sent no upload within 30 s, here 1 in 100 under load. The
+# paste brings the picture then; where it gets lost is not found. The Ctrl+V of a picture holds in
+# test_clipboard.py, the landing after a change holds with the picker.
+LOST_PASTE = pytest.mark.xfail(
+    BROWSER != "webkit", strict=False, reason="#775: the paste sends no upload, now and then"
+)
+MARKS = {"ctrl v": (NO_PICTURE, LOST_PASTE), "einfügen": NO_PICTURE}
 
 
 @pytest.mark.parametrize("how", CHANGES)
-@pytest.mark.parametrize(
-    "source", [pytest.param(s, marks=NO_PICTURE if s in PASTES else ()) for s in SOURCES]
-)
+@pytest.mark.parametrize("source", [pytest.param(s, marks=MARKS.get(s, ())) for s in SOURCES])
 def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source, how):
     """#156: it lands on the page in use when it was asked for, wherever that page is by then."""
     page = three(editor)
