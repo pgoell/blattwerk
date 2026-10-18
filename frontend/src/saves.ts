@@ -63,7 +63,8 @@ type Saver = {
 // dropped the sheet's, not because the teacher took it away.
 // `asked` is the change a keep of a sheet deleted elsewhere last sent as a new sheet, whose answer may not have come:
 // a press after a reload finds that sheet rather than making a second one.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept };
+// `owed` is the maths change the session ran out on, which the editor redoes after the login (`owe`).
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept; owed?: Owed[] };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed"; choiceProblems?: string[] };
 
 const savers = new Map<number, Saver>();
@@ -124,7 +125,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked, owed: s.owed };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -292,6 +293,7 @@ export function open(sheet: Sheet): Sheet {
       // past the version they were based on, it takes none of them any more. They keep the saver unsaved also
       // where the teacher has undone the change: what the editor shows is sent again, as the tab before would have.
       if (sheet.version === record.base) s.lost =(record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
+      s.owed = record.owed;
       s.kept = true;
       keep(s);
     }

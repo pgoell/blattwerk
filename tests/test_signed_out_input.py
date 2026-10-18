@@ -14,7 +14,7 @@ from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_saves import NOTICE, STATUS
 from test_signed_out import WATCH, expect_login, expect_sheet, login
-from ui import TEXT, at, box, maths, pick, sheet
+from ui import TEXT, at, box, maths, pick, sheet, user
 
 WAITS = "Die letzte Änderung an „m“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert."
 
@@ -154,3 +154,61 @@ def test_a11_words_typed_after_the_login_shows_are_kept_and_saved_after_the_sign
     expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
     assert "Katze" in words_of(client, sheet_id)
     assert "Hund" not in words_of(client, sheet_id)
+
+
+def count_after_click(window, server):
+    """A maths sheet with 14 Aufgaben, whose one-less click the session ran out on. Gives the page, the client, the sheet id and its address."""
+    page, client, sheet_id = maths_sheet(window, server, 14)
+    address = f"{server}/blatt/{sheet_id}"
+    page.evaluate(WATCH)
+    page.context.clear_cookies()
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect_login(page, address)
+    expect(page.locator(NOTICE)).to_have_text(WAITS)
+    return page, client, sheet_id, address
+
+
+def wait_count(client, sheet_id, page, count):
+    """Waits for the server's count, which the saves of a redo bring along."""
+    for _ in range(50):
+        if count_of(client, sheet_id) == count:
+            break
+        page.wait_for_timeout(100)
+    assert count_of(client, sheet_id) == count
+
+
+def test_a8r_the_one_less_click_is_kept_by_a_reload_of_the_login_page(window, server):
+    """A8 reload: the click owed is kept in the browser, so a reload of the login page still redoes it."""
+    page, client, sheet_id, address = count_after_click(window, server)
+    page.reload()
+    expect_login(page, address)
+    login(page, server, client)
+    expect_sheet(page)
+    wait_count(client, sheet_id, page, 13)
+
+
+def test_i5_one_undo_after_the_sign_in_takes_the_redone_click_back(window, server):
+    """I5: after the sign-in one Ctrl+Z takes the redone click back: the count is 14 again."""
+    page, client, sheet_id, _ = count_after_click(window, server)
+    login(page, server, client)
+    expect_sheet(page)
+    wait_count(client, sheet_id, page, 13)
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    wait_count(client, sheet_id, page, 14)
+
+
+def test_i6_another_teacher_signing_in_at_that_login_gets_none_of_the_owed_click(window, server):
+    """I6: B signs in at the login A's click brought. B sees nothing of A's sheet and the server keeps A's count."""
+    page, client, sheet_id, address = count_after_click(window, server)
+    other = user()
+    login(page, server, other)
+    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible()
+    expect(page.locator(NOTICE)).to_have_count(0)
+    assert count_of(client, sheet_id) == 14
+    page.context.clear_cookies()
+    page.goto(address)
+    expect_login(page, address)
+    login(page, server, client)
+    expect_sheet(page)
+    wait_count(client, sheet_id, page, 13)
