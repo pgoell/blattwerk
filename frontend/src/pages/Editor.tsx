@@ -104,7 +104,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -729,6 +729,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
   const grab = useRef([0, 0]);
+  // The pointer that holds an adjust handle, for a browser that would not capture it.
+  const adjusting = useRef<number>(undefined);
   const spot = useRef<number[]>(undefined);
   const start = useRef<Block[]>([]);
   // The middle a turn went about, by the blocks of the thing as each turn left them; and the middles of the drag now.
@@ -1054,7 +1056,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setHist((st) => ({ ...st, doc: { ...st.doc, pages: st.doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.map((x) => (x.id === id ? ({ ...x, ...tall(x, Math.ceil(x.h * s * 100) / 100), w: Math.ceil(x.w * s * 100) / 100 } as Block) : x)) } : p)) } }));
       return;
     }
-    const [up, , low] = fitOf(shape.kind, b.w, b.h);
+    const [up, , low] = fitOf(shape.kind, b.w, b.h, undefined, shape);
     const want = Math.ceil((b.h + mm / (1 - (up + low) / b.h)) * 100) / 100;
     const top = footTop(b, H[1]);
     const h = Math.max(b.h, Math.min(want, top));
@@ -3389,9 +3391,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   function grip(e: PointerEvent) {
     const at = e.currentTarget.getBoundingClientRect();
     grab.current = [e.clientX - at.left - at.width / 2, e.clientY - at.top - at.height / 2];
-    e.currentTarget.setPointerCapture(e.pointerId);
     ahead.current = hist.future;
     grasp.current = { el: e.currentTarget, id: e.pointerId, draft };
+    e.currentTarget.setPointerCapture(e.pointerId);
   }
   // Where on the page, in mm, the pointer puts the handle it holds.
   function point(e: PointerEvent) {
@@ -3419,6 +3421,29 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const from = ((py > fy !== end ? "s" : "n") + (px > fx !== end ? "e" : "w")) as Corner;
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
+  }
+  // How far down the adjust handle of a triangle or a bubble stands from its point, in mm: 12 px inside the box, clear
+  // of Moveable's handles on its edge.
+  const pullOf = (kind?: string) => (kind === "triangle" ? 12 / k : kind === "bubble" ? -12 / k : 0);
+  // Where the adjust handle of a block stands on the page, in mm: its point in the block's own frame, flipped and turned.
+  function adjustAt(b: Block): [number, number] {
+    const p = b.props as TextProps;
+    const [lx, ly] = handleOf(p.kind, b.w, b.h, p)!;
+    const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
+    const [dx, dy] = [lx - b.w / 2, ly + pullOf(p.kind) - b.h / 2];
+    return turnedAt([cx + dx * (b.flipX ? -1 : 1), cy + dy * (b.flipY ? -1 : 1)], b.angle ?? 0, [cx, cy]);
+  }
+  // Moves the point of a picked speech bubble, star or triangle with the pointer, and sets its props on each picked block of the same kind.
+  function adjust(e: PointerEvent, b: Block) {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId) && adjusting.current !== e.pointerId) return;
+    const p = b.props as TextProps;
+    const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
+    const [px, py] = turnedAt(point(e) as [number, number], -(b.angle ?? 0), [cx, cy]);
+    const [fx, fy] = [cx + (px - cx) * (b.flipX ? -1 : 1), cy + (py - cy) * (b.flipY ? -1 : 1)];
+    const local: [number, number] = [fx - b.x, fy - b.y - pullOf(p.kind)];
+    const props = adjusted(p.kind, b.w, b.h, local);
+    const same = new Set(sel.filter((o) => drawn(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
+    change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
   }
   // Resizes a group from the boxes it began with. The corner opposite the dragged one stays, or with Ctrl the middle,
   // and the group keeps its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a
@@ -3613,7 +3638,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // `press` is the mouse press that selects, so the same press can drag.
   // `point` is where a click landed, if it was one: a text's caret opens there.
   function pick(el: Element, shift: boolean, press?: globalThis.MouseEvent, point?: [number, number]) {
-    if (el.closest(".end, .rule, .crop, .bar")) return;
+    if (el.closest(".end, .adjust, .rule, .crop, .bar")) return;
     // A press beside the picture ends its crop.
     done();
     const id = el.closest<HTMLElement>(".block")?.dataset.id;
@@ -3835,7 +3860,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     if (el.closest(".ProseMirror, textarea, input, select")) return false;
     // Moveable's area and a line's handles lie over a selection, so the block is looked up under them. Beside a block
     // there the selection stays.
-    const over = moveable.current!.isMoveableElement(el) || !!el.closest(".end, .bar, .crop");
+    const over = moveable.current!.isMoveableElement(el) || !!el.closest(".end, .adjust, .bar, .crop");
     const id = (over ? document.elementsFromPoint(x, y).find((o) => o.matches(".block")) : el.closest(".block"))?.getAttribute("data-id");
     const to = pageOf(el);
     // A block of the selection keeps it whole. Another one is picked with its group, and the empty page picks nothing.
@@ -4779,6 +4804,29 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                         onLostPointerCapture={() => setGuide([])}
                       />
                     ))}
+                  {/* One handle per picked bubble, star or triangle, which moves the point its shape takes. */}
+                  {free.length === sel.length && !cropping && sel.filter((b) => drawn(b) && !b.locked).map((b) => (
+                    <i
+                      key={b.id}
+                      className="adjust"
+                      data-id={b.id}
+                      style={{ left: adjustAt(b)[0] * k, top: adjustAt(b)[1] * k }}
+                      onPointerDown={(e) => {
+                        adjusting.current = e.pointerId;
+                        // WebKit captures no pointer it no longer knows, such as a touch a script made: its moves
+                        // still come here, by `adjusting`.
+                        try {
+                          grip(e);
+                        } catch {
+                          /* not captured */
+                        }
+                      }}
+                      onPointerUp={() => (adjusting.current = undefined)}
+                      onPointerCancel={() => (adjusting.current = undefined)}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onPointerMove={(e) => adjust(e, b)}
+                    />
+                  ))}
                   {/* Moveable's frame round a turned group with a line takes in the line's level box, so the group's own
                       frame is drawn here, where its handles stand. */}
                   {turnedLine &&
@@ -4939,7 +4987,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         selectByClick={false}
         onDragStart={(e) => {
           const el = e.inputEvent.target as Element;
-          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .rule, .bar, .crop") || moveable.current!.isMoveableElement(el)) e.stop();
+          if (e.inputEvent.type === "touchstart" || el.closest(".block, .end, .adjust, .rule, .bar, .crop") || moveable.current!.isMoveableElement(el)) e.stop();
         }}
         // The box selects on the page in use, which the press that began it has set.
         onSelectEnd={(e) => setIds((now) => grouped([...now, ...e.selected.filter((el) => sheet.current!.contains(el)).map(idOf)], blocks))}
