@@ -923,18 +923,12 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
   // Where the finger came down, to tell a tap from a swipe.
   const touch = useRef<{ x: number; y: number } | undefined>(undefined);
   // The faces load now, so a name shows at once when the list opens. A face that fails shows its fallback.
-  // A press outside the select and the list shuts the list with no change. Like the browser's own list, a press of the
-  // left button goes no further: it picks no block and moves no focus. The middle one still pans the desk.
+  // A press outside the select and the list shuts the list with no change, and goes on to the page, as a press beside
+  // the browser's own list does. It is heard first, so a press that the desk keeps to itself shuts the list too.
   useEffect(() => {
     if (!open) return;
-    const eat = (e: Event) => (e.preventDefault(), e.stopPropagation());
     const outside = (e: PointerEvent) => {
-      if (wrap.current?.contains(e.target as Node)) return;
-      setOpen(false);
-      if (e.button) return;
-      eat(e);
-      addEventListener("click", eat, { capture: true, once: true });
-      addEventListener("pointerup", () => setTimeout(() => removeEventListener("click", eat, true)), { capture: true, once: true });
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
     };
     addEventListener("pointerdown", outside, true);
     return () => removeEventListener("pointerdown", outside, true);
@@ -954,7 +948,8 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
   const key = (e: React.KeyboardEvent<HTMLSelectElement>) => {
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
     if (!open) {
-      if (["Enter", " ", "F4"].includes(e.key) || (e.altKey && e.key === "ArrowDown")) {
+      // Enter is not one of them: on a closed menu it gives the keys back to the sheet.
+      if ([" ", "F4"].includes(e.key) || (e.altKey && e.key === "ArrowDown")) {
         // The panel's own keys stay out: the list keeps the keyup too.
         e.preventDefault();
         e.stopPropagation();
@@ -975,6 +970,10 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
     e.stopPropagation();
     if (step) {
       setHi((h) => Math.min(FONT_KEYS.length - 1, Math.max(0, h + step)));
+    } else if (["Home", "PageUp"].includes(e.key)) {
+      setHi(0);
+    } else if (["End", "PageDown"].includes(e.key)) {
+      setHi(FONT_KEYS.length - 1);
     } else if (e.key === "Enter" || e.key === " ") {
       pick(FONT_KEYS[hi]);
     } else if (e.key === "Escape") {

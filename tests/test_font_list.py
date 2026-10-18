@@ -193,18 +193,45 @@ def test_a_pick_sets_both_picked_texts(editor):
     )
 
 
-def test_enter_on_the_closed_menu_opens_the_list_and_keeps_the_focus(editor):
-    """Enter opens the list, the select keeps the focus, and ArrowDown with Enter picks nord."""
+def test_space_on_the_closed_menu_opens_the_list_and_keeps_the_focus(editor):
+    """Space opens the list, the select keeps the focus, and ArrowDown with Enter picks nord."""
     page = editor(box("a", "text", TEXT))
     pick(page, "a")
     select = page.get_by_label("Schriftart", exact=True)
     select.focus()
-    page.keyboard.press("Enter")
+    page.keyboard.press("Space")
     expect(page.get_by_role("listbox", name="Liste: Schriftart")).to_be_visible()
     expect(select).to_be_focused()
     page.keyboard.press("ArrowDown")
     page.keyboard.press("Enter")
     expect(select).to_have_value("nord")
+
+
+def test_enter_on_the_closed_menu_gives_the_keys_back(editor):
+    """Enter on the closed menu opens no list and gives the keys back, as before."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    select = page.get_by_label("Schriftart", exact=True)
+    select.focus()
+    page.keyboard.press("Enter")
+    expect(select).not_to_be_focused()
+    expect(page.get_by_role("listbox")).to_have_count(0)
+    expect(select).to_have_value("andika")
+
+
+def test_home_and_end_with_the_list_open_move_the_highlight(editor):
+    """End moves the highlight to the last font and Home to the first; Enter picks it."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    select = page.get_by_label("Schriftart", exact=True)
+    listbox = open_list(page, "Schriftart")
+    page.keyboard.press("End")
+    expect(listbox.locator(".hi")).to_have_text("Lateinische Ausgangsschrift")
+    page.keyboard.press("Home")
+    expect(listbox.locator(".hi")).to_have_text("Druckschrift")
+    page.keyboard.press("End")
+    page.keyboard.press("Enter")
+    expect(select).to_have_value("la")
 
 
 def test_a_letter_with_the_list_open_moves_the_highlight_and_keeps_the_font(editor):
