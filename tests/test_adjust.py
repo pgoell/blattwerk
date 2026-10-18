@@ -627,6 +627,23 @@ def test_a_plain_star_whose_word_prints_whole_does_not_warn(editor, size):
     assert at(page, "a").locator("p").first.evaluate(WHOLE)
 
 
+@pytest.mark.parametrize("inner", [0.1, 0.15])
+def test_typing_in_a_deep_star_keeps_its_size_and_warns(editor, inner):
+    # Its room is narrower than the ink's padding: no size holds the word, so it does not grow.
+    client = user()
+    star = {**DEEP, "inner": inner}
+    page = editor(box("a", "shape", star, x=40, y=40, w=40, h=40), client=client)
+    pick(page, "a")
+    page.mouse.dblclick(*centre(at(page, "a")))
+    page.keyboard.press("End")
+    page.keyboard.type("x")
+    page.keyboard.press("Escape")
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    (a,) = saved(page, client)
+    assert a["props"]["text"] == "Superx"
+    assert (a["w"], a["h"]) == (40, 40), a
+
+
 def test_an_empty_deep_star_does_not_warn(editor):
     deep = {**DEEP, "inner": 0.1}
     page = editor(

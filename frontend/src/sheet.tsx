@@ -1546,10 +1546,10 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   // The desk's zoom: the screen measures in its px, the frame's sizes are in its own.
   const zoom = box.width / el.offsetWidth || 1;
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
-  // Too small to measure: a text does not fit, so it reports over and the editor warns. An empty shape fits.
+  // Too small to measure: a text is cut and the editor warns, but there is no lack to grow the shape by.
   if (bottom - top < 3) {
     block.style.transform = was;
-    return el.textContent?.trim() ? { down: 2, across: floor ? 2 : 1, cut: true } : { down: 0, across: 1, cut: false };
+    return { down: 0, across: 1, cut: !!el.textContent?.trim() };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -1588,8 +1588,13 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
     const side = p.getBoundingClientRect();
     return [...r.getClientRects()].some((q) => q.right > side.right + zoom || q.left < side.left - zoom);
   });
+  // A room no wider than the ink's padding gives nothing to grow by, across or down: the shape warns and keeps its size.
+  const narrow = [...el.querySelectorAll<HTMLElement>("p")].some((p) => {
+    const s = getComputedStyle(p);
+    return p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) < 1;
+  });
   block.style.transform = was;
-  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1, cut: past > 1 || wide };
+  return { down: past > 1 && !narrow ? past : 0, across: floor && left > 1.01 && !narrow ? left : 1, cut: past > 1 || wide };
 }
 // The bottom of a line's box, in px of the screen. A font's glyph box stands taller than its line, and the extra hangs
 // half below the line, so that half is taken off the glyph box's foot.
