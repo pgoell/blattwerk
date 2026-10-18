@@ -652,6 +652,25 @@ def test_a_deep_triangle_or_bubble_keeps_its_word_or_warns(editor):
             expect(page.locator('[data-shape="full"]')).to_be_visible()
 
 
+@pytest.mark.parametrize("inner", [0.25, 0.35])
+def test_the_print_sizes_a_deep_stars_word_as_the_screen_does(editor, browser, server, inner):
+    client = user()
+    star = {**DEEP, "inner": inner}
+    page = editor(box("a", "shape", star, x=40, y=40, w=60, h=60), client=client)
+    pick(page, "a")
+    # The word's width, its room and its type: shrunk at 0.35, too wide at 0.25 (the panel warns).
+    words = "p => [p.scrollWidth, p.clientWidth, getComputedStyle(p).fontSize]"
+    shown = at(page, "a").locator("p").first.evaluate(words)
+    warning = page.locator('[data-shape="full"]')
+    expect(warning).to_have_count(1 if shown[0] > shown[1] + 1 else 0)
+    mine = sheet(client, [box("a", "shape", star, x=40, y=40, w=60, h=60)])["id"]
+    printed = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    printed.goto(f"{server}/druck/{mine}")
+    printed.wait_for_selector("body.ready", state="attached")
+    assert printed.locator(".block .frame p").first.evaluate(words) == shown
+    printed.close()
+
+
 def test_a_deep_star_saved_without_floor_warns(editor):
     client = user()
     star = {**STAR, "inside": True, "text": "Super", "size": 18, "align": "center", "inner": 0.1}

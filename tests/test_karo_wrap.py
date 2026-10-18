@@ -5,7 +5,9 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from ui import at, box, saved, user
+from ui import at, box, saved, sheet, user
+
+from blattwerk import pdf
 
 SENTENCE = (
     "Am Montag gehen wir in den Wald und sammeln bunte Blaetter, Eicheln und Kastanien fuer unser "
@@ -31,10 +33,11 @@ def marks(page, name):
     return [(float(x), float(y), ch) for x, y, ch in at(page, name).evaluate(MARKS)]
 
 
-def drawn_rows(page, name, row, cols):
+def drawn_rows(page, name, row, cols, block=None):
     """The rows as drawn: each letter in the square its position lies in, spaces between."""
     rows = {}
-    for x, y, ch in marks(page, name):
+    found = block.evaluate(MARKS) if block else marks(page, name)
+    for x, y, ch in [(float(x), float(y), ch) for x, y, ch in found]:
         col, line = math.floor(x / row + 1e-6), math.floor(y / row + 1e-6)
         rows.setdefault(line, [" "] * cols)[col] = ch
     return ["".join(rows[r]).rstrip() for r in sorted(rows)]
@@ -46,6 +49,18 @@ def test_a_word_moves_whole_to_the_next_row(editor, kind, row):
         box("a", "ruling", {"kind": kind, "color": "#222222", "text": SENTENCE}, w=20 * row, h=80)
     )
     assert drawn_rows(page, "a", row, 20) == ROWS_20
+
+
+@pytest.mark.parametrize("kind,row", [("k5", 5), ("k7", 7)])
+def test_the_print_moves_the_word_too(browser, server, kind, row):
+    props = {"kind": kind, "color": "#222222", "text": SENTENCE, "syllables": True}
+    mine = sheet(user(), [box("a", "ruling", props, w=20 * row, h=80)])["id"]
+    # The page the PDF is printed from.
+    printed = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
+    printed.goto(f"{server}/druck/{mine}")
+    printed.wait_for_selector("body.ready", state="attached")
+    assert drawn_rows(printed, "a", row, 20, printed.locator(".block").first) == ROWS_20
+    printed.close()
 
 
 @pytest.mark.parametrize("kind,row", [("k5", 5), ("k7", 7)])
