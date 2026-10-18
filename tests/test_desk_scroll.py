@@ -6,7 +6,8 @@ page under the pointer, and the whole drag with its scroll is one undo step.
 """
 
 from playwright.sync_api import expect
-from ui import TEXT, at, box
+from test_fix_blatt import pdf_pages
+from ui import TEXT, at, box, doc, reload, user
 
 DESK = ".desk"
 PAGE = '.sheet[data-page="{}"]'
@@ -151,6 +152,53 @@ def test_escape_calls_off_a_drag_that_scrolled_the_desk(editor):
     page.keyboard.press("Control+z")
     expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
     expect(at(page, "a")).to_have_attribute("style", style)
+
+
+def test_a_block_moved_to_another_page_saves_reopens_and_prints_there(editor, server):
+    """The save path of the move: the text dragged from page 1 to page 2 is saved on page 2 with its
+    words and size, is there after a reload, prints on PDF page 2 and not on page 1, and one undo
+    saves it back on page 1."""
+    client = user()
+    words = {**TEXT, "text": "Wanderwort"}
+    page = editor(box("a", "text", words), pages=[{"blocks": []}, {"blocks": []}], client=client)
+    before = doc(page, client)["pages"][0]["blocks"][0]
+    grip = at(page, "a").bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(
+        """() => document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().top
+            < document.querySelector('.desk').getBoundingClientRect().top + 200"""
+    )
+    b = page.locator(DESK).bounding_box()
+    page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2, steps=5)
+    target = under(page, (b["x"] + b["width"] / 2, b["y"] + b["height"] / 2))
+    page.mouse.up()
+    assert target == 1
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    moved = doc(page, client)
+    assert [len(p["blocks"]) for p in moved["pages"]] == [0, 1, 0]
+    after = moved["pages"][1]["blocks"][0]
+    assert (after["props"], after["w"], after["h"], after["type"]) == (
+        before["props"],
+        before["w"],
+        before["h"],
+        before["type"],
+    )
+    assert 0 <= after["y"] <= 297 - after["h"]
+    # One undo saves it back on page 1, as it was; redo moves it again.
+    page.keyboard.press("Control+z")
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
+    assert doc(page, client)["pages"][0]["blocks"] == [before]
+    page.keyboard.press("Control+y")
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    assert doc(page, client)["pages"][1]["blocks"] == [after]
+    reload(page, page.url)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_text("Wanderwort")
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(0)
+    printed = pdf_pages(server, client, page.url.rsplit("/", 1)[1])
+    assert "Wanderwort" not in printed[0]
+    assert "Wanderwort" in printed[1]
 
 
 def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):

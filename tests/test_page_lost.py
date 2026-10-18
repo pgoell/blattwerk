@@ -3,18 +3,11 @@ another layout leaves every arrow and line on its page and at its place."""
 
 import pytest
 from playwright.sync_api import expect
+from test_insert_place import INSERTS, add_by_button
 from test_pages_many import menu_item
 from ui import LINE, RECT, TEXT, box, doc, pick, thumb, user
 
 ARROW = {**RECT, "kind": "arrow"}
-# What the insert bar makes, by the label of its button, and the type it saves.
-MADE = [
-    ("Pfeil", "shape"),
-    ("Linie", "shape"),
-    ("Rechteck", "shape"),
-    ("Text", "text"),
-    ("Strecke", "shape"),
-]
 
 
 def kinds(saved):
@@ -56,8 +49,13 @@ def zoomed_onto_page_two(page):
     """Wheels page 2 into the lower part of the view, then zooms in with Ctrl and the wheel over
     it until page 1 has left the view. A zoom is not the teacher's scroll."""
     desk = page.locator(".desk").bounding_box()
-    page.mouse.move(desk["x"] + desk["width"] / 2, desk["y"] + desk["height"] / 2)
-    page.mouse.wheel(0, 700)
+    # Page 2's top 400 px into the view: page 1 still fills most of it, and stays in use.
+    gap = page.evaluate(
+        """() => document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().top
+            - document.querySelector('.desk').getBoundingClientRect().bottom"""
+    )
+    # Set by a script: a wheel would count the zoom right after it as the teacher's scroll too.
+    page.evaluate(f"document.querySelector('.desk').scrollTop = {gap + 400}")
     page.mouse.move(desk["x"] + desk["width"] / 2, desk["y"] + desk["height"] - 20)
     page.keyboard.down("Control")
     for _ in range(8):
@@ -66,14 +64,19 @@ def zoomed_onto_page_two(page):
     expect_out_of_view(page, 0)
 
 
-@pytest.mark.parametrize(("label", "kind"), MADE)
-def test_a_block_lands_on_page_2_after_a_zoom_onto_it(editor, label, kind):
-    """Zoomed in about page 2 with page 1 in use, page 1 out of view: the new block lands on page 2."""
+@pytest.mark.parametrize("what", [*INSERTS, "Pfeil", "Linie"])
+def test_a_block_lands_on_page_2_after_a_zoom_onto_it(editor, what):
+    """Zoomed in about page 2 with page 1 in use, page 1 out of view: each block the insert bar,
+    the maths menu or a picture makes lands on page 2."""
     client = user()
     page = two(editor, client)
     zoomed_onto_page_two(page)
-    insert(page, label)
-    assert kinds(doc(page, client)) == [["shape"], ["text", kind]]
+    how, label = INSERTS.get(what, (add_by_button, what))
+    how(page, label)
+    expect(page.locator('.sheet[data-page="1"] .block.sel')).to_have_count(1)
+    page.keyboard.press("Escape")
+    saved = doc(page, client)
+    assert [len(p["blocks"]) for p in saved["pages"]] == [1, 2]
 
 
 def test_a_block_lands_on_the_page_a_page_key_brings_with_a_block_picked(editor):
