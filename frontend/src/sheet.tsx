@@ -1008,14 +1008,33 @@ export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.prop
 export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.props.kind)].row + 0.05);
 // The square each character of a Karo's text stands in, as [column, row, character, offset]: a row is filled, then the
 // next begins. The offset is where the character lies in the text, in UTF-16 units.
+// A word moves whole to the next row when it and the space after it do not fit the rest of the row, as the field wraps
+// it; a word longer than a row breaks in place. A hyphen between a letter and a letter ends a unit too, as the field
+// breaks there ("3-4" does not). A space that finds its row full starts the next row.
 export function squares(text: string, cols: number) {
   const out: [number, number, string, number][] = [];
+  const chars = [...text];
+  // A dash ends a unit wherever it stands, and an em dash starts one too, as the field breaks before and after it.
+  const hyphen = (j: number) => (chars[j] === "-" && j > 0 && chars[j - 1] !== " " && /\p{L}/u.test(chars[j + 1] ?? "")) || chars[j] === "–" || chars[j] === "—";
+  const before = (j: number) => chars[j] === "—" && j > 0 && chars[j - 1] !== " " && chars[j - 1] !== "\n";
   let [x, y, i] = [0, 0, 0];
-  for (const ch of text) {
-    if (ch === "\n" || x === cols) [x, y] = [0, y + 1];
-    if (ch !== "\n") out.push([x++, y, ch, i]);
+  chars.forEach((ch, n) => {
+    if (ch === "\n") [x, y] = [0, y + 1];
+    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n" || hyphen(n - 1) || before(n))) {
+      let len = 0;
+      for (let j = n; j < chars.length && chars[j] !== " " && chars[j] !== "\n" && !(j > n && before(j)); j++) {
+        len = j - n + 1;
+        if (hyphen(j)) break;
+      }
+      const unit = len + (chars[n + len] === " " ? 1 : 0);
+      if (x > 0 && x + unit > cols) [x, y] = [0, y + 1];
+    }
+    if (ch !== "\n") {
+      if (x === cols) [x, y] = [0, y + 1];
+      out.push([x++, y, ch, i]);
+    }
     i += ch.length;
-  }
+  });
   return out;
 }
 // The rows a Lineatur's text needs. A Karo counts its squares; a lined kind takes the height the text has on the page,
@@ -1174,10 +1193,11 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
       // Geist Mono's characters are 0.6 em wide.
       letterSpacing: (row - 0.6 * size) * k,
       top: 0,
-      width: colsOf(b) * row * k,
+      // Half a px of slack, so the last square's letter fits; a whole square is far wider, so no extra letter fits.
+      width: colsOf(b) * row * k + 0.5,
       height: rowsOf(b) * row * k,
       whiteSpace: "break-spaces",
-      lineBreak: "anywhere",
+      overflowWrap: "anywhere",
       color: "transparent",
       caretColor: "#222222",
     };
@@ -1369,9 +1389,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
-    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1 };
-    // Zero when it fits: the editor then lifts the page foot's warning for it.
-    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across } }));
+    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1, cut: false };
+    // Zero when it fits: the editor then lifts the page foot's warning for it. `cut` says a word does not print whole.
+    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across, cut: over.cut } }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);
@@ -1533,9 +1553,10 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   // The desk's zoom: the screen measures in its px, the frame's sizes are in its own.
   const zoom = box.width / el.offsetWidth || 1;
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
+  // Too small to measure: a text is cut and the editor warns, but there is no lack to grow the shape by.
   if (bottom - top < 3) {
     block.style.transform = was;
-    return { down: 0, across: 1 };
+    return { down: 0, across: 1, cut: !!el.textContent?.trim() };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -1551,7 +1572,7 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
     [...el.querySelectorAll<HTMLElement>("p")].map((p) => {
       const s = getComputedStyle(p);
       const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
-      return (p.scrollWidth - pad) / (p.clientWidth - pad);
+      return (p.scrollWidth - pad) / Math.max(1, p.clientWidth - pad);
     });
   let scale = 1;
   for (let round = 0; round < 3; round++) {
@@ -1567,8 +1588,20 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   const past = (lowest() - bottom) / zoom;
   // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
   const left = Math.max(...widths());
+  // A word is cut where its line reaches past its paragraph's sides: the padding there holds the ink, and prints.
+  const wide = [...el.querySelectorAll<HTMLElement>("p")].some((p) => {
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    const side = p.getBoundingClientRect();
+    return [...r.getClientRects()].some((q) => q.right > side.right + zoom || q.left < side.left - zoom);
+  });
+  // A room no wider than the ink's padding gives nothing to grow by, across or down: the shape warns and keeps its size.
+  const narrow = [...el.querySelectorAll<HTMLElement>("p")].some((p) => {
+    const s = getComputedStyle(p);
+    return p.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight) < 1;
+  });
   block.style.transform = was;
-  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
+  return { down: past > 1 && !narrow ? past : 0, across: floor && left > 1.01 && !narrow ? left : 1, cut: past > 1 || wide };
 }
 // The bottom of a line's box, in px of the screen. A font's glyph box stands taller than its line, and the extra hangs
 // half below the line, so that half is taken off the glyph box's foot.
