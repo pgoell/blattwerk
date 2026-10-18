@@ -111,6 +111,31 @@ def test_the_caret_stands_at_the_drawn_square(editor, kind, row):
         assert field.evaluate("el => el.selectionStart") == index, word
 
 
+@pytest.mark.parametrize(
+    "text,word",
+    [
+        ("b " + "a" * 25 + " cd", "cd"),
+        ("Wir lesen Mathe-Heft und mehr", "und"),
+        ("Am Montag Kinder-Garten-Fest", "Garten"),
+        ("Am Montag ueberall 3-4 und 5", "3-4"),
+    ],
+)
+def test_the_caret_follows_a_break_at_a_hyphen_as_drawn(editor, text, word):
+    page = editor(box("a", "ruling", {"kind": "k7", "color": "#222222", "text": text}, w=140, h=80))
+    block = at(page, "a")
+    block.dblclick()
+    field = block.locator("textarea")
+    expect(field).to_be_focused()
+    box_ = block.bounding_box()
+    scale = box_["width"] / (20 * 7)
+    drawn = drawn_rows(page, "a", 7, 20)
+    assert any(word in line for line in drawn), drawn
+    line = next(r for r, t in enumerate(drawn) if word in t)
+    col = drawn[line].index(word)
+    page.mouse.click(box_["x"] + (col * 7 + 7 / 4) * scale, box_["y"] + (line * 7 + 7 / 2) * scale)
+    assert field.evaluate("el => el.selectionStart") == text.index(word)
+
+
 def test_the_rows_needed_count_moved_words(editor):
     # Char by char the text needs six rows, with the words moved seven: typing grows the Karo.
     client = user()
