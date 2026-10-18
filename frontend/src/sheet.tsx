@@ -9,7 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, layout as wallLayout, made as walled, sane as saneWall } from "./zahlenmauer";
-import { layout as houseLayout, made as housed, sane as saneHouse, type ZahlenhausProps } from "./zahlenhaus";
+import { layout as houseLayout, made as housed, numberSize, sane as saneHouse, type ZahlenhausProps } from "./zahlenhaus";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -3052,7 +3052,7 @@ function Zahlenhaus({ block, solved }: { block: ZahlenhausBlock; k: number; solv
           const numberOf = (j: number, floor: number, x: number, y: number) => {
             const shows = h.given[j] || (solved && !h.wrong[floor]);
             return shows && (
-              <text x={x} y={y} fontSize={0.55 * S} textAnchor="middle" dominantBaseline="central"
+              <text x={x} y={y} fontSize={numberSize(String(h.numbers[j]).length, S, 0.55 * S)} textAnchor="middle" dominantBaseline="central"
                 fill={h.given[j] ? "#222" : "#c0392b"} className={h.given[j] ? "given" : "answer"}>{h.numbers[j]}</text>
             );
           };
@@ -3061,7 +3061,7 @@ function Zahlenhaus({ block, solved }: { block: ZahlenhausBlock; k: number; solv
               <g className="box" data-box={0}>
                 <polygon points={`${x0},${y0 + S} ${x0 + S},${y0} ${x0 + 2 * S},${y0 + S}`} fill="white" stroke="#222" strokeWidth={0.4} />
                 {h.given[0] || solved ? (
-                  <text x={x0 + S} y={y0 + 0.65 * S} fontSize={0.45 * S} textAnchor="middle" dominantBaseline="central"
+                  <text x={x0 + S} y={y0 + 0.65 * S} fontSize={numberSize(String(h.numbers[0]).length, S, 0.45 * S)} textAnchor="middle" dominantBaseline="central"
                     fill={h.given[0] ? "#222" : "#c0392b"} className={h.given[0] ? "given" : "answer"}>{h.numbers[0]}</text>
                 ) : null}
               </g>
