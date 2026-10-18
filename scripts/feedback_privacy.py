@@ -20,6 +20,15 @@ SAID = set(
     """The And But For Not You Why How Can When What This That There With""".split()  # noqa: SIM905
 ) | {"Blattomat"}  # the app's own name, which an AI's send names
 
+# The app's own block names (Editor.tsx, NAMES and PLURALS): the app's words, no person's.
+BLOCK_NAMES = set(
+    """Text Texte Bild Bilder Symbol Symbole Lineatur Lineaturen Suchsel Zahlenmauer
+    Zahlenmauern Zahlenhaus Zahlenhäuser Rechendreieck Rechendreiecke Zahlenstrahl
+    Zahlenstrahlen Hunderterfeld Hunderterfelder Uhr Uhren Selbstkontrolle
+    Selbstkontrollen Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
+    Form Formen Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
+)
+
 # (?<=_) lets "user_id=3" hit, since \b does not sit between "_" and "i".
 ID = re.compile(
     r"(?:\b|(?<=_))(user\w*|nutzer\w*|benutzer\w*|konto\w*|account\w*|teacher\w*|lehrer\w*|uid|id)"
@@ -69,7 +78,8 @@ def _whole_word(piece: str, text: str, flags: int = re.IGNORECASE) -> bool:
 def _send_word(source: str, text: str) -> bool:
     # A capitalised word of the send (a name, a noun) kept in the same spelling.
     # Case-sensitive: "Text" in the send is no hit for "text" in English.
-    words = set(re.findall(r"(?<![^\W\d_])[A-ZÄÖÜ][a-zäöüß]{2,}(?![^\W\d_])", source)) - SAID
+    words = set(re.findall(r"(?<![^\W\d_])[A-ZÄÖÜ][a-zäöüß]{2,}(?![^\W\d_])", source))
+    words -= SAID | BLOCK_NAMES
     return any(_whole_word(w, text, 0) for w in words)
 
 

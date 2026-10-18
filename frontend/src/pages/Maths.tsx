@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { flushSync } from "react-dom";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
-import { attempt } from "../fault";
+import { attempt, drop } from "../fault";
 // A type alone: the module itself needs a window, and the sheet model's tests load this one without.
 import type { Owed } from "../saves";
 import { decimalsOf, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
@@ -27,15 +27,16 @@ const FAMILIES = [["none", "Keine"], ["swap", "Tauschaufgaben"], ["reverse", "Um
 const NTH = { a: "1. Zahl", b: "2. Zahl", c: "3. Zahl" } as const;
 
 export const newSeed = () => Math.floor(Math.random() * 1e9);
+// The limits the server reads from a request, and nothing else.
+const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }: Limits) => ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small });
 // Asked with the session run out, it brings the login.
-export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }: Limits) =>
-  signed(post<Made>("/maths", { ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }));
+export const generate = (l: Limits) => signed(post<Made>("/maths", ask(l)));
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
 export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number; owe: (entry: Owed) => void }) {
-  // The limits as last set, shown until the server's exercises for them are on the sheet.
-  const [pending, setPending] = useState<MathsProps>();
+  // The changed limits of the clicks still on their way, shown until the server's exercises for them are on the sheet.
+  const [pending, setPending] = useState<Partial<Limits>>();
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
   // What is typed in the own Zahlenraum, until an undo or a redo changes the number under the field.
   const [typed, setTyped] = useState<string>();
@@ -54,7 +55,10 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
   const applying = useRef<Promise<unknown>>(Promise.resolve());
   // The click whose answer is on the sheet: a retried older one comes too late to count.
   const landed = useRef(0);
-  const p = pending ?? block.props;
+  // The block's own limits as it has them now, and the changes of clicks that failed: the next click carries them.
+  const stored = useRef(block.props);
+  const carry = useRef<Partial<Limits>>({});
+  const p = pending ? ({ ...block.props, ...pending } as MathsProps) : block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
   const tried = (props: MathsProps, key?: string) => {
@@ -66,30 +70,73 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
   const latest = useRef(tried);
   useLayoutEffect(() => {
     latest.current = tried;
+    stored.current = block.props;
   });
 
   // A new limit asks for new exercises. Every answer is applied, in the order asked; only the last one clears the
   // pending limit. Where none comes, the limit stays as set, and the line above the page asks again with it.
+  // The changes of the clicks still on their way, by click. A refused one leaves the panel with its answer.
+  const onWay = useRef(new Map<number, Partial<Limits>>());
+  // What the panel shows over the block: the failed clicks' changes, then those on their way, in click order.
+  function wish() {
+    const all = Object.assign({ ...carry.current }, ...onWay.current.values()) as Partial<Limits>;
+    setPending(Object.keys(all).length ? all : undefined);
+    return all;
+  }
   function limit(change: Partial<Limits>) {
-    const next = { ...p, ...change };
     const n = ++asked.current;
-    setPending(next);
+    onWay.current.set(n, change);
+    const sent = { ...stored.current, ...wish() };
     const before = applying.current;
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
-      const made = await generate(next).catch((e: Error) => {
-        if (e.message === "401") owe({ block: block.id, change });
-        throw e;
-      });
+      const owed = (e: unknown) => {
+        if ((e as Error).message === "401") owe({ block: block.id, change });
+      };
+      // A failed click keeps its change for the next click to carry.
+      const miss = (e: unknown) => {
+        carry.current = { ...carry.current, ...change };
+        onWay.current.delete(n);
+        wish();
+        return e;
+      };
+      let made: Made | undefined;
+      let error: unknown;
+      try {
+        made = await generate(sent);
+      } catch (e) {
+        owed(e);
+        error = e;
+      }
       await before;
-      if (n < landed.current) return;
+      // A click a later one has overtaken says nothing, not even when its request failed.
+      if (n < landed.current) {
+        onWay.current.delete(n);
+        wish();
+        return;
+      }
+      if (error) throw miss(error);
+      const base = () => ({ ...stored.current, ...carry.current, ...change });
+      // An earlier click refused in between is no limit of this one: the answer is asked again without it.
+      if (JSON.stringify(ask(base())) !== JSON.stringify(ask(sent)))
+        made = await generate(base()).catch((e) => {
+          owed(e);
+          return Promise.reject(miss(e));
+        });
       landed.current = n;
       // Drawn at once, so that the next answer's `latest` sees the block as this one leaves it. Each answer is an
-      // undo step of its own, also when two land after both clicks.
+      // undo step of its own, also when two land after both clicks. Built after the answer, so that a column
+      // clicked while it was on its way stays.
       let ok = false;
-      flushSync(() => void (ok = latest.current({ ...next, ...made }, `maths ${n}`)));
+      flushSync(() => void (ok = latest.current({ ...base(), ...made }, `maths ${n}`)));
+      // The line of an earlier failed click is moot now: its change is on the sheet with this answer.
+      if (ok) {
+        carry.current = {};
+        drop("Die Aufgaben konnten nicht erzeugt werden.");
+      }
+      onWay.current.delete(n);
+      wish();
       if (n !== asked.current) return;
-      setPending(undefined);
       // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
       if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
     });
@@ -118,7 +165,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
     const range = ([lo, hi]: Range): Range => (end ? [Math.min(lo, to), to] : [to, Math.max(hi, to)]);
     limit({ [key]: ranges(key).map((r, i) => (i === place ? range(r) : r)) });
   }
-  const show = (change: Partial<MathsProps>) => tried({ ...p, ...change });
+  const show = (change: Partial<MathsProps>) => tried({ ...block.props, ...change });
   const plus = p.ops.includes("+") || p.ops.includes("-");
   const times = p.ops.includes("*") || p.ops.includes("/");
   // Times, divide and compare keep whole numbers: the places after the comma stay greyed then, and keep their value.
