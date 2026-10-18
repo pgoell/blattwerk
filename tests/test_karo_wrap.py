@@ -4,7 +4,8 @@ import math
 import re
 
 import pytest
-from ui import at, box
+from playwright.sync_api import expect
+from ui import at, box, saved, user
 
 SENTENCE = (
     "Am Montag gehen wir in den Wald und sammeln bunte Blaetter, Eicheln und Kastanien fuer unser "
@@ -25,11 +26,16 @@ MARKS = """(block) => [...block.querySelectorAll('svg.ruling text')].map(
   (t) => [t.getAttribute('x'), t.getAttribute('y'), t.textContent])"""
 
 
+def marks(page, name):
+    """Each letter drawn, as (x, y, character), in the order the svg has them."""
+    return [(float(x), float(y), ch) for x, y, ch in at(page, name).evaluate(MARKS)]
+
+
 def drawn_rows(page, name, row, cols):
     """The rows as drawn: each letter in the square its position lies in, spaces between."""
     rows = {}
-    for x, y, ch in at(page, name).evaluate(MARKS):
-        col, line = math.floor(float(x) / row + 1e-6), math.floor(float(y) / row + 1e-6)
+    for x, y, ch in marks(page, name):
+        col, line = math.floor(x / row + 1e-6), math.floor(y / row + 1e-6)
         rows.setdefault(line, [" "] * cols)[col] = ch
     return ["".join(rows[r]).rstrip() for r in sorted(rows)]
 
@@ -54,12 +60,51 @@ def test_a_word_longer_than_a_row_still_breaks(editor, kind, row):
 def test_the_bows_stay_in_one_row(editor):
     props = {"kind": "k7", "color": "#222222", "text": SENTENCE, "syllables": True}
     page = editor(box("a", "ruling", props, w=140, h=80))
+    assert drawn_rows(page, "a", 7, 20) == ROWS_20
     paths = (
         at(page, "a").locator(".syl").evaluate_all("els => els.map((el) => el.getAttribute('d'))")
     )
     assert paths
     for d in paths:
         numbers = [float(v) for v in re.findall(r"-?[\d.]+", d)]
-        ys = numbers[1::2]
-        rows = {math.floor(y / 7 - 0.8 + 1e-6) for y in ys}
+        rows = {math.floor(y / 7 - 0.8 + 1e-6) for y in numbers[1::2]}
         assert len(rows) == 1, d
+
+
+@pytest.mark.parametrize("kind,row", [("k5", 5), ("k7", 7)])
+def test_the_caret_stands_at_the_drawn_square(editor, kind, row):
+    page = editor(
+        box("a", "ruling", {"kind": kind, "color": "#222222", "text": SENTENCE}, w=20 * row, h=80)
+    )
+    block = at(page, "a")
+    block.dblclick()
+    field = block.locator("textarea")
+    expect(field).to_be_focused()
+    box_ = block.bounding_box()
+    scale = box_["width"] / (20 * row)
+    for word in ["Wald", "sammeln", "Kastanien", "Herbstbild", "Klasse"]:
+        index = SENTENCE.index(word)
+        # The word's square, from the rows as drawn: the word must lie whole in one drawn row.
+        drawn = drawn_rows(page, "a", row, 20)
+        assert any(word in text for text in drawn), word
+        line = next(r for r, text in enumerate(drawn) if word in text)
+        col = drawn[line].index(word)
+        # The left quarter of the letter's square.
+        px = box_["x"] + (col * row + row / 4) * scale
+        py = box_["y"] + (line * row + row / 2) * scale
+        page.mouse.click(px, py)
+        assert field.evaluate("el => el.selectionStart") == index, word
+
+
+def test_the_rows_needed_count_moved_words(editor):
+    # Char by char the text needs six rows, with the words moved seven: typing grows the Karo.
+    client = user()
+    page = editor(
+        box("a", "ruling", {"kind": "k7", "color": "#222222", "text": ""}, w=140, h=42),
+        client=client,
+    )
+    at(page, "a").dblclick()
+    page.keyboard.type(SENTENCE)
+    expect(at(page, "a").locator("svg.ruling text")).to_have_count(len(SENTENCE))
+    assert drawn_rows(page, "a", 7, 20) == ROWS_20
+    assert [b["h"] for b in saved(page, client) if b["id"] == "a"] == [pytest.approx(49)]
