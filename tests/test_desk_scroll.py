@@ -98,6 +98,41 @@ def test_the_drag_with_its_scroll_is_one_undo_step(editor):
     expect(at(page, "a")).to_have_attribute("style", style)
 
 
+def frames(page, n):
+    """Waits n frames of the page."""
+    page.evaluate(
+        f"() => new Promise((done) => {{ let n = {n}; const f = () => (--n ? requestAnimationFrame(f) : done()); requestAnimationFrame(f); }})"
+    )
+
+
+def test_a_drag_held_still_after_the_scroll_keeps_its_page_until_the_drop(editor):
+    """#805 with #806: page 1 scrolled out of view under a drag, the pointer back in the middle and
+    held there: the page in use does not change under the drag, the block drops on the page under
+    the pointer, and one undo puts it back on page 1."""
+    page = sheets(editor)
+    style = at(page, "a").get_attribute("style")
+    grip = at(page, "a").bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(
+        """() => document.querySelector('.sheet[data-page="0"]').getBoundingClientRect().bottom
+            < document.querySelector('.desk').getBoundingClientRect().top"""
+    )
+    b = page.locator(DESK).bounding_box()
+    middle = (b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    page.mouse.move(*middle, steps=5)
+    frames(page, 30)
+    page.mouse.move(middle[0] + 3, middle[1] + 3)
+    target = under(page, middle)
+    page.mouse.up()
+    assert target > 0
+    expect(page.locator(PAGE.format(target)).locator('.block[data-id="a"]')).to_have_count(1)
+    page.keyboard.press("Control+z")
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
+    expect(at(page, "a")).to_have_attribute("style", style)
+
+
 def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):
     page = sheets(editor)
     grip = at(page, "a").bounding_box()
@@ -105,6 +140,7 @@ def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):
     page.mouse.down()
     b = page.locator(DESK).bounding_box()
     page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2, steps=10)
-    page.wait_for_timeout(300)
+    # Twenty frames, in which a scroll at the edge would have gone 240 px.
+    frames(page, 20)
     assert desk_scroll(page) == 0
     page.mouse.up()

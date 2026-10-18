@@ -2437,7 +2437,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const resting = useRef(0);
   function follow() {
     clearTimeout(resting.current);
-    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(stray, 150));
+    // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
+    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(stray), 150));
     if (editing) lagged.current = true;
     else inView();
   }
@@ -3116,8 +3117,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     });
     const n = +(to?.dataset.page ?? page);
     if (!to || n === page) return;
-    const shift = (sheet.current!.getBoundingClientRect().top - to.getBoundingClientRect().top) / k;
-    const moving = live.current.doc.pages[page].blocks.filter((b) => ids.includes(b.id)).map((b) => ({ ...b, y: b.y + shift }));
+    // A page on its side lies wider than an upright one: the blocks keep their place on the screen across too.
+    const [was, now] = [sheet.current!.getBoundingClientRect(), to.getBoundingClientRect()];
+    const moving = live.current.doc.pages[page].blocks.filter((b) => ids.includes(b.id)).map((b) => ({ ...b, x: round(b.x + (was.left - now.left) / k), y: round(b.y + (was.top - now.top) / k) }));
     update(
       (doc) => ({
         ...doc,
