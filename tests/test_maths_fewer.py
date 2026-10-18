@@ -116,7 +116,7 @@ def test_906_one_more_keeps_the_exercises_and_adds_one(editor):
 
 def test_906_one_more_with_families_keeps_the_families_and_adds_one(editor):
     """#906, families: with Tauschaufgaben "mehr" keeps the five families as they were and adds one family whole."""
-    page, client, sheet_id, old = fewer_sheet(editor, count=5, ops=["+"], family="swap")
+    page, client, sheet_id, old = fewer_sheet(editor, count=5, family="reverse")
     assert len(old) == 10
     page.get_by_label("Eine Aufgabe mehr").click()
     got = wait_saved(page, client, sheet_id, lambda p: p["count"] == 6)
