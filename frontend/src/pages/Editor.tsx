@@ -3212,10 +3212,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const [W, H] = sizes[n];
       const [x, right] = span(unit, "x");
       const [y, bottom] = span(unit, "y");
-      // The unit keeps the page margin on every side. A unit too big for the text area goes to the
-      // left or top margin, since the lower bound is applied last.
-      const dx = Math.max(MARGIN - x, Math.min(W - MARGIN - right, (was.left - now.left) / k));
-      const dy = Math.max(MARGIN - y, Math.min(H - MARGIN - bottom, (was.top - now.top) / k));
+      // The unit keeps the page margin on every side. A unit too big for the text area stands in the middle of
+      // the paper, so that neither end lies on its edge.
+      const fit = (from: number, to: number, size: number, by: number) =>
+        to - from > size - 2 * MARGIN ? (size - to - from) / 2 : Math.max(MARGIN - from, Math.min(size - MARGIN - to, by));
+      const dx = fit(x, right, W, (was.left - now.left) / k);
+      const dy = fit(y, bottom, H, (was.top - now.top) / k);
       away.set(n, [...(away.get(n) ?? []), ...unit.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }))]);
     }
     if (!away.size) return false;

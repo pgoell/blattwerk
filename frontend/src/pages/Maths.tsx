@@ -32,8 +32,11 @@ const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close
 // Asked with the session run out, it brings the login.
 export const generate = (l: Limits) => signed(post<Made>("/maths", ask(l)));
 // A smaller count and nothing else changed: the block keeps its own exercises, less the last ones, and the server's word on what is in the way.
+// With families the count is that of the families, so the last families go whole.
 export const kept = (was: MathsProps, next: Limits, made: Made): Made =>
-  next.count < was.count && JSON.stringify(ask({ ...was, count: next.count })) === JSON.stringify(ask(next)) ? { ...made, exercises: was.exercises.slice(0, next.count) } : made;
+  next.count < was.count && JSON.stringify(ask({ ...was, count: next.count })) === JSON.stringify(ask(next))
+    ? { ...made, exercises: was.exercises.filter((e, i) => (("sign" in e ? undefined : e.family) ?? i) < next.count) }
+    : made;
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 

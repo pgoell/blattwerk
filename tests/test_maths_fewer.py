@@ -37,10 +37,11 @@ def wait_saved(page, client, sheet_id, check):
     return block_of(client, sheet_id)
 
 
-def fewer_sheet(editor, count=8):
+def fewer_sheet(editor, count=8, **more):
     client = user()
+    limits = {**LIMITS, **more}
     page = editor(
-        box("m", "maths", maths(client, count=count, columns=3, size=14, **LIMITS), y=20, h=60),
+        box("m", "maths", maths(client, count=count, columns=3, size=14, **limits), y=20, h=60),
         client=client,
     )
     sheet_id = page.url.rsplit("/", 1)[1]
@@ -56,6 +57,17 @@ def test_903_eine_aufgabe_weniger_drops_the_last_exercise_and_keeps_the_others(e
     expect(page.locator(TASKS)).to_have_count(7)
     got = wait_saved(page, client, sheet_id, lambda p: p["count"] == 7)
     assert pairs(got["exercises"]) == pairs(old[:-1])
+
+
+def test_903_weniger_on_families_drops_the_last_family_whole(editor):
+    """#903, review: with Tauschaufgaben the count is that of the families. "weniger" drops the last
+    family whole, its two exercises, and keeps the others as they were."""
+    page, client, sheet_id, old = fewer_sheet(editor, count=5, ops=["+"], family="swap")
+    assert len(old) == 10
+    page.get_by_label("Eine Aufgabe weniger").click()
+    got = wait_saved(page, client, sheet_id, lambda p: p["count"] == 4)
+    assert pairs(got["exercises"]) == pairs(old[:-2])
+    assert {e["family"] for e in got["exercises"]} == {0, 1, 2, 3}
 
 
 def test_903_two_quick_weniger_clicks_drop_the_last_two_in_order(editor):
