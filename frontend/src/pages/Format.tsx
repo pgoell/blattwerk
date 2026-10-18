@@ -10,6 +10,7 @@ import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
 import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
+import Zahlenhaus from "./Zahlenhaus";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
@@ -365,6 +366,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
+  const haus = sel.length === 1 && sel[0].type === "zahlenhaus" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
@@ -518,6 +520,18 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       ),
   );
 
+  const houseCovers = sel.some(
+    (z) =>
+      z.type === "zahlenhaus" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
+
   return (
     <>
       {/* A block that hangs over the foot is cut in the PDF: the panel says so first, whatever the block. */}
@@ -551,6 +565,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {wallCovers && (
         <p className="hint warn" role="status" data-cover="wall">
           Die Zahlenmauer liegt über einem anderen Block. Verschiebe ihn oder mache die Zahlenmauer kleiner.
+        </p>
+      )}
+      {houseCovers && (
+        <p className="hint warn" role="status" data-cover="haus">
+          Das Zahlenhaus liegt über einem anderen Block. Verschiebe ihn oder mache das Zahlenhaus kleiner.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
@@ -867,6 +886,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} owe={owe} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => style("zahlenmauer", props, key)} />}
+      {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => style("zahlenhaus", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}

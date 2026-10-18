@@ -1,0 +1,68 @@
+"""A Zahlenhaus grown over a block says so, and moves nothing (#819)."""
+
+import pytest
+from playwright.sync_api import expect
+from test_gaps import step
+from ui import TEXT, at, box, pick, saved, user
+
+HAUS = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 7}
+
+
+@pytest.fixture
+def editor(editor):
+    """The editor with its panel open, where the Zahlenhaus's settings are."""
+
+    def start(*blocks, **more):
+        return editor(*blocks, theme="", **more)
+
+    return start
+
+
+def haus(name="h", y=15, **more):
+    """A Zahlenhaus block of 120 by 55 mm over the blocks of z 1."""
+    return box(name, "zahlenhaus", HAUS, z=2, w=120, h=55, y=y, **more)
+
+
+def hint(page):
+    return page.locator('p[data-cover="haus"]')
+
+
+def floors(page, n):
+    """Sets Stockwerke in the panel, and waits for the save."""
+    select = page.locator(".panel").get_by_label("Stockwerke", exact=True)
+    step(page, lambda: select.select_option(str(n)))
+
+
+def test_raising_the_floors_grows_the_house_over_a_text_and_moves_nothing(editor):
+    """Stockwerke 10 grows the house over a text: the text stays and the hint says the house covers it."""
+    client = user()
+    page = editor(haus(), box("t", "text", TEXT, y=80), client=client)
+    pick(page, "h")
+    expect(hint(page)).to_have_count(0)
+    floors(page, 10)
+    stored = {b["id"]: b for b in saved(page, client)}
+    assert stored["h"]["h"] > 55, stored["h"]
+    assert stored["t"]["y"] == 80, stored["t"]
+    expect(hint(page)).to_contain_text("Das Zahlenhaus liegt über einem anderen Block.")
+
+
+def test_one_undo_takes_the_height_and_the_hint_back(editor):
+    """One undo takes the grown height and the hint back, and the stored height is 55 again."""
+    client = user()
+    page = editor(haus(), box("t", "text", TEXT, y=80), client=client)
+    pick(page, "h")
+    floors(page, 10)
+    expect(hint(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert {b["id"]: b for b in saved(page, client)}["h"]["h"] == 55
+    expect(hint(page)).to_have_count(0)
+
+
+def test_no_hint_while_nothing_overlaps(editor):
+    """With no text under the house, growing it shows no hint."""
+    client = user()
+    page = editor(haus(), box("t", "text", TEXT, y=200), client=client)
+    pick(page, "h")
+    floors(page, 10)
+    expect(at(page, "h").locator(".zahlenhaus")).to_be_visible()
+    expect(hint(page)).to_have_count(0)

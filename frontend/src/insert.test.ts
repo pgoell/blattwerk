@@ -19,6 +19,7 @@ describe("INSERTS", () => {
   it("the seeded blocks take their seed", () => {
     expect(INSERTS.suchsel(7)).toEqual({ w: 120, h: 140, type: "suchsel", props: { words: [], cols: 10, rows: 10, ways: "down", caps: true, umlauts: true, show: "words", seed: 7 } });
     expect(INSERTS.zahlenmauer(7)).toMatchObject({ w: 180, h: 60, type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: 7 } });
+    expect(INSERTS.zahlenhaus(7)).toMatchObject({ w: 120, h: 55, type: "zahlenhaus", props: { count: 4, columns: 4, floors: 4, max: 10, given: "side", seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });

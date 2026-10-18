@@ -289,6 +289,12 @@ def school_block(client, kind):
         return box("k", "zahlenstrahl", ZAHLENSTRAHL)
     if kind == "hunderterfeld":
         return box("k", "hunderterfeld", FELD)
+    if kind == "zahlenhaus":
+        return box(
+            "k",
+            "zahlenhaus",
+            {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 3},
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -319,6 +325,7 @@ def school_block(client, kind):
         "hunderterfeld",
         "rechendreieck",
         "zahlenmauer",
+        "zahlenhaus",
         "selbstkontrolle",
         "name",
         "points",

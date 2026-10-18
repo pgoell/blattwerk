@@ -646,3 +646,19 @@ def test_a_rechendreieck_gets_another_seed_and_loses_its_typed_numbers():
         seeds.add(props["seed"])
     assert len(seeds) == 4
     assert doc["pages"][0]["blocks"][0]["props"] == triangle
+
+
+def test_a_zahlenhaus_gets_another_seed_and_loses_its_typed_numbers():
+    """A of #819 (Varianten re-seed): B to D give a Zahlenhaus a seed of its own, drop `typed`; A is as stored."""
+    house = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 7}
+    house = {**house, "typed": [[0, 0, 9]]}
+    doc = {"pages": [{"blocks": [{"id": "h", "type": "zahlenhaus", "props": house}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in house.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == house

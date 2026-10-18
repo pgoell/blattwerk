@@ -40,6 +40,11 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Zahlenhaus",
+            "zahlenhaus",
+            {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side"},
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},

@@ -57,9 +57,18 @@ def test_a_block_of_each_kind_spanning_the_width_stretches_or_stays_centred(edit
         assert b["w"] == 180 and b["x"] + b["w"] / 2 == MIDDLE
 
 
+HAUS = {
+    "count": 4,
+    "columns": 4,
+    "floors": 4,
+    "max": 10,
+    "given": "side",
+    "seed": 3,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
+    "zahlenhaus": (HAUS, 55),
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),

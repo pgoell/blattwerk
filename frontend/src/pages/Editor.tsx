@@ -48,6 +48,7 @@ import {
   Fullscreen,
   Layers,
   Heading,
+  House,
   ImagePlus,
   LayoutTemplate,
   Lock,
@@ -188,6 +189,7 @@ const NAMES: Record<Block["type"], string> = {
   ruling: "Lineatur",
   suchsel: "Suchsel",
   zahlenmauer: "Zahlenmauer",
+  zahlenhaus: "Zahlenhaus",
   rechendreieck: "Rechendreieck",
   zahlenstrahl: "Zahlenstrahl",
   hunderterfeld: "Hunderterfeld",
@@ -206,6 +208,7 @@ const PLURALS: Record<Block["type"], string> = {
   ruling: "Lineaturen",
   suchsel: "Suchsel",
   zahlenmauer: "Zahlenmauern",
+  zahlenhaus: "Zahlenhäuser",
   rechendreieck: "Rechendreiecke",
   zahlenstrahl: "Zahlenstrahlen",
   hunderterfeld: "Hunderterfelder",
@@ -4274,6 +4277,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The maths blocks, picked from the "Mathe-Blöcke" menu.
   const mathBlocks: Item[] = [
     { label: "Zahlenmauer", icon: BrickWall, run: () => addInsert(INSERTS.zahlenmauer(newSeed())) },
+    { label: "Zahlenhaus", icon: House, run: () => addInsert(INSERTS.zahlenhaus(newSeed())) },
     { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },
     { label: "Hunderterfeld", icon: Grid3x3, run: () => addInsert(INSERTS.hunderterfeld(newSeed())) },
