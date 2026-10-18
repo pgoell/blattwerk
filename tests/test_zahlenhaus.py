@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import at, box, doc, insert, pick, reload, user
+from ui import TEXT, at, box, doc, insert, pick, reload, user
 
 HAUS = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 7}
 FREE = [True, True, True, False, False, False, False, False, False]
@@ -311,6 +311,37 @@ def test_an_own_zahlenraum_of_5000_is_refused_and_the_old_one_stays(editor):
     expect(own).to_have_value("10")
     expect(hint(page)).to_have_count(0)
     assert props_of(doc(page, client)) == before
+
+
+def test_an_own_zahlenraum_typed_without_enter_holds_when_another_block_is_picked(editor):
+    """#897, review: "37" typed and then a click on another block stores 37, as leaving the field does."""
+    client = user()
+    page = editor(dz("d", HAUS), box("t", "text", TEXT, y=150, w=60, h=20), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option("own")
+    own = field(page, "Eigener Zahlenraum")
+    own.click()
+    own.press("Control+a")
+    own.press_sequentially("37")
+    step(page, lambda: at(page, "t").click())
+    assert props_of(doc(page, client))["max"] == 37
+
+
+def test_escape_in_an_own_zahlenraum_drops_what_was_typed(editor):
+    """#897, review: Escape in Eigener drops "37": nothing is stored and the field shows 10 again."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option("own")
+    own = field(page, "Eigener Zahlenraum")
+    before = props_of(doc(page, client))
+    own.click()
+    own.press("Control+a")
+    own.press_sequentially("37")
+    own.press("Escape")
+    page.wait_for_timeout(1500)
+    assert props_of(doc(page, client)) == before
+    expect(own).to_have_value("10")
 
 
 def test_a_good_own_zahlenraum_typed_digit_by_digit_applies_once_on_enter(editor):

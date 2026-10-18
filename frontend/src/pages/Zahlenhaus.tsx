@@ -25,6 +25,8 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
   // Set when a number field gets focus, until the mouseup of that click has selected its number.
   const fresh = useRef(false);
+  // Set by Escape in the own Zahlenraum, until the blur that follows has passed.
+  const dropped = useRef(false);
 
   const h = Math.min(which, m.houses.length - 1);
   const free = p.free ?? [];
@@ -128,10 +130,18 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
             e.preventDefault();
             e.currentTarget.select();
           }}
-          onBlur={(e) => ownDone(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && ownDone(e.currentTarget.value)}
+          onBlur={(e) => (dropped.current ? (dropped.current = false) : ownDone(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") ownDone(e.currentTarget.value);
+            // Escape drops what was typed, as in PowerPoint: the blur that the editor gives with it stores nothing.
+            if (e.key === "Escape") {
+              dropped.current = true;
+              setDraft(null);
+            }
+          }}
           onChange={(e) => {
             if (!/^\d{0,4}$/.test(e.target.value)) return;
+            dropped.current = false;
             setDraft({ key: "max", text: e.target.value });
           }}
         />

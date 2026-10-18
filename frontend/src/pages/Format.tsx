@@ -541,7 +541,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         </p>
       )}
       {/* A Zahlenhaus past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
-      {sel.some((b) => b.type === "zahlenhaus" && b.y + b.h > H - MARGIN + 0.01) && !sel.some((b) => lowest(b) > H + 0.01) && (
+      {sel.some((b) => b.type === "zahlenhaus" && lowest(b) > H - MARGIN + 0.01) && !sel.some((b) => lowest(b) > H + 0.01) && (
         <p className="hint warn" role="status" data-foot="haus">
           Das Zahlenhaus ragt unten über den Rand. Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben.
         </p>
