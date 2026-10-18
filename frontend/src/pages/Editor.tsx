@@ -199,6 +199,40 @@ const NAMES: Record<Block["type"], string> = {
   shape: "Form",
   table: "Tabelle",
 };
+const PLURALS: Record<Block["type"], string> = {
+  text: "Texte",
+  image: "Bilder",
+  symbol: "Symbole",
+  ruling: "Lineaturen",
+  suchsel: "Suchsel",
+  zahlenmauer: "Zahlenmauern",
+  rechendreieck: "Rechendreiecke",
+  zahlenstrahl: "Zahlenstrahlen",
+  hunderterfeld: "Hunderterfelder",
+  uhr: "Uhren",
+  selbstkontrolle: "Selbstkontrollen",
+  name: "Namenszeilen",
+  points: "Punkteblöcke",
+  maths: "Rechenblöcke",
+  shape: "Formen",
+  table: "Tabellen",
+};
+// What a pick reads as: one block by its name, else a count of its units, as PowerPoint counts top-level objects (a group picked whole is one).
+function pickName(sel: Block[], blocks: Block[]): string {
+  if (sel.length === 1) return NAMES[sel[0].type] ?? "Unbekannter Block";
+  const groups = new Set<string>();
+  const loose: Block[] = [];
+  for (const b of sel) {
+    const outer = b.group?.[0];
+    if (outer && blocks.every((o) => o.group?.[0] !== outer || sel.includes(o))) groups.add(outer);
+    else loose.push(b);
+  }
+  if (!loose.length) return groups.size === 1 ? "Gruppe" : `${groups.size} Gruppen`;
+  if (groups.size) return `${groups.size + loose.length} Blöcke`;
+  if (loose.every(isLine)) return `${loose.length} Linien`;
+  const type = loose[0].type;
+  return loose.every((b) => b.type === type) ? `${loose.length} ${PLURALS[type] ?? "Blöcke"}` : `${loose.length} Blöcke`;
+}
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht", "Lernwörter"];
 const whenTurned = (heard: () => void) => {
@@ -5200,7 +5234,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
           {tab === "Format" && sel.length > 0 && (
             <>
               <p className="what">
-                {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
+                {pickName(sel, blocks)}
               </p>
               <Format
                 owe={(entry) => owe(file.id, entry)}

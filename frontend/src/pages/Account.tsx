@@ -62,6 +62,27 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const askedId = useRef<number | null>(null);
   // A create is out: a second press waits for it.
   const busy = useRef(false);
+  // What the copy button shows: "Kopiert" for two seconds, or the failure line.
+  const [copy, setCopy] = useState<"done" | "failed" | null>(null);
+  const copyTimer = useRef(0);
+  const codeEl = useRef<HTMLElement>(null);
+
+  function copyKey(token: string) {
+    window.clearTimeout(copyTimer.current);
+    const failed = () => {
+      setCopy("failed");
+      if (codeEl.current) window.getSelection()?.selectAllChildren(codeEl.current);
+    };
+    try {
+      navigator.clipboard.writeText(token).then(() => {
+        mark(token);
+        setCopy("done");
+        copyTimer.current = window.setTimeout(() => setCopy(null), 2000);
+      }, failed);
+    } catch {
+      failed();
+    }
+  }
 
   function leave(text: string, typed?: string) {
     writeNote({ uid: user.id, text, name: typed });
@@ -116,6 +137,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       try {
         const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
         setMade({ id: fresh.id, token: fresh.token });
+        window.clearTimeout(copyTimer.current);
+        setCopy(null);
         setName("");
         setFieldNote("");
         forget();
@@ -222,10 +245,11 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         {made && (
           <div data-testid="new-token">
             <p className="hint">Nur jetzt sichtbar. Kopiere den Schlüssel jetzt; Blattomat zeigt ihn nicht noch einmal.</p>
-            <code>{made.token}</code>{" "}
-            <button type="button" className="plain" onClick={() => navigator.clipboard.writeText(made.token).then(() => mark(made.token)).catch(() => {})}>
-              Kopieren
+            <code ref={codeEl}>{made.token}</code>{" "}
+            <button type="button" className="plain" aria-live="polite" onClick={() => copyKey(made.token)}>
+              {copy === "done" ? "Kopiert" : "Kopieren"}
             </button>
+            {copy === "failed" && <p role="alert" className="hint warn">Kopieren hat nicht geklappt. Markiere den Schlüssel und kopiere ihn mit Strg+C.</p>}
           </div>
         )}
         <ul className="rows">
