@@ -155,6 +155,11 @@ def test_a11_the_login_a_run_out_session_brings_stops_input_and_says_so(window, 
         )
     ).to_be_visible()
     page.keyboard.type(" Hund")
+    # Never accepted: the keys land in no field, neither the sheet's nor the login's.
+    expect(page.get_by_label("E-Mail")).to_have_value("")
+    expect(page.get_by_label("Passwort")).to_have_value("")
+    assert page.evaluate("document.activeElement === document.body || !document.activeElement")
+    assert "Hund" not in words_of(client, sheet_id)
     login(page, server, client)
     expect_sheet(page)
     expect(at(page, "t")).to_contain_text("Katze")
