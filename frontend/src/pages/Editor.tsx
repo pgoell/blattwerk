@@ -2431,11 +2431,28 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const scrollHeld = useRef(false);
   const lagged = useRef(false);
   const steer = (ms = 500) => (steered.current = performance.now() + ms);
+  // Any other scroll (a zoom about the pointer, a page key with a block picked, a script) that leaves the page in use
+  // out of view hands it on to the page in view once the desk rests, so a new block never lands out of sight (#805).
+  // A scroll of the editor's own ends on the page in use, so it keeps it.
+  const resting = useRef(0);
   function follow() {
-    if (performance.now() > steered.current && !scrollHeld.current) return;
+    clearTimeout(resting.current);
+    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(stray, 150));
     if (editing) lagged.current = true;
     else inView();
   }
+  // Whether no part of the page in use lies in the desk's view.
+  function lost() {
+    const [on, view] = [sheet.current?.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
+    return !on || on.bottom <= view.top || on.top >= view.bottom || on.right <= view.left || on.left >= view.right;
+  }
+  function stray() {
+    if (!lost()) return;
+    if (editing) lagged.current = true;
+    else inView();
+  }
+  // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
+  const looked = () => (lost() ? inView() : page);
   useEffect(() => {
     if (editing || !lagged.current) return;
     lagged.current = false;
@@ -2450,12 +2467,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       if (shown > most) [best, most] = [+el.dataset.page!, shown];
     }
     setAt(best);
+    return best;
   }
 
   // Notes page `was` for what the server sends later, and gives a way to look it up then. The pages may have changed
   // by that time: the page is found where it is now; one changed since is known by a block it still holds, or keeps
   // its number while the pages are as many as before. For a page that is gone, the page in use stands in.
-  function mark(was = page) {
+  function mark(was = looked()) {
     const [on, count] = [pages[was], pages.length];
     return () => {
       const { doc, page } = latest.current;
@@ -2513,7 +2531,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         if (boxes.every((b) => x + w + 5 <= b.x || x >= b.x + b.w + 5 || y + h + 5 <= b.y || y >= b.y + b.h + 5)) return { p, x, y };
     return undefined;
   }
-  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
+  function add(w: number, h: number, rest: Fresh, n = looked(), pasted = false) {
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
@@ -2816,7 +2834,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
     const paras = parasFromHtml(html);
     const props = paras.length ? stored(paras) : { text: words.replace(/\n+$/, "") };
-    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, page, true);
+    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, looked(), true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
