@@ -2,8 +2,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { alike, changed, fresh, redone, undone, type Hist, type Step } from "./history";
-import { bounds, mirrored, swung } from "./pages/Format";
-import { EMPTY, isLine, read, type Block, type Doc } from "./sheet";
+import { bounds, mirrored, outline, swung } from "./pages/Format";
+import { EMPTY, isLine, lowest, read, rightmost, type Block, type Doc } from "./sheet";
 
 // The old sheets and templates of tests/corpus, as the server holds them.
 const files = import.meta.glob<{ doc: Doc }>("../../tests/corpus/*.json", { eager: true, import: "default" });
@@ -296,5 +296,15 @@ describe("a group", () => {
         expect(lie(mirrored(once, axis))).toStrictEqual(lie(bs));
       }),
     );
+  });
+});
+
+describe("a bubble's tail in its box", () => {
+  // A bubble 60 by 40 mm at the page's top left, its tip 20 mm below its foot; the stroke adds its 0.5 mm.
+  const bubble = { id: "a", x: 0, y: 0, w: 60, h: 40, z: 0, locked: false, props: { kind: "bubble", tail: [0.2, 1.5] } };
+  it("reaches the tip for the page's edge; align, size and snap keep the box, as in PowerPoint", () => {
+    expect(lowest(bubble)).toBeCloseTo(60.5, 6);
+    expect(rightmost(bubble)).toBeCloseTo(60, 6);
+    expect(outline(bubble).h).toBeCloseTo(40, 6);
   });
 });

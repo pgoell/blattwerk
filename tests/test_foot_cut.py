@@ -73,8 +73,11 @@ LEVEL = r"""(name) => {
   block.style.transform = 'none';
   const box = frame.getBoundingClientRect();
   const zoom = box.width / frame.offsetWidth || 1;
-  const cut = parseFloat(/calc\(100% - ([\d.]+)px\)/.exec(getComputedStyle(frame).clipPath)[1]);
-  const line = box.top + cut * zoom;
+  // The cut lies on the frame, or on an inside shape's text alone (#779), from its top.
+  const cuts = (el) => /calc\(100% - ([\d.]+)px\)/.exec(getComputedStyle(el).clipPath);
+  const clipped = [frame, ...frame.children].find(cuts);
+  const cut = parseFloat(cuts(clipped)[1]);
+  const line = clipped.getBoundingClientRect().top + cut * zoom;
   const rects = [];
   for (const p of frame.querySelectorAll('p')) {
     const r = document.createRange();
