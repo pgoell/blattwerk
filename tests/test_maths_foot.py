@@ -228,6 +228,36 @@ def test_i1_a_refused_click_is_no_step_of_undo(editor):
     expect(tasks(page).first).to_have_text("11 Aufgaben")
 
 
+def test_i1b_a_quick_second_click_keeps_the_first_when_its_answer_is_late(editor):
+    """I1b: two quick clicks on "mehr": the first answer comes late, and it still counts; the second is refused."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    held = []
+
+    def hold(route):
+        # The first answer waits until the second click is sent; then both go on.
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect(tasks(page).first).to_have_text("11 Aufgaben")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe mehr").click()
+    refusal(page)
+    expect(tasks(page).first).to_have_text("12 Aufgaben")
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    expect(tasks(page).first).to_have_text("11 Aufgaben")
+
+
 def test_i2_the_line_goes_when_there_is_room_again(editor):
     """I2: after a refusal, one column more makes room: the line goes and one task more works."""
     client = user()
