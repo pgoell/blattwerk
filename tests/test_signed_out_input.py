@@ -259,6 +259,27 @@ def test_a_change_made_before_the_redo_lands_is_kept(window, server):
     assert columns_of(client, sheet_id) == columns + 1
 
 
+def test_another_tabs_save_keeps_the_owed_click_of_this_tab(window, server):
+    """Review (#890): tab B of the same sheet writes its record after A owed a click. A's login page,
+    reloaded, still redoes A's click after the sign-in."""
+    page, client, sheet_id = maths_sheet(window, server, 14)
+    address = f"{server}/blatt/{sheet_id}"
+    other = page.context.new_page()
+    other.goto(address)
+    expect_sheet(other)
+    page.context.clear_cookies()
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect_login(page, address)
+    pick(other, "m")
+    other.get_by_label("Eine Spalte mehr").click()
+    expect_login(other, address)
+    page.reload()
+    expect_login(page, address)
+    login(page, server, client)
+    expect_sheet(page)
+    wait_count(client, sheet_id, page, 13)
+
+
 def test_i6_another_teacher_signing_in_at_that_login_gets_none_of_the_owed_click(window, server):
     """I6: B signs in at the login A's click brought. B sees nothing of A's sheet and the server keeps A's count."""
     page, client, sheet_id, address = count_after_click(window, server)

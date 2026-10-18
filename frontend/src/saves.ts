@@ -63,8 +63,7 @@ type Saver = {
 // dropped the sheet's, not because the teacher took it away.
 // `asked` is the change a keep of a sheet deleted elsewhere last sent as a new sheet, whose answer may not have come:
 // a press after a reload finds that sheet rather than making a second one.
-// `owed` is the maths change the session ran out on, which the editor redoes after the login (`owe`).
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept; owed?: Owed[] };
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed"; choiceProblems?: string[] };
 
 const savers = new Map<number, Saver>();
@@ -125,7 +124,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked, owed: s.owed };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -270,6 +269,8 @@ export function open(sheet: Sheet): Sheet {
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
+    // The clicks a tab before owed for this teacher: the editor redoes them when it opens.
+    s.owed = owedIn(sheet.id)?.filter((e) => e.owner === owner).map(({ block, change }) => ({ block, change }));
     const record = handed.get(s.id) ?? kept(s.id);
     handed.delete(s.id);
     // A change kept by a build from before the Lernwörter takes the sheet's list: so it neither deletes the list
@@ -293,7 +294,6 @@ export function open(sheet: Sheet): Sheet {
       // past the version they were based on, it takes none of them any more. They keep the saver unsaved also
       // where the teacher has undone the change: what the editor shows is sent again, as the tab before would have.
       if (sheet.version === record.base) s.lost =(record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
-      s.owed = record.owed;
       s.kept = true;
       keep(s);
     }
@@ -326,20 +326,43 @@ export function attach(id: number, last: () => Kept) {
 // A maths change the session ran out on: kept by the saver, red bar at once, redone by the editor after the login.
 // `change` holds only what the click changed: the redo lays it over the block as it is then.
 export type Owed = { block: string; change: Partial<MathsProps> };
+// The browser keeps the owed clicks under a key of their own, each with its teacher: every tab adds to the list
+// there, so no tab's record of its document drops another tab's click (#890). Null where the store cannot be read.
+const owedKey = (id: number) => `owed:${id}`;
+function owedIn(id: number): (Owed & { owner: number })[] | null {
+  try {
+    return JSON.parse(localStorage.getItem(owedKey(id)) ?? "[]");
+  } catch {
+    return null;
+  }
+}
+function owedTo(id: number, list: (Owed & { owner: number })[]) {
+  try {
+    if (list.length) localStorage.setItem(owedKey(id), JSON.stringify(list));
+    else localStorage.removeItem(owedKey(id));
+  } catch {
+    // The store is full or shut: the click lives on in this window alone.
+  }
+}
 // `stop` where the session ran out; a redo that failed for another reason stays owed and lets the saves go on.
 export function owe(id: number, entry: Owed, stop = true) {
   const s = savers.get(id);
   if (!s) return;
   s.owed = [...(s.owed ?? []), entry];
+  owedTo(id, [...(owedIn(id) ?? []), { ...entry, owner: s.owner }]);
   if (stop) s.stop = true;
   keep(s);
   tell();
 }
-// Hands out the owed changes of a sheet, to its owner only: another account's login gets none.
+// Hands out the owed changes of a sheet, to its owner only: another account's login gets none. The store holds
+// every tab's clicks, this one's too, so where it can be read it is the list, and a click another tab has taken
+// is not redone here again.
 export function takeOwed(id: number, owner: number): Owed[] {
   const s = savers.get(id);
-  if (!s || s.owner !== owner || !s.owed) return [];
-  const list = s.owed;
+  if (!s || s.owner !== owner) return [];
+  const all = owedIn(id);
+  const list = all ? all.filter((e) => e.owner === owner).map(({ block, change }) => ({ block, change })) : (s.owed ?? []);
+  if (all) owedTo(id, all.filter((e) => e.owner !== owner));
   s.owed = undefined;
   keep(s);
   tell();
