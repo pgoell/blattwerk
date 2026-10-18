@@ -5203,7 +5203,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
               </p>
               <Format
-                sheetId={file.id}
+                owe={(entry) => owe(file.id, entry)}
                 // A block of a group with a locked one is as fixed there as the locked one.
                 sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}

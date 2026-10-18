@@ -4,7 +4,8 @@ import { flushSync } from "react-dom";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
-import { owe } from "../saves";
+// A type alone: the module itself needs a window, and the sheet model's tests load this one without.
+import type { Owed } from "../saves";
 import { decimalsOf, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
@@ -32,7 +33,7 @@ export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, 
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
-export default function Maths({ block, apply, foot, sheetId }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number; sheetId: number }) {
+export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number; owe: (entry: Owed) => void }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<MathsProps>();
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
@@ -77,7 +78,7 @@ export default function Maths({ block, apply, foot, sheetId }: { block: MathsBlo
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
       const made = await generate(next).catch((e: Error) => {
-        if (e.message === "401") owe(sheetId, { block: block.id, change });
+        if (e.message === "401") owe({ block: block.id, change });
         throw e;
       });
       await before;
