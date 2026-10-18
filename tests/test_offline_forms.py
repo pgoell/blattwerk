@@ -15,7 +15,7 @@ from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_offline_editor import HOW, WHY, broken
 from test_signed_out import TYPED, photographed, written
-from ui import PASSWORD
+from ui import BROWSER, PASSWORD
 
 from blattwerk import auth, db
 
@@ -47,8 +47,9 @@ def test_a_login_that_reaches_no_server_blames_no_password_and_works_with_the_ne
     expect(page.get_by_label("Passwort")).to_have_value(PASSWORD)
     mend()
     # WebKit keeps no Secure cookie from this http server: the list's load would answer 401 and
-    # take the app back to the login. The list is held, so the heading stands (#752).
-    page.route("**/api/sheets", lambda route: None)
+    # take the app back to the login. There the list comes empty, so the heading stands (#752).
+    if BROWSER == "webkit":
+        page.route("**/api/sheets", lambda route: route.fulfill(json=[]))
     assert press(page, "Anmelden", "/login", server) == 200
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
 

@@ -686,8 +686,8 @@ SOURCES = {
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
     "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
 }
-# The sources that paste a picture another app copied, which WebKit's clipboard does not hold.
-PASTES = ("ctrl v", "einfügen")
+# The sources that paste a picture another app copied, "ctrl v" and "einfügen", which WebKit's
+# clipboard does not hold.
 NO_PICTURE = pytest.mark.webkit_xfail(
     204, "headless WebKit on Linux keeps no picture on the clipboard"
 )
