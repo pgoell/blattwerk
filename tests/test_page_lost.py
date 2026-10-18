@@ -97,7 +97,12 @@ def test_a_block_lands_on_page_1_scrolled_back_to_after_a_new_page(editor):
     page = two(editor, client)
     page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
     expect(page.locator(".sheet[data-page]")).to_have_count(3)
-    page.wait_for_function("() => document.querySelector('.desk').scrollTop > 500")
+    # The editor's smooth scroll has brought the new page to the top: a scroll set before then
+    # races it on a slow runner, which may carry the view back to the new page.
+    page.wait_for_function(
+        """() => Math.abs(document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().top
+            - document.querySelector('.desk').getBoundingClientRect().top) < 40"""
+    )
     page.evaluate("document.querySelector('.desk').scrollTop = 0")
     expect_out_of_view(page, 1)
     insert(page, "Pfeil")
