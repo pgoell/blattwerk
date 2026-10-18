@@ -7,6 +7,9 @@
     open PATH              goes to a path of the app: / or /blatt/12, never /admin
     click TARGET           also: double-click TARGET, shift-click TARGET, hover TARGET
     drag FROM TO           presses the mouse at FROM, moves it to TO and lets go
+    middle-drag FROM TO    the same with the middle button held: it pans the desk
+    swipe FROM TO          a finger put down at FROM, moved to TO and lifted; from an edge it
+                           opens a drawer, upright only
     wheel TARGET DY        turns the wheel over TARGET by DY px; less than 0 is up
     key KEYS [N]           presses a key or a chord N times: Escape, ArrowRight, Control+z
     type TEXT              types the text where the focus is
@@ -273,7 +276,8 @@ def hover(page: Page, target: str) -> str:
     return shown(page, f"mouse at {x:g},{y:g}")
 
 
-def drag(page: Page, start: str, end: str) -> str:
+def ends(page: Page, start: str, end: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """FROM and TO in px. The page may turn to TO, so FROM is read again: both must show at once."""
     x, y = point(page, start)
     to = point(page, end)
     if NOTES:
@@ -283,12 +287,44 @@ def drag(page: Page, start: str, end: str) -> str:
         if NOTES:
             raise Refused(f'"{start}" and "{end}" are not in the window together: give X,Y')
         NOTES.append("turned the page to it")
+    return (x, y), to
+
+
+def drag(page: Page, start: str, end: str) -> str:
+    (x, y), to = ends(page, start, end)
     page.mouse.move(x, y)
     page.mouse.down()
     # The editor follows the moves between the two, not a jump.
     page.mouse.move(*to, steps=10)
     page.mouse.up()
     return shown(page, f"dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
+def middle_drag(page: Page, start: str, end: str) -> str:
+    (x, y), to = ends(page, start, end)
+    page.mouse.move(x, y)
+    page.mouse.down(button="middle")
+    page.mouse.move(*to, steps=10)
+    page.mouse.up(button="middle")
+    return shown(page, f"middle-dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
+def swipe(page: Page, start: str, end: str) -> str:
+    """A finger over the browser's debugging line: Playwright's touchscreen only taps."""
+    (x, y), to = ends(page, start, end)
+    session = page.context.new_cdp_session(page)
+    try:
+        session.send(
+            "Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]}
+        )
+        steps = 10
+        for n in range(1, steps + 1):
+            at = [{"x": x + (to[0] - x) * n / steps, "y": y + (to[1] - y) * n / steps}]
+            session.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": at})
+        session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    finally:
+        session.detach()
+    return shown(page, f"swiped from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
 
 
 def wheel(page: Page, target: str, dy: str) -> str:
@@ -537,6 +573,8 @@ VERBS: dict[str, Callable[..., str]] = {
     "shift-click": shift_click,
     "hover": hover,
     "drag": drag,
+    "middle-drag": middle_drag,
+    "swipe": swipe,
     "wheel": wheel,
     "key": key,
     "type": type_,
