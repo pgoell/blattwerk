@@ -37,7 +37,6 @@ const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range =>
 export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number; owe: (entry: Owed) => void }) {
   // The changed limits of the clicks still on their way, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<Partial<Limits>>();
-  const wished = useRef<Partial<Limits> | undefined>(undefined);
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
   // What is typed in the own Zahlenraum, until an undo or a redo changes the number under the field.
   const [typed, setTyped] = useState<string>();
@@ -76,17 +75,29 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
 
   // A new limit asks for new exercises. Every answer is applied, in the order asked; only the last one clears the
   // pending limit. Where none comes, the limit stays as set, and the line above the page asks again with it.
+  // The changes of the clicks still on their way, by click. A refused one leaves the panel with its answer.
+  const onWay = useRef(new Map<number, Partial<Limits>>());
+  // What the panel shows over the block: the failed clicks' changes, then those on their way, in click order.
+  function wish() {
+    const all = Object.assign({ ...carry.current }, ...onWay.current.values()) as Partial<Limits>;
+    setPending(Object.keys(all).length ? all : undefined);
+    return all;
+  }
   function limit(change: Partial<Limits>) {
     const n = ++asked.current;
-    const wish = { ...wished.current, ...change };
-    wished.current = wish;
-    setPending(wish);
-    const sent = { ...stored.current, ...carry.current, ...wish };
+    onWay.current.set(n, change);
+    const sent = { ...stored.current, ...wish() };
     const before = applying.current;
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
+      // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
+      const owed = (e: unknown) => {
+        if ((e as Error).message === "401") owe({ block: block.id, change });
+      };
       // A failed click keeps its change for the next click to carry.
       const miss = (e: unknown) => {
         carry.current = { ...carry.current, ...change };
+        onWay.current.delete(n);
+        wish();
         return e;
       };
       let made: Made | undefined;
@@ -94,30 +105,38 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
       try {
         made = await generate(sent);
       } catch (e) {
-        // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
-        if ((e as Error).message === "401") owe({ block: block.id, change });
+        owed(e);
         error = e;
       }
       await before;
       // A click a later one has overtaken says nothing, not even when its request failed.
-      if (n < landed.current) return;
+      if (n < landed.current) {
+        onWay.current.delete(n);
+        wish();
+        return;
+      }
       if (error) throw miss(error);
+      const base = () => ({ ...stored.current, ...carry.current, ...change });
       // An earlier click refused in between is no limit of this one: the answer is asked again without it.
-      const target = { ...stored.current, ...carry.current, ...change };
-      if (JSON.stringify(ask(target)) !== JSON.stringify(ask(sent))) made = await generate(target).catch((e) => Promise.reject(miss(e)));
+      if (JSON.stringify(ask(base())) !== JSON.stringify(ask(sent)))
+        made = await generate(base()).catch((e) => {
+          owed(e);
+          return Promise.reject(miss(e));
+        });
       landed.current = n;
       // Drawn at once, so that the next answer's `latest` sees the block as this one leaves it. Each answer is an
-      // undo step of its own, also when two land after both clicks.
+      // undo step of its own, also when two land after both clicks. Built after the answer, so that a column
+      // clicked while it was on its way stays.
       let ok = false;
-      flushSync(() => void (ok = latest.current({ ...target, ...made }, `maths ${n}`)));
+      flushSync(() => void (ok = latest.current({ ...base(), ...made }, `maths ${n}`)));
       // The line of an earlier failed click is moot now: its change is on the sheet with this answer.
       if (ok) {
         carry.current = {};
         drop("Die Aufgaben konnten nicht erzeugt werden.");
       }
+      onWay.current.delete(n);
+      wish();
       if (n !== asked.current) return;
-      setPending(undefined);
-      wished.current = undefined;
       // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
       if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
     });

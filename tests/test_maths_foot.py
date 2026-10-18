@@ -473,6 +473,111 @@ def test_i1k_a_moot_retry_that_fails_again_says_nothing(editor):
     expect(at(page, "m").locator(".maths > div")).to_have_count(9)
 
 
+def test_i1l_a_column_clicked_while_the_re_ask_is_on_its_way_stays(editor):
+    """I1l (review): "mehr" refused, "Neu würfeln" asked again without it, "Spalte mehr" while that is on its way: 4 stays."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    held = []
+    sent = []
+
+    def route(r):
+        sent.append(r)
+        if len(sent) == 2:
+            r.continue_()
+        else:
+            held.append(r)
+
+    pick(page, "m")
+    page.route("**/api/maths", route)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_role("button", name="Neu würfeln").click()
+    for _ in range(50):
+        if len(sent) == 2:
+            break
+        page.evaluate(FRAMES)
+    held.pop().continue_()
+    for _ in range(50):
+        if held:
+            break
+        page.evaluate(FRAMES)
+    assert held, "the click was not asked again"
+    page.get_by_label("Eine Spalte mehr").click()
+    expect(tasks(page).nth(1)).to_have_text("4 Spalten")
+    held.pop().continue_()
+    page.evaluate(FRAMES)
+    page.evaluate(FRAMES)
+    expect(tasks(page).nth(1)).to_have_text("4 Spalten")
+    (block,) = saved(page, client)
+    assert block["props"]["columns"] == 4
+    assert block["props"]["count"] == 12
+
+
+def test_i1m_a_401_on_the_re_ask_is_owed(editor):
+    """I1m (review): the re-ask without the refused 13 meets a run out session: the click is owed for after the login."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    held = []
+    sent = []
+
+    def route(r):
+        sent.append(r)
+        if len(sent) == 1:
+            held.append(r)
+        elif len(sent) == 2:
+            r.continue_()
+        else:
+            r.fulfill(status=401, body="{}")
+
+    pick(page, "m")
+    page.route("**/api/maths", route)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_role("button", name="Neu würfeln").click()
+    for _ in range(50):
+        if len(sent) == 2:
+            break
+        page.evaluate(FRAMES)
+    held.pop().continue_()
+    page.wait_for_function(
+        "() => Object.keys(localStorage).some((k) => k.startsWith('owed:') && localStorage.getItem(k) !== '[]')"
+    )
+
+
+def test_i1n_a_refused_count_leaves_the_panel_when_the_last_click_fails(editor):
+    """I1n (review): "mehr" refused, "Neu würfeln" fails: the panel shows the block's own 12, not the refused 13."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    held = []
+    sent = []
+
+    def route(r):
+        sent.append(r)
+        if len(sent) == 1:
+            held.append(r)
+        else:
+            r.abort()
+
+    pick(page, "m")
+    page.route("**/api/maths", route)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_role("button", name="Neu würfeln").click()
+    for _ in range(50):
+        if len(sent) == 2:
+            break
+        page.evaluate(FRAMES)
+    held.pop().continue_()
+    expect(page.get_by_role("button", name="Erneut versuchen")).to_be_visible()
+    expect(tasks(page).first).to_have_text("12 Aufgaben")
+
+
 def test_i2_the_line_goes_when_there_is_room_again(editor):
     """I2: after a refusal, one column more makes room: the line goes and one task more works."""
     client = user()
