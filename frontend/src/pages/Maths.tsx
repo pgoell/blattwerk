@@ -6,7 +6,7 @@ import Numbering from "../components/Numbering";
 import { attempt, drop } from "../fault";
 // A type alone: the module itself needs a window, and the sheet model's tests load this one without.
 import type { Owed } from "../saves";
-import { decimalsOf, overFoot, scaleOf, SIGNS, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
+import { decimalsOf, overFoot, scaleOf, SIGNS, subscribe, type Exercise, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../sheet";
 
 const ROOMS = [10, 20, 100, 1000, 1000000];
 // Einer, Zehner, Hunderter, Tausender and so on up to the million.
@@ -42,8 +42,22 @@ export const kept = (was: MathsProps, next: Limits, made: Made): Made => {
   if (next.count === was.count) return made;
   const families = was.exercises.some((e) => ("sign" in e ? undefined : e.family) !== undefined);
   if (families) {
-    const have = was.exercises.reduce((n, e) => Math.max(n, ("sign" in e ? 0 : e.family ?? 0) + 1), 0);
-    return { ...made, exercises: [...was.exercises, ...made.exercises.filter((e) => !("sign" in e) && (e.family ?? 0) >= have)] };
+    // The families of a list by number, each told by its tasks, so that one the block has already is not added again.
+    const groups = (list: Exercise[]) => {
+      const out = new Map<number, Exercise[]>();
+      for (const e of list) {
+        const f = "sign" in e ? 0 : (e.family ?? 0);
+        out.set(f, [...(out.get(f) ?? []), e]);
+      }
+      return [...out.values()];
+    };
+    const told = (g: Exercise[]) => JSON.stringify(g.map((e) => JSON.stringify({ ...e, family: undefined })).sort());
+    const old = groups(was.exercises);
+    const all = groups(made.exercises);
+    const known = new Set(old.map(told));
+    const fresh = all.filter((g) => !known.has(told(g)) && known.add(told(g)));
+    const more = [...fresh, ...all.slice(old.length)].filter((g, i, list) => list.indexOf(g) === i).slice(0, Math.max(0, all.length - old.length));
+    return { ...made, exercises: [...was.exercises, ...more.flatMap((g, k) => g.map((e) => ({ ...e, family: old.length + k })))] };
   }
   const seen = new Set(was.exercises.map((e) => JSON.stringify(e)));
   const fresh = made.exercises.filter((e) => !seen.has(JSON.stringify(e)) && seen.add(JSON.stringify(e)));
