@@ -17,6 +17,7 @@ mise owns every command. `mise tasks` lists them.
 ```sh
 mise run test           # pytest, all cores
 mise run test:one -- tests/test_keys.py::test_name    # one worker, stops at the first failure
+mise run test:each -- tests/a.py::x tests/a.py::y    # one worker, runs each named test, failed or not
 mise run test:flaky -- tests/test_keys.py::test_name  # 20 times side by side
 mise run test:flaky -- 'tests/test_keys.py::test_name[param]'  # one parametrised case, 20 times
 mise run test:webkit    # the browser tests in WebKit, in Docker where the host lacks its libraries
@@ -59,6 +60,7 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 
 Claude Code refuses a Bash call it cannot prove stays inside the worktree. In a worktree-isolated subagent:
 
-- Write files with the Write tool, never `cat > file <<EOF`.
+- Write new files with the Write tool and add to a file with Edit, never `cat > file <<EOF` or `cat >> file <<EOF`.
+- Several tests: one call, `mise run test:each -- tests/a.py::x tests/a.py::y`, never a `for` loop.
 - Run git as its own Bash call: no `&&` chain, no loop, no `cd` to the shared checkout.
 - Give `mise`, `uv`, `sed` and `git` literal arguments, not shell variables or `for` loops.
