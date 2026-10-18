@@ -902,23 +902,125 @@ function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fa
   );
 }
 
-// A native font menu in FONT_GROUPS' order, each font shown in its own face.
+// A font menu in FONT_GROUPS' order, each font shown in its own face. The native select keeps the value and the keys;
+// its list is ours, because macOS and iPadOS draw a native list in the system font.
+const FONT_KEYS = FONT_GROUPS.flatMap(([, fonts]) => fonts) as readonly string[];
 function FontSelect({ label, value: stored, unknown, onChange }: { label: string; value: unknown; unknown?: string; onChange: (font: string) => void }) {
   // A font nobody knows shows as Druckschrift, the font it draws in.
   const value = fontOf(stored);
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const wrap = useRef<HTMLDivElement>(null);
+  const select = useRef<HTMLSelectElement>(null);
+  // The faces load now, so a name shows at once when the list opens. A face that fails shows its fallback.
+  useEffect(() => {
+    for (const font of FONT_KEYS) document.fonts.load(`16px "${FONTS[font as Font][1]}"`).catch(() => {});
+  }, []);
+  // A press outside the select and the list shuts the list with no change.
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  const show = () => {
+    setHi(Math.max(0, FONT_KEYS.indexOf(value)));
+    setOpen(true);
+  };
+  const pick = (font: string) => {
+    setOpen(false);
+    select.current?.focus();
+    if (font !== value) onChange(font);
+  };
+  const toggle = () => (open ? setOpen(false) : show());
+  // The keys of the closed select step through the fonts; the keys of the open list move and pick.
+  const key = (e: React.KeyboardEvent<HTMLSelectElement>) => {
+    const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!open) {
+      if (["Enter", " ", "F4"].includes(e.key) || (e.altKey && e.key === "ArrowDown")) {
+        e.preventDefault();
+        show();
+      } else if (step && !e.altKey) {
+        e.preventDefault();
+        const next = FONT_KEYS[Math.min(FONT_KEYS.length - 1, Math.max(0, FONT_KEYS.indexOf(value) + step))];
+        if (next !== value) onChange(next);
+      }
+      return;
+    }
+    if (step) {
+      e.preventDefault();
+      setHi((h) => Math.min(FONT_KEYS.length - 1, Math.max(0, h + step)));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      pick(FONT_KEYS[hi]);
+    } else if (e.key === "Escape") {
+      // The drawer stays open: the key stops here.
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  };
   return (
     <>
-      <select aria-label={label} value={value} style={{ fontFamily: FONTS[value][1] }} onChange={(e) => onChange(e.target.value)}>
-        {FONT_GROUPS.map(([group, fonts]) => (
-          <optgroup key={group} label={group}>
-            {fonts.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
-                {FONTS[font][0]}
-              </option>
+      <div className="fontsel" ref={wrap}>
+        <select
+          ref={select}
+          aria-label={label}
+          value={value}
+          style={{ fontFamily: FONTS[value][1] }}
+          onChange={(e) => onChange(e.target.value)}
+          onMouseDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            select.current?.focus();
+            toggle();
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            select.current?.focus();
+            toggle();
+          }}
+          onKeyDown={key}
+        >
+          {FONT_GROUPS.map(([group, fonts]) => (
+            <optgroup key={group} label={group}>
+              {fonts.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: FONTS[font][1] }}>
+                  {FONTS[font][0]}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {open && (
+          <div role="listbox" aria-label={`Liste: ${label}`} className="fontlist">
+            {FONT_GROUPS.map(([group, fonts]) => (
+              <div role="group" aria-label={group} key={group}>
+                <div role="heading" aria-level={3} className="fontgroup">
+                  {group}
+                </div>
+                {fonts.map((font) => (
+                  <div
+                    role="option"
+                    key={font}
+                    aria-selected={font === value}
+                    className={FONT_KEYS[hi] === font ? "hi" : undefined}
+                    style={{ fontFamily: `${FONTS[font][1]}, Andika, sans-serif` }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pick(font)}
+                  >
+                    {FONTS[font][0]}
+                  </div>
+                ))}
+              </div>
             ))}
-          </optgroup>
-        ))}
-      </select>
+          </div>
+        )}
+      </div>
       {unknown && (
         <p className="hint">
           Die Schrift „{unknown}“ kennt Blattomat nicht: Der Block druckt in Druckschrift.
