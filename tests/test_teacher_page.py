@@ -872,6 +872,41 @@ def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, s
 
 
 @pytest.mark.native
+def test_the_answer_key_shows_by_mehr_and_its_item_in_two_calls(folder, server, playwright):
+    """#773: in the window of 1280 px "Lösungen zeigen" lies under "Mehr", and one call opens the
+    menu while the next, a client of its own, clicks the item."""
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    sheet(client, [box("a", "text", ONE)], title="Probe")
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        ok("click", "Probe")
+        ok("click", "Beenden")
+        ok("where", "Gespeichert")
+        assert run(folder, server, "where", "Lösungen zeigen").returncode == 1
+        ok("click", "Mehr")
+        ok("click", "Lösungen zeigen")
+        ok("click", "Mehr")
+        joined = playwright.chromium.connect_over_cdp(tool.running()["endpoint"])
+        item = joined.contexts[0].pages[0].get_by_role("menuitemcheckbox", name="Lösungen zeigen")
+        expect(item).to_have_attribute("aria-checked", "true")
+        joined.close()
+    finally:
+        run(folder, server, "stop")
+
+
+@pytest.mark.native
 def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(
     folder, server, playwright
 ):

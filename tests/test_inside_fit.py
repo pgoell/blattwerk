@@ -267,3 +267,27 @@ def test_a_squashed_triangle_prints_its_text_at_the_size_the_screen_shows(editor
         assert paper.locator(".block .frame").evaluate(share) == pytest.approx(on_screen, rel=0.01)
     finally:
         paper.context.close()
+
+
+# Where the words of the block's text start and end on the screen, in px.
+SPAN = """(el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el.querySelector(".frame p"));
+    const box = range.getBoundingClientRect();
+    return [box.left, box.right];
+}"""
+
+
+def test_a_stars_text_takes_its_alignment_inside_the_box_of_its_inner_points(editor):
+    """#773: as in PowerPoint, a star's text lies in the box of its inner points, and left, centre
+    and right align it there. The words never reach the star's own left edge."""
+    spans = {}
+    for align in ("left", "center", "right"):
+        page = editor(box("a", "shape", {**STAR, "text": "j jo", "align": align}, w=80, h=80))
+        spans[align] = at(page, "a").evaluate(SPAN)
+        star = at(page, "a").bounding_box()
+    (left, _), (centre, _), (_, right) = spans["left"], spans["center"], spans["right"]
+    assert left + 20 < centre < spans["right"][0] - 20
+    # The inner points of a star of 0.38 lie a third of its width in from each side.
+    assert left > star["x"] + star["width"] / 4
+    assert right < star["x"] + star["width"] * 3 / 4
