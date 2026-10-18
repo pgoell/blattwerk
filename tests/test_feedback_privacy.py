@@ -1,6 +1,7 @@
 """The privacy check that stands between a teacher's feedback and a public issue."""
 
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -195,3 +196,39 @@ def test_empty_names_do_not_hit():
 )
 def test_no_users(text, reasons):
     assert check(text, [], [], SOURCE) == reasons
+
+
+@pytest.mark.parametrize(
+    "text, send",
+    [
+        ("The Lineatur block shows one row too few", "Die Lineatur hat eine Zeile zu wenig"),
+        ("The Uhr block draws the hands wrong", "Die Uhr zeigt falsch"),
+        ("The Lineaturen are too thin", "Die Lineaturen sind zu dünn"),
+    ],
+)
+def test_block_names_are_no_send_words(text, send):
+    assert check(text, EMAILS, NAMES, send) == []
+
+
+def test_a_name_beside_a_block_name_is_still_caught():
+    send = "Lena sagt, die Lineatur ist zu klein"
+    assert "word from the send" in check("Lena says the Lineatur is too small", EMAILS, NAMES, send)
+
+
+def test_copied_words_beside_a_block_name_are_still_caught():
+    send = "Die Lineatur hat eine Zeile zu wenig für Paul"
+    text = "Die Lineatur hat eine Zeile zu wenig, sagt er"
+    assert "copied words" in check(text, EMAILS, NAMES, send)
+
+
+def test_every_editor_block_name_is_allowed():
+    editor = (Path(__file__).parent.parent / "frontend/src/pages/Editor.tsx").read_text()
+    names = []
+    for const in ("NAMES", "PLURALS"):
+        body = re.search(rf"const {const}\b[^=]*= \{{(.*?)\n\}};", editor, re.DOTALL)
+        assert body, f"{const} not found in Editor.tsx"
+        names += re.findall(r'"([^"]+)"', body.group(1))
+    single = [n for n in names if " " not in n]
+    assert len(single) > 30
+    for name in single:
+        assert name in feedback_privacy.BLOCK_NAMES, name
