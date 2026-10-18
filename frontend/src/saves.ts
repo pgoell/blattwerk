@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { api, catchUp, countLogin, onOther, onSignedOut, showLogin as signedOut, signed, type Refusal } from "./api";
-import { read, type Doc, type Sheet } from "./sheet";
+import { read, type Doc, type MathsProps, type Sheet } from "./sheet";
 
 // The wait after a change before it is saved. The tests set a shorter one on the page; a teacher's page has none and waits 2 s.
 const AFTER = (window as { saveAfter?: number }).saveAfter ?? 2000;
@@ -31,6 +31,8 @@ type Saver = {
   refused?: { doc: Doc; problems: string[]; title?: string };
   // The session ran out: nothing goes until a login or the next visit.
   stop: boolean;
+  // Changes the server did not get because the session ran out, to be redone by the sheet's editor after the login.
+  owed?: Owed[];
   // The sheet was deleted elsewhere: nothing is sent any more, and what the editor shows is kept until the teacher
   // has chosen, to keep it as a new sheet or to drop it. `choice` says how the first of the two stands.
   gone: boolean;
@@ -81,7 +83,7 @@ const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 // A save that got no answer counts too: the server may hold it though the teacher has undone it since. So does a
 // clash: the server holds another device's document, whatever the editor is back at. And of a sheet deleted
 // elsewhere the server holds nothing: all the editor shows is unsaved, also where it is back at what was saved.
-const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
+const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || !!s.owed?.length || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
 // The refusal that stands: for the document the saver holds now, and only while it is the one refused.
 const refusal = (s: Saver) => (s.refused && same(s.refused.doc, s.want.doc) ? s.refused : undefined);
 // While the document is refused, the title goes alone only where it changed, and not as one the server refused.
@@ -267,6 +269,8 @@ export function open(sheet: Sheet): Sheet {
     const saved = { doc: read(sheet.doc), title: sheet.title };
     s = { id: sheet.id, owner, base: sheet.version, saved, want: saved, lost: [], tries: 0, clash: false, stop: false, gone: false, dead: false, open: false, kept: false, late: false, idle: [] };
     savers.set(s.id, s);
+    // The clicks a tab before owed for this teacher: the editor redoes them when it opens.
+    s.owed = owedIn(sheet.id)?.filter((e) => e.owner === owner).map(({ block, change }) => ({ block, change }));
     const record = handed.get(s.id) ?? kept(s.id);
     handed.delete(s.id);
     // A change kept by a build from before the Lernwörter takes the sheet's list: so it neither deletes the list
@@ -319,6 +323,52 @@ export function attach(id: number, last: () => Kept) {
     tell();
   };
 }
+// A maths change the session ran out on: kept by the saver, red bar at once, redone by the editor after the login.
+// `change` holds only what the click changed: the redo lays it over the block as it is then.
+export type Owed = { block: string; change: Partial<MathsProps> };
+// The browser keeps the owed clicks under a key of their own, each with its teacher: every tab adds to the list
+// there, so no tab's record of its document drops another tab's click (#890). Null where the store cannot be read.
+const owedKey = (id: number) => `owed:${id}`;
+function owedIn(id: number): (Owed & { owner: number })[] | null {
+  try {
+    return JSON.parse(localStorage.getItem(owedKey(id)) ?? "[]");
+  } catch {
+    return null;
+  }
+}
+function owedTo(id: number, list: (Owed & { owner: number })[]) {
+  try {
+    if (list.length) localStorage.setItem(owedKey(id), JSON.stringify(list));
+    else localStorage.removeItem(owedKey(id));
+  } catch {
+    // The store is full or shut: the click lives on in this window alone.
+  }
+}
+// `stop` where the session ran out; a redo that failed for another reason stays owed and lets the saves go on.
+export function owe(id: number, entry: Owed, stop = true) {
+  const s = savers.get(id);
+  if (!s) return;
+  s.owed = [...(s.owed ?? []), entry];
+  owedTo(id, [...(owedIn(id) ?? []), { ...entry, owner: s.owner }]);
+  if (stop) s.stop = true;
+  keep(s);
+  tell();
+}
+// Hands out the owed changes of a sheet, to its owner only: another account's login gets none. The store holds
+// every tab's clicks, this one's too, so where it can be read it is the list, and a click another tab has taken
+// is not redone here again.
+export function takeOwed(id: number, owner: number): Owed[] {
+  const s = savers.get(id);
+  if (!s || s.owner !== owner) return [];
+  const all = owedIn(id);
+  const list = all ? all.filter((e) => e.owner === owner).map(({ block, change }) => ({ block, change })) : (s.owed ?? []);
+  if (all) owedTo(id, all.filter((e) => e.owner !== owner));
+  s.owed = undefined;
+  keep(s);
+  tell();
+  return list;
+}
+
 // The editor says what the sheet holds after each change.
 export function set(id: number, want: Kept) {
   const s = savers.get(id);

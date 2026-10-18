@@ -103,8 +103,8 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
-import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -359,6 +359,35 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         return doc === h.doc ? h : { ...h, doc };
       }),
     );
+  }, []);
+  // Maths changes the session ran out on (saves.ts `owe`) are redone once the sheet opens after the login. The
+  // clicks of one block go together, the later over the earlier, laid over the block as it is when the answer
+  // comes: one request and one undo step a block. What cannot land says so.
+  useEffect(() => {
+    const changes = new Map<string, Partial<MathsProps>>();
+    for (const { block, change } of takeOwed(file.id, user.id)) changes.set(block, { ...changes.get(block), ...change });
+    const lost = "Eine Änderung an den Rechenaufgaben von vor der Anmeldung";
+    const find = (block: string) => {
+      const n = live.current.doc.pages.findIndex((p) => p.blocks.some((b) => b.id === block));
+      const b = live.current.doc.pages[n]?.blocks.find((x) => x.id === block);
+      return b?.type === "maths" ? { n, b } : undefined;
+    };
+    changes.forEach(async (change, block) => {
+      const was = find(block);
+      if (!was) return note("owed", `${lost} fand ihren Block nicht mehr und wurde nicht übernommen.`);
+      const made = await generate({ ...was.b.props, ...change }).catch((e: Error) => e);
+      // The session gone again keeps it owed with the red bar; another failure keeps it owed for the next opening.
+      if (made instanceof Error) {
+        owe(file.id, { block, change }, made.message === "401");
+        if (made.message !== "401") note("owed", `${lost} konnte noch nicht übernommen werden. Öffne das Blatt später noch einmal.`);
+        return;
+      }
+      const now = find(block);
+      if (!now) return note("owed", `${lost} fand ihren Block nicht mehr und wurde nicht übernommen.`);
+      const props = { ...now.b.props, ...change, ...made };
+      if (overFoot(now.b, props, sizeOf(live.current.doc, now.n)[1])) return note("owed", `${lost} passt nicht mehr auf die Seite und wurde nicht übernommen.`);
+      turn((p) => ({ ...p, blocks: p.blocks.map((x) => (x.id === block && x.type === "maths" ? ({ ...x, props, ...tall(x, mathsHeight(props)) } as Block) : x)) }), `owed ${block}`, now.n);
+    });
   }, []);
   const [title, setTitle] = useState(file.title);
   // The sheet's saver: what the server holds, whether a save failed, and whether the server holds a newer document
@@ -3141,7 +3170,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const mid = (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2;
       const gap = (r: DOMRect) => Math.max(0, r.top - mid, mid - r.bottom);
       const [n, now] = sheets.reduce((a, b) => (gap(b[1]) < gap(a[1]) ? b : a));
-      if (n === page) continue;
+      // The own page takes the unit back only when the middle lies off it, in the gap: then it is clamped onto it.
+      if (n === page && gap(was) === 0) continue;
       const [W, H] = sizes[n];
       const [x, right] = span(unit, "x");
       const [y, bottom] = span(unit, "y");
@@ -3156,7 +3186,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       (doc) => ({
         ...doc,
         pages: doc.pages.map((p, i) => {
-          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...copies] };
+          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...(away.get(page) ?? []), ...copies] };
           const come = away.get(i);
           if (!come) return p;
           const top = Math.max(0, ...p.blocks.map((b) => b.z)) - Math.min(...come.map((b) => b.z)) + 1;
@@ -5173,6 +5203,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
               </p>
               <Format
+                owe={(entry) => owe(file.id, entry)}
                 // A block of a group with a locked one is as fixed there as the locked one.
                 sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}

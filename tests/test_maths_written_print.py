@@ -144,14 +144,30 @@ def pdf_squares(page, picture, cols, rows):
     return out
 
 
+def placed(props, i, cols, grids):
+    """Task i's grid where it stands on the paper: a task narrower than the paper moves right to its last column, a division does not (issue #811)."""
+    grid = grids[i]
+    if props["exercises"][i]["op"] == "/":
+        return grid
+    dx = cols - grid["cols"]
+    # The sign of a plus or a minus stays in the first column.
+    sign = props["exercises"][i]["op"] in "+-"
+    return {
+        **grid,
+        "cells": [
+            [0 if sign and x == 0 else x + dx, y, ch, kind] for x, y, ch, kind in grid["cells"]
+        ],
+    }
+
+
 def check_screen(page, props, key):
     """Each task's svg on the screen, against its grid."""
     cols, rows, grids = paper(props)
     svgs = at(page, "m").locator("svg")
     expect(svgs).to_have_count(len(grids))
-    for i, grid in enumerate(grids):
+    for i in range(len(grids)):
         found = screen_squares(page, svgs.nth(i), cols, rows)
-        assert_squares(found, grid, key, f"screen, exercise {i}")
+        assert_squares(found, placed(props, i, cols, grids), key, f"screen, exercise {i}")
 
 
 def check_pdf(page, server, client, props, key):
@@ -159,7 +175,7 @@ def check_pdf(page, server, client, props, key):
     cols, rows, grids = paper(props)
     picture = printed_picture(server, client, sheet_id(page), key)
     for i, found in enumerate(pdf_squares(page, picture, cols, rows)):
-        assert_squares(found, grids[i], key, f"PDF, exercise {i}")
+        assert_squares(found, placed(props, i, cols, grids), key, f"PDF, exercise {i}")
 
 
 def test_a1_the_screen_writes_each_character_in_its_square(editor):

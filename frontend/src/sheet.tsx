@@ -2822,18 +2822,22 @@ const side = (s: Side) => (s.op ? `${decimal(s.a as number, 0)} ${SIGNS[s.op] ??
 // A written exercise: squared paper with a character to a square. All of a block's exercises get the same paper.
 // A square is `S` units wide: with a square of one unit a digit is under a unit high, and Chromium sets so small a
 // type a whole square too high, on the screen and in every PDF (issue #446).
-function Karo({ grid, cols, rows, k, solved }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean }) {
+function Karo({ grid, cols, rows, k, solved, dx, sign }: { grid: Grid; cols: number; rows: number; k: number; solved: boolean; dx: number; sign: boolean }) {
   const S = 10;
   const each = (n: number) => Array.from({ length: n + 1 }, (_, i) => i * S);
+  // The task's own grid is narrower than the paper: it moves right, so its ones stand in the paper's last column.
+  // A rule from the sign column stays there, so the rule under the sum spans the whole paper, and so does the sign
+  // of a plus or a minus: every task of the block has it in the first column.
+  const at = (x: number) => (sign && x === 0 ? 0 : x + dx);
   return (
     <svg width={cols * KARO * k} height={rows * KARO * k} viewBox={`0 0 ${cols * S} ${rows * S}`} style={{ width: `calc(${cols * KARO * k}px * var(--fit, 1))`, height: `calc(${rows * KARO * k}px * var(--fit, 1))` }}>
       <g stroke="#9db4c8" strokeWidth={0.03 * S}>
         {each(cols).map((x) => <line key={x} x1={x} x2={x} y2={rows * S} />)}
         {each(rows).map((y) => <line key={-y - 1} x2={cols * S} y1={y} y2={y} />)}
       </g>
-      {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={x1 * S} x2={x2 * S} y1={y * S} y2={y * S} stroke="currentColor" strokeWidth={0.08 * S} />)}
+      {grid.lines.map(([x1, x2, y, kind], i) => (solved || !kind) && <line key={i} className={kind ? "answer" : ""} x1={(x1 === 0 ? 0 : x1 + dx) * S} x2={(x2 + dx) * S} y1={y * S} y2={y * S} stroke="currentColor" strokeWidth={0.08 * S} />)}
       {grid.cells.map(([x, y, ch, kind], i) => (solved || !kind) && (
-        <text key={i} className={kind ? "answer" : ""} x={(x + 0.5) * S} y={(y + 0.5) * S} fontSize={(kind === 2 ? 0.45 : 0.75) * S} textAnchor="middle" dominantBaseline="central" fill="currentColor">
+        <text key={i} className={kind ? "answer" : ""} x={(at(x) + 0.5) * S} y={(y + 0.5) * S} fontSize={(kind === 2 ? 0.45 : 0.75) * S} textAnchor="middle" dominantBaseline="central" fill="currentColor">
           {ch}
         </text>
       ))}
@@ -2904,7 +2908,8 @@ function Maths({ block, k, solved }: { block: MathsBlock; k: number; solved: boo
           {side(e.left)} <i className="ring">{solved && e.sign}</i> {side(e.right)}
         </span>
       ) : e.grid ? (
-        <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} />
+        // A division keeps its head on the left, as written.
+        <Karo grid={e.grid} cols={cols} rows={rows} k={k} solved={solved} dx={e.op === "/" ? 0 : cols - e.grid.cols} sign={e.op === "+" || e.op === "-"} />
       ) : e.op2 ? (
         // The brackets stand against their numbers, as written: `(2 + 3) · 4` or `2 · (3 + 4)`.
         <span>
