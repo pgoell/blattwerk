@@ -63,7 +63,6 @@ HAUS = {
     "floors": 4,
     "max": 10,
     "given": "side",
-    "empty": False,
     "seed": 3,
 }
 DRAWN = {

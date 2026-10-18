@@ -147,6 +147,14 @@ describe("the typed numbers", () => {
     expect(houses[1].wrong).toEqual([false, false, false, false]);
   });
 
+  it("under a typed roof no two floors are alike, whatever the seed", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const house = made(P({ count: 1, floors: 4, max: 10, seed, typed: [[0, 0, 5]] })).houses[0];
+      const lefts = [1, 3, 5, 7].map((i) => house.numbers[i]);
+      expect(new Set(lefts).size).toBe(4);
+    }
+  });
+
   it("a typed roof of a house does not change the roof of another", () => {
     const plain = made(P({ count: 2, max: 20 })).houses;
     const typed = made(P({ count: 2, max: 20, typed: [[1, 0, 9]] })).houses;

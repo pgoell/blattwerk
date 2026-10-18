@@ -23,8 +23,8 @@
 //
 // With typed numbers (manual mode): the roof is the typed roof, else the generated one. A floor with both boxes typed
 // keeps both. A floor with one box typed gets roof minus that number in the other. A floor with none typed keeps its
-// generated left number a, taken modulo roof + 1 so a smaller typed roof keeps the floors apart, and gets roof minus
-// that on the right. `wrong[f]` is true when floor f
+// generated left number a and gets roof minus that on the right; under a typed roof other than the generated one the
+// left numbers are splits of that roof, drawn as for a generated house, so no two floors are alike there either. `wrong[f]` is true when floor f
 // does not add up to the roof: both typed with another sum, or one typed above the roof.
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
@@ -134,6 +134,16 @@ export function heightFor(p: ZahlenhausProps, w: number): number {
   return L.vbH * Math.min(w / L.vbW, S0);
 }
 
+// The splits 0 to roof in an order from `next` (Fisher-Yates).
+function shuffled(roof: number, next: () => number): number[] {
+  const out = Array.from({ length: roof + 1 }, (_, a) => a);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 // The houses of the settings. The same settings give the same houses on every call.
 const memo = new Map<string, Made>();
 
@@ -149,17 +159,16 @@ export function made(props: ZahlenhausProps): Made {
   for (let h = 0; h < p.count; h++) {
     const genRoof = lo + Math.floor(next() * (p.max - lo + 1));
     // The splits 0 to genRoof, shuffled; the floors take them in order, repeating the list when there are too few.
-    const splits = Array.from({ length: genRoof + 1 }, (_, a) => a);
-    for (let i = splits.length - 1; i > 0; i--) {
-      const j = Math.floor(next() * (i + 1));
-      [splits[i], splits[j]] = [splits[j], splits[i]];
-    }
-    const given = p.given === "side" ? sideFlags(p.floors) : p.given === "free" ? [...(p.free as boolean[])] :Array.from({ length: B }, (_, i) => i === 0);
+    const splits = shuffled(genRoof, next);
+    const given = p.given === "side" ? sideFlags(p.floors) : p.given === "free" ? [...(p.free as boolean[])] : Array.from({ length: B }, (_, i) => i === 0);
     // The side of each floor that "mix" gives, drawn for every `given`, so that another choice keeps the same houses.
     const sides = Array.from({ length: p.floors }, () => next() < 0.5);
     if (p.given === "mix") sides.forEach((left, f) => (given[left ? 1 + 2 * f : 2 + 2 * f] = true));
     const typed = new Map((p.typed ?? []).filter(([x]) => x === h).map(([, b, v]) => [b, v] as const));
     const roof = typed.get(0) ?? genRoof;
+    // A typed roof other than the generated one takes splits of its own, from a generator of its own, so that the
+    // houses after it stay as they were.
+    const pool = roof === genRoof ? splits : shuffled(roof, rng(p.seed + 7919 * (h + 1)));
     const numbers = [roof, ...Array.from({ length: B - 1 }, () => 0)];
     const wrong = Array.from({ length: p.floors }, () => false);
     for (let f = 0; f < p.floors; f++) {
@@ -177,7 +186,7 @@ export function made(props: ZahlenhausProps): Made {
         numbers[L] = tr > roof ? 0 : roof - tr;
         wrong[f] = tr > roof;
       } else {
-        numbers[L] = splits[f % splits.length] % (roof + 1);
+        numbers[L] = pool[f % pool.length];
         numbers[R] = roof - numbers[L];
       }
     }

@@ -226,16 +226,37 @@ def test_new_dice_store_another_seed_and_keep_the_other_props(editor):
     assert props_of(doc(page, client))["seed"] == HAUS["seed"]
 
 
-def test_a_new_number_of_floors_drops_the_free_and_typed_numbers(editor):
-    """I4: changing the Stockwerke drops the free flags and the typed numbers."""
+def test_a_new_number_of_floors_keeps_the_free_flags_and_typed_numbers_that_still_fit(editor):
+    """I4: more Stockwerke keep the free flags (the new floor takes the side flags) and the typed
+    numbers; fewer drop those of the floors gone."""
     client = user()
     page = editor(dz("d", {**HAUS, "given": "free", "free": FREE, "typed": TYPED}), client=client)
     pick(page, "d")
     step(page, lambda: field(page, "Stockwerke").select_option("5"))
     props = props_of(doc(page, client))
     assert props["floors"] == 5
-    assert "free" not in props
-    assert "typed" not in props
+    assert props["free"] == [*FREE, True, False]
+    assert props["typed"] == TYPED
+    expect(field(page, "Zahl im Dach")).to_have_value("9")
+    step(page, lambda: field(page, "Stockwerke").select_option("2"))
+    assert props_of(doc(page, client))["free"] == FREE[:5]
+    # Floor 1's typed boxes are still there, so its numbers stay.
+    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value("4")
+
+
+def test_an_undo_of_an_own_zahlenraum_shows_the_old_entry_in_the_select(editor):
+    """B of the review: after "Eigener" and 37, one undo brings max 10 back and the select says "bis 10"."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option("own")
+    own = field(page, "Eigener Zahlenraum")
+    step(page, lambda: own.fill("37"))
+    assert props_of(doc(page, client))["max"] == 37
+    undo(page)
+    assert props_of(doc(page, client))["max"] == 10
+    expect(field(page, "Zahlenraum")).to_have_value("10")
+    expect(field(page, "Eigener Zahlenraum")).to_have_count(0)
 
 
 def test_a_new_number_of_floors_grows_the_block_and_undo_brings_its_height_back(editor):

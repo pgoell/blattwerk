@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import type { ZahlenhausBlock } from "../sheet";
 import { draw } from "../bank";
-import { made, sane, type ZahlenhausProps } from "../zahlenhaus";
+import { made, sane, sideFlags, type ZahlenhausProps } from "../zahlenhaus";
 
 const ZAHLENRAUM = [10, 20, 100];
 const GIVEN = { side: "Dach und eine Seite", roof: "Nur Dach", mix: "Gemischt", free: "Freie Wahl" } as const;
@@ -10,12 +10,17 @@ const GIVEN = { side: "Dach und eine Seite", roof: "Nur Dach", mix: "Gemischt", 
 // The name of a box: the roof, or floor f's left or right box (f from 0, the top floor).
 const boxName = (b: number) => (b === 0 ? "Dach" : `Stockwerk ${Math.floor((b - 1) / 2) + 1} ${b % 2 === 1 ? "links" : "rechts"}`);
 
+// The free flags for another number of floors: the boxes that are still there keep theirs (the roof and the top
+// floors), a new floor takes the "side" flags. The typed numbers need nothing: `sane` drops those of the boxes gone.
+const floorsOf = (free: boolean[] | undefined, floors: number) => sideFlags(floors).map((d, i) => free?.[i] ?? d);
+
 export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; apply: (props: Partial<ZahlenhausProps>, key?: string) => void }) {
   const p = sane(block.props);
   const m = made(p);
   const [which, setWhich] = useState(0);
-  // Set when "Eigener" is chosen while the Zahlenraum is 10, 20 or 100: the input shows, nothing is stored yet.
-  const [own, setOwn] = useState(false);
+  // The Zahlenraum at which "Eigener" was chosen or last typed: while the stored one is the same, the input shows,
+  // also for 10, 20 or 100. An undo to another Zahlenraum shows the select's own entry again.
+  const [ownAt, setOwnAt] = useState<number | null>(null);
   // The number field with focus keeps its own text, so that typing is not fought by the re-render.
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
   // Set when a number field gets focus, until the mouseup of that click has selected its number.
@@ -23,7 +28,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
 
   const h = Math.min(which, m.houses.length - 1);
   const free = p.free ?? [];
-  const showOwn = own || !ZAHLENRAUM.includes(p.max);
+  const showOwn = ownAt === p.max || !ZAHLENRAUM.includes(p.max);
   // The rows of a house's boxes, the roof first, then each floor from the top.
   const rows = [[0], ...Array.from({ length: p.floors }, (_, f) => [1 + 2 * f, 2 + 2 * f])];
 
@@ -43,7 +48,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   return (
     <>
       <h2>Zahlenhaus</h2>
-      <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: undefined, typed: undefined })}>
+      <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: floorsOf(p.free, Number(e.target.value)) })}>
         {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
           <option key={n} value={n}>
             {n}
@@ -72,8 +77,8 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
         aria-label="Zahlenraum"
         value={showOwn ? "own" : p.max}
         onChange={(e) => {
-          if (e.target.value === "own") return setOwn(true);
-          setOwn(false);
+          if (e.target.value === "own") return setOwnAt(p.max);
+          setOwnAt(null);
           apply({ max: Number(e.target.value) });
         }}
       >
@@ -105,7 +110,9 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
             if (!/^\d{0,4}$/.test(e.target.value)) return;
             setDraft({ key: "max", text: e.target.value });
             const n = Number(e.target.value);
-            if (n >= 2 && n <= 1000) apply({ max: n }, "max");
+            if (n < 2 || n > 1000) return;
+            setOwnAt(n);
+            apply({ max: n }, "max");
           }}
         />
       )}
