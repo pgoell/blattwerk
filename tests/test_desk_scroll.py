@@ -11,6 +11,12 @@ from ui import TEXT, at, box, centre, doc, pick, reload, user
 
 DESK = ".desk"
 PAGE = '.sheet[data-page="{}"]'
+# The desk has scrolled so far that page 2 lies under its middle.
+MIDDLE_ON_PAGE_2 = """() => {
+    const d = document.querySelector('.desk').getBoundingClientRect();
+    const p = document.querySelector('.sheet[data-page="1"]').getBoundingClientRect();
+    return p.top < (d.top + d.bottom) / 2 - 20;
+}"""
 
 
 def sheets(editor):
@@ -76,9 +82,13 @@ def test_the_drop_after_the_scroll_lands_on_the_page_under_the_pointer(editor):
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
-    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
-    target = under(page, near_bottom(page))
+    page.wait_for_function(MIDDLE_ON_PAGE_2)
+    b = page.locator(DESK).bounding_box()
+    middle = (b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    page.mouse.move(*middle, steps=5)
+    target = under(page, middle)
     page.mouse.up()
+    assert target > 0
     expect(page.locator(PAGE.format(target)).locator('.block[data-id="a"]')).to_have_count(1)
     expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(0)
 
@@ -90,9 +100,15 @@ def test_the_drag_with_its_scroll_is_one_undo_step(editor):
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
-    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
+    page.wait_for_function(MIDDLE_ON_PAGE_2)
+    # Out of the edge the scroll stops, so the page under the pointer stays the one of the drop.
+    b = page.locator(DESK).bounding_box()
+    middle = (b["x"] + b["width"] / 2, b["y"] + b["height"] / 2)
+    page.mouse.move(*middle, steps=5)
+    target = under(page, middle)
     page.mouse.up()
-    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    assert target > 0
+    expect(page.locator(PAGE.format(target)).locator('.block[data-id="a"]')).to_have_count(1)
     page.keyboard.press("Control+z")
     # Undo shows page 1 again: the block is back there, where it was, in one step.
     expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
