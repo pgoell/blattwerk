@@ -5,6 +5,8 @@ drag scrolls it, faster nearer the edge, and the block follows the pointer. The 
 page under the pointer, and the whole drag with its scroll is one undo step.
 """
 
+import re
+
 from playwright.sync_api import expect
 from ui import TEXT, at, box
 
@@ -131,6 +133,25 @@ def test_a_drag_held_still_after_the_scroll_keeps_its_page_until_the_drop(editor
     page.keyboard.press("Control+z")
     expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
     expect(at(page, "a")).to_have_attribute("style", style)
+
+
+def test_escape_calls_off_a_drag_that_scrolled_the_desk(editor):
+    """Escape during the scroll: the block is back on page 1 where it was, still picked, and
+    Delete then takes it away (page 1 is in use with it)."""
+    page = sheets(editor)
+    style = at(page, "a").get_attribute("style")
+    grip = at(page, "a").bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
+    expect(at(page, "a")).to_have_attribute("style", style)
+    expect(at(page, "a")).to_have_class(re.compile(r"\bsel\b"))
+    page.keyboard.press("Delete")
+    expect(at(page, "a")).to_have_count(0)
 
 
 def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):

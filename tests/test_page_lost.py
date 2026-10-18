@@ -13,7 +13,7 @@ MADE = [
     ("Linie", "shape"),
     ("Rechteck", "shape"),
     ("Text", "text"),
-    ("Strecke", "ruling"),
+    ("Strecke", "shape"),
 ]
 
 
@@ -27,9 +27,12 @@ def insert(page, label):
 
 
 def two(editor, client):
-    """A box on page 1 and a text on page 2; page 1 is in use."""
+    """A box on page 1 and a text on page 2; page 1 is in use, the panel Seiten open."""
     return editor(
-        box("r", "shape", RECT), pages=[{"blocks": [box("t", "text", TEXT)]}], client=client
+        box("r", "shape", RECT),
+        pages=[{"blocks": [box("t", "text", TEXT)]}],
+        client=client,
+        theme="",
     )
 
 
@@ -145,6 +148,7 @@ def lines(editor, client):
         line,
         pages=[{"blocks": [box("t", "text", TEXT)]}],
         client=client,
+        theme="",
     )
 
 
@@ -182,9 +186,10 @@ def test_a_new_page_leaves_every_arrow_and_line_at_its_place(editor, way, chosen
 
 
 @pytest.mark.parametrize("chosen", [None, "p"])
-def test_quer_and_hoch_leave_every_arrow_and_line_on_its_page_and_place(editor, chosen):
-    """The sheet laid on its side and upright again: the arrow and the line stay on page 1, at
-    their place, as the box does."""
+@pytest.mark.parametrize("scope", ["Alle Seiten", "Nur diese Seite"])
+def test_quer_and_hoch_leave_every_arrow_and_line_on_its_page_and_place(editor, chosen, scope):
+    """The sheet, or page 1 alone, laid on its side and upright again: the arrow and the line stay
+    on page 1, at their place, as the box does."""
     client = user()
     page = lines(editor, client)
     if chosen:
@@ -192,6 +197,7 @@ def test_quer_and_hoch_leave_every_arrow_and_line_on_its_page_and_place(editor, 
     stored, _ = places(page, client)
     page.get_by_role("tab", name="Ansicht").click()
     panel = page.locator(".panel")
+    panel.get_by_role("button", name=scope, exact=True).click()
     panel.get_by_role("button", name="Quer", exact=True).click()
     quer, _ = places(page, client)
     assert {k: (v[0], v[1], v[2]) for k, v in quer.items()} == {
