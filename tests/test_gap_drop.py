@@ -248,6 +248,24 @@ def test_a_block_moved_across_the_gap_to_page_2_saves_reloads_prints_and_undoes(
     assert marker not in printed[0]
 
 
+def drop_near_page_2(page):
+    """Drags "a" on page 1 until its middle lies in the gap a quarter of the way up from page 2's top
+    edge, nearer page 2, so its top hangs above page 2 (#896)."""
+    to_gap(page)
+    press(page, "a")
+    mid, target = page.evaluate(
+        """() => {
+            const a = document.querySelector('.block[data-id="a"]').getBoundingClientRect();
+            const p1 = document.querySelector('.sheet[data-page="0"]').getBoundingClientRect();
+            const p2 = document.querySelector('.sheet[data-page="1"]').getBoundingClientRect();
+            return [(a.top + a.bottom) / 2, p2.top - (p2.top - p1.bottom) * 0.25];
+        }"""
+    )
+    x, y = centre(at(page, "a"))
+    page.mouse.move(x, y + (target - mid), steps=10)
+    page.mouse.up()
+
+
 def in_margin(b, w=210, h=297):
     """The block lies inside the 15 mm margin of a page w by h."""
     return b["x"] >= 15 and b["x"] + b["w"] <= w - 15 and b["y"] >= 15 and b["y"] + b["h"] <= h - 15
@@ -259,8 +277,8 @@ def in_margin(b, w=210, h=297):
 def test_896_a_block_dragged_onto_page_2_lands_inside_the_margin(editor, kind):
     """#896: a block dragged from page 1 onto page 2 lands inside the margin, never on the paper's top edge."""
     client = user()
-    page = editor(*gap_case(client, kind), pages=[{"blocks": []}, {"blocks": []}], client=client)
-    across(page)
+    page = sheets(editor, client, *gap_case(client, kind))
+    drop_near_page_2(page)
     expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
     saved = doc(page, client)["pages"]
     moved = saved[1]["blocks"]
@@ -285,8 +303,8 @@ def test_896_a_block_dropped_in_the_gap_nearer_page_1_ends_above_the_foot_margin
 def test_896_the_pdf_prints_the_moved_table_whole(editor, server):
     """#896: a table moved to page 2 is saved inside the margin, and the PDF's page 2 shows its top border at 15 mm."""
     client = user()
-    page = editor(box("a", "table", TABLE), pages=[{"blocks": []}], client=client)
-    across(page)
+    page = sheets(editor, client, box("a", "table", TABLE))
+    drop_near_page_2(page)
     expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
     (table,) = doc(page, client)["pages"][1]["blocks"]
     assert table["y"] >= 15, table["y"]
@@ -297,14 +315,13 @@ def test_896_the_pdf_prints_the_moved_table_whole(editor, server):
     )
     assert res.status_code == 200
     pdf = pypdfium2.PdfDocument(io.BytesIO(res.content))
-    assert len(pdf) == 2
-    image = (
-        pdf[1].render(scale=200 / 72).to_pil().convert("L")
-    )  # 200 dpi: about 7.87 pixels to the mm
-    top = int(table["y"] * 200 / 25.4)
-    left, right = int(table["x"] * 200 / 25.4), int((table["x"] + table["w"]) * 200 / 25.4)
-    ink = image.crop((left + 5, top - 3, right - 5, top + 4)).getextrema()[0]
-    assert ink < 128, ("no top border of the table at 15 mm", top, left, right)
+    assert len(pdf) == 3
+    image = pdf[1].render(scale=200 / 72).to_pil().convert("L")
+    px = image.width / 210  # pixels to the mm, from the page width
+    top = int(table["y"] * px)
+    left, right = int(table["x"] * px), int((table["x"] + table["w"]) * px)
+    ink = image.crop((left + 5, top, right - 5, top + 3)).getextrema()[0]
+    assert ink < 128, ("no top border of the table in its top rows", table["y"], top)
 
 
 def test_896_one_undo_takes_the_move_to_page_2_back(editor):
