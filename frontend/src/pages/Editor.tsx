@@ -103,7 +103,7 @@ import { changed, fresh, redone, returned, undone, type Hist, type Step } from "
 import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
-import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, useSaves } from "../saves";
+import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
 import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
@@ -359,6 +359,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         return doc === h.doc ? h : { ...h, doc };
       }),
     );
+  }, []);
+  // Maths changes the session ran out on (saves.ts `owe`) are redone once the sheet opens after the login: each
+  // one as an undo step of its own, skipped where it would go past the page's foot.
+  useEffect(() => {
+    takeOwed(file.id, user.id).forEach(async ({ block, limits }) => {
+      const made = await generate(limits).catch(() => undefined);
+      const n = live.current.doc.pages.findIndex((p) => p.blocks.some((b) => b.id === block));
+      const b = live.current.doc.pages[n]?.blocks.find((x) => x.id === block);
+      if (!made || !b || b.type !== "maths") return;
+      const props = { ...limits, ...made };
+      if (overFoot(b, props, sizeOf(live.current.doc, n)[1])) return;
+      turn((p) => ({ ...p, blocks: p.blocks.map((x) => (x.id === block && x.type === "maths" ? ({ ...x, props, ...tall(x, mathsHeight(props)) } as Block) : x)) }), `owed ${block}`, n);
+    });
   }, []);
   const [title, setTitle] = useState(file.title);
   // The sheet's saver: what the server holds, whether a save failed, and whether the server holds a newer document
@@ -5173,6 +5186,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 {sel.length > 1 ? `${sel.length} Felder` : (NAMES[sel[0].type] ?? "Unbekannter Block")}
               </p>
               <Format
+                sheetId={file.id}
                 // A block of a group with a locked one is as fixed there as the locked one.
                 sel={sel.map((b) => (free.includes(b) ? b : { ...b, locked: true }))}
                 style={style}
