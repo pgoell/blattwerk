@@ -41,7 +41,12 @@ def check(page, props):
         grid = e["grid"]
         dx = 0 if e["op"] == "/" else cols - grid["cols"]
         shorter += dx > 0
-        expected = [[(x + dx + 0.5) * S, (y + 0.5) * S, ch] for x, y, ch, _ in grid["cells"]]
+        # The sign of a plus or a minus stays in the first column, as in every other task of the block.
+        sign = e["op"] in "+-"
+        expected = [
+            [((0 if sign and x == 0 else x + dx) + 0.5) * S, (y + 0.5) * S, ch]
+            for x, y, ch, _ in grid["cells"]
+        ]
         assert found == expected, (e, found)
     return shorter
 

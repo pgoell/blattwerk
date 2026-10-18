@@ -150,7 +150,14 @@ def placed(props, i, cols, grids):
     if props["exercises"][i]["op"] == "/":
         return grid
     dx = cols - grid["cols"]
-    return {**grid, "cells": [[x + dx, y, ch, kind] for x, y, ch, kind in grid["cells"]]}
+    # The sign of a plus or a minus stays in the first column.
+    sign = props["exercises"][i]["op"] in "+-"
+    return {
+        **grid,
+        "cells": [
+            [0 if sign and x == 0 else x + dx, y, ch, kind] for x, y, ch, kind in grid["cells"]
+        ],
+    }
 
 
 def check_screen(page, props, key):
