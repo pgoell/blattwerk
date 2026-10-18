@@ -9,6 +9,7 @@ import { mixed, type Part } from "./scramble";
 import { holed } from "./holes";
 import { laid, sane } from "./suchsel";
 import { at, layout as wallLayout, made as walled, sane as saneWall } from "./zahlenmauer";
+import { layout as houseLayout, made as housed, sane as saneHouse, type ZahlenhausProps } from "./zahlenhaus";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -665,6 +666,12 @@ export type RechendreieckBlock = Box & {
   /** The calculation triangles (Rechendreiecke) and which of their fields are given. */
   props: RechendreieckProps;
 };
+// A Zahlenhaus: its stored shape is the contract at the top of zahlenhaus.ts.
+export type ZahlenhausBlock = Box & {
+  type: "zahlenhaus";
+  /** The number houses (Zahlenhäuser): a roof number and floors of two boxes that add up to it, and which boxes are given. */
+  props: ZahlenhausProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -689,7 +696,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3030,6 +3037,55 @@ function Zahlenmauer({ block, solved }: { block: ZahlenmauerBlock; k: number; so
   );
 }
 
+// A Zahlenhaus: its houses in columns, in its own units. A house is a roof over two boxes a floor, each floor's two
+// boxes adding up to the roof. A wrong floor shows no answer, and its house is marked `wrong`.
+function Zahlenhaus({ block, solved }: { block: ZahlenhausBlock; k: number; solved: boolean }) {
+  const p = saneHouse(block.props);
+  const { houses } = housed(p);
+  const { S, houseW, houseH, gap, vbW, vbH } = houseLayout(p);
+  return (
+    <div className={`zahlenhaus${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {houses.map((h, i) => {
+          const [x0, y0] = [(i % p.columns) * (houseW + gap), Math.floor(i / p.columns) * (houseH + gap)];
+          // The number of box j, drawn when it is given, or in the answer key when its floor is not wrong.
+          const numberOf = (j: number, floor: number, x: number, y: number) => {
+            const shows = h.given[j] || (solved && !h.wrong[floor]);
+            return shows && (
+              <text x={x} y={y} fontSize={0.55 * S} textAnchor="middle" dominantBaseline="central"
+                fill={h.given[j] ? "#222" : "#c0392b"} className={h.given[j] ? "given" : "answer"}>{h.numbers[j]}</text>
+            );
+          };
+          return (
+            <g key={i} className={`house${h.wrong.some(Boolean) ? " wrong" : ""}`} data-house={i}>
+              <g className="box" data-box={0}>
+                <polygon points={`${x0},${y0 + S} ${x0 + S},${y0} ${x0 + 2 * S},${y0 + S}`} fill="white" stroke="#222" strokeWidth={0.4} />
+                {h.given[0] || solved ? (
+                  <text x={x0 + S} y={y0 + 0.65 * S} fontSize={0.45 * S} textAnchor="middle" dominantBaseline="central"
+                    fill={h.given[0] ? "#222" : "#c0392b"} className={h.given[0] ? "given" : "answer"}>{h.numbers[0]}</text>
+                ) : null}
+              </g>
+              {h.wrong.map((wrong, f) => {
+                const [yf, left, right] = [y0 + (f + 1) * S, 1 + 2 * f, 2 + 2 * f];
+                return [
+                  <g key={left} className={`box${wrong ? " wrong" : ""}`} data-box={left}>
+                    <rect x={x0} y={yf} width={S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
+                    {numberOf(left, f, x0 + S / 2, yf + S / 2)}
+                  </g>,
+                  <g key={right} className={`box${wrong ? " wrong" : ""}`} data-box={right}>
+                    <rect x={x0 + S} y={yf} width={S} height={S} fill="white" stroke="#222" strokeWidth={0.4} />
+                    {numberOf(right, f, x0 + 1.5 * S, yf + S / 2)}
+                  </g>,
+                ];
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3381,6 +3437,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
+  if (block.type === "zahlenhaus") return <Zahlenhaus block={block} k={k} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;

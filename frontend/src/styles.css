@@ -528,6 +528,8 @@ body:has(.print) { background: #fff; }
 .suchsel .ring { fill: #c0392b; fill-opacity: .12; stroke: #c0392b; }
 .block .zahlenmauer { height: 100%; font-family: Andika; }
 .zahlenmauer svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zahlenhaus { height: 100%; font-family: Andika; }
+.zahlenhaus svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .rechendreieck { height: 100%; font-family: Andika; }
 .rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zahlenstrahl { height: 100%; font-family: Andika; }
