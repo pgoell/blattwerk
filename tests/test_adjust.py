@@ -589,6 +589,20 @@ def test_undo_of_a_deep_drag_takes_the_warning_away(editor):
     assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
 
 
+def test_the_warning_goes_when_the_handle_comes_back_out(editor):
+    client = user()
+    page = editor(box("a", "shape", DEEP, x=40, y=40, w=60, h=60), client=client)
+    pick(page, "a")
+    start = centre(handle(page, "a"))
+    drag(page, start, centre(at(page, "a")))
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    drag(page, centre(handle(page, "a")), start)
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    (a,) = saved(page, client)
+    assert a["props"]["inner"] > 0.3, a
+    assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
+
+
 def test_an_empty_deep_star_does_not_warn(editor):
     deep = {**DEEP, "inner": 0.1}
     page = editor(
