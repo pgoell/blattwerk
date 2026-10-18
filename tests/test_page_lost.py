@@ -26,13 +26,18 @@ def insert(page, label):
     page.keyboard.press("Escape")
 
 
+def thumbs(page):
+    """Opens the thumbnails, in the tab Vorlagen of the panel, as test_pages_drag does."""
+    page.get_by_role("tab", name="Vorlagen").click()
+    expect(thumb(page, 0)).to_be_visible()
+
+
 def two(editor, client):
-    """A box on page 1 and a text on page 2; page 1 is in use, the panel Seiten open."""
+    """A box on page 1 and a text on page 2; page 1 is in use."""
     return editor(
         box("r", "shape", RECT),
         pages=[{"blocks": [box("t", "text", TEXT)]}],
         client=client,
-        theme="",
     )
 
 
@@ -116,8 +121,10 @@ def test_a_thumbnail_click_puts_the_next_block_on_its_page(editor):
     client = user()
     page = two(editor, client)
     page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
+    thumbs(page)
     expect(thumb(page, 2)).to_be_visible()
     thumb(page, 0).click()
+    page.get_by_role("tab", name="Start").click()
     insert(page, "Pfeil")
     assert kinds(doc(page, client)) == [["shape", "shape"], [], ["text"]]
 
@@ -140,15 +147,15 @@ def places(page, client):
 
 
 def lines(editor, client):
-    arrow = {**box("p", "shape", ARROW), "w": 60, "h": 0, "y": 100}
-    line = {**box("l", "shape", LINE), "w": 60, "h": 0, "y": 140}
+    # A little slanted, so a click on the middle of the box meets the stroke.
+    arrow = {**box("p", "shape", ARROW), "w": 60, "h": 10, "y": 100}
+    line = {**box("l", "shape", LINE), "w": 60, "h": 10, "y": 140}
     return editor(
         box("r", "shape", RECT),
         arrow,
         line,
         pages=[{"blocks": [box("t", "text", TEXT)]}],
         client=client,
-        theme="",
     )
 
 
@@ -157,6 +164,7 @@ WAYS = {
         page.locator(".insert").get_by_label("Neue Seite", exact=True).click()
     ),
     "eingefügte Seite": lambda page: (
+        thumbs(page),
         thumb(page, 0).click(button="right"),
         menu_item(page, "Neue Seite").click(),
     ),

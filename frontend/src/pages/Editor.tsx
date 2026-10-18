@@ -1340,8 +1340,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
     // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
-      if (moveable.current?.isDragging()) moveable.current.stopDrag();
-      else {
+      if (moveable.current?.isDragging()) {
+        // The drag ends on the blocks' own page: none moves to the page under the pointer.
+        calledOff.current = true;
+        moveable.current.stopDrag();
+        calledOff.current = false;
+      } else {
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
       }
@@ -3102,8 +3106,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     owed.current = undefined;
     stopDeskScroll();
     if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
-    else if (moved) toPageUnder();
+    else if (moved && !calledOff.current) toPageUnder();
   };
+  const calledOff = useRef(false);
   // A drop over another page moves the blocks to it, where they lie under the pointer: one step with the drag.
   const toPageUnder = () => {
     const ids = start.current.map((b) => b.id);
