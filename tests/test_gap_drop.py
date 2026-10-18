@@ -8,6 +8,10 @@ the copy stays where the block began. A block dragged across the gap to page 2 k
 there through a save, a reload and the PDF, and one undo brings it back.
 """
 
+import io
+
+import httpx
+import pypdfium2
 import pytest
 from playwright.sync_api import expect
 from test_desk_scroll import PAGE, on_page, press
@@ -160,16 +164,17 @@ def test_a_ctrl_copy_dropped_in_the_gap_stays_where_the_block_began(editor):
     assert on_page(moved)
 
 
-def across(page):
-    """The drag of "a" from page 1 over the gap to page 2, as test_desk_scroll does it."""
+def across(page, target=1):
+    """The drag of "a" from page 1 over the gap to page 2 (or to page `target`), as test_desk_scroll does it."""
     grip = at(page, "a").bounding_box()
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     b = page.locator(".desk").bounding_box()
     page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] - 5, steps=10)
     page.wait_for_function(
-        """() => document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().top
-            < document.querySelector('.desk').getBoundingClientRect().top + 200"""
+        """(n) => document.querySelector(`.sheet[data-page="${n}"]`).getBoundingClientRect().top
+            < document.querySelector('.desk').getBoundingClientRect().top + 200""",
+        arg=target,
     )
     b = page.locator(".desk").bounding_box()
     page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2, steps=5)
@@ -241,3 +246,95 @@ def test_a_block_moved_across_the_gap_to_page_2_saves_reloads_prints_and_undoes(
     printed = pdf_pages(server, client, page.url.rsplit("/", 1)[1])
     assert marker in printed[1], printed
     assert marker not in printed[0]
+
+
+def in_margin(b, w=210, h=297):
+    """The block lies inside the 15 mm margin of a page w by h."""
+    return b["x"] >= 15 and b["x"] + b["w"] <= w - 15 and b["y"] >= 15 and b["y"] + b["h"] <= h - 15
+
+
+@pytest.mark.parametrize(
+    "kind", ["text", "shape", "line", "picture", "table", "ruling", "maths", "group"]
+)
+def test_896_a_block_dragged_onto_page_2_lands_inside_the_margin(editor, kind):
+    """#896: a block dragged from page 1 onto page 2 lands inside the margin, never on the paper's top edge."""
+    client = user()
+    page = editor(*gap_case(client, kind), pages=[{"blocks": []}, {"blocks": []}], client=client)
+    across(page)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)["pages"]
+    moved = saved[1]["blocks"]
+    assert "a" in [b["id"] for b in moved]
+    for b in moved:
+        assert in_margin(b), (kind, b["x"], b["y"], b["w"], b["h"])
+
+
+def test_896_a_block_dropped_in_the_gap_nearer_page_1_ends_above_the_foot_margin(editor):
+    """#896: a table dropped with its middle in the gap nearer page 1 ends above the foot margin, not on the paper's foot."""
+    client = user()
+    page = sheets(editor, client, box("a", "table", TABLE))
+    drop_in_gap(page)
+    page.mouse.up()
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)["pages"]
+    assert [len(p["blocks"]) for p in saved] == [1, 0, 0]
+    (table,) = saved[0]["blocks"]
+    assert table["y"] + table["h"] <= 282, (table["y"], table["h"])
+
+
+def test_896_the_pdf_prints_the_moved_table_whole(editor, server):
+    """#896: a table moved to page 2 is saved inside the margin, and the PDF's page 2 shows its top border at 15 mm."""
+    client = user()
+    page = editor(box("a", "table", TABLE), pages=[{"blocks": []}], client=client)
+    across(page)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    (table,) = doc(page, client)["pages"][1]["blocks"]
+    assert table["y"] >= 15, table["y"]
+    res = httpx.get(
+        f"{server}/api/sheets/{page.url.rsplit('/', 1)[1]}/pdf",
+        headers={"Cookie": f"session={client.cookies['session']}"},
+        timeout=60,
+    )
+    assert res.status_code == 200
+    pdf = pypdfium2.PdfDocument(io.BytesIO(res.content))
+    assert len(pdf) == 2
+    image = (
+        pdf[1].render(scale=200 / 72).to_pil().convert("L")
+    )  # 200 dpi: about 7.87 pixels to the mm
+    top = int(table["y"] * 200 / 25.4)
+    left, right = int(table["x"] * 200 / 25.4), int((table["x"] + table["w"]) * 200 / 25.4)
+    ink = image.crop((left + 5, top - 3, right - 5, top + 4)).getextrema()[0]
+    assert ink < 128, ("no top border of the table at 15 mm", top, left, right)
+
+
+def test_896_one_undo_takes_the_move_to_page_2_back(editor):
+    """#896: one Ctrl+Z takes the move to page 2 back, and the block is on page 1 where it began."""
+    client = user()
+    page = editor(box("a", "table", TABLE), pages=[{"blocks": []}, {"blocks": []}], client=client)
+    before = doc(page, client)["pages"][0]["blocks"]
+    across(page)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    page.keyboard.press("Control+z")
+    expect(page.locator(PAGE.format(0)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)["pages"]
+    assert saved[0]["blocks"] == before
+    assert saved[1]["blocks"] == []
+
+
+def test_896_a_block_moved_from_a_landscape_page_to_an_upright_one_lands_inside_the_margin(
+    editor,
+):
+    """#896: a table on a landscape page, near its foot, moved to an upright page lands inside the upright page's margin."""
+    client = user()
+    table = {**box("a", "table", TABLE), "x": 10, "y": 150}
+    page = editor(
+        pages=[{"blocks": [table], "landscape": True}, {"blocks": []}],
+        client=client,
+    )
+    at(page, "a").scroll_into_view_if_needed()
+    across(page, target=2)
+    expect(page.locator(PAGE.format(2)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)["pages"]
+    assert saved[1]["blocks"] == []
+    (moved,) = saved[2]["blocks"]
+    assert in_margin(moved), (moved["x"], moved["y"], moved["w"], moved["h"])
