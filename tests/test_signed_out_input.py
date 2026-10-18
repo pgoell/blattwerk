@@ -238,7 +238,7 @@ def test_a_change_made_before_the_redo_lands_is_kept(window, server):
     """Review: the redo lays only the click's own change over the block as it is when the answer comes."""
     page, client, sheet_id, _ = count_after_click(window, server)
     held = []
-    page.route("**/api/maths", held.append)
+    page.route("**/api/maths", lambda route: held.append(route))
     login(page, server, client)
     expect_sheet(page)
     pick(page, "m")
