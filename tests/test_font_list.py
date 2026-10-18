@@ -6,7 +6,7 @@ import time
 import pytest
 from playwright.sync_api import expect
 from test_school_scripts import expect_family
-from ui import RULING, TABLE, TEXT, at, box, pick, reload
+from ui import FIELD, RULING, TABLE, TEXT, at, box, pick, reload
 
 # The eight fonts of the menus: key, name, family.
 FONTS = [
@@ -191,3 +191,84 @@ def test_a_pick_sets_both_picked_texts(editor):
     expect(at(page, "b").get_by_text("Hallo").first).to_have_css(
         "font-family", re.compile("Playwrite DE Grund")
     )
+
+
+def test_enter_on_the_closed_menu_opens_the_list_and_keeps_the_focus(editor):
+    """Enter opens the list, the select keeps the focus, and ArrowDown with Enter picks nord."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    select = page.get_by_label("Schriftart", exact=True)
+    select.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("listbox", name="Liste: Schriftart")).to_be_visible()
+    expect(select).to_be_focused()
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Enter")
+    expect(select).to_have_value("nord")
+
+
+def test_a_letter_with_the_list_open_moves_the_highlight_and_keeps_the_font(editor):
+    """A mouse-opened list takes "g": the focus stays, the value does not change, and Enter picks
+    the first G font, as one undo step."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    select = page.get_by_label("Schriftart", exact=True)
+    undo = page.get_by_label("Rückgängig", exact=True)
+    listbox = open_list(page, "Schriftart")
+    page.keyboard.press("g")
+    expect(select).to_be_focused()
+    expect(select).to_have_value("andika")
+    expect(listbox.get_by_role("option", name="Grundschrift", exact=True)).to_have_class(
+        re.compile("hi")
+    )
+    page.keyboard.press("Enter")
+    expect(select).to_have_value("grund")
+    undo.click()
+    expect(select).to_have_value("andika")
+    expect(undo).to_be_disabled()
+
+
+def test_a_letter_with_the_list_open_over_a_text_leaves_the_text(editor):
+    """With a text open for typing, the mouse opens the list and "g" changes no word of it."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    page.keyboard.press("Enter")
+    open_list(page, "Schriftart")
+    page.keyboard.press("g")
+    expect(page.get_by_role("listbox", name="Liste: Schriftart")).to_be_visible()
+    expect(page.locator(FIELD)).to_have_text("Hallo")
+
+
+@pytest.mark.parametrize("dx, opens", [(0, True), (40, False)])
+def test_a_tap_opens_the_list_and_a_swipe_from_the_select_does_not(editor, dx, opens):
+    """iPad: a tap opens the list, a finger that moves 40 px scrolls the drawer instead."""
+    page = editor(box("a", "text", TEXT))
+    pick(page, "a")
+    # WebKit on a desktop has no Touch to build: the test has nothing to send there.
+    can_touch = """() => {
+        try { new Touch({ identifier: 1, target: document.body }); return true; }
+        catch { return false; }
+    }"""
+    if not page.evaluate(can_touch):
+        pytest.skip("this browser cannot build a Touch")
+    page.get_by_label("Schriftart", exact=True).evaluate(
+        """(el, dx) => {
+            const box = el.getBoundingClientRect();
+            const x = box.left + box.width / 2;
+            const y = box.top + box.height / 2;
+            const at = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
+            const a = at(x);
+            const b = at(x + dx);
+            const init = { bubbles: true, cancelable: true };
+            const send = (type, t, touches) =>
+                el.dispatchEvent(new TouchEvent(type, { ...init, touches, changedTouches: [t] }));
+            send("touchstart", a, [a]);
+            send("touchend", b, []);
+        }""",
+        dx,
+    )
+    listbox = page.get_by_role("listbox", name="Liste: Schriftart")
+    if opens:
+        expect(listbox).to_be_visible()
+    else:
+        expect(listbox).to_have_count(0)

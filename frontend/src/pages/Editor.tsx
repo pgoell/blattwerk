@@ -1192,7 +1192,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // shuts an open list to itself, so the keyup tells. Escape goes no further: the selection stays.
     const shut = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if ((e.key === "Escape" || e.key === "Enter") && el.matches(".panel select")) back(el);
+      // A font menu's own list is open: its keys are its own.
+      if ((e.key === "Escape" || e.key === "Enter") && el.matches(".panel select") && !el.hasAttribute("data-open")) back(el);
     };
     window.addEventListener("change", chosen);
     window.addEventListener("keyup", shut);
@@ -1287,7 +1288,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // know `:open` throws.
     let list = false;
     try {
-      list = select && target.matches(":open");
+      list = select && (target.matches(":open") || target.hasAttribute("data-open"));
     } catch {
       // The list counts as shut.
     }
