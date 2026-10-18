@@ -1008,14 +1008,26 @@ export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.prop
 export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.props.kind)].row + 0.05);
 // The square each character of a Karo's text stands in, as [column, row, character, offset]: a row is filled, then the
 // next begins. The offset is where the character lies in the text, in UTF-16 units.
+// A word moves whole to the next row when it and the space after it do not fit the rest of the row, as the field wraps
+// it; a word longer than a row fills the rest of the row and breaks. A space that finds its row full starts the next.
 export function squares(text: string, cols: number) {
   const out: [number, number, string, number][] = [];
+  const chars = [...text];
   let [x, y, i] = [0, 0, 0];
-  for (const ch of text) {
-    if (ch === "\n" || x === cols) [x, y] = [0, y + 1];
-    if (ch !== "\n") out.push([x++, y, ch, i]);
+  chars.forEach((ch, n) => {
+    if (ch === "\n") [x, y] = [0, y + 1];
+    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n")) {
+      let len = 0;
+      while (n + len < chars.length && chars[n + len] !== " " && chars[n + len] !== "\n") len++;
+      const unit = len + (chars[n + len] === " " ? 1 : 0);
+      if (x > 0 && len <= cols && x + unit > cols) [x, y] = [0, y + 1];
+    }
+    if (ch !== "\n") {
+      if (x === cols) [x, y] = [0, y + 1];
+      out.push([x++, y, ch, i]);
+    }
     i += ch.length;
-  }
+  });
   return out;
 }
 // The rows a Lineatur's text needs. A Karo counts its squares; a lined kind takes the height the text has on the page,
@@ -1174,10 +1186,11 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
       // Geist Mono's characters are 0.6 em wide.
       letterSpacing: (row - 0.6 * size) * k,
       top: 0,
-      width: colsOf(b) * row * k,
+      // Half a px of slack, so the last square's letter fits; a whole square is far wider, so no extra letter fits.
+      width: colsOf(b) * row * k + 0.5,
       height: rowsOf(b) * row * k,
       whiteSpace: "break-spaces",
-      lineBreak: "anywhere",
+      overflowWrap: "anywhere",
       color: "transparent",
       caretColor: "#222222",
     };
