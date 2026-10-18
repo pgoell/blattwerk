@@ -81,6 +81,11 @@ def type_and_remove(page, client):
 
     step(page, type_six)
     step(page, type_one)
+    # The step's save may be the one of the "" that fill types first: the server's copy is read until both are in.
+    for _ in range(50):
+        if props_of(doc(page, client)).get("typed") == [[0, 0, 6], [0, 1, 1]]:
+            break
+        page.wait_for_timeout(100)
     assert props_of(doc(page, client))["typed"] == [[0, 0, 6], [0, 1, 1]]
     step(page, lambda: panel(page, "Eigene Zahlen entfernen").click())
     assert "typed" not in props_of(doc(page, client))
