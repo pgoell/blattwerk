@@ -46,6 +46,9 @@ def test_a_login_that_reaches_no_server_blames_no_password_and_works_with_the_ne
     expect(page.get_by_label("E-Mail")).to_have_value(email)
     expect(page.get_by_label("Passwort")).to_have_value(PASSWORD)
     mend()
+    # WebKit keeps no Secure cookie from this http server: the list's load would answer 401 and
+    # take the app back to the login. The list is held, so the heading stands (#752).
+    page.route("**/api/sheets", lambda route: None)
     assert press(page, "Anmelden", "/login", server) == 200
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
 
