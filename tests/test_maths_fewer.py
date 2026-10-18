@@ -103,6 +103,28 @@ def test_903_one_undo_brings_the_dropped_exercise_back(editor):
     assert pairs(got["exercises"]) == pairs(old)
 
 
+def test_906_one_more_keeps_the_exercises_and_adds_one(editor):
+    """#906: "Eine Aufgabe mehr" keeps the eight exercises as they were, in order, and adds one at the end."""
+    page, client, sheet_id, old = fewer_sheet(editor)
+    assert len(old) == 8
+    page.get_by_label("Eine Aufgabe mehr").click()
+    expect(page.locator(TASKS)).to_have_count(9)
+    got = wait_saved(page, client, sheet_id, lambda p: p["count"] == 9)
+    assert pairs(got["exercises"][:8]) == pairs(old)
+    assert len(got["exercises"]) == 9
+
+
+def test_906_one_more_with_families_keeps_the_families_and_adds_one(editor):
+    """#906, families: with Tauschaufgaben "mehr" keeps the five families as they were and adds one family whole."""
+    page, client, sheet_id, old = fewer_sheet(editor, count=5, ops=["+"], family="swap")
+    assert len(old) == 10
+    page.get_by_label("Eine Aufgabe mehr").click()
+    got = wait_saved(page, client, sheet_id, lambda p: p["count"] == 6)
+    assert pairs(got["exercises"][:10]) == pairs(old)
+    assert len(got["exercises"]) == 12
+    assert {e["family"] for e in got["exercises"]} == {0, 1, 2, 3, 4, 5}
+
+
 def maths_sheet(window, server, count):
     """A sheet with one maths block of `count` Aufgaben, opened and picked. Gives the page, the client and the sheet id."""
     page, client = window()
