@@ -16,6 +16,9 @@ COLOURS = [
 ]
 # The colours of a block that holds words.
 WRITTEN = [(name, label) for name, label in COLOURS if name != "line"]
+# Whether the list of a select or a picker is open: a font menu's own list marks its select
+# with data-open.
+OPEN_NOW = "((el) => (el.closest('.fontsel') ? el.hasAttribute('data-open') : el.matches(':open')))"
 # The list and the picker take the press that shuts them and tell the page nothing of it, until
 # it is called again.
 SWALLOW = """() => {
@@ -35,8 +38,9 @@ def opened(page, label):
     control = page.locator(".panel").get_by_label(label, exact=True)
     control.click()
     expect(control).to_be_focused()
-    if BROWSER != "webkit":
-        page.wait_for_function("el => el.matches(':open')", arg=control.element_handle())
+    # A font menu opens a list of its own (#486), in WebKit too: its select has data-open then.
+    if BROWSER != "webkit" or control.evaluate("el => !!el.closest('.fontsel')"):
+        page.wait_for_function(f"el => {OPEN_NOW}(el)", arg=control.element_handle())
     return control
 
 
@@ -53,7 +57,7 @@ def shut(page, control, way):
             handle = control.element_handle()
             for _ in range(5):
                 try:
-                    page.wait_for_function("el => !el.matches(':open')", arg=handle, timeout=2000)
+                    page.wait_for_function(f"el => !{OPEN_NOW}(el)", arg=handle, timeout=2000)
                     break
                 except TimeoutError:
                     page.keyboard.press("Escape")
@@ -70,8 +74,8 @@ def shut(page, control, way):
         page.locator(".panel").click(position={"x": 3, "y": 3})
     if BROWSER != "webkit" or way != "escape":
         expect(control).to_be_focused()
-    if BROWSER != "webkit":
-        page.wait_for_function("el => !el.matches(':open')", arg=control.element_handle())
+    if BROWSER != "webkit" or control.evaluate("el => !!el.closest('.fontsel')"):
+        page.wait_for_function(f"el => !{OPEN_NOW}(el)", arg=control.element_handle())
 
 
 # Asked #210

@@ -638,6 +638,30 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }, [editing]);
   const stage = useRef<HTMLDivElement>(null);
   const desk = useRef<HTMLDivElement>(null);
+  // Moves the desk by a drag from where hand.current says: the hand and the middle button share it.
+  const dragDesk = (e: { clientX: number; clientY: number }) => {
+    desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
+    desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
+  };
+  // The middle button pans the desk while it is held, over a block too. The window hears the moves and the lift.
+  const middlePan = (x: number, y: number) => {
+    hand.current = [x, y, desk.current!.scrollLeft, desk.current!.scrollTop];
+    setPanning(true);
+    const move = (e: { clientX: number; clientY: number; buttons: number }) => {
+      if (!(e.buttons & 4)) return stop();
+      steer();
+      dragDesk(e);
+    };
+    const stop = () => {
+      setPanning(false);
+      removeEventListener("pointermove", move);
+      removeEventListener("pointerup", stop);
+      removeEventListener("pointercancel", stop);
+    };
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", stop);
+    addEventListener("pointercancel", stop);
+  };
   // An open Format drawer lies over the sheet's right end. The desk scrolls so the picked block, or the caret in the
   // open text, stays in view beside it: the drawer shows the room on the desk's right, see `.drawn` in styles.css.
   const drawnRight = drawers && drawer === "right";
@@ -1168,7 +1192,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // shuts an open list to itself, so the keyup tells. Escape goes no further: the selection stays.
     const shut = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if ((e.key === "Escape" || e.key === "Enter") && el.matches(".panel select")) back(el);
+      // A font menu's own list is open: its keys are its own.
+      if ((e.key === "Escape" || e.key === "Enter") && el.matches(".panel select") && !el.hasAttribute("data-open")) back(el);
     };
     window.addEventListener("change", chosen);
     window.addEventListener("keyup", shut);
@@ -1263,7 +1288,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // know `:open` throws.
     let list = false;
     try {
-      list = select && target.matches(":open");
+      list = select && (target.matches(":open") || target.hasAttribute("data-open"));
     } catch {
       // The list counts as shut.
     }
@@ -4428,7 +4453,25 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         </aside>
       )}
 
-      <div className="stage" ref={stage}>
+      {/* The release may land on the hand, beside the desk: the click is the stage's, not the desk's. */}
+      <div
+        className="stage"
+        ref={stage}
+        onMouseUp={(e) => e.button === 1 && e.preventDefault()}
+        onAuxClick={(e) => e.button === 1 && e.preventDefault()}
+        // Capture: Moveable's frame over a picked block would hear the press first otherwise. The hand lies beside the desk, so the stage takes its press too.
+        onPointerDownCapture={(e) => {
+          if (e.button !== 1 || e.pointerType !== "mouse") return;
+          e.stopPropagation();
+          middlePan(e.clientX, e.clientY);
+        }}
+        // The press is not cancelled as a pointer: Chrome then sends no mouseup, and a middle paste would follow it.
+        onMouseDownCapture={(e) => {
+          if (e.button !== 1) return;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         <div
           className="desk"
           ref={desk}
@@ -4866,8 +4909,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               // The button came up where the hand could not see it.
               if (!e.buttons) return setPanning(false);
               steer();
-              desk.current!.scrollLeft = hand.current[2] - (e.clientX - hand.current[0]);
-              desk.current!.scrollTop = hand.current[3] - (e.clientY - hand.current[1]);
+              dragDesk(e);
             }}
             onPointerUp={() => setPanning(false)}
             onPointerCancel={() => setPanning(false)}
