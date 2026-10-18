@@ -124,7 +124,7 @@ def words_of(client, sheet_id):
 def test_a11_words_typed_after_the_session_ran_out_are_kept_and_saved_after_the_sign_in(
     window, server
 ):
-    """A11: words typed with the session gone are in the text and saved after the sign-in (#813)."""
+    """A11: words typed with the session gone are in the text and saved after the sign-in (#813). Keys typed once it shows reach no sheet, and the login says so."""
     page, client, sheet_id = text_sheet(window, server)
     address = f"{server}/blatt/{sheet_id}"
     page.evaluate(WATCH)
@@ -138,8 +138,9 @@ def test_a11_words_typed_after_the_session_ran_out_are_kept_and_saved_after_the_
     assert "Katze" in words_of(client, sheet_id)
 
 
-def test_a11_words_typed_after_the_login_shows_are_kept_and_saved_after_the_sign_in(window, server):
-    """A11b: words typed once the login form shows are in the text after the sign-in (#813)."""
+def test_a11_the_login_a_run_out_session_brings_stops_input_and_says_so(window, server):
+    """A11b (#813): the words typed until the login shows are saved after the sign-in. From there
+    on the sheet takes no keys, and the login says so plainly before any word goes."""
     page, client, sheet_id = text_sheet(window, server)
     address = f"{server}/blatt/{sheet_id}"
     page.evaluate(WATCH)
@@ -147,6 +148,12 @@ def test_a11_words_typed_after_the_login_shows_are_kept_and_saved_after_the_sign
     page.keyboard.type(" Katze")
     expect_login(page, address)
     expect(page.locator(NOTICE)).to_have_text(WAITS.replace("„m“", "„t“"))
+    # The editor stops input with a plain message: the keys typed from here on reach no sheet.
+    expect(
+        page.get_by_text(
+            "Deine Anmeldung ist abgelaufen. Bis du dich neu anmeldest, nimmt das Blatt keine Eingaben an."
+        )
+    ).to_be_visible()
     page.keyboard.type(" Hund")
     login(page, server, client)
     expect_sheet(page)
