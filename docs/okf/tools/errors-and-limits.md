@@ -224,5 +224,6 @@ Sends a fault or a missing feature in Blattomat to its makers, from a call you m
 
 Errors:
 * `text must not be empty: say what went wrong.`
-* The token message from [Every tool](#every-tool).
-* The unreachable-server message from [Every tool](#every-tool).
+* `The Blattomat token is not valid: make a new one on the account page.`
+* `Cannot reach Blattomat at <base>: <reason>`
+* `Too many sends: 10 in 15 minutes at most. This one was not kept; send it again later.`

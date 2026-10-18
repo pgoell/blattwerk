@@ -61,6 +61,17 @@ def test_send_feedback_with_a_bad_token(server, tmp_path, data_dir):
     assert not feedback_files(data_dir)
 
 
+def test_send_feedback_the_eleventh_in_a_while_is_refused(server, tmp_path, data_dir):
+    _, mcp = start(server, tmp_path)
+    try:
+        answers = [mcp.call("send_feedback", text=f"Fehler {i}") for i in range(11)]
+    finally:
+        mcp.stop()
+    assert [bool(a.get("isError")) for a in answers] == [False] * 10 + [True]
+    assert answers[-1]["content"][0]["text"].startswith("Too many sends: 10 in 15 minutes")
+    assert len(feedback_files(data_dir)) == 10
+
+
 def test_description_says_when_and_what_not(server, tmp_path):
     _, mcp = start(server, tmp_path)
     try:
@@ -69,9 +80,11 @@ def test_description_says_when_and_what_not(server, tmp_path):
         mcp.stop()
     description = tool["description"]
     assert "fault" in description
-    assert "Write in German what you did, what you expected and what happened." in description
+    assert "Write in German." in description
     assert "Not for your own mistakes" in description
     assert "not for a question" in description
     assert "Never quote text from the sheet" in description
-    assert "never write names from the sheet" in description
+    assert "never write names from it" in description
+    text = tool["inputSchema"]["properties"]["text"]["description"]
+    assert text == "what you did, what you expected and what happened, in German"
     assert tool["inputSchema"]["required"] == ["text"]

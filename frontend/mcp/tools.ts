@@ -429,7 +429,9 @@ export function tools(api: Api) {
     if (!note) throw new Fail("text must not be empty: say what went wrong.");
     const fields: Record<string, string> = { art: "feedback", text: note, source: "mcp" };
     if (args.sheet_id !== undefined) fields.sheet_id = String(args.sheet_id);
-    expectOk(await api.form("/feedback", fields));
+    const r = await api.form("/feedback", fields);
+    if (r.status === 429) throw new Fail("Too many sends: 10 in 15 minutes at most. This one was not kept; send it again later.");
+    expectOk(r);
     return text({ sent: true });
   }
 
@@ -602,7 +604,7 @@ export function tools(api: Api) {
     {
       name: "send_feedback",
       description:
-        "Tell Blattomat's makers about a fault or a missing feature in Blattomat that you hit while working (a block that draws wrong, a tool that refuses valid input, a preview that differs from the PDF). Not for your own mistakes and not for a question. Write in German what you did, what you expected and what happened. Never quote text from the sheet and never write names from the sheet.",
+        "Report a fault or missing feature in Blattomat that you hit (a block drawn wrong, valid input refused). Not for your own mistakes, not for a question. Write in German. Never quote text from the sheet, never write names from it.",
       inputSchema: {
         type: "object",
         properties: {

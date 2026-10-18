@@ -8315,7 +8315,7 @@
     "name": "replace_doc"
   },
   {
-    "description": "Tell Blattomat's makers about a fault or a missing feature in Blattomat that you hit while working (a block that draws wrong, a tool that refuses valid input, a preview that differs from the PDF). Not for your own mistakes and not for a question. Write in German what you did, what you expected and what happened. Never quote text from the sheet and never write names from the sheet.",
+    "description": "Report a fault or missing feature in Blattomat that you hit (a block drawn wrong, valid input refused). Not for your own mistakes, not for a question. Write in German. Never quote text from the sheet, never write names from it.",
     "inputSchema": {
       "properties": {
         "sheet_id": {
