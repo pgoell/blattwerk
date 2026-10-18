@@ -1,5 +1,6 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
@@ -57,6 +58,11 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     setDenied(ok ? undefined : props);
     return ok;
   };
+  // The `tried` of the last render: an answer that waited for the one before it is measured on the block that one left.
+  const latest = useRef(tried);
+  useLayoutEffect(() => {
+    latest.current = tried;
+  });
 
   // A new limit asks for new exercises. Every answer is applied, in the order asked; only the last one clears the
   // pending limit. Where none comes, the limit stays as set, and the line above the page asks again with it.
@@ -68,7 +74,9 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
       await before;
-      const ok = tried({ ...next, ...made });
+      // Drawn at once, so that the next answer's `latest` sees the block as this one leaves it.
+      let ok = false;
+      flushSync(() => void (ok = latest.current({ ...next, ...made })));
       if (n !== asked.current) return;
       setPending(undefined);
       // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.

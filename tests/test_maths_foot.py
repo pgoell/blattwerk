@@ -14,7 +14,7 @@ from playwright.sync_api import expect
 from test_feed_print import sheet_id
 from test_maths_fit import inside
 from test_painter import paint
-from ui import at, box, doc, maths, pick, user
+from ui import at, box, doc, maths, pick, saved, user
 
 FOOT = 297  # the page's height in mm
 PT = 25.4 / 72  # mm per point, as sheet.tsx
@@ -256,6 +256,32 @@ def test_i1b_a_quick_second_click_keeps_the_first_when_its_answer_is_late(editor
     pick(page, "m")
     page.keyboard.press("Control+z")
     expect(tasks(page).first).to_have_text("11 Aufgaben")
+
+
+def test_i1c_a_quick_more_then_less_ends_at_the_height_it_had(editor):
+    """I1c: "mehr" then "weniger" quickly, the first answer late: the second is measured on the
+    block the first left, so the block ends with its 9 tasks at the height of 3 rows."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    held = []
+
+    def hold(route):
+        # The first answer waits until the second click is sent; then both go on.
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    expect(tasks(page).first).to_have_text("9 Aufgaben")
+    (block,) = saved(page, client)
+    assert block["h"] == height(props)
 
 
 def test_i2_the_line_goes_when_there_is_room_again(editor):
