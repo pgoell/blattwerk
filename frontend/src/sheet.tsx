@@ -1009,18 +1009,23 @@ export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.prop
 // The square each character of a Karo's text stands in, as [column, row, character, offset]: a row is filled, then the
 // next begins. The offset is where the character lies in the text, in UTF-16 units.
 // A word moves whole to the next row when it and the space after it do not fit the rest of the row, as the field wraps
-// it; a word longer than a row fills the rest of the row and breaks. A space that finds its row full starts the next.
+// it; a word longer than a row breaks in place. A hyphen between a letter and a letter ends a unit too, as the field
+// breaks there ("3-4" does not). A space that finds its row full starts the next row.
 export function squares(text: string, cols: number) {
   const out: [number, number, string, number][] = [];
   const chars = [...text];
+  const hyphen = (j: number) => chars[j] === "-" && j > 0 && chars[j - 1] !== " " && /\p{L}/u.test(chars[j + 1] ?? "");
   let [x, y, i] = [0, 0, 0];
   chars.forEach((ch, n) => {
     if (ch === "\n") [x, y] = [0, y + 1];
-    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n")) {
+    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n" || hyphen(n - 1))) {
       let len = 0;
-      while (n + len < chars.length && chars[n + len] !== " " && chars[n + len] !== "\n") len++;
+      for (let j = n; j < chars.length && chars[j] !== " " && chars[j] !== "\n"; j++) {
+        len = j - n + 1;
+        if (hyphen(j)) break;
+      }
       const unit = len + (chars[n + len] === " " ? 1 : 0);
-      if (x > 0 && len <= cols && x + unit > cols) [x, y] = [0, y + 1];
+      if (x > 0 && x + unit > cols) [x, y] = [0, y + 1];
     }
     if (ch !== "\n") {
       if (x === cols) [x, y] = [0, y + 1];
