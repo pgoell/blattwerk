@@ -389,7 +389,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         const next = { ...b, props: { ...b.props, kind } };
         // Past the foot it keeps the rows that still fit, measured by its lowest corner, so a turned one as it lies.
         let n = Math.max(rowsOf(b), rowsNeeded(next));
-        while (n > 1 && lowest({ ...b, ...tall(b, round(n * row)) }) > H + 0.01) n--;
+        while (n > 1 && lowest({ ...b, ...tall(b, round(n * row)) }) > H - MARGIN + 0.01) n--;
         return [b.id, tall(b, round(Math.max(1, n) * row))];
       }),
       "ruling",
