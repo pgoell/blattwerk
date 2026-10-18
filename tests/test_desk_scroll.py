@@ -44,9 +44,7 @@ def test_a_block_resting_near_the_lower_edge_of_the_desk_keeps_scrolling_it(edit
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
     # The pointer rests: no further move, yet the desk scrolls on to the next page.
-    page.wait_for_function(
-        f"() => document.querySelector('{DESK}').scrollTop > {start + 300}", timeout=5000
-    )
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > {start + 300}")
     page.mouse.up()
 
 
@@ -56,16 +54,18 @@ def test_a_block_follows_the_pointer_while_the_desk_scrolls(editor):
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
-    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300", timeout=5000)
-    _, y = near_bottom(page)
-    # The block is drawn a frame or two after the desk moved: wait until it lies under the pointer.
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
+    # Out of the edge the scroll stops; the block, carried along with it, lies under the pointer.
+    # (While the desk scrolls it trails by a frame, up to 72 px on a slow runner.)
+    b = page.locator(DESK).bounding_box()
+    y = b["y"] + b["height"] / 2
+    page.mouse.move(b["x"] + b["width"] / 2, y, steps=5)
     page.wait_for_function(
         """([y]) => {
             const r = document.querySelector('.block[data-id="a"]').getBoundingClientRect();
             return Math.abs(r.top + r.height / 2 - y) < 3;
         }""",
         arg=[y],
-        timeout=5000,
     )
     page.mouse.up()
 
@@ -76,7 +76,7 @@ def test_the_drop_after_the_scroll_lands_on_the_page_under_the_pointer(editor):
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
-    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300", timeout=5000)
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
     target = under(page, near_bottom(page))
     page.mouse.up()
     expect(page.locator(PAGE.format(target)).locator('.block[data-id="a"]')).to_have_count(1)
@@ -90,7 +90,7 @@ def test_the_drag_with_its_scroll_is_one_undo_step(editor):
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(*near_bottom(page), steps=10)
-    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300", timeout=5000)
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 300")
     page.mouse.up()
     expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
     page.keyboard.press("Control+z")

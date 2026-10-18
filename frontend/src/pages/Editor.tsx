@@ -1840,7 +1840,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setAt(n + 1);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
@@ -2159,7 +2159,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     });
     // A page in use that lies partly in view stays put: the desk does not jump to its top.
     const [on, view] = [sheet.current!.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
-    if (n !== page || on.bottom <= view.top || on.top >= view.bottom) sheet.current!.scrollIntoView({ behavior: "smooth" });
+    if (n !== page || on.bottom <= view.top || on.top >= view.bottom) seek();
   }
   function undo() {
     const last = hist.past.at(-1);
@@ -2181,7 +2181,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen([n + 1]);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   function visit(n: number) {
     done();
@@ -2191,7 +2191,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen([n]);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Lays the sheet on its side or upright, or with `n` that page alone (`undefined` gives the sheet's format again).
   // A block spanning the page stretches with it, one centred across stays centred, the rest keep their place.
@@ -2270,7 +2270,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(moved.map((_, j) => start + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // The copies come after the last of their pages and take its place, in order. Each has its page's guide lines, grid
   // and format, and blocks of its own.
@@ -2287,7 +2287,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(sorted.map((_, j) => last + 1 + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // A drag of a thumbnail goes on at this point of the window. The pointer on the left half of a thumbnail means
   // the gap before it, on the right half the one after it, and past the last thumbnail the end.
@@ -2441,6 +2441,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   useEffect(() => () => clearTimeout(resting.current), []);
   function follow() {
     clearTimeout(resting.current);
+    // The editor's own scroll has brought the page in use into view: from here on it counts as any other.
+    if (heading.current && !lost()) heading.current = 0;
     // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
     if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(() => strayNow.current()), 150));
     if (editing) lagged.current = true;
@@ -2452,16 +2454,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     return !on || on.bottom <= view.top || on.top >= view.bottom || on.right <= view.left || on.left >= view.right;
   }
   // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
+  // The editor's own smooth scroll to the page in use: until it is there, the page in use lies out of view on purpose.
+  const heading = useRef(0);
+  function seek() {
+    heading.current = performance.now() + 1500;
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  const strayed = () => lost() && performance.now() > heading.current;
+  // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
   // A text being typed is picked too, so it keeps its page here as well. The timer runs the stray of the latest
   // render: a pick dropped meanwhile counts.
   function stray() {
-    if (!lost() || ids.length) return;
+    if (!strayed() || ids.length) return;
     inView();
   }
   const strayNow = useRef(stray);
   strayNow.current = stray;
   // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
-  const looked = () => (lost() ? inView() : page);
+  const looked = () => (strayed() ? inView() : page);
   useEffect(() => {
     if (editing || !lagged.current) return;
     lagged.current = false;
@@ -2814,7 +2824,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(fresh.map((_, j) => after + 1 + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Cut: the pages are stored, then taken away. Not when they are every page.
   function cutPages(ns: number[]) {
