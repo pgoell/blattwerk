@@ -1340,8 +1340,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // back where they began, with no undo step, and what redo held stays. Moveable ends its drag with no event.
     // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
-      if (moveable.current?.isDragging()) moveable.current.stopDrag();
-      else {
+      if (moveable.current?.isDragging()) {
+        // Moveable sends no end of the drag: the desk's scroll at its edge stops here.
+        stopDeskScroll();
+        moveable.current.stopDrag();
+      } else {
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
       }
@@ -1837,7 +1840,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setAt(n + 1);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Changes the sheet's guide lines, or with `n` those of that page alone.
   function rules(n: number | undefined, fn: (g: Guides) => Guides, key?: string) {
@@ -2156,7 +2159,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     });
     // A page in use that lies partly in view stays put: the desk does not jump to its top.
     const [on, view] = [sheet.current!.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
-    if (n !== page || on.bottom <= view.top || on.top >= view.bottom) sheet.current!.scrollIntoView({ behavior: "smooth" });
+    if (n !== page || on.bottom <= view.top || on.top >= view.bottom) seek();
   }
   function undo() {
     const last = hist.past.at(-1);
@@ -2178,7 +2181,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen([n + 1]);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   function visit(n: number) {
     done();
@@ -2188,7 +2191,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen([n]);
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Lays the sheet on its side or upright, or with `n` that page alone (`undefined` gives the sheet's format again).
   // A block spanning the page stretches with it, one centred across stays centred, the rest keep their place.
@@ -2267,7 +2270,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(moved.map((_, j) => start + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // The copies come after the last of their pages and take its place, in order. Each has its page's guide lines, grid
   // and format, and blocks of its own.
@@ -2284,7 +2287,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(sorted.map((_, j) => last + 1 + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // A drag of a thumbnail goes on at this point of the window. The pointer on the left half of a thumbnail means
   // the gap before it, on the right half the one after it, and past the last thumbnail the end.
@@ -2431,11 +2434,44 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const scrollHeld = useRef(false);
   const lagged = useRef(false);
   const steer = (ms = 500) => (steered.current = performance.now() + ms);
+  // Any other scroll (a zoom about the pointer, a page key with a block picked, a script) that leaves the page in use
+  // out of view hands it on to the page in view once the desk rests, so a new block never lands out of sight (#805).
+  // A scroll of the editor's own ends on the page in use, so it keeps it.
+  const resting = useRef(0);
+  useEffect(() => () => clearTimeout(resting.current), []);
   function follow() {
-    if (performance.now() > steered.current && !scrollHeld.current) return;
+    clearTimeout(resting.current);
+    // The editor's own scroll has brought the page in use into view: from here on it counts as any other.
+    if (heading.current && !lost()) heading.current = 0;
+    // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
+    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(() => strayNow.current()), 150));
     if (editing) lagged.current = true;
     else inView();
   }
+  // Whether no part of the page in use lies in the desk's view.
+  function lost() {
+    const [on, view] = [sheet.current?.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
+    return !on || on.bottom <= view.top || on.top >= view.bottom || on.right <= view.left || on.left >= view.right;
+  }
+  // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
+  // The editor's own smooth scroll to the page in use: until it is there, the page in use lies out of view on purpose.
+  const heading = useRef(0);
+  function seek() {
+    heading.current = performance.now() + 1500;
+    sheet.current!.scrollIntoView({ behavior: "smooth" });
+  }
+  const strayed = () => lost() && performance.now() > heading.current;
+  // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
+  // A text being typed is picked too, so it keeps its page here as well. The timer runs the stray of the latest
+  // render: a pick dropped meanwhile counts.
+  function stray() {
+    if (!strayed() || ids.length) return;
+    inView();
+  }
+  const strayNow = useRef(stray);
+  strayNow.current = stray;
+  // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
+  const looked = () => (strayed() ? inView() : page);
   useEffect(() => {
     if (editing || !lagged.current) return;
     lagged.current = false;
@@ -2450,12 +2486,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       if (shown > most) [best, most] = [+el.dataset.page!, shown];
     }
     setAt(best);
+    return best;
   }
 
   // Notes page `was` for what the server sends later, and gives a way to look it up then. The pages may have changed
   // by that time: the page is found where it is now; one changed since is known by a block it still holds, or keeps
   // its number while the pages are as many as before. For a page that is gone, the page in use stands in.
-  function mark(was = page) {
+  function mark(was = looked()) {
     const [on, count] = [pages[was], pages.length];
     return () => {
       const { doc, page } = latest.current;
@@ -2513,7 +2550,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         if (boxes.every((b) => x + w + 5 <= b.x || x >= b.x + b.w + 5 || y + h + 5 <= b.y || y >= b.y + b.h + 5)) return { p, x, y };
     return undefined;
   }
-  function add(w: number, h: number, rest: Fresh, n = page, pasted = false) {
+  function add(w: number, h: number, rest: Fresh, n = looked(), pasted = false) {
     const { doc } = latest.current;
     const [held, size] = [doc.pages[n].blocks, sizeOf(doc, n)];
     const id = crypto.randomUUID();
@@ -2787,7 +2824,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       setChosen(fresh.map((_, j) => after + 1 + j));
       setIds([]);
     });
-    sheet.current!.scrollIntoView({ behavior: "smooth" });
+    seek();
   }
   // Cut: the pages are stored, then taken away. Not when they are every page.
   function cutPages(ns: number[]) {
@@ -2816,7 +2853,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // Words with their bold, italic, underline and colour keep them. Word ends a whole line with a break, which would make an empty last paragraph.
     const paras = parasFromHtml(html);
     const props = paras.length ? stored(paras) : { text: words.replace(/\n+$/, "") };
-    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, page, true);
+    add(80, 12, { type: "text", props: { ...props, size: 14, align: "left" } }, looked(), true);
     return true;
   }
   // A second press while the system's clipboard is still being read would paste onto the same spot.
@@ -3004,6 +3041,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Moveable reports px of the layout, the document keeps mm. It reads the new size back at once, so render before returning.
   // A group snaps as one box, by its edges or its centre, and all its blocks move by the same amount.
   const drag = (events: OnDrag[], finger: { clientX: number; clientY: number } = events[0]) => {
+    edgeScroll(finger.clientX, finger.clientY);
     // A finger that holds never rests still: nothing moves until it has left where it came down. Once a block has
     // moved, the blocks are new ones, and they follow the finger back there too. Of a group only the event of the
     // whole says where the finger is: those of its blocks say where a snap would put them.
@@ -3013,7 +3051,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     owed.current = still ? events : undefined;
     if (still) return;
     const from = events.map((e) => blocks.find((b) => b.id === idOf(e.target))!);
-    const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K }));
+    // The desk's scroll has moved the blocks by `deskShift` since Moveable last measured them.
+    const to = events.map((e, i) => ({ ...from[i], x: e.left / K, y: e.top / K + deskShift.current }));
     let [dx, dy] = (["x", "y"] as const).map((axis) => {
       // A turned block snaps by its outline.
       const [lo, hi] = span(to.map(outline), axis);
@@ -3031,11 +3070,106 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     owed.current = undefined;
     ahead.current = hist.future;
     start.current = els.map((el) => blocks.find((b) => b.id === idOf(el))!);
+    deskShift.current = 0;
   };
+  // Near the top or the bottom of the desk a block drag scrolls it, faster the nearer the pointer is to the edge, and the
+  // blocks go with it so they stay under the pointer. The scroll goes on while the pointer rests there.
+  const deskShift = useRef(0);
+  const deskAuto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
+  function edgeScroll(x: number, y: number) {
+    const view = desk.current!.getBoundingClientRect();
+    const zone = 40;
+    const down = (y - (view.bottom - zone)) / zone;
+    const up = (view.top + zone - y) / zone;
+    const a = deskAuto.current;
+    a.x = x;
+    a.y = y;
+    a.speed = (down > 0 ? Math.min(1, down) : up > 0 ? -Math.min(1, up) : 0) * 12;
+    if (!a.speed) stopDeskScroll();
+    else if (!a.frame) a.frame = requestAnimationFrame(deskStep);
+  }
+  function stopDeskScroll() {
+    const a = deskAuto.current;
+    cancelAnimationFrame(a.frame);
+    a.frame = 0;
+    a.speed = 0;
+    a.last = 0;
+    a.rest = 0;
+  }
+  // Px per 1/60 s, as the panel's scroll: the desk keeps its pace on a slow machine too.
+  function deskStep(now: number) {
+    const a = deskAuto.current;
+    a.frame = 0;
+    if (!a.speed || !moveable.current?.isDragging()) return;
+    const dt = a.last ? Math.min(now - a.last, 100) : 1000 / 60;
+    a.last = now;
+    a.rest += (a.speed * dt) / (1000 / 60);
+    const px = Math.trunc(a.rest);
+    a.rest -= px;
+    if (px) {
+      desk.current!.scrollTop += px;
+      const mm = px / k;
+      deskShift.current += mm;
+      const ids = start.current.map((b) => b.id);
+      change((bs) => bs.map((b) => (ids.includes(b.id) ? { ...b, y: b.y + mm } : b)), "drag");
+    }
+    a.frame = requestAnimationFrame(deskStep);
+  }
   // With Ctrl held when a move ends, copies stay where the blocks began.
   const leave = (moved: boolean) => {
     owed.current = undefined;
-    if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
+    stopDeskScroll();
+    if (!moved) return;
+    // With Ctrl the copies stay where the blocks began, on their page; the blocks themselves may go to another.
+    const copies = mod & CENTRE ? cloned(start.current, live.current.doc.pages[page].blocks) : [];
+    if (!toPageUnder(copies) && copies.length) change((bs) => [...bs, ...copies], "drag");
+  };
+  // A drop over another page moves the blocks to it, each group or block to the page under its own middle, or the
+  // nearest page when that lies in a gap or past the last page. There it lies whole on the page, in front of the
+  // blocks it finds, and where it was on the screen. One step with the drag. Says whether a block changed pages.
+  const toPageUnder = (copies: Block[]) => {
+    const own = live.current.doc.pages[page].blocks;
+    const ids = start.current.map((b) => b.id);
+    // The pages alone: a page's own guide has a tab with its page's number too, out in the gap above it.
+    const sheets = [...desk.current!.querySelectorAll<HTMLElement>(".sheet[data-page]")].map((el) => [+el.dataset.page!, el.getBoundingClientRect()] as const);
+    const was = sheet.current!.getBoundingClientRect();
+    const away = new Map<number, Block[]>();
+    for (const t of new Set(own.filter((b) => ids.includes(b.id)).map(thing))) {
+      const unit = own.filter((b) => ids.includes(b.id) && thing(b) === t);
+      const rects = unit.flatMap((b) => [...sheet.current!.querySelectorAll(`.block[data-id="${b.id}"]`)].map((el) => el.getBoundingClientRect()));
+      if (!rects.length) continue;
+      const mid = (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2;
+      const gap = (r: DOMRect) => Math.max(0, r.top - mid, mid - r.bottom);
+      const [n, now] = sheets.reduce((a, b) => (gap(b[1]) < gap(a[1]) ? b : a));
+      if (n === page) continue;
+      const [W, H] = sizes[n];
+      const [x, right] = span(unit, "x");
+      const [y, bottom] = span(unit, "y");
+      const dx = Math.max(-x, Math.min(W - right, (was.left - now.left) / k));
+      const dy = Math.max(-y, Math.min(H - bottom, (was.top - now.top) / k));
+      away.set(n, [...(away.get(n) ?? []), ...unit.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }))]);
+    }
+    if (!away.size) return false;
+    const gone = new Set([...away.values()].flat().map((b) => b.id));
+    const to = [...away.keys()][0];
+    update(
+      (doc) => ({
+        ...doc,
+        pages: doc.pages.map((p, i) => {
+          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...copies] };
+          const come = away.get(i);
+          if (!come) return p;
+          const top = Math.max(0, ...p.blocks.map((b) => b.z)) - Math.min(...come.map((b) => b.z)) + 1;
+          return { ...p, blocks: [...p.blocks, ...come.map((b) => ({ ...b, z: b.z + top }))] };
+        }),
+      }),
+      "drag",
+      to,
+      page,
+    );
+    setAt(to);
+    setIds((away.get(to) ?? []).map((b) => b.id));
+    return true;
   };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
@@ -3847,7 +3981,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   function onTouchMove(e: TouchEvent) {
     // One finger scrolls the desk, and its fling goes on after the lift; two pinch, which keeps the page in use.
-    if (e.touches.length === 1) steer(1500);
+    // A finger that drags a block scrolls the desk only at its edge, and that keeps the page of the drag.
+    if (e.touches.length === 1 && !moveable.current?.isDragging()) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) away.current = true;
