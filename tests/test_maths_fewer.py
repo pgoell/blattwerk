@@ -45,7 +45,7 @@ def test_903_eine_aufgabe_weniger_drops_the_last_exercise_and_keeps_the_others(e
     assert len(old) == 8
     pick(page, "m")
     page.get_by_label("Eine Aufgabe weniger").click()
-    wait_for(lambda: block_of(client, sheet_id)["count"] == 7)
+    wait_for(lambda: len(exercises_of(client, sheet_id)) == 7)
     assert exercises_of(client, sheet_id) == old[:-1]
 
 
@@ -70,7 +70,7 @@ def test_903_two_quick_weniger_clicks_drop_the_last_two_in_order(editor):
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe weniger").click()
     page.get_by_label("Eine Aufgabe weniger").click()
-    wait_for(lambda: block_of(client, sheet_id)["count"] == 6)
+    wait_for(lambda: len(exercises_of(client, sheet_id)) == 6)
     assert exercises_of(client, sheet_id) == old[:-2]
 
 
@@ -112,7 +112,7 @@ def test_903_weniger_after_the_session_ran_out_keeps_the_others_after_the_login(
     expect(page.locator(NOTICE)).to_have_text(WAITS_NOTICE)
     login(page, server, client)
     expect_sheet(page)
-    wait_for(lambda: block_of(client, sheet_id)["count"] == 13)
+    wait_for(lambda: len(exercises_of(client, sheet_id)) == 13)
     assert exercises_of(client, sheet_id) == old[:-1]
 
 
@@ -139,7 +139,7 @@ def test_902_an_overtaken_click_that_meets_a_run_out_session_is_not_redone_after
 
     page.route("**/api/maths", answer)
     page.get_by_label("Eine Aufgabe weniger").click()
-    wait_for(lambda: block_of(client, sheet_id)["count"] == 13)
+    wait_for(lambda: len(exercises_of(client, sheet_id)) == 13)
     again.click()
     expect_login(page, address)
     login(page, server, client)
