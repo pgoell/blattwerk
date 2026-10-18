@@ -390,13 +390,15 @@ def test_the_selection_frame_takes_the_tail_in(editor):
     pick(page, "a")
     b = at(page, "a").bounding_box()
     tip = b["y"] + 1.5 * 40 * k
-    # The frame's lines: the lowest of them reaches the tip.
-    lines = [f.bounding_box() for f in page.locator(".moveable-line").all()]
-    assert max(f["y"] + f["height"] for f in lines) >= tip - 2, lines
+    # A frame round the box and the tail reaches the tip.
+    reach = page.locator('.sheet .reach[data-id="a"]').bounding_box()
+    assert reach["y"] + reach["height"] >= tip - 2, reach
+    assert abs(reach["y"] - b["y"]) < 2, reach
     # The resize handle at the lower right stays on the box's corner, not on the tail's reach.
     se = page.locator(".moveable-direction.moveable-se")
     corner = (b["x"] + b["width"], b["y"] + b["height"])
-    assert math.dist(centre(se), corner) < 6, se.bounding_box()
+    # Moveable sets it a few px out of the corner; a frame grown by the tail would set it 20 mm off.
+    assert math.dist(centre(se), corner) < 15, se.bounding_box()
 
 
 def test_the_pdf_prints_a_tail_outside_the_box(browser, server):
