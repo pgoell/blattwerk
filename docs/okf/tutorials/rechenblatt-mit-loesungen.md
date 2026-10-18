@@ -4,7 +4,7 @@ title: A maths sheet with an answer key
 description: For Claude. A minus sheet to 20 with a gap format, and a Selbstkontrolle in mixed form that checks its results, then what the teacher does for the answer key and the variants.
 tags: [tutorial, maths, selbstkontrolle, loesungen, klasse-1]
 covers: [text, name, maths, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # A maths sheet with an answer key

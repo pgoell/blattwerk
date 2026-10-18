@@ -4,7 +4,7 @@ title: Dein erstes Blatt mit Claude
 description: For teachers, in German. From a Blattomat account to a first worksheet that Claude makes, in short steps.
 tags: [tutorial, lehrkraft, claude-desktop]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-17T20:50:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Dein erstes Blatt mit Claude

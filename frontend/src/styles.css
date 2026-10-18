@@ -596,6 +596,10 @@ body:has(.print) { background: #fff; }
 .sheet .end { position: absolute; z-index: 1; width: 14px; height: 14px; margin: -7px; border: 2px solid #fff; border-radius: 50%; background: var(--sel); touch-action: none; }
 /* The handle on an arrow's tip is a ring wide enough to show the arrowhead inside it; a finger still gets 44 px. */
 .sheet .end.tip { width: 22px; height: 22px; margin: -11px; border-color: var(--sel); background: none; }
+/* The yellow diamond that moves a bubble's tail, a star's point or a triangle's tip. Its round finger area, 28 px
+   across, ends short of the middle of Moveable's handle on the edge 12 px away. */
+.sheet .adjust { position: absolute; z-index: 3001; width: 12px; height: 12px; margin: -6px; border: 1px solid #555; background: #ffd200; transform: rotate(45deg); touch-action: none; cursor: pointer; }
+.sheet .adjust::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; }
 .end.tip::after { inset: -13px; }
 /* A line's end handles and the corner handles of a group with a line lie over Moveable's box, which has z-index 3000. */
 .sheet > .end { z-index: 3001; }

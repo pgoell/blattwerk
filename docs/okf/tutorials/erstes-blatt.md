@@ -4,7 +4,7 @@ title: Your first sheet
 description: For Claude. A heading, a name line and twelve plus sums to 20 with a seed, placed one under the other and checked with a preview.
 tags: [tutorial, maths, klasse-1]
 covers: [text, name, maths]
-generated: { by: "human:pgoell", at: 2026-10-17T17:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Your first sheet

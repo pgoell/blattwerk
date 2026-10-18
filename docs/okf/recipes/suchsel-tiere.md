@@ -4,7 +4,7 @@ title: "Suchsel mit Tieren"
 description: A heading, a name line, and a word search of five animal words, running down, with the words printed under the grid.
 tags: [deutsch, suchsel, tiere, klasse-2]
 covers: [text, name, suchsel]
-generated: { by: "human:pgoell", at: 2026-10-16T17:55:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Suchsel mit Tieren

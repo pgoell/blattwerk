@@ -4,7 +4,7 @@ title: "Hunderterfeld"
 description: A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.
 tags: [hunderterfeld, zahlenraum-100, klasse-1]
 covers: [text, name, hunderterfeld]
-generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Hunderterfeld

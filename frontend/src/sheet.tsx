@@ -203,6 +203,18 @@ export type TextProps = {
   strokeOpacity?: number;
   /** True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off. */
   inside?: boolean;
+  /** Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1]. */
+  tail?: [number, number];
+  /** How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.
+   * @minimum 0.1
+   * @maximum 0.9
+   */
+  inner?: number;
+  /** Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.
+   * @minimum 0
+   * @maximum 1
+   */
+  tip?: number;
   /** Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. */
   floor?: boolean;
   /** Width of the border in mm. Absent means 0.5.
@@ -1303,7 +1315,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const line = lineOf(p);
   const [down, across, edge] = inset(p, block.type === "shape");
   // Only a shape made since #128 keeps its text inside its outline: one saved before prints all its text as it did.
-  const [fitTop, fitRight, fitBottom, fitLeft] = p.inside === true ? fitOf(p.kind, block.w, block.h, block.flipY) : [0, 0, 0, 0];
+  const [fitTop, fitRight, fitBottom, fitLeft] = p.inside === true ? fitOf(p.kind, block.w, block.h, block.flipY, p, block.flipX) : [0, 0, 0, 0];
   // Such a shape never grows for its text: its type shrinks to fit the inner box (see `fitText`).
   const inside = p.inside === true && (p.kind === "circle" || p.kind === "triangle" || p.kind === "star");
   // The ink of the font that a line of this spacing does not hold reaches out of the paragraph: the clip and the padding
@@ -1397,7 +1409,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const estimate = Math.round((block.h - 2 * down) / rowMM);
   const mask = fade && Number.isFinite(rowMM) && rowMM > 0 && fadeMask(fade, lines ?? estimate, rowMM * k, (px) => `calc(var(--ink-up, 0px) + ${px}px)`);
   // A kind nobody knows draws as a rectangle, also one that names a part of every object ("toString").
-  const d = Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2) : undefined;
+  const d = Object.hasOwn(OUTLINES, p.kind ?? "") ? OUTLINES[p.kind!]?.(block.w, block.h, edge / 2, p) : undefined;
   // A browser lays a CSS border out on whole pixels: 0.5 mm printed as 0.26 mm. A shadow inside the box is as wide
   // as it is set, so that draws a solid border.
   const solid = !d && !p.dash && edge > 0;
@@ -1463,7 +1475,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A linked text's outline goes with its frame when the words make that higher than the block.
         <svg className="outline" viewBox={`0 0 ${block.w} ${block.h}`} preserveAspectRatio={linked ? "none" : undefined} style={{ ...over, ...flipped(block) }}>
           {p.dash && edge > 0 ? (
-            <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
+            <Dashes way={POINTS[p.kind!]!(block.w, block.h, edge / 2, p)} edge={edge} p={p} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} />
           ) : (
             <Outline d={d} fill={p.fill ?? "none"} fillOpacity={p.opacity ?? 1} stroke={p.stroke ?? "none"} strokeOpacity={p.strokeOpacity} strokeWidth={p.strokeWidth ?? 0.5} strokeDasharray={dashes(p.dash, p.strokeWidth ?? 0.5)} strokeLinecap={p.dash === "dotted" ? "round" : undefined} strokeLinejoin="round" />
           )}
@@ -1625,45 +1637,113 @@ function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: number; p: T
 // The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box. Each
 // one's way round as points, which its dashes go along. The triangle has its tip at the top. The star is a
 // five-point one stretched to the box. The bubble is a round box over the top three quarters, with a tail down to
-// the lower left.
-const POINTS: Partial<Record<Kind, (w: number, h: number, e: number) => number[][]>> = {
-  triangle: (w, h, e) => [[w / 2, e], [w - e, h - e], [e, h - e]],
-  star: (w, h, e) =>
-    Array.from({ length: 10 }, (_, i) => {
-      const [r, a] = [i % 2 ? 0.38 : 1, (i * Math.PI) / 5];
+// the lower left. The props `tip`, `inner` and `tail` move the tip, the inner corners and the tail (see the validators).
+const POINTS: Partial<Record<Kind, (w: number, h: number, e: number, p: Partial<TextProps>) => number[][]>> = {
+  triangle: (w, h, e, p) => {
+    const tip = tipOf(p);
+    return [[tip === undefined ? w / 2 : clamp(tip * w, e, w - e), e], [w - e, h - e], [e, h - e]];
+  },
+  star: (w, h, e, p) => {
+    const inner = innerOf(p) ?? 0.38;
+    return Array.from({ length: 10 }, (_, i) => {
+      const [r, a] = [i % 2 ? inner : 1, (i * Math.PI) / 5];
       // An upright star reaches sin 72° to each side, and cos 36° below its middle.
       return [e + (w - 2 * e) * (0.5 + (r * Math.sin(a)) / 1.902), e + ((h - 2 * e) * (1 - r * Math.cos(a))) / 1.809];
-    }),
-  bubble: (w, h, e) => {
+    });
+  },
+  bubble: (w, h, e, p) => {
     const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
-    return around(e, e, w - e, low, r, r, [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]]);
+    return around(e, e, w - e, low, r, r, bubbleTail(w, h, e, r, low, tailOf(p)));
   },
 };
 // Drawn solid: the same points for a polygon, or a path with true arcs.
-const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number) => string>> = {
-  triangle: (w, h, e) => POINTS.triangle!(w, h, e).join(" "),
-  star: (w, h, e) => POINTS.star!(w, h, e).join(" "),
-  bubble: (w, h, e) => {
+const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number, p: Partial<TextProps>) => string>> = {
+  triangle: (w, h, e, p) => POINTS.triangle!(w, h, e, p).join(" "),
+  star: (w, h, e, p) => POINTS.star!(w, h, e, p).join(" "),
+  bubble: (w, h, e, p) => {
     const [r, right, low] = [Math.min(4, w / 5, h / 4), w - e, e + 0.75 * (h - 2 * e)];
     const arc = (x: number, y: number) => `A${r},${r} 0 0 1 ${x},${y}`;
-    return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${0.4 * w} L${0.2 * w},${h - e} L${0.25 * w},${low} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
+    const [base, tip, back] = bubbleTail(w, h, e, r, low, tailOf(p));
+    return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${base[0]} L${tip[0]},${tip[1]} L${back[0]},${back[1]} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
   },
 };
+// The bubble's tail as points: from its base on the right, to its tip, back to its base on the left. The base is 0.15
+// of the width wide, on the foot of the body, between its round corners. Absent, the tail is the one it always had.
+function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): number[][] {
+  if (!tail) return [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]];
+  const tipX = clamp(tail[0] * w, e, w - e);
+  // The base lies right of a tip at a fifth of the width, as the tail always did, and slides to its left as the tip
+  // goes to four fifths: no jump on the way.
+  const from = tipX + 0.05 * w - 0.25 * w * clamp((tipX / w - 0.2) / 0.6, 0, 1);
+  const [lo, hi] = [e + r, w - e - r - 0.15 * w];
+  const base = hi < lo ? (w - 0.15 * w) / 2 : clamp(from, lo, hi);
+  return [[base + 0.15 * w, low], [tipX, clamp(tail[1] * h, low, h - e)], [base, low]];
+}
+// A value kept within a range.
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+// A sheet may come from anywhere: a tail is two numbers, its across kept in 0 to 1 and its down in 0.75 to 1. Anything
+// else is none, and so is a number that is no number for `tip` and `inner`, which keep their range too.
+export function tailOf(p: Partial<TextProps>): [number, number] | undefined {
+  const t = p.tail;
+  if (!Array.isArray(t) || t.length !== 2 || !Number.isFinite(t[0]) || !Number.isFinite(t[1])) return undefined;
+  return [clamp(t[0], 0, 1), clamp(t[1], 0.75, 1)];
+}
+export function innerOf(p: Partial<TextProps>): number | undefined {
+  const v = p.inner;
+  return typeof v === "number" && Number.isFinite(v) ? clamp(v, 0.1, 0.9) : undefined;
+}
+export function tipOf(p: Partial<TextProps>): number | undefined {
+  const v = p.tip;
+  return typeof v === "number" && Number.isFinite(v) ? clamp(v, 0, 1) : undefined;
+}
 // The rectangle inside a shape's outline where its text lies, as the mm the box keeps from it: top, right, bottom and
 // left. A circle keeps the square inscribed in it, a triangle the half that holds its base, a star the box of its inner
-// points. Flipped top to bottom, the top and the bottom swap.
-export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean): [number, number, number, number] {
+// points. Flipped top to bottom, the top and the bottom swap; flipped left to right, a triangle's tip moved off the
+// middle swaps its sides.
+export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean, p?: Partial<TextProps>, flipX?: boolean): [number, number, number, number] {
   let fit: [number, number, number, number] = [0, 0, 0, 0];
   if (kind === "circle") {
     const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
     fit = [down, across, down, across];
-  } else if (kind === "triangle") fit = [h / 2, w / 4, 0, w / 4];
-  else if (kind === "star") {
-    const inner = POINTS.star!(w, h, 0).filter((_, i) => i % 2 === 1);
+  } else if (kind === "triangle") {
+    // The tip's share of the width sets the two sides of the base's half: the middle gives w / 4 each.
+    const tip = tipOf(p ?? {}) ?? 0.5;
+    fit = [h / 2, ((1 - tip) * w) / 2, 0, (tip * w) / 2];
+  } else if (kind === "star") {
+    const inner = POINTS.star!(w, h, 0, p ?? {}).filter((_, i) => i % 2 === 1);
     const [xs, ys] = [inner.map(([x]) => x), inner.map(([, y]) => y)];
     fit = [Math.min(...ys), w - Math.max(...xs), h - Math.max(...ys), Math.min(...xs)];
   }
+  if (flipX) fit = [fit[0], fit[3], fit[2], fit[1]];
   return flipY ? [fit[2], fit[1], fit[0], fit[3]] : fit;
+}
+// Where a shape's adjust handle stands, in mm from the box's top left, unflipped and unturned: the triangle's tip, the
+// star's upper left inner corner, the bubble's tail tip. Another kind has none.
+export function handleOf(kind: Kind | undefined, w: number, h: number, p: Partial<TextProps>): [number, number] | undefined {
+  if (kind === "triangle") return [(tipOf(p) ?? 0.5) * w, 0];
+  if (kind === "star") {
+    const [x, y] = POINTS.star!(w, h, 0, p)[9]!;
+    return [x, y];
+  }
+  if (kind === "bubble") {
+    const [tx, ty] = tailOf(p) ?? [0.2, 1];
+    return [tx * w, ty * h];
+  }
+  return undefined;
+}
+// The inverse of `handleOf`: the prop that puts the handle at `at` in the same frame, kept in range and rounded.
+export function adjusted(kind: Kind | undefined, w: number, h: number, at: [number, number]): Partial<TextProps> {
+  const [x, y] = at;
+  const thou = (v: number) => Math.round(v * 1000) / 1000;
+  if (kind === "triangle") return { tip: thou(clamp(x / w, 0, 1)) };
+  if (kind === "bubble") return { tail: [thou(clamp(x / w, 0, 1)), thou(clamp(y / h, 0.75, 1))] };
+  if (kind === "star") {
+    // The point in POINTS.star's unit square, projected on the ray from its middle through inner corner 9.
+    const [u, v] = [(x / w - 0.5) * 1.902, 1 - (y * 1.809) / h];
+    const [s, c] = [Math.sin((9 * Math.PI) / 5), Math.cos((9 * Math.PI) / 5)];
+    return { inner: Math.round(clamp(u * s + v * c, 0.1, 0.9) * 100) / 100 };
+  }
+  return {};
 }
 // The one element of an outline: a path when `d` starts as one.
 const Outline = ({ d, ...look }: { d: string } & SVGAttributes<SVGElement>) => (d[0] === "M" ? <path d={d} {...look} /> : <polygon points={d} {...look} />);
