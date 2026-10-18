@@ -1,6 +1,7 @@
 import json
 import re
 import shutil
+import time
 import zipfile
 from pathlib import Path
 
@@ -494,14 +495,19 @@ def test_i6_a_second_click_keeps_kopiert_and_the_key_stays(account):
     page = account(user())
     key = make(page, "Laptop")
     page.evaluate(COPY_STUB)
+    # The page's clock stands still and moves only by hand, so a slow machine cannot run the 2 s out.
+    page.clock.install()
+    page.clock.pause_at(int(time.time() * 1000) + 60_000)
     box = page.get_by_test_id("new-token")
     box.get_by_role("button", name="Kopieren", exact=True).click()
     expect(box.get_by_role("button", name="Kopiert", exact=True)).to_be_visible()
-    page.wait_for_timeout(1200)
+    page.clock.run_for(1200)
     box.get_by_role("button", name="Kopiert", exact=True).click()
-    page.wait_for_timeout(1200)
+    page.clock.run_for(1200)
     expect(box.get_by_role("button", name="Kopiert", exact=True)).to_be_visible()
     expect(box.locator("code")).to_have_text(key)
+    page.clock.run_for(1000)
+    expect(box.get_by_role("button", name="Kopieren", exact=True)).to_be_visible()
 
 
 def test_i7_a_new_key_takes_the_failure_line_away(account):
