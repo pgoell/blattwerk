@@ -16,7 +16,7 @@ from ui import FIELD, RECT, RULING, TABLE, TEXT, at, box, centre, expect_picked,
 
 pytestmark = pytest.mark.native
 
-POPUP = ".panel select:open, .panel input[type=color]:open"
+POPUP = ".panel select:open, .panel input[type=color]:open, .panel [role=listbox]"
 BLACK = {**TEXT, "color": "#000000"}
 WALL = {"count": 4, "columns": 2, "max": 20, "op": "+", "given": "base", "empty": False, "seed": 7}
 # A select of the panel, the block that shows it and the value it starts with.

@@ -774,6 +774,12 @@ body:has(.print) { background: #fff; }
 .panel > .warn { color: var(--rec); }
 .panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
 .panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
+/* The font menus' own list, under its select, each name in its face. */
+.fontsel { position: relative; }
+.fontlist { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 320px; overflow-y: auto; margin-top: 4px; padding: 4px; border-radius: 6px; background: var(--raise); box-shadow: 0 6px 24px rgb(0 0 0 / .18); }
+.fontgroup { padding: 4px 8px; font-size: 12px; color: var(--muted); }
+.fontlist [role=option] { padding: 6px 8px; border-radius: 4px; font-size: 16px; cursor: pointer; }
+.fontlist [role=option]:hover, .fontlist .hi { background: var(--field); }
 /* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
 .panel .wordlist { display: block; box-sizing: border-box; width: 100%; margin: 0 0 8px; resize: vertical; background: var(--field); border-color: transparent; font: inherit; }
 /* Buttons that act at once, in equal shares of a row. */
