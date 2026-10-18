@@ -249,7 +249,6 @@ def test_a_change_made_before_the_redo_lands_is_kept(window, server):
         if held:
             break
         page.wait_for_timeout(100)
-    page.unroute("**/api/maths")
     held[0].continue_()
     wait_count(client, sheet_id, page, 13)
     assert columns_of(client, sheet_id) == columns + 1
