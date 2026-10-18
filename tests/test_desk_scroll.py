@@ -273,6 +273,32 @@ def test_a_drag_past_the_last_page_lands_whole_on_the_last_page(editor):
     assert on_page(saved["pages"][1]["blocks"][0])
 
 
+def test_a_drop_just_above_a_page_with_its_own_guide_keeps_the_block_where_it_was_across(editor):
+    """Second review of #806: page 2 has a guide of its own, whose tab lies in the gap above it.
+    A drop with the block's middle in that gap, nearer page 2, lands on page 2 at its old x."""
+    client = user()
+    page = editor(
+        box("a", "text", TEXT),
+        pages=[{"blocks": [], "guides": {"x": [150], "y": []}}],
+        client=client,
+    )
+    before = doc(page, client)["pages"][0]["blocks"][0]
+    press(page, "a")
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(
+        """() => document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().top
+            < document.querySelector('.desk').getBoundingClientRect().top + 400"""
+    )
+    top = page.locator(PAGE.format(1)).bounding_box()["y"]
+    x, _ = centre(at(page, "a"))
+    page.mouse.move(x, top - 6, steps=5)
+    page.mouse.up()
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    (moved,) = doc(page, client)["pages"][1]["blocks"]
+    # A snap may move it a little; the guide's tab taken for the page would move it 100 mm.
+    assert abs(moved["x"] - before["x"]) < 10
+
+
 def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):
     page = sheets(editor)
     grip = at(page, "a").bounding_box()

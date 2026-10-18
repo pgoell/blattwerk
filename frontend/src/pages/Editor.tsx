@@ -2442,7 +2442,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   function follow() {
     clearTimeout(resting.current);
     // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
-    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(stray), 150));
+    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(() => strayNow.current()), 150));
     if (editing) lagged.current = true;
     else inView();
   }
@@ -2452,11 +2452,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     return !on || on.bottom <= view.top || on.top >= view.bottom || on.right <= view.left || on.left >= view.right;
   }
   // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
+  // A text being typed is picked too, so it keeps its page here as well. The timer runs the stray of the latest
+  // render: a pick dropped meanwhile counts.
   function stray() {
     if (!lost() || ids.length) return;
-    if (editing) lagged.current = true;
-    else inView();
+    inView();
   }
+  const strayNow = useRef(stray);
+  strayNow.current = stray;
   // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
   const looked = () => (lost() ? inView() : page);
   useEffect(() => {
@@ -3117,7 +3120,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const toPageUnder = (copies: Block[]) => {
     const own = live.current.doc.pages[page].blocks;
     const ids = start.current.map((b) => b.id);
-    const sheets = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].map((el) => [+el.dataset.page!, el.getBoundingClientRect()] as const);
+    // The pages alone: a page's own guide has a tab with its page's number too, out in the gap above it.
+    const sheets = [...desk.current!.querySelectorAll<HTMLElement>(".sheet[data-page]")].map((el) => [+el.dataset.page!, el.getBoundingClientRect()] as const);
     const was = sheet.current!.getBoundingClientRect();
     const away = new Map<number, Block[]>();
     for (const t of new Set(own.filter((b) => ids.includes(b.id)).map(thing))) {
