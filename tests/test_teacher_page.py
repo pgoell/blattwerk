@@ -21,6 +21,7 @@ import pytest
 from PIL import Image, ImageChops
 from playwright.sync_api import expect
 from test_bar import TIP
+from test_zoom import expect_scroll, fit, roomy, scroll
 from ui import (
     BROWSER,
     FIELD,
@@ -29,6 +30,7 @@ from ui import (
     TABLE,
     TEXT,
     at,
+    bar,
     box,
     centre,
     copy_picture,
@@ -187,6 +189,64 @@ def test_wheel_scrolls_the_desk_down_and_up(editor):
     page.wait_for_function("document.querySelector('.desk').scrollTop === 100")
     with pytest.raises(tool.Refused, match='"down" is not a number'):
         tool.wheel(page, "5,5", "down")
+
+
+def desk_at(page, across=10, down=10):
+    """A point on the desk, px across and down from its top left corner, as a TARGET."""
+    corner = page.locator(".desk").bounding_box()
+    return f"{corner['x'] + across:g},{corner['y'] + down:g}"
+
+
+def test_middle_drag_pans_the_desk(editor):
+    page = editor(box("a", "text", ONE))
+    roomy(page)
+    left, top = scroll(page)
+    tool.middle_drag(page, desk_at(page), desk_at(page, 110, 70))
+    expect_scroll(page, left - 100, top - 60)
+    expect(page.locator(".block.sel")).to_have_count(0)
+
+
+def test_middle_drag_at_the_fitted_zoom_moves_nothing_and_picks_nothing(editor):
+    page = editor(box("a", "text", ONE))
+    fit(page).click()
+    left, top = scroll(page)
+    tool.middle_drag(page, desk_at(page), desk_at(page, 70, 50))
+    expect_scroll(page, left, top)
+    expect(page.locator(".block.sel")).to_have_count(0)
+
+
+def test_middle_drag_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.middle_drag(page, "FROM", "TO")
+    tool.NOTES.clear()
+
+
+def test_swipe_in_from_the_right_edge_opens_the_format_drawer_in_the_upright_window(editor):
+    page = editor(box("a", "text", ONE))
+    tool.resize(page, "820", "1180")
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    tool.swipe(page, "817,600", "660,600")
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+
+
+def test_swipe_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.swipe(page, "FROM", "TO")
+    tool.NOTES.clear()
 
 
 # The keys
