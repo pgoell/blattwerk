@@ -638,6 +638,10 @@ body:has(.print) { background: #fff; }
 }
 /* A shape with its text inside shrinks the type to fit, so a word never breaks in the middle. */
 .frame.inside p { overflow-wrap: normal; }
+/* A shape's text too long for its room is cut after its last whole line. The cut is on the text, so the outline stays whole. */
+.frame.inside[data-cut] > p, .frame.inside[data-cut] > .rich, .frame.inside[data-cut] > .body > p, .frame.inside[data-cut] > .body > .rich {
+  clip-path: inset(-1px -1px calc(100% - var(--cut)) -1px);
+}
 /* A text with paragraphs of its own: drawn from the sheet, or the field it is typed in. The counters number the
    items of a list at each of its three levels; a paragraph that is no such item starts its level and the ones
    below it over. */

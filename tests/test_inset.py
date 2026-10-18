@@ -330,3 +330,62 @@ def test_a_text_turned_into_a_triangle_in_the_panel_keeps_its_text_inside(editor
     assert min(r["top"] for r in lines(page, "a")) >= b["top"] + 0.4 * (b["bottom"] - b["top"])
     (a,) = saved(page, client)
     assert a["props"]["inside"] is True
+
+
+def same_size(page, name, outline):
+    """The outline's box is the block's box, to a pixel or two."""
+    b = frame(page, name)
+    ob = outline.bounding_box()
+    assert abs(ob["x"] - b["left"]) < 2 and abs(ob["y"] - b["top"]) < 2, (ob, b)
+    assert abs(ob["width"] - (b["right"] - b["left"])) < 2, (ob, b)
+    assert abs(ob["height"] - (b["bottom"] - b["top"])) < 2, (ob, b)
+
+
+DACH = {"rich": [{"runs": [{"text": "Dach"}]}], "size": 14, "align": "center"}
+
+
+@pytest.mark.parametrize("valign", ["top", "middle", "bottom"])
+@pytest.mark.parametrize("kind", ["circle", "triangle", "star"])
+def test_a_fitting_word_keeps_outline_and_size_at_each_valign(editor, kind, valign):
+    page = editor(box("a", "shape", shape(kind, **DACH, valign=valign), x=20, y=30, w=60, h=50))
+    pick(page, "a")
+    fr = at(page, "a").locator(".frame")
+    assert fr.get_attribute("data-cut") is None
+    assert "100%" not in fr.evaluate("el => getComputedStyle(el).clipPath")
+    assert fr.evaluate("el => el.style.getPropertyValue('--fit')") in ("", "1")
+    if kind != "circle":
+        same_size(page, "a", at(page, "a").locator(".frame svg.outline"))
+
+
+@pytest.mark.parametrize("kind", ["circle", "triangle", "star"])
+def test_pdf_prints_outline_and_word_at_the_bottom(editor, server, kind):
+    client = user()
+    page = editor(
+        box("a", "shape", shape(kind, **DACH, valign="bottom"), x=20, y=30, w=60, h=50),
+        client=client,
+    )
+    spots = printed(page, client, server)
+    assert "Dach" in spots, spots
+    # The shape is 30 to 80 mm down the page: its word lies in the lower half.
+    assert spots["Dach"] > 55, spots
+
+
+def test_a_text_too_long_is_cut_in_its_room_and_keeps_the_outline(editor):
+    page = editor(box("a", "shape", shape("triangle", **FULL), x=20, y=30, w=40, h=40))
+    pick(page, "a")
+    fr = at(page, "a").locator(".frame")
+    assert fr.get_attribute("data-cut") == "true"
+    same_size(page, "a", at(page, "a").locator(".frame svg.outline"))
+    foot = fr.evaluate(
+        "el => el.getBoundingClientRect().bottom - parseFloat(getComputedStyle(el).paddingBottom)"
+    )
+    # Lines whose box ends past the foot are cut away: the rest end above it.
+    ends = [r["bottom"] - (r["bottom"] - r["top"]) / 2 for r in lines(page, "a")]
+    assert ends and min(ends) < foot, (ends, foot)
+
+
+@pytest.mark.parametrize("valign", ["top", "middle", "bottom"])
+def test_a_bubble_keeps_outline_at_each_valign(editor, valign):
+    page = editor(box("a", "shape", shape("bubble", **DACH, valign=valign), x=20, y=30, w=60, h=50))
+    expect(at(page, "a").locator(".frame svg.outline")).to_be_visible()
+    assert at(page, "a").locator(".frame").get_attribute("data-cut") is None

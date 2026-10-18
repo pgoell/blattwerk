@@ -1421,6 +1421,8 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   // Sheets saved before had a CSS border, which the print rounded down to whole pixels. The padding leaves the room
   // that border took, not the stroke's, so their texts keep their place and break their lines where they did.
   const room = ring || solid ? edge - Math.max(1, Math.floor(edge * k)) / k : own;
+  // An inside shape's cut goes on its text (`--cut`, see styles.css), so the outline keeps its whole box.
+  const frameCut = inside ? undefined : cut;
   const over: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: -1 };
   const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
   // A circle's clip grows by the side reach on each side, so its curve keeps the circle's radius as the box grows (#740).
@@ -1451,6 +1453,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
       style={{
         ...textStyle(p, k),
         ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
+        ...(inside && cut !== undefined && { "--cut": `${cut}px` } as CSSProperties),
         ...(tight && { "--ink-up": level ? `calc(${above}em + ${fringe}px)` : "0px", "--ink-down": level ? `calc(${below}em + ${fringe}px)` : "0px", "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),
         ...gapVar(width, k),
         ...(mask && ({ "--fade": mask } as CSSProperties)),
@@ -1463,7 +1466,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${cut !== undefined ? `calc(100% - ${cut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : cut !== undefined ? `-1px -1px calc(100% - ${cut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${roundR})`,
+        clipPath: `inset(${tight ? `calc(-1px - ${above}em) ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"} ${frameCut !== undefined ? `calc(100% - ${frameCut}px)` : below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px"} ${side > 0 ? `calc(-1px - ${side}em)` : "-1px"}` : frameCut !== undefined ? `-1px -1px calc(100% - ${frameCut}px) -1px` : p.syllables ? "-1px -1px calc(-1px - .3em)" : "-1px"} round ${roundR})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -1524,7 +1527,7 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
       ...[...el.querySelectorAll<HTMLElement>("p")].map((p) => {
         const r = document.createRange();
         r.selectNodeContents(p);
-        return Math.max(...[...r.getClientRects()].map((q) => q.bottom));
+        return Math.max(...[...r.getClientRects()].map((q) => lineFoot(q, p, zoom)));
       }),
     );
   // How much wider each paragraph's words are than its room, the padding at its sides (the ink's reach) left out.
@@ -1551,8 +1554,15 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   block.style.transform = was;
   return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
 }
+// The bottom of a line's box, in px of the screen. A font's glyph box stands taller than its line, and the extra hangs
+// half below the line, so that half is taken off the glyph box's foot.
+function lineFoot(q: DOMRect, p: HTMLElement, zoom: number) {
+  const line = parseFloat(getComputedStyle(p).lineHeight) * zoom;
+  return q.bottom - (line > 0 ? (q.height - line) / 2 : 0);
+}
 // The px from a frame's top where its lines end whole, when a line lies past the page's foot: the lowest line that
 // lies wholly on the page. Measured level, as `fitText` measures it. Undefined when every line is on the page.
+// An inside shape's cut is px from its text's top instead: its text is cut, not its outline (see `Frame`).
 function cutAt(el: HTMLElement) {
   const paper = el.closest<HTMLElement>(".paper, .sheet");
   // An inside shape's text stops at its inner box (its padding's foot), so it is measured even off the foot.
@@ -1579,13 +1589,15 @@ function cutAt(el: HTMLElement) {
     r.selectNodeContents(p);
     for (const q of r.getClientRects()) {
       if (q.width < 1 || q.height < 1) continue;
-      const bottom = (q.bottom - box.top) / zoom;
+      const bottom = ((inside ? lineFoot(q, p, zoom) : q.bottom) - box.top) / zoom;
       if (bottom <= foot + 0.5) whole = Math.max(whole, bottom);
       else past = true;
     }
   }
+  const text = textIn(el);
+  const from = inside && text ? (text.getBoundingClientRect().top - box.top) / zoom : 0;
   block.style.transform = was;
-  return past ? whole : undefined;
+  return past ? whole - from : undefined;
 }
 // The classes of an element, from the names that are set.
 const classes = (...names: (string | false | 0 | undefined)[]) => names.filter(Boolean).join(" ");
