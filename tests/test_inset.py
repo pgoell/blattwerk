@@ -376,6 +376,10 @@ def test_a_text_too_long_is_cut_in_its_room_and_keeps_the_outline(editor):
     fr = at(page, "a").locator(".frame")
     assert fr.get_attribute("data-cut") == "true"
     same_size(page, "a", at(page, "a").locator(".frame svg.outline"))
+    # The cut lies on the text alone: the frame, which draws the outline, keeps its whole box.
+    clip = fr.evaluate("el => getComputedStyle(el).clipPath")
+    assert "100%" not in clip, clip
+    assert fr.locator(".rich").evaluate("el => getComputedStyle(el).clipPath") != "none"
     foot = fr.evaluate(
         "el => el.getBoundingClientRect().bottom - parseFloat(getComputedStyle(el).paddingBottom)"
     )
