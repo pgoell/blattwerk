@@ -135,6 +135,7 @@
             "suchsel",
             "zahlenmauer",
             "rechendreieck",
+            "zahlenhaus",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -309,6 +310,18 @@
           },
           "then": {
             "$ref": "#/definitions/RechendreieckBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenhaus"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenhausBlock"
           }
         },
         {
@@ -2985,6 +2998,161 @@
       "minItems": 3,
       "maxItems": 3,
       "description": "A number the teacher typed into a field: the triangle's index (from 0), the field's index (0 to 5), the value (0 to 9999)."
+    },
+    "ZahlenhausBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenhaus"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenhausProps",
+          "description": "The number houses (Zahlenhäuser): a roof number and floors of two boxes that add up to it, and which boxes are given."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenhausProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of houses on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of houses per row. Default 4.",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "floors": {
+          "type": "number",
+          "description": "Number of floors (Stockwerke) under the roof. Each floor has two boxes that add up to the roof. Default 4.",
+          "minimum": 2,
+          "maximum": 10
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: the largest roof number of a generated house, a whole number from 2 to 1000. The editor offers 10, 20 and 100, or any other. Default 10.",
+          "minimum": 2,
+          "maximum": 1000
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "side",
+            "roof",
+            "mix",
+            "free"
+          ],
+          "description": "Which boxes show their number. \"side\": the roof and the left box of each floor (easy). \"roof\": the roof only, the pupil finds the splits. \"mix\": the roof and one box of each floor, left or right from the seed. \"free\": the boxes flagged in `free`. Default \"side\"."
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "With `given` \"free\": one flag per box, index 0 the roof, then 1 + 2f the left and 2 + 2f the right box of floor f (0 the top floor). A flagged box shows its number. The same for every house. Missing or of another length: the roof and the left boxes."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random houses. The same seed always gives the same houses."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HausTyped"
+          },
+          "description": "Numbers the teacher typed into boxes. Each entry is [house index from 0, box index, value 0 to 9999]. A floor that does not add up to the roof is marked wrong."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "floors",
+        "max",
+        "given",
+        "seed"
+      ]
+    },
+    "HausTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "A number the teacher typed into a box: the house's index (from 0), the box's index (0 the roof, then 1 + 2f and 2 + 2f for floor f), the value (0 to 9999)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",

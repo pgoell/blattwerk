@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Zahlenhäusern. Lege das Blatt mit dem Titel Eval Zahlenhäuser an.",
+  "recipe": "zahlenhaeuser",
+  "expect": {"types": ["zahlenhaus"], "text": ["Zahlenh"]}
+}

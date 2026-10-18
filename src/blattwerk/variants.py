@@ -84,6 +84,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
             elif kind in (
                 "suchsel",
                 "zahlenmauer",
+                "zahlenhaus",
                 "rechendreieck",
                 "zahlenstrahl",
                 "hunderterfeld",
