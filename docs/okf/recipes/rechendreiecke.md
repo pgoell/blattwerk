@@ -4,7 +4,7 @@ title: "Rechendreiecke"
 description: A heading, a name line, and four Rechendreiecke with some fields given and the rest to fill in.
 tags: [rechendreieck, zahlenraum-20, klasse-1]
 covers: [text, name, rechendreieck]
-generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Rechendreiecke

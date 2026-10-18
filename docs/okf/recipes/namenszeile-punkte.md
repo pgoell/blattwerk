@@ -4,7 +4,7 @@ title: "Namenszeile und Punkte"
 description: A heading, a name line, a text task with its points box beside it, and a total points box at the foot.
 tags: [punkte, namenszeile, klasse-1]
 covers: [text, name, points]
-generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Namenszeile und Punkte

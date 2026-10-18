@@ -203,6 +203,18 @@ export type TextProps = {
   strokeOpacity?: number;
   /** True keeps a circle's, triangle's or star's text inside its outline, shrunk to fit, rather than growing the shape. Absent means off. */
   inside?: boolean;
+  /** Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0.75, the foot of the bubble's body, to 1, the foot of the box. Absent means [0.2, 1]. */
+  tail?: [number, number];
+  /** How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.
+   * @minimum 0.1
+   * @maximum 0.9
+   */
+  inner?: number;
+  /** Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle.
+   * @minimum 0
+   * @maximum 1
+   */
+  tip?: number;
   /** Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. */
   floor?: boolean;
   /** Width of the border in mm. Absent means 0.5.

@@ -4,7 +4,7 @@ title: "Symbole mit Aufgaben"
 description: A heading, a name line, and three OpenMoji symbols, each next to a short task.
 tags: [symbol, bild, klasse-1]
 covers: [text, name, symbol]
-generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
 ---
 
 # Symbole mit Aufgaben
