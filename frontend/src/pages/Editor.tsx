@@ -117,7 +117,7 @@ import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTs
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
 import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
-import { generate, newSeed } from "./Maths";
+import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
 import type { Breaks } from "../syllables";
@@ -421,7 +421,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       }
       const now = find(block);
       if (!now) return note("owed", `${lost} fand ihren Block nicht mehr und wurde nicht übernommen.`);
-      const props = { ...now.b.props, ...change, ...made };
+      const props = { ...now.b.props, ...change, ...keptMaths(now.b.props, { ...now.b.props, ...change }, made) };
       if (overFoot(now.b, props, sizeOf(live.current.doc, now.n)[1])) return note("owed", `${lost} passt nicht mehr auf die Seite und wurde nicht übernommen.`);
       turn((p) => ({ ...p, blocks: p.blocks.map((x) => (x.id === block && x.type === "maths" ? ({ ...x, props, ...tall(x, mathsHeight(props)) } as Block) : x)) }), `owed ${block}`, now.n);
     });
