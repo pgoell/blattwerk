@@ -231,7 +231,7 @@ function pickName(sel: Block[], blocks: Block[]): string {
   if (groups.size) return `${groups.size + loose.length} Blöcke`;
   if (loose.every(isLine)) return `${loose.length} Linien`;
   const type = loose[0].type;
-  return loose.every((b) => b.type === type) ? `${loose.length} ${PLURALS[type]}` : `${loose.length} Blöcke`;
+  return loose.every((b) => b.type === type) ? `${loose.length} ${PLURALS[type] ?? "Blöcke"}` : `${loose.length} Blöcke`;
 }
 // The right panel's tabs.
 const TABS = ["Format", "Ansicht", "Lernwörter"];
