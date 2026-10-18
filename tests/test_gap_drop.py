@@ -324,6 +324,16 @@ def test_896_the_pdf_prints_the_moved_table_whole(editor, server):
     assert ink < 128, ("no top border of the table in its top rows", table["y"], top)
 
 
+def test_896_a_block_taller_than_the_room_between_the_margins_lands_at_the_top_margin(editor):
+    """#896: a shape taller than the page's text area, dropped on page 2, lands at the top margin."""
+    client = user()
+    page = sheets(editor, client, box("a", "shape", RECT, h=275))
+    drop_near_page_2(page)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    (shape,) = doc(page, client)["pages"][1]["blocks"]
+    assert shape["y"] == 15, shape["y"]
+
+
 def test_896_one_undo_takes_the_move_to_page_2_back(editor):
     """#896: one Ctrl+Z takes the move to page 2 back, and the block is on page 1 where it began."""
     client = user()
