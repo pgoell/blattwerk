@@ -905,6 +905,14 @@ function TraceControls({ props, font, onChange }: { props: { trace?: unknown; fa
 // A font menu in FONT_GROUPS' order, each font shown in its own face. The native select keeps the value and the keys;
 // its list is ours, because macOS and iPadOS draw a native list in the system font.
 const FONT_KEYS = FONT_GROUPS.flatMap(([, fonts]) => fonts) as readonly string[];
+// The faces load when the pointer or the focus first comes to a font menu, so a name shows at once when its list
+// opens. Not before: each face that comes measures the bows of every block anew. A face that fails shows its fallback.
+let preloaded = false;
+const preload = () => {
+  if (preloaded) return;
+  preloaded = true;
+  for (const font of FONT_KEYS) document.fonts.load(`16px "${FONTS[font as Font][1]}"`).catch(() => {});
+};
 function FontSelect({ label, value: stored, unknown, onChange }: { label: string; value: unknown; unknown?: string; onChange: (font: string) => void }) {
   // A font nobody knows shows as Druckschrift, the font it draws in.
   const value = fontOf(stored);
@@ -915,19 +923,24 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
   // Where the finger came down, to tell a tap from a swipe.
   const touch = useRef<{ x: number; y: number } | undefined>(undefined);
   // The faces load now, so a name shows at once when the list opens. A face that fails shows its fallback.
-  useEffect(() => {
-    for (const font of FONT_KEYS) document.fonts.load(`16px "${FONTS[font as Font][1]}"`).catch(() => {});
-  }, []);
-  // A press outside the select and the list shuts the list with no change.
+  // A press outside the select and the list shuts the list with no change. Like the browser's own list, a press of the
+  // left button goes no further: it picks no block and moves no focus. The middle one still pans the desk.
   useEffect(() => {
     if (!open) return;
+    const eat = (e: Event) => (e.preventDefault(), e.stopPropagation());
     const outside = (e: PointerEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+      if (wrap.current?.contains(e.target as Node)) return;
+      setOpen(false);
+      if (e.button) return;
+      eat(e);
+      addEventListener("click", eat, { capture: true, once: true });
+      addEventListener("pointerup", () => setTimeout(() => removeEventListener("click", eat, true)), { capture: true, once: true });
     };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    addEventListener("pointerdown", outside, true);
+    return () => removeEventListener("pointerdown", outside, true);
   }, [open]);
   const show = () => {
+    preload();
     setHi(Math.max(0, FONT_KEYS.indexOf(value)));
     setOpen(true);
   };
@@ -1005,6 +1018,8 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
             toggle();
           }}
           onKeyDown={key}
+          onPointerEnter={preload}
+          onFocus={preload}
         >
           {FONT_GROUPS.map(([group, fonts]) => (
             <optgroup key={group} label={group}>
