@@ -57,6 +57,11 @@ description = "Run the tests named after --, one worker, stop at the first failu
 depends = ["build"]
 run = "uv run pytest -n 0 -x"
 
+[tasks."test:each"]
+description = "Run every test named after --, one worker, and report each, failed or not"
+depends = ["build"]
+run = "uv run pytest -n 0"
+
 [tasks."test:flaky"]
 description = "Run the tests named after -- 20 times side by side"
 depends = ["build"]
