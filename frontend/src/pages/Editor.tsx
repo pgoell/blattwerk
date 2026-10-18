@@ -1341,10 +1341,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // So it is with a handle the pointer holds: a line's end, a table's column line, a guide line, a crop's frame.
     if (e.key === "Escape" && (moveable.current?.isDragging() || grasp.current?.el.hasPointerCapture(grasp.current.id))) {
       if (moveable.current?.isDragging()) {
-        // The drag ends on the blocks' own page: none moves to the page under the pointer.
-        calledOff.current = true;
+        // Moveable sends no end of the drag: the desk's scroll at its edge stops here.
+        stopDeskScroll();
         moveable.current.stopDrag();
-        calledOff.current = false;
       } else {
         grasp.current!.el.releasePointerCapture(grasp.current!.id);
         setDraft(grasp.current!.draft);
@@ -2439,6 +2438,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // out of view hands it on to the page in view once the desk rests, so a new block never lands out of sight (#805).
   // A scroll of the editor's own ends on the page in use, so it keeps it.
   const resting = useRef(0);
+  useEffect(() => () => clearTimeout(resting.current), []);
   function follow() {
     clearTimeout(resting.current);
     // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
@@ -2451,8 +2451,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const [on, view] = [sheet.current?.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
     return !on || on.bottom <= view.top || on.top >= view.bottom || on.right <= view.left || on.left >= view.right;
   }
+  // A picked block keeps its page, so the arrow keys still nudge it; a new block finds the page in view by `looked`.
   function stray() {
-    if (!lost()) return;
+    if (!lost() || ids.length) return;
     if (editing) lagged.current = true;
     else inView();
   }
@@ -3105,36 +3106,56 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const leave = (moved: boolean) => {
     owed.current = undefined;
     stopDeskScroll();
-    if (moved && mod & CENTRE) change((bs) => [...bs, ...cloned(start.current, bs)], "drag");
-    else if (moved && !calledOff.current) toPageUnder();
+    if (!moved) return;
+    // With Ctrl the copies stay where the blocks began, on their page; the blocks themselves may go to another.
+    const copies = mod & CENTRE ? cloned(start.current, live.current.doc.pages[page].blocks) : [];
+    if (!toPageUnder(copies) && copies.length) change((bs) => [...bs, ...copies], "drag");
   };
-  const calledOff = useRef(false);
-  // A drop over another page moves the blocks to it, where they lie under the pointer: one step with the drag.
-  const toPageUnder = () => {
+  // A drop over another page moves the blocks to it, each group or block to the page under its own middle, or the
+  // nearest page when that lies in a gap or past the last page. There it lies whole on the page, in front of the
+  // blocks it finds, and where it was on the screen. One step with the drag. Says whether a block changed pages.
+  const toPageUnder = (copies: Block[]) => {
+    const own = live.current.doc.pages[page].blocks;
     const ids = start.current.map((b) => b.id);
-    const first = sheet.current!.querySelector(`.block[data-id="${ids[0]}"]`);
-    if (!first) return;
-    const r = first.getBoundingClientRect();
-    const [cx, cy] = [r.left + r.width / 2, r.top + r.height / 2];
-    const to = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].find((el) => {
-      const p = el.getBoundingClientRect();
-      return cx >= p.left && cx <= p.right && cy >= p.top && cy <= p.bottom;
-    });
-    const n = +(to?.dataset.page ?? page);
-    if (!to || n === page) return;
-    // A page on its side lies wider than an upright one: the blocks keep their place on the screen across too.
-    const [was, now] = [sheet.current!.getBoundingClientRect(), to.getBoundingClientRect()];
-    const moving = live.current.doc.pages[page].blocks.filter((b) => ids.includes(b.id)).map((b) => ({ ...b, x: round(b.x + (was.left - now.left) / k), y: round(b.y + (was.top - now.top) / k) }));
+    const sheets = [...desk.current!.querySelectorAll<HTMLElement>("[data-page]")].map((el) => [+el.dataset.page!, el.getBoundingClientRect()] as const);
+    const was = sheet.current!.getBoundingClientRect();
+    const away = new Map<number, Block[]>();
+    for (const t of new Set(own.filter((b) => ids.includes(b.id)).map(thing))) {
+      const unit = own.filter((b) => ids.includes(b.id) && thing(b) === t);
+      const rects = unit.flatMap((b) => [...sheet.current!.querySelectorAll(`.block[data-id="${b.id}"]`)].map((el) => el.getBoundingClientRect()));
+      if (!rects.length) continue;
+      const mid = (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2;
+      const gap = (r: DOMRect) => Math.max(0, r.top - mid, mid - r.bottom);
+      const [n, now] = sheets.reduce((a, b) => (gap(b[1]) < gap(a[1]) ? b : a));
+      if (n === page) continue;
+      const [W, H] = sizes[n];
+      const [x, right] = span(unit, "x");
+      const [y, bottom] = span(unit, "y");
+      const dx = Math.max(-x, Math.min(W - right, (was.left - now.left) / k));
+      const dy = Math.max(-y, Math.min(H - bottom, (was.top - now.top) / k));
+      away.set(n, [...(away.get(n) ?? []), ...unit.map((b) => ({ ...b, x: round(b.x + dx), y: round(b.y + dy) }))]);
+    }
+    if (!away.size) return false;
+    const gone = new Set([...away.values()].flat().map((b) => b.id));
+    const to = [...away.keys()][0];
     update(
       (doc) => ({
         ...doc,
-        pages: doc.pages.map((p, i) => (i === page ? { ...p, blocks: p.blocks.filter((b) => !ids.includes(b.id)) } : i === n ? { ...p, blocks: [...p.blocks, ...moving] } : p)),
+        pages: doc.pages.map((p, i) => {
+          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...copies] };
+          const come = away.get(i);
+          if (!come) return p;
+          const top = Math.max(0, ...p.blocks.map((b) => b.z)) - Math.min(...come.map((b) => b.z)) + 1;
+          return { ...p, blocks: [...p.blocks, ...come.map((b) => ({ ...b, z: b.z + top }))] };
+        }),
       }),
       "drag",
-      n,
+      to,
       page,
     );
-    setAt(n);
+    setAt(to);
+    setIds((away.get(to) ?? []).map((b) => b.id));
+    return true;
   };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
   const resize = (events: OnResize[]) =>
@@ -3946,7 +3967,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   function onTouchMove(e: TouchEvent) {
     // One finger scrolls the desk, and its fling goes on after the lift; two pinch, which keeps the page in use.
-    if (e.touches.length === 1) steer(1500);
+    // A finger that drags a block scrolls the desk only at its edge, and that keeps the page of the drag.
+    if (e.touches.length === 1 && !moveable.current?.isDragging()) steer(1500);
     // A second finger ends the hold at once, and so does one finger that has moved away.
     const { clientX: x0, clientY: y0 } = e.touches[0];
     if (e.touches.length > 1 || Math.hypot(x0 - came.current[0], y0 - came.current[1]) > SLOP) away.current = true;

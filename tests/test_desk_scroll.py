@@ -7,7 +7,7 @@ page under the pointer, and the whole drag with its scroll is one undo step.
 
 from playwright.sync_api import expect
 from test_fix_blatt import pdf_pages
-from ui import TEXT, at, box, doc, reload, user
+from ui import TEXT, at, box, centre, doc, pick, reload, user
 
 DESK = ".desk"
 PAGE = '.sheet[data-page="{}"]'
@@ -199,6 +199,78 @@ def test_a_block_moved_to_another_page_saves_reopens_and_prints_there(editor, se
     printed = pdf_pages(server, client, page.url.rsplit("/", 1)[1])
     assert "Wanderwort" not in printed[0]
     assert "Wanderwort" in printed[1]
+
+
+def on_page(b, w=210, h=297):
+    return 0 <= b["x"] <= w - b["w"] and 0 <= b["y"] <= h - b["h"]
+
+
+def press(page, name):
+    grip = at(page, name).bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+
+
+def test_two_picked_blocks_each_go_to_the_page_under_their_own_middle(editor):
+    """Review of #806: "b" is grabbed and "a" below it crosses onto page 2: "a" moves to page 2,
+    "b" stays on page 1, and both lie whole on their pages, as saved."""
+    client = user()
+    low = {**box("a", "text", TEXT), "y": 265}
+    high = {**box("b", "text", TEXT, z=2), "y": 200}
+    page = editor(low, high, pages=[{"blocks": []}], client=client)
+    pick(page, "b", "a")
+    press(page, "b")
+    page.mouse.move(*centre(at(page, "b")), steps=2)
+    x, y = centre(at(page, "b"))
+    page.mouse.move(x, y + 180, steps=10)
+    page.mouse.up()
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)
+    assert [[b["id"] for b in p["blocks"]] for p in saved["pages"]] == [["b"], ["a"]]
+    assert all(on_page(b) for p in saved["pages"] for b in p["blocks"])
+
+
+def test_a_ctrl_drag_over_the_edge_leaves_the_copy_and_takes_the_block_to_the_new_page(editor):
+    """Review of #806: with Ctrl the copy stays where the block began, on page 1, and the block
+    itself lands on the page under the pointer, whole on it."""
+    client = user()
+    page = editor(box("a", "text", TEXT), pages=[{"blocks": []}, {"blocks": []}], client=client)
+    before = doc(page, client)["pages"][0]["blocks"][0]
+    press(page, "a")
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(f"() => document.querySelector('{DESK}').scrollTop > 900")
+    b = page.locator(DESK).bounding_box()
+    page.keyboard.down("Control")
+    page.mouse.move(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2, steps=5)
+    page.mouse.up()
+    page.keyboard.up("Control")
+    expect(page.locator(".sheet[data-page] .block")).to_have_count(2)
+    saved = doc(page, client)
+    first, *rest = saved["pages"]
+    assert [(c["x"], c["y"], c["props"]) for c in first["blocks"]] == [
+        (before["x"], before["y"], before["props"])
+    ]
+    assert [b["id"] for p in rest for b in p["blocks"]] == ["a"]
+    assert all(on_page(b) for p in saved["pages"] for b in p["blocks"])
+
+
+def test_a_drag_past_the_last_page_lands_whole_on_the_last_page(editor):
+    """Review of #806: the desk scrolled past the last page, the pointer below it: the block
+    lands on the last page, whole, not off page 1 where nobody sees it."""
+    client = user()
+    page = editor(box("a", "text", TEXT), pages=[{"blocks": []}], client=client)
+    press(page, "a")
+    page.mouse.move(*near_bottom(page), steps=10)
+    page.wait_for_function(
+        """() => document.querySelector('.sheet[data-page="1"]').getBoundingClientRect().bottom
+            < document.querySelector('.desk').getBoundingClientRect().bottom - 10"""
+    )
+    page.mouse.move(*near_bottom(page))
+    page.mouse.up()
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    saved = doc(page, client)
+    assert [len(p["blocks"]) for p in saved["pages"]] == [0, 1]
+    assert on_page(saved["pages"][1]["blocks"][0])
 
 
 def test_away_from_the_edges_a_drag_does_not_scroll_the_desk(editor):
