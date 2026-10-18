@@ -8,12 +8,17 @@ export const hash = (words: string) => String([...words].reduce((h, c) => (h * 3
 // Whether this page put the last copy there: a copy in one of its fields comes here as a copy too, and is no longer
 // the editor's. The editor's own sets it after its copy. A copy in another app since is not seen.
 let ours = false;
-export const copied = () => (ours = true);
+export const copied = () => ((ours = true), made());
 addEventListener("copy", () => (ours = false), true);
 
 // Who is signed in, set by the app: the copied words are only the account's whose blocks lie in the store.
 let me: number | undefined;
 export const signedIn = (id?: number) => (me = id);
+
+// The account that made the last copy of the editor or of one of its fields. A login keeps it, so the same account
+// signing in again keeps its copy on the clipboard, a second time too; only a wipe that went through takes it away.
+const BY = "copy-by";
+const made = () => me !== undefined && localStorage.setItem(BY, String(me));
 
 // Words copied in an open text or a field of the sheet: a mark of them, whatever the whitespace, and whose account
 // copied them. A logout keeps the mark and drops the owner, so the next account and this one again pastes none.
@@ -36,6 +41,31 @@ export function refused(words: string) {
   return !!t && words.trim() !== "" && t.mark === norm(words) && (t.owner === undefined || t.owner !== me);
 }
 
+// Whether the store holds a mark of a copy made by another account than `id`, or by none it knows: the login of `id`
+// takes that copy off the system's clipboard.
+export function othersCopy(id: number) {
+  return (!!typed() || !!localStorage.getItem("copied")) && localStorage.getItem(BY) !== String(id);
+}
+
+// The login's own wipe, begun in its click, as Safari lets only a write begun there through: the write waits for the
+// answer, empties the clipboard when it names another account than the copy's, and with the same account writes
+// nothing. The wipe in `enter` comes after it for a browser without such a write.
+export function wipeAt(login: Promise<{ id: number }>) {
+  const clipboard = navigator.clipboard;
+  if (!clipboard?.write || typeof ClipboardItem === "undefined" || (!localStorage.getItem("copied") && !typed())) return;
+  const empty = login.then((to) => (othersCopy(to.id) ? new Blob([""], { type: "text/plain" }) : Promise.reject(new Error("own copy"))));
+  // A failed login rejects it too; that is no fault. Nor is a browser that takes no such item: the login goes on.
+  empty.catch(() => {});
+  try {
+    clipboard
+      .write([new ClipboardItem({ "text/plain": empty })])
+      .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied"), localStorage.removeItem(BY)))
+      .catch(() => {});
+  } catch {
+    // The wipe in `enter` is left.
+  }
+}
+
 // Marks the words of a copy or cut made on any page: what the browser put out, read after the page's own copy has
 // run. Where none is read, the selection stands in for it.
 export function mark(words: string) {
@@ -43,6 +73,7 @@ export function mark(words: string) {
   if (me === undefined) return;
   localStorage.setItem(TYPED, JSON.stringify({ owner: me, mark: norm(words) }));
   ours = true;
+  made();
 }
 for (const kind of ["copy", "cut"]) {
   addEventListener(kind, (e) => {
@@ -96,7 +127,7 @@ export function wipe() {
   // marks till that is done.
   done
     .then(() => late?.then(() => clipboard.writeText("")))
-    .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied")))
+    .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied"), localStorage.removeItem(BY)))
     .catch(() => {});
   return done.catch(() => {});
 }
