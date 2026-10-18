@@ -488,3 +488,13 @@ def test_a_drag_out_applies_to_each_picked_bubble(editor):
     saved_now = {b["id"]: b for b in saved(page, client)}
     assert saved_now["a"]["props"]["tail"][1] > 1
     assert saved_now["b"]["props"]["tail"][1] > 1
+
+
+def test_a_tip_above_takes_the_base_to_the_top(editor):
+    shape = {**BUBBLE, "tail": [0.5, -0.5]}
+    page = editor(box("a", "shape", shape, x=60, y=60, w=60, h=40))
+    d = at(page, "a").locator(OUTLINE).get_attribute("d")
+    pairs = [(float(x), float(y)) for x, y in re.findall(r"(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", d)]
+    # Only the tip lies out of the box: the base is on the top, so no line runs through the body.
+    outside = [p for p in pairs if not (0 <= p[0] <= 60 and 0 <= p[1] <= 40)]
+    assert outside == [(30.0, -20.0)], d

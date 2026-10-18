@@ -1641,10 +1641,13 @@ function Ring({ w, h, edge, p }: { w: number; h: number; edge: number; p: TextPr
 // browser and the PDF each measure the way along a curve their own way, and the dots after one printed further
 // along than the screen had them. So a quarter turn is 45 short lines: those measure the same everywhere. A
 // bubble's `tail` lies in the foot.
-function around(left: number, top: number, right: number, low: number, rx: number, ry: number, tail: number[][] = []) {
+// `after` counts the corners the way passes before the tail: 2 for the foot, 1 for the right side, 3 for the left side
+// and 4 for the top.
+function around(left: number, top: number, right: number, low: number, rx: number, ry: number, tail: number[][] = [], after = 2) {
   const turn = (x: number, y: number, from: number) =>
     Array.from({ length: rx ? 46 : 1 }, (_, i) => [x + rx * Math.sin(((from + i / 45) * Math.PI) / 2), y - ry * Math.cos(((from + i / 45) * Math.PI) / 2)]);
-  return [...turn(right - rx, top + ry, 0), ...turn(right - rx, low - ry, 1), ...tail, ...turn(left + rx, low - ry, 2), ...turn(left + rx, top + ry, 3)];
+  const corners = [turn(right - rx, top + ry, 0), turn(right - rx, low - ry, 1), turn(left + rx, low - ry, 2), turn(left + rx, top + ry, 3)];
+  return [...corners.slice(0, after).flat(), ...tail, ...corners.slice(after).flat()];
 }
 // The dashes along a way round, which starts at its last point: a box with square corners is a `<rect>`, a triangle
 // and a star start at their last corner. They stretch or shrink a little so that a whole number of them goes around:
@@ -1681,7 +1684,8 @@ const POINTS: Partial<Record<Kind, (w: number, h: number, e: number, p: Partial<
   },
   bubble: (w, h, e, p) => {
     const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
-    return around(e, e, w - e, low, r, r, bubbleTail(w, h, e, r, low, tailOf(p)));
+    const { edge, pts } = bubbleTail(w, h, e, r, low, tailOf(p));
+    return around(e, e, w - e, low, r, r, pts, { top: 4, right: 1, foot: 2, left: 3 }[edge]);
   },
 };
 // Drawn solid: the same points for a polygon, or a path with true arcs.
@@ -1691,21 +1695,44 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number, p: Partia
   bubble: (w, h, e, p) => {
     const [r, right, low] = [Math.min(4, w / 5, h / 4), w - e, e + 0.75 * (h - 2 * e)];
     const arc = (x: number, y: number) => `A${r},${r} 0 0 1 ${x},${y}`;
-    const [base, tip, back] = bubbleTail(w, h, e, r, low, tailOf(p));
-    return `M${e + r},${e} H${right - r} ${arc(right, e + r)} V${low - r} ${arc(right - r, low)} H${base[0]} L${tip[0]},${tip[1]} L${back[0]},${back[1]} H${e + r} ${arc(e, low - r)} V${e + r} ${arc(e + r, e)} Z`;
+    const { edge, pts } = bubbleTail(w, h, e, r, low, tailOf(p));
+    // The tail's three points go in the way the body goes round: its first, its tip, its last.
+    const [a, tip, b] = pts;
+    const out = `L${tip[0]},${tip[1]} L${b[0]},${b[1]}`;
+    return [
+      `M${e + r},${e}`,
+      edge === "top" ? `H${a[0]} L${tip[0]},${tip[1]} L${b[0]},${b[1]}` : "",
+      `H${right - r} ${arc(right, e + r)}`,
+      edge === "right" ? `V${a[1]} ${out}` : "",
+      `V${low - r} ${arc(right - r, low)}`,
+      edge === "foot" ? `H${a[0]} ${out}` : "",
+      `H${e + r} ${arc(e, low - r)}`,
+      edge === "left" ? `V${a[1]} ${out}` : "",
+      `V${e + r} ${arc(e + r, e)} Z`,
+    ].filter(Boolean).join(" ");
   },
 };
 // The bubble's tail as points: from its base on the right, to its tip, back to its base on the left. The base is 0.15
 // of the width wide, on the foot of the body, between its round corners. Absent, the tail is the one it always had.
-function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): number[][] {
-  if (!tail) return [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]];
-  const tipX = tail[0] * w;
+// The tail's edge of the body it sits on, and its three points in the way the body goes round. A tip above the body
+// puts the tail on its top, a tip beside it (above the foot) on that side, anything else on the foot.
+function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): { edge: "top" | "right" | "foot" | "left"; pts: number[][] } {
+  if (!tail) return { edge: "foot", pts: [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]] };
+  const [tipX, tipY] = [tail[0] * w, tail[1] * h];
   // The base lies right of a tip at a fifth of the width, as the tail always did, and slides to its left as the tip
   // goes to four fifths: no jump on the way.
   const from = tipX + 0.05 * w - 0.25 * w * clamp((tipX / w - 0.2) / 0.6, 0, 1);
   const [lo, hi] = [e + r, w - e - r - 0.15 * w];
   const base = hi < lo ? (w - 0.15 * w) / 2 : clamp(from, lo, hi);
-  return [[base + 0.15 * w, low], [tipX, tail[1] * h], [base, low]];
+  if (tipY < e) return { edge: "top", pts: [[base, e], [tipX, tipY], [base + 0.15 * w, e]] };
+  if (tipY < low && (tipX < e || tipX > w - e)) {
+    // On a side the base is 0.15 of the height, its middle level with the tip, kept on the side's straight part.
+    const [top, bottom] = [e + r, low - r - 0.15 * h];
+    const y = clamp(tipY - 0.075 * h, top, bottom);
+    if (tipX < e) return { edge: "left", pts: [[e, y + 0.15 * h], [tipX, tipY], [e, y]] };
+    return { edge: "right", pts: [[w - e, y], [tipX, tipY], [w - e, y + 0.15 * h]] };
+  }
+  return { edge: "foot", pts: [[base + 0.15 * w, low], [tipX, tipY], [base, low]] };
 }
 // A value kept within a range.
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
