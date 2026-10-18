@@ -504,6 +504,18 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h,
     ),
   );
+  // A picked Zahlenmauer that grows over a block with text, outside its group, covers that text too.
+  const wallCovers = sel.some(
+    (z) =>
+      z.type === "zahlenmauer" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
 
   return (
     <>
@@ -533,6 +545,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {covers && (
         <p className="hint warn" role="status" data-cover="over">
           Die Lineatur liegt über einem anderen Block. Verschiebe ihn oder mache die Lineatur kleiner.
+        </p>
+      )}
+      {/* A picked Zahlenmauer that grows over a block with text, outside its group, covers that text: the panel says so. */}
+      {wallCovers && (
+        <p className="hint warn" role="status" data-cover="wall">
+          Die Zahlenmauer liegt über einem anderen Block. Verschiebe ihn oder mache die Zahlenmauer kleiner.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
