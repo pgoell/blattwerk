@@ -97,6 +97,45 @@ def test_shift_click_adds_an_arrow_to_an_ellipse(editor):
     pick(page, "oval", "pfeil")
 
 
+def diagonal(editor):
+    """An arrow from corner to corner of its box, and a box inside that box, off the arrow's stroke."""
+    return editor(
+        box("pfeil", "shape", ARROW, x=20, y=20, w=60, h=60),
+        box("kasten", "shape", RECT, z=2, x=60, y=25, w=20, h=20),
+    )
+
+
+def test_shift_click_adds_a_box_to_a_diagonal_arrow(editor):
+    page = diagonal(editor)
+    at(page, "pfeil").click()
+    at(page, "kasten").click(modifiers=["Shift"])
+    expect_picked(page, "pfeil", "kasten")
+
+
+def test_shift_click_adds_a_diagonal_arrow_to_a_box(editor):
+    page = diagonal(editor)
+    at(page, "kasten").click()
+    at(page, "pfeil").click(modifiers=["Shift"])
+    expect_picked(page, "kasten", "pfeil")
+
+
+def test_shift_click_takes_a_diagonal_arrow_out_again(editor):
+    page = diagonal(editor)
+    at(page, "kasten").click()
+    at(page, "pfeil").click(modifiers=["Shift"])
+    # The frame of the selection lies over the arrow, and the click goes through it.
+    at(page, "pfeil").click(modifiers=["Shift"], force=True)
+    expect_picked(page, "kasten")
+
+
+def test_shift_click_on_a_box_under_a_diagonal_arrow_frame(editor):
+    # With the arrow picked, its frame covers the box, and the click goes through the frame.
+    page = diagonal(editor)
+    at(page, "pfeil").click()
+    at(page, "kasten").click(modifiers=["Shift"], force=True)
+    expect_picked(page, "pfeil", "kasten")
+
+
 def test_align_an_arrow_with_a_box(editor):
     page = pair(editor, ARROW)
     pick(page, "kasten", "strich")
