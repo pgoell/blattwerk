@@ -374,7 +374,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const gaps = <Gaps key={`gaps-${sel.find(worded)?.id}`}sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />;
 
   // A ruling keeps its rows when its type changes, and grows to the rows its text needs, up to the foot of the page.
-  // A kind change never takes rows away; the buttons give the rows themselves.
+  // A kind change keeps its rows and takes rows away only where the page foot cuts them short; the buttons give the rows themselves.
   const rule = (kind: Ruling, rows?: number) => {
     style("ruling", { kind }, "ruling");
     const row = RULINGS[kindOf(kind)].row;
@@ -382,7 +382,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       rulings.map((b) => {
         if (rows !== undefined) return [b.id, tall(b, round(Math.max(1, rows) * row))];
         const next = { ...b, props: { ...b.props, kind } };
-        const n = Math.max(rowsOf(b), Math.min(rowsNeeded(next), Math.floor((H - b.y) / row + 0.05)));
+        const footRows = Math.floor((H - b.y) / row + 0.05);
+        const n = Math.min(Math.max(rowsOf(b), rowsNeeded(next)), footRows);
         return [b.id, tall(b, round(Math.max(1, n) * row))];
       }),
       "ruling",
@@ -487,6 +488,19 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const angle = whole ? turned?.angle ?? 0 : shared((b) => b.angle ?? 0);
   const turn = (to: number) => norm(to) !== angle && (whole ? spin(norm(to) - (angle ?? 0)) : place(sel.map((b) => [b.id, { angle: norm(to) }])));
 
+  // A picked Lineatur that lies over a block with text, outside its group, covers that text: nothing moves, so the panel says so.
+  const page = doc.pages.find((p) => p.blocks.some((b) => b.id === sel[0]?.id))?.blocks ?? [];
+  const carries = (b: Block) => b.type === "table" || b.type === "maths" || b.type === "ruling" || !!boxed(b)?.text;
+  const covers = rulings.some((r) =>
+    page.some(
+      (b) =>
+        b.id !== r.id &&
+        carries(b) &&
+        !b.group?.some((g) => r.group?.includes(g)) &&
+        r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h,
+    ),
+  );
+
   return (
     <>
       {/* A block that hangs over the foot is cut in the PDF: the panel says so first, whatever the block. */}
@@ -510,6 +524,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {rulings.some((b) => rowsNeeded(b) > rowsOf(b)) && (
         <p className="hint warn" role="status" data-rows="short">
           Der Text braucht mehr Zeilen, als die Lineatur hat. Was nicht hineinpasst, wird nicht gedruckt.
+        </p>
+      )}
+      {covers && (
+        <p className="hint warn" role="status" data-cover="over">
+          Die Lineatur liegt über einem anderen Block. Verschiebe ihn oder mache die Lineatur kleiner.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
