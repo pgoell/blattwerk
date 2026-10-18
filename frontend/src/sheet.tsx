@@ -1014,13 +1014,15 @@ export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.prop
 export function squares(text: string, cols: number) {
   const out: [number, number, string, number][] = [];
   const chars = [...text];
-  const hyphen = (j: number) => chars[j] === "-" && j > 0 && chars[j - 1] !== " " && /\p{L}/u.test(chars[j + 1] ?? "");
+  // A dash ends a unit wherever it stands, and an em dash starts one too, as the field breaks before and after it.
+  const hyphen = (j: number) => (chars[j] === "-" && j > 0 && chars[j - 1] !== " " && /\p{L}/u.test(chars[j + 1] ?? "")) || chars[j] === "–" || chars[j] === "—";
+  const before = (j: number) => chars[j] === "—" && j > 0 && chars[j - 1] !== " " && chars[j - 1] !== "\n";
   let [x, y, i] = [0, 0, 0];
   chars.forEach((ch, n) => {
     if (ch === "\n") [x, y] = [0, y + 1];
-    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n" || hyphen(n - 1))) {
+    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n" || hyphen(n - 1) || before(n))) {
       let len = 0;
-      for (let j = n; j < chars.length && chars[j] !== " " && chars[j] !== "\n"; j++) {
+      for (let j = n; j < chars.length && chars[j] !== " " && chars[j] !== "\n" && !(j > n && before(j)); j++) {
         len = j - n + 1;
         if (hyphen(j)) break;
       }

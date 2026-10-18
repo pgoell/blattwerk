@@ -118,6 +118,9 @@ def test_the_caret_stands_at_the_drawn_square(editor, kind, row):
         ("Wir lesen Mathe-Heft und mehr", "und"),
         ("Am Montag Kinder-Garten-Fest", "Garten"),
         ("Am Montag ueberall 3-4 und 5", "3-4"),
+        ("Am Montag Schule\N{EN DASH}Freitag", "Freitag"),
+        ("Am Montag Schule\N{EM DASH}Freitag", "Freitag"),
+        ("Am Montag gehen wi\N{EM DASH}x und", "und"),
     ],
 )
 def test_the_caret_follows_a_break_at_a_hyphen_as_drawn(editor, text, word):
