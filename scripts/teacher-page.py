@@ -7,10 +7,14 @@
     open PATH              goes to a path of the app: / or /blatt/12, never /admin
     click TARGET           also: double-click TARGET, shift-click TARGET, hover TARGET
     drag FROM TO           presses the mouse at FROM, moves it to TO and lets go
+    middle-drag FROM TO    the same with the middle button held: it pans the desk
+    swipe FROM TO          a finger put down at FROM, moved to TO and lifted; from an edge it
+                           opens a drawer, upright only
     wheel TARGET DY        turns the wheel over TARGET by DY px; less than 0 is up
     key KEYS [N]           presses a key or a chord N times: Escape, ArrowRight, Control+z
     type TEXT              types the text where the focus is
     drop FILE TARGET       drops a file of the run folder on the page at TARGET, as from the desktop
+    upload FILE TARGET     clicks TARGET and picks a file of the run folder in the file box it opens
     paste-elsewhere        pastes the clipboard into another app's field; says what it took
     where NAME             prints where the name is on the page, or what holds it; changes nothing
     value NAME             prints what the field of that name holds: a colour, a slider's number
@@ -20,8 +24,8 @@
                            focus stays where it was
     expire                 ends the window's sign-in, as if the session had run out; the page stays
     box yes VERB [ARGS]    runs VERB and answers the box it meets with yes; `box no` answers no
-    tidy                   deletes each TR*.pdf in ~/Downloads and each PDF in the folder, and names
-                           each with its folder; needs no window
+    tidy                   deletes each TR*.pdf and blattomat*.mcpb in ~/Downloads and each PDF
+                           in the folder, and names each with its folder; needs no window
 
 A box that a verb meets is answered no unless `box yes` asks yes, and the output names its words.
 
@@ -273,7 +277,8 @@ def hover(page: Page, target: str) -> str:
     return shown(page, f"mouse at {x:g},{y:g}")
 
 
-def drag(page: Page, start: str, end: str) -> str:
+def ends(page: Page, start: str, end: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """FROM and TO in px. The page may turn to TO, so FROM is read again: both must show at once."""
     x, y = point(page, start)
     to = point(page, end)
     if NOTES:
@@ -283,12 +288,44 @@ def drag(page: Page, start: str, end: str) -> str:
         if NOTES:
             raise Refused(f'"{start}" and "{end}" are not in the window together: give X,Y')
         NOTES.append("turned the page to it")
+    return (x, y), to
+
+
+def drag(page: Page, start: str, end: str) -> str:
+    (x, y), to = ends(page, start, end)
     page.mouse.move(x, y)
     page.mouse.down()
     # The editor follows the moves between the two, not a jump.
     page.mouse.move(*to, steps=10)
     page.mouse.up()
     return shown(page, f"dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
+def middle_drag(page: Page, start: str, end: str) -> str:
+    (x, y), to = ends(page, start, end)
+    page.mouse.move(x, y)
+    page.mouse.down(button="middle")
+    page.mouse.move(*to, steps=10)
+    page.mouse.up(button="middle")
+    return shown(page, f"middle-dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
+def swipe(page: Page, start: str, end: str) -> str:
+    """A finger over the browser's debugging line: Playwright's touchscreen only taps."""
+    (x, y), to = ends(page, start, end)
+    session = page.context.new_cdp_session(page)
+    try:
+        session.send(
+            "Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]}
+        )
+        steps = 10
+        for n in range(1, steps + 1):
+            at = [{"x": x + (to[0] - x) * n / steps, "y": y + (to[1] - y) * n / steps}]
+            session.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": at})
+        session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    finally:
+        session.detach()
+    return shown(page, f"swiped from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
 
 
 def wheel(page: Page, target: str, dy: str) -> str:
@@ -411,6 +448,28 @@ def drop(page: Page, file: str, target: str) -> str:
     return shown(page, f"dropped {path.name} at {x:g},{y:g}")
 
 
+def upload(page: Page, file: str, target: str) -> str:
+    """Clicks the target and picks a file of the run folder in the file box it opens."""
+    path = (STATE / file).resolve()
+    if not path.is_relative_to(STATE.resolve()):
+        raise Refused(f'"{file}" is outside the run folder {STATE}: only its files can be picked')
+    if not path.is_file():
+        raise Refused(f'there is no file "{file}" in {STATE}')
+    x, y = point(page, target)
+    try:
+        with page.expect_file_chooser(timeout=3000) as chooser:
+            # The browser learns of the listener on its own time: one call to the page first, or
+            # the click may come before it and the file box opens past Playwright.
+            page.evaluate("0")
+            page.mouse.click(x, y)
+    except Late:
+        raise Refused(
+            f'"{target}" opened no file box: click the button that does, such as "Bild"'
+        ) from None
+    chooser.value.set_files(path)
+    return shown(page, f"uploaded {path.name} by the file box of {x:g},{y:g}")
+
+
 # What a paste brings: the clipboard's types and words, and each file with its type and size, and
 # its px where it is a picture.
 RECORD = """() => {
@@ -441,6 +500,18 @@ RECORD = """() => {
         }
     });
 }"""
+
+
+def close_tabs(page: Page) -> list[str]:
+    """Closes each tab of the window that is not the app's page, and names each one it closed."""
+    lines = []
+    for other in page.context.pages:
+        if other is not page and not other.is_closed():
+            lines.append(
+                f"A new tab opened on {other.url}; the tool closed it, the window stays on the app."
+            )
+            other.close()
+    return lines
 
 
 def paste_elsewhere(page: Page) -> str:
@@ -517,11 +588,12 @@ def overdue(waiting: list, now: float) -> None:
 
 
 def tidy() -> str:
-    """Deletes each TR*.pdf directly in the downloads folder and each PDF in the tool's folder,
-    and names each one it deleted with its folder.
+    """Deletes each TR*.pdf and blattomat*.mcpb directly in the downloads folder and each PDF in
+    the tool's folder, and names each one it deleted with its folder.
     """
     downloads = Path(os.environ.get("TEACHER_PAGE_DOWNLOADS", Path.home() / "Downloads"))
     found = sorted(path for path in downloads.glob("TR*.pdf") if path.is_file())
+    found += sorted(path for path in downloads.glob("blattomat*.mcpb") if path.is_file())
     found += sorted(path for path in STATE.glob("*.pdf") if path.is_file())
     for path in found:
         path.unlink()
@@ -537,10 +609,13 @@ VERBS: dict[str, Callable[..., str]] = {
     "shift-click": shift_click,
     "hover": hover,
     "drag": drag,
+    "middle-drag": middle_drag,
+    "swipe": swipe,
     "wheel": wheel,
     "key": key,
     "type": type_,
     "drop": drop,
+    "upload": upload,
     "paste-elsewhere": paste_elsewhere,
     "where": where,
     "value": value,
@@ -654,13 +729,17 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     NOTES.clear()
     with joined() as page:
         asked = answered(page, yes)
+        # A tab left open would be the next verb's page: it goes also when the verb fails.
         try:
-            said = VERBS[name](page, *args)
-        except Error as error:
-            # A box answered no stops the navigation it came with: the page stays where it is.
-            if not asked or yes or "ERR_ABORTED" not in error.message:
-                raise
-            said = f"the page stayed on {page.url}"
+            try:
+                said = VERBS[name](page, *args)
+            except Error as error:
+                # A box answered no stops the navigation it came with: the page stays where it is.
+                if not asked or yes or "ERR_ABORTED" not in error.message:
+                    raise
+                said = f"the page stayed on {page.url}"
+        finally:
+            closed = close_tabs(page)
         place = here(page)
     lines = []
     for kind, text in asked:
@@ -669,7 +748,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         if not yes:
             line += f" To say yes: box yes {shlex.join([name, *args])}"
         lines.append(line)
-    return "\n".join([said, *lines, place])
+    return "\n".join([said, *closed, *lines, place])
 
 
 def main(name: str = "", *args: str) -> str:

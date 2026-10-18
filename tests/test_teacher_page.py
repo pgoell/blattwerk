@@ -21,6 +21,7 @@ import pytest
 from PIL import Image, ImageChops
 from playwright.sync_api import expect
 from test_bar import TIP
+from test_zoom import expect_scroll, fit, roomy, scroll
 from ui import (
     BROWSER,
     FIELD,
@@ -29,6 +30,7 @@ from ui import (
     TABLE,
     TEXT,
     at,
+    bar,
     box,
     centre,
     copy_picture,
@@ -187,6 +189,64 @@ def test_wheel_scrolls_the_desk_down_and_up(editor):
     page.wait_for_function("document.querySelector('.desk').scrollTop === 100")
     with pytest.raises(tool.Refused, match='"down" is not a number'):
         tool.wheel(page, "5,5", "down")
+
+
+def desk_at(page, across=10, down=10):
+    """A point on the desk, px across and down from its top left corner, as a TARGET."""
+    corner = page.locator(".desk").bounding_box()
+    return f"{corner['x'] + across:g},{corner['y'] + down:g}"
+
+
+def test_middle_drag_pans_the_desk(editor):
+    page = editor(box("a", "text", ONE))
+    roomy(page)
+    left, top = scroll(page)
+    tool.middle_drag(page, desk_at(page), desk_at(page, 110, 70))
+    expect_scroll(page, left - 100, top - 60)
+    expect(page.locator(".block.sel")).to_have_count(0)
+
+
+def test_middle_drag_at_the_fitted_zoom_moves_nothing_and_picks_nothing(editor):
+    page = editor(box("a", "text", ONE))
+    fit(page).click()
+    left, top = scroll(page)
+    tool.middle_drag(page, desk_at(page), desk_at(page, 70, 50))
+    expect_scroll(page, left, top)
+    expect(page.locator(".block.sel")).to_have_count(0)
+
+
+def test_middle_drag_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.middle_drag(page, "FROM", "TO")
+    tool.NOTES.clear()
+
+
+def test_swipe_in_from_the_right_edge_opens_the_format_drawer_in_the_upright_window(editor):
+    page = editor(box("a", "text", ONE))
+    tool.resize(page, "820", "1180")
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
+    tool.swipe(page, "817,600", "660,600")
+    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+
+
+def test_swipe_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.swipe(page, "FROM", "TO")
+    tool.NOTES.clear()
 
 
 # The keys
@@ -727,6 +787,21 @@ def test_tidy_deletes_the_tr_pdfs_in_downloads_and_nothing_else(
     assert run(folder, server, "tidy").stdout == "nothing to delete\n"
 
 
+def test_tidy_deletes_the_blattomat_extension_download_and_names_it(
+    folder, server, tmp_path, monkeypatch
+):
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    monkeypatch.setenv("TEACHER_PAGE_DOWNLOADS", str(downloads))
+    (downloads / "blattomat.mcpb").write_bytes(b"zip")
+    (downloads / "other.mcpb").write_bytes(b"zip")
+
+    done = run(folder, server, "tidy")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert done.stdout == "deleted downloads/blattomat.mcpb\n"
+    assert [path.name for path in downloads.iterdir()] == ["other.mcpb"]
+
+
 def test_tidy_deletes_the_pdfs_that_pdf_saved_in_the_tool_folder(
     folder, server, tmp_path, monkeypatch
 ):
@@ -740,6 +815,38 @@ def test_tidy_deletes_the_pdfs_that_pdf_saved_in_the_tool_folder(
     assert (done.returncode, done.stderr) == (0, "")
     assert done.stdout == f"deleted {folder.name}/Blatt 3.pdf\n"
     assert [path.name for path in folder.iterdir()] == ["last.png"]
+
+
+def test_close_tabs_shuts_a_tab_the_page_opened_and_names_it(editor):
+    page = editor(box("a", "text", ONE))
+    with page.context.expect_page() as new:
+        page.evaluate("window.open('about:blank')")
+    opened = new.value
+    lines = tool.close_tabs(page)
+    assert len(lines) == 1
+    assert "about:blank" in lines[0]
+    assert opened.is_closed()
+    assert not page.is_closed()
+
+
+def test_a_verb_that_fails_after_a_tab_opened_still_closes_the_tab(editor, monkeypatch):
+    """Review of #738: a tab left open would be the next verb's page, so a failure closes it too."""
+    page = editor(box("a", "text", ONE))
+
+    @contextmanager
+    def joined():
+        yield page
+
+    def fails(page):
+        with page.context.expect_page():
+            page.evaluate("window.open('about:blank')")
+        raise tool.Refused("failed after the click")
+
+    monkeypatch.setattr(tool, "joined", joined)
+    monkeypatch.setitem(tool.VERBS, "fails", fails)
+    with pytest.raises(tool.Refused, match="failed after the click"):
+        tool.verb("fails", (), False)
+    assert page.context.pages == [page]
 
 
 def test_expire_drops_the_session_and_the_page_stays(editor):
@@ -872,6 +979,41 @@ def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, s
 
 
 @pytest.mark.native
+def test_the_answer_key_shows_by_mehr_and_its_item_in_two_calls(folder, server, playwright):
+    """#773: in the window of 1280 px "Lösungen zeigen" lies under "Mehr", and one call opens the
+    menu while the next, a client of its own, clicks the item."""
+    email = f"{uuid4().hex}@example.com"
+    client = user(email)
+    sheet(client, [box("a", "text", ONE)], title="Probe")
+
+    def ok(*words):
+        done = run(folder, server, *words)
+        assert done.returncode == 0, (words, done.stdout, done.stderr)
+        return done.stdout
+
+    try:
+        ok("start")
+        ok("click", "E-Mail")
+        ok("type", email)
+        ok("click", "Passwort")
+        ok("type", PASSWORD)
+        ok("key", "Enter")
+        ok("click", "Probe")
+        ok("click", "Beenden")
+        ok("where", "Gespeichert")
+        assert run(folder, server, "where", "Lösungen zeigen").returncode == 1
+        ok("click", "Mehr")
+        ok("click", "Lösungen zeigen")
+        ok("click", "Mehr")
+        joined = playwright.chromium.connect_over_cdp(tool.running()["endpoint"])
+        item = joined.contexts[0].pages[0].get_by_role("menuitemcheckbox", name="Lösungen zeigen")
+        expect(item).to_have_attribute("aria-checked", "true")
+        joined.close()
+    finally:
+        run(folder, server, "stop")
+
+
+@pytest.mark.native
 def test_a_box_left_open_by_a_dead_verb_is_answered_no_and_the_next_verb_acts(
     folder, server, playwright
 ):
@@ -962,6 +1104,27 @@ def test_drop_refuses_a_file_outside_the_run_folder_and_one_that_is_missing(
         tool.drop(page, "../aussen.png", "100,100")
     with pytest.raises(tool.Refused, match="there is no file"):
         tool.drop(page, "fehlt.png", "100,100")
+
+
+def test_upload_puts_a_picture_on_the_sheet_by_the_bild_buttons_file_box(editor, folder):
+    Image.new("RGB", (40, 30), "red").save(folder / "bild.png")
+    page = editor(box("a", "text", ONE))
+    tool.upload(page, "bild.png", "Bild")
+    expect(page.locator(".block .picture img")).to_have_count(1)
+
+
+def test_upload_refuses_a_file_outside_the_run_folder_a_missing_one_and_a_target_without_a_file_box(
+    editor, folder, tmp_path
+):
+    Image.new("RGB", (40, 30), "red").save(tmp_path / "aussen.png")
+    page = editor(box("a", "text", ONE))
+    with pytest.raises(tool.Refused, match="outside the run folder"):
+        tool.upload(page, "../aussen.png", "Bild")
+    with pytest.raises(tool.Refused, match="there is no file"):
+        tool.upload(page, "fehlt.png", "Bild")
+    Image.new("RGB", (40, 30), "red").save(folder / "bild.png")
+    with pytest.raises(tool.Refused, match="opened no file box"):
+        tool.upload(page, "bild.png", "Eins")
 
 
 def test_paste_elsewhere_takes_the_words_copied_elsewhere(editor):
