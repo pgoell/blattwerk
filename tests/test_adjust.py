@@ -379,8 +379,8 @@ def test_a_click_on_the_tail_outside_picks_the_bubble(editor):
     page = editor(box("a", "shape", tail, x=60, y=60, w=60, h=40))
     k = mm(page)
     b = at(page, "a").bounding_box()
-    # Just above the tip, where the tail is narrow: 4 mm up from the tip at 1.5 of the height.
-    page.mouse.click(b["x"] + 0.2 * 60 * k, b["y"] + (1.5 * 40 - 4) * k)
+    # 4 mm up from the tip at 1.5 of the height and 1 mm right: in the narrow tail, below the box.
+    page.mouse.click(b["x"] + (0.2 * 60 + 1) * k, b["y"] + (1.5 * 40 - 4) * k)
     expect_picked(page, "a")
 
 
