@@ -1,4 +1,4 @@
-"""Feedback from a logged-in user: text, voice notes, photos and the screen, saved to disk."""
+"""Feedback from a logged-in user or the MCP: text, voice notes, photos and the screen, saved."""
 
 import json
 from datetime import UTC, datetime
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from starlette.datastructures import UploadFile
 
 from blattwerk import db
-from blattwerk.auth import User
+from blattwerk.auth import Teacher
 
 FILE_TYPES = {
     "audio/webm": "webm",
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/feedback")
-async def submit(user: User, request: Request) -> dict[str, str]:
+async def submit(user: Teacher, request: Request) -> dict[str, str]:
     form = await request.form()
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S-%f")
     # Under the user's folder, so deleting the account deletes the feedback.
@@ -32,6 +32,9 @@ async def submit(user: User, request: Request) -> dict[str, str]:
     out.mkdir(parents=True)
 
     fields = {k: v for k, v in form.multi_items() if isinstance(v, str)}
+    # Only a send with an API token (the MCP) may say where it came from: the app's never gets `ai`.
+    if "authorization" not in request.headers:
+        fields.pop("source", None)
     # One counter per field, so a send's files read audio-1, photo-1, photo-2.
     counts: dict[str, int] = {}
     for field, upload in form.multi_items():
