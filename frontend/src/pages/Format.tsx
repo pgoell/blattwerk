@@ -504,7 +504,8 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
         r.x < b.x + b.w && b.x < r.x + r.w && r.y < b.y + b.h && b.y < r.y + r.h,
     ),
   );
-  // A picked Zahlenmauer that grows over a block with text, outside its group, covers that text too.
+  // A picked Zahlenmauer that grows over another block, outside its group, covers it: nothing moves, as for a
+  // Lineatur. A shape without text does not count, being a frame or a mark.
   const wallCovers = sel.some(
     (z) =>
       z.type === "zahlenmauer" &&
@@ -547,7 +548,6 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           Die Lineatur liegt über einem anderen Block. Verschiebe ihn oder mache die Lineatur kleiner.
         </p>
       )}
-      {/* A picked Zahlenmauer that grows over a block with text, outside its group, covers that text: the panel says so. */}
       {wallCovers && (
         <p className="hint warn" role="status" data-cover="wall">
           Die Zahlenmauer liegt über einem anderen Block. Verschiebe ihn oder mache die Zahlenmauer kleiner.
