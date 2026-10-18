@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fix_blatt import pdf_pages
 from test_gaps import panel, step
-from ui import RECT, RULING, TABLE, TEXT, box, maths, pick, picture, saved, upload, user
+from ui import RECT, RULING, TABLE, TEXT, at, box, maths, pick, picture, saved, upload, user
 
 MAUER = {
     "base": 3,
@@ -109,7 +109,7 @@ UNDER = {
     "table": lambda c: box("t", "table", TABLE, y=100),
     "ruling": lambda c: box("t", "ruling", RULING, y=100),
     "maths": lambda c: box("t", "maths", maths(c), y=100),
-    "zahlenmauer": lambda c: zw("t", MAUER, y=100),
+    "zahlenmauer": lambda c: box("t", "zahlenmauer", MAUER, w=180, h=60, y=100),
     "text in a group of its own": lambda c: {**box("t", "text", TEXT, y=100), "group": ["g"]},
 }
 
@@ -136,7 +136,7 @@ def test_i2_a_block_of_its_own_group_does_not_count(editor):
         {**zw("z", TWELVE, y=15, h=208), "group": ["g"]},
         {**box("t", "text", TEXT, y=100), "group": ["g"]},
     )
-    pick(page, "z")
+    at(page, "z").click()
     expect(page.locator('[data-cover="wall"]')).to_have_count(0)
 
 
