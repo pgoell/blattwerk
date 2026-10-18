@@ -462,3 +462,56 @@ def test_the_key_form_fits_a_375_px_phone(account):
     for part in (field, button):
         box = part.bounding_box()
         assert box["x"] >= 0 and box["x"] + box["width"] <= 375
+
+
+COPY_STUB = "() => { window.copiedKey = null; Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: (t) => { window.copiedKey = t; return Promise.resolve(); }}}); }"
+REFUSED_STUB = "() => { Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: () => Promise.reject(new DOMException('denied', 'NotAllowedError'))}}); }"
+
+
+def test_a7_kopieren_says_kopiert_and_puts_the_key_on_the_clipboard(account):
+    page = account(user())
+    key = make(page, "Laptop")
+    page.evaluate(COPY_STUB)
+    box = page.get_by_test_id("new-token")
+    box.get_by_role("button", name="Kopieren", exact=True).click()
+    expect(box.get_by_role("button", name="Kopiert", exact=True)).to_be_visible()
+    assert page.evaluate("() => window.copiedKey") == key
+    expect(box.get_by_role("button", name="Kopieren", exact=True)).to_be_visible()
+
+
+def test_a8_a_refused_clipboard_says_so_and_marks_the_key(account):
+    page = account(user())
+    key = make(page, "Laptop")
+    page.evaluate(REFUSED_STUB)
+    box = page.get_by_test_id("new-token")
+    box.get_by_role("button", name="Kopieren", exact=True).click()
+    expect(page.get_by_role("alert")).to_contain_text("Kopieren hat nicht geklappt")
+    expect(box.get_by_role("button", name="Kopieren", exact=True)).to_be_visible()
+    assert page.evaluate("() => String(getSelection())") == key
+
+
+def test_i6_a_second_click_keeps_kopiert_and_the_key_stays(account):
+    page = account(user())
+    key = make(page, "Laptop")
+    page.evaluate(COPY_STUB)
+    box = page.get_by_test_id("new-token")
+    box.get_by_role("button", name="Kopieren", exact=True).click()
+    expect(box.get_by_role("button", name="Kopiert", exact=True)).to_be_visible()
+    page.wait_for_timeout(1200)
+    box.get_by_role("button", name="Kopiert", exact=True).click()
+    page.wait_for_timeout(1200)
+    expect(box.get_by_role("button", name="Kopiert", exact=True)).to_be_visible()
+    expect(box.locator("code")).to_have_text(key)
+
+
+def test_i7_a_new_key_takes_the_failure_line_away(account):
+    page = account(user())
+    make(page, "Laptop")
+    page.evaluate(REFUSED_STUB)
+    page.get_by_test_id("new-token").get_by_role("button", name="Kopieren", exact=True).click()
+    expect(page.get_by_role("alert")).to_have_count(1)
+    make(page, "zweiter")
+    expect(page.get_by_role("alert")).to_have_count(0)
+    expect(
+        page.get_by_test_id("new-token").get_by_role("button", name="Kopieren", exact=True)
+    ).to_be_visible()
