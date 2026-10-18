@@ -47,6 +47,8 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     if (refused) line.current?.scrollIntoView({ block: "nearest" });
   }, [refused]);
   const asked = useRef(0);
+  // The answers are applied in the order of the clicks: each waits for the one before it.
+  const applying = useRef<Promise<unknown>>(Promise.resolve());
   const p = pending ?? block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
@@ -56,16 +58,18 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     return ok;
   };
 
-  // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
-  // stays as set, and the line above the page asks again with it.
+  // A new limit asks for new exercises. Every answer is applied, in the order asked; only the last one clears the
+  // pending limit. Where none comes, the limit stays as set, and the line above the page asks again with it.
   function limit(change: Partial<Limits>) {
     const next = { ...p, ...change };
     const n = ++asked.current;
     setPending(next);
-    attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
+    const before = applying.current;
+    applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
-      if (n !== asked.current) return;
+      await before;
       const ok = tried({ ...next, ...made });
+      if (n !== asked.current) return;
       setPending(undefined);
       // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
       if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
