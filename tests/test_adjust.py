@@ -732,17 +732,19 @@ def test_undo_and_redo_of_typing_in_a_deep_star_keep_its_size(editor):
     star = {**DEEP, "inner": 0.2}
     page = editor(box("a", "shape", star, x=40, y=40, w=40, h=40), client=client)
     pick(page, "a")
-    before = page.locator('[data-shape="full"]').count()
+    # The word does not fit even before the typing: the star warns once picked.
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
     type_at_end(page, "a", "x")
     (a,) = saved(page, client)
-    assert (a["w"], a["h"]) == (40, 40), a
+    assert a["props"]["text"] == "Superx" and (a["w"], a["h"]) == (40, 40), a
     page.keyboard.press("Control+z")
     (a,) = saved(page, client)
     assert a["props"]["text"] == "Super" and (a["w"], a["h"]) == (40, 40), a
-    expect(page.locator('[data-shape="full"]')).to_have_count(before)
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
     page.keyboard.press("Control+y")
     (a,) = saved(page, client)
     assert a["props"]["text"] == "Superx" and (a["w"], a["h"]) == (40, 40), a
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
 
 
 def test_two_deep_stars_picked_keep_their_size_when_the_type_grows(editor):
@@ -787,7 +789,7 @@ def test_a_deep_star_with_many_lines_keeps_its_height(editor):
     pick(page, "a")
     type_at_end(page, "a", " " + SENTENCE)
     (a,) = saved(page, client)
-    assert (a["w"], a["h"]) == (40, 40), a
+    assert a["props"]["text"] == "Super " + SENTENCE and (a["w"], a["h"]) == (40, 40), a
 
 
 def test_a_turned_deep_star_keeps_its_size_when_typed_in(editor):
@@ -797,7 +799,7 @@ def test_a_turned_deep_star_keeps_its_size_when_typed_in(editor):
     pick(page, "a")
     type_at_end(page, "a", "x")
     (a,) = saved(page, client)
-    assert (a["w"], a["h"]) == (40, 40), a
+    assert a["props"]["text"] == "Superx" and (a["w"], a["h"]) == (40, 40), a
     expect(page.locator('[data-shape="full"]')).to_be_visible()
 
 
@@ -808,5 +810,5 @@ def test_a_deep_star_at_the_foot_warns_and_keeps_its_size(editor):
     pick(page, "a")
     type_at_end(page, "a", "x")
     (a,) = saved(page, client)
-    assert (a["w"], a["h"]) == (40, 40), a
+    assert a["props"]["text"] == "Superx" and (a["w"], a["h"]) == (40, 40), a
     expect(page.locator('[data-shape="full"]')).to_be_visible()
