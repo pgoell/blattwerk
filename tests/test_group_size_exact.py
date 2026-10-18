@@ -107,8 +107,10 @@ def test_breite_percent_after_a_handle_drag_halves_the_shown_width(editor):
 def test_a_percent_of_a_handle_dragged_group_shows_half_its_size(editor):
     """Edge case: the percent field halves a dragged group, measured on what it shows now."""
     page = turned_group(editor, user(), *SHAPES)
+    # Late, as on a loaded runner: Höhe read before the drag's last step lands is not its size (#753).
+    page.evaluate(LATE)
     drag_se_outward(page)
-    before = number(page, "Höhe")
+    before = settled(page, "Höhe")
     enter(page, "Höhe %", "50")
     expect(field(page, "Höhe")).to_have_value(f"{before / 2:g}".replace(".", ","))
 
@@ -116,7 +118,8 @@ def test_a_percent_of_a_handle_dragged_group_shows_half_its_size(editor):
 @pytest.mark.xfail(
     BROWSER == "webkit",
     reason="#793: in WebKit under CI load the typed 80 is lost and Breite keeps the drag's "
-    "69,15; 20 of 20 pass locally, a late drag end and a new field do not explain it",
+    "69,15; 48 of 48 pass on 48 workers, and in the same CI run a fill into the key's name "
+    "was lost too (test_account_tokens), so maybe the fill and not the drag",
     strict=False,
 )
 def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
@@ -124,7 +127,10 @@ def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
     client = user()
     page = turned_group(editor, client, *SHAPES)
     drag_se_outward(page)
-    enter(page, "Breite", "80")
+    field(page, "Breite").fill("80")
+    # #793: tells a fill that was lost from an Enter that set nothing.
+    expect(field(page, "Breite")).to_have_value("80")
+    field(page, "Breite").press("Enter")
     expect(field(page, "Breite")).to_have_value("80")
     page.keyboard.press("Control+z")
     expect(field(page, "Breite")).not_to_have_value("80")
@@ -135,7 +141,10 @@ def test_a_drag_and_an_undo_after_a_typed_size_show_the_measured_size(editor):
     page.evaluate(LATE)
     drag_se_outward(page)
     measured = settled(page, "Breite")
-    enter(page, "Breite", "80")
+    field(page, "Breite").fill("80")
+    # #689, #793: tells a fill that was lost from an Enter that set nothing.
+    expect(field(page, "Breite")).to_have_value("80")
+    field(page, "Breite").press("Enter")
     expect(field(page, "Breite")).to_have_value("80")
     page.keyboard.press("Control+z")
     assert number(page, "Breite") == pytest.approx(measured, abs=0.02)

@@ -14,7 +14,7 @@ from playwright.sync_api import expect
 from test_feed_print import sheet_id
 from test_maths_fit import inside
 from test_painter import paint
-from ui import at, box, doc, maths, pick, user
+from ui import at, box, doc, maths, pick, saved, user
 
 FOOT = 297  # the page's height in mm
 PT = 25.4 / 72  # mm per point, as sheet.tsx
@@ -226,6 +226,115 @@ def test_i1_a_refused_click_is_no_step_of_undo(editor):
     pick(page, "m")
     page.keyboard.press("Control+z")
     expect(tasks(page).first).to_have_text("11 Aufgaben")
+
+
+def test_i1b_a_quick_second_click_keeps_the_first_when_its_answer_is_late(editor):
+    """I1b: two quick clicks on "mehr": the first answer comes late, and it still counts; the second is refused."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=12, columns=3, size=14, format="row")
+    page = editor(
+        box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
+    )
+    held = []
+
+    def hold(route):
+        # The first answer waits until the second click is sent; then both go on.
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect(tasks(page).first).to_have_text("11 Aufgaben")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe mehr").click()
+    refusal(page)
+    expect(tasks(page).first).to_have_text("12 Aufgaben")
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    expect(tasks(page).first).to_have_text("11 Aufgaben")
+
+
+def test_i1c_a_quick_more_then_less_ends_at_the_height_it_had(editor):
+    """I1c: "mehr" then "weniger" quickly, the first answer late: the second is measured on the
+    block the first left, so the block ends with its 9 tasks at the height of 3 rows."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    held = []
+
+    def hold(route):
+        # The first answer waits until the second click is sent; then both go on.
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    expect(tasks(page).first).to_have_text("9 Aufgaben")
+    (block,) = saved(page, client)
+    assert block["h"] == height(props)
+
+
+def test_i1d_two_quick_clicks_that_both_count_are_two_undo_steps(editor):
+    """I1d: "mehr" twice quickly, the first answer late, both fit: one Control+z takes back one."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    held = []
+
+    def hold(route):
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe mehr").click()
+    expect(at(page, "m").locator(".maths > div")).to_have_count(11)
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    expect(at(page, "m").locator(".maths > div")).to_have_count(10)
+    expect(tasks(page).first).to_have_text("10 Aufgaben")
+
+
+# Two frames: what a page answer brings is on the screen by then.
+FRAMES = "() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
+
+
+def test_i1e_a_retried_old_click_does_not_land_over_a_newer_one(editor):
+    """I1e: "mehr" fails, its retry comes late, "weniger" was clicked meanwhile: "weniger" stays."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    pick(page, "m")
+    page.route("**/api/maths", lambda route: route.abort())
+    page.get_by_label("Eine Aufgabe mehr").click()
+    again = page.get_by_role("button", name="Erneut versuchen")
+    expect(again).to_be_visible()
+    held = []
+    page.unroute("**/api/maths")
+    page.route("**/api/maths", lambda route: held.append(route) if not held else route.continue_())
+    again.click()
+    asked(click("Eine Aufgabe weniger"))(page)
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    with page.expect_response(lambda r: r.url.endswith("/api/maths")):
+        held.pop().continue_()
+    page.evaluate(FRAMES)
+    page.evaluate(FRAMES)
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    expect(tasks(page).first).to_have_text("9 Aufgaben")
 
 
 def test_i2_the_line_goes_when_there_is_room_again(editor):

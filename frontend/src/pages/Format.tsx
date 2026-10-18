@@ -410,10 +410,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   };
   // A maths block's height follows its exercises when they need more or less room than before. A change that would
   // push it past the page's foot is refused: the PDF would cut what hangs below.
-  const calc = (props: MathsProps) => {
+  // `key` makes the style and the height one undo step.
+  const calc = (props: MathsProps, key = "maths") => {
     if (overFoot(maths!, props, H)) return false;
-    style("maths", props, "maths");
-    if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], "maths");
+    style("maths", props, key);
+    if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], key);
     return true;
   };
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));

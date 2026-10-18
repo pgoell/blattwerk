@@ -1,5 +1,6 @@
 // The format panel's settings for a maths block: every limit of the generator in one place.
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { post, signed } from "../api";
 import Numbering from "../components/Numbering";
 import { attempt } from "../fault";
@@ -30,7 +31,7 @@ export const generate = ({ ops, max, a, b, c, carry, rest, format, count, seed, 
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
-export default function Maths({ block, apply, foot }: { block: MathsBlock; apply: (props: MathsProps) => boolean; foot: number }) {
+export default function Maths({ block, apply, foot }: { block: MathsBlock; apply: (props: MathsProps, key?: string) => boolean; foot: number }) {
   // The limits as last set, shown until the server's exercises for them are on the sheet.
   const [pending, setPending] = useState<MathsProps>();
   const [own, setOwn] = useState(!ROOMS.includes(block.props.max));
@@ -47,25 +48,41 @@ export default function Maths({ block, apply, foot }: { block: MathsBlock; apply
     if (refused) line.current?.scrollIntoView({ block: "nearest" });
   }, [refused]);
   const asked = useRef(0);
+  // The answers are applied in the order of the clicks: each waits for the one before it.
+  const applying = useRef<Promise<unknown>>(Promise.resolve());
+  // The click whose answer is on the sheet: a retried older one comes too late to count.
+  const landed = useRef(0);
   const p = pending ?? block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
-  const tried = (props: MathsProps) => {
-    const ok = apply(props);
+  const tried = (props: MathsProps, key?: string) => {
+    const ok = apply(props, key);
     setDenied(ok ? undefined : props);
     return ok;
   };
+  // The `tried` of the last render: an answer that waited for the one before it is measured on the block that one left.
+  const latest = useRef(tried);
+  useLayoutEffect(() => {
+    latest.current = tried;
+  });
 
-  // A new limit asks for new exercises. Only the answer to the last question counts. Where none comes, the limit
-  // stays as set, and the line above the page asks again with it.
+  // A new limit asks for new exercises. Every answer is applied, in the order asked; only the last one clears the
+  // pending limit. Where none comes, the limit stays as set, and the line above the page asks again with it.
   function limit(change: Partial<Limits>) {
     const next = { ...p, ...change };
     const n = ++asked.current;
     setPending(next);
-    attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
+    const before = applying.current;
+    applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       const made = await generate(next);
+      await before;
+      if (n < landed.current) return;
+      landed.current = n;
+      // Drawn at once, so that the next answer's `latest` sees the block as this one leaves it. Each answer is an
+      // undo step of its own, also when two land after both clicks.
+      let ok = false;
+      flushSync(() => void (ok = latest.current({ ...next, ...made }, `maths ${n}`)));
       if (n !== asked.current) return;
-      const ok = tried({ ...next, ...made });
       setPending(undefined);
       // A refused own Zahlenraum drops its number from the field: the block's own number shows, as on leaving it.
       if (!ok && change.max) setTyped((t) => (t === String(change.max) ? undefined : t));
