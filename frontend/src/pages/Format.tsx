@@ -24,6 +24,8 @@ import type { LineStyle, Pen } from "../edges";
 
 type Props = {
   sel: Block[];
+  // The sheet's id: a maths change the session ran out on is kept under it.
+  sheetId: number;
   // Sets props on every selected block of one type.
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   // Adds `by` to the score of each picked score box, each from its own number.
@@ -304,7 +306,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, sheetId }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -842,7 +844,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           <p className="hint">Doppelklick auf eine Zelle, um hineinzuschreiben.</p>
         </>
       )}
-      {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} />}
+      {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} sheetId={sheetId} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => style("zahlenmauer", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}

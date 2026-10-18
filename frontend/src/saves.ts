@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { api, catchUp, countLogin, onOther, onSignedOut, showLogin as signedOut, signed, type Refusal } from "./api";
-import { read, type Doc, type Sheet } from "./sheet";
+import { read, type Doc, type MathsProps, type Sheet } from "./sheet";
 
 // The wait after a change before it is saved. The tests set a shorter one on the page; a teacher's page has none and waits 2 s.
 const AFTER = (window as { saveAfter?: number }).saveAfter ?? 2000;
@@ -31,6 +31,8 @@ type Saver = {
   refused?: { doc: Doc; problems: string[]; title?: string };
   // The session ran out: nothing goes until a login or the next visit.
   stop: boolean;
+  // Changes the server did not get because the session ran out, to be redone by the sheet's editor after the login.
+  owed?: Owed[];
   // The sheet was deleted elsewhere: nothing is sent any more, and what the editor shows is kept until the teacher
   // has chosen, to keep it as a new sheet or to drop it. `choice` says how the first of the two stands.
   gone: boolean;
@@ -61,7 +63,8 @@ type Saver = {
 // dropped the sheet's, not because the teacher took it away.
 // `asked` is the change a keep of a sheet deleted elsewhere last sent as a new sheet, whose answer may not have come:
 // a press after a reload finds that sheet rather than making a second one.
-type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept };
+// `owed` is the maths change the session ran out on, which the editor redoes after the login (`owe`).
+type Record = { owner: number; base: number; doc: Doc; title?: string; sent?: Doc[]; name?: string; lists?: boolean; asked?: Kept; owed?: Owed[] };
 export type Save = { id: number; owner: number; title: string; saved: Kept; unsaved: boolean; failed: boolean; stopped: boolean; clash: boolean; refused?: string[]; late: boolean; gone: boolean; open: boolean; choice?: "busy" | "failed"; choiceProblems?: string[] };
 
 const savers = new Map<number, Saver>();
@@ -81,7 +84,7 @@ const same = (a: Doc, b: Doc) => JSON.stringify(a) === JSON.stringify(b);
 // A save that got no answer counts too: the server may hold it though the teacher has undone it since. So does a
 // clash: the server holds another device's document, whatever the editor is back at. And of a sheet deleted
 // elsewhere the server holds nothing: all the editor shows is unsaved, also where it is back at what was saved.
-const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
+const unsaved = (s: Saver) => s.gone || !!s.out || s.clash || s.lost.length > 0 || !!s.owed?.length || s.want.doc !== s.saved.doc || s.want.title !== s.saved.title;
 // The refusal that stands: for the document the saver holds now, and only while it is the one refused.
 const refusal = (s: Saver) => (s.refused && same(s.refused.doc, s.want.doc) ? s.refused : undefined);
 // While the document is refused, the title goes alone only where it changed, and not as one the server refused.
@@ -122,7 +125,7 @@ function keep(s: Saver) {
   try {
     if (unsaved(s)) {
       const sent = [...s.lost, s.out].flatMap((k) => (k && k.doc !== s.want.doc ? [k.doc] : []));
-      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked };
+      const record: Record = { owner: s.owner, base: s.base, doc: s.want.doc, title: s.want.title === s.saved.title ? undefined : s.want.title, sent: sent.length ? sent : undefined, name: s.saved.title, lists: true, asked: s.asked, owed: s.owed };
       localStorage.setItem(key(s.id), JSON.stringify(record));
       s.kept = true;
     } else if (s.kept) {
@@ -290,6 +293,7 @@ export function open(sheet: Sheet): Sheet {
       // past the version they were based on, it takes none of them any more. They keep the saver unsaved also
       // where the teacher has undone the change: what the editor shows is sent again, as the tab before would have.
       if (sheet.version === record.base) s.lost =(record.sent ?? []).map((doc) => ({ doc, title: sheet.title }));
+      s.owed = record.owed;
       s.kept = true;
       keep(s);
     }
@@ -319,6 +323,27 @@ export function attach(id: number, last: () => Kept) {
     tell();
   };
 }
+// A maths change the session ran out on: kept by the saver, red bar at once, redone by the editor after the login.
+export type Owed = { block: string; limits: MathsProps };
+export function owe(id: number, entry: Owed) {
+  const s = savers.get(id);
+  if (!s) return;
+  s.owed = [...(s.owed ?? []), entry];
+  s.stop = true;
+  keep(s);
+  tell();
+}
+// Hands out the owed changes of a sheet, to its owner only: another account's login gets none.
+export function takeOwed(id: number, owner: number): Owed[] {
+  const s = savers.get(id);
+  if (!s || s.owner !== owner || !s.owed) return [];
+  const list = s.owed;
+  s.owed = undefined;
+  keep(s);
+  tell();
+  return list;
+}
+
 // The editor says what the sheet holds after each change.
 export function set(id: number, want: Kept) {
   const s = savers.get(id);
