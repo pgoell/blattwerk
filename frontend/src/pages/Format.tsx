@@ -62,6 +62,7 @@ type Props = {
   laid: number[];
   // The ids of the blocks whose text the page's foot cuts short.
   full: string[];
+  // The ids of the shapes whose word does not print whole, wherever they stand.
   cramped: string[];
   // The ids of the picked shapes whose text grew them back after a smaller size from this panel.
   held: string[];
