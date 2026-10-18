@@ -539,3 +539,108 @@ def test_a_tip_above_takes_the_base_to_the_top(editor):
     # Only the tip lies out of the box: the base is on the top, so no line runs through the body.
     outside = [p for p in pairs if not (0 <= p[0] <= 60 and 0 <= p[1] <= 40)]
     assert outside == [(30.0, -20.0)], d
+
+
+DEEP = {**STAR, "inside": True, "floor": True, "text": "Super", "size": 18, "align": "center"}
+
+
+@pytest.mark.parametrize("valign", ["top", "middle", "bottom"])
+def test_a_deep_star_warns_when_its_word_does_not_fit(editor, valign):
+    client = user()
+    star = {**DEEP, "valign": valign}
+    page = editor(box("a", "shape", star, x=40, y=40, w=40, h=40), client=client)
+    pick(page, "a")
+    drag(page, centre(handle(page, "a")), centre(at(page, "a")))
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+
+
+def test_a_deep_star_turned_warns_when_its_word_does_not_fit(editor):
+    client = user()
+    page = editor(box("a", "shape", DEEP, x=40, y=40, w=40, h=40, angle=45), client=client)
+    pick(page, "a")
+    drag(page, centre(handle(page, "a")), centre(at(page, "a")))
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+
+
+@pytest.mark.parametrize("picked", [("a", "b"), ("b",)])
+def test_deep_stars_drag_at_once_warn(editor, picked):
+    client = user()
+    page = editor(
+        box("a", "shape", DEEP, x=20, y=40, w=40, h=40),
+        box("b", "shape", DEEP, x=100, y=40, w=40, h=40),
+        client=client,
+    )
+    pick(page, *picked)
+    drag(page, centre(handle(page, "b")), centre(at(page, "b")))
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+
+
+def test_undo_of_a_deep_drag_takes_the_warning_away(editor):
+    client = user()
+    page = editor(box("a", "shape", DEEP, x=40, y=40, w=60, h=60), client=client)
+    pick(page, "a")
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    drag(page, centre(handle(page, "a")), centre(at(page, "a")))
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    page.keyboard.press("Control+z")
+    (a,) = saved(page, client)
+    assert "inner" not in a["props"], a
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
+
+
+def test_an_empty_deep_star_does_not_warn(editor):
+    deep = {**DEEP, "inner": 0.1}
+    page = editor(
+        box("a", "shape", {**deep, "text": ""}, x=40, y=40, w=40, h=40),
+        box("b", "shape", deep, x=100, y=40, w=40, h=40),
+    )
+    # The star with its word warns once picked, so the frames have told the panel.
+    pick(page, "b")
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    pick(page, "a")
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+
+
+def test_a_big_star_dragged_a_little_keeps_its_word_whole(editor):
+    client = user()
+    page = editor(box("a", "shape", DEEP, x=40, y=40, w=120, h=120), client=client)
+    k = mm(page)
+    pick(page, "a")
+    start = centre(handle(page, "a"))
+    middle = centre(at(page, "a"))
+    # Two mm of the way from the handle to the middle.
+    dist = math.dist(start, middle)
+    along = 2 * k / dist
+    target = (start[0] + (middle[0] - start[0]) * along, start[1] + (middle[1] - start[1]) * along)
+    drag(page, start, target)
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
+
+
+def test_a_deep_triangle_or_bubble_keeps_its_word_or_warns(editor):
+    client = user()
+    word = {"text": "Super", "size": 18, "align": "center"}
+    page = editor(
+        box("t", "shape", {**TRI, "inside": True, "floor": True, **word}, x=20, y=40, w=40, h=40),
+        box("b", "shape", {**BUBBLE, **word}, x=100, y=40, w=60, h=40),
+        client=client,
+    )
+    k = mm(page)
+    pick(page, "t")
+    drag(page, centre(handle(page, "t")), centre(at(page, "t")))
+    pick(page, "b")
+    box_ = at(page, "b").bounding_box()
+    drag(page, centre(handle(page, "b")), (box_["x"] + 12 * k, box_["y"] + 55 * k))
+    for name in ("t", "b"):
+        fits = at(page, name).locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
+        if not fits:
+            expect(page.locator('[data-shape="full"]')).to_be_visible()
+
+
+def test_a_deep_star_saved_without_floor_warns(editor):
+    client = user()
+    star = {**STAR, "inside": True, "text": "Super", "size": 18, "align": "center", "inner": 0.1}
+    page = editor(box("a", "shape", star, x=40, y=40, w=40, h=40), client=client)
+    pick(page, "a")
+    expect(page.locator('[data-shape="full"]')).to_be_visible()

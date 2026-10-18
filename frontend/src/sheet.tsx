@@ -1546,9 +1546,10 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   // The desk's zoom: the screen measures in its px, the frame's sizes are in its own.
   const zoom = box.width / el.offsetWidth || 1;
   const [top, bottom] = [box.top + parseFloat(pad.paddingTop) * zoom, box.top + (high - parseFloat(pad.paddingBottom)) * zoom];
+  // Too small to measure: a text does not fit, so it reports over and the editor warns. An empty shape fits.
   if (bottom - top < 3) {
     block.style.transform = was;
-    return { down: 0, across: 1 };
+    return el.textContent?.trim() ? { down: 2, across: floor ? 2 : 1 } : { down: 0, across: 1 };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -1564,7 +1565,7 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
     [...el.querySelectorAll<HTMLElement>("p")].map((p) => {
       const s = getComputedStyle(p);
       const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
-      return (p.scrollWidth - pad) / (p.clientWidth - pad);
+      return (p.scrollWidth - pad) / Math.max(1, p.clientWidth - pad);
     });
   let scale = 1;
   for (let round = 0; round < 3; round++) {

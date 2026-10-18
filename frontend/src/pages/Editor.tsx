@@ -921,6 +921,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }, [blocks, k]);
   // The ids whose text the page's foot cuts short: the panel warns about them.
   const [full, setFull] = useState<string[]>([]);
+  // The ids whose text does not fit their shape, wherever it stands: the panel warns about them.
+  const [cramped, setCramped] = useState<string[]>([]);
   // The blocks the panel resized last, and the picked shapes whose text grew them back: the panel says why they stay.
   const panelSized = useRef<string[]>([]);
   const [heldIds, setHeldIds] = useState<string[]>([]);
@@ -1032,7 +1034,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   overfit.current = (id, { down: mm, across }) => {
     const b = sel.find((x) => x.id === id);
     // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
-    if (b) stopped(id, (mm > 0 || across > 1) && atFoot(b));
+    if (b) {
+      const short = mm > 0 || across > 1;
+      stopped(id, short && atFoot(b));
+      setCramped((c) => (c.includes(id) === short ? c : short ? [...c, id] : c.filter((x) => x !== id)));
+    }
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
     const shape = b && boxed(b);
@@ -4826,6 +4832,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       style={{ left: adjustAt(b)[0] * k, top: adjustAt(b)[1] * k }}
                       onPointerDown={(e) => {
                         adjusting.current = e.pointerId;
+                        // A drag of the handle does not grow the shape: the grow would move the handle from the pointer.
+                        wrote.current = "";
                         // WebKit captures no pointer it no longer knows, such as a touch a script made: its moves
                         // still come here, by `adjusting`.
                         try {
@@ -5052,6 +5060,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 unmerge={unmerge}
                 laid={laidMm}
                 full={full}
+                cramped={cramped}
                 held={heldIds}
                 onSize={(ids) => (panelSized.current = ids)}
                 sizeCells={sizeCells}

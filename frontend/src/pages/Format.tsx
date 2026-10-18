@@ -62,6 +62,7 @@ type Props = {
   laid: number[];
   // The ids of the blocks whose text the page's foot cuts short.
   full: string[];
+  cramped: string[];
   // The ids of the picked shapes whose text grew them back after a smaller size from this panel.
   held: string[];
   // Tells the editor which blocks this panel resizes.
@@ -302,7 +303,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -496,6 +497,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {sel.some((b) => full.includes(b.id)) && (
         <p className="hint warn" role="status" data-foot="full">
           Der Text passt nicht mehr in den Block: er reicht bis an den unteren Rand der Seite. Was nicht hineinpasst, wird nicht gedruckt.
+        </p>
+      )}
+      {/* A shape whose text does not fit where it stands says so, at any place on the page. */}
+      {sel.some((b) => cramped.includes(b.id) && !full.includes(b.id)) && (
+        <p className="hint warn" role="status" data-shape="full">
+          Der Text passt nicht in die Form. Was nicht hineinpasst, wird nicht gedruckt.
         </p>
       )}
       {rulings.some((b) => rowsNeeded(b) > rowsOf(b)) && (
