@@ -3426,12 +3426,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // How far down the adjust handle of a triangle or a bubble stands from its point, in mm: 12 px inside the box, clear
   // of Moveable's handles on its edge.
   const pullOf = (kind?: string) => (kind === "triangle" ? 12 / k : kind === "bubble" ? -12 / k : 0);
+  // A bubble's handle is pulled into the box only while its tip lies in the box: outside, the handle stands on the tip.
+  const pullAt = (b: Block, [x, y]: [number, number]) => {
+    const kind = (b.props as TextProps).kind;
+    return kind === "bubble" && (x < 0 || y < 0 || x > b.w || y > b.h) ? 0 : pullOf(kind);
+  };
   // Where the adjust handle of a block stands on the page, in mm: its point in the block's own frame, flipped and turned.
   function adjustAt(b: Block): [number, number] {
     const p = b.props as TextProps;
     const [lx, ly] = handleOf(p.kind, b.w, b.h, p)!;
     const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
-    const [dx, dy] = [lx - b.w / 2, ly + pullOf(p.kind) - b.h / 2];
+    const [dx, dy] = [lx - b.w / 2, ly + pullAt(b, [lx, ly]) - b.h / 2];
     return turnedAt([cx + dx * (b.flipX ? -1 : 1), cy + dy * (b.flipY ? -1 : 1)], b.angle ?? 0, [cx, cy]);
   }
   // Moves the point of a picked speech bubble, star or triangle with the pointer, and sets its props on each picked block of the same kind.
@@ -3442,7 +3447,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const [cx, cy] = [b.x + b.w / 2, b.y + b.h / 2];
     const [px, py] = turnedAt(point(e) as [number, number], -(b.angle ?? 0), [cx, cy]);
     const [fx, fy] = [cx + (px - cx) * (b.flipX ? -1 : 1), cy + (py - cy) * (b.flipY ? -1 : 1)];
-    const local: [number, number] = [fx - b.x, fy - b.y - pullOf(p.kind)];
+    const raw: [number, number] = [fx - b.x, fy - b.y];
+    const local: [number, number] = [raw[0], raw[1] - pullAt(b, raw)];
     const props = adjusted(p.kind, b.w, b.h, local);
     const same = new Set(sel.filter((o) => drawn(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
     change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
