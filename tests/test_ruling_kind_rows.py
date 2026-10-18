@@ -155,7 +155,8 @@ def test_i4_a_kind_change_near_the_foot_grows_at_most_to_the_foot(editor):
     """I4: a k5 Karo with 5 rows left above the foot grows to those 5 rows of 7 mm and warns."""
     client = user()
     text = TEXT * 2
-    block = box("l", "ruling", {**RULING, "kind": "k5", "text": text}, h=25, y=258.5)
+    # The foot is the page margin, 282 mm: 5 rows of 7 mm and a little end there.
+    block = box("l", "ruling", {**RULING, "kind": "k5", "text": text}, h=25, y=243.5)
     page = editor(block, client=client)
     pick(page, "l")
     kind_to(page, "k7")
