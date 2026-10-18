@@ -96,7 +96,9 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
   }
   const grow = GROWS[b.type];
   if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
-    const need = round(Math.min(grow[0](next.props, b.w), foot));
+    // A Zahlenhaus may pass the foot: capped, its houses would shrink to fit and so its digits.
+    const want = grow[0](next.props, b.w);
+    const need = round(b.type === "zahlenhaus" ? want : Math.min(want, foot));
     if (need > b.h) return tall(b, need);
   }
   return {};
