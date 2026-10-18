@@ -312,6 +312,9 @@ def test_a_page_deleted_or_added_while_the_picture_uploads(editor, own, press, p
     first, second = (page.locator(f'.sheet[data-page="{n}"]') for n in range(2))
     if own:
         second.click(position={"x": 5, "y": 5})
+    else:
+        # A picked block keeps page 1 in use while page 2 alone is in view (#805).
+        at(page, "a").click()
     second.scroll_into_view_if_needed()
     expect(second if own else first).to_have_class(re.compile(r"\bon\b"))
     with page.expect_request("**/api/uploads"):
