@@ -787,6 +787,21 @@ def test_tidy_deletes_the_tr_pdfs_in_downloads_and_nothing_else(
     assert run(folder, server, "tidy").stdout == "nothing to delete\n"
 
 
+def test_tidy_deletes_the_blattomat_extension_download_and_names_it(
+    folder, server, tmp_path, monkeypatch
+):
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    monkeypatch.setenv("TEACHER_PAGE_DOWNLOADS", str(downloads))
+    (downloads / "blattomat.mcpb").write_bytes(b"zip")
+    (downloads / "other.mcpb").write_bytes(b"zip")
+
+    done = run(folder, server, "tidy")
+    assert (done.returncode, done.stderr) == (0, "")
+    assert done.stdout == "deleted downloads/blattomat.mcpb\n"
+    assert [path.name for path in downloads.iterdir()] == ["other.mcpb"]
+
+
 def test_tidy_deletes_the_pdfs_that_pdf_saved_in_the_tool_folder(
     folder, server, tmp_path, monkeypatch
 ):
@@ -800,6 +815,18 @@ def test_tidy_deletes_the_pdfs_that_pdf_saved_in_the_tool_folder(
     assert (done.returncode, done.stderr) == (0, "")
     assert done.stdout == f"deleted {folder.name}/Blatt 3.pdf\n"
     assert [path.name for path in folder.iterdir()] == ["last.png"]
+
+
+def test_close_tabs_shuts_a_tab_the_page_opened_and_names_it(editor):
+    page = editor(box("a", "text", ONE))
+    with page.context.expect_page() as new:
+        page.evaluate("window.open('about:blank')")
+    opened = new.value
+    lines = tool.close_tabs(page)
+    assert len(lines) == 1
+    assert "about:blank" in lines[0]
+    assert opened.is_closed()
+    assert not page.is_closed()
 
 
 def test_expire_drops_the_session_and_the_page_stays(editor):
@@ -1057,6 +1084,27 @@ def test_drop_refuses_a_file_outside_the_run_folder_and_one_that_is_missing(
         tool.drop(page, "../aussen.png", "100,100")
     with pytest.raises(tool.Refused, match="there is no file"):
         tool.drop(page, "fehlt.png", "100,100")
+
+
+def test_upload_puts_a_picture_on_the_sheet_by_the_bild_buttons_file_box(editor, folder):
+    Image.new("RGB", (40, 30), "red").save(folder / "bild.png")
+    page = editor(box("a", "text", ONE))
+    tool.upload(page, "bild.png", "Bild")
+    expect(page.locator(".block .picture img")).to_have_count(1)
+
+
+def test_upload_refuses_a_file_outside_the_run_folder_a_missing_one_and_a_target_without_a_file_box(
+    editor, folder, tmp_path
+):
+    Image.new("RGB", (40, 30), "red").save(tmp_path / "aussen.png")
+    page = editor(box("a", "text", ONE))
+    with pytest.raises(tool.Refused, match="outside the run folder"):
+        tool.upload(page, "../aussen.png", "Bild")
+    with pytest.raises(tool.Refused, match="there is no file"):
+        tool.upload(page, "fehlt.png", "Bild")
+    Image.new("RGB", (40, 30), "red").save(folder / "bild.png")
+    with pytest.raises(tool.Refused, match="opened no file box"):
+        tool.upload(page, "bild.png", "Eins")
 
 
 def test_paste_elsewhere_takes_the_words_copied_elsewhere(editor):
