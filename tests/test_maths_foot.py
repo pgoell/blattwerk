@@ -284,6 +284,59 @@ def test_i1c_a_quick_more_then_less_ends_at_the_height_it_had(editor):
     assert block["h"] == height(props)
 
 
+def test_i1d_two_quick_clicks_that_both_count_are_two_undo_steps(editor):
+    """I1d: "mehr" twice quickly, the first answer late, both fit: one Control+z takes back one."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    held = []
+
+    def hold(route):
+        if held:
+            held.pop().continue_()
+            route.continue_()
+        else:
+            held.append(route)
+
+    pick(page, "m")
+    page.route("**/api/maths", hold)
+    page.get_by_label("Eine Aufgabe mehr").click()
+    page.get_by_label("Eine Aufgabe mehr").click()
+    expect(at(page, "m").locator(".maths > div")).to_have_count(11)
+    pick(page, "m")
+    page.keyboard.press("Control+z")
+    expect(at(page, "m").locator(".maths > div")).to_have_count(10)
+    expect(tasks(page).first).to_have_text("10 Aufgaben")
+
+
+# Two frames: what a page answer brings is on the screen by then.
+FRAMES = "() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))"
+
+
+def test_i1e_a_retried_old_click_does_not_land_over_a_newer_one(editor):
+    """I1e: "mehr" fails, its retry comes late, "weniger" was clicked meanwhile: "weniger" stays."""
+    client = user()
+    props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
+    page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
+    pick(page, "m")
+    page.route("**/api/maths", lambda route: route.abort())
+    page.get_by_label("Eine Aufgabe mehr").click()
+    again = page.get_by_role("button", name="Erneut versuchen")
+    expect(again).to_be_visible()
+    held = []
+    page.unroute("**/api/maths")
+    page.route("**/api/maths", lambda route: held.append(route) if not held else route.continue_())
+    again.click()
+    asked(click("Eine Aufgabe weniger"))(page)
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    with page.expect_response(lambda r: r.url.endswith("/api/maths")):
+        held.pop().continue_()
+    page.evaluate(FRAMES)
+    page.evaluate(FRAMES)
+    expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    expect(tasks(page).first).to_have_text("9 Aufgaben")
+
+
 def test_i2_the_line_goes_when_there_is_room_again(editor):
     """I2: after a refusal, one column more makes room: the line goes and one task more works."""
     client = user()
