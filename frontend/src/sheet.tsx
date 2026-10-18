@@ -1057,15 +1057,25 @@ export function lengthened(doc: Doc): Doc {
   }));
   return grew ? { ...doc, pages } : doc;
 }
-// The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
-export function lowest(b: Box) {
+// A block's box with its bubble's tail taken in, turned about the block's own centre: the centre of the grown box on
+// the page, and its half sides, which are the sides of the box before the turn.
+export function reachOf(b: Box & { props?: object }) {
   const [c, s] = dir(b);
-  return b.y + b.h / 2 + (Math.abs(b.w * s) + Math.abs(b.h * c)) / 2;
+  const [up, right, down, left] = b.props ? tailReach({ w: b.w, h: b.h, props: b.props as Partial<TextProps>, flipX: b.flipX, flipY: b.flipY }) : [0, 0, 0, 0];
+  const [dx, dy] = [(right - left) / 2, (down - up) / 2];
+  return { x: b.x + b.w / 2 + dx * c - dy * s, y: b.y + b.h / 2 + dx * s + dy * c, hw: (b.w + left + right) / 2, hh: (b.h + up + down) / 2 };
+}
+// The lowest point in mm of a block's box on its page: of a turned block, its lowest corner.
+export function lowest(b: Box & { props?: object }) {
+  const [c, s] = dir(b);
+  const r = reachOf(b);
+  return r.y + Math.abs(r.hw * s) + Math.abs(r.hh * c);
 }
 // The right edge of a block's outline, turned or not.
-export function rightmost(b: Box) {
+export function rightmost(b: Box & { props?: object }) {
   const [c, s] = dir(b);
-  return b.x + b.w / 2 + (Math.abs(b.w * c) + Math.abs(b.h * s)) / 2;
+  const r = reachOf(b);
+  return r.x + Math.abs(r.hw * c) + Math.abs(r.hh * s);
 }
 // Whether a maths block with these props would end lower than it does and below the paper's edge, `H` mm down.
 // A sheet prints one page a page: what hangs below is cut, so the panel and the painter refuse such a change.
