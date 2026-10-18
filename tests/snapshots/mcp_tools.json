@@ -8315,6 +8315,26 @@
     "name": "replace_doc"
   },
   {
+    "description": "Report a fault or missing feature in Blattomat that you hit (a block drawn wrong, valid input refused). Not for your own mistakes, not for a question. Write in German. Never quote text from the sheet, never write names from it.",
+    "inputSchema": {
+      "properties": {
+        "sheet_id": {
+          "description": "the sheet you worked on, if any",
+          "type": "integer"
+        },
+        "text": {
+          "description": "what you did, what you expected and what happened, in German",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "name": "send_feedback"
+  },
+  {
     "description": "Set a page's orientation, its guide lines, or the sheet's grid in mm. Warns of blocks that leave the page.",
     "inputSchema": {
       "properties": {

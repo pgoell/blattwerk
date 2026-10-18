@@ -150,14 +150,19 @@ class World:
         con.close()
         self.answer({"*": verdict("nothing")})
 
-    def send(self, user, stamp, text=None, art="feedback", seite="/blatt/6", files=None):
+    def send(
+        self, user, stamp, text=None, art="feedback", seite="/blatt/6", files=None, extra=None
+    ):
         folder = self.data / "users" / str(user) / "feedback" / stamp
         folder.mkdir(parents=True, exist_ok=True)
         for name, content in (files or {}).items():
             (folder / name).write_bytes(content)
-        fields = {"art": art, "seite": seite}
+        fields = {"art": art}
+        if seite is not None:
+            fields["seite"] = seite
         if text is not None:
             fields["text"] = text
+        fields.update(extra or {})
         (folder / "feedback.json").write_text(json.dumps(fields))
         return folder
 
@@ -301,6 +306,90 @@ def test_new_issue_labels(world, kind):
     assert "Steps here." in body and "restated by the daily feedback job" in body
     labels = [create[i + 1] for i, arg in enumerate(create) if arg == "--label"]
     assert labels == ["feedback", kind]
+
+
+@pytest.mark.parametrize("kind", ["bug", "wish"])
+def test_mcp_send_labels_ai(world, kind):
+    world.send(1, STAMP, text="bugword", extra={"source": "mcp"})
+    world.answer({"*": verdict(kind, title="Undo loses page", body="Steps here.")})
+    assert world.run().returncode == 0
+    (create,) = world.writes()
+    labels = [create[i + 1] for i, arg in enumerate(create) if arg == "--label"]
+    assert labels == ["feedback", kind, "ai"]
+    body = value(create, "--body")
+    assert "From an AI's feedback" in body and "restated by the daily feedback job" in body
+
+
+def test_teacher_send_has_no_ai_label(world):
+    world.send(1, STAMP, text="bugword")
+    world.answer({"*": verdict("bug", title="Undo loses page", body="Steps here.")})
+    assert world.run().returncode == 0
+    (create,) = world.writes()
+    labels = [create[i + 1] for i, arg in enumerate(create) if arg == "--label"]
+    assert labels == ["feedback", "bug"]
+    assert "From a teacher's feedback" in value(create, "--body")
+
+
+def test_mcp_send_comment_says_ai(world):
+    world.send(1, STAMP, text="bugword", extra={"source": "mcp"})
+    world.answer({"*": verdict(issue=12)})
+    result = world.run(GH_ISSUES=json.dumps([{"number": 12, "title": "Undo"}]))
+    assert result.returncode == 0, result.stderr
+    (comment,) = world.writes()
+    assert comment[:3] == ["issue", "comment", "12"]
+    assert value(comment, "--body").startswith("An AI working through the MCP reports")
+
+
+def test_mcp_send_naming_feedback_and_blattomat_is_filed(world):
+    # The head and footer the job adds must not hit a word the AI's send holds.
+    text = "Ich sende dieses Feedback: Blattomat zeichnet die Zeiger falsch."
+    world.send(1, STAMP, text=text, extra={"source": "mcp"})
+    world.answer({"*": verdict(issue=12, body="Blattomat draws the clock hands wrong.")})
+    result = world.run(GH_ISSUES=json.dumps([{"number": 12, "title": "Clock"}]))
+    assert result.returncode == 0, result.stderr
+    assert world.read()[f"1/{STAMP}"]["outcome"] == "commented"
+
+
+@pytest.mark.parametrize(
+    "text, body, reason",
+    [
+        (
+            "The heading Lisa rechnet draws twice",
+            "Lisa's heading draws twice.",
+            "word from the send",
+        ),
+        (
+            "zehn Äpfel und drei Birnen kosten",
+            "Steps: zehn Äpfel und drei Birnen kosten, see above.",
+            "copied words",
+        ),
+    ],
+    ids=["name", "copied"],
+)
+def test_mcp_send_with_sheet_text_or_name_is_refused(world, text, body, reason):
+    world.send(1, STAMP, text=text, extra={"source": "mcp"})
+    world.answer({"*": verdict(body=body)})
+    assert world.run().returncode == 0
+    assert world.writes() == []
+    assert world.read()[f"1/{STAMP}"]["outcome"] == "refused"
+    assert reason in section(world.summary(), "Left for Pascal")
+
+
+def test_mcp_send_prompt_names_the_ai_not_the_sheet(world):
+    world.send(1, STAMP, text="bugword", seite=None, extra={"source": "mcp", "sheet_id": "4711"})
+    world.answer({"*": verdict("nothing")})
+    assert world.run().returncode == 0
+    stdin = world.claude_calls()[0]["stdin"]
+    assert "Sent by: an AI model" in stdin
+    assert "The AI's text, between the markers:" in stdin
+    assert "/blatt/N" in stdin
+    assert "4711" not in stdin
+
+
+def test_readme_names_mcp_sends_and_the_ai_label():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    section_text = readme.split("### The daily feedback job\n")[1].split("\n### ")[0]
+    assert "MCP" in section_text and "`ai`" in section_text
 
 
 def test_private_hit_is_not_filed(world):

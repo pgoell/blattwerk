@@ -74,6 +74,8 @@ Chromium prints the built frontend, so `mise run test` builds it first, and a PD
 
 Cron on the VPS runs `scripts/feedback-cron.sh` each morning. It reads every send it has not read before and turns it into an issue here, labelled `feedback` plus `bug` or `wish`, or into a comment on the open issue on the same point.
 
+A send from the MCP tool `send_feedback` (an AI that hit a fault while building a sheet) gets the label `ai` as well, and its issue or comment says it came from an AI.
+
 This repo is public and a send is private, so the work is split:
 
 - The model reads one send (text and pictures, inline) and returns a verdict as JSON: bug, wish, question or nothing, a title, a body in its own words, an open issue it matches. It runs with no tool, no MCP server and no user settings: it cannot read a file, run a command or reach GitHub.

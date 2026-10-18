@@ -423,6 +423,18 @@ export function tools(api: Api) {
     return text({ upload: made.id, ratio: props.ratio });
   }
 
+  // A note to Blattomat's makers, sent as the teacher's feedback form sends it, with source "mcp".
+  async function sendFeedback(args: any): Promise<Content> {
+    const note = typeof args.text === "string" ? args.text.trim() : "";
+    if (!note) throw new Fail("text must not be empty: say what went wrong.");
+    const fields: Record<string, string> = { art: "feedback", text: note, source: "mcp" };
+    if (args.sheet_id !== undefined) fields.sheet_id = String(args.sheet_id);
+    const r = await api.form("/feedback", fields);
+    if (r.status === 429) throw new Fail("Too many sends: 10 in 15 minutes at most. This one was not kept; send it again later.");
+    expectOk(r);
+    return text({ sent: true });
+  }
+
   const id = { type: "integer" };
   const version = { type: "integer", description: "the version get_sheet or the last write gave" };
   const defs: ToolDef[] = [
@@ -590,6 +602,19 @@ export function tools(api: Api) {
       },
     },
     {
+      name: "send_feedback",
+      description:
+        "Report a fault or missing feature in Blattomat that you hit (a block drawn wrong, valid input refused). Not for your own mistakes, not for a question. Write in German. Never quote text from the sheet, never write names from it.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "what you did, what you expected and what happened, in German" },
+          sheet_id: { ...id, description: "the sheet you worked on, if any" },
+        },
+        required: ["text"],
+      },
+    },
+    {
       name: "render_preview",
       description: "Look at one page of a worksheet as a PNG.",
       inputSchema: {
@@ -643,6 +668,8 @@ export function tools(api: Api) {
         return previewPng(args);
       case "upload_picture":
         return uploadPicture(args);
+      case "send_feedback":
+        return sendFeedback(args);
       default:
         throw new Fail(`No tool named ${name}.`);
     }

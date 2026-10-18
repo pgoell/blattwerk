@@ -4,7 +4,7 @@ title: "Tools: errors and limits"
 description: Each Blattomat tool's arguments that matter, what it answers, its errors word for word, and its limits.
 tags: [tools, errors, limits]
 covers: []
-generated: { by: "human:pgoell", at: 2026-10-17T16:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-18T16:52:00Z }
 ---
 
 # Tools: errors and limits
@@ -18,6 +18,7 @@ An error comes back as the tool's text answer with `isError` set. Read it, fix t
 * `sheet_id` and `page` must be whole numbers. Otherwise: `<key> must be a whole number.`
 * `outlines` must be true or false. Otherwise: `outlines must be true or false.`
 * The server refuses the token: `The Blattomat token is not valid: make a new one on the account page.` Tell the teacher. They make a new token on the account page.
+* Blattomat cannot be reached: `Cannot reach Blattomat at <base>: <reason>`.
 * The server does not know the sheet: `No sheet with id <id>.`
 * No tool has the name: `No tool named <name>.`
 * Any other refusal from the server: its own messages, one per line.
@@ -216,3 +217,13 @@ Limits:
 * At most 15 MB. An SVG at most 2 MB.
 * PNG, JPEG, WebP or GIF, or SVG with a viewBox and no entities.
 * `data` is base64 with no spaces or line breaks.
+
+## send_feedback
+
+Sends a fault or a missing feature in Blattomat to its makers, from a call you make while working on a sheet. Give `text` (what you did, what you expected, what happened, in German) and, if it fits, `sheet_id`. Answers `sent: true`. The send goes to the Blattomat team, who read it once a day. Use it for a fault in Blattomat, not for your own mistake and not for a question. Never put text from the sheet or names from the sheet in `text`.
+
+Errors:
+* `text must not be empty: say what went wrong.`
+* `The Blattomat token is not valid: make a new one on the account page.`
+* `Cannot reach Blattomat at <base>: <reason>`
+* `Too many sends: 10 in 15 minutes at most. This one was not kept; send it again later.`

@@ -31,6 +31,12 @@ FOOTER = (
     "The send itself stays on the server._"
 )
 COMMENT_HEAD = "Another teacher's feedback on this point:\n\n"
+AI_FOOTER = (
+    "_From an AI's feedback through the MCP, restated by the daily feedback job. "
+    "The send itself stays on the server._"
+)
+# No capitalised noun: one the send also holds would refuse the comment.
+AI_COMMENT_HEAD = "An AI working through the MCP reports on this point:\n\n"
 VERDICTS = ("bug", "wish", "question", "nothing")
 PICTURE_TYPES = {".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 # The model takes pictures up to this size. Bigger ones are left for a person.
@@ -102,15 +108,16 @@ def image_block(path: Path, media: str) -> dict:
     return {"type": "image", "source": {"type": "base64", "media_type": media, "data": data}}
 
 
-def build_prompt(art, seite, voice_count, text, issues) -> str:
+def build_prompt(art, seite, voice_count, text, issues, ai=False) -> str:
     # The page path without its numbers: the issue must not name a sheet.
     page = re.sub(r"[0-9]+", "N", seite) if seite else "unknown"
     lines = [
         f"Kind of send: {art}",
+        *(["Sent by: an AI model working through the Blattomat MCP, not a teacher"] if ai else []),
         f"Sent from page: {page}",
         f"Voice notes attached that you cannot hear: {voice_count}",
         "",
-        "The teacher's text, between the markers:",
+        f"The {'AI' if ai else 'teacher'}'s text, between the markers:",
         "<<<",
         text or "(no text)",
         ">>>",
@@ -185,6 +192,11 @@ def settle(key: str, folder: Path, args, emails: list[str], issues: dict) -> Res
     text = (fields.get("text") or "").strip()
     seite = fields.get("seite") or ""
     art = fields.get("art") or "feedback"
+    ai = fields.get("source") == "mcp"
+    sheet_id = fields.get("sheet_id")
+    # An AI send names its sheet by id only: the page path stands in for it.
+    if ai and not seite and isinstance(sheet_id, str) and sheet_id.isascii() and sheet_id.isdigit():
+        seite = f"/blatt/{sheet_id}"
     voice, pictures, to_see = sort_files(folder)
     result = Result(key, art=art, voice=[p.name for p in voice], to_see=[p.name for p in to_see])
     if not text and not pictures:
@@ -194,7 +206,7 @@ def settle(key: str, folder: Path, args, emails: list[str], issues: dict) -> Res
     # Everything in the send that a public issue must not show: the stamp, file names, the page.
     names = [n for n in (folder.name, seite, *(p.name for p in folder.iterdir())) if n]
     images = [image_block(p, media) for p, media in pictures]
-    prompt = build_prompt(art, seite, len(voice), text, issues)
+    prompt = build_prompt(art, seite, len(voice), text, issues, ai)
     kind, title, body, number = checked(ask(args.model, prompt, images))
     result.verdict, result.title, result.body = kind, title, body
     if kind in ("question", "nothing"):
@@ -202,7 +214,9 @@ def settle(key: str, folder: Path, args, emails: list[str], issues: dict) -> Res
         return result
 
     comment = number in issues
-    sent = (COMMENT_HEAD if comment else "") + body + "\n\n" + FOOTER
+    head = AI_COMMENT_HEAD if ai else COMMENT_HEAD
+    foot = AI_FOOTER if ai else FOOTER
+    sent = (head if comment else "") + body + "\n\n" + foot
     reasons = check(f"{title}\n{sent}", emails, names, text)
     if reasons:
         result.outcome, result.reasons = "refused", reasons
@@ -219,10 +233,11 @@ def settle(key: str, folder: Path, args, emails: list[str], issues: dict) -> Res
             return result
         result.outcome, result.number = "commented", number
     else:
+        extra = ["--label", "ai"] if ai else []
         try:
             url = gh(
                 "issue", "create", "--repo", args.repo, "--title", title, "--body", sent,
-                "--label", "feedback", "--label", kind,
+                "--label", "feedback", "--label", kind, *extra,
             )  # fmt: skip
         except subprocess.TimeoutExpired:
             result.outcome = "maybe filed"
