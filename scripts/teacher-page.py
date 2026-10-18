@@ -458,6 +458,9 @@ def upload(page: Page, file: str, target: str) -> str:
     x, y = point(page, target)
     try:
         with page.expect_file_chooser(timeout=3000) as chooser:
+            # The browser learns of the listener on its own time: one call to the page first, or
+            # the click may come before it and the file box opens past Playwright.
+            page.evaluate("0")
             page.mouse.click(x, y)
     except Late:
         raise Refused(
