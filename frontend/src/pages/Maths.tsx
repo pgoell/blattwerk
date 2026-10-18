@@ -77,7 +77,7 @@ export default function Maths({ block, apply, foot, sheetId }: { block: MathsBlo
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
       const made = await generate(next).catch((e: Error) => {
-        if (e.message === "401") owe(sheetId, { block: block.id, limits: next });
+        if (e.message === "401") owe(sheetId, { block: block.id, change });
         throw e;
       });
       await before;

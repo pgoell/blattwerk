@@ -151,7 +151,7 @@ def test_a11_the_login_a_run_out_session_brings_stops_input_and_says_so(window, 
     # The editor stops input with a plain message: the keys typed from here on reach no sheet.
     expect(
         page.get_by_text(
-            "Deine Anmeldung ist abgelaufen. Bis du dich neu anmeldest, nimmt das Blatt keine Eingaben an."
+            "Du bist nicht mehr angemeldet. Bis du dich neu anmeldest, nimmt das Blatt keine Eingaben an."
         )
     ).to_be_visible()
     page.keyboard.type(" Hund")
@@ -203,6 +203,56 @@ def test_i5_one_undo_after_the_sign_in_takes_the_redone_click_back(window, serve
     pick(page, "m")
     page.keyboard.press("Control+z")
     wait_count(client, sheet_id, page, 14)
+
+
+def columns_of(client, sheet_id):
+    """The Spalten of the maths block on the server's copy of the sheet."""
+    doc = client.get(f"/api/sheets/{sheet_id}").json()["doc"]
+    return doc["pages"][0]["blocks"][0]["props"]["columns"]
+
+
+def wait_columns(client, sheet_id, page, columns):
+    """Waits for the server's Spalten."""
+    for _ in range(50):
+        if columns_of(client, sheet_id) == columns:
+            break
+        page.wait_for_timeout(100)
+    assert columns_of(client, sheet_id) == columns
+
+
+def test_a_redo_that_fails_after_the_sign_in_says_so_and_the_sheet_saves_on(window, server):
+    """Review: the server's maths fails for the redo. A line says so, and the next change saves."""
+    page, client, sheet_id, _ = count_after_click(window, server)
+    page.route("**/api/maths", lambda route: route.fulfill(status=500, body="{}"))
+    login(page, server, client)
+    expect_sheet(page)
+    expect(page.get_by_text("konnte noch nicht übernommen werden")).to_be_visible()
+    pick(page, "m")
+    columns = columns_of(client, sheet_id)
+    page.get_by_label("Eine Spalte mehr").click()
+    wait_columns(client, sheet_id, page, columns + 1)
+    assert count_of(client, sheet_id) == 14
+
+
+def test_a_change_made_before_the_redo_lands_is_kept(window, server):
+    """Review: the redo lays only the click's own change over the block as it is when the answer comes."""
+    page, client, sheet_id, _ = count_after_click(window, server)
+    held = []
+    page.route("**/api/maths", held.append)
+    login(page, server, client)
+    expect_sheet(page)
+    pick(page, "m")
+    columns = columns_of(client, sheet_id)
+    page.get_by_label("Eine Spalte mehr").click()
+    wait_columns(client, sheet_id, page, columns + 1)
+    for _ in range(50):
+        if held:
+            break
+        page.wait_for_timeout(100)
+    page.unroute("**/api/maths")
+    held[0].continue_()
+    wait_count(client, sheet_id, page, 13)
+    assert columns_of(client, sheet_id) == columns + 1
 
 
 def test_i6_another_teacher_signing_in_at_that_login_gets_none_of_the_owed_click(window, server):

@@ -384,8 +384,9 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       rulings.map((b) => {
         if (rows !== undefined) return [b.id, tall(b, round(Math.max(1, rows) * row))];
         const next = { ...b, props: { ...b.props, kind } };
-        const footRows = Math.floor((H - b.y) / row + 0.05);
-        const n = Math.min(Math.max(rowsOf(b), rowsNeeded(next)), footRows);
+        // Past the foot it keeps the rows that still fit, measured by its lowest corner, so a turned one as it lies.
+        let n = Math.max(rowsOf(b), rowsNeeded(next));
+        while (n > 1 && lowest({ ...b, ...tall(b, round(n * row)) }) > H + 0.01) n--;
         return [b.id, tall(b, round(Math.max(1, n) * row))];
       }),
       "ruling",

@@ -324,12 +324,14 @@ export function attach(id: number, last: () => Kept) {
   };
 }
 // A maths change the session ran out on: kept by the saver, red bar at once, redone by the editor after the login.
-export type Owed = { block: string; limits: MathsProps };
-export function owe(id: number, entry: Owed) {
+// `change` holds only what the click changed: the redo lays it over the block as it is then.
+export type Owed = { block: string; change: Partial<MathsProps> };
+// `stop` where the session ran out; a redo that failed for another reason stays owed and lets the saves go on.
+export function owe(id: number, entry: Owed, stop = true) {
   const s = savers.get(id);
   if (!s) return;
   s.owed = [...(s.owed ?? []), entry];
-  s.stop = true;
+  if (stop) s.stop = true;
   keep(s);
   tell();
 }

@@ -30,7 +30,7 @@ export default function Login({ onDone }: { onDone: (user: User) => void }) {
 
   return (
     // A login that a run out session brought says so first: the sheet takes no more keys until the sign-in (#813).
-    <AuthShell title="Anmelden" lead={ran ? "Deine Anmeldung ist abgelaufen. Bis du dich neu anmeldest, nimmt das Blatt keine Eingaben an. Was du bis hierher eingegeben hast, bleibt erhalten." : "Schön, dass du da bist."}>
+    <AuthShell title="Anmelden" lead={ran ? "Du bist nicht mehr angemeldet. Bis du dich neu anmeldest, nimmt das Blatt keine Eingaben an. Was du bis hierher eingegeben hast, bleibt erhalten." : "Schön, dass du da bist."}>
       <form className="card" onSubmit={submit}>
         <label htmlFor="email">E-Mail</label>
         <input id="email" name="email" type="email" autoComplete="username" required />

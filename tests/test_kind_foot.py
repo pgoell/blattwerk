@@ -62,6 +62,20 @@ def test_i1_one_undo_takes_the_kind_change_and_its_height_back(editor):
     assert stored["h"] == 30 and stored["props"]["kind"] == "k5", stored
 
 
+def test_a_turned_lineatur_far_from_the_foot_keeps_its_rows_on_a_kind_change(editor):
+    """Review: the foot is measured by the lowest corner, so a Lineatur turned upright whose unturned
+    box would reach past the foot keeps its ten rows."""
+    client = user()
+    page = editor(
+        box("l", "ruling", {**RULING, "kind": "l4"}, x=50, y=200, w=20, h=100, angle=90),
+        client=client,
+    )
+    pick(page, "l")
+    kind_to(page, "l1")
+    expect(page.get_by_text("10 Zeilen")).to_be_visible()
+    assert saved(page, client)[0]["h"] == 200
+
+
 def test_i2_a_kind_change_well_above_the_foot_keeps_its_rows(editor):
     """I2: a Karo well above the foot keeps its six rows when the kind grows."""
     client = user()
