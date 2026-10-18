@@ -302,9 +302,9 @@ describe("a group", () => {
 describe("a bubble's tail in its box", () => {
   // A bubble 60 by 40 mm at the page's top left, its tip 20 mm below its foot; the stroke adds its 0.5 mm.
   const bubble = { id: "a", x: 0, y: 0, w: 60, h: 40, z: 0, locked: false, props: { kind: "bubble", tail: [0.2, 1.5] } };
-  it("reaches the tip for the page's edge and the outline", () => {
+  it("reaches the tip for the page's edge; align, size and snap keep the box, as in PowerPoint", () => {
     expect(lowest(bubble)).toBeCloseTo(60.5, 6);
     expect(rightmost(bubble)).toBeCloseTo(60, 6);
-    expect(outline(bubble).h).toBeCloseTo(60.5, 6);
+    expect(outline(bubble).h).toBeCloseTo(40, 6);
   });
 });

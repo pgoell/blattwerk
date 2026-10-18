@@ -5,6 +5,7 @@ import re
 
 import pytest
 from playwright.sync_api import expect
+from test_foot_cut import LINES, LONG, assert_whole_lines
 from ui import (
     RECT,
     TEXT,
@@ -18,6 +19,7 @@ from ui import (
     saved,
     sheet,
     swipe,
+    unpick,
     user,
 )
 
@@ -433,6 +435,37 @@ def test_a_tail_inside_the_box_draws_as_before(editor):
     same_path(at(page, "a").locator(OUTLINE).get_attribute("d"), bubble)
 
 
+@pytest.mark.parametrize(
+    ("tail", "base", "tip"),
+    [
+        # On the box's corner: the tip keeps inside the stroke, (e, h - e), as it did.
+        ([0, 1], 4.25, (0.25, 39.75)),
+        # In the body: the tip goes down to the body's foot, as the old range kept it.
+        ([0.5, 0.5], 25.5, (30, 30)),
+    ],
+)
+def test_a_tail_on_the_box_edge_or_in_the_body_draws_as_before(editor, tail, base, tip):
+    page = editor(box("a", "shape", {**BUBBLE, "tail": tail}, x=60, y=60, w=60, h=40))
+    e, w, h, r = 0.25, 60, 40, 4
+    low, right = e + 0.75 * (h - 2 * e), w - e
+    bubble = (
+        f"M{e + r},{e} H{right - r} A{r},{r} 0 0 1 {right},{e + r} V{low - r} "
+        f"A{r},{r} 0 0 1 {right - r},{low} H{base + 0.15 * w} L{tip[0]},{tip[1]} L{base},{low} "
+        f"H{e + r} A{r},{r} 0 0 1 {e},{low - r} V{e + r} A{r},{r} 0 0 1 {e + r},{e} Z"
+    )
+    same_path(at(page, "a").locator(OUTLINE).get_attribute("d"), bubble)
+
+
+def test_a_bubble_cut_at_the_page_foot_keeps_its_cut_with_a_tail_out(editor):
+    shape = {**BUBBLE, "text": LONG, "size": 14, "tail": [0.3, 1.5]}
+    page = editor(box("a", "shape", shape, x=15, y=280, w=180, h=17))
+    unpick(page)
+    frame = at(page, "a").locator(".frame")
+    expect(frame).to_have_attribute("data-cut", "true")
+    # The foot of the clip is the cut, not grown by the tail: no line below it shows in part.
+    assert_whole_lines(frame.evaluate(LINES))
+
+
 def test_a_drag_out_is_one_undo_step(editor):
     client = user()
     page = editor(box("a", "shape", BUBBLE, x=60, y=60, w=60, h=40), client=client)
@@ -461,7 +494,8 @@ def test_the_tail_handle_follows_turned_and_flipped(editor):
     k = mm(page)
     pick(page, "a")
     start = centre(handle(page, "a"))
-    end = (start[0] + 30 * k, start[1])
+    # Turned a quarter clockwise, the bubble's foot faces left: out past it is to the left.
+    end = (start[0] - 30 * k, start[1])
     drag(page, start, end)
     assert math.dist(centre(handle(page, "a")), end) < 3
     pick(page, "b")

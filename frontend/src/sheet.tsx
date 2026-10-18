@@ -1482,7 +1482,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
         // A pixel outside the box, so a stroke flush with its edge stays whole (see .frame in styles.css), and round
         // as the box, so a text too long for a circle ends at the circle. A bow under the last line hangs below a
         // box that is just as high as its text.
-        clipPath: `inset(${grow(tops, tailUp)} ${grow(rights, tailRight)} ${grow(bottoms, tailDown)} ${grow(rights, tailLeft)} round ${roundR})`,
+        clipPath: `inset(${grow(tops, tailUp)} ${grow(rights, tailRight)} ${grow(bottoms, frameCut !== undefined ? 0 : tailDown)} ${grow(rights, tailLeft)} round ${roundR})`,
         padding: `${(down - room + fitTop) * k}px ${(across - room + fitRight) * k}px ${(down - room + fitBottom) * k}px ${(across - room + fitLeft) * k}px`,
         ...(tailed
           ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: block.flipY ? "1fr 3fr" : "3fr 1fr", gridTemplateAreas: block.flipY ? '"." "words"' : '"words" "."' }
@@ -1719,7 +1719,9 @@ const OUTLINES: Partial<Record<Kind, (w: number, h: number, e: number, p: Partia
 // puts the tail on its top, a tip beside it (above the foot) on that side, anything else on the foot.
 function bubbleTail(w: number, h: number, e: number, r: number, low: number, tail?: [number, number]): { edge: "top" | "right" | "foot" | "left"; pts: number[][] } {
   if (!tail) return { edge: "foot", pts: [[0.4 * w, low], [0.2 * w, h - e], [0.25 * w, low]] };
-  const [tipX, tipY] = [tail[0] * w, tail[1] * h];
+  // A tip in the box keeps inside the stroke, as it always did; one outside goes where it is.
+  const within = tail[0] >= 0 && tail[0] <= 1 && tail[1] >= 0 && tail[1] <= 1;
+  const [tipX, tipY] = within ? [clamp(tail[0] * w, e, w - e), clamp(tail[1] * h, low, h - e)] : [tail[0] * w, tail[1] * h];
   // The base lies right of a tip at a fifth of the width, as the tail always did, and slides to its left as the tip
   // goes to four fifths: no jump on the way.
   const from = tipX + 0.05 * w - 0.25 * w * clamp((tipX / w - 0.2) / 0.6, 0, 1);
@@ -1742,8 +1744,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 export function tailOf(p: Partial<TextProps>): [number, number] | undefined {
   const t = p.tail;
   if (!Array.isArray(t) || t.length !== 2 || !Number.isFinite(t[0]) || !Number.isFinite(t[1])) return undefined;
-  return [clamp(t[0], -1, 2), clamp(t[1], -1, 2)];
+  return inBody(clamp(t[0], -1, 2), clamp(t[1], -1, 2));
 }
+// A tip in the box above the body's foot goes down to it, as before #778: a tail into the body draws none.
+const inBody = (x: number, y: number): [number, number] => [x, x >= 0 && x <= 1 && y >= 0 && y < 0.75 ? 0.75 : y];
 // How far a bubble's tail reaches past its box, in mm: top, right, bottom and left. None for a tail inside the box.
 export function tailReach(b: { w: number; h: number; props: Partial<TextProps>; flipX?: boolean; flipY?: boolean }): [number, number, number, number] {
   if (b.props.kind !== "bubble") return [0, 0, 0, 0];
@@ -1803,7 +1807,7 @@ export function adjusted(kind: Kind | undefined, w: number, h: number, at: [numb
   const [x, y] = at;
   const thou = (v: number) => Math.round(v * 1000) / 1000;
   if (kind === "triangle") return { tip: thou(clamp(x / w, 0, 1)) };
-  if (kind === "bubble") return { tail: [thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))] };
+  if (kind === "bubble") return { tail: inBody(thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))) };
   if (kind === "star") {
     // The point in POINTS.star's unit square, projected on the ray from its middle through inner corner 9.
     const [u, v] = [(x / w - 0.5) * 1.902, 1 - (y * 1.809) / h];
