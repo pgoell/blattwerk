@@ -8,11 +8,13 @@ The docstrings name the lines of the checklist.
 # The fixtures `window` and `run` are imported, and each test names one as its argument.
 # ruff: noqa: F811
 
+import json
+
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_saves import NOTICE, STATUS
 from test_signed_out import WATCH, expect_login, expect_sheet, login
-from ui import box, maths, pick, sheet
+from ui import TEXT, at, box, maths, pick, sheet
 
 WAITS = "Die letzte Änderung an „m“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert."
 
@@ -102,3 +104,53 @@ def test_a10_eine_spalte_mehr_after_the_session_ran_out_is_saved_after_the_sign_
     expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
     doc = client.get(f"/api/sheets/{sheet_id}").json()["doc"]
     assert doc["pages"][0]["blocks"][0]["props"]["columns"] == columns + 1
+
+
+def text_sheet(window, server):
+    """A sheet with one text, opened and picked for typing. Gives the page, the client and the sheet id."""
+    page, client = window()
+    made = sheet(client, [box("t", "text", TEXT)], title="t")
+    page.goto(f"{server}/blatt/{made['id']}")
+    expect_sheet(page)
+    pick(page, "t")
+    page.keyboard.press("Enter")
+    return page, client, made["id"]
+
+
+def words_of(client, sheet_id):
+    return json.dumps(client.get(f"/api/sheets/{sheet_id}").json()["doc"])
+
+
+def test_a11_words_typed_after_the_session_ran_out_are_kept_and_saved_after_the_sign_in(
+    window, server
+):
+    """A11: words typed with the session gone are in the text and saved after the sign-in (#813)."""
+    page, client, sheet_id = text_sheet(window, server)
+    address = f"{server}/blatt/{sheet_id}"
+    page.evaluate(WATCH)
+    page.context.clear_cookies()
+    page.keyboard.type(" Katze")
+    expect_login(page, address)
+    login(page, server, client)
+    expect_sheet(page)
+    expect(at(page, "t")).to_contain_text("Katze")
+    expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    assert "Katze" in words_of(client, sheet_id)
+
+
+def test_a11_words_typed_after_the_login_shows_are_kept_and_saved_after_the_sign_in(window, server):
+    """A11b: words typed once the login form shows are in the text after the sign-in (#813)."""
+    page, client, sheet_id = text_sheet(window, server)
+    address = f"{server}/blatt/{sheet_id}"
+    page.evaluate(WATCH)
+    page.context.clear_cookies()
+    page.keyboard.type(" Katze")
+    expect_login(page, address)
+    expect(page.locator(NOTICE)).to_have_text(WAITS.replace("„m“", "„t“"))
+    page.keyboard.type(" Hund")
+    login(page, server, client)
+    expect_sheet(page)
+    expect(at(page, "t")).to_contain_text("Katze")
+    expect(page.locator(STATUS)).to_have_text("Gespeichert", timeout=5000)
+    assert "Katze" in words_of(client, sheet_id)
+    assert "Hund" not in words_of(client, sheet_id)
