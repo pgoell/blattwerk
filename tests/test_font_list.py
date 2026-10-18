@@ -1,7 +1,6 @@
 """The font menus open a list of their own, each name in its own font (#486)."""
 
 import re
-import time
 
 import pytest
 from playwright.sync_api import expect
@@ -63,17 +62,33 @@ def test_each_name_shows_when_the_font_files_fail(editor, kind, label, props):
         assert option.bounding_box()["width"] > 0
 
 
+# Stamps the press on the font menu, and the moment the list holds its eight options, in the page.
+TIMER = """() => {
+  window.__press = undefined;
+  window.__opened = undefined;
+  addEventListener("pointerdown", (e) => {
+    if (window.__press === undefined && e.target.getAttribute?.("aria-label") === "Schriftart")
+      window.__press = performance.now();
+  }, true);
+  const options = '[role=listbox][aria-label="Liste: Schriftart"] [role=option]';
+  new MutationObserver(() => {
+    if (window.__opened === undefined && document.querySelectorAll(options).length === 8)
+      window.__opened = performance.now();
+  }).observe(document.body, { childList: true, subtree: true });
+}"""
+
+
 def test_the_list_opens_within_300_ms(editor):
-    """B3: from the click to the list with its eight options, under 300 ms."""
+    """B3: from the click to the list with its eight options, under 300 ms, timed in the page
+    so a loaded shard's round trips do not count."""
     page = editor(box("a", "text", TEXT))
     pick(page, "a")
-    select = page.get_by_label("Schriftart", exact=True)
-    start = time.perf_counter()
-    select.click()
+    page.evaluate(TIMER)
+    page.get_by_label("Schriftart", exact=True).click()
     expect(
         page.get_by_role("listbox", name="Liste: Schriftart").get_by_role("option")
     ).to_have_count(8)
-    ms = (time.perf_counter() - start) * 1000
+    ms = page.evaluate("() => window.__opened - window.__press")
     print(f"B3 list open: {ms:.0f} ms")
     assert ms < 300
 
