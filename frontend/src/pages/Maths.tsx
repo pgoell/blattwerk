@@ -33,10 +33,23 @@ const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close
 export const generate = (l: Limits) => signed(post<Made>("/maths", ask(l)));
 // A smaller count and nothing else changed: the block keeps its own exercises, less the last ones, and the server's word on what is in the way.
 // With families the count is that of the families, so the last families go whole.
-export const kept = (was: MathsProps, next: Limits, made: Made): Made =>
-  next.count < was.count && JSON.stringify(ask({ ...was, count: next.count })) === JSON.stringify(ask(next))
-    ? { ...made, exercises: was.exercises.filter((e, i) => (("sign" in e ? undefined : e.family) ?? i) < next.count) }
-    : made;
+// A bigger count: the block keeps its exercises and takes the new ones from the server's answer, at the end.
+// The server draws a new set for every count, so only the tail that is new to the block is taken.
+export const kept = (was: MathsProps, next: Limits, made: Made): Made => {
+  if (JSON.stringify(ask({ ...was, count: next.count })) !== JSON.stringify(ask(next))) return made;
+  if (next.count < was.count)
+    return { ...made, exercises: was.exercises.filter((e, i) => (("sign" in e ? undefined : e.family) ?? i) < next.count) };
+  if (next.count === was.count) return made;
+  const families = was.exercises.some((e) => ("sign" in e ? undefined : e.family) !== undefined);
+  if (families) {
+    const have = was.exercises.reduce((n, e) => Math.max(n, ("sign" in e ? 0 : e.family ?? 0) + 1), 0);
+    return { ...made, exercises: [...was.exercises, ...made.exercises.filter((e) => !("sign" in e) && (e.family ?? 0) >= have)] };
+  }
+  const seen = new Set(was.exercises.map((e) => JSON.stringify(e)));
+  const fresh = made.exercises.filter((e) => !seen.has(JSON.stringify(e)) && seen.add(JSON.stringify(e)));
+  const more = [...fresh, ...made.exercises.slice(was.exercises.length)].slice(0, Math.max(0, made.exercises.length - was.exercises.length));
+  return { ...made, exercises: [...was.exercises, ...more] };
+};
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
