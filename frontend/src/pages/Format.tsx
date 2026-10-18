@@ -912,6 +912,8 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
   const [hi, setHi] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
   const select = useRef<HTMLSelectElement>(null);
+  // Where the finger came down, to tell a tap from a swipe.
+  const touch = useRef<{ x: number; y: number } | undefined>(undefined);
   // The faces load now, so a name shows at once when the list opens. A face that fails shows its fallback.
   useEffect(() => {
     for (const font of FONT_KEYS) document.fonts.load(`16px "${FONTS[font as Font][1]}"`).catch(() => {});
@@ -940,7 +942,9 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
     const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
     if (!open) {
       if (["Enter", " ", "F4"].includes(e.key) || (e.altKey && e.key === "ArrowDown")) {
+        // The panel's own keys stay out: the list keeps the keyup too.
         e.preventDefault();
+        e.stopPropagation();
         show();
       } else if (step && !e.altKey) {
         e.preventDefault();
@@ -949,19 +953,26 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
       }
       return;
     }
+    if (e.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+    // Every other key is the list's: the sheet and the drawer do not hear of it.
+    e.preventDefault();
+    e.stopPropagation();
     if (step) {
-      e.preventDefault();
       setHi((h) => Math.min(FONT_KEYS.length - 1, Math.max(0, h + step)));
     } else if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
       pick(FONT_KEYS[hi]);
     } else if (e.key === "Escape") {
-      // The drawer stays open: the key stops here.
-      e.preventDefault();
-      e.stopPropagation();
+      // The drawer stays open.
       setOpen(false);
-    } else if (e.key === "Tab") {
-      setOpen(false);
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      // A letter moves the highlight to the next font whose name starts with it, wrapping round.
+      const letter = e.key.toLocaleLowerCase("de");
+      const after = [...FONT_KEYS.slice(hi + 1), ...FONT_KEYS.slice(0, hi + 1)];
+      const next = after.find((font) => FONTS[font as Font][0].toLocaleLowerCase("de").startsWith(letter));
+      if (next) setHi(FONT_KEYS.indexOf(next));
     }
   };
   return (
@@ -979,7 +990,16 @@ function FontSelect({ label, value: stored, unknown, onChange }: { label: string
             select.current?.focus();
             toggle();
           }}
+          data-open={open || undefined}
+          onTouchStart={(e) => {
+            const t = e.touches[0];
+            touch.current = { x: t.clientX, y: t.clientY };
+          }}
           onTouchEnd={(e) => {
+            // A finger that moved is a scroll of the drawer, and opens nothing.
+            const t = e.changedTouches[0];
+            const start = touch.current;
+            if (!t || !start || Math.hypot(t.clientX - start.x, t.clientY - start.y) >= 10) return;
             e.preventDefault();
             select.current?.focus();
             toggle();
