@@ -575,17 +575,31 @@ def test_deep_stars_drag_at_once_warn(editor, picked):
     expect(page.locator('[data-shape="full"]')).to_be_visible()
 
 
-def test_undo_of_a_deep_drag_brings_back_the_warning_it_had(editor):
+def test_undo_of_a_deep_drag_takes_the_warning_away(editor):
     client = user()
-    page = editor(box("a", "shape", DEEP, x=40, y=40, w=40, h=40), client=client)
+    page = editor(box("a", "shape", DEEP, x=40, y=40, w=60, h=60), client=client)
     pick(page, "a")
-    before = page.locator('[data-shape="full"]').count()
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
     drag(page, centre(handle(page, "a")), centre(at(page, "a")))
     expect(page.locator('[data-shape="full"]')).to_be_visible()
     page.keyboard.press("Control+z")
     (a,) = saved(page, client)
     assert "inner" not in a["props"], a
-    expect(page.locator('[data-shape="full"]')).to_have_count(before)
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
+
+
+def test_an_empty_deep_star_does_not_warn(editor):
+    deep = {**DEEP, "inner": 0.1}
+    page = editor(
+        box("a", "shape", {**deep, "text": ""}, x=40, y=40, w=40, h=40),
+        box("b", "shape", deep, x=100, y=40, w=40, h=40),
+    )
+    # The star with its word warns once picked, so the frames have told the panel.
+    pick(page, "b")
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    pick(page, "a")
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
 
 
 def test_a_big_star_dragged_a_little_keeps_its_word_whole(editor):
