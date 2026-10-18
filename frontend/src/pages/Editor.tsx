@@ -3156,7 +3156,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const mid = (Math.min(...rects.map((r) => r.top)) + Math.max(...rects.map((r) => r.bottom))) / 2;
       const gap = (r: DOMRect) => Math.max(0, r.top - mid, mid - r.bottom);
       const [n, now] = sheets.reduce((a, b) => (gap(b[1]) < gap(a[1]) ? b : a));
-      if (n === page) continue;
+      // The own page takes the unit back only when the middle lies off it, in the gap: then it is clamped onto it.
+      if (n === page && gap(was) === 0) continue;
       const [W, H] = sizes[n];
       const [x, right] = span(unit, "x");
       const [y, bottom] = span(unit, "y");
@@ -3171,7 +3172,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       (doc) => ({
         ...doc,
         pages: doc.pages.map((p, i) => {
-          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...copies] };
+          if (i === page) return { ...p, blocks: [...p.blocks.filter((b) => !gone.has(b.id)), ...(away.get(page) ?? []), ...copies] };
           const come = away.get(i);
           if (!come) return p;
           const top = Math.max(0, ...p.blocks.map((b) => b.z)) - Math.min(...come.map((b) => b.z)) + 1;
