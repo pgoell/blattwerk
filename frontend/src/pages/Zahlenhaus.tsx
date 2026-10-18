@@ -25,6 +25,8 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
   // Set when a number field gets focus, until the mouseup of that click has selected its number.
   const fresh = useRef(false);
+  // Set by Escape in the own Zahlenraum, until the blur that follows has passed.
+  const dropped = useRef(false);
 
   const h = Math.min(which, m.houses.length - 1);
   const free = p.free ?? [];
@@ -34,6 +36,21 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
 
   function toggleFree(b: number) {
     apply({ free: free.map((v, j) => (j === b ? !v : v)) });
+  }
+
+  // Why an own Zahlenraum that is typed is not stored: it must be from 2 to 1000.
+  function ownWrong(text: string) {
+    const n = Number(text);
+    return n > 1000 ? "Höchstens 1000." : text === "" || n < 2 ? "Mindestens 2." : "";
+  }
+
+  // The own Zahlenraum applies on Enter and on leaving the field, when it is in range; else the field shows the number in use.
+  function ownDone(text: string) {
+    setDraft(null);
+    if (ownWrong(text)) return;
+    const n = Number(text);
+    setOwnAt(n);
+    if (n !== p.max) apply({ max: n }, "max");
   }
 
   function setTyped(box: number, text: string) {
@@ -48,13 +65,17 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   return (
     <>
       <h2>Zahlenhaus</h2>
-      <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: floorsOf(p.free, Number(e.target.value)) })}>
-        {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
+      {/* Each list says what it sets, as "4 Häuser" does (#899). */}
+      <label>
+        Stockwerke
+        <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: floorsOf(p.free, Number(e.target.value)) })}>
+          {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="seg">
         <button aria-label="Ein Haus weniger" disabled={p.count === 1} onClick={() => apply({ count: p.count - 1 })}>
           −
@@ -73,24 +94,28 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ＋
         </button>
       </div>
-      <select
-        aria-label="Zahlenraum"
-        value={showOwn ? "own" : p.max}
-        onChange={(e) => {
-          if (e.target.value === "own") return setOwnAt(p.max);
-          setOwnAt(null);
-          apply({ max: Number(e.target.value) });
-        }}
-      >
-        {ZAHLENRAUM.map((n) => (
-          <option key={n} value={n}>
-            {`bis ${n}`}
-          </option>
-        ))}
-        <option value="own">Eigener</option>
-      </select>
+      <label>
+        Zahlenraum
+        <select
+          aria-label="Zahlenraum"
+          value={showOwn ? "own" : p.max}
+          onChange={(e) => {
+            if (e.target.value === "own") return setOwnAt(p.max);
+            setOwnAt(null);
+            apply({ max: Number(e.target.value) });
+          }}
+        >
+          {ZAHLENRAUM.map((n) => (
+            <option key={n} value={n}>
+              {`bis ${n}`}
+            </option>
+          ))}
+          <option value="own">Eigener</option>
+        </select>
+      </label>
       {showOwn && (
         <input
+          className="own"
           inputMode="numeric"
           aria-label="Eigener Zahlenraum"
           value={draft?.key === "max" ? draft.text : String(p.max)}
@@ -105,24 +130,35 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
             e.preventDefault();
             e.currentTarget.select();
           }}
-          onBlur={() => setDraft(null)}
+          onBlur={(e) => (dropped.current ? (dropped.current = false) : ownDone(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") ownDone(e.currentTarget.value);
+            // Escape drops what was typed, as in PowerPoint: the blur that the editor gives with it stores nothing.
+            if (e.key === "Escape") {
+              dropped.current = true;
+              setDraft(null);
+            }
+          }}
           onChange={(e) => {
             if (!/^\d{0,4}$/.test(e.target.value)) return;
+            dropped.current = false;
             setDraft({ key: "max", text: e.target.value });
-            const n = Number(e.target.value);
-            if (n < 2 || n > 1000) return;
-            setOwnAt(n);
-            apply({ max: n }, "max");
           }}
         />
       )}
-      <select aria-label="Gegebene Felder" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenhausProps["given"] })}>
-        {Object.entries(GIVEN).map(([given, label]) => (
-          <option key={given} value={given}>
-            {label}
-          </option>
-        ))}
-      </select>
+      {showOwn && draft?.key === "max" && ownWrong(draft.text) && (
+        <p className="hint" role="status">{`${ownWrong(draft.text)} Die Häuser gehen bis ${p.max}.`}</p>
+      )}
+      <label>
+        Gegebene Felder
+        <select aria-label="Gegebene Felder" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenhausProps["given"] })}>
+          {Object.entries(GIVEN).map(([given, label]) => (
+            <option key={given} value={given}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
       {p.given === "free" && (
         <div className="mauer">
           {rows.map((row, r) => (
@@ -140,13 +176,16 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ))}
         </div>
       )}
-      <select aria-label="Haus für eigene Zahlen" value={h} onChange={(e) => setWhich(Number(e.target.value))}>
-        {m.houses.map((_, i) => (
-          <option key={i} value={i}>
-            {`Haus ${i + 1}`}
-          </option>
-        ))}
-      </select>
+      <label>
+        Eigene Zahlen
+        <select aria-label="Haus für eigene Zahlen" value={h} onChange={(e) => setWhich(Number(e.target.value))}>
+          {m.houses.map((_, i) => (
+            <option key={i} value={i}>
+              {`Haus ${i + 1}`}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="mauer">
         {rows.map((row, r) => (
           <div key={r} className="mauer-row">
@@ -155,6 +194,7 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
               return (
                 <input
                   key={b}
+                  className="typed"
                   inputMode="numeric"
                   aria-label={b === 0 ? "Zahl im Dach" : `Zahl in ${boxName(b)}`}
                   value={draft?.key === key ? draft.text : String(m.houses[h].numbers[b])}
@@ -170,6 +210,10 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
                     e.currentTarget.select();
                   }}
                   onBlur={() => setDraft(null)}
+                  onKeyDown={(e) => {
+                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
+                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
+                  }}
                   onChange={(e) => {
                     if (!/^\d{0,4}$/.test(e.target.value)) return;
                     setDraft({ key, text: e.target.value });
@@ -188,7 +232,16 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ) : null,
         ),
       )}
-      {p.typed && <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>}
+      {p.typed && (
+        <button
+          onClick={() => {
+            setDraft(null);
+            apply({ typed: undefined });
+          }}
+        >
+          Eigene Zahlen entfernen
+        </button>
+      )}
       <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }).houses) }]) })}>
         Neu würfeln
       </button>

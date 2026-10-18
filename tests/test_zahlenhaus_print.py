@@ -111,3 +111,64 @@ def test_the_numbers_stay_inside_the_block_at_three_sizes(editor):
         page = editor(box("h", "zahlenhaus", HAUS, w=w, h=h), client=user())
         expect(at(page, "h").locator("g.house")).to_have_count(4)
         assert at(page, "h").evaluate(INSIDE), (w, h)
+
+
+# Each box that shows a number: its index, its shape's box and the number's box, both from getBBox in svg units.
+BOX_TEXTS = """els => els.map(h => [...h.querySelectorAll('g.box')].map(b => {
+        const t = b.querySelector('text');
+        if (!t) return null;
+        const shape = b.querySelector('rect, polygon').getBBox();
+        const text = t.getBBox();
+        return {box: +b.dataset.box, label: t.textContent,
+            shape: [shape.x, shape.y, shape.width, shape.height],
+            bbox: [text.x, text.y, text.width, text.height]};
+    }).filter(Boolean))"""
+
+
+def check_fit(locator, roof):
+    """Each number of the locator's houses fits its box with room to spare. Returns the numbers of three
+    or more digits it met. The roof (box 0) is checked only when `roof` is set."""
+    found = []
+    for house in locator.evaluate_all(BOX_TEXTS):
+        for b in house:
+            if b["box"] == 0 and not roof:
+                continue
+            (sx, sy, sw, sh), (tx, ty, tw, th) = b["shape"], b["bbox"]
+            assert tw <= 0.8 * sw, (b, "text wider than 0.8 of its box")
+            assert tx >= sx and tx + tw <= sx + sw and ty >= sy and ty + th <= sy + sh, (
+                b,
+                "text outside its box",
+            )
+            if len(b["label"]) >= 3:
+                found.append(b["label"])
+    return found
+
+
+def test_three_digit_numbers_stay_inside_their_boxes_with_room(editor, browser, server):
+    """Max 500: the three-digit floor numbers on the editor, the print and the key sit inside their
+    box with room to spare, as two-digit numbers do."""
+    client = user()
+    page = editor(
+        box("h", "zahlenhaus", {**HAUS, "max": 500, "seed": 3}, w=120, h=55), client=client
+    )
+    found = check_fit(at(page, "h").locator(".zahlenhaus"), roof=False)
+    paper = printed(browser, server, sheet_id(page))
+    found += check_fit(paper.locator(".zahlenhaus"), roof=False)
+    paper.context.close()
+    paper = key_print(browser, server, sheet_id(page))
+    found += check_fit(paper.locator(".zahlenhaus"), roof=False)
+    paper.context.close()
+    assert any(len(n) == 3 for n in found), "no three-digit number in the test houses"
+
+
+def test_four_digit_typed_numbers_fit_their_box(editor, browser, server):
+    """Typed 9999 in house 0's floor 1 left box and as its roof: each number sits inside its box
+    (or the roof's triangle bounding box) with room to spare."""
+    client = user()
+    for typed, roof in [([[0, 1, 9999]], False), ([[0, 0, 9999]], True)]:
+        page = editor(box("h", "zahlenhaus", {**HAUS, "typed": typed}, w=120, h=55), client=client)
+        found = check_fit(at(page, "h").locator(".zahlenhaus"), roof=roof)
+        paper = printed(browser, server, sheet_id(page))
+        found += check_fit(paper.locator(".zahlenhaus"), roof=roof)
+        paper.context.close()
+        assert "9999" in found, (typed, found)

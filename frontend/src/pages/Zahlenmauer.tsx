@@ -33,13 +33,17 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
   return (
     <>
       <h2>Zahlenmauer</h2>
-      <select aria-label="Grundsteine" value={p.base} onChange={(e) => apply({ base: Number(e.target.value) as 3 | 4 | 5, free: undefined, typed: undefined })}>
-        {[3, 4, 5].map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
+      {/* Each list says what it sets, as "4 Mauern" does (#899). */}
+      <label>
+        Grundsteine
+        <select aria-label="Grundsteine" value={p.base} onChange={(e) => apply({ base: Number(e.target.value) as 3 | 4 | 5, free: undefined, typed: undefined })}>
+          {[3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="seg">
         <button aria-label="Eine Mauer weniger" disabled={p.count === 1} onClick={() => apply({ count: p.count - 1 })}>
           −
@@ -58,13 +62,16 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           ＋
         </button>
       </div>
-      <select aria-label="Zahlenraum" value={p.max} onChange={(e) => apply({ max: Number(e.target.value) as ZahlenmauerProps["max"] })}>
-        {ZAHLENRAUM.map((n) => (
-          <option key={n} value={n}>
-            {`bis ${n}`}
-          </option>
-        ))}
-      </select>
+      <label>
+        Zahlenraum
+        <select aria-label="Zahlenraum" value={p.max} onChange={(e) => apply({ max: Number(e.target.value) as ZahlenmauerProps["max"] })}>
+          {ZAHLENRAUM.map((n) => (
+            <option key={n} value={n}>
+              {`bis ${n}`}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="seg">
         <button className={p.op === "+" ? "on" : ""} aria-pressed={p.op === "+"} onClick={() => apply({ op: "+" })}>
           Plus
@@ -73,13 +80,16 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
           Mal
         </button>
       </div>
-      <select aria-label="Gegebene Steine" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenmauerProps["given"] })}>
-        {Object.entries(GIVEN).map(([given, label]) => (
-          <option key={given} value={given}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <label>
+        Gegebene Steine
+        <select aria-label="Gegebene Steine" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenmauerProps["given"] })}>
+          {Object.entries(GIVEN).map(([given, label]) => (
+            <option key={given} value={given}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
       {p.given === "free" && (
         <>
           <div className="mauer">
@@ -106,13 +116,16 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
       <button className={p.empty ? "on" : ""} aria-pressed={p.empty} onClick={() => apply({ empty: !p.empty })}>
         Leer
       </button>
-      <select aria-label="Mauer für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>
-        {m.walls.map((_, i) => (
-          <option key={i} value={i}>
-            {`Mauer ${i + 1}`}
-          </option>
-        ))}
-      </select>
+      <label>
+        Eigene Zahlen
+        <select aria-label="Mauer für eigene Zahlen" value={w} onChange={(e) => setWhich(Number(e.target.value))}>
+          {m.walls.map((_, i) => (
+            <option key={i} value={i}>
+              {`Mauer ${i + 1}`}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="mauer">
         {rows.map((r) => (
           <div key={r} className="mauer-row">

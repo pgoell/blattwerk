@@ -112,6 +112,11 @@ export function sane(p: ZahlenhausProps): ZahlenhausProps {
   };
 }
 
+// The font size of a number of `digits` digits: `cap` for one or two digits, smaller so three or four stay in a box of side S.
+export function numberSize(digits: number, S: number, cap: number): number {
+  return Math.min(cap, (1.2 * S) / digits);
+}
+
 // The drawing in svg units: a box is S square, a house two boxes wide, its roof S high over its floors. `vbW` and
 // `vbH` are the viewBox of the whole drawing.
 export function layout(p: Pick<ZahlenhausProps, "count" | "columns" | "floors">) {

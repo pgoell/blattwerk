@@ -540,6 +540,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {sel.length > 1 ? "Die Auswahl ragt unten über die Seite hinaus." : "Der Block ragt unten über die Seite hinaus."} Was unter dem Rand steht, wird nicht gedruckt.
         </p>
       )}
+      {/* A Zahlenhaus past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
+      {sel.some((b) => b.type === "zahlenhaus" && lowest(b) > H - MARGIN + 0.01) && !sel.some((b) => lowest(b) > H + 0.01) && (
+        <p className="hint warn" role="status" data-foot="haus">
+          Das Zahlenhaus ragt unten über den Rand. Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben.
+        </p>
+      )}
       {/* A text that the foot stops from growing says that its last words are cut. */}
       {sel.some((b) => full.includes(b.id)) && (
         <p className="hint warn" role="status" data-foot="full">
