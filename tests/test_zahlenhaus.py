@@ -66,6 +66,26 @@ def given_boxes(page, house):
     return [j for j, given in shown if given]
 
 
+def type_and_remove(page, client):
+    """Types 6 in the roof and 1 in Stockwerk 1 links of Haus 1, then clicks "Eigene Zahlen entfernen" without a click elsewhere."""
+
+    roof = field(page, "Zahl im Dach")
+
+    def type_six():
+        roof.fill("6")
+
+    left = field(page, "Zahl in Stockwerk 1 links")
+
+    def type_one():
+        left.fill("1")
+
+    step(page, type_six)
+    step(page, type_one)
+    assert props_of(doc(page, client))["typed"] == [[0, 0, 6], [0, 1, 1]]
+    step(page, lambda: panel(page, "Eigene Zahlen entfernen").click())
+    assert "typed" not in props_of(doc(page, client))
+
+
 def test_the_bar_tool_adds_a_zahlenhaus_with_the_default_props(editor):
     """A1: the Mathe-Blöcke item "Zahlenhaus" adds a block with the default props and a whole seed."""
     client = user()
@@ -111,7 +131,12 @@ def test_an_own_zahlenraum_stores_only_whole_numbers_from_2_to_1000(editor):
     page = editor(dz("d", HAUS), client=client)
     pick(page, "d")
     field(page, "Zahlenraum").select_option(label="Eigener")
-    step(page, lambda: field(page, "Eigener Zahlenraum").fill("37"))
+
+    def type_37():
+        field(page, "Eigener Zahlenraum").fill("37")
+        field(page, "Eigener Zahlenraum").press("Enter")
+
+    step(page, type_37)
     assert props_of(doc(page, client))["max"] == 37
     for text in ("1", "1001", ""):
         own = field(page, "Eigener Zahlenraum")
@@ -251,12 +276,93 @@ def test_an_undo_of_an_own_zahlenraum_shows_the_old_entry_in_the_select(editor):
     pick(page, "d")
     field(page, "Zahlenraum").select_option("own")
     own = field(page, "Eigener Zahlenraum")
-    step(page, lambda: own.fill("37"))
+
+    def type_37():
+        own.fill("37")
+        own.press("Enter")
+
+    step(page, type_37)
     assert props_of(doc(page, client))["max"] == 37
     undo(page)
     assert props_of(doc(page, client))["max"] == 10
     expect(field(page, "Zahlenraum")).to_have_value("10")
     expect(field(page, "Eigener Zahlenraum")).to_have_count(0)
+
+
+def test_an_own_zahlenraum_of_5000_is_refused_and_the_old_one_stays(editor):
+    """#897: "5000" in Eigener is not applied while typed and not on Enter; the hint says so, and the field shows 10 again."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option("own")
+    own = field(page, "Eigener Zahlenraum")
+    before = props_of(doc(page, client))
+    own.click()
+    own.press("Control+a")
+    own.press_sequentially("5000")
+    assert props_of(doc(page, client)) == before
+    expect(hint(page)).to_have_text("Höchstens 1000. Die Häuser gehen bis 10.")
+    own.press("Enter")
+    expect(own).to_have_value("10")
+    expect(hint(page)).to_have_count(0)
+    assert props_of(doc(page, client)) == before
+
+
+def test_a_good_own_zahlenraum_typed_digit_by_digit_applies_once_on_enter(editor):
+    """#897: "37" typed digit by digit applies nothing until Enter; then one Ctrl+Z goes back to 10."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option("own")
+    own = field(page, "Eigener Zahlenraum")
+    own.click()
+    own.press("Control+a")
+    own.press_sequentially("3")
+    own.press_sequentially("7")
+    assert props_of(doc(page, client))["max"] == 10
+
+    def enter():
+        own.press("Enter")
+
+    step(page, enter)
+    assert props_of(doc(page, client))["max"] == 37
+    undo(page)
+    assert props_of(doc(page, client))["max"] == 10
+
+
+def test_after_remove_own_numbers_the_typed_box_shows_the_houses_number(editor):
+    """#901: after "Eigene Zahlen entfernen" the box that had focus shows the number the sheet shows in it."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    type_and_remove(page, client)
+    shown = house_box(page, 0, 1).locator("text.given").text_content()
+    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value(shown.strip())
+
+
+def test_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
+    """#901: Ctrl+Z with the focus in a box is the sheet's undo: the typed numbers come back and the box shows 1."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    type_and_remove(page, client)
+    field(page, "Zahl in Stockwerk 1 links").focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert props_of(doc(page, client))["typed"] == [[0, 0, 6], [0, 1, 1]]
+    expect(panel(page, "Eigene Zahlen entfernen")).to_be_visible()
+    expect(field(page, "Zahl in Stockwerk 1 links")).to_have_value("1")
+
+
+def test_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
+    """#901: Ctrl+Y with the focus in a box is the sheet's redo: the removal comes back after the undo."""
+    client = user()
+    page = editor(dz("d", HAUS), client=client)
+    pick(page, "d")
+    type_and_remove(page, client)
+    field(page, "Zahl in Stockwerk 1 links").focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    step(page, lambda: page.keyboard.press("Control+y"))
+    assert "typed" not in props_of(doc(page, client))
 
 
 def test_a_new_number_of_floors_grows_the_block_and_undo_brings_its_height_back(editor):
