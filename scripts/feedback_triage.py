@@ -35,7 +35,8 @@ AI_FOOTER = (
     "_From an AI's feedback through the MCP, restated by the daily feedback job. "
     "The send itself stays on the server._"
 )
-AI_COMMENT_HEAD = "Feedback from an AI working through the MCP on this point:\n\n"
+# No capitalised noun: one the send also holds would refuse the comment.
+AI_COMMENT_HEAD = "An AI working through the MCP reports on this point:\n\n"
 VERDICTS = ("bug", "wish", "question", "nothing")
 PICTURE_TYPES = {".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 # The model takes pictures up to this size. Bigger ones are left for a person.
@@ -116,7 +117,7 @@ def build_prompt(art, seite, voice_count, text, issues, ai=False) -> str:
         f"Sent from page: {page}",
         f"Voice notes attached that you cannot hear: {voice_count}",
         "",
-        "The teacher's text, between the markers:",
+        f"The {'AI' if ai else 'teacher'}'s text, between the markers:",
         "<<<",
         text or "(no text)",
         ">>>",

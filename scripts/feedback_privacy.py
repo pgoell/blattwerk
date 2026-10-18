@@ -18,7 +18,7 @@ PROVIDERS = set(
 # English sentence starts: a send may be English, so these are no names.
 SAID = set(
     """The And But For Not You Why How Can When What This That There With""".split()  # noqa: SIM905
-)
+) | {"Blattomat"}  # the app's own name, which an AI's send names
 
 # (?<=_) lets "user_id=3" hit, since \b does not sit between "_" and "i".
 ID = re.compile(

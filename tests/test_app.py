@@ -189,6 +189,20 @@ def test_feedback_with_a_bad_token_is_401(data_dir):
     assert res.status_code == 401
 
 
+def test_feedback_by_token_stops_after_ten_in_a_while(data_dir):
+    client = user("a@example.com")
+    token = client.post("/api/tokens", json={"name": "mcp"}).json()["token"]
+    bearer = TestClient(app, base_url="https://testserver")
+    head = {"Authorization": f"Bearer {token}"}
+    codes = [
+        bearer.post("/api/feedback", data={"text": "x"}, headers=head).status_code
+        for _ in range(11)
+    ]
+    assert codes == [200] * 10 + [429]
+    # The app's own form is not counted.
+    assert client.post("/api/feedback", data={"text": "x"}).status_code == 200
+
+
 def test_delete_account_removes_user_and_feedback(data_dir):
     client = user("a@example.com")
     other = user("b@example.com")

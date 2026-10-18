@@ -337,7 +337,17 @@ def test_mcp_send_comment_says_ai(world):
     assert result.returncode == 0, result.stderr
     (comment,) = world.writes()
     assert comment[:3] == ["issue", "comment", "12"]
-    assert value(comment, "--body").startswith("Feedback from an AI working through the MCP")
+    assert value(comment, "--body").startswith("An AI working through the MCP reports")
+
+
+def test_mcp_send_naming_feedback_and_blattomat_is_filed(world):
+    # The head and footer the job adds must not hit a word the AI's send holds.
+    text = "Ich sende dieses Feedback: Blattomat zeichnet die Zeiger falsch."
+    world.send(1, STAMP, text=text, extra={"source": "mcp"})
+    world.answer({"*": verdict(issue=12, body="Blattomat draws the clock hands wrong.")})
+    result = world.run(GH_ISSUES=json.dumps([{"number": 12, "title": "Clock"}]))
+    assert result.returncode == 0, result.stderr
+    assert world.read()[f"1/{STAMP}"]["outcome"] == "commented"
 
 
 @pytest.mark.parametrize(
@@ -371,6 +381,7 @@ def test_mcp_send_prompt_names_the_ai_not_the_sheet(world):
     assert world.run().returncode == 0
     stdin = world.claude_calls()[0]["stdin"]
     assert "Sent by: an AI model" in stdin
+    assert "The AI's text, between the markers:" in stdin
     assert "/blatt/N" in stdin
     assert "4711" not in stdin
 
