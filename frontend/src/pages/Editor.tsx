@@ -1446,7 +1446,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // In a text's field, in a table's cell, in the panel's fields for place and size, on its sliders, its checkboxes
     // and its number fields, and on its lists only undo and redo are the sheet's. A number field that holds a number
     // for the panel alone keeps them.
-    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), select, textarea.wordlist");
+    const ours = (e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key) && target.closest(".ProseMirror, .table, input.mm, input.score, input[type=range], input[type=checkbox], input[type=number]:not(.own), input.typed, select, textarea.wordlist");
     // Ctrl+Shift+C copies the look of the caret's word, Ctrl+Shift+V lays it on the picked words of the text being
     // written, as in PowerPoint. The field's own copy and paste are not wanted for them. With no look picked up,
     // Ctrl+Shift+V stays the browser's paste of plain words.
