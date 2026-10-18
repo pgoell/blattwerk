@@ -258,3 +258,23 @@ def test_a_number_over_four_digits_is_refused(editor):
     stone.press("5")
     expect(stone).to_have_value("1234")
     assert props_of(doc(page, client))["typed"] == [[0, 0, 1234]]
+
+
+# The words written beside a panel list, its options left out.
+HEADING = "el => { const l = el.closest('label'); return l ? [...l.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() : ''; }"
+
+
+def test_the_lists_of_the_panel_say_what_they_set(editor):
+    """#899: each list of the Zahlenmauer panel has its heading beside it, so "3" reads as Grundsteine."""
+    page = editor(zw("w", WALL), client=user())
+    pick(page, "w")
+    headings = {
+        "Grundsteine": "Grundsteine",
+        "Zahlenraum": "Zahlenraum",
+        "Gegebene Steine": "Gegebene Steine",
+        "Mauer für eigene Zahlen": "Eigene Zahlen",
+    }
+    for name, heading in headings.items():
+        assert page.locator(f'.panel select[aria-label="{name}"]').evaluate(HEADING) == heading, (
+            name
+        )

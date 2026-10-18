@@ -63,13 +63,17 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
   return (
     <>
       <h2>Zahlenhaus</h2>
-      <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: floorsOf(p.free, Number(e.target.value)) })}>
-        {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
+      {/* Each list says what it sets, as "4 Häuser" does (#899). */}
+      <label>
+        Stockwerke
+        <select aria-label="Stockwerke" value={p.floors} onChange={(e) => apply({ floors: Number(e.target.value), free: floorsOf(p.free, Number(e.target.value)) })}>
+          {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="seg">
         <button aria-label="Ein Haus weniger" disabled={p.count === 1} onClick={() => apply({ count: p.count - 1 })}>
           −
@@ -88,22 +92,25 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ＋
         </button>
       </div>
-      <select
-        aria-label="Zahlenraum"
-        value={showOwn ? "own" : p.max}
-        onChange={(e) => {
-          if (e.target.value === "own") return setOwnAt(p.max);
-          setOwnAt(null);
-          apply({ max: Number(e.target.value) });
-        }}
-      >
-        {ZAHLENRAUM.map((n) => (
-          <option key={n} value={n}>
-            {`bis ${n}`}
-          </option>
-        ))}
-        <option value="own">Eigener</option>
-      </select>
+      <label>
+        Zahlenraum
+        <select
+          aria-label="Zahlenraum"
+          value={showOwn ? "own" : p.max}
+          onChange={(e) => {
+            if (e.target.value === "own") return setOwnAt(p.max);
+            setOwnAt(null);
+            apply({ max: Number(e.target.value) });
+          }}
+        >
+          {ZAHLENRAUM.map((n) => (
+            <option key={n} value={n}>
+              {`bis ${n}`}
+            </option>
+          ))}
+          <option value="own">Eigener</option>
+        </select>
+      </label>
       {showOwn && (
         <input
           className="own"
@@ -132,13 +139,16 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
       {showOwn && draft?.key === "max" && ownWrong(draft.text) && (
         <p className="hint" role="status">{`${ownWrong(draft.text)} Die Häuser gehen bis ${p.max}.`}</p>
       )}
-      <select aria-label="Gegebene Felder" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenhausProps["given"] })}>
-        {Object.entries(GIVEN).map(([given, label]) => (
-          <option key={given} value={given}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <label>
+        Gegebene Felder
+        <select aria-label="Gegebene Felder" value={p.given} onChange={(e) => apply({ given: e.target.value as ZahlenhausProps["given"] })}>
+          {Object.entries(GIVEN).map(([given, label]) => (
+            <option key={given} value={given}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
       {p.given === "free" && (
         <div className="mauer">
           {rows.map((row, r) => (
@@ -156,13 +166,16 @@ export default function Zahlenhaus({ block, apply }: { block: ZahlenhausBlock; a
           ))}
         </div>
       )}
-      <select aria-label="Haus für eigene Zahlen" value={h} onChange={(e) => setWhich(Number(e.target.value))}>
-        {m.houses.map((_, i) => (
-          <option key={i} value={i}>
-            {`Haus ${i + 1}`}
-          </option>
-        ))}
-      </select>
+      <label>
+        Eigene Zahlen
+        <select aria-label="Haus für eigene Zahlen" value={h} onChange={(e) => setWhich(Number(e.target.value))}>
+          {m.houses.map((_, i) => (
+            <option key={i} value={i}>
+              {`Haus ${i + 1}`}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="mauer">
         {rows.map((row, r) => (
           <div key={r} className="mauer-row">

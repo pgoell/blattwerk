@@ -380,3 +380,23 @@ def test_a_new_number_of_floors_grows_the_block_and_undo_brings_its_height_back(
     assert block_of(doc(page, client))["h"] > 55
     undo(page)
     assert block_of(doc(page, client))["h"] == 55
+
+
+# The words written beside a panel list, its options left out.
+HEADING = "el => { const l = el.closest('label'); return l ? [...l.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() : ''; }"
+
+
+def test_the_lists_of_the_panel_say_what_they_set(editor):
+    """#899: each list of the Zahlenhaus panel has its heading beside it, so "4" reads as Stockwerke."""
+    page = editor(dz("d", HAUS), client=user())
+    pick(page, "d")
+    headings = {
+        "Stockwerke": "Stockwerke",
+        "Zahlenraum": "Zahlenraum",
+        "Gegebene Felder": "Gegebene Felder",
+        "Haus für eigene Zahlen": "Eigene Zahlen",
+    }
+    for name, heading in headings.items():
+        assert page.locator(f'.panel select[aria-label="{name}"]').evaluate(HEADING) == heading, (
+            name
+        )
