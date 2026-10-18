@@ -3,10 +3,10 @@
 import pytest
 from playwright.sync_api import expect
 from test_fix_blatt import pdf_pages
-from ui import RULING, TEXT, box, pick, saved, user
+from ui import RULING, TEXT, box, pick, saved, thumb, user
 
 SENTENCE = "Am Montag gehen wir mit der ganzen Klasse in den Wald und sammeln bunte Blaetter, Eicheln und Kastanien fuer unser grosses Herbstbild im Klassenzimmer. Danach malen wir Regenschirme."
-FOOT = 297
+FOOT = 297 - 15
 
 
 def kind_to(page, kind):
@@ -129,3 +129,63 @@ def test_i3_the_cover_hint_goes_after_undo(editor):
     expect(page.locator('[data-cover="over"]')).to_be_visible()
     page.keyboard.press("Control+z")
     expect(page.locator('[data-cover="over"]')).to_have_count(0)
+
+
+def page_two_blocks(page, client):
+    """Page 2's blocks as the server holds them, once the editor has saved a change."""
+    saved(page, client)
+    pages = client.get(f"/api/sheets/{page.url.rsplit('/', 1)[1]}").json()["doc"]["pages"]
+    return pages[1]["blocks"][0]
+
+
+def test_900_a_kind_change_after_bis_seitenende_ends_where_bis_seitenende_stops_upright(editor):
+    """#900: after 'Bis Seitenende' a kind change to Lineatur 1 keeps the rows that fit the foot (282)."""
+    client = user()
+    page = editor(
+        box("l", "ruling", {**RULING, "kind": "k5", "text": SENTENCE}, h=15, y=147), client=client
+    )
+    pick(page, "l")
+    foot_to(page)
+    assert saved(page, client)[0]["h"] == 135
+    kind_to(page, "l1")
+    expect(page.get_by_label("Art der Lineatur")).to_have_value("l1")
+    stored = saved(page, client)[0]
+    assert stored["h"] == 120 and stored["y"] + stored["h"] <= FOOT + 0.01, stored
+    foot_to(page)
+    assert saved(page, client)[0]["h"] == 120
+
+
+LANDSCAPE_FOOT = 210 - 15
+
+
+@pytest.mark.parametrize(
+    "y, start, rows, foot_before, foot_after",
+    [(60, "k5", 120, True, False), (120, "k7", 60, True, True)],
+)
+def test_900_a_kind_change_after_bis_seitenende_ends_where_bis_seitenende_stops_landscape(
+    editor, y, start, rows, foot_before, foot_after
+):
+    """#900: on a landscape page 2 (foot 195) a kind change to Lineatur 1 keeps the rows that fit the foot."""
+    client = user()
+    page = editor(
+        pages=[
+            {
+                "blocks": [box("l", "ruling", {**RULING, "kind": start, "text": ""}, h=15, y=y)],
+                "landscape": True,
+            }
+        ],
+        client=client,
+        theme="",
+    )
+    thumb(page, 1).click()
+    pick(page, "l")
+    if foot_before:
+        foot_to(page)
+    kind_to(page, "l1")
+    expect(page.get_by_label("Art der Lineatur")).to_have_value("l1")
+    stored = page_two_blocks(page, client)
+    assert stored["h"] == rows
+    assert stored["y"] + stored["h"] <= LANDSCAPE_FOOT + 0.01, stored
+    if foot_after:
+        foot_to(page)
+        assert page_two_blocks(page, client)["h"] == rows

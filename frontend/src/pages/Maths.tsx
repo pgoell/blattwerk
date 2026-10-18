@@ -31,6 +31,12 @@ export const newSeed = () => Math.floor(Math.random() * 1e9);
 const ask = ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small }: Limits) => ({ ops, max, a, b, c, carry, rest, format, count, seed, sides, close, equal, numbers, pvs, brackets, decimals, money, af, bf, cf, family, moves, gaps, zero, one, distinct, small });
 // Asked with the session run out, it brings the login.
 export const generate = (l: Limits) => signed(post<Made>("/maths", ask(l)));
+// A smaller count and nothing else changed: the block keeps its own exercises, less the last ones, and the server's word on what is in the way.
+// With families the count is that of the families, so the last families go whole.
+export const kept = (was: MathsProps, next: Limits, made: Made): Made =>
+  next.count < was.count && JSON.stringify(ask({ ...was, count: next.count })) === JSON.stringify(ask(next))
+    ? { ...made, exercises: was.exercises.filter((e, i) => (("sign" in e ? undefined : e.family) ?? i) < next.count) }
+    : made;
 // Any digit in each place of a Zahlenraum.
 const anyDigits = (max: number): Range[] => Array.from(String(max), (): Range => [0, 9]);
 
@@ -105,7 +111,6 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
       try {
         made = await generate(sent);
       } catch (e) {
-        owed(e);
         error = e;
       }
       await before;
@@ -115,7 +120,10 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
         wish();
         return;
       }
-      if (error) throw miss(error);
+      if (error) {
+        owed(error);
+        throw miss(error);
+      }
       const base = () => ({ ...stored.current, ...carry.current, ...change });
       // An earlier click refused in between is no limit of this one: the answer is asked again without it.
       if (JSON.stringify(ask(base())) !== JSON.stringify(ask(sent)))
@@ -128,7 +136,7 @@ export default function Maths({ block, apply, foot, owe }: { block: MathsBlock; 
       // undo step of its own, also when two land after both clicks. Built after the answer, so that a column
       // clicked while it was on its way stays.
       let ok = false;
-      flushSync(() => void (ok = latest.current({ ...base(), ...made }, `maths ${n}`)));
+      flushSync(() => void (ok = latest.current({ ...base(), ...kept(stored.current, base(), made!) }, `maths ${n}`)));
       // The line of an earlier failed click is moot now: its change is on the sheet with this answer.
       if (ok) {
         carry.current = {};
