@@ -1382,9 +1382,9 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
     const n = fade === "rows" && frame ? linesIn(frame) : undefined;
     if (n !== undefined) setLines(n);
     // Too long even at the smallest type: the frame tells the editor by how many px, and the editor grows the shape.
-    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1 };
-    // Zero when it fits: the editor then lifts the page foot's warning for it.
-    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across } }));
+    const over = inside && frame ? fitText(frame, least.current, block.h * k, floored.current) : { down: 0, across: 1, cut: false };
+    // Zero when it fits: the editor then lifts the page foot's warning for it. `cut` says a word does not print whole.
+    if (inside && frame) frame.dispatchEvent(new CustomEvent("overfit", { bubbles: true, detail: { down: Math.max(0, over.down) / k, across: over.across, cut: over.cut } }));
   });
   // The share of its size the type may shrink to, and the shape's height in px, for a font that comes in later.
   const least = useRef(1);
@@ -1549,7 +1549,7 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   // Too small to measure: a text does not fit, so it reports over and the editor warns. An empty shape fits.
   if (bottom - top < 3) {
     block.style.transform = was;
-    return el.textContent?.trim() ? { down: 2, across: floor ? 2 : 1 } : { down: 0, across: 1 };
+    return el.textContent?.trim() ? { down: 2, across: floor ? 2 : 1, cut: true } : { down: 0, across: 1, cut: false };
   }
   // A paragraph is no taller than its frame, so its lines are measured where they lie, past its foot.
   const lowest = () =>
@@ -1581,8 +1581,15 @@ function fitText(el: HTMLElement, least: number, high: number, floor: boolean) {
   const past = (lowest() - bottom) / zoom;
   // The words still wider than the box at the smallest type: the shape grows by that share, as the frame's sides allow.
   const left = Math.max(...widths());
+  // A word is cut where its line reaches past its paragraph's sides: the padding there holds the ink, and prints.
+  const wide = [...el.querySelectorAll<HTMLElement>("p")].some((p) => {
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    const side = p.getBoundingClientRect();
+    return [...r.getClientRects()].some((q) => q.right > side.right + zoom || q.left < side.left - zoom);
+  });
   block.style.transform = was;
-  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1 };
+  return { down: past > 1 ? past : 0, across: floor && left > 1.01 ? left : 1, cut: past > 1 || wide };
 }
 // The bottom of a line's box, in px of the screen. A font's glyph box stands taller than its line, and the extra hangs
 // half below the line, so that half is taken off the glyph box's foot.

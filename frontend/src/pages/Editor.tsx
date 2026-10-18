@@ -1027,17 +1027,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
 
   // A circle, triangle or star whose text is too long even at the smallest type grows downward, as a rectangle grows,
   // by the mm its inner box lacks. Only a picked one: a sheet that opens stays as saved. No step to undo of its own.
-  const overfit = useRef((_id: string, _lack: { down: number; across: number }) => {});
+  const overfit = useRef((_id: string, _lack: { down: number; across: number; cut: boolean }) => {});
   // The block last written in.
   const wrote = useRef("");
   if (editing) wrote.current = editing;
-  overfit.current = (id, { down: mm, across }) => {
+  overfit.current = (id, { down: mm, across, cut }) => {
     const b = sel.find((x) => x.id === id);
-    // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns.
+    // The frame tells on every draw, with 0 when it fits: one that does not fit at the foot warns. Elsewhere a shape
+    // warns only for a word that does not print whole.
     if (b) {
-      const short = mm > 0 || across > 1;
-      stopped(id, short && atFoot(b));
-      setCramped((c) => (c.includes(id) === short ? c : short ? [...c, id] : c.filter((x) => x !== id)));
+      stopped(id, (mm > 0 || across > 1) && atFoot(b));
+      setCramped((c) => (c.includes(id) === cut ? c : cut ? [...c, id] : c.filter((x) => x !== id)));
     }
     // Only after a change the teacher made: the frame tells before the grow effect above takes the flag back, or once
     // the text written in it is drawn.
@@ -1128,7 +1128,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     cellDrag.current = false;
   };
   useEffect(() => {
-    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number }>).detail);
+    const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number; cut: boolean }>).detail);
     const desk = sheet.current!;
     desk.addEventListener("overfit", on);
     return () => desk.removeEventListener("overfit", on);

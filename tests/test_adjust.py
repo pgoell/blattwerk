@@ -603,6 +603,30 @@ def test_the_warning_goes_when_the_handle_comes_back_out(editor):
     assert at(page, "a").locator("p").first.evaluate("p => p.scrollWidth <= p.clientWidth + 1")
 
 
+# The word's line lies within its paragraph's box, whose padding holds the ink: it prints whole.
+WHOLE = """p => {
+  const r = document.createRange();
+  r.selectNodeContents(p);
+  const s = p.getBoundingClientRect();
+  return [...r.getClientRects()].every((q) => q.right <= s.right + 1 && q.left >= s.left - 1);
+}"""
+
+
+@pytest.mark.parametrize("size", [40, 60])
+def test_a_plain_star_whose_word_prints_whole_does_not_warn(editor, size):
+    # At 40 mm the word is a pixel wider than its room at the least type, in the padding.
+    page = editor(
+        box("a", "shape", DEEP, x=40, y=40, w=size, h=size),
+        box("b", "shape", {**DEEP, "inner": 0.1}, x=120, y=40, w=40, h=40),
+    )
+    # The deep star warns once picked, so the frames have told the panel.
+    pick(page, "b")
+    expect(page.locator('[data-shape="full"]')).to_be_visible()
+    pick(page, "a")
+    expect(page.locator('[data-shape="full"]')).to_have_count(0)
+    assert at(page, "a").locator("p").first.evaluate(WHOLE)
+
+
 def test_an_empty_deep_star_does_not_warn(editor):
     deep = {**DEEP, "inner": 0.1}
     page = editor(
@@ -661,8 +685,8 @@ def test_the_print_sizes_a_deep_stars_word_as_the_screen_does(editor, browser, s
     # The word's width, its room and its type: shrunk at 0.35, too wide at 0.25 (the panel warns).
     words = "p => [p.scrollWidth, p.clientWidth, getComputedStyle(p).fontSize]"
     shown = at(page, "a").locator("p").first.evaluate(words)
-    warning = page.locator('[data-shape="full"]')
-    expect(warning).to_have_count(1 if shown[0] > shown[1] + 1 else 0)
+    whole = at(page, "a").locator("p").first.evaluate(WHOLE)
+    expect(page.locator('[data-shape="full"]')).to_have_count(0 if whole else 1)
     mine = sheet(client, [box("a", "shape", star, x=40, y=40, w=60, h=60)])["id"]
     printed = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
     printed.goto(f"{server}/druck/{mine}")
