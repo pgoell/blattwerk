@@ -45,6 +45,19 @@ ZAHLENSTRAHL = {
             {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side"},
         ),
         (
+            "Zahlenkette",
+            "zahlenkette",
+            {
+                "count": 4,
+                "columns": 2,
+                "rings": 6,
+                "max": 20,
+                "op": "+",
+                "showStep": False,
+                "given": "start",
+            },
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},

@@ -8,6 +8,7 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./u
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
 import { DEFAULTS as HAUS, heightFor as heightForHaus, sane as saneHaus } from "./zahlenhaus";
+import { DEFAULTS as KETTE, heightFor as heightForKette, sane as saneKette } from "./zahlenkette";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -33,6 +34,7 @@ export const INSERTS = {
   suchsel: (seed: number): Fresh => ({ w: 120, h: 140, type: "suchsel", props: { words: [], cols: 10, rows: 10, ways: "down", caps: true, umlauts: true, show: "words", seed } }),
   zahlenmauer: (seed: number): Fresh => ({ w: 180, h: 60, type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed } }),
   zahlenhaus: (seed: number): Fresh => ({ w: 120, h: 55, type: "zahlenhaus", props: { ...HAUS, seed } }),
+  zahlenkette: (seed: number): Fresh => ({ w: 180, h: 39, type: "zahlenkette", props: { ...KETTE, seed } }),
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
@@ -78,6 +80,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   rechendreieck: [(p, w) => heightForDreieck(saneDreieck(p), w), ["count", "columns"]],
   zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
   zahlenhaus: [(p, w) => heightForHaus(saneHaus(p), w), ["count", "columns", "floors"]],
+  zahlenkette: [(p, w) => heightForKette(saneKette(p), w), ["count", "columns", "rings"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's

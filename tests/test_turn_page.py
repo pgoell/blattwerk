@@ -65,10 +65,21 @@ HAUS = {
     "given": "side",
     "seed": 3,
 }
+KETTE = {
+    "count": 4,
+    "columns": 2,
+    "rings": 6,
+    "max": 20,
+    "op": "+",
+    "showStep": False,
+    "given": "start",
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
     "zahlenhaus": (HAUS, 55),
+    "zahlenkette": (KETTE, 39),
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),

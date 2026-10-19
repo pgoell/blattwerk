@@ -14,6 +14,7 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Wochentage als Tabelle](wochentage-tabelle.md): A heading, a name line, and a table with the weekdays Montag to Freitag in a bold head row.
 * [Rechendreiecke](rechendreiecke.md): A heading, a name line, and four Rechendreiecke with some fields given and the rest to fill in.
 * [Zahlenhäuser](zahlenhaeuser.md): A heading, a name line, and four Zahlenhäuser with the left box of each floor given and the rest to fill in.
+* [Zahlenketten](zahlenketten.md): A heading, a name line, and four Zahlenketten of six rings with the first two rings given and the rest to fill in.
 * [Zahlenstrahl bis 100](zahlenstrahl-bis-100.md): A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 * [Hunderterfeld](hunderterfeld.md): A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.
 * [Ein Blatt mit zwei Seiten](seiten.md): Two pages: a heading, a name line and a text task on page 1, then a heading and a ruling on page 2.
