@@ -41,7 +41,8 @@
 // - One solution in whole numbers from 0 to 9999: the key shows it.
 // - More than one: the key shows one of them, `many`; the free cells take the drawn square's numbers where those fit,
 //   else the drawn square's numbers turned by v → k·v + d (k 1 or −1, d whole, so that the mean at the typed cells
-//   matches: a magic square stays magic), else up to 50 seeded draws from 1 to max (or to twice the largest typed
+//   matches: a magic square stays magic), else up to 20 fresh small drawn squares (1 to 9, 1 to 25, or a 5×5 of 1 to 5
+//   alone) mapped the same way, else up to 50 seeded draws from 1 to max (or to twice the largest typed
 //   number, if more); a key needs whole numbers from 0 to 9999, and distinct ones when the typed numbers are distinct.
 // - None (a line with all cells typed and a sum that differs, a key that is not whole or below 0, or no key found):
 //   `wrong`. The pupils' sheet shows the typed cells, the other cells stay empty, also in the key: never a false
