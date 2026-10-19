@@ -60,7 +60,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const cancel = useRef<HTMLButtonElement>(null);
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
   const askedId = useRef<number | null>(null);
-  // A create is out until its key is in the list: a press meanwhile does nothing.
+  // A create is out: a press meanwhile does nothing.
   const busy = useRef(false);
   // A key was made and nothing typed since: the second press of a double one says nothing.
   const done = useRef(false);
@@ -144,7 +144,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         setName("");
         setFieldNote("");
         forget();
-        await load();
+        // At once: the field still holds the name until React draws it empty, and the list lacks the key until
+        // `load` is back.
         done.current = true;
       } catch (err) {
         // The server's refusal: the name it already has, or a name it does not take.
@@ -157,6 +158,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       } finally {
         busy.current = false;
       }
+      await load();
     });
   }
 
