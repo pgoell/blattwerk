@@ -66,7 +66,7 @@
 // = 46 wide; boxes of lines 0, 2 and 3 sit at x 0, 17 and 34. Line 0 at y 0, line 1 at y 14 (b1 at x 9, b2 at x 25),
 // line 2 at y 26, line 3 at y 38; below it NOTE_H = 6 always (room for the key's note, so that the key and the sheet
 // have the same height): a task is TH = 52 high. Tasks side by side CG = 8 apart, rows of tasks RG = 6 apart. A
-// number of more than 3 digits draws smaller to fit its box (`numberSize` in sheet.tsx).
+// number of more than 2 digits draws smaller to fit the box's width (`numberSize` in sheet.tsx, of BW · 0.85).
 //
 // The panel (pages/Zerlegungsfeld.tsx), whose words the tests take as selectors: steppers "Eine Aufgabe weniger" /
 // "Eine Aufgabe mehr" ("6 Aufgaben", "1 Aufgabe"), "Weniger Aufgaben nebeneinander" / "Mehr Aufgaben nebeneinander"

@@ -3627,7 +3627,7 @@ function Zerlegungsfeld({ block, solved }: { block: ZerlegungsfeldBlock; solved:
                         <g key={pos} className="box" data-pos={pos} data-line={l}>
                           <rect x={x} y={y} width={BW} height={BH} fill="white" stroke="#222" strokeWidth={0.4} />
                           {state && (
-                            <text x={x + BW / 2} y={y + BH / 2} fontSize={numberSize(String(t.values[pos]).length, BH * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                            <text x={x + BW / 2} y={y + BH / 2} fontSize={numberSize(String(t.values[pos]).length, BW * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
                               fill={state === "given" ? "#222" : "#c0392b"} className={state}>{t.values[pos]}</text>
                           )}
                         </g>
