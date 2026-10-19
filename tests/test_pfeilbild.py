@@ -175,11 +175,14 @@ def test_the_given_modes_show_the_right_boxes_and_operators(editor, given, check
 
 
 def test_mal_and_geteilt_are_off_under_20(editor):
-    """Panel: at bis 20 the Rechenarten Mal and Geteilt are disabled."""
-    page = editor(pfeil("d", PF))
+    """Panel: at bis 10 the Rechenarten Mal and Geteilt are disabled; from bis 20 they are offered."""
+    page = editor(pfeil("d", {**PF, "max": 10}))
     pick(page, "d")
     expect(field(page, "Mal")).to_be_disabled()
     expect(field(page, "Geteilt")).to_be_disabled()
+    step(page, lambda: field(page, "Zahlenraum").select_option("20"))
+    expect(field(page, "Mal")).to_be_enabled()
+    expect(field(page, "Geteilt")).to_be_enabled()
 
 
 def test_a_smaller_zahlenraum_drops_mal_and_geteilt_in_one_undo(editor):
