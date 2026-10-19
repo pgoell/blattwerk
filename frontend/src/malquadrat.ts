@@ -48,7 +48,8 @@
 // - When numbers stay unknown, the square has more than one solution: `many`, and the key says "Auch andere Lösungen
 //   sind richtig." Then the first unknown (column numbers 1 to n, then row numbers 1 to n) tries the drawn number, then
 //   1 to 100 in order; the first that propagates without `wrong` stays; then the next unknown likewise. No number fits:
-//   `wrong`.
+//   `wrong`. The try is greedy, with no going back: a typed set that fits some square can still come out `wrong` when
+//   its free numbers are not those first tries; a subset of a drawn square's numbers always gives that square back.
 // - A square is also `wrong` when any of its numbers (sums and total too) is above 99999.
 // - A wrong square shows its typed cells on the pupils' sheet; the other cells stay empty, also in the key: never a
 //   false number. Typed numbers outside the Zahlenraum or the Reihen count.
@@ -74,7 +75,7 @@
 // The panel (pages/Malquadrat.tsx), whose words the tests take as selectors: steppers "Ein Malquadrat weniger/mehr"
 // ("2 Malquadrate"), "Weniger Malquadrate nebeneinander" / "Mehr Malquadrate nebeneinander" ("2 nebeneinander"),
 // "Kleiner" / "Größer" ("3 × 3 Felder"; a change drops `typed` in the same undo step); select "Rechenart" ("Mal",
-// "Plus"); with Mal checkboxes "1er-Reihe" to "10er-Reihe" (the last checked one is disabled); with Plus select
+// "Plus"; a change drops `typed` in the same undo step too); with Mal checkboxes "1er-Reihe" to "10er-Reihe" (the last checked one is disabled); with Plus select
 // "Zahlenraum" ("bis 20", "bis 100", "bis 1000"); select "Aufgabentyp" ("Nur die Zahlen am Rand", "Rand und Innen
 // gemischt", "Knobelaufgabe über die Summen"); select "Malquadrat für eigene Zahlen" (with 2 or more squares); number
 // fields "Zeile i, Spalte j" (i and j from 0 to n + 1, every position) showing the given numbers (typed or drawn), the
@@ -136,3 +137,15 @@ export const DEFAULTS: Omit<MalquadratProps, "seed"> = {
   task: "factors",
 };
 export const MAXES = [20, 100, 1000];
+
+// The exports the drawing, the panel and the insert use; the generator fills them in:
+// - `sane(p: MalquadratProps): MalquadratProps`: the sane settings (a wrong value gives its default, as the contract
+//   says; `typed` only when it has entries).
+// - `layout(p: Pick<MalquadratProps, "count" | "columns" | "size">)`: { CELL, SG, NOTE_H, CG, RG, TW, TH, lines, vbW,
+//   vbH }, TW and TH one square's slot with its note line, vbW and vbH the viewBox (+1 each, as magischesquadrat.ts).
+// - `heightFor(p: MalquadratProps, w: number): number`: the height in mm at width w, at the default scale at most (S0
+//   = 180 / layout(DEFAULTS).vbW, as magischesquadrat.ts).
+// - `opLabel(op: "*" | "+"): string`: "·" or "+".
+// - `solve(n, op, known: (number | null)[][], drawn: number[][]): { kind: "none" } | { kind: "one" | "many"; cells:
+//   number[][] }`: the teacher's own square from its typed cells, as above.
+// - `made(p: MalquadratProps): Made` (p already sane).
