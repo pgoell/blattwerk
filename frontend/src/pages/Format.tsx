@@ -290,6 +290,8 @@ export const has = (sel: Block[], part: Picked | undefined, name: "bold" | "ital
 
 // Whether a text or a shape has a frame drawn as an outline, which a flip mirrors.
 export const drawn = (b: Block) => (b.type === "shape" || b.type === "text") && ["triangle", "star", "bubble"].includes(b.props.kind ?? "rect");
+// Whether a block has an adjust handle: a drawn outline, or a rounded box, whose handle sets its corner.
+export const adjustable = (b: Block) => drawn(b) || ((b.type === "shape" || b.type === "text") && b.props.kind === "rounded");
 
 // The one size that the lines from `from` to `to` share, or undefined where they differ by more than 0.005 mm.
 const alike = (sizes: number[], from: number, to: number) => {
