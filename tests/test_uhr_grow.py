@@ -90,11 +90,11 @@ def foot(page):
 
 
 def test_911_a_block_low_on_the_page_grows_past_the_foot_and_keeps_its_clock_size(editor):
-    """#911: a block at 200 mm from the top grows past the foot at 282 mm; its clocks keep their size,
+    """#911: a block at 115 mm from the top grows past the foot at 282 mm and ends above the paper's edge; its clocks keep their size,
     the text beside it does not move, and the hint says it hangs over the edge."""
     client = user()
     page = editor(
-        uhr("d", UHR, y=200), box("t", "text", TEXT, x=150, y=200, w=40, h=30), client=client
+        uhr("d", UHR, y=115), box("t", "text", TEXT, x=150, y=115, w=40, h=30), client=client
     )
     pick(page, "d")
     before = face(page)
@@ -102,14 +102,14 @@ def test_911_a_block_low_on_the_page_grows_past_the_foot_and_keeps_its_clock_siz
     block = stored(page, client)
     assert block["y"] + block["h"] > 282, block
     assert face(page) == pytest.approx(before, rel=0.01)
-    assert {b["id"]: b for b in saved(page, client)}["t"]["y"] == 200
+    assert {b["id"]: b for b in saved(page, client)}["t"]["y"] == 115
     expect(foot(page)).to_be_visible()
 
 
 def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
-    """#911: 12 clocks at 200 mm grow the block past the foot; one undo takes the height and the hint back."""
+    """#911: 12 clocks at 115 mm grow the block past the foot; one undo takes the height and the hint back."""
     client = user()
-    page = editor(uhr("d", UHR, y=200), client=client)
+    page = editor(uhr("d", UHR, y=115), client=client)
     pick(page, "d")
     expect(foot(page)).to_have_count(0)
     step(page, lambda: field(page, "Uhren").fill("12"))

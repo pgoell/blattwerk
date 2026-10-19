@@ -109,7 +109,7 @@ def test_911_the_block_grows_past_the_page_foot_and_keeps_its_stone_size(editor)
     beside it does not move, and the hint says it hangs over the edge."""
     client = user()
     page = editor(
-        zw("d", MAUER, y=220), box("t", "text", TEXT, x=150, y=220, w=40, h=30), client=client
+        zw("d", MAUER, y=80), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client
     )
     pick(page, "d")
     before = stone_height(page)
@@ -119,14 +119,14 @@ def test_911_the_block_grows_past_the_page_foot_and_keeps_its_stone_size(editor)
     blocks = {b["id"]: b for b in saved(page, client)}
     assert blocks["d"]["y"] + blocks["d"]["h"] > 282, blocks["d"]
     assert stone_height(page) == pytest.approx(before, rel=0.01)
-    assert blocks["t"]["y"] == 220, blocks["t"]
+    assert blocks["t"]["y"] == 80, blocks["t"]
     expect(foot(page)).to_be_visible()
 
 
 def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
-    """#911: a fifth wall at Y 220 grows the block past the foot; one undo takes the height and the hint back."""
+    """#911: a fifth wall at Y 190 grows the block past the foot, up to the paper's edge; one undo takes the height and the hint back."""
     client = user()
-    page = editor(zw("d", MAUER, y=220), client=client)
+    page = editor(zw("d", MAUER, y=190), client=client)
     pick(page, "d")
     expect(foot(page)).to_have_count(0)
     step(page, lambda: panel(page, "Eine Mauer mehr").click())

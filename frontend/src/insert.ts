@@ -8,7 +8,7 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./u
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
 import { DEFAULTS as HAUS, heightFor as heightForHaus, sane as saneHaus } from "./zahlenhaus";
-import { MARGIN, dir, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
+import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
 export type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> & { w: number; h: number } : never;
@@ -101,4 +101,13 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
     if (need > b.h) return tall(b, need);
   }
   return {};
+}
+
+// Whether a change of a GROWS block's props would grow it below the paper's edge, `H` mm down: what hangs there is
+// not printed, so the panel refuses such a change, as it does for a maths block (#911).
+export function pastPaper(b: Block, next: Block, H: number) {
+  const grow = GROWS[b.type];
+  if (!grow || b.type !== next.type || !grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) return false;
+  const low = lowest({ ...b, ...tall(b, round(grow[0](next.props, b.w))) });
+  return low > H + 0.01 && low > lowest(b) + 0.01;
 }

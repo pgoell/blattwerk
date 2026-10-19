@@ -34,15 +34,15 @@ def floors(page, n):
 
 
 def test_a_house_near_the_foot_grows_past_it_and_keeps_its_digit_size(editor):
-    """Stockwerke 8 grows a house past the page's foot: it takes the height it needs, its digits keep their size, and the hint says it hangs over the edge."""
+    """Stockwerke 7 grows a house past the page's foot: it takes the height it needs, its digits keep their size, and the hint says it hangs over the edge."""
     client = user()
-    page = editor(haus(y=240), box("t", "text", TEXT, x=150, y=240, w=40, h=30), client=client)
+    page = editor(haus(y=205), box("t", "text", TEXT, x=150, y=205, w=40, h=30), client=client)
     pick(page, "h")
     before = at(page, "h").locator("svg text").first.bounding_box()["height"]
-    floors(page, 8)
+    floors(page, 7)
     stored = {b["id"]: b for b in saved(page, client)}
-    assert stored["h"]["h"] > 55 and 240 + stored["h"]["h"] > 282, stored["h"]
-    assert stored["t"]["x"] == 150 and stored["t"]["y"] == 240, stored["t"]
+    assert stored["h"]["h"] > 55 and 282 < 205 + stored["h"]["h"] <= 297, stored["h"]
+    assert stored["t"]["x"] == 150 and stored["t"]["y"] == 205, stored["t"]
     after = at(page, "h").locator("svg text").first.bounding_box()["height"]
     assert abs(after - before) <= 0.01 * before, (before, after)
     expect(page.locator('p[data-foot="haus"], p[data-foot="over"]')).to_be_visible()
@@ -54,7 +54,7 @@ def test_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
     page = editor(haus(y=200), box("t", "text", TEXT, x=150, y=200, w=40, h=30), client=client)
     pick(page, "h")
     expect(page.locator('p[data-foot="haus"], p[data-foot="over"]')).to_have_count(0)
-    floors(page, 10)
+    floors(page, 7)
     foot = page.locator('p[data-foot="haus"], p[data-foot="over"]')
     expect(foot).to_be_visible()
     step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())

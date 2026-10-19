@@ -111,8 +111,8 @@ def test_911_the_block_grows_past_the_page_foot_and_keeps_its_triangle_size(edit
     beside it does not move, and the hint says it hangs over the edge."""
     client = user()
     page = editor(
-        box("d", "rechendreieck", DREIECK, w=180, h=50, y=220),
-        box("t", "text", TEXT, x=150, y=220, w=40, h=30),
+        box("d", "rechendreieck", DREIECK, w=180, h=50, y=160),
+        box("t", "text", TEXT, x=150, y=160, w=40, h=30),
         client=client,
     )
     pick(page, "d")
@@ -122,14 +122,14 @@ def test_911_the_block_grows_past_the_page_foot_and_keeps_its_triangle_size(edit
     blocks = {b["id"]: b for b in saved(page, client)}
     assert blocks["d"]["y"] + blocks["d"]["h"] > 282, blocks["d"]
     assert triangle_height(page) == pytest.approx(before, rel=0.01)
-    assert blocks["t"]["y"] == 220, blocks["t"]
+    assert blocks["t"]["y"] == 160, blocks["t"]
     expect(foot(page)).to_be_visible()
 
 
 def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
     """#911: a fifth triangle at Y 232 grows the block past the foot; one undo takes the height and the hint back."""
     client = user()
-    page = editor(box("d", "rechendreieck", DREIECK, w=180, h=50, y=232), client=client)
+    page = editor(box("d", "rechendreieck", DREIECK, w=180, h=50, y=205), client=client)
     pick(page, "d")
     expect(foot(page)).to_have_count(0)
     step(page, lambda: panel(page, "Ein Dreieck mehr").click())
