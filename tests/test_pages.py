@@ -691,13 +691,37 @@ SOURCES = {
 NO_PICTURE = pytest.mark.webkit_xfail(
     204, "headless WebKit on Linux keeps no picture on the clipboard"
 )
-# Not strict: four times in CI it sent no upload within 30 s, here 1 in 100 under load. The
-# paste brings the picture then; where it gets lost is not found. The Ctrl+V of a picture holds in
-# test_clipboard.py, the landing after a change holds with the picker.
-LOST_PASTE = pytest.mark.xfail(
-    BROWSER != "webkit", strict=False, reason="#775: the paste sends no upload, now and then"
-)
-MARKS = {"ctrl v": (NO_PICTURE, LOST_PASTE), "einfügen": NO_PICTURE}
+MARKS = {"ctrl v": NO_PICTURE, "einfügen": NO_PICTURE}
+# #775: now and then Playwright sees neither the route nor the request of a picture's upload,
+# which the page sends and the server answers. So the page holds that answer itself.
+HOLD_UPLOAD = """() => {
+    const real = window.fetch;
+    window.fetch = (...args) => {
+        if (!String(args[0]).endsWith("/api/uploads")) return real(...args);
+        window.uploading = true;
+        return new Promise((go) => (window.release = go)).then(() => real(...args));
+    };
+}"""
+
+
+def hold(page, url):
+    """Holds the server's answer to the next request of url: gives what lets it go on."""
+    if url.endswith("uploads"):
+        page.evaluate(HOLD_UPLOAD)
+        return lambda: page.evaluate("window.release()")
+    waiting = []
+    page.route(url, lambda route: waiting.append(route))
+    return lambda: waiting.pop().continue_()
+
+
+def asked(page, url, ask):
+    """Asks and waits until the request is on its way."""
+    if url.endswith("uploads"):
+        ask(page)
+        page.wait_for_function("window.uploading === true")
+        return
+    with page.expect_request(url):
+        ask(page)
 
 
 @pytest.mark.parametrize("how", CHANGES)
@@ -711,14 +735,11 @@ def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source
     thumb(page, 1).click()
     expect_in_use(page, 1)
     # The server's answer waits until the pages have changed.
-    waiting = []
-    page.route(url, lambda route: waiting.append(route))
-    with page.expect_request(url):
-        ask(page)
+    release = hold(page, url)
+    asked(page, url, ask)
     change_pages(page, how)
     _, _, _, n, count = CHANGES[how]
-    [route] = waiting
-    route.continue_()
+    release()
     expect(page.locator(".block[data-id]")).to_have_count(count)
     expect(page.locator(f'.sheet[data-page="{n}"] .block[data-id]')).to_have_count(2)
     expect(page.locator(f'.sheet[data-page="{n}"] .block.sel')).to_have_count(1)
