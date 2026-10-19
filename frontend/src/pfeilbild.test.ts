@@ -168,6 +168,16 @@ describe("the pictures of a block", () => {
 });
 
 describe("typed operators", () => {
+  it("a picture past the Zahlenraum stays hidden with some arrows typed, and is drawn with all of them", () => {
+    const over = P({ count: 1, boxes: 8, max: 20, ops: [":"] });
+    expect(made(over).pictures[0].over).toBe(true);
+    expect(made({ ...over, typedOps: [[0, 0, ":", 2]] }).pictures[0].over).toBe(true);
+    const all = made({ ...over, typedOps: Array.from({ length: 7 }, (_, j): [number, number, "+", number] => [0, j, "+", 1]) }).pictures[0];
+    expect(all.over).toBe(false);
+    expect(all.wrong).toBe(false);
+    expect(all.steps.every((s) => s.op === "+" && s.n === 1)).toBe(true);
+  });
+
   it("sane keeps the last of two typed operators for one arrow, and drops the bad ones", () => {
     const s = sane(
       P({

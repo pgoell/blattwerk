@@ -317,6 +317,23 @@ def test_start_and_goal_grow_the_block_by_the_note_line_in_one_undo(editor):
     assert abs(back["h"] - H) < 0.2, back["h"]
 
 
+def test_a_typed_mal_in_gemischt_grows_the_block_by_the_note_line_in_one_undo(editor):
+    """Eigene Operatoren: Gemischt with Plus and Minus has no note line; a typed "*2" can have
+    another right answer, so the block grows by the line, and one undo gives back both."""
+    client = user()
+    page = editor(pfeil("d", {**PF, "given": "mixed", "max": 100}), client=client)
+    pick(page, "d")
+    op_field = field(page, "Operator an Pfeil 1")
+    step(page, lambda: (op_field.press("Control+a"), op_field.press_sequentially("*2")))
+    grown = block_of(doc(page, client))
+    assert grown["props"]["typedOps"] == [[0, 0, "*", 2]]
+    assert grown["h"] > H + 7, grown["h"]
+    op_field.press("Control+z")
+    back = block_of(doc(page, client))
+    assert "typedOps" not in back["props"]
+    assert abs(back["h"] - H) < 0.2, back["h"]
+
+
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
     """Eigene Zahlen: typing "17" into "Zahl in Kästchen 3" keeps the focus and the digits, and stores [0, 2, 17]."""
     client = user()

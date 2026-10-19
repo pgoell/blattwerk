@@ -311,7 +311,8 @@ export function made(props: PfeilbildProps): Made {
       });
       wrong ||= numbers.some((n) => n > p.max);
       over = false;
-    } else if (typedOps.size) {
+    } else if (typedOps.size && (!gen.over || typedOps.size === boxes - 1)) {
+      // A picture past the Zahlenraum has made-up "+1" steps: it is drawn only once every arrow is typed.
       const fit = fitting(steps, p.max, gen.numbers[0]);
       raw = fit ?? chain(gen.numbers[0], steps);
       numbers = raw.map((x) => Math.max(0, Math.trunc(x)));
