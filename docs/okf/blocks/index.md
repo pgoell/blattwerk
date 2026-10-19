@@ -36,6 +36,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [rechenrad](rechenrad.md): The calculation wheels (Rechenräder): a centre with an operator and a number, and rings of segments where each ring's number worked with the centre gives the next ring's, and which ring or boxes are empty.
 
+* [rechentabelle](rechentabelle.md): The calculation tables (Plus-, Minus-, Mal- and Geteilt-Tabellen): row values down the left, column values along the top, the operator in the corner, and each result cell the row value worked with the column value; which values and cells are given.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

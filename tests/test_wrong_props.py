@@ -68,6 +68,16 @@ OPERATORFELD = {
     "drawOps": True,
     "seed": 7,
 }
+RECHENTABELLE = {
+    "count": 2,
+    "columns": 2,
+    "rows": 4,
+    "cols": 4,
+    "op": "+",
+    "max": 20,
+    "carry": ["either", "either"],
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -149,6 +159,7 @@ WRONG = {
     "zahlenkette": {**ZAHLENKETTE, "max": "x"},
     "pfeilbild": {**PFEILBILD, "max": "x"},
     "operatorfeld": {**OPERATORFELD, "max": "x"},
+    "rechentabelle": {**RECHENTABELLE, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},
@@ -189,6 +200,17 @@ def test_one_wrong_prop_prints(server, monkeypatch, kind):
     res = get(server, head, made["id"], "preview.png")
     assert res.status_code == 200
     assert res.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_a_rechentabelle_with_a_bare_carry_string_prints(server, monkeypatch):
+    """#824: `carry` is a list of three rules; a bare string is a wrong prop and still prints."""
+    monkeypatch.setattr(pdf, "DRAW", 5000)
+    client = user()
+    made, head = put(
+        server, client, block("rechentabelle", 20, 60, {**RECHENTABELLE, "carry": "none"})
+    )
+    assert get(server, head, made["id"], "pdf").status_code == 200
+    assert get(server, head, made["id"], "preview.png").status_code == 200
 
 
 def test_maths_with_a_wrong_item_in_exercises_prints(server, monkeypatch):

@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit einer Maltabelle für die 2er-, 5er- und 10er-Reihe. Lege das Blatt mit dem Titel Eval Rechentabellen an.",
+  "recipe": "rechentabellen",
+  "expect": {"types": ["rechentabelle"], "text": ["Rechentabelle"]}
+}

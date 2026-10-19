@@ -24,6 +24,7 @@ describe("INSERTS", () => {
     expect(INSERTS.pfeilbild(7)).toMatchObject({ w: 180, type: "pfeilbild", props: { count: 4, columns: 2, boxes: 4, max: 20, ops: ["+", "-"], arrows: "one", given: "start", drawOps: true, seed: 7 } });
     expect(INSERTS.operatorfeld(7)).toMatchObject({ w: 180, type: "operatorfeld", props: { count: 2, columns: 2, boxes: 4, centre: false, max: 20, ops: ["+", "-"], only: "none", given: "start", drawOps: true, seed: 7 } });
     expect(INSERTS.rechenrad(7)).toMatchObject({ w: 180, type: "rechenrad", props: { count: 2, columns: 2, rings: 2, segments: 8, max: 20, op: "+", task: "outer", seed: 7 } });
+    expect(INSERTS.rechentabelle(7)).toMatchObject({ w: 180, type: "rechentabelle", props: { count: 2, columns: 2, rows: 4, cols: 4, op: "+", max: 20, carry: ["either", "either"], tint: "none", seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });

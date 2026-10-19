@@ -108,6 +108,16 @@ RECHENRAD = {
     "task": "outer",
     "seed": 7,
 }
+RECHENTABELLE = {
+    "count": 2,
+    "columns": 2,
+    "rows": 4,
+    "cols": 4,
+    "op": "+",
+    "max": 20,
+    "carry": ["either", "either"],
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
@@ -116,6 +126,7 @@ DRAWN = {
     "pfeilbild": (PFEIL, 54),
     "operatorfeld": (OPERATORFELD, 86),  # the default height: 75 * 180 / 157
     "rechenrad": (RECHENRAD, 86),  # the default height: 67 * 180 / 141 (85.53)
+    "rechentabelle": (RECHENTABELLE, 84.22),  # the default height: 51 * 180 / 109
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),
