@@ -15,6 +15,7 @@ import { inverse, layout as arrowLayout, made as arrowMade, noted as arrowNoted,
 import { boxAt, layout as opLayout, made as opMade, noted as opNoted, opLabel as opLabelOf, sane as saneOp, type OperatorfeldProps } from "./operatorfeld";
 import { cellAt, edgeAngle, layout as wheelLayout, made as wheelMade, opLabel as wheelLabel, sane as saneWheel, type RechenradProps } from "./rechenrad";
 import { TINT as tableTint, layout as tableLayout, made as tableMade, opLabel as tableLabel, sane as saneTable, type RechentabelleProps } from "./rechentabelle";
+import { layout as magicLayout, made as magicMade, sane as saneMagic, type MagischesQuadratProps } from "./magischesquadrat";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -716,6 +717,12 @@ export type RechentabelleBlock = Box & {
   /** The calculation tables (Plus-, Minus-, Mal- and Geteilt-Tabellen): row values down the left, column values along the top, the operator in the corner, and each result cell the row value worked with the column value; which values and cells are given. */
   props: RechentabelleProps;
 };
+// A Magisches Quadrat: its stored shape is the contract at the top of magischesquadrat.ts.
+export type MagischesQuadratBlock = Box & {
+  type: "magischesquadrat";
+  /** The magic squares (Magische Quadrate): 3×3 or 5×5 squares where every row, column and both diagonals have the same sum, the Zielzahl; which cells are given, and optionally the Zielzahl above. */
+  props: MagischesQuadratProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -740,7 +747,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3473,6 +3480,53 @@ function Rechentabelle({ block, solved }: { block: RechentabelleBlock; solved: b
   );
 }
 
+// A Magisches Quadrat: its squares side by side. Each has its given numbers on the sheet; in the key the others too,
+// unless the square is wrong. A Zielzahl prints above it when shown, and the key notes when other solutions count too.
+function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlock; solved: boolean }) {
+  const p = saneMagic(block.props);
+  const { squares } = magicMade(p);
+  const { CELL, CG, RG, SUM_H, NOTE_H, top, TW, TH, vbW, vbH } = magicLayout(p);
+  return (
+    <div className={`magischesquadrat${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {squares.map((s, i) => {
+          const [x0, y0] = [(i % p.columns) * (TW + CG), Math.floor(i / p.columns) * (TH + RG)];
+          const open = solved && !s.wrong;
+          return (
+            <g key={i} className={`square${s.wrong ? " wrong" : ""}${s.many ? " many" : ""}`} data-square={i}>
+              {p.showSum && !s.wrong && (
+                <text className="sum" x={x0 + TW / 2} y={y0 + SUM_H / 2} fontSize={SUM_H * 0.6} textAnchor="middle" dominantBaseline="central">
+                  {`Zielzahl: ${s.sum}`}
+                </text>
+              )}
+              {s.cells.map((row, r) =>
+                row.map((n, c) => {
+                  const [x, y] = [x0 + c * CELL, y0 + top + r * CELL];
+                  const state = s.given[r][c] ? "given" : open ? "answer" : null;
+                  return (
+                    <g key={`${r}:${c}`} className="cell" data-row={r + 1} data-col={c + 1}>
+                      <rect x={x} y={y} width={CELL} height={CELL} fill="white" stroke="#222" strokeWidth={0.4} />
+                      {state && (
+                        <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(n).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                          fill={state === "given" ? "#222" : "#c0392b"} className={state}>{n}</text>
+                      )}
+                    </g>
+                  );
+                }),
+              )}
+              {solved && s.many && !s.wrong && (
+                <text className="note" x={x0 + TW / 2} y={y0 + top + s.size * CELL + NOTE_H / 2} fontSize={Math.min(3.2, vbW / 18)} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
+                  Auch andere Lösungen sind richtig.
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3830,6 +3884,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "operatorfeld") return <Operatorfeld block={block} k={k} solved={solved} />;
   if (block.type === "rechenrad") return <Rechenrad block={block} solved={solved} />;
   if (block.type === "rechentabelle") return <Rechentabelle block={block} solved={solved} />;
+  if (block.type === "magischesquadrat") return <MagischesQuadrat block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;

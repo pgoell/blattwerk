@@ -25,7 +25,7 @@ BLOCK_NAMES = set(
     """Text Texte Bild Bilder Symbol Symbole Lineatur Lineaturen Suchsel Zahlenmauer
     Zahlenmauern Zahlenhaus Zahlenhäuser Rechendreieck Rechendreiecke Zahlenstrahl
     Zahlenstrahlen Zahlenkette Zahlenketten Pfeilbild Pfeilbilder Operatorfeld Operatorfelder
-    Rechenrad Rechenräder Rechentabelle Rechentabellen
+    Rechenrad Rechenräder Rechentabelle Rechentabellen Magisches Magische Quadrat Quadrate
     Hunderterfeld Hunderterfelder Uhr Uhren Selbstkontrolle
     Selbstkontrollen Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
     Form Formen Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
