@@ -5,6 +5,7 @@ import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
 import { cellEntries, draw, entries, moves, shuffled, type Shown } from "../bank";
 import { mixed, word } from "../scramble";
+import { pastPaper } from "../insert";
 import { FONTS, FONT_GROUPS, GREYS, K, MARGIN, PT, RULINGS, ScoreInput, TINTS, bandColorOf, bandOf, boxed, counts, dir, dottedFamily, fadeOf, far, type ShapeBlock, fontOf, houseOf, houseTintOf, traceOf, type Fade, foldsOf, holesOf, isLine, kindOf, lineOf, listColsOf, listOf, lowest, mathsHeight, overFoot, pairOf, parasOf, rightmost, rowsNeeded, rowsOf, shade, shownParas, stepOf, fromOf, sum, symbol, tall, useSplitter, type Align, type Axis, type Block, type Box, type Corner, type Font, type List, type ListMode, type MathsProps, type Ruling, type RulingBlock, type TableBlock, type TextProps, type Valign, type Doc } from "../sheet";
 import type { Marks, Picked } from "./Field";
 import Maths from "./Maths";
@@ -115,6 +116,13 @@ const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJu
 // The turns by a quarter and the two flips: a flip has no degrees.
 const TURNS: [string, LucideIcon, number][] = [["Rechtsdrehung 90°", RotateCw, 90], ["Linksdrehung 90°", RotateCcw, -90], ["Horizontal spiegeln", FlipHorizontal2, 0], ["Vertikal spiegeln", FlipVertical2, 0]];
 const round = (n: number) => Math.round(n * 100) / 100;
+// The hints for a maths block that grows past the margin's foot or the paper's edge, by type: a name sentence, then the take-away.
+const FOOT: Record<string, [string, string]> = {
+  zahlenhaus: ["Das Zahlenhaus ragt unten über den Rand.", "Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben."],
+  zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
+  rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
+  uhr: ["Die Uhr ragt unten über den Rand.", "Nimm weniger Uhren oder schiebe sie nach oben."],
+};
 // An angle as a block stores it: from 0 up to 360.
 export const norm = (a: number) => round(((a % 360) + 360) % 360) % 360;
 // The box around several blocks.
@@ -365,6 +373,35 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   // The generator's limits belong to one block.
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
+  // A maths drawing that would grow past the paper's edge keeps its props, and the panel says why (#911).
+  // The change refused, the block it was for, and that block's props and height at the refusal: the hint stays while the block is as it was (#911).
+  const [denied, setDenied] = useState<{ id: string; props: object; from: string }>();
+  useEffect(() => setDenied(undefined), [sel.map((b) => b.id).join()]);
+  const sig = (b: Block) => JSON.stringify([b.props, b.y]);
+  const picked = (id: string, props?: object) => {
+    const b = sel.find((x) => x.id === id);
+    return b && props ? ({ ...b, props: { ...b.props, ...props } } as Block) : b;
+  };
+  // `back` puts a number back that was stored before, with the height the block had then, so no check refuses it.
+  // Returns false when the change is refused.
+  const grows = (type: Block["type"], props: object, key?: string, back?: number): boolean => {
+    if (back !== undefined) {
+      const b = sel.find((x) => x.type === type)!;
+      style(type, props, key);
+      place([[b.id, tall(b, back)]], key);
+      setDenied((d) => d && { ...d, from: sig(picked(d.id, props)!) });
+      return true;
+    }
+    const off = sel.filter((b) => b.type === type).find((b) => pastPaper(b, { ...b, props: { ...b.props, ...props } } as Block, H));
+    if (off) setDenied({ id: off.id, props, from: sig(off) });
+    else {
+      setDenied(undefined);
+      style(type, props, key);
+    }
+    return !off;
+  };
+  const refusedBlock = denied && picked(denied.id);
+  const paperHint = !!denied && !!refusedBlock && sig(refusedBlock) === denied.from && pastPaper(refusedBlock, { ...refusedBlock, props: { ...refusedBlock.props, ...denied.props } } as Block, H);
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
   const haus = sel.length === 1 && sel[0].type === "zahlenhaus" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
@@ -540,10 +577,18 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {sel.length > 1 ? "Die Auswahl ragt unten über die Seite hinaus." : "Der Block ragt unten über die Seite hinaus."} Was unter dem Rand steht, wird nicht gedruckt.
         </p>
       )}
-      {/* A Zahlenhaus past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
-      {sel.some((b) => b.type === "zahlenhaus" && lowest(b) > H - MARGIN + 0.01) && !sel.some((b) => lowest(b) > H + 0.01) && (
-        <p className="hint warn" role="status" data-foot="haus">
-          Das Zahlenhaus ragt unten über den Rand. Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben.
+      {/* A maths block past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
+      {(() => {
+        const first = sel.find((b) => FOOT[b.type] && lowest(b) > H - MARGIN + 0.01);
+        return first && !sel.some((b) => lowest(b) > H + 0.01) ? (
+          <p className="hint warn" role="status" data-foot="haus">
+            {FOOT[first.type].join(" ")}
+          </p>
+        ) : null;
+      })()}
+      {paperHint && refusedBlock && (
+        <p className="hint warn" role="status" data-foot="paper">
+          Das passt nicht mehr auf die Seite und wurde nicht übernommen. {FOOT[refusedBlock.type][1]}
         </p>
       )}
       {/* A text that the foot stops from growing says that its last words are cut. */}
@@ -891,12 +936,12 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       )}
       {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} owe={owe} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
-      {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => style("zahlenmauer", props, key)} />}
-      {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => style("zahlenhaus", props, key)} />}
-      {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => style("rechendreieck", props, key)} />}
+      {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => grows("zahlenmauer", props, key)} />}
+      {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => grows("zahlenhaus", props, key)} />}
+      {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
-      {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key) => style("uhr", props, key)} />}
+      {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key, back) => grows("uhr", props, key, back)} />}
       {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
       {points && (
         <>

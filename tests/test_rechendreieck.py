@@ -245,6 +245,58 @@ def test_remove_own_numbers_is_one_undo_step(editor):
     assert props_of(doc(page, client))["typed"] == TYPED
 
 
+def type_and_remove(page, client):
+    """Types a number other than the shown one into the top inner field, then clicks "Eigene Zahlen entfernen".
+
+    Returns the number the field showed before typing and the number typed.
+    """
+    number = field(page, INNER_TOP)
+    shown = number.input_value()
+    digit = "7" if shown == "6" else "6"
+    step(page, lambda: (number.press("Control+a"), number.press_sequentially(digit)))
+    for _ in range(50):
+        if props_of(doc(page, client)).get("typed") == [[0, 0, int(digit)]]:
+            break
+        page.wait_for_timeout(100)
+    assert props_of(doc(page, client))["typed"] == [[0, 0, int(digit)]]
+    step(page, lambda: panel(page, "Eigene Zahlen entfernen").click())
+    return shown, digit
+
+
+def test_910_after_remove_own_numbers_the_typed_box_shows_the_triangles_number(editor):
+    """#910: after "Eigene Zahlen entfernen" the box that had focus shows the number the sheet shows in it."""
+    client = user()
+    page = editor(dz("d", DREIECK), client=client)
+    pick(page, "d")
+    shown, _ = type_and_remove(page, client)
+    expect(field(page, INNER_TOP)).to_have_value(shown)
+
+
+def test_910_ctrl_z_in_a_box_brings_the_typed_numbers_back(editor):
+    """#910: Ctrl+Z with the focus in a box is the sheet's undo: the typed number comes back and the box shows it."""
+    client = user()
+    page = editor(dz("d", DREIECK), client=client)
+    pick(page, "d")
+    _, digit = type_and_remove(page, client)
+    field(page, INNER_TOP).focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert props_of(doc(page, client))["typed"] == [[0, 0, int(digit)]]
+    expect(panel(page, "Eigene Zahlen entfernen")).to_be_visible()
+    expect(field(page, INNER_TOP)).to_have_value(digit)
+
+
+def test_910_ctrl_y_right_after_ctrl_z_in_a_box_redoes_the_removal(editor):
+    """#910: Ctrl+Y with the focus in a box is the sheet's redo: the removal comes back after the undo."""
+    client = user()
+    page = editor(dz("d", DREIECK), client=client)
+    pick(page, "d")
+    type_and_remove(page, client)
+    field(page, INNER_TOP).focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    step(page, lambda: page.keyboard.press("Control+y"))
+    assert "typed" not in props_of(doc(page, client))
+
+
 def test_typing_goes_to_the_picked_triangle(editor):
     """Own case: with "Dreieck 2" picked, a typed number goes to that triangle."""
     client = user()

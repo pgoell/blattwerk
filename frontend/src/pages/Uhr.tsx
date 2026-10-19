@@ -1,10 +1,12 @@
 // The format panel's settings for an Uhr block: its face, its task, how a time is written, and the times.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UhrBlock } from "../sheet";
 import { parsed, sane, timesOf, type UhrProps } from "../uhr";
 import { newSeed } from "./Maths";
 
-type Apply = (props: Partial<UhrProps>, key?: string) => void;
+// Returns false when the change is refused. `back` is the height the block had when a number was stored before: that
+// number and height come back, and no check refuses them.
+type Apply = (props: Partial<UhrProps>, key?: string, back?: number) => boolean | void;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const clock = (t: number) => `${Math.floor(t / 60)}:${pad(t % 60)}`;
@@ -15,16 +17,20 @@ function Whole({
   label,
   name,
   value,
+  h,
   ok,
   apply,
 }: {
   label: string;
   name: keyof UhrProps;
   value: number;
+  h: number;
   ok: (v: number) => boolean;
   apply: Apply;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // The number and the block's height when the field got focus: a typed number that is refused goes back to them.
+  const start = useRef({ value, h });
   // An undo or a redo changes the number under the field: the field shows that number, not the draft.
   useEffect(() => setDraft(null), [value]);
   return (
@@ -35,10 +41,14 @@ function Whole({
         inputMode="numeric"
         aria-label={label}
         value={draft ?? String(value)}
+        onFocus={() => {
+          start.current = { value, h };
+        }}
         onChange={(e) => {
           const text = e.target.value;
           setDraft(text);
-          if (/^\d+$/.test(text) && ok(Number(text))) apply({ [name]: Number(text) }, name);
+          if (/^\d+$/.test(text) && ok(Number(text)) && apply({ [name]: Number(text) }, name) === false)
+            apply({ [name]: start.current.value }, name, start.current.h);
         }}
         onBlur={() => setDraft(null)}
       />
@@ -54,6 +64,7 @@ function Time({ label, value, setTime }: { label: string; value: number; setTime
       {label}
       <input
         type="text"
+        className="typed"
         aria-label={label}
         aria-invalid={draft !== null && parsed(draft) === undefined ? "true" : undefined}
         value={draft ?? clock(value)}
@@ -62,6 +73,10 @@ function Time({ label, value, setTime }: { label: string; value: number; setTime
           setDraft(text);
           const t = parsed(text);
           if (t !== undefined) setTime(t);
+        }}
+        onKeyDown={(e) => {
+          // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the time that the undo or redo gives.
+          if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
         }}
         onBlur={() => setDraft(null)}
       />
@@ -110,8 +125,8 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
           <option value="viertel">viertel vier</option>
         </select>
       )}
-      <Whole label="Uhren" name="count" value={p.count} ok={inRange(1, 12)} apply={apply} />
-      <Whole label="Spalten" name="cols" value={p.cols} ok={inRange(1, 6)} apply={apply} />
+      <Whole label="Uhren" name="count" value={p.count} h={block.h} ok={inRange(1, 12)} apply={apply} />
+      <Whole label="Spalten" name="cols" value={p.cols} h={block.h} ok={inRange(1, 6)} apply={apply} />
       <select
         aria-label="Zeiten"
         value={p.fill}

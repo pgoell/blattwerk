@@ -8,7 +8,7 @@ import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./u
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
 import { DEFAULTS as HAUS, heightFor as heightForHaus, sane as saneHaus } from "./zahlenhaus";
-import { MARGIN, dir, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
+import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
 export type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> & { w: number; h: number } : never;
@@ -94,12 +94,25 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
     const need = round(Math.min(heightForSelbst(saneSelbst(next.props), doc, b.w), foot));
     if (need > b.h) return tall(b, need);
   }
+  const need = growsTo(b, next);
+  return need === undefined ? {} : tall(b, need);
+}
+
+// The height a GROWS block takes for a change of its props, or undefined where it keeps its own. Every GROWS block may
+// pass the foot: capped, its drawing would shrink to fit the room left. A change that needs no more than the props
+// before it keeps the height, also on a block that master capped short of its props (#911).
+function growsTo(b: Block, next: Block) {
   const grow = GROWS[b.type];
-  if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
-    // A Zahlenhaus may pass the foot: capped, its houses would shrink to fit and so its digits.
-    const want = grow[0](next.props, b.w);
-    const need = round(b.type === "zahlenhaus" ? want : Math.min(want, foot));
-    if (need > b.h) return tall(b, need);
-  }
-  return {};
+  if (!grow || b.type !== next.type || !grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) return undefined;
+  const need = round(grow[0](next.props, b.w));
+  return need > b.h && need > round(grow[0](b.props, b.w)) ? need : undefined;
+}
+
+// Whether a change of a GROWS block's props would grow it below the paper's edge, `H` mm down: what hangs there is
+// not printed, so the panel refuses such a change, as it does for a maths block (#911).
+export function pastPaper(b: Block, next: Block, H: number) {
+  const need = growsTo(b, next);
+  if (need === undefined) return false;
+  const low = lowest({ ...b, ...tall(b, need) });
+  return low > H + 0.01 && low > lowest(b) + 0.01;
 }

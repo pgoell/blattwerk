@@ -9,7 +9,7 @@ after each change.
 import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
-from ui import box, pick, saved, user
+from ui import TEXT, box, pick, saved, user
 
 MAUER = {
     "base": 3,
@@ -99,18 +99,41 @@ def test_one_undo_takes_back_the_wall_and_the_height(editor):
     assert stored_h(client, page) == grown
 
 
-def test_the_block_grows_no_further_than_the_page_foot(editor):
-    """#588: a block low on the page grows to the page's foot and no further."""
+def foot(page):
+    """The hint that says a block hangs over the page's foot."""
+    return page.locator('p[data-foot="haus"], p[data-foot="over"]')
+
+
+def test_911_the_block_grows_past_the_page_foot_and_keeps_its_stone_size(editor):
+    """#911: a block low on the page grows past the foot; its stones keep their size, the text
+    beside it does not move, and the hint says it hangs over the edge."""
     client = user()
-    page = editor(zw("d", MAUER, y=220), client=client)
+    page = editor(
+        zw("d", MAUER, y=80), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client
+    )
     pick(page, "d")
+    before = stone_height(page)
     for _ in range(8):
         step(page, lambda: panel(page, "Eine Mauer mehr").click())
-    block = {b["id"]: b for b in saved(page, client)}["d"]
-    sheet = page.locator(".sheet").first.bounding_box()
-    drawn = page.locator('.block[data-id="d"]').bounding_box()
-    assert block["h"] > 60
-    assert drawn["y"] + drawn["height"] <= sheet["y"] + sheet["height"] + 1
+    expect(page.locator('.block[data-id="d"] g.wall')).to_have_count(12)
+    blocks = {b["id"]: b for b in saved(page, client)}
+    assert blocks["d"]["y"] + blocks["d"]["h"] > 282, blocks["d"]
+    assert stone_height(page) == pytest.approx(before, rel=0.01)
+    assert blocks["t"]["y"] == 80, blocks["t"]
+    expect(foot(page)).to_be_visible()
+
+
+def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
+    """#911: a fifth wall at Y 190 grows the block past the foot, up to the paper's edge; one undo takes the height and the hint back."""
+    client = user()
+    page = editor(zw("d", MAUER, y=190), client=client)
+    pick(page, "d")
+    expect(foot(page)).to_have_count(0)
+    step(page, lambda: panel(page, "Eine Mauer mehr").click())
+    expect(foot(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert stored_h(client, page) == 60
+    expect(foot(page)).to_have_count(0)
 
 
 def test_a_saved_twelve_wall_block_keeps_its_height_when_the_zahlenraum_changes(editor):

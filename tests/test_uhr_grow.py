@@ -6,9 +6,10 @@ at the page's foot. The sizes are measured on the screen: a clock's face, before
 change, and the block's stored height.
 """
 
+import pytest
 from playwright.sync_api import expect
 from test_gaps import step
-from ui import at, box, pick, saved, user
+from ui import TEXT, at, box, pick, saved, user
 
 UHR = {
     "numbers": "all",
@@ -83,16 +84,39 @@ def test_one_undo_takes_back_the_clocks_and_the_height(editor):
     assert stored(page, client)["props"]["count"] == 4
 
 
-def test_a_block_low_on_the_page_stops_at_the_foot(editor):
-    """#598: a block at 200 mm from the top grows to the page's bottom margin at 282 mm, and no
-    further (review: not to the paper's edge at 297)."""
+def foot(page):
+    """The hint that says a block hangs over the page's foot."""
+    return page.locator('p[data-foot="haus"], p[data-foot="over"]')
+
+
+def test_911_a_block_low_on_the_page_grows_past_the_foot_and_keeps_its_clock_size(editor):
+    """#911: a block at 115 mm from the top grows past the foot at 282 mm and ends above the paper's edge; its clocks keep their size,
+    the text beside it does not move, and the hint says it hangs over the edge."""
     client = user()
-    page = editor(uhr("d", UHR, y=200), client=client)
+    page = editor(
+        uhr("d", UHR, y=115), box("t", "text", TEXT, x=150, y=115, w=40, h=30), client=client
+    )
     pick(page, "d")
+    before = face(page)
     step(page, lambda: field(page, "Uhren").fill("12"))
     block = stored(page, client)
-    assert block["h"] == 82
-    assert block["y"] + block["h"] == 282
+    assert block["y"] + block["h"] > 282, block
+    assert face(page) == pytest.approx(before, rel=0.01)
+    assert {b["id"]: b for b in saved(page, client)}["t"]["y"] == 115
+    expect(foot(page)).to_be_visible()
+
+
+def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
+    """#911: 12 clocks at 115 mm grow the block past the foot; one undo takes the height and the hint back."""
+    client = user()
+    page = editor(uhr("d", UHR, y=115), client=client)
+    pick(page, "d")
+    expect(foot(page)).to_have_count(0)
+    step(page, lambda: field(page, "Uhren").fill("12"))
+    expect(foot(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert stored(page, client)["h"] == 58.5
+    expect(foot(page)).to_have_count(0)
 
 
 def test_six_columns_are_width_bound_and_the_block_takes_their_height(editor):
