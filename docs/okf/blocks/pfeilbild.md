@@ -4,7 +4,7 @@ title: "Block: pfeilbild"
 description: "The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given."
 tags: [block, pfeilbild]
 covers: [pfeilbild]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T05:06:19Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T05:15:26Z }
 ---
 
 # pfeilbild
@@ -43,7 +43,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | max | number |  | yes | The Zahlenraum: the largest number a box may show, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. |
 | ops | list of string | `+`, `-`, `*`, `:` | yes | The Rechenarten: "+", "-", "*" (Mal) and ":" (Geteilt), in that order, each once. "*" and ":" need max 20 or more, under that they are dropped. Empty or not a list: ["+"]. Default ["+", "-"]. |
 | arrows | string | `one`, `both` | yes | The arrows: "one" for arrows in one direction, "both" for arrows in both directions. Under each forward arrow a back arrow shows the inverse operator: "+4" goes back as "−4", "·2" as ":2", ":2" as "·2". Default "one". |
-| given | string | `start`, `ends`, `mixed` | yes | Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default "start". |
+| given | string | `start`, `ends`, `mixed` | yes | Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right; with "*" or ":" in `ops` a hidden operator may have two right answers ("+4" or "·2"), so the key carries the same note as with "ends". Default "start". |
 | drawOps | boolean |  | yes | Whether each operator place has an ellipse around it, also an empty one. Default true. |
 | seed | number |  | yes | Seed for the random pictures. The same seed always gives the same pictures. |
 | typed | list of list of number |  | no | Numbers the teacher typed into boxes. Each entry is [picture index from 0, box index from 0, value 0 to 9999]. The lowest typed box of a picture is its anchor. A picture whose numbers do not fit its operators is marked wrong. |

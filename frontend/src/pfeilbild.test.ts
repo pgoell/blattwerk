@@ -150,7 +150,19 @@ describe("the pictures of a block", () => {
 
   it("the height of the default block at 180 mm is its viewBox scaled to the width", () => {
     expect(heightFor({ ...DEFAULTS, seed: 1 }, 180)).toBe((layout(DEFAULTS).vbH * 180) / layout(DEFAULTS).vbW);
-    // Given "ends" keeps a line of 6 units for the key's note.
+    // Given "ends", and "mixed" with Mal or Geteilt, keep a line of 6 units for the key's note.
     expect(layout({ ...DEFAULTS, given: "ends" }).vbH).toBe(layout(DEFAULTS).vbH + 6);
+    expect(layout({ ...DEFAULTS, given: "mixed", ops: ["+", "*"] }).vbH).toBe(layout(DEFAULTS).vbH + 6);
+    expect(layout({ ...DEFAULTS, given: "mixed", ops: ["+", "-"] }).vbH).toBe(layout(DEFAULTS).vbH);
+  });
+
+  it("draws every picture of one Rechenart with many boxes in a small Zahlenraum", () => {
+    // Plus only or Minus only bis 10 with 8 boxes fits (0, 1, ..., 7): every picture is drawn.
+    for (const op of ["+", "-"] as const) {
+      for (let seed = 0; seed < 50; seed++) {
+        const m = made({ ...DEFAULTS, count: 12, boxes: 8, max: 10, ops: [op], seed });
+        expect(m.pictures.every((pic) => !pic.over)).toBe(true);
+      }
+    }
   });
 });

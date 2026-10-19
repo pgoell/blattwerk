@@ -86,7 +86,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
   zahlenhaus: [(p, w) => heightForHaus(saneHaus(p), w), ["count", "columns", "floors"]],
   zahlenkette: [(p, w) => heightForKette(saneKette(p), w), ["count", "columns", "rings"]],
-  pfeilbild: [(p, w) => heightForPfeil(sanePfeil(p), w), ["count", "columns", "boxes", "arrows", "given"]],
+  pfeilbild: [(p, w) => heightForPfeil(sanePfeil(p), w), ["count", "columns", "boxes", "arrows", "given", "ops"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's

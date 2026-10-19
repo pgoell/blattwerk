@@ -110,6 +110,26 @@ def test_with_start_and_goal_only_the_key_says_other_answers_count_too(editor, b
     paper.context.close()
 
 
+def test_mixed_with_mal_has_the_note_on_the_key_and_mixed_with_plus_minus_not(
+    editor, browser, server
+):
+    """Gemischt with Mal or Geteilt: a hidden operator may be "+4" or "·2", so the key carries the note;
+    Gemischt with Plus and Minus only has one right answer and no note."""
+    client = user()
+    mixed = {**PF, "given": "mixed"}
+    page = editor(
+        box("m", "pfeilbild", {**mixed, "ops": ["+", "*"]}, w=180, h=61.8),
+        box("p", "pfeilbild", mixed, w=180, h=53.9, y=150),
+        client=client,
+    )
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(".pfeilbild text.note")).to_have_count(1)
+    # The note sits in the drawing whose key has Mal operators, not in the Plus and Minus one.
+    own = paper.locator(".pfeilbild text.note").evaluate("e => e.closest('.pfeilbild').textContent")
+    assert DOT in own, own
+    paper.context.close()
+
+
 def test_on_the_key_each_arrow_gives_the_next_box(editor, browser, server):
     """Every picture on the key: applying each arrow's operator to a box gives the box after it."""
     client = user()
@@ -130,9 +150,12 @@ def test_the_print_has_the_editors_numbers(editor, browser, server):
     client = user()
     page = editor(box("k", "pfeilbild", PF, w=180, h=53.9), client=client)
     shown = pictures_of(at(page, "k").locator(".pfeilbild"))
+    ops_shown = arrows_of(at(page, "k").locator(".pfeilbild"))
     mine = sheet_id(page)
     paper = printed(browser, server, mine)
     printed_numbers = pictures_of(paper.locator(".pfeilbild"))
+    assert arrows_of(paper.locator(".pfeilbild")) == ops_shown
+    assert all(all(op is not None for op in ops) for ops in ops_shown), ops_shown
     paper.context.close()
     paper = key_print(browser, server, mine)
     key = pictures_of(paper.locator(".pfeilbild"))

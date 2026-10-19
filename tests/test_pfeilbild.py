@@ -236,9 +236,14 @@ def test_pfeile_in_both_directions_give_back_arrows_with_the_inverse_labels(edit
 
 def test_operatoren_zeichnen_off_removes_the_ellipses(editor):
     """Panel: with Operatoren zeichnen off no ellipse is drawn around an operator place."""
-    page = editor(pfeil("d", {**PF, "drawOps": False}))
+    page = editor(pfeil("d", {**PF, "arrows": "both"}))
     pick(page, "d")
-    expect(at(page, "d").locator(".pfeilbild g.arrow ellipse")).to_have_count(0)
+    # On: one ellipse per arrow and per back arrow, 4 pictures of 3 arrows each.
+    expect(at(page, "d").locator(".pfeilbild g.arrow ellipse")).to_have_count(12)
+    expect(at(page, "d").locator(".pfeilbild g.back ellipse")).to_have_count(12)
+    step(page, lambda: field(page, "Operatoren zeichnen").uncheck())
+    expect(at(page, "d").locator(".pfeilbild ellipse")).to_have_count(0)
+    expect(at(page, "d").locator(".pfeilbild g.arrow text.op")).to_have_count(12)
 
 
 def test_typing_two_digits_into_a_box_stores_them_and_one_undo_takes_both_back(editor):
@@ -348,18 +353,31 @@ def test_more_boxes_keep_the_box_size_and_take_fewer_columns_in_one_undo(editor)
 def test_a_picture_that_cannot_fit_the_zahlenraum_is_not_drawn_and_the_panel_says_why(editor):
     """Pictures: with only Mal at bis 20 and 8 boxes, a picture that cannot fit is marked over, draws no
     box, and the panel says why; no such hint shows when no picture is over."""
-    page = editor(pfeil("d", {**PF, "ops": ["*"], "boxes": 8, "count": 2, "columns": 1}))
+    # Mal only bis 20 cannot make 7 steps (2^7 = 128): both pictures are over.
+    client = user()
+    page = editor(
+        pfeil("d", {**PF, "ops": ["*"], "boxes": 8, "count": 2, "columns": 1}), client=client
+    )
     pick(page, "d")
     overs = at(page, "d").locator("g.picture.over")
-    if overs.count():
-        expect(
-            hint(page).filter(
-                has_text="Pfeilbilder, die nicht in den Zahlenraum passen, werden nicht gezeigt."
-            )
-        ).to_be_visible()
-        expect(overs.locator("g.box")).to_have_count(0)
-    else:
-        expect(hint(page).filter(has_text="werden nicht gezeigt")).to_have_count(0)
+    expect(overs).to_have_count(2)
+    expect(overs.locator("g.box")).to_have_count(0)
+    expect(
+        hint(page).filter(
+            has_text="Pfeilbilder, die nicht in den Zahlenraum passen, werden nicht gezeigt."
+        )
+    ).to_be_visible()
+    # Plus as well lets every picture fit: none is over and the hint goes.
+    step(page, lambda: field(page, "Plus").check())
+    expect(overs).to_have_count(0)
+    expect(hint(page).filter(has_text="werden nicht gezeigt")).to_have_count(0)
+
+
+def test_plus_only_with_8_boxes_bis_10_draws_every_picture(editor):
+    """Pictures: Plus only bis 10 with 8 Kästchen fits (0 to 7), so every picture is drawn, with 8 boxes."""
+    page = editor(pfeil("d", {**PF, "ops": ["+"], "boxes": 8, "max": 10, "columns": 1}))
+    expect(at(page, "d").locator("g.picture.over")).to_have_count(0)
+    expect(at(page, "d").locator("g.picture g.box")).to_have_count(4 * 8)
 
 
 def test_a_pfeilbild_is_inserted_from_the_maths_menu_with_the_default_props(editor):

@@ -55,7 +55,7 @@ export type PfeilbildProps = {
   ops: ("+" | "-" | "*" | ":")[];
   /** The arrows: "one" for arrows in one direction, "both" for arrows in both directions. Under each forward arrow a back arrow shows the inverse operator: "+4" goes back as "−4", "·2" as ":2", ":2" as "·2". Default "one". */
   arrows: "one" | "both";
-  /** Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default "start". */
+  /** Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right; with "*" or ":" in `ops` a hidden operator may have two right answers ("+4" or "·2"), so the key carries the same note as with "ends". Default "start". */
   given: "start" | "ends" | "mixed";
   /** Whether each operator place has an ellipse around it, also an empty one. Default true. */
   drawOps: boolean;
@@ -127,12 +127,18 @@ export function inverse(step: Step): Step {
 
 // The drawing in svg units: a box is D across, boxes are G apart, the arrow band A high, the back band B low when the
 // arrows go both ways. `vbW` and `vbH` are the viewBox of the whole drawing.
-// With given "ends" a line of N units at the foot holds the key's note that other answers count too: on the pupils'
+// Whether a picture of these settings can have more than one right answer, so that the key says other answers count
+// too: "ends" always; "mixed" with Mal or Geteilt, where a hidden operator between two given boxes may be "+4" or "·2".
+export function noted(p: Partial<Pick<PfeilbildProps, "given" | "ops">>): boolean {
+  return p.given === "ends" || (p.given === "mixed" && !!p.ops?.some((o) => o === "*" || o === ":"));
+}
+
+// With a noted picture (see `noted`) a line of N units at the foot holds the key's note that other answers count too: on the pupils'
 // sheet it stays empty, so that the key and the sheet have the same size.
-export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows"> & { given?: PfeilbildProps["given"] }) {
+export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows"> & Partial<Pick<PfeilbildProps, "given" | "ops">>) {
   const [D, G, A, CG, RG] = [10, 8, 8, 8, 4];
   const B = p.arrows === "both" ? A : 0;
-  const N = p.given === "ends" ? 6 : 0;
+  const N = noted(p) ? 6 : 0;
   const n = p.boxes === "random" ? 8 : p.boxes;
   const picW = n * D + (n - 1) * G;
   const picH = A + D + B;
@@ -166,10 +172,14 @@ function apply(op: Step["op"], x: number, n: number): number {
 }
 
 // The operands that the operator op takes from x: "+" up to max, "-" down to 0, "*" 2 to 10 and "/" 2 to 10 that divide x.
-function operands(op: Step["op"], x: number, max: number): number[] {
+// With `left` steps still to come and no way back down (no "-" or ":"), a "+" keeps room for one each: n at most
+// (max - x) / left; likewise a "-" with no way back up keeps x / left. So Plus only bis 10 fits 8 boxes.
+function operands(op: Step["op"], x: number, max: number, ops: Step["op"][], left: number): number[] {
   const out: number[] = [];
-  if (op === "+") for (let n = 1; n <= max - x; n++) out.push(n);
-  else if (op === "-") for (let n = 1; n <= x; n++) out.push(n);
+  const up = op === "+" && !ops.includes("-") && !ops.includes(":") ? Math.floor((max - x) / left) : max - x;
+  const down = op === "-" && !ops.includes("+") && !ops.includes("*") ? Math.floor(x / left) : x;
+  if (op === "+") for (let n = 1; n <= up; n++) out.push(n);
+  else if (op === "-") for (let n = 1; n <= down; n++) out.push(n);
   else if (op === "*") {
     if (x >= 1) for (let n = 2; n <= 10 && x * n <= max; n++) out.push(n);
   } else for (let n = 2; n <= 10; n++) if (x >= n && x % n === 0) out.push(n);
@@ -182,7 +192,7 @@ function attempt(p: PfeilbildProps, boxes: number, next: () => number): { number
   const steps: Step[] = [];
   for (let j = 1; j < boxes; j++) {
     const x = numbers[j - 1];
-    const usable = p.ops.map((op) => ({ op, cands: operands(op, x, p.max) })).filter((u) => u.cands.length);
+    const usable = p.ops.map((op) => ({ op, cands: operands(op, x, p.max, p.ops, boxes - j) })).filter((u) => u.cands.length);
     if (!usable.length) return null;
     const { op, cands } = usable[Math.floor(next() * usable.length)];
     const n = cands[Math.floor(next() * cands.length)];

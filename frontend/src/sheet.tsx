@@ -11,7 +11,7 @@ import { laid, sane } from "./suchsel";
 import { at, layout as wallLayout, made as walled, sane as saneWall } from "./zahlenmauer";
 import { layout as houseLayout, made as housed, numberSize, sane as saneHouse, type ZahlenhausProps } from "./zahlenhaus";
 import { layout as chainLayout, made as chained, sane as saneChain, stepLabel, type ZahlenketteProps } from "./zahlenkette";
-import { inverse, layout as arrowLayout, made as arrowMade, opLabel, sane as saneArrow, type PfeilbildProps } from "./pfeilbild";
+import { inverse, layout as arrowLayout, made as arrowMade, noted as arrowNoted, opLabel, sane as saneArrow, type PfeilbildProps } from "./pfeilbild";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -3229,8 +3229,9 @@ function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number; solved
           );
         })}
         {/* With only the start and the goal given, several answers can be right: the key says so in its own line. */}
-        {solved && p.given === "ends" && (
-          <text x={vbW / 2} y={vbH - 3.5} fontSize={3.2} textAnchor="middle" dominantBaseline="central" fill="#c0392b" className="note">
+        {/* Its size fits the drawing's width, so that a narrow block of three boxes keeps the whole sentence. */}
+        {solved && arrowNoted(p) && (
+          <text x={vbW / 2} y={vbH - 3.5} fontSize={Math.min(3.2, vbW / 18)} textAnchor="middle" dominantBaseline="central" fill="#c0392b" className="note">
             Auch andere Lösungen sind richtig.
           </text>
         )}
