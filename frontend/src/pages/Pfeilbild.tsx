@@ -1,8 +1,8 @@
 // The format panel's settings for a Pfeilbild block: its pictures, columns, boxes, Zahlenraum and Rechenarten, its arrows, the given parts and the numbers typed in.
-import { useRef, useState } from "react";
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { PfeilbildBlock } from "../sheet";
 import { draw } from "../bank";
-import { fitColumns, made, sane, type PfeilbildProps } from "../pfeilbild";
+import { fitColumns, made, opLabel, sane, type PfeilbildProps } from "../pfeilbild";
 
 type Op = PfeilbildProps["ops"][number];
 
@@ -14,6 +14,9 @@ const RECHENART = [
   ["*", "Mal"],
   [":", "Geteilt"],
 ] as const;
+// What an operator field reads: a sign (or none) and up to four digits. "" and "+" are plus, the minus sign is minus, and "x", "×", "·" are times; "/" and "÷" are geteilt.
+const OP_TEXT = /^([+\-−*x×·:\/÷]?)(\d{0,4})$/;
+const TYPED_OP: Record<string, Op> = { "": "+", "+": "+", "-": "-", "−": "-", "*": "*", x: "*", "×": "*", "·": "*", ":": ":", "/": ":", "÷": ":" };
 const PFEILE = { one: "In eine Richtung", both: "In beide Richtungen" } as const;
 const GEGEBEN = { start: "Startzahl und Operatoren", ends: "Start und Ziel, Operatoren fehlen", mixed: "Gemischt" } as const;
 
@@ -42,6 +45,36 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
     const key = `typed:${c}:${box}`;
     if (text === "") return apply({ typed: others.length ? others : undefined }, key);
     apply({ typed: [...others, [c, box, Number(text)]] }, key);
+  }
+
+  function setTypedOp(arrow: number, entry: [number, number, Op, number] | null) {
+    const raw = block.props.typedOps;
+    const others = (Array.isArray(raw) ? raw : []).filter((t) => Array.isArray(t) && (t[0] !== c || t[1] !== arrow));
+    const list = entry ? [...others, entry] : others;
+    apply({ typedOps: list.length ? list : undefined }, `typedOps:${c}:${arrow}`);
+  }
+
+  // The handlers that every number field of the panel shares: focus takes the shown text as a draft, a click selects all of it, and blur, Ctrl+Z or Ctrl+Y drop the draft.
+  function fieldOf(key: string, shown: string) {
+    return {
+      value: draft?.key === key ? draft.text : shown,
+      onFocus: () => {
+        fresh.current = true;
+        setDraft({ key, text: shown });
+      },
+      // The click that focuses the field also places the caret; this mouseup selects the whole text instead.
+      onMouseUp: (e: MouseEvent<HTMLInputElement>) => {
+        if (!fresh.current) return;
+        fresh.current = false;
+        e.preventDefault();
+        e.currentTarget.select();
+      },
+      onBlur: () => setDraft(null),
+      onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => {
+        // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
+        if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
+      },
+    };
   }
 
   return (
@@ -155,53 +188,59 @@ export default function Pfeilbild({ block, apply }: { block: PfeilbildBlock; app
       <div className="mauer">
         <div className="mauer-row">
           {m.pictures[c].numbers.map((n, r) => {
-            const key = `${c},${r}`;
             return (
               <input
                 key={r}
                 className="typed"
                 inputMode="numeric"
                 aria-label={`Zahl in Kästchen ${r + 1}`}
-                value={draft?.key === key ? draft.text : String(n)}
-                onFocus={() => {
-                  fresh.current = true;
-                  setDraft({ key, text: String(n) });
-                }}
-                // The click that focuses the field also places the caret; this mouseup selects the whole number instead.
-                onMouseUp={(e) => {
-                  if (!fresh.current) return;
-                  fresh.current = false;
-                  e.preventDefault();
-                  e.currentTarget.select();
-                }}
-                onBlur={() => setDraft(null)}
-                onKeyDown={(e) => {
-                  // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
-                  if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
-                }}
+                {...fieldOf(`${c},${r}`, String(n))}
                 onChange={(e) => {
                   if (!/^\d{0,4}$/.test(e.target.value)) return;
-                  setDraft({ key, text: e.target.value });
+                  setDraft({ key: `${c},${r}`, text: e.target.value });
                   setTyped(r, e.target.value);
                 }}
               />
             );
           })}
         </div>
+        <div className="mauer-row">
+          {m.pictures[c].steps.map((step, j) => (
+            <input
+              key={j}
+              className="typed"
+              aria-label={`Operator an Pfeil ${j + 1}`}
+              {...fieldOf(`op:${c},${j}`, opLabel(step))}
+              onChange={(e) => {
+                const hit = OP_TEXT.exec(e.target.value);
+                if (!hit) return;
+                const text = e.target.value;
+                setDraft({ key: `op:${c},${j}`, text });
+                const n = Number(hit[2]);
+                if (text === "") setTypedOp(j, null);
+                else if (n >= 1) setTypedOp(j, [c, j, TYPED_OP[hit[1]], n]);
+              }}
+            />
+          ))}
+        </div>
       </div>
       {m.pictures.map((pic, i) =>
         pic.wrong ? (
-          <p key={i} className="hint" role="status">{`Pfeilbild ${i + 1}: die Zahlen passen nicht zu den Operatoren.`}</p>
+          <p key={i} className="hint" role="status">
+            {p.typed?.some((t) => t[0] === i)
+              ? `Pfeilbild ${i + 1}: die Zahlen passen nicht zu den Operatoren.`
+              : `Pfeilbild ${i + 1}: die Operatoren passen nicht in den Zahlenraum.`}
+          </p>
         ) : null,
       )}
       {m.pictures.some((pic) => pic.over) && (
         <p className="hint" role="status">Pfeilbilder, die nicht in den Zahlenraum passen, werden nicht gezeigt. Nimm mehr Rechenarten oder einen größeren Zahlenraum.</p>
       )}
-      {p.typed && (
+      {(p.typed || p.typedOps) && (
         <button
           onClick={() => {
             setDraft(null);
-            apply({ typed: undefined });
+            apply({ typed: undefined, typedOps: undefined });
           }}
         >
           Eigene Zahlen entfernen

@@ -12,6 +12,8 @@
 // - `given`: "start" (default), "ends" or "mixed".
 // - `drawOps`: draws an ellipse around each operator place (default true).
 // - `typed`: numbers the teacher typed into boxes, each entry [picture from 0, box from 0, value 0 to 9999].
+// - `typedOps`: operators the teacher typed onto arrows, each entry [picture from 0, arrow from 0, op, operand 1 to 9999].
+//   A typed operator replaces the seed's step for that arrow.
 // - `seed` alone gives the pictures.
 //
 // The generator `made` (memo of 50, `rng` from zahlenmauer.ts), per picture:
@@ -33,6 +35,8 @@ import { rng } from "./zahlenmauer";
 
 /** A number the teacher typed into a box: the picture's index (from 0), the box's index (from 0), the value (0 to 9999). */
 export type PfeilbildTyped = [number, number, number];
+/** An operator the teacher typed onto an arrow: the picture's index (from 0), the arrow's index (from 0), the operator, the operand (1 to 9999). */
+export type PfeilbildTypedOp = [number, number, Step["op"], number];
 export type PfeilbildProps = {
   /** Number of Pfeilbilder on the sheet, side by side in rows of `columns`. Default 4.
    * @minimum 1
@@ -63,6 +67,8 @@ export type PfeilbildProps = {
   seed: number;
   /** Numbers the teacher typed into boxes. Each entry is [picture index from 0, box index from 0, value 0 to 9999]. The lowest typed box of a picture is its anchor. A picture whose numbers do not fit its operators is marked wrong. */
   typed?: PfeilbildTyped[];
+  /** Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator "+", "-", "*" or ":", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong. */
+  typedOps?: PfeilbildTypedOp[];
 };
 
 // One operator and its operand: step j turns numbers[j] into numbers[j + 1].
@@ -98,7 +104,18 @@ export function sane(p: PfeilbildProps): PfeilbildProps {
       typed.set(`${c}:${b}`, [c, b, v]);
     }
   }
+  const typedOps = new Map<string, PfeilbildTypedOp>();
+  if (Array.isArray(p.typedOps)) {
+    for (const t of p.typedOps) {
+      if (!Array.isArray(t) || t.length !== 4 || !Number.isInteger(t[0]) || !Number.isInteger(t[1]) || !Number.isInteger(t[3])) continue;
+      const [c, j, op, n] = t;
+      if (!OPS.includes(op) || c < 0 || c >= count || j < 0 || j >= 7 || n < 1 || n > 9999) continue;
+      typedOps.delete(`${c}:${j}`);
+      typedOps.set(`${c}:${j}`, [c, j, op, n]);
+    }
+  }
   const kept = [...typed.values()];
+  const keptOps = [...typedOps.values()];
   return {
     count,
     columns,
@@ -110,6 +127,7 @@ export function sane(p: PfeilbildProps): PfeilbildProps {
     drawOps: typeof p.drawOps === "boolean" ? p.drawOps : true,
     seed: Number.isFinite(p.seed) ? p.seed : 0,
     ...(kept.length ? { typed: kept } : {}),
+    ...(keptOps.length ? { typedOps: keptOps } : {}),
   };
 }
 
@@ -129,13 +147,14 @@ export function inverse(step: Step): Step {
 // arrows go both ways. `vbW` and `vbH` are the viewBox of the whole drawing.
 // Whether a picture of these settings can have more than one right answer, so that the key says other answers count
 // too: "ends" always; "mixed" with Mal or Geteilt, where a hidden operator between two given boxes may be "+4" or "·2".
-export function noted(p: Partial<Pick<PfeilbildProps, "given" | "ops">>): boolean {
-  return p.given === "ends" || (p.given === "mixed" && !!p.ops?.some((o) => o === "*" || o === ":"));
+// A typed Mal or Geteilt counts as well.
+export function noted(p: Partial<Pick<PfeilbildProps, "given" | "ops" | "typedOps">>): boolean {
+  return p.given === "ends" || (p.given === "mixed" && (!!p.ops?.some((o) => o === "*" || o === ":") || !!p.typedOps?.some((t) => t[2] === "*" || t[2] === ":")));
 }
 
 // With a noted picture (see `noted`) a line of N units at the foot holds the key's note that other answers count too: on the pupils'
 // sheet it stays empty, so that the key and the sheet have the same size.
-export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows"> & Partial<Pick<PfeilbildProps, "given" | "ops">>) {
+export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows"> & Partial<Pick<PfeilbildProps, "given" | "ops" | "typedOps">>) {
   const [D, G, A, CG, RG] = [10, 8, 8, 8, 4];
   const B = p.arrows === "both" ? A : 0;
   const N = noted(p) ? 6 : 0;
@@ -231,6 +250,25 @@ function givenFlags(given: PfeilbildProps["given"], boxes: number, next: () => n
   return { given: g, opGiven: og };
 }
 
+// The numbers that the steps give from x, each one as the step's operator says, not clamped.
+function chain(x: number, steps: Step[]): number[] {
+  const out = [x];
+  for (const s of steps) out.push(apply(s.op, out[out.length - 1], s.n));
+  return out;
+}
+
+// The chain of the steps from the start s that stays whole and within 0 to max at every box, the one whose s is nearest
+// to `near` (the smaller on a tie). Null when no start fits.
+function fitting(steps: Step[], max: number, near: number): number[] | null {
+  let best: number[] | null = null;
+  for (let s = 0; s <= max; s++) {
+    const c = chain(s, steps);
+    if (!c.every((x) => whole(x, 0, max))) continue;
+    if (!best || Math.abs(s - near) < Math.abs(best[0] - near)) best = c;
+  }
+  return best;
+}
+
 // The pictures of the settings. The same settings give the same pictures on every call.
 const memo = new Map<string, Made>();
 
@@ -247,16 +285,19 @@ export function made(props: PfeilbildProps): Made {
     const gen = generated(p, boxes, next);
     const flags = givenFlags(p.given, boxes, next);
     const typed = new Map<number, number>((p.typed ?? []).filter(([c, b]) => c === i && b < boxes).map(([, b, v]): [number, number] => [b, v]));
+    const typedOps = new Map<number, Step>((p.typedOps ?? []).filter(([c, j]) => c === i && j < boxes - 1).map(([, j, op, n]): [number, Step] => [j, { op, n }]));
+    const steps = gen.steps.map((s, j) => typedOps.get(j) ?? s);
+    let raw = gen.numbers;
     let numbers = gen.numbers;
     let wrong = false;
     let over = gen.over;
     if (typed.size) {
       const k = Math.min(...typed.keys());
-      const raw = Array.from({ length: boxes }, () => 0);
+      raw = Array.from({ length: boxes }, () => 0);
       raw[k] = typed.get(k) as number;
-      for (let j = k + 1; j < boxes; j++) raw[j] = apply(gen.steps[j - 1].op, raw[j - 1], gen.steps[j - 1].n);
+      for (let j = k + 1; j < boxes; j++) raw[j] = apply(steps[j - 1].op, raw[j - 1], steps[j - 1].n);
       for (let j = k - 1; j >= 0; j--) {
-        const back = inverse(gen.steps[j]);
+        const back = inverse(steps[j]);
         raw[j] = apply(back.op, raw[j + 1], back.n);
       }
       numbers = raw.map((x, j) => {
@@ -270,8 +311,18 @@ export function made(props: PfeilbildProps): Made {
       });
       wrong ||= numbers.some((n) => n > p.max);
       over = false;
+    } else if (typedOps.size && (!gen.over || typedOps.size === boxes - 1)) {
+      // A picture past the Zahlenraum has made-up "+1" steps: it is drawn only once every arrow is typed.
+      const fit = fitting(steps, p.max, gen.numbers[0]);
+      raw = fit ?? chain(gen.numbers[0], steps);
+      numbers = raw.map((x) => Math.max(0, Math.trunc(x)));
+      wrong = !fit;
+      over = false;
     }
-    pictures.push({ numbers, steps: gen.steps, given: flags.given, opGiven: flags.opGiven, wrong, over });
+    // A wrong picture never shows a false given number: a given box that is not typed and not whole or not in range is empty.
+    const given = flags.given.slice();
+    if (wrong) for (let j = 0; j < boxes; j++) if (given[j] && !typed.has(j) && !whole(raw[j], 0, p.max)) given[j] = false;
+    pictures.push({ numbers, steps, given, opGiven: flags.opGiven, wrong, over });
   }
   const out: Made = { pictures };
   memo.set(key, out);

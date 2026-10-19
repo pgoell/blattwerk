@@ -4,7 +4,7 @@ title: "Block: pfeilbild"
 description: "The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given."
 tags: [block, pfeilbild]
 covers: [pfeilbild]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T05:15:26Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T09:00:32Z }
 ---
 
 # pfeilbild
@@ -47,6 +47,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | drawOps | boolean |  | yes | Whether each operator place has an ellipse around it, also an empty one. Default true. |
 | seed | number |  | yes | Seed for the random pictures. The same seed always gives the same pictures. |
 | typed | list of list of number |  | no | Numbers the teacher typed into boxes. Each entry is [picture index from 0, box index from 0, value 0 to 9999]. The lowest typed box of a picture is its anchor. A picture whose numbers do not fit its operators is marked wrong. |
+| typedOps | list of list of number and number and string and number |  | no | Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator "+", "-", "*" or ":", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong. |
 
 # Examples
 

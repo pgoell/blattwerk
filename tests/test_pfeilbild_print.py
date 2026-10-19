@@ -179,3 +179,48 @@ def test_a_wrong_typed_picture_shows_no_answer_in_the_key(editor, browser, serve
     # The other pictures keep their answers: picture 1 has 3 hidden boxes, its operators are given.
     expect(paper.locator(".pfeilbild g.picture[data-picture='1'] text.answer")).to_have_count(3)
     paper.context.close()
+
+
+def test_typed_operators_show_on_the_sheet_and_the_key_and_the_numbers_follow_them(
+    editor, browser, server
+):
+    """Eigene Operatoren (#921): picture 0 with typed "·2" on arrow 1 and "+3" on arrow 2. The
+    editor, the pupils' sheet and the key show those labels, and on the key each arrow gives the
+    box after it."""
+    client = user()
+    typed = {**PF, "max": 100, "typedOps": [[0, 0, "*", 2], [0, 1, "+", 3]]}
+    page = editor(box("k", "pfeilbild", typed, w=180, h=53.9), client=client)
+    shown = arrows_of(at(page, "k").locator(".pfeilbild"))
+    assert shown[0][:2] == [f"{DOT}2", "+3"], shown
+    mine = sheet_id(page)
+    paper = printed(browser, server, mine)
+    assert arrows_of(paper.locator(".pfeilbild")) == shown
+    paper.context.close()
+    paper = key_print(browser, server, mine)
+    key = pictures_of(paper.locator(".pfeilbild"))[0]
+    labels = arrows_of(paper.locator(".pfeilbild"))[0]
+    expect(paper.locator(".pfeilbild g.picture.wrong")).to_have_count(0)
+    paper.context.close()
+    assert labels == shown[0]
+    for j, op in enumerate(labels):
+        assert apply(op, key[j]) == key[j + 1], (key, labels, j)
+        assert 0 <= key[j + 1] <= 100, key
+
+
+def test_a_typed_operator_past_the_zahlenraum_prints_no_false_number(editor, browser, server):
+    """Eigene Operatoren (#921): "+9" on all three arrows bis 10 cannot fit. With start and goal
+    given, the pupils' sheet shows no goal number for that picture (it would be false), and the key
+    shows no answer for it; the other pictures keep theirs."""
+    client = user()
+    wrong = {**ENDS, "max": 10, "ops": ["+"], "typedOps": [[0, j, "+", 9] for j in range(3)]}
+    page = editor(box("k", "pfeilbild", wrong, w=180, h=61.8), client=client)
+    expect(at(page, "k").locator("g.picture[data-picture='0'].wrong")).to_have_count(1)
+    mine = sheet_id(page)
+    paper = printed(browser, server, mine)
+    assert pictures_of(paper.locator(".pfeilbild"))[0][1:] == [None, None, None]
+    paper.context.close()
+    paper = key_print(browser, server, mine)
+    first = paper.locator(".pfeilbild g.picture[data-picture='0']")
+    expect(first.locator("text.answer")).to_have_count(0)
+    expect(paper.locator(".pfeilbild g.picture[data-picture='1'] text.answer")).to_have_count(5)
+    paper.context.close()

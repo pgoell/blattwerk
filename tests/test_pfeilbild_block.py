@@ -34,6 +34,8 @@ PF = {
     "given": "start",
     "drawOps": True,
     "seed": 7,
+    # #921: the block actions keep the typed operators too.
+    "typedOps": [[0, 1, "-", 3]],
 }
 ODD = {
     "count": -3,
@@ -44,6 +46,7 @@ ODD = {
     "arrows": "?",
     "given": "?",
     "typed": [[9, 9, 9], "a"],
+    "typedOps": [[0, 0, "x", 3], [0, 1, "+", 0], "b", None],
     "seed": "s",
 }
 H = 53.9
@@ -102,6 +105,7 @@ def test_grouped_with_a_text_both_keep_the_group_and_ungroup_frees_them(editor):
     expect(page.locator(".block.sel")).to_have_count(2)
     groups = {b["id"]: b.get("group") for b in saved(page, client)}
     assert groups["k"] and groups["k"] == groups["t"]
+    assert stored(client, page)["k"]["props"] == PF
     page.keyboard.press("Escape")
     at(page, "k").click()
     expect_picked(page, "k", "t")
