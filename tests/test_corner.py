@@ -10,12 +10,13 @@ from blattwerk import pdf
 ROUNDED = {**RECT, "kind": "rounded"}
 
 
-def radius(page, name):
-    """The corner radius of a block on the screen, in mm."""
-    px = at(page, name).evaluate(
-        "el => [...el.querySelectorAll('*')].map(e => parseFloat(getComputedStyle(e).borderTopLeftRadius)).find(r => r > 0) || 0"
+def radius(page, name, w):
+    """The corner radius of a block `w` mm wide, in mm. The blocks are laid out at one scale and
+    zoomed as one, so the radius is taken as a share of the block's own laid out width."""
+    share = at(page, name).evaluate(
+        "el => ([...el.querySelectorAll('*')].map(e => parseFloat(getComputedStyle(e).borderTopLeftRadius)).find(r => r > 0) || 0) / el.offsetWidth"
     )
-    return px / mm(page)
+    return share * w
 
 
 def test_a_rounded_box_has_a_corner_handle(editor):
@@ -104,7 +105,7 @@ def test_the_pdf_prints_the_corner(browser, server):
 def test_no_corner_keeps_4_mm(editor):
     page = editor(box("a", "shape", ROUNDED, x=60, y=60, w=60, h=40))
     pick(page, "a")
-    assert radius(page, "a") == pytest.approx(4, abs=0.2)
+    assert radius(page, "a", 60) == pytest.approx(4, abs=0.05)
 
 
 def test_the_corner_scales_with_the_box(editor):
@@ -113,8 +114,8 @@ def test_the_corner_scales_with_the_box(editor):
         box("b", "shape", {**ROUNDED, "corner": 0.25}, x=120, y=20, w=30, h=20),
     )
     # A quarter of the shorter side: 10 mm for the 40 mm box, 5 mm for the 20 mm one.
-    assert radius(page, "a") == pytest.approx(10, abs=0.4)
-    assert radius(page, "b") == pytest.approx(5, abs=0.4)
+    assert radius(page, "a", 60) == pytest.approx(10, abs=0.05)
+    assert radius(page, "b", 30) == pytest.approx(5, abs=0.05)
 
 
 def test_the_corner_drag_sets_each_picked(editor):
