@@ -68,6 +68,16 @@ OPERATORFELD = {
     "drawOps": True,
     "seed": 7,
 }
+RECHENTABELLE = {
+    "count": 2,
+    "columns": 2,
+    "rows": 4,
+    "cols": 4,
+    "op": "+",
+    "max": 20,
+    "carry": "either",
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -149,6 +159,7 @@ WRONG = {
     "zahlenkette": {**ZAHLENKETTE, "max": "x"},
     "pfeilbild": {**PFEILBILD, "max": "x"},
     "operatorfeld": {**OPERATORFELD, "max": "x"},
+    "rechentabelle": {**RECHENTABELLE, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},

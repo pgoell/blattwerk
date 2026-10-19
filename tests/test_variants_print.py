@@ -740,6 +740,31 @@ def test_a_rechenrad_gets_another_seed_and_loses_its_typed_numbers():
     assert doc["pages"][0]["blocks"][0]["props"] == wheel
 
 
+def test_a_rechentabelle_gets_another_seed_and_loses_its_typed_numbers():
+    """Varianten of #824: B to D give a Rechentabelle a seed of its own, drop `typed`; A is as stored."""
+    table = {
+        "count": 2,
+        "columns": 2,
+        "rows": 4,
+        "cols": 4,
+        "op": "+",
+        "max": 20,
+        "carry": "either",
+        "seed": 7,
+        "typed": [[0, 0, 0, 5]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "t", "type": "rechentabelle", "props": table}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in table.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == table
+
+
 def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #821 and #921: B to D give a Pfeilbild a seed of its own, drop `typed` and
     `typedOps`; A is as stored."""

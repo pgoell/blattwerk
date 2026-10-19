@@ -152,6 +152,32 @@ def rr_fits(page):
     panel(page, "Ein Rechenrad weniger").click()
 
 
+RECHENTABELLE = {
+    "count": 2,
+    "columns": 2,
+    "rows": 4,
+    "cols": 4,
+    "op": "+",
+    "max": 20,
+    "carry": "either",
+    "reihen": [2, 4, 5, 10],
+    "order": "related",
+    "first": "all",
+    "hideRows": 0,
+    "hideCols": 0,
+    "tint": "none",
+    "seed": 7,
+}
+
+
+def rt_more(page, i):
+    panel(page, "Eine Zeile mehr").click()
+
+
+def rt_fits(page):
+    panel(page, "Eine Zeile weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -180,6 +206,14 @@ CASES = {
         rr_more,
         rr_fits,
     ),  # y 110, see test_rechenrad_cover.py
+    "rechentabelle": (
+        RECHENTABELLE,
+        180,
+        84.22,
+        190,
+        rt_more,
+        rt_fits,
+    ),  # y 190: the default height, one more row (16.5 mm) passes the paper's foot at 282 mm
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

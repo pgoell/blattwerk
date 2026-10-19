@@ -3,8 +3,8 @@ type: Explanation
 title: What the server computes
 description: What the server computes for maths and other seeded blocks, and when a seed gives the same tasks.
 tags: [maths, seed, exercises, server]
-covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-19T10:20:00Z }
+covers: [maths, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
+generated: { by: "human:pgoell", at: 2026-10-19T12:45:00Z }
 ---
 
 # What the server computes
@@ -24,7 +24,7 @@ A maths block takes limits: `ops`, `max`, `count`, `format`, `seed` and the rest
 
 ## Other seeded blocks
 
-These blocks draw their content in the browser from their seed: [suchsel](blocks/suchsel.md), [zahlenmauer](blocks/zahlenmauer.md), [zahlenhaus](blocks/zahlenhaus.md), [zahlenkette](blocks/zahlenkette.md), [pfeilbild](blocks/pfeilbild.md), [operatorfeld](blocks/operatorfeld.md), [rechenrad](blocks/rechenrad.md), [rechendreieck](blocks/rechendreieck.md), [zahlenstrahl](blocks/zahlenstrahl.md), [hunderterfeld](blocks/hunderterfeld.md) and [uhr](blocks/uhr.md). The same seed gives the same content. Change the seed to change the content.
+These blocks draw their content in the browser from their seed: [suchsel](blocks/suchsel.md), [zahlenmauer](blocks/zahlenmauer.md), [zahlenhaus](blocks/zahlenhaus.md), [zahlenkette](blocks/zahlenkette.md), [pfeilbild](blocks/pfeilbild.md), [operatorfeld](blocks/operatorfeld.md), [rechenrad](blocks/rechenrad.md), [rechentabelle](blocks/rechentabelle.md), [rechendreieck](blocks/rechendreieck.md), [zahlenstrahl](blocks/zahlenstrahl.md), [hunderterfeld](blocks/hunderterfeld.md) and [uhr](blocks/uhr.md). The same seed gives the same content. Change the seed to change the content.
 
 ## Selbstkontrolle
 

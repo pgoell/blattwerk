@@ -168,7 +168,11 @@ export const DEFAULTS: Omit<RechentabelleProps, "seed"> = {
 
 const OPS: Op[] = ["+", "-", "*", ":"];
 export const FAMILY = [1, 2, 4, 8, 3, 6, 9, 5, 10, 7];
-export const FIRST: Record<RechentabelleProps["first"], number[]> = { all: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], kings: [1, 2, 5, 10], near: [3, 4, 6, 9] };
+export const FIRST: Record<RechentabelleProps["first"], number[]> = {
+  all: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  kings: [1, 2, 5, 10],
+  near: [3, 4, 6, 9],
+};
 // Per tint the value cells' colour and the corner's darker one.
 export const TINT: Record<Exclude<Tint, "none">, [string, string]> = {
   blue: ["#d6e6f7", "#a9c8ec"],
@@ -179,7 +183,8 @@ export const TINT: Record<Exclude<Tint, "none">, [string, string]> = {
 };
 
 // Whether x is a whole number from lo to hi.
-const whole = (x: number, lo: number, hi: number) => Number.isInteger(x) && x >= lo && x <= hi;
+const whole = (x: number, lo: number, hi: number) =>
+  Number.isInteger(x) && x >= lo && x <= hi;
 
 // The settings as a rechentabelle block can take them, whatever a stored sheet holds: a wrong value gives its default,
 // a typed entry that is not four whole numbers in range is dropped, and of two for the same cell the last one stays.
@@ -190,20 +195,50 @@ export function sane(p: RechentabelleProps): RechentabelleProps {
   const cols = whole(p.cols, 2, 10) ? p.cols : DEFAULTS.cols;
   const op = OPS.includes(p.op) ? p.op : DEFAULTS.op;
   const max = [10, 20, 100, 1000].includes(p.max) ? p.max : DEFAULTS.max;
-  const carry = p.carry === "none" || p.carry === "required" ? p.carry : "either";
-  const ok = Array.isArray(p.reihen) && p.reihen.length > 0 && p.reihen.every((n) => whole(n, 1, 10)) && new Set(p.reihen).size === p.reihen.length;
+  const carry =
+    p.carry === "none" || p.carry === "required" ? p.carry : "either";
+  const ok =
+    Array.isArray(p.reihen) &&
+    p.reihen.length > 0 &&
+    p.reihen.every((n) => whole(n, 1, 10)) &&
+    new Set(p.reihen).size === p.reihen.length;
   const reihen = ok ? [...p.reihen] : [...DEFAULTS.reihen];
   const order = p.order === "random" ? "random" : "related";
   const first = p.first === "kings" || p.first === "near" ? p.first : "all";
-  const hideRows = whole(p.hideRows, 0, rows - 1) ? p.hideRows : whole(p.hideRows, 0, 9) ? rows - 1 : 0;
-  const hideCols = whole(p.hideCols, 0, cols - 1) ? p.hideCols : whole(p.hideCols, 0, 9) ? cols - 1 : 0;
-  const tint = typeof p.tint === "string" && Object.hasOwn(TINT, p.tint) ? p.tint : "none";
+  const hideRows = whole(p.hideRows, 0, rows - 1)
+    ? p.hideRows
+    : whole(p.hideRows, 0, 9)
+      ? rows - 1
+      : 0;
+  const hideCols = whole(p.hideCols, 0, cols - 1)
+    ? p.hideCols
+    : whole(p.hideCols, 0, 9)
+      ? cols - 1
+      : 0;
+  const tint =
+    typeof p.tint === "string" && Object.hasOwn(TINT, p.tint) ? p.tint : "none";
   const typed = new Map<string, RechentabelleTyped>();
   if (Array.isArray(p.typed)) {
     for (const t of p.typed) {
-      if (!Array.isArray(t) || t.length !== 4 || !t.every((x) => Number.isInteger(x))) continue;
+      if (
+        !Array.isArray(t) ||
+        t.length !== 4 ||
+        !t.every((x) => Number.isInteger(x))
+      )
+        continue;
       const [c, r, s, v] = t;
-      if (c < 0 || c >= count || r < 0 || r > 10 || s < 0 || s > 10 || (r === 0 && s === 0) || v < 0 || v > 9999) continue;
+      if (
+        c < 0 ||
+        c >= count ||
+        r < 0 ||
+        r > 10 ||
+        s < 0 ||
+        s > 10 ||
+        (r === 0 && s === 0) ||
+        v < 0 ||
+        v > 9999
+      )
+        continue;
       typed.delete(`${c}:${r}:${s}`);
       typed.set(`${c}:${r}:${s}`, [c, r, s, v]);
     }
@@ -235,7 +270,9 @@ export function opLabel(op: Op): string {
 }
 
 // The drawing in svg units. `vbW` and `vbH` are the viewBox; `TW` and `TH` one table's size.
-export function layout(p: Pick<RechentabelleProps, "count" | "columns" | "rows" | "cols">) {
+export function layout(
+  p: Pick<RechentabelleProps, "count" | "columns" | "rows" | "cols">,
+) {
   const [CELL, CG, RG] = [10, 8, 6];
   const TW = (p.cols + 1) * CELL;
   const TH = (p.rows + 1) * CELL;
@@ -260,7 +297,10 @@ export function heightFor(p: RechentabelleProps, w: number): number {
 export function carries(op: "+" | "-", a: number, b: number): boolean {
   let carry = 0;
   while (a > 0 || b > 0) {
-    carry = op === "+" ? Number((a % 10) + (b % 10) + carry > 9) : Number((a % 10) - carry < b % 10);
+    carry =
+      op === "+"
+        ? Number((a % 10) + (b % 10) + carry > 9)
+        : Number((a % 10) - carry < b % 10);
     if (carry) return true;
     a = Math.floor(a / 10);
     b = Math.floor(b / 10);
@@ -283,8 +323,223 @@ export function made(props: RechentabelleProps): Made {
   return out;
 }
 
-// TODO(#824): the generator, as the contract above says.
+const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+// A Fisher-Yates shuffle with the draws of next.
+function shuffle<T>(xs: T[], next: () => number): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// A value from lo to hi that passes ok, up to 50 draws; null when none does.
+function draw(
+  lo: number,
+  hi: number,
+  next: () => number,
+  ok: (v: number) => boolean,
+): number | null {
+  for (let k = 0; k < 50; k++) {
+    const v = lo + Math.floor(next() * (hi - lo + 1));
+    if (ok(v)) return v;
+  }
+  return null;
+}
+
+// Whether row value r and column value c fit a Plus or Minus cell under the carry rule (when useCarry).
+function fits(
+  p: RechentabelleProps,
+  op: "+" | "-",
+  r: number,
+  c: number,
+  useCarry: boolean,
+): boolean {
+  if (op === "+" ? r + c > p.max : r < c) return false;
+  if (!useCarry || p.carry === "either") return true;
+  const carrying = carries(op, r, c);
+  return p.carry === "none" ? !carrying : carrying;
+}
+
+// One try of Plus or Minus values: the column values, then the row values that fit them all.
+function additiveTry(
+  p: RechentabelleProps,
+  op: "+" | "-",
+  next: () => number,
+  useCarry: boolean,
+  distinct: boolean,
+) {
+  const colHi = op === "+" ? p.max - 1 : Math.floor(p.max / 2);
+  const rowHi = op === "+" ? p.max - 1 : p.max;
+  // The row values that still fit every column value so far: a column value is taken only when enough of them stay.
+  let room = range(rowHi).map((i) => i + 1);
+  const cols: number[] = [];
+  for (let j = 0; j < p.cols; j++) {
+    const v = draw(1, colHi, next, (x) => {
+      if (distinct && cols.includes(x)) return false;
+      const left = room.filter((r) => fits(p, op, r, x, useCarry)).length;
+      return distinct ? left >= p.rows : left > 0;
+    });
+    if (v === null) return null;
+    cols.push(v);
+    room = room.filter((r) => fits(p, op, r, v, useCarry));
+  }
+  const rows: number[] = [];
+  for (let i = 0; i < p.rows; i++) {
+    const free = distinct ? room.filter((r) => !rows.includes(r)) : room;
+    if (!free.length) return null;
+    rows.push(free[Math.floor(next() * free.length)]);
+  }
+  return { cols, rows };
+}
+
+// Plus and Minus values: the strict level, then without the carry rule, then with repeated values. The levels stack.
+function additiveValues(
+  p: RechentabelleProps,
+  op: "+" | "-",
+  next: () => number,
+): { cols: number[]; rows: number[]; loose: Made["loose"] } {
+  const levels: [boolean, boolean, Made["loose"]][] = [
+    [true, true, null],
+    [false, true, "carry"],
+    [false, false, "distinct"],
+  ];
+  for (const [useCarry, distinct, loose] of levels) {
+    for (let t = 0; t < 200; t++) {
+      const got = additiveTry(p, op, next, useCarry, distinct);
+      if (got) return { ...got, loose };
+    }
+  }
+  // Not reached in practice: 1 and 1 fit every Plus and Minus cell.
+  return {
+    cols: Array(p.cols).fill(1),
+    rows: Array(p.rows).fill(1),
+    loose: "distinct",
+  };
+}
+
+// Mal and Geteilt values: the column values from the Reihen, the row values from the Erstfaktoren; Geteilt's rows are dividends.
+function multValues(
+  p: RechentabelleProps,
+  next: () => number,
+): { cols: number[]; rows: number[] } {
+  const shuffled = shuffle(p.reihen, next);
+  const list =
+    p.order === "related"
+      ? FAMILY.filter((n) => p.reihen.includes(n))
+      : shuffled;
+  const cols = range(p.cols).map((j) => list[j % list.length]);
+  const erst: number[] = [];
+  while (erst.length < p.rows) erst.push(...shuffle(FIRST[p.first], next));
+  if (p.op === "*") return { cols, rows: erst.slice(0, p.rows) };
+  const rows: number[] = [];
+  for (let i = 0; i < p.rows; i++) {
+    let v = 0;
+    for (let k = 0; k < 10; k++) {
+      v = erst[i] * cols[Math.floor(next() * cols.length)];
+      if (!rows.includes(v)) break;
+    }
+    rows.push(v);
+  }
+  return { cols, rows };
+}
+
+type Cell = { v: number; struck: boolean; madeUp: boolean };
+
+// The result of one cell from its row and column values, before any typed number.
+function cellOf(op: Op, r: number, c: number): Cell {
+  if (op === "+") return { v: r + c, struck: false, madeUp: false };
+  if (op === "-")
+    return r < c
+      ? { v: 0, struck: false, madeUp: true }
+      : { v: r - c, struck: false, madeUp: false };
+  if (op === "*") return { v: r * c, struck: false, madeUp: false };
+  if (c === 0) return { v: 0, struck: false, madeUp: true };
+  return r % c === 0
+    ? { v: r / c, struck: false, madeUp: false }
+    : { v: 0, struck: true, madeUp: false };
+}
+
+// The tables of the settings. Every draw happens before the typed numbers overlay the values.
 function tablesOf(p: RechentabelleProps, next: () => number): Made {
-  void next;
-  return { tables: [], loose: null };
+  const tables: Table[] = [];
+  let loose: Made["loose"] = null;
+  for (let t = 0; t < p.count; t++) {
+    const v =
+      p.op === "+" || p.op === "-"
+        ? additiveValues(p, p.op, next)
+        : { ...multValues(p, next), loose: null };
+    if (v.loose === "distinct" || (v.loose === "carry" && loose === null))
+      loose = v.loose;
+
+    // The hidden values: a drawn order of the rows and of the columns, then one draw per row and per column.
+    const rowOrder = shuffle(range(p.rows), next);
+    const colOrder = shuffle(range(p.cols), next);
+    const hiddenRows = rowOrder.slice(0, p.hideRows);
+    const hiddenCols = colOrder.slice(0, p.hideCols);
+    const rowPick = range(p.rows).map(() => next());
+    const colPick = range(p.cols).map(() => next());
+
+    // Candidates use the drawn values, so that the typed numbers cannot move a draw.
+    const drawn = v.rows.map((r) => v.cols.map((c) => cellOf(p.op, r, c)));
+    const can = (i: number, j: number) => p.op !== ":" || !drawn[i][j].struck;
+    const rowShown = v.rows.map((_, i) => !hiddenRows.includes(i));
+    const colShown = v.cols.map((_, j) => !hiddenCols.includes(j));
+    const given: boolean[][] = v.rows.map(() => v.cols.map(() => false));
+    for (const i of hiddenRows) {
+      const cands = range(p.cols).filter((j) => colShown[j] && can(i, j));
+      if (cands.length)
+        given[i][cands[Math.floor(rowPick[i] * cands.length)]] = true;
+      else rowShown[i] = true;
+    }
+    for (const j of hiddenCols) {
+      const cands = range(p.rows).filter((i) => rowShown[i] && can(i, j));
+      if (cands.length)
+        given[cands[Math.floor(colPick[j] * cands.length)]][j] = true;
+      else colShown[j] = true;
+    }
+
+    // The typed numbers overlay the values, then the cells follow them.
+    const rows = [...v.rows];
+    const cols = [...v.cols];
+    const typed = (p.typed ?? []).filter(
+      ([tt, r, c]) => tt === t && r <= p.rows && c <= p.cols,
+    );
+    for (const [, r, c, val] of typed) {
+      if (r === 0 && c > 0) cols[c - 1] = val;
+      else if (c === 0 && r > 0) rows[r - 1] = val;
+    }
+    const cells = rows.map((r) => cols.map((c) => cellOf(p.op, r, c)));
+    const out: Table = {
+      rows,
+      cols,
+      cells: cells.map((row) => row.map((x) => x.v)),
+      struck: cells.map((row) => row.map((x) => x.struck)),
+      madeUp: cells.map((row) => row.map((x) => x.madeUp)),
+      given,
+      rowShown,
+      colShown,
+      wrong:
+        (p.op === "*" || p.op === ":") &&
+        (rows.includes(0) || cols.includes(0)),
+    };
+    if (out.madeUp.some((row) => row.some(Boolean))) out.wrong = true;
+    for (const [, r, c, val] of typed) {
+      if (r === 0 || c === 0) continue;
+      const i = r - 1;
+      const j = c - 1;
+      if (out.madeUp[i][j]) {
+        out.wrong = true;
+        continue;
+      }
+      if (cells[i][j].struck || val !== cells[i][j].v) out.wrong = true;
+      out.cells[i][j] = val;
+      out.struck[i][j] = false;
+      out.given[i][j] = true;
+    }
+    tables.push(out);
+  }
+  return { tables, loose };
 }

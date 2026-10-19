@@ -366,6 +366,23 @@ def school_block(client, kind):
             w=180,
             h=85.53,  # the default height: 67 * 180 / 141
         )
+    if kind == "rechentabelle":
+        return box(
+            "k",
+            "rechentabelle",
+            {
+                "count": 2,
+                "columns": 2,
+                "rows": 4,
+                "cols": 4,
+                "op": "+",
+                "max": 20,
+                "carry": "either",
+                "seed": 7,
+            },
+            w=180,
+            h=84.22,  # the default height: 51 * 180 / 109
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -401,6 +418,7 @@ def school_block(client, kind):
         "pfeilbild",
         "operatorfeld",
         "rechenrad",
+        "rechentabelle",
         "selbstkontrolle",
         "name",
         "points",

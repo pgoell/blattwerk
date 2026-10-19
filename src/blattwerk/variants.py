@@ -89,6 +89,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "pfeilbild",
                 "operatorfeld",
                 "rechenrad",
+                "rechentabelle",
                 "rechendreieck",
                 "zahlenstrahl",
                 "hunderterfeld",

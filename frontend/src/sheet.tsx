@@ -14,6 +14,7 @@ import { layout as chainLayout, made as chained, sane as saneChain, stepLabel, t
 import { inverse, layout as arrowLayout, made as arrowMade, noted as arrowNoted, opLabel, sane as saneArrow, type PfeilbildProps } from "./pfeilbild";
 import { boxAt, layout as opLayout, made as opMade, noted as opNoted, opLabel as opLabelOf, sane as saneOp, type OperatorfeldProps } from "./operatorfeld";
 import { cellAt, edgeAngle, layout as wheelLayout, made as wheelMade, opLabel as wheelLabel, sane as saneWheel, type RechenradProps } from "./rechenrad";
+import { TINT as tableTint, layout as tableLayout, made as tableMade, opLabel as tableLabel, sane as saneTable, type RechentabelleProps } from "./rechentabelle";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -709,6 +710,12 @@ export type RechenradBlock = Box & {
   /** The calculation wheels (Rechenräder): a centre with an operator and a number, and rings of segments where each ring's number worked with the centre gives the next ring's, and which ring or boxes are empty. */
   props: RechenradProps;
 };
+// A Rechentabelle: its stored shape is the contract at the top of rechentabelle.ts.
+export type RechentabelleBlock = Box & {
+  type: "rechentabelle";
+  /** The calculation tables (Plus-, Minus-, Mal- and Geteilt-Tabellen): row values down the left, column values along the top, the operator in the corner, and each result cell the row value worked with the column value; which values and cells are given. */
+  props: RechentabelleProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -733,7 +740,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3398,6 +3405,74 @@ function Rechenrad({ block, solved }: { block: RechenradBlock; solved: boolean }
   );
 }
 
+// A Rechentabelle: its tables side by side. Each has the operator in its corner, the row values down the left, the column
+// values along the top and the result cells; a number shows when it is given, or in the key when the table is solved and
+// not wrong. A struck cell has a line, a made-up cell stays empty.
+function Rechentabelle({ block, solved }: { block: RechentabelleBlock; solved: boolean }) {
+  const p = saneTable(block.props);
+  const { tables } = tableMade(p);
+  const { CELL, CG, RG, TW, TH, vbW, vbH } = tableLayout(p);
+  const tint = p.tint === "none" ? null : tableTint[p.tint];
+  return (
+    <div className={`rechentabelle${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {tables.map((t, i) => {
+          const [x0, y0] = [(i % p.columns) * (TW + CG), Math.floor(i / p.columns) * (TH + RG)];
+          const open = solved && !t.wrong;
+          const stateOf = (given: boolean): "given" | "answer" | null => (given ? "given" : open ? "answer" : null);
+          const text = (n: number, x: number, y: number, state: "given" | "answer" | null) =>
+            state && (
+              <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(n).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                fill={state === "given" ? "#222" : "#c0392b"} className={state}>{n}</text>
+            );
+          return (
+            <g key={i} className={`table${t.wrong ? " wrong" : ""}`} data-table={i}>
+              <g className="corner">
+                <rect x={x0} y={y0} width={CELL} height={CELL} fill={tint ? tint[1] : "white"} stroke="#222" strokeWidth={0.4} />
+                <text x={x0 + CELL / 2} y={y0 + CELL / 2} fontSize={numberSize(1, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                  fill="#222" className="given">{tableLabel(p.op)}</text>
+              </g>
+              {t.cols.map((n, j) => {
+                const [x, y] = [x0 + (j + 1) * CELL, y0];
+                return (
+                  <g key={`c${j}`} className="head" data-row={0} data-col={j + 1}>
+                    <rect x={x} y={y} width={CELL} height={CELL} fill={tint ? tint[0] : "white"} stroke="#222" strokeWidth={0.4} />
+                    {text(n, x, y, stateOf(t.colShown[j]))}
+                  </g>
+                );
+              })}
+              {t.rows.map((n, r) => {
+                const [x, y] = [x0, y0 + (r + 1) * CELL];
+                return (
+                  <g key={`r${r}`} className="head" data-row={r + 1} data-col={0}>
+                    <rect x={x} y={y} width={CELL} height={CELL} fill={tint ? tint[0] : "white"} stroke="#222" strokeWidth={0.4} />
+                    {text(n, x, y, stateOf(t.rowShown[r]))}
+                  </g>
+                );
+              })}
+              {t.cells.map((row, r) =>
+                row.map((n, c) => {
+                  const [x, y] = [x0 + (c + 1) * CELL, y0 + (r + 1) * CELL];
+                  return (
+                    <g key={`${r}:${c}`} className="cell" data-row={r + 1} data-col={c + 1}>
+                      <rect x={x} y={y} width={CELL} height={CELL} fill="white" stroke="#222" strokeWidth={0.4} />
+                      {t.struck[r][c] ? (
+                        <line className="strike" x1={x} y1={y} x2={x + CELL} y2={y + CELL} stroke="#222" strokeWidth={0.4} />
+                      ) : t.madeUp[r][c] ? null : (
+                        text(n, x, y, stateOf(t.given[r][c]))
+                      )}
+                    </g>
+                  );
+                }),
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3754,6 +3829,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "pfeilbild") return <Pfeilbild block={block} k={k} solved={solved} />;
   if (block.type === "operatorfeld") return <Operatorfeld block={block} k={k} solved={solved} />;
   if (block.type === "rechenrad") return <Rechenrad block={block} solved={solved} />;
+  if (block.type === "rechentabelle") return <Rechentabelle block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
