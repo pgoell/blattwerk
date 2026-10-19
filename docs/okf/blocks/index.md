@@ -34,6 +34,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [operatorfeld](operatorfeld.md): The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given.
 
+* [rechenrad](rechenrad.md): The calculation wheels (Rechenräder): a centre with an operator and a number, and rings of segments where each ring's number worked with the centre gives the next ring's, and which ring or boxes are empty.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

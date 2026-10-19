@@ -13,6 +13,7 @@ import { layout as houseLayout, made as housed, numberSize, sane as saneHouse, t
 import { layout as chainLayout, made as chained, sane as saneChain, stepLabel, type ZahlenketteProps } from "./zahlenkette";
 import { inverse, layout as arrowLayout, made as arrowMade, noted as arrowNoted, opLabel, sane as saneArrow, type PfeilbildProps } from "./pfeilbild";
 import { boxAt, layout as opLayout, made as opMade, noted as opNoted, opLabel as opLabelOf, sane as saneOp, type OperatorfeldProps } from "./operatorfeld";
+import { cellAt, edgeAngle, layout as wheelLayout, made as wheelMade, opLabel as wheelLabel, sane as saneWheel, type RechenradProps } from "./rechenrad";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -702,6 +703,12 @@ export type OperatorfeldBlock = Box & {
   /** The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given. */
   props: OperatorfeldProps;
 };
+// A Rechenrad: its stored shape is the contract at the top of rechenrad.ts.
+export type RechenradBlock = Box & {
+  type: "rechenrad";
+  /** The calculation wheels (Rechenräder): a centre with an operator and a number, and rings of segments where each ring's number worked with the centre gives the next ring's, and which ring or boxes are empty. */
+  props: RechenradProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -726,7 +733,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3341,6 +3348,56 @@ function Operatorfeld({ block, solved }: { block: OperatorfeldBlock; k: number; 
   );
 }
 
+// A Rechenrad: its wheels in columns. Each wheel has a centre with its operator and number, and rings of segments; a
+// box shows its number when it is given, or in the key when the wheel is solved and not wrong.
+function Rechenrad({ block, solved }: { block: RechenradBlock; solved: boolean }) {
+  const p = saneWheel(block.props);
+  const { wheels } = wheelMade(p);
+  const { C0, W, R, F, CG, RG, vbW, vbH } = wheelLayout(p);
+  const S = p.segments;
+  return (
+    <div className={`rechenrad${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {wheels.map((wheel, i) => {
+          const [x, y] = [(i % p.columns) * (F + CG), Math.floor(i / p.columns) * (F + RG)];
+          const [cx, cy] = [x + R, y + R];
+          return (
+            <g key={i} className={`wheel${wheel.wrong ? " wrong" : ""}`} data-wheel={i}>
+              {wheel.rings.map((ring, ri) => {
+                const r = ri + 1;
+                return ring.map((n, s) => {
+                  const [a0, a1] = [edgeAngle(s, S), edgeAngle(s + 1, S)];
+                  const [inner, outer] = [C0 + (r - 1) * W, C0 + r * W];
+                  const point = (rad: number, a: number) => `${cx + rad * Math.cos(a)} ${cy + rad * Math.sin(a)}`;
+                  const path = `M${point(outer, a0)} A${outer} ${outer} 0 0 1 ${point(outer, a1)} L${point(inner, a1)} A${inner} ${inner} 0 0 0 ${point(inner, a0)} Z`;
+                  const shows = wheel.given[ri][s] || (solved && !wheel.wrong);
+                  const digits = String(n).length;
+                  const chord = 2 * (C0 + (r - 0.5) * W) * Math.sin(Math.PI / S);
+                  const [tx, ty] = cellAt(r, s, S, cx, cy, C0, W);
+                  return (
+                    <g key={`${r}:${s}`} className="box" data-ring={r} data-segment={s}>
+                      <path d={path} fill="white" stroke="#222" strokeWidth={0.4} />
+                      {shows && (
+                        <text x={tx} y={ty} fontSize={numberSize(digits, Math.min(chord, W) * 0.8, 4.4)} textAnchor="middle" dominantBaseline="central"
+                          fill={wheel.given[ri][s] ? "#222" : "#c0392b"} className={wheel.given[ri][s] ? "given" : "answer"}>{n}</text>
+                      )}
+                    </g>
+                  );
+                });
+              })}
+              <g className="centre">
+                <circle cx={cx} cy={cy} r={C0} fill="white" stroke="#222" strokeWidth={0.4} />
+                <text x={cx} y={cy} fontSize={numberSize(wheelLabel(p.op, wheel.centre).length, 2 * C0 * 0.75, 4.6)} textAnchor="middle" dominantBaseline="central"
+                  fill="#222" className="given">{wheelLabel(p.op, wheel.centre)}</text>
+              </g>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3696,6 +3753,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "zahlenkette") return <Zahlenkette block={block} k={k} solved={solved} />;
   if (block.type === "pfeilbild") return <Pfeilbild block={block} k={k} solved={solved} />;
   if (block.type === "operatorfeld") return <Operatorfeld block={block} k={k} solved={solved} />;
+  if (block.type === "rechenrad") return <Rechenrad block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;

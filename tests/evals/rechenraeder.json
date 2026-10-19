@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Rechenrädern. Lege das Blatt mit dem Titel Eval Rechenräder an.",
+  "recipe": "rechenraeder",
+  "expect": {"types": ["rechenrad"], "text": ["Rechenrad"]}
+}
