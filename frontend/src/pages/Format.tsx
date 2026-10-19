@@ -1593,9 +1593,11 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   }, [value]);
   // The focus selected the text, and the drag's end that lands after it writes a new one, which drops the selection:
   // the first key would then go behind it, 9 cm after 69,14 making 691,49 (#922). Before the first key the text
-  // stays all selected, as the focus left it.
+  // stays all selected, as the focus left it. A value the field set itself, by Enter or an arrow, keeps the caret.
+  const own = useRef(false);
   useLayoutEffect(() => {
-    if (document.activeElement === input.current && draft === undefined) input.current!.select();
+    if (!own.current && document.activeElement === input.current && draft === undefined) input.current!.select();
+    own.current = false;
   }, [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
   const read = () => {
@@ -1607,7 +1609,9 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   // Without a draft the blur that follows Enter finds nothing to set.
   const commit = (n: number) => {
     setDraft(undefined);
-    if (!Number.isNaN(n) && n !== value) onCommit(n);
+    if (Number.isNaN(n) || n === value) return;
+    own.current = true;
+    onCommit(n);
   };
   return (
     <label>
@@ -1620,7 +1624,10 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
         disabled={disabled}
         value={draft ?? (value === undefined ? "" : String(round(value)).replace(".", ","))}
         onChange={(e) => setDraft(e.target.value)}
-        onFocus={(e) => e.target.select()}
+        onFocus={(e) => {
+          own.current = false;
+          e.target.select();
+        }}
         // Safari puts the caret where the mouse comes up and so drops what the focus selected.
         onMouseDown={(e) => (fresh.current = document.activeElement !== e.target)}
         onMouseUp={(e) => {

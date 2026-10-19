@@ -397,6 +397,18 @@ def test_keys_in_a_field_stay_in_it(editor):
     assert angle(page, "a") == 1
 
 
+def test_a_key_after_an_arrow_step_goes_behind_the_new_value(editor):
+    """The field's own step keeps the caret at the end; only a value from outside selects the text again (#922)."""
+    page = editor(box("a", "shape", RECT, **ROOM))
+    pick(page, "a")
+    x = field(page, "X")
+    x.click()
+    x.press("ArrowUp")
+    expect(x).to_have_value("41")
+    page.keyboard.type("5")
+    expect(x).to_have_value("415")
+
+
 def test_a_field_while_a_text_is_open(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
