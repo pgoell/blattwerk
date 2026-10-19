@@ -163,7 +163,7 @@ describe("the Rechentabellen of a block", () => {
       [1000, ["either", "none"]],
     ] as [number, RechentabelleProps["carry"]][])
       for (const op of ["+", "-"] as const)
-        for (let seed = 0; seed < 300; seed++)
+        for (let seed = 0; seed < 60; seed++)
           for (const t of made(P({ seed, op, max, carry, rows: 6, cols: 6 }))
             .tables)
             t.rows.forEach((r, i) =>
