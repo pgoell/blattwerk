@@ -13,11 +13,12 @@ if ! command -v docker >/dev/null || [[ "$(ldconfig -p)" == *libgtk-4.so.1* ]]; 
 fi
 
 # A host without them, and without sudo, runs Playwright's own image. It keeps a venv of its own
-# under ~/.cache/blattwerk-webkit. After a change to uv.lock: rm -rf ~/.cache/blattwerk-webkit/venv.
+# under ~/.cache/blattwerk-webkit, synced to uv.lock on each run: a venv left on an older Playwright
+# looks for browsers the image no longer has.
 cache="$HOME/.cache/blattwerk-webkit"
 mkdir -p "$cache"
 exec docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" \
   -e BLATTWERK_BROWSER -e SHARD -e HOME=/cache -e UV_PROJECT_ENVIRONMENT=/cache/venv -e UV_CACHE_DIR=/cache/uv \
   -v "$cache":/cache -v "$(command -v uv)":/usr/local/bin/uv:ro -v "$PWD":/work -w /work \
   mcr.microsoft.com/playwright:v1.64.0-noble \
-  sh -c 'test -x /cache/venv/bin/python || uv sync -q; exec uv run --no-sync pytest "$@"' sh "$@"
+  sh -c 'uv sync -q; exec uv run --no-sync pytest "$@"' sh "$@"
