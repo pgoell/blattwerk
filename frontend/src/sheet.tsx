@@ -3515,7 +3515,7 @@ function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlock; sol
                 }),
               )}
               {solved && s.many && !s.wrong && (
-                <text className="note" x={x0 + TW / 2} y={y0 + top + s.size * CELL + NOTE_H / 2} fontSize={Math.min(3.2, vbW / 18)} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
+                <text className="note" x={x0 + TW / 2} y={y0 + top + s.size * CELL + NOTE_H / 2} fontSize={Math.min(3.2, TW / 19)} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
                   Auch andere Lösungen sind richtig.
                 </text>
               )}

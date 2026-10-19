@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent } from "react";
 import type { MagischesQuadratBlock } from "../sheet";
 import { draw } from "../bank";
-import { DEFAULT_GIVEN, GIVEN, made, sane, type MagischesQuadratProps, type MagischesQuadratTyped } from "../magischesquadrat";
+import { DEFAULT_GIVEN, GIVEN, MIN_MAX, made, sane, type MagischesQuadratProps, type MagischesQuadratTyped } from "../magischesquadrat";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -42,7 +42,7 @@ export default function MagischesQuadrat({ block, apply }: { block: MagischesQua
   // Stores the number of the box in row r and column s (from 1) of square c. The first number typed into a square keeps
   // the drawn given numbers of that square as typed entries too.
   function setTyped(r: number, s: number, text: string) {
-    const own = raw.some((e) => Array.isArray(e) && e[0] === c);
+    const own = (p.typed ?? []).some((e) => e[0] === c && e[1] <= p.size && e[2] <= p.size);
     const drawn: MagischesQuadratTyped[] = [];
     if (!own && square) {
       square.given.forEach((row, i) =>
@@ -156,14 +156,17 @@ export default function MagischesQuadrat({ block, apply }: { block: MagischesQua
           <option value="own">Eigener</option>
         </select>
       </label>
-      {zahlenraum === "own" && (
+      {/* Kept while it has the draft, so that a number typed on the way (a 100 of 1000) does not unmount it. */}
+      {(zahlenraum === "own" || draft?.key === "max") && (
         <input
           className="typed"
           inputMode="numeric"
           aria-label="Eigener Zahlenraum"
           value={draft?.key === "max" ? draft.text : String(p.max)}
           {...fieldHandlers("max", String(p.max), (value) => {
-            if (value !== "") apply({ max: Number(value) }, "max");
+            // Only a whole number the size allows is stored; a shorter number typed on the way waits in the draft.
+            const n = Number(value);
+            if (value !== "" && n >= MIN_MAX[p.size] && n <= 9999) apply({ max: n }, "max");
           })}
         />
       )}

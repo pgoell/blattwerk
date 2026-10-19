@@ -189,6 +189,28 @@ def test_eigener_shows_the_field_and_typing_50_stores_max_50(editor):
     assert props_of(doc(page, client))["max"] == 50
 
 
+def test_typing_500_and_1000_with_real_keys_keeps_the_eigener_field_and_its_digits(editor):
+    """Panel (#825): typed with the keyboard, the field "Eigener Zahlenraum" keeps the focus and its digits while the
+    number grows; 500 stores max 500, and 1000 then ends with max 1000."""
+    client = user()
+    page = editor(mq("d", MQ), client=client)
+    pick(page, "d")
+    field(page, "Zahlenraum").select_option(label="Eigener")
+    number = field(page, "Eigener Zahlenraum")
+    number.click()
+    page.keyboard.press("Control+A")
+    page.keyboard.type("500")
+    expect(number).to_be_focused()
+    expect(number).to_have_value("500")
+    assert props_of(doc(page, client))["max"] == 500
+    number.click()
+    page.keyboard.press("Control+A")
+    page.keyboard.type("1000")
+    expect(number).to_be_focused()
+    expect(number).to_have_value("1000")
+    assert props_of(doc(page, client))["max"] == 1000
+
+
 @pytest.mark.parametrize("given", [3, 4, 6])
 def test_the_pupils_sheet_shows_exactly_given_numbers_per_square(editor, browser, server, given):
     """Print (#825): the pupils' sheet shows exactly `given` numbers in each square, for given 3, 4 and 6."""

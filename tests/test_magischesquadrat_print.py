@@ -141,6 +141,26 @@ def test_the_key_has_the_other_answers_note_only_with_too_few_given(
     paper.context.close()
 
 
+def test_the_key_note_lies_within_the_width_of_its_own_square(editor, browser, server):
+    """Other answers (#825): with the default props and 2 given cells the key's note of each square lies inside the
+    width of that square's cells, so that the two notes do not overlap."""
+    client = user()
+    page = editor(box("k", "magischesquadrat", {**MQ, "given": 2}, w=180, h=H), client=client)
+    paper = key_print(browser, server, sheet_id(page))
+    notes = paper.locator(".magischesquadrat g.square").evaluate_all(
+        """els => els.filter(g => g.querySelector('text.note')).map(g => {
+            const note = g.querySelector('text.note').getBoundingClientRect();
+            const rects = [...g.querySelectorAll('g.cell rect')].map(r => r.getBoundingClientRect());
+            const left = Math.min(...rects.map(r => r.left));
+            const right = Math.max(...rects.map(r => r.right));
+            return note.left >= left - 0.5 && note.right <= right + 0.5;
+        })"""
+    )
+    assert notes, "the key has no note"
+    assert all(notes)
+    paper.context.close()
+
+
 def test_a_wrong_typed_square_shows_no_answer_and_no_sum_in_the_key(editor, browser, server):
     """Typed (#825): a square whose typed numbers fit no magic square shows no answer in the key and no text.sum; the
     other square keeps its answers."""
