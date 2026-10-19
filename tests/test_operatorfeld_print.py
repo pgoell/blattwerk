@@ -4,6 +4,7 @@ The docstrings name what each test proves. The numbers are read from the page, n
 generator may change.
 """
 
+import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_suchsel_print import key_print
@@ -148,6 +149,54 @@ def test_on_the_key_each_link_gives_the_next_box(editor, browser, server):
         for j, op in enumerate(ops):
             a, b = numbers[j], numbers[(j + 1) % k]
             assert apply(op, a) == b or apply(op, b) == a, (numbers, ops, j)
+
+
+# Each link of each field on paper: its label, the numbers of the box its line starts at and of the box its arrow
+# head points to. The boxes are found from the drawing (the nearest box to the line's start and to the head's tip),
+# not from the link's data, so that the test reads the sheet as a pupil does.
+ARROWS = """els => els.map(f => {
+    const boxes = [...f.querySelectorAll('g.box')].map(b => {
+        const r = b.querySelector('rect');
+        const t = b.querySelector('text.given, text.answer');
+        return { x: +r.getAttribute('x') + 5, y: +r.getAttribute('y') + 5, n: t ? Number(t.textContent) : null };
+    });
+    const near = (x, y) => boxes.reduce((a, b) => Math.hypot(b.x - x, b.y - y) < Math.hypot(a.x - x, a.y - y) ? b : a).n;
+    return [...f.querySelectorAll('g.link')].map(a => {
+        const [line, head] = a.querySelectorAll('path');
+        const s = line.getAttribute('d').match(/M([-\\d.e]+) ([-\\d.e]+)/);
+        const h = head.getAttribute('d').match(/M([-\\d.e]+) ([-\\d.e]+)/);
+        const t = a.querySelector('text.op, text.answer');
+        return [t ? t.textContent : null, near(+s[1], +s[2]), near(+h[1], +h[2])];
+    });
+})"""
+
+
+@pytest.mark.parametrize(
+    "ops, centre",
+    [
+        (["+"], False),
+        (["-"], False),
+        (["+", "-"], False),
+        (["*"], False),
+        ([":"], False),
+        (["+"], True),
+    ],
+    ids=["plus", "minus", "plus-minus", "mal", "geteilt", "zentrum-plus"],
+)
+def test_every_arrow_points_the_way_its_task_reads(editor, browser, server, ops, centre):
+    """On the key every task reads along its arrow: the box at the line's start, the label, the box at the
+    arrow head (with Plus only a step down is a "+" whose arrow points back against the ring)."""
+    client = user()
+    props = {**OF, "ops": ops, "centre": centre, "count": 6, "columns": 3, "boxes": 8, "max": 100}
+    page = editor(box("k", "operatorfeld", props, w=180, h=200), client=client)
+    paper = key_print(browser, server, sheet_id(page))
+    fields = paper.locator(".operatorfeld g.field").evaluate_all(ARROWS)
+    paper.context.close()
+    assert len(fields) == 6
+    for links in fields:
+        assert len(links) == 8
+        for label, start, end in links:
+            assert apply(label, start) == end, (label, start, end, links)
 
 
 def test_the_print_has_the_editors_numbers(editor, browser, server):

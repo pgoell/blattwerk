@@ -151,6 +151,19 @@ def test_each_setting_changes_its_prop_and_undoes_and_redoes(editor, key, before
     assert props_of(doc(page, client))[key] == after
 
 
+def test_the_einschraenkung_changes_its_prop_and_undoes_and_redoes(editor):
+    """Panel: at bis 100 the Einschränkung "Nur Zehnerzahlen" stores only "tens"; one Ctrl+Z brings "none", one redo "tens"."""
+    client = user()
+    page = editor(of("d", {**OF, "max": 100}), client=client)
+    pick(page, "d")
+    step(page, lambda: field(page, "Einschränkung").select_option("tens"))
+    assert props_of(doc(page, client))["only"] == "tens"
+    undo(page)
+    assert props_of(doc(page, client))["only"] == "none"
+    redo(page)
+    assert props_of(doc(page, client))["only"] == "tens"
+
+
 def test_the_steppers_show_their_counts_and_stop_at_their_limits(editor):
     """Panel: the steppers say "2 Operatorfelder" and "4 Kästchen", and stop at 1 and 6 fields, 1 and 3 columns, 3 and 8 boxes."""
     page = editor(of("d", OF))

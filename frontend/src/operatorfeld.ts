@@ -24,7 +24,7 @@
 // - Ohne Zentrum: boxes 0 to k-1 around the ring, clockwise from the top. Link j joins box j and box (j + 1) % k.
 // - Mit Zentrum: box 0 is the centre, boxes 1 to k the outer ones, clockwise from the top. Link j joins box 0 and box j + 1.
 // - Each link has a direction, `from` and `to` (box indices): numbers[from] op n = numbers[to]. The drawing puts the
-//   arrow head at `to`. Mit Zentrum every link goes from the centre out.
+//   arrow head at `to`. Mit Zentrum every generated link goes from the centre out (a typed one may turn, see below).
 //
 // The generator `made` (memo of 50, `rng` from zahlenmauer.ts), per field, in units u (1, 10 for "tens", 100 for
 // "hundreds") up to M = max / u, the numbers and the "+" and "−" operands times u at the end ("·" and ":" operands stay):
