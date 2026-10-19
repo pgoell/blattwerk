@@ -160,8 +160,9 @@ export const MAXES = [20, 100, 1000];
 // - `heightFor(p: MalquadratProps, w: number): number`: the height in mm at width w, at the default scale at most (S0
 //   = 180 / layout(DEFAULTS).vbW, as magischesquadrat.ts).
 // - `opLabel(op: "*" | "+"): string`: "·" or "+".
-// - `solve(n, op, known: (number | null)[][], drawn: number[][]): { kind: "none" } | { kind: "one" | "many"; cells:
-//   number[][] }`: the teacher's own square from its typed cells, exactly (see the contract above).
+// - `solve(n, op, known: (number | null)[][], drawn: number[][], cap = 2000): { kind: "none"; unsure?: true } | { kind:
+//   "one" | "many"; cells: number[][] }`: the teacher's own square from its typed cells (see the contract above);
+//   `unsure` when the search reached its node cap.
 // - `made(p: MalquadratProps): Made` (p already sane).
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
@@ -488,7 +489,7 @@ const divisorsOf = (v: number): number[] => {
   return d;
 };
 
-// The numbers of a square of size n from its typed cells, exactly: propagation, then a depth-first search with no budget.
+// The numbers of a square of size n from its typed cells, exactly: propagation, then a depth-first search that tries every value, up to `cap` nodes.
 // Kind "many" when the root propagation leaves a row or column number free.
 export function solve(n: number, op: "*" | "+", known: (number | null)[][], drawn: number[][], cap = STEPS): Solved {
   const F = 2 * n;
@@ -538,7 +539,8 @@ export function solve(n: number, op: "*" | "+", known: (number | null)[][], draw
     if (steps++ >= cap) return null;
     const x = iv.slice();
     if (!propagate(eqs, x)) return null;
-    if (op === "+" && (!wholeSolvable(eqs, x) || !project(eqs, x) || !propagate(eqs, x))) return null;    let alts: [number, number[]][] = [];
+    if (op === "+" && (!wholeSolvable(eqs, x) || !project(eqs, x) || !propagate(eqs, x))) return null;
+    let alts: [number, number[]][] = [];
     let most = Infinity;
     for (const e of eqs) {
       if (e.k !== "prod") continue;
