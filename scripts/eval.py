@@ -100,10 +100,10 @@ def run_claude(prompt: str, config: Path, cwd: Path) -> dict:
         return {"error": f"exit {done.returncode}: {done.stderr[-300:]}"}
 
 
-def find_doc(client, title: str) -> dict | None:
+def find_doc(client, title: str) -> tuple[int, dict] | None:
     for row in client.get("/api/sheets").json():
         if row["title"] == title:
-            return client.get(f"/api/sheets/{row['id']}").json()["doc"]
+            return row["id"], client.get(f"/api/sheets/{row['id']}").json()["doc"]
     return None
 
 
@@ -137,15 +137,18 @@ def main(names: list[str]) -> int:
         rows, notes = [], []
         for name, run in zip(chosen, runs, strict=True):
             title = tasks[name]["prompt"].rsplit("mit dem Titel ", 1)[1].removesuffix(" an.")
-            doc = find_doc(client, title)
+            found = find_doc(client, title)
+            sheet_id, doc = found if found else (None, None)
             if doc is None:
-                checks = [False, False, False, False]
+                checks = [False] * 5
                 notes.append(f"{name}: no sheet titled {title!r}; {run.get('error', '')}")
             else:
                 wrong = missing(doc, tasks[name]["expect"], str(run.get("result", "")))
                 schema_faults = schema.problems(doc)
                 layout = layout_problems(doc)
-                checks = [True, not schema_faults, not layout, not wrong]
+                # The app must draw the sheet: an eval whose previews all fail measures nothing.
+                drawn = client.get(f"/api/sheets/{sheet_id}/preview.png").status_code == 200
+                checks = [True, not schema_faults, not layout, not wrong, drawn]
                 for label, faults in [
                     ("schema", schema_faults),
                     ("layout", layout),
@@ -153,17 +156,19 @@ def main(names: list[str]) -> int:
                 ]:
                     if faults:
                         notes.append(f"{name}: {label}: {'; '.join(map(str, faults[:3]))}")
+                if not drawn:
+                    notes.append(f"{name}: the app could not draw the sheet")
                 if "error" in run:
                     notes.append(f"{name}: {run['error']}")
             rows.append((name, checks, run))
 
     lines = [
-        "| task | created | valid | no overlap | holds | score | turns | cost |",
-        "|---|---|---|---|---|---|---|---|",
+        "| task | created | valid | no overlap | holds | drawn | score | turns | cost |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     scores = []
     for name, checks, run in rows:
-        score = sum(checks) / 4
+        score = sum(checks) / 5
         scores.append(score)
         cost = run.get("total_cost_usd")
         lines.append(
@@ -173,7 +178,7 @@ def main(names: list[str]) -> int:
             + (f"{cost:.2f} USD" if cost is not None else "-")
             + " |"
         )
-    lines.append(f"| **mean** | | | | | **{sum(scores) / len(scores):.2f}** | | |")
+    lines.append(f"| **mean** | | | | | | **{sum(scores) / len(scores):.2f}** | | |")
     text = "\n".join(lines) + "\n"
     if notes:
         text += "\n" + "\n".join(f"- {note}" for note in notes) + "\n"
