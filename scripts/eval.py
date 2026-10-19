@@ -17,6 +17,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
+import httpx
+
 from blattwerk import db, schema
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
@@ -147,7 +149,16 @@ def main(names: list[str]) -> int:
                 schema_faults = schema.problems(doc)
                 layout = layout_problems(doc)
                 # The app must draw the sheet: an eval whose previews all fail measures nothing.
-                drawn = client.get(f"/api/sheets/{sheet_id}/preview.png").status_code == 200
+                # Asked of the server on its port: through `client` it would send Chromium to a
+                # port nobody listens on.
+                drawn = (
+                    httpx.get(
+                        f"{base}/api/sheets/{sheet_id}/preview.png",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=60,
+                    ).status_code
+                    == 200
+                )
                 checks = [True, not schema_faults, not layout, not wrong, drawn]
                 for label, faults in [
                     ("schema", schema_faults),
