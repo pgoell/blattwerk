@@ -265,6 +265,29 @@ def test_typed_numbers_that_do_not_fit_give_the_hint_and_mark_the_square_wrong(e
     expect(at(page, "d").locator("g.square[data-square='0'].wrong")).to_have_count(1)
 
 
+@pytest.mark.parametrize(
+    ("op", "typed"),
+    [
+        # Plus 2 by 2 with only the total 2: row and column numbers 1, 0 and 0, 0 fit.
+        ("+", [[0, 3, 3, 2]]),
+        # Mal 2 by 2 with only the total 7 and row sum 1 is 7: rows 1 and 0, columns 7 and 0 fit.
+        ("*", [[0, 3, 3, 7], [0, 1, 3, 7]]),
+        # Mal 3 by 3 with the cells of one row and one column sum far from the first tries: 3 * 40 = 120, 3 * 50 = 150,
+        # column 1 sum 120 + 2 * 40 = 200 with rows 3, 1 and 1.
+        ("*", [[0, 1, 1, 120], [0, 1, 2, 150], [0, 4, 1, 200]]),
+    ],
+    ids=["plus-total", "mal-total-and-row-sum", "mal-far"],
+)
+def test_typed_numbers_that_fit_give_no_wrong_hint(editor, op, typed):
+    """Eigene Zahlen (#826): typed numbers that fit some Malquadrat never give "Die Zahlen passen nicht zusammen";
+    the square says there is more than one solution instead."""
+    size = 3 if len(typed) == 3 else 2
+    page = editor(mq("d", {**MQ, "op": op, "size": size, "count": 1, "typed": typed}))
+    pick(page, "d")
+    expect(hint(page)).to_have_text("Malquadrat 1: Es gibt mehr als eine Lösung.")
+    expect(at(page, "d").locator("g.square.wrong")).to_have_count(0)
+
+
 def test_eigene_zahlen_entfernen_is_one_undo_step_and_removes_the_hint(editor):
     """Eigene Zahlen (#826): "Eigene Zahlen entfernen" clears every typed number and the hint in one step; one Ctrl+Z
     brings them back."""

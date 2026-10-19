@@ -44,12 +44,27 @@
 //   each single number.
 // - Propagation: while some equation has exactly one unknown x, it is a·x + b with b its value at x = 0 and a its value
 //   at x = 1 minus b; with a ≠ 0, x = (typed − b) / a must be a whole number from 0 to 9999, else the square is
-//   `wrong`; with a = 0 the equation waits until all is known. An equation with no unknown must hold, else `wrong`.
+//   `wrong`; with a = 0 the equation does not depend on x: it must hold already (b = typed), else `wrong`. An equation
+//   with no unknown must hold, else `wrong`.
 // - When numbers stay unknown, the square has more than one solution: `many`, and the key says "Auch andere Lösungen
-//   sind richtig." Then the first unknown (column numbers 1 to n, then row numbers 1 to n) tries the drawn number, then
-//   1 to 100 in order; the first that propagates without `wrong` stays; then the next unknown likewise. No number fits:
-//   `wrong`. The try is greedy, with no going back: a typed set that fits some square can still come out `wrong` when
-//   its free numbers are not those first tries; a subset of a drawn square's numbers always gives that square back.
+//   sind richtig." Then a depth-first search over the unknowns. At each node the unknown picked is the one in the
+//   equation with the fewest unknowns (two or more); ties: an inner cell before a sum, then the lower index. Each try
+//   propagates, and a try that fails goes back to the next candidate of the level above. A try whose lower bound (every
+//   equation with its open numbers at 0) is above its typed value fails at once. The candidates of an unknown: no value
+//   above the largest one at which each equation with it stays at or below its typed value (the others at 0); in Mal
+//   also a divisor of every typed inner cell or row or column sum above 0 it is a factor of (the divisors, ascending).
+//   Without a divisor rule: 0 up to that bound, ascending. Mal line sums and the total are products of two parts, each
+//   a single number or the sum F (of the column numbers) or G (of the row numbers): a part fully known and above 0 makes
+//   the other part's sum a linear target, value / part, which must be whole (else `wrong`), and propagates when one
+//   number is left; a known part 0 needs a typed value 0. A typed value above 0 caps every number of its parts at the
+//   value, and a known part caps the other part's numbers at target minus the sum known. The pick prefers the numbers
+//   of a part with such a target. The first complete assignment stays, and every number of it
+//   must be whole and 0 to 99999. Two passes, each with its own budget of tries (a candidate that is tried counts, also
+//   one that fails at once); pass 2 runs only when pass 1 found nothing. Pass 1, budget 1500: the drawn number first if
+//   it is in the domain, then ascending. Pass 2, budget 3500: ascending, the drawn number not used. In an ascending run
+//   a lower-bound failure stops the run, as every larger candidate fails too. A square whose pass 2 runs out of budget is
+//   `wrong`: that is the only way a typed set that fits some square can still come out `wrong`. A subset of a drawn
+//   square's numbers always gives that square back.
 // - A square is also `wrong` when any of its numbers (sums and total too) is above 99999.
 // - A wrong square shows its typed cells on the pupils' sheet; the other cells stay empty, also in the key: never a
 //   false number. Typed numbers outside the Zahlenraum or the Reihen count.
@@ -249,16 +264,67 @@ function varsAt(n: number, r: number, c: number): number[] {
   return range(2 * n);
 }
 
-type Eq = { r: number; c: number; value: number; vars: number[] };
+// A Mal line sum or the total is the product of two parts, each the sum of some numbers (a single number is a part too).
+type Eq = { r: number; c: number; value: number; vars: number[]; prod?: { LA: number[]; LB: number[] } };
+
+// The parts of a product equation: the sum of each part's numbers, and the numbers still open in it.
+const partOf = (x: (number | null)[], L: number[]) => {
+  let s = 0;
+  const open: number[] = [];
+  for (const k of L) {
+    const y = x[k];
+    if (y === null) open.push(k);
+    else s += y;
+  }
+  return { s, open };
+};
 
 // Propagates the equations over x (null where unknown). False when an equation breaks or a number has no whole value.
+// The lowest value an equation can take: every number is at least 0 and every equation grows with each of its numbers,
+// so with its open numbers at 0 it is a lower bound. Above the typed value, no open number fits.
+function lowerFails(op: "*" | "+", n: number, eqs: Eq[], x: (number | null)[]): boolean {
+  return eqs.some((e) => {
+    if (e.vars.every((v) => x[v] !== null)) return false;
+    return valueAt(op, n, e.r, e.c, x.map((v) => v ?? 0)) > e.value;
+  });
+}
+
 function propagate(op: "*" | "+", n: number, eqs: Eq[], x: (number | null)[]): boolean {
   let changed = true;
   while (changed) {
     changed = false;
     for (const e of eqs) {
+      if (e.prod) {
+        // One part fully known and > 0: the other part's sum is value / that part (whole); 0 needs value 0.
+        const A = partOf(x, e.prod.LA);
+        const B = partOf(x, e.prod.LB);
+        if (A.open.length === 0 && B.open.length === 0) {
+          if (A.s * B.s !== e.value) return false;
+        } else if (A.open.length === 0 || B.open.length === 0) {
+          const K = A.open.length === 0 ? A : B;
+          const O = A.open.length === 0 ? B : A;
+          if (K.s === 0) {
+            if (e.value !== 0) return false;
+          } else {
+            if (e.value % K.s !== 0) return false;
+            const target = e.value / K.s;
+            if (O.s > target) return false;
+            if (O.open.length === 0) {
+              if (O.s !== target) return false;
+            } else if (O.open.length === 1) {
+              const d = target - O.s;
+              if (!Number.isInteger(d) || d < 0 || d > 9999) return false;
+              x[O.open[0]] = d;
+              changed = true;
+            }
+          }
+        }
+      }
       const open = e.vars.filter((v) => x[v] === null);
-      if (open.length > 1) continue;
+      if (open.length > 1) {
+        if (lowerFails(op, n, [e], x)) return false;
+        continue;
+      }
       const known = x.map((v) => v ?? 0);
       if (open.length === 0) {
         if (valueAt(op, n, e.r, e.c, known) !== e.value) return false;
@@ -269,7 +335,10 @@ function propagate(op: "*" | "+", n: number, eqs: Eq[], x: (number | null)[]): b
       const b = valueAt(op, n, e.r, e.c, known);
       known[v] = 1;
       const a = valueAt(op, n, e.r, e.c, known) - b;
-      if (a === 0) continue;
+      if (a === 0) {
+        if (b !== e.value) return false;
+        continue;
+      }
       const d = (e.value - b) / a;
       if (!Number.isInteger(d) || d < 0 || d > 9999) return false;
       x[v] = d;
@@ -282,7 +351,9 @@ function propagate(op: "*" | "+", n: number, eqs: Eq[], x: (number | null)[]): b
 export type Solved = { kind: "none" } | { kind: "one" | "many"; cells: number[][] };
 
 // The numbers of a square of size n from its known grid (null where not known). Propagation first; the numbers still
-// free take the drawn number, then 1 to 100, the first that propagates without a break staying (kind "many").
+// free are searched depth first in two passes (see the contract above): the unknown with the fewest open equation
+// partners first, each try propagates, a failed try goes back to the next candidate. Budgets of 1500 and 3500 tries;
+// none when the second runs out. Kind "many" when propagation from the typed cells alone left numbers free.
 export function solve(
   n: number,
   op: "*" | "+",
@@ -292,30 +363,148 @@ export function solve(
   const eqs: Eq[] = [];
   for (const [r, c] of positions(n)) {
     const value = known[r][c];
-    if (value !== null) eqs.push({ r, c, value, vars: varsAt(n, r, c) });
+    if (value === null) continue;
+    const gList = range(n).map((i) => n + i);
+    const fList = range(n);
+    let prod: Eq["prod"];
+    if (op === "*" && r <= n && c === n + 1) prod = { LA: [n + r - 1], LB: fList };
+    else if (op === "*" && r === n + 1 && c <= n) prod = { LA: [c - 1], LB: gList };
+    else if (op === "*" && r === n + 1 && c === n + 1) prod = { LA: gList, LB: fList };
+    eqs.push({ r, c, value, vars: varsAt(n, r, c), prod });
   }
-  let x: (number | null)[] = Array(2 * n).fill(null);
-  if (!propagate(op, n, eqs, x)) return { kind: "none" };
-  const free = x.some((v) => v === null);
-  for (let v = 0; v < 2 * n; v++) {
-    if (x[v] !== null) continue;
-    const first = v < n ? drawn[0][v + 1] : drawn[v - n + 1][0];
-    let placed = false;
-    for (const t of [first, ...range(100).map((k) => k + 1)]) {
-      const trial = [...x];
-      trial[v] = t;
-      if (propagate(op, n, eqs, trial)) {
-        x = trial;
-        placed = true;
-        break;
+  const start: (number | null)[] = Array(2 * n).fill(null);
+  if (!propagate(op, n, eqs, start)) return { kind: "none" };
+  const free = start.some((v) => v === null);
+  const divCache = new Map<number, number[]>();
+  const divisorsOf = (p: number): number[] => {
+    let d = divCache.get(p);
+    if (!d) {
+      d = range(p).map((k) => k + 1).filter((k) => p % k === 0);
+      divCache.set(p, d);
+    }
+    return d;
+  };
+  const isInner = (e: Eq) => e.r >= 1 && e.r <= n && e.c >= 1 && e.c <= n;
+  // The candidates of the unknown v at x, as [value, ascending] pairs. Both ops: no value above the largest one at which
+  // each equation with v stays at or below its typed value (the others at 0). Mal: v divides every typed inner cell and
+  // row or column sum (above 0) it is a factor of. Mode 1 starts with the drawn number when it is in the domain.
+  function* candidates(v: number, x: (number | null)[], mode: 1 | 2): Generator<[number, boolean]> {
+    let divs: number[] | null = null;
+    let bound = 9999;
+    for (const e of eqs) {
+      if (!e.vars.includes(v)) continue;
+      if (e.prod) {
+        // Both parts are at least 1 when the value is above 0, so each number of a part is at most the value. A known
+        // part with a sum target caps the numbers of the other part at target minus its known sum.
+        if (e.value > 0) bound = Math.min(bound, e.value);
+        const A = partOf(x, e.prod.LA);
+        const B = partOf(x, e.prod.LB);
+        const K = A.open.length === 0 ? A : B.open.length === 0 ? B : null;
+        const O = K === A ? B : A;
+        if (K && K.s > 0 && e.value % K.s === 0 && O.open.includes(v)) {
+          const cap = e.value / K.s - O.s;
+          if (cap < 0) return;
+          bound = Math.min(bound, cap);
+        }
+      }
+      const xs = x.map((y) => y ?? 0);
+      xs[v] = 0;
+      if (valueAt(op, n, e.r, e.c, xs) > e.value) return;
+      let lo = 0;
+      let hi = bound;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        xs[v] = mid;
+        if (valueAt(op, n, e.r, e.c, xs) <= e.value) lo = mid;
+        else hi = mid - 1;
+      }
+      bound = Math.min(bound, lo);
+      if (op === "*" && e.value > 0) {
+        const restricts =
+          isInner(e) || (e.c === n + 1 && e.r <= n && v === n + e.r - 1) || (e.r === n + 1 && e.c <= n && v === e.c - 1);
+        if (restricts) {
+          const d = divisorsOf(e.value);
+          divs = divs ? divs.filter((t) => d.includes(t)) : d;
+        }
       }
     }
-    if (!placed) return { kind: "none" };
+    const first = v < n ? drawn[0][v + 1] : drawn[v - n + 1][0];
+    const inDomain = (t: number) => t <= bound && (divs === null || divs.includes(t));
+    if (mode === 1 && inDomain(first)) yield [first, false];
+    const skip = mode === 1 ? first : -1;
+    if (divs) {
+      for (const t of divs) if (t <= bound && t !== skip) yield [t, true];
+    } else {
+      for (let t = 0; t <= bound; t++) if (t !== skip) yield [t, true];
+    }
   }
+  // The unknown in the fewest equations with two or more unknowns; ties: an inner cell before a sum, then the lower index.
+  const pick = (x: (number | null)[]): number => {
+    let best = -1;
+    let bestCount = Infinity;
+    let bestInner = 2;
+    const consider = (k: number, count: number, inner: number) => {
+      if (count < bestCount || (count === bestCount && (inner < bestInner || (inner === bestInner && k < best)))) {
+        best = k;
+        bestCount = count;
+        bestInner = inner;
+      }
+    };
+    for (const e of eqs) {
+      if (e.prod) {
+        const A = partOf(x, e.prod.LA);
+        const B = partOf(x, e.prod.LB);
+        if ((A.open.length === 0) !== (B.open.length === 0)) {
+          // One part is known: the other part has a sum target, so its numbers come first.
+          for (const k of (A.open.length === 0 ? B : A).open) consider(k, 0, 1);
+          continue;
+        }
+      }
+      const open = e.vars.filter((k) => x[k] === null);
+      if (open.length < 2) continue;
+      const inner = isInner(e) ? 0 : 1;
+      for (const k of open) consider(k, open.length, inner);
+    }
+    return best;
+  };
+  // One depth-first pass with `limit` tries.
+  const pass = (mode: 1 | 2, limit: number): (number | null)[] | null => {
+    let budget = limit;
+    const search = (x0: (number | null)[]): (number | null)[] | null => {
+      const x = [...x0];
+      if (!propagate(op, n, eqs, x)) return null;
+      const v = pick(x);
+      if (v < 0) {
+        // No equation with two unknowns left: each remaining number takes its first candidate, without branching.
+        const out = [...x];
+        for (let k = 0; k < 2 * n; k++) {
+          if (out[k] !== null) continue;
+          const c = candidates(k, x, mode).next();
+          if (c.done) return null;
+          out[k] = c.value[0];
+        }
+        return out;
+      }
+      for (const [t, ascending] of candidates(v, x, mode)) {
+        if (--budget < 0) return null;
+        const trial = x.map((y, k) => (k === v ? t : y));
+        if (lowerFails(op, n, eqs, trial)) {
+          if (ascending) break;
+          continue;
+        }
+        const r = search(trial);
+        if (r) return r;
+      }
+      return null;
+    };
+    return search(start);
+  };
+  const x = pass(1, 1500) ?? pass(2, 3500);
+  if (!x) return { kind: "none" };
   const nums = x as number[];
   const cells = range(n + 2).map(() => Array(n + 2).fill(0));
   for (const [r, c] of positions(n)) cells[r][c] = valueAt(op, n, r, c, nums);
-  if (cells.flat().some((v) => v > 99999)) return { kind: "none" };
+  if (cells.flat().some((v) => !Number.isInteger(v) || v < 0 || v > 99999)) return { kind: "none" };
   return { kind: free ? "many" : "one", cells };
 }
 
