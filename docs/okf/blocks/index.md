@@ -38,6 +38,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [rechentabelle](rechentabelle.md): The calculation tables (Plus-, Minus-, Mal- and Geteilt-Tabellen): row values down the left, column values along the top, the operator in the corner, and each result cell the row value worked with the column value; which values and cells are given.
 
+* [magischesquadrat](magischesquadrat.md): The magic squares (Magische Quadrate): 3×3 or 5×5 squares where every row, column and both diagonals have the same sum, the Zielzahl; which cells are given, and optionally the Zielzahl above.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

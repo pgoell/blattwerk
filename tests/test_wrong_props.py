@@ -78,6 +78,15 @@ RECHENTABELLE = {
     "carry": ["either", "either"],
     "seed": 7,
 }
+MAGISCHES_QUADRAT = {
+    "count": 2,
+    "columns": 2,
+    "size": 3,
+    "max": 20,
+    "given": 4,
+    "showSum": False,
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -160,6 +169,7 @@ WRONG = {
     "pfeilbild": {**PFEILBILD, "max": "x"},
     "operatorfeld": {**OPERATORFELD, "max": "x"},
     "rechentabelle": {**RECHENTABELLE, "max": "x"},
+    "magischesquadrat": {**MAGISCHES_QUADRAT, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},

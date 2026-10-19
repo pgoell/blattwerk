@@ -118,6 +118,15 @@ RECHENTABELLE = {
     "carry": ["either", "either"],
     "seed": 7,
 }
+MAGISCHES_QUADRAT = {
+    "count": 2,
+    "columns": 2,
+    "size": 3,
+    "max": 20,
+    "given": 4,
+    "showSum": False,
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
@@ -127,6 +136,7 @@ DRAWN = {
     "operatorfeld": (OPERATORFELD, 86),  # the default height: 75 * 180 / 157
     "rechenrad": (RECHENRAD, 86),  # the default height: 67 * 180 / 141 (85.53)
     "rechentabelle": (RECHENTABELLE, 84.22),  # the default height: 51 * 180 / 109
+    "magischesquadrat": (MAGISCHES_QUADRAT, 96.52),  # the default height: 37 * 180 / 69
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),
