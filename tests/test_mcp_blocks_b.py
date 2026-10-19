@@ -31,7 +31,7 @@ CHANGES = {
     "suchsel": ({"words": ["HUND", "KATZE", "MAUS"]}, False),
     "zahlenmauer": ({"base": 4}, True),
     "zahlenhaus": ({"floors": 3}, False),
-    "zahlenkette": ({"rings": 8}, True),
+    "zahlenkette": ({"count": 6}, True),
     "rechendreieck": ({"count": 6}, False),
     "zahlenstrahl": ({"end": 50}, False),
     "hunderterfeld": ({"look": "punkte"}, False),

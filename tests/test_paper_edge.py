@@ -11,6 +11,7 @@ from test_gaps import panel, step
 from test_rechendreieck_size import DREIECK
 from test_uhr_grow import UHR
 from test_zahlenhaus_cover import HAUS
+from test_zahlenkette_cover import KETTE
 from test_zahlenmauer_size import MAUER
 from ui import box, pick, saved, user
 
@@ -80,6 +81,14 @@ def dreieck_fits(page):
     panel(page, "Ein Dreieck weniger").click()
 
 
+def kette_more(page, i):
+    panel(page, "Eine Kette mehr").click()
+
+
+def kette_fits(page):
+    panel(page, "Eine Kette weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -90,6 +99,7 @@ CASES = {
     "zahlenhaus": (HAUS, 120, 55, 240, haus_more, haus_fits),
     "zahlenmauer": ({**MAUER, "columns": 1}, 180, 60, 230, mauer_more, mauer_fits),
     "rechendreieck": (DREIECK, 180, 50, 230, dreieck_more, dreieck_fits),
+    "zahlenkette": (KETTE, 180, 39, 230, kette_more, kette_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

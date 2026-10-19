@@ -3120,15 +3120,15 @@ function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: number; so
                 );
               })}
               {c.numbers.slice(1).map((_, j) => {
-                // The arc from ring j's top centre to ring j+1's, bulging up into the band of A units.
+                // The arc from ring j's top centre to ring j+1's, 2.5 units high, with its label above it in the band of A units.
                 const [x1, x2, ya] = [top(j), top(j + 1), y + A];
                 const xm = (x1 + x2) / 2;
                 const shows = p.showStep || (solved && !c.wrong);
                 return (
                   <g key={j} className="arc" data-arc={j}>
-                    <path d={`M${x1} ${ya} Q${xm} ${ya - 2 * (A - 1)} ${x2} ${ya}`} fill="none" stroke="#222" strokeWidth={0.4} />
+                    <path d={`M${x1} ${ya} Q${xm} ${ya - 5} ${x2} ${ya}`} fill="none" stroke="#222" strokeWidth={0.4} />
                     {shows && (
-                      <text x={xm} y={ya - 1.5} fontSize={3.5} textAnchor="middle" dominantBaseline="central"
+                      <text x={xm} y={ya - 4.2} fontSize={3.2} textAnchor="middle" dominantBaseline="central"
                         fill={p.showStep ? "#222" : "#c0392b"} className={p.showStep ? "step" : "answer"}>{stepLabel(p.op, c.step)}</text>
                     )}
                   </g>

@@ -55,7 +55,6 @@ ZAHLENSTRAHL = {
                 "op": "+",
                 "showStep": False,
                 "given": "start",
-                "seed": 7,
             },
         ),
         (

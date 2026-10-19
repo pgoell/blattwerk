@@ -1,0 +1,283 @@
+"""A Zahlenkette block does what every block can do: copy, group, lock, layer, turn, resize,
+survive odd stored props and a save, and move to another page. The docstrings name the lines of
+the checklist (A: block actions, A: old sheets). It tests the block as a box and its stored
+props, not what it draws or what its panel offers.
+"""
+
+from playwright.sync_api import expect
+from test_templates_panel import apply as apply_template
+from test_templates_panel import open_panel
+from ui import (
+    TEXT,
+    angle,
+    at,
+    box,
+    centre,
+    doc,
+    drag,
+    drawer,
+    expect_picked,
+    pick,
+    reload,
+    saved,
+    thumb,
+    user,
+)
+
+KETTE = {
+    "count": 4,
+    "columns": 2,
+    "rings": 6,
+    "max": 20,
+    "op": "+",
+    "showStep": False,
+    "given": "start",
+    "seed": 7,
+}
+ODD = {
+    "count": -3,
+    "columns": 99,
+    "rings": "x",
+    "max": None,
+    "op": "?",
+    "given": "?",
+    "free": [True],
+    "seed": "s",
+    "typed": [[9, 9, 9], "a"],
+}
+
+
+def text(**more):
+    """A text well below the chain block, so that the two do not overlap."""
+    return box("t", "text", TEXT, z=2, y=150, **more)
+
+
+def chain(z=1, **more):
+    return box("k", "zahlenkette", KETTE, z=z, w=180, h=39, **more)
+
+
+def stored(client, page):
+    """The blocks of the first page as the server holds them, by name."""
+    return {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}
+
+
+def button(page, label):
+    return page.get_by_label(label, exact=True)
+
+
+def undo(page):
+    return page.get_by_label("Rückgängig", exact=True)
+
+
+def test_copy_and_paste_keep_type_and_props_and_ctrl_d_doubles_the_seed(editor):
+    """A: block actions: copy and paste keep type and props, the copy has another id; Ctrl+D doubles it."""
+    client = user()
+    page = editor(chain(), text(), client=client)
+    pick(page, "k")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block[data-id]")).to_have_count(3)
+    copies = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zahlenkette"]
+    assert len(copies) == 2
+    assert all(b["props"] == KETTE for b in copies)
+    assert len({b["id"] for b in copies}) == 2
+    # The paste leaves its copy picked, and it lies over the original.
+    page.keyboard.press("Control+d")
+    expect(page.locator(".block[data-id]")).to_have_count(4)
+    chains = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zahlenkette"]
+    assert len(chains) == 3
+    assert all(b["props"]["seed"] == KETTE["seed"] for b in chains)
+
+
+def test_grouped_with_a_text_both_keep_the_group_and_ungroup_frees_them(editor):
+    """A: block actions: grouped by Ctrl+G both carry one group id; a click picks both; Ctrl+Shift+G frees."""
+    client = user()
+    page = editor(chain(), text(), client=client)
+    pick(page, "k", "t")
+    page.keyboard.press("Control+g")
+    expect(page.locator(".block.sel")).to_have_count(2)
+    groups = {b["id"]: b.get("group") for b in saved(page, client)}
+    assert groups["k"] and groups["k"] == groups["t"]
+    page.keyboard.press("Escape")
+    at(page, "k").click()
+    expect_picked(page, "k", "t")
+    page.keyboard.press("Control+Shift+G")
+    expect(page.locator(".block.sel")).to_have_count(2)
+    assert not any(b.get("group") for b in saved(page, client) if b["id"] in ("k", "t"))
+
+
+def test_locked_it_stays_put_by_drag_and_arrows_and_unlocked_it_moves(editor):
+    """A: block actions: locked it does not move by a drag or by the arrow keys; unlocked it moves."""
+    client = user()
+    page = editor(chain(locked=True), client=client)
+    before = stored(client, page)["k"]
+    pick(page, "k")
+    page.keyboard.press("ArrowDown")
+    drag(page, centre(at(page, "k")), (centre(at(page, "k"))[0] + 60, centre(at(page, "k"))[1]))
+    expect(page.locator(".block.sel")).to_have_count(1)
+    assert stored(client, page)["k"]["x"] == before["x"]
+    assert stored(client, page)["k"]["y"] == before["y"]
+    page.get_by_label("Entsperren", exact=True).click()
+    page.keyboard.press("ArrowDown")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    assert stored(client, page)["k"]["y"] == before["y"] + 1
+
+
+def test_to_the_front_puts_the_chain_above_the_text(editor):
+    """A: block actions: with a text over it, "In den Vordergrund" puts the block's z above the text's."""
+    page = editor(chain(z=1), text())
+    pick(page, "k")
+    at(page, "k").click(button="right")
+    page.get_by_role("menuitem", name="In den Vordergrund", exact=True).click()
+    # The stack's own numbers run 1 at the back, as test_order.py reads them.
+    expect(at(page, "t")).to_have_css("z-index", "1")
+    expect(at(page, "k")).to_have_css("z-index", "2")
+
+
+def test_the_panel_turn_stores_angle_90_and_the_block_shows_it(editor):
+    """A: block actions: "Rechtsdrehung 90°" stores angle 90 and the block shows turned."""
+    client = user()
+    page = editor(chain(), client=client)
+    pick(page, "k")
+    page.get_by_label("Rechtsdrehung 90°", exact=True).click()
+    assert angle(page, "k") == 90
+    assert stored(client, page)["k"]["angle"] == 90
+
+
+def test_typed_size_and_a_corner_drag_store_w_and_h_and_undo_brings_the_old_size(editor):
+    """A: block actions: typed Breite and Höhe store w and h; undo brings back the old size."""
+    client = user()
+    page = editor(chain(), client=client)
+    pick(page, "k")
+    for label, value in (("Breite", "90"), ("Höhe", "40")):
+        field = button(page, label)
+        field.click()
+        field.fill(value)
+        field.press("Enter")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    assert stored(client, page)["k"]["w"] == 90
+    assert stored(client, page)["k"]["h"] == 40
+    undo(page).click()
+    undo(page).click()
+    assert stored(client, page)["k"]["w"] == 180
+    assert stored(client, page)["k"]["h"] == 39
+
+
+def test_odd_stored_props_still_draw_and_the_panel_opens(editor):
+    """A: old sheets: odd stored props draw, no fault shows and the editor breaks nothing; props {} too."""
+    client = user()
+    page = editor(
+        box("odd", "zahlenkette", ODD, z=1, w=180, h=39),
+        box("empty", "zahlenkette", {}, z=2, y=150, w=180, h=39),
+        client=client,
+    )
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    expect(at(page, "odd").locator(".zahlenkette")).to_be_visible()
+    expect(at(page, "empty").locator(".zahlenkette")).to_be_visible()
+    expect(page.locator(".fault")).to_have_count(0)
+    pick(page, "odd")
+    expect(
+        page.locator(".panel").get_by_role("heading", name="Zahlenkette", exact=True)
+    ).to_be_visible()
+    assert not errors, errors
+
+
+def test_a_save_leaves_the_chain_props_as_they_were(editor):
+    """A: old sheets: a save leaves a chain block's props exactly as they were, no key added or dropped."""
+    client = user()
+    page = editor(chain(), text(), client=client)
+    pick(page, "t")
+    page.keyboard.press("ArrowDown")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    assert stored(client, page)["k"]["props"] == KETTE
+    reload(page, page.url)
+    expect(at(page, "k").locator(".zahlenkette")).to_be_visible()
+    assert stored(client, page)["k"]["props"] == KETTE
+
+
+def test_delete_and_undo_brings_the_chain_back_with_its_props(editor):
+    """A: block actions: Delete takes the chain off, undo brings it back with the same props."""
+    client = user()
+    page = editor(chain(), text(), client=client)
+    pick(page, "k")
+    page.keyboard.press("Delete")
+    expect(at(page, "k")).to_have_count(0)
+    page.keyboard.press("Control+z")
+    expect(at(page, "k")).to_have_count(1)
+    assert stored(client, page)["k"]["props"] == KETTE
+
+
+def test_cut_and_paste_keeps_the_chain_type_and_props(editor):
+    """A: block actions: a cut and a paste move the chain as it is, with its type and props."""
+    client = user()
+    page = editor(chain(), text(), client=client)
+    pick(page, "k")
+    page.keyboard.press("Control+x")
+    expect(at(page, "k")).to_have_count(0)
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block[data-id]")).to_have_count(2)
+    chains = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zahlenkette"]
+    assert len(chains) == 1
+    assert chains[0]["props"] == KETTE
+
+
+def test_a_chain_on_page_2_keeps_its_props_through_a_save_and_a_reload(editor):
+    """A: old sheets: a chain on page 2 keeps type and props through a save and a reload."""
+    client = user()
+    page = editor(
+        text(),
+        more=[chain()],
+        client=client,
+    )
+    pick(page, "t")
+    page.keyboard.press("ArrowDown")
+    expect(page.locator(".block.sel")).to_have_count(1)
+    second = doc(page, client)["pages"][1]["blocks"]
+    assert [(b["type"], b["props"]) for b in second] == [("zahlenkette", KETTE)]
+    reload(page, page.url)
+    expect(at(page, "k").locator(".zahlenkette")).to_be_visible()
+    second = doc(page, client)["pages"][1]["blocks"]
+    assert [(b["type"], b["props"]) for b in second] == [("zahlenkette", KETTE)]
+
+
+def test_a_chain_moved_to_page_2_keeps_its_props(editor):
+    """A: block actions: a chain cut on page 1 and pasted on page 2 keeps type and props there."""
+    client = user()
+    # theme="" opens the panel Seiten, which holds the page thumbnails.
+    page = editor(
+        chain(),
+        text(),
+        pages=[{"blocks": [box("u", "text", TEXT, z=1)]}],
+        client=client,
+        theme="",
+        touch=True,
+    )
+    drawer(page, "left")
+    pick(page, "k")
+    page.keyboard.press("Control+x")
+    expect(at(page, "k")).to_have_count(0)
+    # thumb counts from 0: page 2 is thumb 1.
+    thumb(page, 1).click()
+    page.keyboard.press("Control+v")
+    expect(page.locator(".block[data-id]")).to_have_count(3)
+    second = doc(page, client)["pages"][1]["blocks"]
+    assert [(b["type"], b["props"]) for b in second if b["type"] == "zahlenkette"] == [
+        ("zahlenkette", KETTE)
+    ]
+
+
+def test_a_template_with_a_chain_gives_a_sheet_with_the_same_chain(editor):
+    """A: templates: a template holding a chain, applied in the editor, gives a sheet whose chain keeps
+    its type and props and draws its rings."""
+    client = user()
+    body = {"pages": [{"blocks": [chain()]}]}
+    made = client.post("/api/templates", json={"name": "Ketten", "doc": body})
+    assert made.status_code == 200, made.text
+    page = editor(box("a", "text", TEXT), client=client)
+    open_panel(page)
+    apply_template(page, "Ketten")
+    expect(page.locator(".zahlenkette").first).to_be_visible()
+    chains = [b for b in doc(page, client)["pages"][0]["blocks"] if b["type"] == "zahlenkette"]
+    assert [b["props"] for b in chains] == [KETTE]
+    expect(at(page, chains[0]["id"]).locator("g.chain")).to_have_count(KETTE["count"])
