@@ -40,6 +40,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [magischesquadrat](magischesquadrat.md): The magic squares (Magische Quadrate): 3×3 or 5×5 squares where every row, column and both diagonals have the same sum, the Zielzahl; which cells are given, and optionally the Zielzahl above.
 
+* [malquadrat](malquadrat.md): The Malquadrate (Einmaleins-Rätsel): row numbers down the left, column numbers along the top, the products (or sums) inside, the sum of each row and column outside and the total in the corner; which numbers are given.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

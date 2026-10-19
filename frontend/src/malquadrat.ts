@@ -83,6 +83,8 @@
 // per square with many and not wrong "Malquadrat i: Es gibt mehr als eine Lösung." Buttons "Eigene Zahlen entfernen"
 // (with typed), "Neu würfeln".
 
+import { rng } from "./zahlenmauer";
+
 /** A number the teacher typed: the square's index (from 0), the row (0 to 5), the column (0 to 5), the value (0 to 9999). */
 export type MalquadratTyped = [number, number, number, number];
 export type MalquadratProps = {
@@ -149,3 +151,263 @@ export const MAXES = [20, 100, 1000];
 // - `solve(n, op, known: (number | null)[][], drawn: number[][]): { kind: "none" } | { kind: "one" | "many"; cells:
 //   number[][] }`: the teacher's own square from its typed cells, as above.
 // - `made(p: MalquadratProps): Made` (p already sane).
+
+const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+export function opLabel(op: "*" | "+"): string {
+  return op === "*" ? "·" : "+";
+}
+
+export function sane(p: MalquadratProps): MalquadratProps {
+  const count = Number.isInteger(p.count) && p.count >= 1 && p.count <= 4 ? p.count : DEFAULTS.count;
+  const columns = Number.isInteger(p.columns) && p.columns >= 1 && p.columns <= 3 ? p.columns : DEFAULTS.columns;
+  const size = Number.isInteger(p.size) ? Math.min(4, Math.max(2, p.size)) : DEFAULTS.size;
+  const op = p.op === "*" || p.op === "+" ? p.op : DEFAULTS.op;
+  const cleaned = Array.isArray(p.reihen)
+    ? [...new Set(p.reihen.filter((k) => Number.isInteger(k) && k >= 1 && k <= 10))]
+    : [];
+  const reihen = cleaned.length ? cleaned : DEFAULTS.reihen;
+  const max = MAXES.includes(p.max) ? p.max : DEFAULTS.max;
+  const task = p.task === "mixed" || p.task === "knobel" ? p.task : DEFAULTS.task;
+  const seed = Number.isFinite(p.seed) ? p.seed : 0;
+  const typed = new Map<string, MalquadratTyped>();
+  if (Array.isArray(p.typed)) {
+    for (const t of p.typed) {
+      if (!Array.isArray(t) || t.length !== 4 || !t.every((x) => Number.isInteger(x))) continue;
+      const [s, r, c, v] = t;
+      if (s < 0 || s > 3 || r < 0 || r > 5 || c < 0 || c > 5 || v < 0 || v > 9999) continue;
+      typed.delete(`${s}:${r}:${c}`);
+      typed.set(`${s}:${r}:${c}`, [s, r, c, v]);
+    }
+  }
+  const kept = [...typed.values()];
+  return {
+    count,
+    columns,
+    size,
+    op,
+    reihen,
+    max,
+    task,
+    seed,
+    ...(kept.length ? { typed: kept } : {}),
+  };
+}
+
+export function layout(p: Pick<MalquadratProps, "count" | "columns" | "size">) {
+  const [CELL, SG, NOTE_H, CG, RG] = [10, 2, 6, 8, 4];
+  const TW = (p.size + 2) * CELL + SG;
+  const TH = TW + NOTE_H;
+  const across = Math.min(p.columns, p.count);
+  const lines = Math.ceil(p.count / p.columns);
+  const vbW = across * TW + (across - 1) * CG + 1;
+  const vbH = lines * TH + (lines - 1) * RG + 1;
+  return { CELL, SG, NOTE_H, CG, RG, TW, TH, lines, vbW, vbH };
+}
+
+// The default block is drawn at 180 mm wide at this scale; a narrower block scales down, a wider one stays at it.
+const S0 = 180 / layout(DEFAULTS).vbW;
+
+export function heightFor(p: MalquadratProps, w: number): number {
+  const L = layout(sane(p));
+  return L.vbH * Math.min(w / L.vbW, S0);
+}
+
+// Positions of a square of size n: every grid position except the three corners.
+function positions(n: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let r = 0; r <= n + 1; r++)
+    for (let c = 0; c <= n + 1; c++) {
+      const corner = (r === 0 && c === 0) || (r === 0 && c === n + 1) || (r === n + 1 && c === 0);
+      if (!corner) out.push([r, c]);
+    }
+  return out;
+}
+
+// The unknowns: x[j] the column number j, x[n + i] the row number i (0-based). The numbers at grid position (r, c).
+function valueAt(op: "*" | "+", n: number, r: number, c: number, x: number[]): number {
+  const mal = op === "*";
+  const F = range(n).reduce((s, j) => s + x[j], 0);
+  const G = range(n).reduce((s, i) => s + x[n + i], 0);
+  if (r === 0) return x[c - 1];
+  if (c === 0) return x[n + r - 1];
+  const g = x[n + r - 1];
+  const f = x[c - 1];
+  if (r <= n && c <= n) return mal ? g * f : g + f;
+  if (c === n + 1 && r <= n) return mal ? g * F : n * g + F;
+  if (r === n + 1 && c <= n) return mal ? f * G : n * f + G;
+  return mal ? G * F : n * G + n * F;
+}
+
+// The unknowns an equation at grid position (r, c) depends on.
+function varsAt(n: number, r: number, c: number): number[] {
+  if (r === 0) return [c - 1];
+  if (c === 0) return [n + r - 1];
+  if (r <= n && c <= n) return [n + r - 1, c - 1];
+  if (c === n + 1 && r <= n) return [n + r - 1, ...range(n)];
+  if (r === n + 1 && c <= n) return [c - 1, ...range(n).map((i) => n + i)];
+  return range(2 * n);
+}
+
+type Eq = { r: number; c: number; value: number; vars: number[] };
+
+// Propagates the equations over x (null where unknown). False when an equation breaks or a number has no whole value.
+function propagate(op: "*" | "+", n: number, eqs: Eq[], x: (number | null)[]): boolean {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const e of eqs) {
+      const open = e.vars.filter((v) => x[v] === null);
+      if (open.length > 1) continue;
+      const known = x.map((v) => v ?? 0);
+      if (open.length === 0) {
+        if (valueAt(op, n, e.r, e.c, known) !== e.value) return false;
+        continue;
+      }
+      const v = open[0];
+      known[v] = 0;
+      const b = valueAt(op, n, e.r, e.c, known);
+      known[v] = 1;
+      const a = valueAt(op, n, e.r, e.c, known) - b;
+      if (a === 0) continue;
+      const d = (e.value - b) / a;
+      if (!Number.isInteger(d) || d < 0 || d > 9999) return false;
+      x[v] = d;
+      changed = true;
+    }
+  }
+  return true;
+}
+
+export type Solved = { kind: "none" } | { kind: "one" | "many"; cells: number[][] };
+
+// The numbers of a square of size n from its known grid (null where not known). Propagation first; the numbers still
+// free take the drawn number, then 1 to 100, the first that propagates without a break staying (kind "many").
+export function solve(
+  n: number,
+  op: "*" | "+",
+  known: (number | null)[][],
+  drawn: number[][],
+): Solved {
+  const eqs: Eq[] = [];
+  for (const [r, c] of positions(n)) {
+    const value = known[r][c];
+    if (value !== null) eqs.push({ r, c, value, vars: varsAt(n, r, c) });
+  }
+  let x: (number | null)[] = Array(2 * n).fill(null);
+  if (!propagate(op, n, eqs, x)) return { kind: "none" };
+  const free = x.some((v) => v === null);
+  for (let v = 0; v < 2 * n; v++) {
+    if (x[v] !== null) continue;
+    const first = v < n ? drawn[0][v + 1] : drawn[v - n + 1][0];
+    let placed = false;
+    for (const t of [first, ...range(100).map((k) => k + 1)]) {
+      const trial = [...x];
+      trial[v] = t;
+      if (propagate(op, n, eqs, trial)) {
+        x = trial;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) return { kind: "none" };
+  }
+  const nums = x as number[];
+  const cells = range(n + 2).map(() => Array(n + 2).fill(0));
+  for (const [r, c] of positions(n)) cells[r][c] = valueAt(op, n, r, c, nums);
+  if (cells.flat().some((v) => v > 99999)) return { kind: "none" };
+  return { kind: free ? "many" : "one", cells };
+}
+
+const shuffle = <T>(xs: T[], next: () => number): T[] => {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+// One square: its numbers, the draws of its numbers and of its hidden positions (always, typed or not), then either its
+// typed cells solved or its drawn given cells picked for the task.
+function squareOf(p: MalquadratProps, i: number, next: () => number): Square {
+  const n = p.size;
+  // Column numbers, then row numbers.
+  let f: number[];
+  let g: number[];
+  if (p.op === "*") {
+    const pool: number[] = [];
+    while (pool.length < n) pool.push(...shuffle(p.reihen, next));
+    f = pool.slice(0, n);
+    g = shuffle(range(9).map((k) => k + 2), next).slice(0, n);
+  } else {
+    const half = Math.floor(p.max / 2);
+    f = shuffle(range(half).map((k) => k + 1), next).slice(0, n);
+    g = shuffle(range(half).map((k) => k + 1), next).slice(0, n);
+  }
+  const rowOrder = shuffle(range(n), next);
+  const colOrder = shuffle(range(n), next);
+  const h = Math.floor(n / 2);
+  const hiddenRows = rowOrder.slice(0, h);
+  const shownRows = rowOrder.slice(h);
+  const hiddenCols = colOrder.slice(0, h);
+  const shownCols = colOrder.slice(h);
+  const rowCells = hiddenRows.map((r) => [r, shownCols[Math.floor(next() * shownCols.length)]]);
+  const colCells = hiddenCols.map((c) => [shownRows[Math.floor(next() * shownRows.length)], c]);
+
+  const x = [...f, ...g];
+  const drawn = range(n + 2).map((r) => range(n + 2).map((c) => 0));
+  for (const [r, c] of positions(n)) drawn[r][c] = valueAt(p.op, n, r, c, x);
+  const empty = () => range(n + 2).map(() => Array(n + 2).fill(false) as boolean[]);
+
+  const typed = (p.typed ?? []).filter(([s, r, c]) => s === i && positions(n).some(([pr, pc]) => pr === r && pc === c));
+  if (typed.length) {
+    const known: (number | null)[][] = range(n + 2).map(() => Array(n + 2).fill(null));
+    const given = empty();
+    for (const [, r, c, v] of typed) {
+      known[r][c] = v;
+      given[r][c] = true;
+    }
+    const res = solve(n, p.op, known, drawn);
+    const cells = res.kind === "none" ? range(n + 2).map(() => Array(n + 2).fill(0)) : res.cells;
+    if (res.kind === "none") for (const [, r, c, v] of typed) cells[r][c] = v;
+    return {
+      size: n,
+      op: p.op,
+      cells,
+      given,
+      wrong: res.kind === "none",
+      many: res.kind === "many",
+    };
+  }
+
+  const given = empty();
+  if (p.task !== "factors") {
+    f.forEach((_, j) => (given[0][j + 1] = !hiddenCols.includes(j)));
+    g.forEach((_, i2) => (given[i2 + 1][0] = !hiddenRows.includes(i2)));
+  } else {
+    f.forEach((_, j) => (given[0][j + 1] = true));
+    g.forEach((_, i2) => (given[i2 + 1][0] = true));
+  }
+  if (p.task !== "factors") {
+    const inner = p.task === "knobel" ? rowCells.slice(1) : rowCells;
+    for (const [r, c] of [...inner, ...colCells]) given[r + 1][c + 1] = true;
+    if (p.task === "knobel") given[hiddenRows[0] + 1][n + 1] = true;
+  }
+  return { size: n, op: p.op, cells: drawn, given, wrong: false, many: false };
+}
+
+// The squares of the settings. Same settings, same squares; a memo of 50 keeps the last ones.
+const memo = new Map<string, Made>();
+
+export function made(props: MalquadratProps): Made {
+  const p = sane(props);
+  const key = JSON.stringify(p);
+  const old = memo.get(key);
+  if (old) return old;
+  const next = rng(p.seed);
+  const out: Made = { squares: range(p.count).map((i) => squareOf(p, i, next)) };
+  memo.set(key, out);
+  if (memo.size > 50) memo.delete(memo.keys().next().value as string);
+  return out;
+}

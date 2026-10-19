@@ -156,6 +156,18 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Malquadrat",
+            "malquadrat",
+            {
+                "count": 2,
+                "columns": 2,
+                "size": 3,
+                "op": "*",
+                "max": 20,
+                "task": "factors",
+            },
+        ),
+        (
             "Uhr",
             "uhr",
             {

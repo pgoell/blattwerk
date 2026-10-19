@@ -789,6 +789,31 @@ def test_a_magischesquadrat_gets_another_seed_and_loses_its_typed_numbers():
     assert doc["pages"][0]["blocks"][0]["props"] == square
 
 
+def test_a_malquadrat_gets_another_seed_and_loses_its_typed_numbers():
+    """Varianten of #826: B to D give a Malquadrat a seed of its own, drop `typed`; A is as stored."""
+    square = {
+        "count": 2,
+        "columns": 2,
+        "size": 3,
+        "op": "*",
+        "reihen": [2, 3, 4, 5, 6, 7, 8, 9],
+        "max": 20,
+        "task": "factors",
+        "seed": 7,
+        "typed": [[0, 1, 1, 5]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "q", "type": "malquadrat", "props": square}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in square.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == square
+
+
 def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #821 and #921: B to D give a Pfeilbild a seed of its own, drop `typed` and
     `typedOps`; A is as stored."""

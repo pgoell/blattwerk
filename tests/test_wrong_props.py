@@ -87,6 +87,16 @@ MAGISCHES_QUADRAT = {
     "showSum": False,
     "seed": 7,
 }
+MALQUADRAT = {
+    "count": 2,
+    "columns": 2,
+    "size": 3,
+    "op": "*",
+    "reihen": [2, 3, 4, 5, 6, 7, 8, 9],
+    "max": 20,
+    "task": "factors",
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -170,6 +180,7 @@ WRONG = {
     "operatorfeld": {**OPERATORFELD, "max": "x"},
     "rechentabelle": {**RECHENTABELLE, "max": "x"},
     "magischesquadrat": {**MAGISCHES_QUADRAT, "max": "x"},
+    "malquadrat": {**MALQUADRAT, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},

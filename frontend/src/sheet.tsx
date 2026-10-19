@@ -16,6 +16,7 @@ import { boxAt, layout as opLayout, made as opMade, noted as opNoted, opLabel as
 import { cellAt, edgeAngle, layout as wheelLayout, made as wheelMade, opLabel as wheelLabel, sane as saneWheel, type RechenradProps } from "./rechenrad";
 import { TINT as tableTint, layout as tableLayout, made as tableMade, opLabel as tableLabel, sane as saneTable, type RechentabelleProps } from "./rechentabelle";
 import { layout as magicLayout, made as magicMade, sane as saneMagic, type MagischesQuadratProps } from "./magischesquadrat";
+import { layout as malquadratLayout, made as malquadratMade, opLabel as malquadratOp, sane as saneMalquadrat, type MalquadratProps } from "./malquadrat";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -723,6 +724,12 @@ export type MagischesQuadratBlock = Box & {
   /** The magic squares (Magische Quadrate): 3×3 or 5×5 squares where every row, column and both diagonals have the same sum, the Zielzahl; which cells are given, and optionally the Zielzahl above. */
   props: MagischesQuadratProps;
 };
+// A Malquadrat: its stored shape is the contract at the top of malquadrat.ts.
+export type MalquadratBlock = Box & {
+  type: "malquadrat";
+  /** The Malquadrate (Einmaleins-Rätsel): row numbers down the left, column numbers along the top, the products (or sums) inside, the sum of each row and column outside and the total in the corner; which numbers are given. */
+  props: MalquadratProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -747,7 +754,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3527,6 +3534,60 @@ function MagischesQuadrat({ block, solved }: { block: MagischesQuadratBlock; sol
   );
 }
 
+// A Malquadrat: its squares side by side. The factors sit at the edges, the products inside, the sums outside and the
+// total in the corner. Its given numbers show on the sheet; in the key the others too, unless the square is wrong.
+function Malquadrat({ block, solved }: { block: MalquadratBlock; solved: boolean }) {
+  const p = saneMalquadrat(block.props);
+  const { squares } = malquadratMade(p);
+  const { CELL, SG, NOTE_H, CG, RG, TW, TH, vbW, vbH } = malquadratLayout(p);
+  const size = p.size;
+  const far = size + 1;
+  return (
+    <div className={`malquadrat${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {squares.map((s, i) => {
+          const [x0, y0] = [(i % p.columns) * (TW + CG), Math.floor(i / p.columns) * (TH + RG)];
+          const open = solved && !s.wrong;
+          const at = (r: number, c: number) => [x0 + c * CELL + (c === far ? SG : 0), y0 + r * CELL + (r === far ? SG : 0)];
+          return (
+            <g key={i} className={`square${s.wrong ? " wrong" : ""}${s.many ? " many" : ""}`} data-square={i}>
+              <g className="corner">
+                <rect x={x0} y={y0} width={CELL} height={CELL} fill="#eeeeee" stroke="#222" strokeWidth={0.4} />
+                <text className="op" x={x0 + CELL / 2} y={y0 + CELL / 2} fontSize={CELL * 0.7} textAnchor="middle" dominantBaseline="central">
+                  {malquadratOp(s.op)}
+                </text>
+              </g>
+              {s.cells.map((row, r) =>
+                row.map((v, c) => {
+                  if (r === 0 && (c === 0 || c === far)) return null;
+                  if (r === far && c === 0) return null;
+                  const [x, y] = at(r, c);
+                  const sum = r === far || c === far;
+                  const state = s.given[r][c] ? "given" : open ? "answer" : null;
+                  return (
+                    <g key={`${r}:${c}`} className="cell" data-row={r} data-col={c}>
+                      <rect x={x} y={y} width={CELL} height={CELL} fill={r === 0 || c === 0 ? "#eeeeee" : "white"} stroke="#222" strokeWidth={sum ? 0.8 : 0.4} />
+                      {state && (
+                        <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(v).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                          fill={state === "given" ? "#222" : "#c0392b"} className={state}>{v}</text>
+                      )}
+                    </g>
+                  );
+                }),
+              )}
+              {solved && s.many && !s.wrong && (
+                <text className="note" x={x0 + TW / 2} y={y0 + (size + 2) * CELL + SG + NOTE_H / 2} fontSize={Math.min(3.2, TW / 19)} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
+                  Auch andere Lösungen sind richtig.
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3885,6 +3946,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechenrad") return <Rechenrad block={block} solved={solved} />;
   if (block.type === "rechentabelle") return <Rechentabelle block={block} solved={solved} />;
   if (block.type === "magischesquadrat") return <MagischesQuadrat block={block} solved={solved} />;
+  if (block.type === "malquadrat") return <Malquadrat block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
