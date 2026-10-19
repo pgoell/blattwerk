@@ -10,9 +10,10 @@
 // - `op`, the Rechenart: "+" (default), "-", "*" (Mal) or ":" (Geteilt). Cell (i, j) is row i op column j.
 // - Plus and Minus: `max`, the Zahlenraum, one of 10, 20, 100, 1000 (default 20; any other value gives 20), and
 //   `carry`, the Übertrag per place, [Zehnerübergang, Hunderterübergang] (each a `CarryRule`): "none" no cell carries
-//   into that place, "required" every cell does, "either" (default) no rule. The Hunderterübergang needs max 1000
-//   (below, a cell of 100 at most leaves no room for it) and is "either" below; no cell reaches a Tausenderübergang,
-//   which needs a cell above 1000. What a cell carries is `carryList`,
+//   into that place, "required" every cell does, "either" (default) no rule. The Hunderterübergang counts from max
+//   1000 and is "either" below (a cell of 100 at most carries into the Hunderter only as 100 itself). "none" at the
+//   top place that counts holds for every place above it too: bis 100 "Ohne Zehnerübergang" has no 20 + 80 = 100,
+//   bis 1000 "Ohne Hunderterübergang" no 100 + 900 = 1000. What a cell carries is `carryList`,
 //   as maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row value below the column value's digit
 //   (with the borrow). Plus: every value and every cell from 1 to max. Minus: every value from 1 to max, every cell 0
 //   or more.
@@ -109,7 +110,7 @@ export type RechentabelleProps = {
   op: "+" | "-" | "*" | ":";
   /** Plus and Minus: the Zahlenraum, the largest number in the table, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. */
   max: number;
-  /** Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell carries into that place, "required" every cell does, "either" no rule. The Hunderterübergang counts only with max 1000, else it is "either". Default ["either", "either"]. */
+  /** Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell carries into that place, "required" every cell does, "either" no rule. The Hunderterübergang counts only with max 1000, else it is "either". "none" at the top place that counts also rules out every place above it. Default ["either", "either"]. */
   carry: [CarryRule, CarryRule];
   /** Mal and Geteilt: the Einmaleins-Reihen, distinct numbers 1 to 10, as the column values. Default [2, 4, 5, 10]. */
   reihen: number[];
@@ -373,8 +374,12 @@ function fits(
   if (op === "+" ? r + c > p.max : r < c) return false;
   if (!useCarry) return true;
   const list = carryList(op, r, c);
-  return p.carry.every((rule, k) => {
-    const v = list[k] ?? 0;
+  // The places the panel shows: the Zehnerübergang, and from max 1000 the Hunderterübergang. "none" at the top one
+  // holds for every place above it too (so that 20 + 80 = 100 is no cell of a table without Übertrag).
+  const top = p.max >= 1000 ? 2 : 1;
+  const above = p.carry[top - 1] === "none" ? "none" : "either";
+  return list.every((v, k) => {
+    const rule = k < top ? p.carry[k] : above;
     return rule === "none" ? v === 0 : rule === "required" ? v === 1 : true;
   });
 }
@@ -555,6 +560,13 @@ function tablesOf(p: RechentabelleProps, next: () => number): Made {
       out.struck[i][j] = false;
       out.given[i][j] = true;
     }
+    // A given cell that typed values struck through or made up leaves its hidden value with no clue.
+    if (
+      out.given.some((row, i) =>
+        row.some((g, j) => g && (out.struck[i][j] || out.madeUp[i][j])),
+      )
+    )
+      out.wrong = true;
     tables.push(out);
   }
   return { tables, loose };

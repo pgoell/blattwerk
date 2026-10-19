@@ -51,8 +51,8 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
   const table = m.tables?.[c];
   const raw = Array.isArray(block.props.typed) ? block.props.typed : [];
 
-  // The number the teacher typed for a box of table c, if any.
-  const stored = (r: number, s: number) => raw.find((e) => Array.isArray(e) && e[0] === c && e[1] === r && e[2] === s)?.[3];
+  // The number the teacher typed for a box of table c, if any: as the sheet takes it (sane keeps the last valid one).
+  const stored = (r: number, s: number) => p.typed?.find((e) => e[0] === c && e[1] === r && e[2] === s)?.[3];
 
   // The text a box shows: the typed number, else the table's number (a struck or made up cell shows nothing).
   function shownText(r: number, s: number): string {
@@ -302,7 +302,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
           Mehr Zeilen oder Spalten als Reihen oder Erstfaktoren: Werte wiederholen sich.
         </p>
       )}
-      {block.props.typed && (
+      {p.typed && (
         <button
           onClick={() => {
             setDraft(null);

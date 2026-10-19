@@ -2415,7 +2415,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -8173,7 +8173,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },
@@ -13238,7 +13238,7 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". \"none\" at the top place that counts also rules out every place above it. Default [\"either\", \"either\"].",
               "items": {
                 "$ref": "#/definitions/CarryRule"
               },

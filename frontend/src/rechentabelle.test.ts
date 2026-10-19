@@ -51,9 +51,10 @@ describe("the Rechentabellen of a block", () => {
       "none",
       "either",
     ]);
-    expect(sane(P({ max: 1000, carry: ["none", "required"] })).carry).toEqual(
-      ["none", "required"],
-    );
+    expect(sane(P({ max: 1000, carry: ["none", "required"] })).carry).toEqual([
+      "none",
+      "required",
+    ]);
     expect(
       sane(P({ carry: "none" as unknown as RechentabelleProps["carry"] }))
         .carry,
@@ -154,6 +155,40 @@ describe("the Rechentabellen of a block", () => {
     expect(carryList("-", 52, 27)).toEqual([1, 0]);
     expect(carryList("-", 305, 127)).toEqual([1, 1, 0]);
     expect(carryList("+", 5, 4)).toEqual([0]);
+  });
+
+  it("Ohne at the top place rules out the places above: no 20 + 80 = 100 bis 100, no 100 + 900 = 1000 bis 1000 (review of #930)", () => {
+    for (const [max, carry] of [
+      [100, ["none", "either"]],
+      [1000, ["either", "none"]],
+    ] as [number, RechentabelleProps["carry"]][])
+      for (const op of ["+", "-"] as const)
+        for (let seed = 0; seed < 300; seed++)
+          for (const t of made(P({ seed, op, max, carry, rows: 6, cols: 6 }))
+            .tables)
+            t.rows.forEach((r, i) =>
+              t.cols.forEach((c) => {
+                const list = carryList(op, r, c);
+                const top = max === 1000 ? 1 : 0;
+                expect(
+                  list.slice(top).every((v) => v === 0),
+                  `${op} ${r} ${c} seed ${seed}`,
+                ).toBe(true);
+                void i;
+              }),
+            );
+  });
+
+  it("a given clue cell that a typed value strikes through marks the table wrong (review of #930)", () => {
+    const m = made(
+      P({ op: ":", count: 1, hideRows: 1, seed: 1, typed: [[0, 0, 1, 7]] }),
+    );
+    const t = m.tables[0];
+    const clueStruck = t.given.some((row, i) =>
+      row.some((g, j) => g && t.struck[i][j]),
+    );
+    expect(clueStruck).toBe(true);
+    expect(t.wrong).toBe(true);
   });
 
   it("Mal: every cell is row times column, the columns are the Reihen in FAMILY order with related", () => {
