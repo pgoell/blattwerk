@@ -562,6 +562,11 @@ describe("solve says one or many exactly (#954)", () => {
     expect(res.kind).toBe("one");
   });
 
+  it("Mal n=2, [1,0]=3 [2,1]=3 [3,2]=24 [3,3]=36: one", () => {
+    const res = solve(2, "*", knownOf(2, [[0, 1, 0, 3], [0, 2, 1, 3], [0, 3, 2, 24], [0, 3, 3, 36]]), range(4).map(() => Array(4).fill(0) as number[]));
+    expect(res.kind).toBe("one");
+  });
+
   it("a second search cut short by the cap is many and unsure, the default cap finds the other square", () => {
     const drawn = fullSquare(2, "+", [1, 2], [3, 4]);
     const known = knownOf(2, [[0, 1, 1, drawn[1][1]]]);
