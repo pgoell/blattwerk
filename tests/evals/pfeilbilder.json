@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Pfeilbildern. Lege das Blatt mit dem Titel Eval Pfeilbilder an.",
+  "recipe": "pfeilbilder",
+  "expect": {"types": ["pfeilbild"], "text": ["Pfeilbild"]}
+}

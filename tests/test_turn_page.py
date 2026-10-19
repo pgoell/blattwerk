@@ -75,11 +75,23 @@ KETTE = {
     "given": "start",
     "seed": 7,
 }
+PFEIL = {
+    "count": 4,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "arrows": "one",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
     "zahlenhaus": (HAUS, 55),
     "zahlenkette": (KETTE, 39),
+    "pfeilbild": (PFEIL, 54),
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),

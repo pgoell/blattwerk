@@ -58,6 +58,20 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Pfeilbild",
+            "pfeilbild",
+            {
+                "count": 4,
+                "columns": 2,
+                "boxes": 4,
+                "max": 20,
+                "ops": ["+", "-"],
+                "arrows": "one",
+                "given": "start",
+                "drawOps": True,
+            },
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},
