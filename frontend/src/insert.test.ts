@@ -21,6 +21,7 @@ describe("INSERTS", () => {
     expect(INSERTS.zahlenmauer(7)).toMatchObject({ w: 180, h: 60, type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed: 7 } });
     expect(INSERTS.zahlenhaus(7)).toMatchObject({ w: 120, h: 55, type: "zahlenhaus", props: { count: 4, columns: 4, floors: 4, max: 10, given: "side", seed: 7 } });
     expect(INSERTS.zahlenkette(7)).toMatchObject({ w: 180, h: 39, type: "zahlenkette", props: { count: 4, columns: 2, rings: 6, max: 20, op: "+", showStep: false, given: "start", seed: 7 } });
+    expect(INSERTS.pfeilbild(7)).toMatchObject({ w: 180, type: "pfeilbild", props: { count: 4, columns: 2, boxes: 4, max: 20, ops: ["+", "-"], arrows: "one", given: "start", drawOps: true, seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });

@@ -15,7 +15,7 @@ export type ToolResult = { content: Content; isError?: boolean };
 
 const TOKEN_MESSAGE = "The Blattomat token is not valid: make a new one on the account page.";
 // The block types the MCP server writes. The others stay in the schema for the editor, not for Claude.
-const KEPT_BLOCKS = ["text", "shape", "ruling", "name", "points", "symbol", "image", "maths", "table", "suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"];
+const KEPT_BLOCKS = ["text", "shape", "ruling", "name", "points", "symbol", "image", "maths", "table", "suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"];
 // The settings the server's /api/maths takes, read from a block's props.
 const MATHS_KEYS = [
   "ops", "max", "count", "seed", "a", "b", "c", "carry", "rest", "format", "sides", "close", "equal",
@@ -23,7 +23,7 @@ const MATHS_KEYS = [
   "one", "distinct", "small",
 ];
 // The types a Block's `props` may take, each with the seed it is drawn with when added.
-const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"] as const;
+const SEEDED = ["suchsel", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "rechendreieck", "zahlenstrahl", "hunderterfeld", "uhr", "selbstkontrolle"] as const;
 
 // An error the teacher's Claude reads as the tool's answer.
 class Fail extends Error {}

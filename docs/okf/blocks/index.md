@@ -30,6 +30,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [zahlenkette](zahlenkette.md): The number chains (Zahlenketten): rings in a row, each step adding or taking away the same number, and which rings are given.
 
+* [pfeilbild](pfeilbild.md): The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

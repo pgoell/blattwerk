@@ -137,6 +137,7 @@
             "rechendreieck",
             "zahlenhaus",
             "zahlenkette",
+            "pfeilbild",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -335,6 +336,18 @@
           },
           "then": {
             "$ref": "#/definitions/ZahlenketteBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "pfeilbild"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/PfeilbildBlock"
           }
         },
         {
@@ -3340,6 +3353,187 @@
       "minItems": 3,
       "maxItems": 3,
       "description": "A number the teacher typed into a ring: the chain's index (from 0), the ring's index (from 0), the value (0 to 9999)."
+    },
+    "PfeilbildBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "pfeilbild"
+        },
+        "props": {
+          "$ref": "#/definitions/PfeilbildProps",
+          "description": "The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "PfeilbildProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of Pfeilbilder on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of Pfeilbilder per row. Default 2.",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "boxes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "const": "random"
+            }
+          ],
+          "description": "Kästchen per Pfeilbild: a whole number from 3 to 8, or \"random\" (Zufällig): each Pfeilbild draws its own number from 3 to 8 from the seed. Default 4.",
+          "minimum": 3,
+          "maximum": 8
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: the largest number a box may show, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20."
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "+",
+              "-",
+              "*",
+              ":"
+            ]
+          },
+          "description": "The Rechenarten: \"+\", \"-\", \"*\" (Mal) and \":\" (Geteilt), in that order, each once. \"*\" and \":\" need max 20 or more, under that they are dropped. Empty or not a list: [\"+\"]. Default [\"+\", \"-\"]."
+        },
+        "arrows": {
+          "type": "string",
+          "enum": [
+            "one",
+            "both"
+          ],
+          "description": "The arrows: \"one\" for arrows in one direction, \"both\" for arrows in both directions. Under each forward arrow a back arrow shows the inverse operator: \"+4\" goes back as \"−4\", \"·2\" as \":2\", \":2\" as \"·2\". Default \"one\"."
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "start",
+            "ends",
+            "mixed"
+          ],
+          "description": "Which numbers show: \"start\" the first box and every operator, \"ends\" the first and the last box (no operators), \"mixed\" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default \"start\"."
+        },
+        "drawOps": {
+          "type": "boolean",
+          "description": "Whether each operator place has an ellipse around it, also an empty one. Default true."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random pictures. The same seed always gives the same pictures."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PfeilbildTyped"
+          },
+          "description": "Numbers the teacher typed into boxes. Each entry is [picture index from 0, box index from 0, value 0 to 9999]. The lowest typed box of a picture is its anchor. A picture whose numbers do not fit its operators is marked wrong."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "boxes",
+        "max",
+        "ops",
+        "arrows",
+        "given",
+        "drawOps",
+        "seed"
+      ]
+    },
+    "PfeilbildTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "A number the teacher typed into a box: the picture's index (from 0), the box's index (from 0), the value (0 to 9999)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",

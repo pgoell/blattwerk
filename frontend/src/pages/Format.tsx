@@ -13,6 +13,7 @@ import Suchsel from "./Suchsel";
 import Zahlenmauer from "./Zahlenmauer";
 import Zahlenhaus from "./Zahlenhaus";
 import Zahlenkette from "./Zahlenkette";
+import Pfeilbild from "./Pfeilbild";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
@@ -121,6 +122,7 @@ const round = (n: number) => Math.round(n * 100) / 100;
 const FOOT: Record<string, [string, string]> = {
   zahlenhaus: ["Das Zahlenhaus ragt unten über den Rand.", "Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben."],
   zahlenkette: ["Die Zahlenkette ragt unten über den Rand.", "Nimm weniger Ketten oder Ringe oder schiebe sie nach oben."],
+  pfeilbild: ["Das Pfeilbild ragt unten über den Rand.", "Nimm weniger Pfeilbilder oder Kästchen oder schiebe es nach oben."],
   zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
   rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
   uhr: ["Die Uhr ragt unten über den Rand.", "Nimm weniger Uhren oder schiebe sie nach oben."],
@@ -407,6 +409,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
   const haus = sel.length === 1 && sel[0].type === "zahlenhaus" ? sel[0] : undefined;
   const kette = sel.length === 1 && sel[0].type === "zahlenkette" ? sel[0] : undefined;
+  const pfeil = sel.length === 1 && sel[0].type === "pfeilbild" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
@@ -584,6 +587,18 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       ),
   );
 
+  const pfeilCovers = sel.some(
+    (z) =>
+      z.type === "pfeilbild" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
+
   return (
     <>
       {/* A block that hangs over the foot is cut in the PDF: the panel says so first, whatever the block. */}
@@ -641,6 +656,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {ketteCovers && (
         <p className="hint warn" role="status" data-cover="kette">
           Die Zahlenkette liegt über einem anderen Block. Verschiebe ihn oder mache die Zahlenkette kleiner.
+        </p>
+      )}
+      {pfeilCovers && (
+        <p className="hint warn" role="status" data-cover="pfeil">
+          Das Pfeilbild liegt über einem anderen Block. Verschiebe ihn oder mache das Pfeilbild kleiner.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
@@ -959,6 +979,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => grows("zahlenmauer", props, key)} />}
       {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => grows("zahlenhaus", props, key)} />}
       {kette && <Zahlenkette key={kette.id} block={kette} apply={(props, key) => grows("zahlenkette", props, key)} />}
+      {pfeil && <Pfeilbild key={pfeil.id} block={pfeil} apply={(props, key) => grows("pfeilbild", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}

@@ -9,6 +9,7 @@ import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } 
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
 import { DEFAULTS as HAUS, heightFor as heightForHaus, sane as saneHaus } from "./zahlenhaus";
 import { DEFAULTS as KETTE, heightFor as heightForKette, sane as saneKette } from "./zahlenkette";
+import { DEFAULTS as PFEIL, heightFor as heightForPfeil, sane as sanePfeil } from "./pfeilbild";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -35,6 +36,10 @@ export const INSERTS = {
   zahlenmauer: (seed: number): Fresh => ({ w: 180, h: 60, type: "zahlenmauer", props: { base: 3, count: 4, columns: 2, max: 20, op: "+", given: "base", empty: false, seed } }),
   zahlenhaus: (seed: number): Fresh => ({ w: 120, h: 55, type: "zahlenhaus", props: { ...HAUS, seed } }),
   zahlenkette: (seed: number): Fresh => ({ w: 180, h: 39, type: "zahlenkette", props: { ...KETTE, seed } }),
+  pfeilbild: (seed: number): Fresh => {
+    const props = { ...PFEIL, seed };
+    return { w: 180, h: round(heightForPfeil(sanePfeil(props), 180)), type: "pfeilbild", props };
+  },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
@@ -81,6 +86,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zahlenmauer: [(p, w) => heightForMauer(saneMauer(p), w), ["count", "columns", "base"]],
   zahlenhaus: [(p, w) => heightForHaus(saneHaus(p), w), ["count", "columns", "floors"]],
   zahlenkette: [(p, w) => heightForKette(saneKette(p), w), ["count", "columns", "rings"]],
+  pfeilbild: [(p, w) => heightForPfeil(sanePfeil(p), w), ["count", "columns", "boxes", "arrows"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's
