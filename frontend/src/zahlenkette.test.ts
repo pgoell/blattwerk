@@ -145,6 +145,13 @@ describe("the chains of a block", () => {
     expect(made(P({ count: 1, op: "+", step: 3, max: 100, typed: [[0, 2, 10], [0, 4, 16]] })).chains[0].wrong).toBe(false);
   });
 
+  it("a number past the Zahlenraum, typed or following, makes its chain wrong", () => {
+    expect(made(P({ count: 1, rings: 4, max: 20, step: 1, typed: [[0, 3, 21]] })).chains[0].wrong).toBe(true);
+    expect(made(P({ count: 1, rings: 4, max: 20, step: 1, typed: [[0, 0, 30], [0, 1, 31], [0, 2, 32], [0, 3, 33]] })).chains[0].wrong).toBe(true);
+    expect(made(P({ count: 1, rings: 4, max: 20, step: 1, typed: [[0, 0, 18]] })).chains[0].wrong).toBe(true);
+    expect(made(P({ count: 1, rings: 4, max: 20, step: 1, typed: [[0, 0, 17]] })).chains[0].wrong).toBe(false);
+  });
+
   it("a number below 0 makes its chain wrong", () => {
     expect(made(P({ count: 1, op: "+", step: 3, max: 100, typed: [[0, 3, 1]] })).chains[0].wrong).toBe(true);
     expect(made(P({ count: 1, op: "-", step: 2, max: 100, typed: [[0, 0, 4]] })).chains[0].wrong).toBe(true);

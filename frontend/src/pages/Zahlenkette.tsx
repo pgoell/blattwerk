@@ -61,7 +61,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
         <select aria-label="Ringe" value={p.rings} onChange={(e) => {
           const rings = Number(e.target.value);
           // More rings make each chain wider: fewer Spalten keep the rings at their size, and the block grows down instead.
-          const columns = fitColumns(p, rings, block.w);
+          const columns = rings > p.rings ? fitColumns(p, rings, block.w) : p.columns;
           apply({ rings, free: Array.from({ length: rings }, (_, j) => free[j] ?? false), ...(columns !== p.columns ? { columns } : {}) });
         }}>
           {Array.from({ length: 9 }, (_, i) => i + 4).map((n) => (
@@ -250,7 +250,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
         ) : null,
       )}
       {m.chains.some((ch) => ch.over) && (
-        <p className="hint" role="status">Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt. Nimm weniger Ringe, einen kleineren Schritt oder einen größeren Zahlenraum.</p>
+        <p className="hint" role="status">Ketten, die nicht in den Zahlenraum passen, werden nicht gezeigt. Nimm weniger Ringe, einen kleineren Schritt oder einen größeren Zahlenraum.</p>
       )}
       {p.typed && (
         <button

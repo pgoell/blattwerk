@@ -243,6 +243,7 @@ export function made(props: ZahlenketteProps): Made {
         wrong ||= x < 0 || x > p.max || !Number.isInteger(x);
         return Math.max(0, Math.trunc(x));
       });
+      wrong ||= numbers.some((n) => n > p.max);
     }
     // A chain of the generator that leaves the Zahlenraum is not drawn; a typed chain that leaves it is wrong instead,
     // so that the teacher's numbers stay in view.

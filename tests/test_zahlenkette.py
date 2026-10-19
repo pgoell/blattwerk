@@ -305,7 +305,7 @@ def test_a_step_too_big_for_the_zahlenraum_is_not_drawn_and_the_panel_says_why(e
     pick(page, "d")
     expect(
         hint(page).filter(
-            has_text="Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt."
+            has_text="Ketten, die nicht in den Zahlenraum passen, werden nicht gezeigt."
         )
     ).to_be_visible()
     for chain in range(4):
@@ -324,7 +324,7 @@ def test_a_long_mal_chain_at_the_smallest_zahlenraum_is_not_drawn_and_a_shorter_
     pick(page, "d")
     expect(
         hint(page).filter(
-            has_text="Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt."
+            has_text="Ketten, die nicht in den Zahlenraum passen, werden nicht gezeigt."
         )
     ).to_be_visible()
     expect(at(page, "d").locator("g.chain.over")).to_have_count(4)
@@ -360,6 +360,17 @@ def test_more_rings_keep_the_ring_size_and_take_fewer_columns_in_one_undo(editor
     assert props["rings"] == 6
     assert props["columns"] == 2
     assert block_of(doc(page, client))["h"] == 39
+
+
+def test_fewer_rings_keep_the_columns_the_teacher_chose(editor):
+    """A8: with 4 Spalten, Ringe 6 to 4 keeps the 4 Spalten: only more rings take columns away."""
+    client = user()
+    page = editor(kette("d", {**KETTE, "columns": 4}), client=client)
+    pick(page, "d")
+    step(page, lambda: field(page, "Ringe").select_option("4"))
+    props = props_of(doc(page, client))
+    assert props["rings"] == 4
+    assert props["columns"] == 4
 
 
 def test_a_rechenart_change_into_mal_drops_the_fixed_step_in_one_undo(editor):
