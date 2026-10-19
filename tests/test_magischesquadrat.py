@@ -167,7 +167,9 @@ def test_zahlenraum_bis_20_is_disabled_at_5_by_5_and_a_stored_5_by_5_with_max_20
     Zahlenraum that holds 25 numbers."""
     page = editor(mq("d", {**MQ, "size": 5, "given": 15, "max": 20}))
     pick(page, "d")
-    expect(field(page, "Zahlenraum").locator("option", has_text="bis 20")).to_be_disabled()
+    expect(field(page, "Zahlenraum").locator("option", has_text="bis 20")).to_have_attribute(
+        "disabled", ""
+    )
     expect(field(page, "Zahlenraum").locator("option:checked")).to_have_text("bis 100")
 
 

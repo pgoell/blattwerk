@@ -159,6 +159,23 @@ def test_a_wrong_typed_square_shows_no_answer_and_no_sum_in_the_key(editor, brow
     paper.context.close()
 
 
+def test_typed_numbers_win_also_outside_the_zahlenraum_and_the_key_works_out_from_them(
+    editor, browser, server
+):
+    """Typed (#825): typed numbers win over the seed, also above max 20; the square works out from them alone, its
+    key is the one magic square they allow, and it has no note."""
+    client = user()
+    typed = [[0, 1, 1, 24], [0, 1, 2, 3], [0, 1, 3, 18], [0, 2, 2, 15]]
+    page = editor(box("k", "magischesquadrat", {**MQ, "typed": typed}, w=180, h=H), client=client)
+    paper = key_print(browser, server, sheet_id(page))
+    found = cells(paper.locator(".magischesquadrat g.square[data-square='0']"))
+    expect(paper.locator(".magischesquadrat g.square[data-square='0'] text.note")).to_have_count(0)
+    paper.context.close()
+    assert grids(found, 3)[0] == [[24, 3, 18], [9, 15, 21], [12, 27, 6]]
+    given = sorted((i["row"], i["col"]) for i in found if not i["answer"])
+    assert given == [(1, 1), (1, 2), (1, 3), (2, 2)]
+
+
 def test_the_print_has_the_editors_numbers(editor, browser, server):
     """Print (#825): the print and the key show the editor's numbers in the same cells."""
     client = user()

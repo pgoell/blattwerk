@@ -52,16 +52,17 @@ def more_square(page):
 
 
 def test_a_magic_square_near_the_foot_grows_past_it_and_keeps_its_cell_size(editor):
-    """Layout (#825): one more square takes a block at y 80 past the margin's foot but not past the paper: the
+    """Layout (#825): one more square takes a block at y 90 past the margin's foot but not past the paper: the
     stored height grows, the cell size stays, and the foot hint says so."""
-    # y 80 puts the grown block (about 206 mm high) between the margin's foot (282 mm) and the paper's edge (297 mm).
+    # y 90 puts the grown block (77 * 180 / 69 = 200.87 mm high) between the margin's foot (282 mm) and the paper's
+    # edge (297 mm).
     client = user()
-    page = editor(mq(y=80), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client)
+    page = editor(mq(y=90), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client)
     pick(page, "k")
     before = at(page, "k").locator("g.cell").first.bounding_box()["width"]
     more_square(page)
     stored = {b["id"]: b for b in saved(page, client)}
-    assert stored["k"]["h"] > H and 282 < 80 + stored["k"]["h"] <= 297, stored["k"]
+    assert stored["k"]["h"] > H and 282 < 90 + stored["k"]["h"] <= 297, stored["k"]
     assert stored["t"]["x"] == 150 and stored["t"]["y"] == 80, stored["t"]
     after = at(page, "k").locator("g.cell").first.bounding_box()["width"]
     assert abs(after - before) <= 0.01 * before, (before, after)
@@ -71,9 +72,9 @@ def test_a_magic_square_near_the_foot_grows_past_it_and_keeps_its_cell_size(edit
 def test_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
     """Layout (#825): one more square takes a block past the foot; one undo takes the grown height and the foot
     hint back, and the stored height is 96.52 again."""
-    # y 80, as above.
+    # y 90, as above.
     client = user()
-    page = editor(mq(y=80), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client)
+    page = editor(mq(y=90), box("t", "text", TEXT, x=150, y=80, w=40, h=30), client=client)
     pick(page, "k")
     expect(foot(page).filter(has_text=FOOT)).to_have_count(0)
     more_square(page)
