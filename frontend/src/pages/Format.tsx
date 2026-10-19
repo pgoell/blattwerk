@@ -115,6 +115,13 @@ const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJu
 // The turns by a quarter and the two flips: a flip has no degrees.
 const TURNS: [string, LucideIcon, number][] = [["Rechtsdrehung 90°", RotateCw, 90], ["Linksdrehung 90°", RotateCcw, -90], ["Horizontal spiegeln", FlipHorizontal2, 0], ["Vertikal spiegeln", FlipVertical2, 0]];
 const round = (n: number) => Math.round(n * 100) / 100;
+// The hint for a maths block that grows past the margin's foot, by its type: the take-away names what to change.
+const footHint: Record<string, string> = {
+  zahlenhaus: "Das Zahlenhaus ragt unten über den Rand. Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben.",
+  zahlenmauer: "Die Zahlenmauer ragt unten über den Rand. Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben.",
+  rechendreieck: "Das Rechendreieck ragt unten über den Rand. Nimm weniger Dreiecke oder schiebe es nach oben.",
+  uhr: "Die Uhr ragt unten über den Rand. Nimm weniger Uhren oder schiebe sie nach oben.",
+};
 // An angle as a block stores it: from 0 up to 360.
 export const norm = (a: number) => round(((a % 360) + 360) % 360) % 360;
 // The box around several blocks.
@@ -540,12 +547,15 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           {sel.length > 1 ? "Die Auswahl ragt unten über die Seite hinaus." : "Der Block ragt unten über die Seite hinaus."} Was unter dem Rand steht, wird nicht gedruckt.
         </p>
       )}
-      {/* A Zahlenhaus past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
-      {sel.some((b) => b.type === "zahlenhaus" && lowest(b) > H - MARGIN + 0.01) && !sel.some((b) => lowest(b) > H + 0.01) && (
-        <p className="hint warn" role="status" data-foot="haus">
-          Das Zahlenhaus ragt unten über den Rand. Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben.
-        </p>
-      )}
+      {/* A maths block past the margin's foot says so, where the PDF still prints it whole up to the paper's edge. */}
+      {(() => {
+        const first = sel.find((b) => footHint[b.type] && lowest(b) > H - MARGIN + 0.01);
+        return first && !sel.some((b) => lowest(b) > H + 0.01) ? (
+          <p className="hint warn" role="status" data-foot="haus">
+            {footHint[first.type]}
+          </p>
+        ) : null;
+      })()}
       {/* A text that the foot stops from growing says that its last words are cut. */}
       {sel.some((b) => full.includes(b.id)) && (
         <p className="hint warn" role="status" data-foot="full">

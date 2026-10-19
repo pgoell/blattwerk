@@ -60,15 +60,19 @@ def test_a2_the_pdf_has_one_page_and_draws_the_text(editor, server):
     assert "Hallo" in pages[0], pages
 
 
-def test_a3_near_the_foot_the_wall_ends_at_the_foot_and_prints_one_page(editor, server):
-    """A3: a Zahlenmauer low on the page grows to the foot and no further; the PDF has one page."""
+def test_a3_911_near_the_foot_the_wall_grows_past_it_and_prints_one_page(editor, server):
+    """#911: a Zahlenmauer low on the page grows past the foot, up to the paper's edge; its stones keep
+    their size, the hint says it hangs over, and the PDF has one page."""
     client = user()
-    page = editor(zw("z", MAUER, y=220), client=client)
+    page = editor(zw("z", MAUER, y=190), client=client)
     pick(page, "z")
-    for _ in range(8):
-        step(page, lambda: panel(page, "Eine Mauer mehr").click())
+    stone = page.locator('.block[data-id="z"] g.wall[data-wall="0"] rect').first
+    before = stone.bounding_box()["height"]
+    step(page, lambda: panel(page, "Eine Mauer mehr").click())
     stored = {b["id"]: b for b in saved(page, client)}["z"]
-    assert stored["y"] + stored["h"] <= FOOT + 0.01, stored
+    assert 282 < stored["y"] + stored["h"] <= FOOT, stored
+    assert stone.bounding_box()["height"] == pytest.approx(before, rel=0.01)
+    expect(page.locator('p[data-foot="haus"], p[data-foot="over"]')).to_be_visible()
     pages = pdf_pages(server, client, page.url.rsplit("/", 1)[1])
     assert len(pages) == 1, pages
 
