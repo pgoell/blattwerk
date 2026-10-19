@@ -3,8 +3,8 @@ type: Explanation
 title: Page model
 description: How a Blattomat sheet is laid out, A4 in mm, the box of each block, z order, pages, guide lines and the grid.
 tags: [page, layout, doc]
-covers: [text, shape, ruling, name, points, symbol, image, maths, table, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-19T17:00:00Z }
+covers: [text, shape, ruling, name, points, symbol, image, maths, table, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
+generated: { by: "human:pgoell", at: 2026-10-19T22:00:00Z }
 ---
 
 # Page model

@@ -197,6 +197,26 @@ def mq_fits(page):
     panel(page, "Ein Quadrat weniger").click()
 
 
+MALQUADRAT = {
+    "count": 2,
+    "columns": 2,
+    "size": 3,
+    "op": "*",
+    "reihen": [2, 3, 4, 5, 6, 7, 8, 9],
+    "max": 20,
+    "task": "factors",
+    "seed": 7,
+}
+
+
+def ml_more(page, i):
+    panel(page, "Ein Malquadrat mehr").click()
+
+
+def ml_fits(page):
+    panel(page, "Ein Malquadrat weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -235,6 +255,8 @@ CASES = {
     ),  # y 190: the default height, one more row (16.5 mm) passes the paper's foot at 282 mm
     # y 110: one square (count 1 to 2) keeps the height, the next (2 to 3, two lines, about 206 mm) passes the paper's edge.
     "magischesquadrat": (MAGISCHES_QUADRAT, 180, 96.52, 110, mq_more, mq_fits),
+    # y 110: two squares (2 to 3, two lines, about 193 mm tall) pass the paper's edge.
+    "malquadrat": (MALQUADRAT, 180, 93.98, 110, ml_more, ml_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

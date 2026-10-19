@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit zwei Malquadraten zum Einmaleins. Lege das Blatt mit dem Titel Eval Malquadrate an.",
+  "recipe": "malquadrate",
+  "expect": {"types": ["malquadrat"], "text": ["Malquadrat"]}
+}

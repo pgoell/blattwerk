@@ -542,6 +542,8 @@ body:has(.print) { background: #fff; }
 .rechentabelle svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .magischesquadrat { height: 100%; font-family: Andika; }
 .magischesquadrat svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .malquadrat { height: 100%; font-family: Andika; }
+.malquadrat svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .rechendreieck { height: 100%; font-family: Andika; }
 .rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zahlenstrahl { height: 100%; font-family: Andika; }
