@@ -579,60 +579,111 @@ describe("solve says one or many exactly (#954)", () => {
     expect(full.kind !== "none" && full.other).toBeDefined();
   });
 
-  // Every square whose 2n numbers are 0..K.
-  const allSquares = (n: number, op: "*" | "+", K: number): number[][][] => {
-    const out: number[][][] = [];
-    for (let code = 0; code < (K + 1) ** (2 * n); code++) {
-      let x = code;
-      const digit = () => {
-        const v = x % (K + 1);
-        x = Math.floor(x / (K + 1));
-        return v;
-      };
-      const f = range(n).map(digit);
-      const g = range(n).map(digit);
-      out.push(fullSquare(n, op, f, g));
+  // An independent oracle, no search of solve: the squares with every number 0..K that keep every typed cell.
+  // It checks a typed cell as soon as its numbers are set (a column or row number, or a product or sum of two),
+  // sums and totals only at the end. It stops after `stop` matches.
+  function bruteCount(n: number, op: "*" | "+", known: (number | null)[][], K: number, stop = 2) {
+    const nums: number[] = Array(2 * n).fill(0);
+    const needOf = (r: number, c: number) => {
+      if (r === 0) return c >= 1 && c <= n ? c - 1 : -1;
+      if (c === 0) return r >= 1 && r <= n ? n + r - 1 : -1;
+      return r <= n && c <= n ? Math.max(c - 1, n + r - 1) : -1;
+    };
+    const checks: [number, number, number][][] = range(2 * n).map(() => []);
+    const sumChecks: [number, number, number][] = [];
+    for (const [r, c] of positions(n)) {
+      const v = known[r][c];
+      const need = needOf(r, c);
+      if (v === null) continue;
+      if (need >= 0) checks[need].push([r, c, v]);
+      else sumChecks.push([r, c, v]);
     }
-    return out;
-  };
+    const cellValue = (r: number, c: number) =>
+      r === 0 ? nums[c - 1] : c === 0 ? nums[n + r - 1] : op === "*" ? nums[n + r - 1] * nums[c - 1] : nums[n + r - 1] + nums[c - 1];
+    // A sum or the total of the inner cells, from the numbers set so far (all of them at the end).
+    const inner = (i: number, j: number) => (op === "*" ? nums[n + i - 1] * nums[j - 1] : nums[n + i - 1] + nums[j - 1]);
+    const sumValue = (r: number, c: number) => {
+      if (r === n + 1 && c === n + 1) return range(n).reduce((s, i) => s + range(n).reduce((t, j) => t + inner(i + 1, j + 1), 0), 0);
+      if (c === n + 1) return range(n).reduce((s, j) => s + inner(r, j + 1), 0);
+      return range(n).reduce((s, i) => s + inner(i + 1, c), 0);
+    };
+    const squares: number[][][] = [];
+    const rec = (idx: number): boolean => {
+      if (idx === 2 * n) {
+        if (sumChecks.every(([r, c, v]) => sumValue(r, c) === v)) squares.push(fullSquare(n, op, nums.slice(0, n), nums.slice(n)));
+        return squares.length >= stop;
+      }
+      for (let v = 0; v <= K; v++) {
+        nums[idx] = v;
+        if (checks[idx].every(([r, c, want]) => cellValue(r, c) === want) && rec(idx + 1)) return true;
+      }
+      return false;
+    };
+    rec(0);
+    return { count: squares.length, squares };
+  }
 
   for (const op of OPS)
     for (const [n, K] of [
-      [2, 12],
-      [3, 5],
+      [2, 30],
+      [3, 15],
     ] as const) {
-      it(`brute force agrees with one and many (${op} n=${n})`, { timeout: 120000 }, () => {
-        const all = allSquares(n, op, K);
-        const bounds = range(2 * n).map((): [number, number] => [0, K]);
-        const rand = rng(n * 1000 + (op === "*" ? 1 : 2));
+      it(`brute force oracle up to ${K} (${op} n=${n})`, { timeout: 120000 }, () => {
+        let runs = 0;
         let ones = 0;
         let manys = 0;
-        for (let k = 0; k < 400; k++) {
-          const truth = all[Math.floor(rand() * all.length)];
-          let chosen = positions(n).filter(() => rand() < 0.3);
-          if (!chosen.length) chosen = [positions(n)[Math.floor(rand() * positions(n).length)]];
-          const known: (number | null)[][] = range(n + 2).map(() => Array(n + 2).fill(null) as null[]);
-          for (const [r, c] of chosen) known[r][c] = truth[r][c];
-          const matches = all.filter((sq) => chosen.every(([r, c]) => sq[r][c] === truth[r][c]));
-          expect(matches.length).toBeGreaterThan(0);
-          const dr = rng(k + 17);
-          const drawn = range(n + 2).map(() => range(n + 2).map(() => Math.floor(dr() * 31)));
-          const res = solve(n, op, known, drawn, 2000, bounds);
-          if (matches.length === 1) {
-            ones++;
-            expect(res.kind).toBe("one");
-            if (res.kind !== "none") expect(res.cells).toEqual(matches[0]);
-          } else {
+        let worstBrute = 0;
+        let worstSolve = 0;
+        fc.assert(
+          fc.property(fc.integer({ min: 0, max: 1e9 }), (seed) => {
+            runs++;
+            const pick = (s: number) => {
+              const r = rng(s);
+              return range(n).map(() => Math.floor(r() * (K + 1)));
+            };
+            const truth = fullSquare(n, op, pick(seed), pick(seed + 1));
+            const pr = rng(seed + 2);
+            let chosen = positions(n).filter(() => pr() < 0.3);
+            if (!chosen.length) chosen = [positions(n)[Math.floor(pr() * positions(n).length)]];
+            const known: (number | null)[][] = range(n + 2).map(() => Array(n + 2).fill(null) as null[]);
+            for (const [r, c] of chosen) known[r][c] = truth[r][c];
+            const dr = rng(seed + 3);
+            const drawn = range(n + 2).map(() => range(n + 2).map(() => Math.floor(dr() * 31)));
+            const bounds = range(2 * n).map((): [number, number] => [0, K]);
+
+            const t0 = performance.now();
+            const brute = bruteCount(n, op, known, K);
+            worstBrute = Math.max(worstBrute, performance.now() - t0);
+            const t1 = performance.now();
+            const res = solve(n, op, known, drawn, 2000, bounds);
+            worstSolve = Math.max(worstSolve, performance.now() - t1);
+
+            expect(brute.count).toBeGreaterThan(0);
+            if (brute.count === 1) {
+              ones++;
+              expect(res.kind).toBe("one");
+              if (res.kind !== "none") expect(res.cells).toEqual(brute.squares[0]);
+              return;
+            }
             manys++;
             expect(res.kind).toBe("many");
-            if (res.kind !== "none") {
-              expect(res.unsure).toBeFalsy();
-              expect(res.other).toBeDefined();
-              if (res.other) for (const [r, c] of chosen) expect(res.other[r][c]).toBe(truth[r][c]);
+            if (res.kind === "none") return;
+            expect(res.unsure).toBeFalsy();
+            expect(res.other).toBeDefined();
+            if (!res.other) return;
+            expect(holds(res.cells, n, op)).toBe(true);
+            expect(holds(res.other, n, op)).toBe(true);
+            expect(range(2 * n).some((k) => numOf(res.other!, n, k) !== numOf(res.cells, n, k))).toBe(true);
+            for (const [r, c] of chosen) {
+              expect(res.cells[r][c]).toBe(truth[r][c]);
+              expect(res.other[r][c]).toBe(truth[r][c]);
             }
-          }
-        }
-        console.log(`brute force ${op} n=${n} K=${K}: ${ones} one, ${manys} many (of 400)`);
+          }),
+          { numRuns: 300 },
+        );
+        console.log(
+          `brute force oracle ${op} n=${n}: ${runs} runs, ${ones} one, ${manys} many, worst brute ${worstBrute.toFixed(1)} ms, worst solve ${worstSolve.toFixed(1)} ms`,
+        );
       });
     }
 });
