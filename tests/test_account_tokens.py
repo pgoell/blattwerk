@@ -270,6 +270,17 @@ def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
     expect(field).to_have_accessible_description(HINT)
 
 
+def test_enter_pressed_twice_makes_one_key_and_no_more_words(account):
+    page = account(user())
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("Doppelt")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
+    expect(row(page, "Doppelt")).to_have_count(1)
+    expect(field).to_have_accessible_description(HINT)
+
+
 def test_enter_on_the_question_keeps_the_key(account):
     page = account(user())
     make(page, "Laptop")

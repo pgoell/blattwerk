@@ -60,8 +60,10 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const cancel = useRef<HTMLButtonElement>(null);
   const rowButtons = useRef(new Map<number, HTMLButtonElement>());
   const askedId = useRef<number | null>(null);
-  // A create is out: a second press waits for it.
+  // A create is out until its key is in the list: a press meanwhile does nothing.
   const busy = useRef(false);
+  // A key was made and nothing typed since: the second press of a double one says nothing.
+  const done = useRef(false);
   // What the copy button shows: "Kopiert" for two seconds, or the failure line.
   const [copy, setCopy] = useState<"done" | "failed" | null>(null);
   const copyTimer = useRef(0);
@@ -127,11 +129,11 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
 
   function create(e: React.FormEvent) {
     e.preventDefault();
+    if (busy.current || done.current) return;
     const label = name.trim();
     if (!label) return setFieldNote("Gib dem Schlüssel einen Namen.");
     if (label.length > 80) return setFieldNote("Der Name ist zu lang: höchstens 80 Zeichen.");
     if (tokens.some((t) => t.name.toLowerCase() === label.toLowerCase())) return setFieldNote(TAKEN);
-    if (busy.current) return;
     busy.current = true;
     attempt("Der Schlüssel konnte nicht erstellt werden.", async () => {
       try {
@@ -142,6 +144,8 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         setName("");
         setFieldNote("");
         forget();
+        await load();
+        done.current = true;
       } catch (err) {
         // The server's refusal: the name it already has, or a name it does not take.
         if (status(err) === "422") {
@@ -153,7 +157,6 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
       } finally {
         busy.current = false;
       }
-      await load();
     });
   }
 
@@ -236,6 +239,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
             onChange={(e) => {
               setName(e.target.value);
               setFieldNote("");
+              done.current = false;
             }}
           />
           <p id="name-hint" className="hint">Gib jedem Schlüssel einen eigenen Namen, einen je Gerät.</p>

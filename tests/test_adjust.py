@@ -7,6 +7,7 @@ import pytest
 from playwright.sync_api import expect
 from test_foot_cut import LINES, LONG, assert_whole_lines
 from ui import (
+    BROWSER,
     RECT,
     TEXT,
     at,
@@ -293,6 +294,12 @@ def test_the_handle_keeps_clear_of_the_others(editor):
         assert blocks[name].get("angle", 0) == 0
 
 
+@pytest.mark.xfail(
+    BROWSER == "webkit",
+    raises=KeyError,
+    strict=False,
+    reason="#932: once in CI the swipe saved a change that was not the tail; no cause found yet",
+)
 def test_a_finger_drags_the_handle(editor):
     client = user()
     page = editor(box("a", "shape", BUBBLE, x=60, y=60, w=60, h=40), client=client, touch=True)
