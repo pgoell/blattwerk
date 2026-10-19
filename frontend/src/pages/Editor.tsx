@@ -5400,11 +5400,6 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
-                  {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
-                    <label>
-                      <input type="checkbox" checked={boxes[0].props.fit === true} onChange={(e) => look({ fit: e.target.checked || undefined })} /> An Text anpassen
-                    </label>
-                  )}
                   {/* A line stays a line. */}
                   {!rulers.length && (
                     <div className="seg">
@@ -5471,6 +5466,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       </button>
                     ))}
                   </div>
+                  {/* A circle, triangle or star keeps its text in a share of its outline, and a linked text grows on. */}
+                  {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
+                    <label className="tick">
+                      <input type="checkbox" checked={boxes[0].props.fit === true} onChange={(e) => look({ fit: e.target.checked || undefined })} /> An Text anpassen
+                    </label>
+                  )}
                 </>
               )}
               {rulers.length > 0 && rulers.length === sel.length && (
