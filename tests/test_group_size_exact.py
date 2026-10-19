@@ -95,6 +95,25 @@ def test_a_size_typed_before_a_late_drag_end_lands_is_kept(editor):
     expect(field(page, "Breite")).to_have_value("40")
 
 
+@pytest.mark.parametrize(
+    "field_name, typed, shown",
+    [("Breite", "9 cm", "90"), ("Höhe", "50", "50")],
+)
+def test_a_size_typed_after_a_late_drag_end_replaces_the_shown_size(
+    editor, field_name, typed, shown
+):
+    """The drag's last step lands after the field took the focus and selected its text (#922): what is typed
+    takes the place of the size the field shows then, and is not put behind it (691,49 for 9 cm in CI)."""
+    page = turned_group(editor, user(), *SHAPES)
+    page.evaluate(HOLD)
+    drag_se_outward(page)
+    field(page, field_name).focus()
+    page.evaluate("free()")
+    page.keyboard.type(typed)
+    page.keyboard.press("Enter")
+    expect(field(page, field_name)).to_have_value(shown)
+
+
 def test_breite_percent_after_a_handle_drag_halves_the_shown_width(editor):
     page = turned_group(editor, user(), *SHAPES)
     drag_se_outward(page)

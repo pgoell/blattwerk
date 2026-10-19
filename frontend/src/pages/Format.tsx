@@ -1,5 +1,5 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, Scissors, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
@@ -1590,6 +1590,12 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   // it: the end of a drag can land late, after the first key (#727), and Enter would then find nothing to set.
   useEffect(() => {
     if (document.activeElement !== input.current) setDraft(undefined);
+  }, [value]);
+  // The focus selected the text, and the drag's end that lands after it writes a new one, which drops the selection:
+  // the first key would then go behind it, 9 cm after 69,14 making 691,49 (#922). Before the first key the text
+  // stays all selected, as the focus left it.
+  useLayoutEffect(() => {
+    if (document.activeElement === input.current && draft === undefined) input.current!.select();
   }, [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
   const read = () => {

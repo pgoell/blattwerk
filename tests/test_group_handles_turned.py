@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fields import by_id, enter, field, number
 from test_group_scale_turned import SHAPES, pick_group, turned_group
+from test_group_size_exact import LATE, settled
 from ui import LINE, RECT, at, box, centre, drag, pick, saved, user
 
 # Handles in order: nw, ne, sw, se (Editor.tsx draws the four `i.end` as [0, 1, 2, 3]).
@@ -100,10 +101,12 @@ def test_a_size_handle_drag_past_the_opposite_corner_stops_at_a_tenth(editor):
 def test_the_panel_shows_the_new_own_size_after_a_handle_drag(editor):
     client = user()
     page = turned_group(editor, client, *SHAPES)
+    # Late, as on a loaded runner, so a read before the drag's last step lands fails every time.
+    page.evaluate(LATE)
     drag_se_inward(page, 0, -60)
-    expect(field(page, "Breite")).not_to_have_value("60")
-    # Read while the group is still turned: its own size, not the box round it on the page.
-    shown = number(page, "Breite"), number(page, "Höhe")
+    # Read while the group is still turned: its own size, not the box round it on the page. The first step of the
+    # drag already shows 60,01: the field is read once the last step is drawn, in a task after the mouse is up (#926).
+    shown = settled(page, "Breite"), number(page, "Höhe")
     enter(page, "Drehung", "0")
     expect(field(page, "Drehung")).to_have_value("0")
     rect = by_id(saved(page, client))["a"]
