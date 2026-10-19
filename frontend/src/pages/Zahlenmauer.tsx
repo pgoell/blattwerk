@@ -135,6 +135,7 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
               return (
                 <input
                   key={c}
+                  className="typed"
                   inputMode="numeric"
                   aria-label={`Zahl im Stein ${c + 1} der Reihe ${r + 1}`}
                   value={draft?.key === key ? draft.text : String(m.walls[w].numbers[i])}
@@ -150,6 +151,10 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
                     e.currentTarget.select();
                   }}
                   onBlur={() => setDraft(null)}
+                  onKeyDown={(e) => {
+                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
+                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
+                  }}
                   onChange={(e) => {
                     if (!/^\d{0,4}$/.test(e.target.value)) return;
                     setDraft({ key, text: e.target.value });
@@ -169,7 +174,14 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
         ) : null,
       )}
       {p.typed && (
-        <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>
+        <button
+          onClick={() => {
+            setDraft(null);
+            apply({ typed: undefined });
+          }}
+        >
+          Eigene Zahlen entfernen
+        </button>
       )}
       {m.loosen.length > 0 && m.walls.length < p.count && (
         <p className="hint" role="status">

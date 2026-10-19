@@ -110,6 +110,7 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
               return (
                 <input
                   key={c}
+                  className="typed"
                   inputMode="numeric"
                   aria-label={`Zahl im Feld ${NAMES[i]}`}
                   value={draft?.key === key ? draft.text : String(m.triangles[w].numbers[i])}
@@ -124,6 +125,10 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
                     e.currentTarget.select();
                   }}
                   onBlur={() => setDraft(null)}
+                  onKeyDown={(e) => {
+                    // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the number that the undo or redo gives.
+                    if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
+                  }}
                   onChange={(e) => {
                     if (!/^\d{0,4}$/.test(e.target.value)) return;
                     setDraft({ key, text: e.target.value });
@@ -142,7 +147,16 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           <p key={i} className="hint" role="status">{`Dreieck ${i + 1} geht über den Zahlenraum bis ${p.max} hinaus.`}</p>
         ) : null,
       )}
-      {p.typed && <button onClick={() => apply({ typed: undefined })}>Eigene Zahlen entfernen</button>}
+      {p.typed && (
+        <button
+          onClick={() => {
+            setDraft(null);
+            apply({ typed: undefined });
+          }}
+        >
+          Eigene Zahlen entfernen
+        </button>
+      )}
       <button className="wide" onClick={() => apply({ seed: draw([{ seed: p.seed, show: (seed) => JSON.stringify(made({ ...p, seed }).triangles) }]) })}>
         Neu würfeln
       </button>
