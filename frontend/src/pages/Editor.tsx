@@ -118,7 +118,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
+import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -3663,9 +3663,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
   }
-  // How far down the adjust handle of a triangle or a bubble stands from its point, in mm: 12 px inside the box, clear
-  // of Moveable's handles on its edge.
-  const pullOf = (kind?: string) => (kind === "triangle" ? 12 / k : kind === "bubble" ? -12 / k : 0);
+  // How far down the adjust handle of a triangle, a rounded box or a bubble stands from its point, in mm: 12 px inside
+  // the box, clear of Moveable's handles on its edge.
+  const pullOf = (kind?: string) => (kind === "triangle" || kind === "rounded" ? 12 / k : kind === "bubble" ? -12 / k : 0);
   // A bubble's handle is pulled into the box only while its tip lies in the box: outside, the handle stands on the tip.
   const pullAt = (b: Block, [x, y]: [number, number]) => {
     const kind = (b.props as TextProps).kind;
@@ -3690,7 +3690,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const raw: [number, number] = [fx - b.x, fy - b.y];
     const local: [number, number] = [raw[0], raw[1] - pullAt(b, raw)];
     const props = adjusted(p.kind, b.w, b.h, local);
-    const same = new Set(sel.filter((o) => drawn(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
+    const same = new Set(sel.filter((o) => adjustable(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
     change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
   }
   // Resizes a group from the boxes it began with. The corner opposite the dragged one stays, or with Ctrl the middle,
@@ -5063,7 +5063,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     return <i key={`reach-${b.id}`} className="reach" data-id={b.id} style={{ left: (r.x - r.hw) * k, top: (r.y - r.hh) * k, width: 2 * r.hw * k, height: 2 * r.hh * k, transform: b.angle ? `rotate(${b.angle}deg)` : undefined }} />;
                   })}
                   {/* One handle per picked bubble, star or triangle, which moves the point its shape takes. */}
-                  {free.length === sel.length && !cropping && sel.filter((b) => drawn(b) && !b.locked).map((b) => (
+                  {free.length === sel.length && !cropping && sel.filter((b) => adjustable(b) && !b.locked).map((b) => (
                     <i
                       key={b.id}
                       className="adjust"
