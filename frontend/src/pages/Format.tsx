@@ -1,5 +1,5 @@
 // The format panel's settings for the school blocks, and the numbering any block can have.
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, FlipHorizontal2, FlipVertical2, List as Bullets, ListOrdered, Lock, LockOpen, RotateCcw, Scissors, RotateCw, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import Numbering from "../components/Numbering";
 import { allCellGap, allGap } from "../gaps";
@@ -1591,6 +1591,14 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   useEffect(() => {
     if (document.activeElement !== input.current) setDraft(undefined);
   }, [value]);
+  // The focus selected the text, and the drag's end that lands after it writes a new one, which drops the selection:
+  // the first key would then go behind it, 9 cm after 69,14 making 691,49 (#922). Before the first key the text
+  // stays all selected, as the focus left it. A value the field set itself, by Enter or an arrow, keeps the caret.
+  const own = useRef(false);
+  useLayoutEffect(() => {
+    if (!own.current && document.activeElement === input.current && draft === undefined) input.current!.select();
+    own.current = false;
+  }, [value]);
   // Only digits with a comma or a point count: "1e3" and "Infinity" are numbers to JavaScript alone.
   const read = () => {
     const text = draft?.trim() ?? "";
@@ -1601,7 +1609,9 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   // Without a draft the blur that follows Enter finds nothing to set.
   const commit = (n: number) => {
     setDraft(undefined);
-    if (!Number.isNaN(n) && n !== value) onCommit(n);
+    if (Number.isNaN(n) || n === value) return;
+    own.current = true;
+    onCommit(n);
   };
   return (
     <label>
@@ -1614,7 +1624,10 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
         disabled={disabled}
         value={draft ?? (value === undefined ? "" : String(round(value)).replace(".", ","))}
         onChange={(e) => setDraft(e.target.value)}
-        onFocus={(e) => e.target.select()}
+        onFocus={(e) => {
+          own.current = false;
+          e.target.select();
+        }}
         // Safari puts the caret where the mouse comes up and so drops what the focus selected.
         onMouseDown={(e) => (fresh.current = document.activeElement !== e.target)}
         onMouseUp={(e) => {
