@@ -8,7 +8,7 @@ screen: the first triangle's polygon, and the block's own box, before and after 
 import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
-from ui import box, pick, saved, user
+from ui import TEXT, box, pick, saved, user
 
 DREIECK = {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "seed": 7}
 
@@ -101,19 +101,42 @@ def test_one_undo_takes_back_the_triangle_and_the_height(editor):
     assert stored_h(client, page) == grown
 
 
-def test_the_block_grows_no_further_than_the_page_foot(editor):
-    """#578: a block low on the page grows to the page's foot and no further; the triangles then
-    draw as large as that room allows."""
+def foot(page):
+    """The hint that says a block hangs over the page's foot."""
+    return page.locator('p[data-foot="haus"], p[data-foot="over"]')
+
+
+def test_911_the_block_grows_past_the_page_foot_and_keeps_its_triangle_size(editor):
+    """#911: a block low on the page grows past the foot; its triangles keep their size, the text
+    beside it does not move, and the hint says it hangs over the edge."""
     client = user()
-    page = editor(box("d", "rechendreieck", DREIECK, w=180, h=50, y=220), client=client)
+    page = editor(
+        box("d", "rechendreieck", DREIECK, w=180, h=50, y=220),
+        box("t", "text", TEXT, x=150, y=220, w=40, h=30),
+        client=client,
+    )
     pick(page, "d")
+    before = triangle_height(page)
     for _ in range(8):
         step(page, lambda: panel(page, "Ein Dreieck mehr").click())
-    block = {b["id"]: b for b in saved(page, client)}["d"]
-    sheet = page.locator(".sheet").first.bounding_box()
-    drawn = page.locator('.block[data-id="d"]').bounding_box()
-    assert block["h"] > 50
-    assert drawn["y"] + drawn["height"] <= sheet["y"] + sheet["height"] + 1
+    blocks = {b["id"]: b for b in saved(page, client)}
+    assert blocks["d"]["y"] + blocks["d"]["h"] > 282, blocks["d"]
+    assert triangle_height(page) == pytest.approx(before, rel=0.01)
+    assert blocks["t"]["y"] == 220, blocks["t"]
+    expect(foot(page)).to_be_visible()
+
+
+def test_911_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
+    """#911: a fifth triangle at Y 232 grows the block past the foot; one undo takes the height and the hint back."""
+    client = user()
+    page = editor(box("d", "rechendreieck", DREIECK, w=180, h=50, y=232), client=client)
+    pick(page, "d")
+    expect(foot(page)).to_have_count(0)
+    step(page, lambda: panel(page, "Ein Dreieck mehr").click())
+    expect(foot(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert stored_h(client, page) == 50
+    expect(foot(page)).to_have_count(0)
 
 
 @pytest.mark.parametrize("act", ["zahlenraum", "leer"])
