@@ -218,6 +218,13 @@ export type TextProps = {
    * @maximum 1
    */
   tip?: number;
+  /** How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.
+   * @minimum 0
+   * @maximum 0.5
+   */
+  corner?: number;
+  /** True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows. */
+  fit?: boolean;
   /** Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. */
   floor?: boolean;
   /** Width of the border in mm. Absent means 0.5.
@@ -330,6 +337,8 @@ export type NameBlock = Box & {
   props: {
     /** The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. */
     fields?: string[];
+    /** The fields the line leaves out, as indexes into its words from 0, such as [2] for a line without "Klasse". At least one field stays shown. Absent means every field shows. */
+    hidden?: number[];
   };
 };
 export type PointsBlock = Box & {

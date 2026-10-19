@@ -4,7 +4,7 @@ title: "Ein Blatt mit zwei Seiten"
 description: "Two pages: a heading, a name line and a text task on page 1, then a heading and a ruling on page 2."
 tags: [seiten, mehrseitig, lineatur]
 covers: [text, name, ruling]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Ein Blatt mit zwei Seiten

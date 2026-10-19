@@ -4,7 +4,7 @@ title: "Sprechblase und Rahmen"
 description: A heading, a name line, a speech bubble with a question inside, and a frame to write the answer in.
 tags: [form, sprechblase, rahmen, klasse-1]
 covers: [text, name, shape]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Sprechblase und Rahmen

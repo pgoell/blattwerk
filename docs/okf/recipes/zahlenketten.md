@@ -4,7 +4,7 @@ title: "Zahlenketten"
 description: A heading, a name line, and four Zahlenketten of six rings with the first two rings given and the rest to fill in.
 tags: [zahlenkette, zahlenraum-20, klasse-1]
 covers: [text, name, zahlenkette]
-generated: { by: "human:pgoell", at: 2026-10-19T04:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Zahlenketten

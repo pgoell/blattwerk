@@ -4,7 +4,7 @@ title: "Hilfslinien setzen"
 description: Two columns of text that line up on the sheet's guides at 15, 105 and 195 mm.
 tags: [hilfslinien, spalten, layout]
 covers: [text]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Hilfslinien setzen
