@@ -7,7 +7,10 @@ import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_gaps import panel, step
+from test_hunderterfeld import TAFEL, feld
+from test_selbstkontrolle import SK
 from test_words import redo, undo
+from test_zahlenstrahl import STRAHL, zs
 from ui import at, box, doc, pick, user
 
 UHR = {
@@ -207,3 +210,91 @@ def test_zahlen_keine_leaves_the_face_without_numbers_on_screen_and_in_print(
     paper = printed(browser, server, sheet_id(page))
     assert paper.locator(".uhr text.number").count() == 0
     paper.context.close()
+
+
+def test_910_ctrl_z_in_a_time_box_is_the_sheets_undo(editor):
+    """#910: Ctrl+Z with the focus in a time box is the sheet's undo: the stored time goes back and the box shows it."""
+    client = user()
+    page = editor(uhr("u", {**UHR, "fill": "free"}), client=client)
+    pick(page, "u")
+    time = field(page, "Uhr 1")
+    step(page, lambda: (time.press("Control+a"), time.press_sequentially("15:30")))
+    assert props_of(doc(page, client))["times"] == [930, 135, 210, 285]
+    time.focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert props_of(doc(page, client))["times"] == [60, 135, 210, 285]
+    expect(time).to_have_value("1:00")
+    page.wait_for_timeout(500)
+    assert props_of(doc(page, client))["times"] == [60, 135, 210, 285]
+    # The browser's own undo would store 1:00 as a new step and clear the sheet's redo: the sheet's redo must bring 15:30 back.
+    redo(page)
+    assert props_of(doc(page, client))["times"][0] == 930
+
+
+def test_910_ctrl_y_in_a_time_box_redoes(editor):
+    """#910: Ctrl+Y with the focus in a time box is the sheet's redo: the typed time comes back after the undo."""
+    client = user()
+    page = editor(uhr("u", {**UHR, "fill": "free"}), client=client)
+    pick(page, "u")
+    time = field(page, "Uhr 1")
+    step(page, lambda: (time.press("Control+a"), time.press_sequentially("15:30")))
+    time.focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    step(page, lambda: page.keyboard.press("Control+y"))
+    assert props_of(doc(page, client))["times"][0] == 930
+    expect(time).to_have_value("15:30")
+
+
+def stored_props(stored, kind):
+    """The props of the one block of that type on the sheet."""
+    [block] = [b for b in stored["pages"][0]["blocks"] if b["type"] == kind]
+    return block["props"]
+
+
+@pytest.mark.parametrize(
+    "kind, block, label, key, before, after, act",
+    [
+        ("uhr", uhr("u", dict(UHR)), "Uhren", "count", 4, 2, lambda p: field(p, "Uhren").fill("2")),
+        (
+            "hunderterfeld",
+            feld("u", {**TAFEL, "show": "random"}),
+            "Verdeckt",
+            "hide",
+            20,
+            35,
+            lambda p: field(p, "Verdeckt").fill("35"),
+        ),
+        (
+            "zahlenstrahl",
+            zs("u", dict(STRAHL)),
+            "Schriftgröße",
+            "size",
+            12,
+            14,
+            lambda p: field(p, "Schriftgröße").fill("14"),
+        ),
+        (
+            "selbstkontrolle",
+            box("u", "selbstkontrolle", dict(SK), z=2, w=180, h=60),
+            "Schriftgröße",
+            "size",
+            14,
+            16,
+            lambda p: field(p, "Schriftgröße").fill("16"),
+        ),
+    ],
+    ids=["uhren", "hunderterfeld", "zahlenstrahl", "selbstkontrolle"],
+)
+def test_910_ctrl_z_in_a_number_field_is_the_sheets_undo(
+    editor, kind, block, label, key, before, after, act
+):
+    """#910: Ctrl+Z in a number field is the sheet's undo: the prop goes back and the field shows the old number."""
+    client = user()
+    page = editor(block, client=client)
+    pick(page, "u")
+    step(page, lambda: act(page))
+    assert stored_props(doc(page, client), kind)[key] == after
+    field(page, label).focus()
+    step(page, lambda: page.keyboard.press("Control+z"))
+    assert stored_props(doc(page, client), kind)[key] == before
+    expect(field(page, label)).to_have_value(str(before))

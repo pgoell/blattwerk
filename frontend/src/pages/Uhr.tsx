@@ -54,6 +54,7 @@ function Time({ label, value, setTime }: { label: string; value: number; setTime
       {label}
       <input
         type="text"
+        className="typed"
         aria-label={label}
         aria-invalid={draft !== null && parsed(draft) === undefined ? "true" : undefined}
         value={draft ?? clock(value)}
@@ -62,6 +63,10 @@ function Time({ label, value, setTime }: { label: string; value: number; setTime
           setDraft(text);
           const t = parsed(text);
           if (t !== undefined) setTime(t);
+        }}
+        onKeyDown={(e) => {
+          // Ctrl+Z and Ctrl+Y are the sheet's here: the field then shows the time that the undo or redo gives.
+          if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
         }}
         onBlur={() => setDraft(null)}
       />
