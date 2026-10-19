@@ -60,7 +60,7 @@
 //   value, and a known part caps the other part's numbers at target minus the sum known. The pick prefers the numbers
 //   of a part with such a target. The first complete assignment stays, and every number of it
 //   must be whole and 0 to 99999. Two passes, each with its own budget of tries (a candidate that is tried counts, also
-//   one that fails at once); pass 2 runs only when pass 1 found nothing. Pass 1, budget 1500: the drawn number first if
+//   one that fails at once); pass 2 runs only when pass 1 found nothing. Pass 1, budget 200: the drawn number first if
 //   it is in the domain, then ascending. Pass 2, budget 3500: ascending, the drawn number not used. In an ascending run
 //   a lower-bound failure stops the run, as every larger candidate fails too. A square whose pass 2 runs out of budget is
 //   `wrong`: that is the only way a typed set that fits some square can still come out `wrong`. A subset of a drawn
@@ -352,8 +352,9 @@ export type Solved = { kind: "none" } | { kind: "one" | "many"; cells: number[][
 
 // The numbers of a square of size n from its known grid (null where not known). Propagation first; the numbers still
 // free are searched depth first in two passes (see the contract above): the unknown with the fewest open equation
-// partners first, each try propagates, a failed try goes back to the next candidate. Budgets of 1500 and 3500 tries;
+// partners first, each try propagates, a failed try goes back to the next candidate. Budgets of 200 and 3500 tries;
 // none when the second runs out. Kind "many" when propagation from the typed cells alone left numbers free.
+const pass2 = new Map<string, (number | null)[] | null>();
 export function solve(
   n: number,
   op: "*" | "+",
@@ -499,7 +500,17 @@ export function solve(
     };
     return search(start);
   };
-  const x = pass(1, 1500) ?? pass(2, 3500);
+  // Pass 2 does not use the drawn numbers, so its answer for the same typed cells is kept: Neu würfeln, which tries up
+  // to 40 seeds, and each redraw then cost pass 1 alone.
+  const key = JSON.stringify([n, op, known]);
+  const second = () => {
+    if (!pass2.has(key)) {
+      if (pass2.size >= 200) pass2.delete(pass2.keys().next().value as string);
+      pass2.set(key, pass(2, 3500));
+    }
+    return pass2.get(key) ?? null;
+  };
+  const x = pass(1, 200) ?? second();
   if (!x) return { kind: "none" };
   const nums = x as number[];
   const cells = range(n + 2).map(() => Array(n + 2).fill(0));

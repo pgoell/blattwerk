@@ -245,6 +245,21 @@ def test_the_first_typed_number_keeps_the_drawn_given_numbers_as_typed_entries(e
     assert len(props_of(doc(page, client))["typed"]) == drawn + 1
 
 
+def test_a_stored_entry_at_no_position_does_not_stop_the_drawn_numbers_being_kept(editor):
+    """Eigene Zahlen (#826): an entry at row 5, column 5 of a 3 by 3 (no position, from the MCP say) plays no part, so
+    the first number typed still keeps the drawn given numbers."""
+    client = user()
+    page = editor(mq("d", {**MQ, "typed": [[0, 5, 5, 9]]}), client=client)
+    pick(page, "d")
+    drawn = at(page, "d").locator("g.square[data-square='0'] text.given").count()
+    assert drawn > 0
+    boxes = page.locator(".panel").get_by_label(re.compile(r"^Zeile \d+, Spalte \d+$"))
+    empty = next(b for b in boxes.all() if b.input_value() == "")
+    empty.click()
+    step(page, lambda: page.keyboard.type("1"))
+    assert len(props_of(doc(page, client))["typed"]) == drawn + 2
+
+
 def test_typed_numbers_win_and_the_square_works_out_from_them(editor):
     """Eigene Zahlen (#826): column number 1 = 3 and inner cell (1, 1) = 12 leave more than one way (the square is
     not fixed), so the hint says "Es gibt mehr als eine Lösung." for Malquadrat 1, and the square is not wrong."""

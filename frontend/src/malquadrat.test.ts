@@ -346,4 +346,12 @@ describe("solve searches back", () => {
     expect(res.kind).toBe("many");
     if (res.kind !== "none") expect(holds(res.cells, 3, "*")).toBe(true);
   });
+
+  it("Neu würfeln on a typed 4 by 4 that fits nothing does not freeze: 40 seeds take well under 3 s", () => {
+    const typed: [number, number, number, number][] = [[0, 1, 5, 182], [0, 2, 5, 78], [0, 3, 5, 208], [0, 4, 5, 260], [0, 5, 2, 280], [0, 5, 3, 113], [0, 5, 5, 728]];
+    expect(made(P({ count: 1, size: 4, typed, seed: 1 })).squares[0].wrong).toBe(true);
+    const t = performance.now();
+    for (let seed = 2; seed < 42; seed++) made(P({ count: 1, size: 4, typed, seed }));
+    expect(performance.now() - t).toBeLessThan(3000);
+  });
 });

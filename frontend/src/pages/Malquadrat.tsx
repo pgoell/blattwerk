@@ -36,7 +36,7 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
   const raw = Array.isArray(block.props.typed) ? block.props.typed : [];
 
   // Every box of the (n + 2) × (n + 2) grid is a position but the three corners.
-  const isPosition = (i: number, j: number) => !((i === 0 && j === 0) || (i === 0 && j === n + 1) || (i === n + 1 && j === 0));
+  const isPosition = (i: number, j: number) => i >= 0 && j >= 0 && i <= n + 1 && j <= n + 1 && !((i === 0 && j === 0) || (i === 0 && j === n + 1) || (i === n + 1 && j === 0));
 
   // Stores the number of the box in row i and column j of square c. The first number typed into a square keeps the drawn
   // given numbers of that square as typed entries too.
