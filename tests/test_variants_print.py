@@ -716,7 +716,8 @@ def test_an_operatorfeld_gets_another_seed_and_loses_its_typed_numbers():
 
 
 def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
-    """Varianten of #821: B to D give a Pfeilbild a seed of its own, drop `typed`; A is as stored."""
+    """Varianten of #821 and #921: B to D give a Pfeilbild a seed of its own, drop `typed` and
+    `typedOps`; A is as stored."""
     picture = {
         "count": 4,
         "columns": 2,
@@ -728,11 +729,12 @@ def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
         "drawOps": True,
         "seed": 7,
         "typed": [[0, 0, 9]],
+        "typedOps": [[0, 1, "-", 3]],
     }
     doc = {"pages": [{"blocks": [{"id": "p", "type": "pfeilbild", "props": picture}]}]}
     assert variants.vary(doc, "A")[0] is doc
     seeds = {7}
-    kept = {k: v for k, v in picture.items() if k != "typed"}
+    kept = {k: v for k, v in picture.items() if k not in ("typed", "typedOps")}
     for letter in "BCD":
         props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
         assert props == {**kept, "seed": props["seed"]}

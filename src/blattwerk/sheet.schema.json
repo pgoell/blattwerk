@@ -3552,6 +3552,13 @@
             "$ref": "#/definitions/PfeilbildTyped"
           },
           "description": "Numbers the teacher typed into boxes. Each entry is [picture index from 0, box index from 0, value 0 to 9999]. The lowest typed box of a picture is its anchor. A picture whose numbers do not fit its operators is marked wrong."
+        },
+        "typedOps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PfeilbildTypedOp"
+          },
+          "description": "Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator \"+\", \"-\", \"*\" or \":\", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong."
         }
       },
       "required": [
@@ -3574,6 +3581,32 @@
       "minItems": 3,
       "maxItems": 3,
       "description": "A number the teacher typed into a box: the picture's index (from 0), the box's index (from 0), the value (0 to 9999)."
+    },
+    "PfeilbildTypedOp": {
+      "type": "array",
+      "minItems": 4,
+      "items": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "+",
+            "-",
+            "*",
+            ":"
+          ]
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "maxItems": 4,
+      "description": "An operator the teacher typed onto an arrow: the picture's index (from 0), the arrow's index (from 0), the operator, the operand (1 to 9999)."
     },
     "OperatorfeldBlock": {
       "type": "object",

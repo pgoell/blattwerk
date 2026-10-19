@@ -1,7 +1,7 @@
 // The Pfeilbild generator: the numbers follow the operators, the given flags follow the mode, and the typed numbers come out right.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, heightFor, inverse, layout, made, opLabel, sane, type PfeilbildProps, type Step } from "./pfeilbild";
+import { DEFAULTS, heightFor, inverse, layout, made, noted, opLabel, sane, type PfeilbildProps, type Step } from "./pfeilbild";
 
 const P = (over: Partial<PfeilbildProps> = {}): PfeilbildProps => ({ count: 4, columns: 2, boxes: 4, max: 20, ops: ["+", "-"], arrows: "one", given: "start", drawOps: true, seed: 1, ...over });
 
@@ -164,5 +164,107 @@ describe("the pictures of a block", () => {
         expect(m.pictures.every((pic) => !pic.over)).toBe(true);
       }
     }
+  });
+});
+
+describe("typed operators", () => {
+  it("sane keeps the last of two typed operators for one arrow, and drops the bad ones", () => {
+    const s = sane(
+      P({
+        typedOps: [
+          [0, 0, "+", 3],
+          [0, 0, "-", 4],
+          [1, 2, "*", 5],
+          [0, 1, "x", 2],
+          [0, 1, "+", 0],
+          [0, 1, "+", 1.5],
+          [9, 0, "+", 1],
+          [0, 7, "+", 1],
+          ["0", 0, "+", 1],
+        ] as unknown as PfeilbildProps["typedOps"],
+      }),
+    );
+    expect(s.typedOps).toEqual([
+      [0, 0, "-", 4],
+      [1, 2, "*", 5],
+    ]);
+    expect(sane(P({ typedOps: [] }))).not.toHaveProperty("typedOps");
+  });
+
+  it("a typed operator replaces the arrow's step, and the numbers follow it", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 1_000_000 }), fc.constantFrom<Step["op"]>("+", "-", "*", ":"), fc.integer({ min: 1, max: 3 }), (seed, op, n) => {
+        const pic = made(P({ seed, max: 100, count: 2, typedOps: [[0, 1, op, n]] })).pictures[0];
+        expect(pic.steps[1]).toEqual({ op, n });
+        if (pic.wrong) return;
+        expect(pic.over).toBe(false);
+        pic.steps.forEach((s, j) => {
+          expect(then(pic.numbers[j], s)).toBe(pic.numbers[j + 1]);
+        });
+        for (const x of pic.numbers) expect(Number.isInteger(x) && x >= 0 && x <= 100).toBe(true);
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("other pictures are unchanged by a typed operator on picture 0", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 1_000_000 }), fc.constantFrom<PfeilbildProps["boxes"]>(4, "random"), (seed, boxes) => {
+        const base = made(P({ seed, boxes, count: 4 })).pictures;
+        const typed = made(P({ seed, boxes, count: 4, typedOps: [[0, 0, "*", 2]] })).pictures;
+        expect(typed.slice(1)).toEqual(base.slice(1));
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("typed operators only: the start is chosen so that the chain fits", () => {
+    const typedOps: PfeilbildProps["typedOps"] = [
+      [0, 0, "*", 2],
+      [0, 1, "*", 2],
+      [0, 2, "*", 2],
+    ];
+    for (let seed = 0; seed < 30; seed++) {
+      const pic = made(P({ seed, max: 20, boxes: 4, count: 1, typedOps })).pictures[0];
+      expect(pic.wrong).toBe(false);
+      expect(pic.over).toBe(false);
+      const [s] = pic.numbers;
+      expect(pic.numbers).toEqual([s, 2 * s, 4 * s, 8 * s]);
+      expect(8 * s).toBeLessThanOrEqual(20);
+    }
+  });
+
+  it("a typed operator that cannot fit makes the picture wrong, and its out of range given boxes are empty", () => {
+    const typedOps: PfeilbildProps["typedOps"] = [0, 1, 2].map((j) => [0, j, "+", 9] as [number, number, Step["op"], number]);
+    for (let seed = 0; seed < 30; seed++) {
+      const pic = made(P({ seed, max: 10, boxes: 4, count: 1, given: "ends", typedOps })).pictures[0];
+      expect(pic.wrong).toBe(true);
+      expect(pic.numbers.every((x) => x >= 0)).toBe(true);
+      expect(pic.given[3]).toBe(false);
+    }
+  });
+
+  it("a typed box that disagrees with a typed operator makes the picture wrong", () => {
+    const pic = made(P({ count: 1, boxes: 4, typed: [[0, 0, 5], [0, 1, 7]], typedOps: [[0, 0, "+", 3]] })).pictures[0];
+    expect(pic.wrong).toBe(true);
+  });
+
+  it("noted: mixed with a typed Mal is noted, with a typed Plus only it is not", () => {
+    expect(noted({ given: "mixed", ops: ["+"], typedOps: [[0, 0, "*", 2]] })).toBe(true);
+    expect(noted({ given: "mixed", ops: ["+"], typedOps: [[0, 0, ":", 2]] })).toBe(true);
+    expect(noted({ given: "mixed", ops: ["+"], typedOps: [[0, 0, "+", 2]] })).toBe(false);
+    expect(noted({ given: "start", ops: ["+"], typedOps: [[0, 0, "*", 2]] })).toBe(false);
+    const plain = P({ given: "mixed" });
+    expect(heightFor(P({ given: "mixed", typedOps: [[0, 0, "*", 2]] }), 180)).toBeGreaterThan(heightFor(plain, 180));
+    expect(heightFor(P({ given: "mixed", typedOps: [[0, 0, "+", 2]] }), 180)).toBe(heightFor(plain, 180));
+  });
+
+  it("without typed operators the pictures are what they were", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 1_000_000 }), (seed) => {
+        expect(made(P({ seed }))).toEqual(made(P({ seed, typedOps: [] })));
+      }),
+      { numRuns: 100 },
+    );
   });
 });

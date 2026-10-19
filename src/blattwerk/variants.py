@@ -95,8 +95,9 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "selbstkontrolle",
             ) and whole(props.get("seed")):
                 props["seed"] = derived(props["seed"], letter)
-                # The numbers a teacher typed into stones or fields belong to the stored ones.
+                # The numbers and operators a teacher typed belong to the stored ones.
                 props.pop("typed", None)
+                props.pop("typedOps", None)
             elif kind in ("text", "shape"):
                 for key in ("mix", "bank", "holeSeed"):
                     if whole(props.get(key)):

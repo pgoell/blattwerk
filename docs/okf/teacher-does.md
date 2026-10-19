@@ -31,7 +31,7 @@ Variant A is the stored sheet. Letters B to D draw new content from each block's
 
 * Changes: maths (new exercises), suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
 * Stays: a block without a seed prints the same on every letter. Give every block that should change a whole-number seed: `seed` on the seeded blocks; `mix`, `bank` or `holeSeed` on a text or shape; `bank` on a table.
-* Numbers the teacher typed into stones or fields (`typed`) are dropped in B to D.
+* Numbers the teacher typed into stones or fields (`typed`) and operators typed onto a Pfeilbild's arrows (`typedOps`) are dropped in B to D.
 
 If a variant cannot fill a maths block, the dialog names the block and its page and asks for a new roll, looser limits or fewer variants. Then give that block a new seed with `update_block`, loosen its limits, or tell the teacher to print fewer variants.
 

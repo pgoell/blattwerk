@@ -4,7 +4,7 @@ title: "Pfeilbilder"
 description: A heading, a name line, and four Pfeilbilder of four boxes with the start number and the operators given and the other boxes to fill in.
 tags: [pfeilbild, zahlenraum-20, klasse-1]
 covers: [text, name, pfeilbild]
-generated: { by: "human:pgoell", at: 2026-10-19T06:45:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T09:03:00Z }
 ---
 
 # Pfeilbilder
@@ -15,6 +15,7 @@ When a teacher asks for: "Ein Blatt mit Pfeilbildern bis 20, Plus und Minus, die
 * In the editor the pictures are the button "Pfeilbild" in the menu "Mathe-Blöcke" in the insert bar. A Pfeilbild is a row of boxes joined by arrows, each arrow labelled with an operator such as "+4" or ":2".
 * `given` says what the pupil gets: "start" the first box and every operator (fill the boxes), "ends" the first and the last box (find the operators and the boxes between), "mixed" the first box and, per arrow, either its operator or the box after it.
 * `ops` picks the Rechenarten: "+" and "-" from Zahlenraum 10, "*" and ":" from 20. `arrows` "both" adds a back arrow under each arrow with the inverse operator.
+* A given task such as "5 +3 −2 ·2": put the numbers in `typed` and the operators in `typedOps`, each entry [picture, arrow, "+" "-" "*" or ":", operand]. Arrow 0 joins box 0 and box 1. With operators only, the picture takes a start number that keeps every box in the Zahlenraum.
 * See [pfeilbild](../blocks/pfeilbild.md) for the other props.
 
 # Doc
