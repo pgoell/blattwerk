@@ -247,7 +247,9 @@ export const frameOf = (bs: Block[]) => {
   return { turn, about, level: turn ? swung(bs, -turn, about) : bs };
 };
 // A block's new place and size. A line in a turned group may start at another corner after the scale: it takes that too.
-export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)) }];
+export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b.y, w: b.w, h: b.h, ...(isLine(b) && ({ props: b.props } as Partial<Box>)), ...unfit(b) }];
+// A box fitted to its text that the teacher sizes by hand keeps that size: its fit goes off in the same step.
+export const unfit = (b: Block): Partial<Box> => (boxed(b)?.fit === true ? ({ props: { ...b.props, fit: undefined } } as Partial<Box>) : {});
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
 const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
@@ -508,7 +510,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       scaleWhole(side, to / shownOwn(side), to);
       return;
     }
-    place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
+    place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }), ...unfit(b) } as Partial<Box>]));
   };
   // A percent scales the box from its top left corner, or about the group's; a loose block keeps its own shape when it is kept.
   const percent = (side: "w" | "h", p: number) => {

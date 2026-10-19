@@ -1032,6 +1032,10 @@ export function tall(b: Box, h: number): Partial<Box> {
   const half = (h - b.h) / 2;
   return { h, x: Math.round((b.x - s * half) * 100) / 100, y: Math.round((b.y + (c - 1) * half) * 100) / 100 };
 }
+// A new width for a block: `at` is the share of the width that stays in place (0 the left edge, 0.5 the middle, 1 the right).
+export function fitWidth(b: Box, w: number, at: number): Partial<Box> {
+  return { w, x: Math.round((b.x + (b.w - w) * at) * 100) / 100 };
+}
 const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { transform: `scale(${b.flipX ? -1 : 1}, ${b.flipY ? -1 : 1})` } : undefined);
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.props.kind)].row + 0.05);
