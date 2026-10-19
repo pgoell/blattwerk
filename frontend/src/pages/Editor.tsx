@@ -107,7 +107,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -915,6 +915,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
+  // The words of the picked name lines, when only name lines are picked: the panel shows a checkbox for each.
+  const nameFields = free.length > 0 && free.every((b) => b.type === "name") ? ((free[0] as NameBlock).props.fields ?? FIELDS) : [];
   const stroke = boxes[0]?.props.stroke ?? "none";
   // The block the brush picks its look up from: the first with more of a look than a numbering, or else the first.
   const source = sel.find((b) => takes(b).length > 1) ?? (sel[0] as Block | undefined);
@@ -1227,10 +1229,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const line = nameWriting.current;
     if (editing || !line) return;
     nameWriting.current = undefined;
-    const fields = words.map((w) => w.trim()).filter(Boolean);
+    const kept = words.map((w, i) => ({ word: w.trim(), i })).filter((f) => f.word);
+    const fields = kept.map((f) => f.word);
     if (!fields.length || fields.join("\n") === wordsKept.current) return;
-    if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
-    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
+    const block = live.current.doc.pages[line.n]?.blocks.find((b) => b.id === line.id);
+    if (block?.type !== "name") return;
+    // A hidden field keeps its word, but its index moves when a word before it drops out with its field.
+    const hidden = (block.props.hidden ?? []).flatMap((h) => {
+      const at = kept.findIndex((f) => f.i === h);
+      return at < 0 ? [] : [at];
+    });
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields, hidden } } as Block) : b)) }), "", line.n);
   });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -2006,6 +2015,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             : x,
         ),
       "text",
+    );
+  }
+  // Shows or hides field i of every picked name line, in one step. Each line has its own words, so i is its own field.
+  function showField(i: number, shown: boolean) {
+    change((bs) =>
+      bs.map((b) => {
+        if (!ids.includes(b.id) || b.type !== "name") return b;
+        const off = shown ? (b.props.hidden ?? []).filter((h) => h !== i) : [...(b.props.hidden ?? []), i].sort((x, y) => x - y);
+        return { ...b, props: { ...b.props, hidden: off } } as Block;
+      }),
     );
   }
   // Sets what a shape and a text share: the frame, and the text in it.
@@ -4930,7 +4949,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                         <ScoreInput max={b.props.max} change={(max) => scoreOn(b.id, max, n)} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
                       ) : b.type === "name" && editing === b.id ? (
                         // Each word is a field of its own, in its place on the line. Enter and leaving the line keep them.
-                        words.map((word, i) => (
+                        // A hidden field has no input: its word stays as it is.
+                        words.map((word, i) => !(b.props.hidden ?? []).includes(i) && (
                           <input
                             key={i}
                             aria-label={`Feld ${i + 1}`}
@@ -5318,6 +5338,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       onChange={(e) => fadePicture(Math.round(100 - +e.target.value) / 100)}
                     />
                   </label>
+                </>
+              )}
+              {nameFields.length > 0 && (
+                <>
+                  <h2>Namenszeile</h2>
+                  {/* The last field shown stays shown. */}
+                  {nameFields.map((word, i) => {
+                    const off = (free[0] as NameBlock).props.hidden ?? [];
+                    const shown = !off.includes(i);
+                    return (
+                      <label key={i} className="tick">
+                        <input type="checkbox" checked={shown} disabled={shown && off.length === nameFields.length - 1} onChange={(e) => showField(i, e.target.checked)} /> {word}
+                      </label>
+                    );
+                  })}
                 </>
               )}
               {boxes.length > 0 && (

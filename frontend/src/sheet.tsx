@@ -3614,16 +3614,20 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
   // While a name line is written in, `children` holds one field for each word, in the word's place of the line.
-  if (block.type === "name")
+  if (block.type === "name") {
+    const off = block.props.hidden ?? [];
     return (
       <div className="fields" style={{ fontSize: 12 * PT * k }}>
-        {(block.props.fields ?? FIELDS).map((field, i) => (
-          <span key={i}>
-            {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
-          </span>
-        ))}
+        {(block.props.fields ?? FIELDS).map((field, i) =>
+          off.includes(i) ? null : (
+            <span key={i} className={i === 0 ? "name" : undefined}>
+              {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
+            </span>
+          ),
+        )}
       </div>
     );
+  }
   // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
   // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
   // While the score is written in, `children` is its field in place of the number.
