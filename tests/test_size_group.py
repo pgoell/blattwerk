@@ -383,6 +383,22 @@ def school_block(client, kind):
             w=180,
             h=84.22,  # the default height: 51 * 180 / 109
         )
+    if kind == "magischesquadrat":
+        return box(
+            "k",
+            "magischesquadrat",
+            {
+                "count": 2,
+                "columns": 2,
+                "size": 3,
+                "max": 20,
+                "given": 4,
+                "showSum": False,
+                "seed": 7,
+            },
+            w=180,
+            h=96.52,  # the default height: 37 * 180 / 69
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -419,6 +435,7 @@ def school_block(client, kind):
         "operatorfeld",
         "rechenrad",
         "rechentabelle",
+        "magischesquadrat",
         "selbstkontrolle",
         "name",
         "points",
