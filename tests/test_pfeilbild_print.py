@@ -90,6 +90,26 @@ def test_the_key_fills_the_empty_boxes_and_operators_in_red(editor, browser, ser
     paper.context.close()
 
 
+def test_with_start_and_goal_only_the_key_says_other_answers_count_too(editor, browser, server):
+    """Given ends can have several right answers: the key says "Auch andere Lösungen sind richtig."
+    in red under the pictures; the pupils' sheet and a key of given start have no such note."""
+    client = user()
+    page = editor(
+        box("k", "pfeilbild", ENDS, w=180, h=61.8),
+        box("s", "pfeilbild", PF, w=180, h=53.9, y=150),
+        client=client,
+    )
+    note = ".pfeilbild text.note"
+    paper = printed(browser, server, sheet_id(page))
+    expect(paper.locator(note)).to_have_count(0)
+    paper.context.close()
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(note)).to_have_count(1)
+    expect(paper.locator(note)).to_have_text("Auch andere Lösungen sind richtig.")
+    expect(paper.locator(note)).to_have_css("fill", RED)
+    paper.context.close()
+
+
 def test_on_the_key_each_arrow_gives_the_next_box(editor, browser, server):
     """Every picture on the key: applying each arrow's operator to a box gives the box after it."""
     client = user()

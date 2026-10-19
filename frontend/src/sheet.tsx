@@ -3228,6 +3228,12 @@ function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number; solved
             </g>
           );
         })}
+        {/* With only the start and the goal given, several answers can be right: the key says so in its own line. */}
+        {solved && p.given === "ends" && (
+          <text x={vbW / 2} y={vbH - 3.5} fontSize={3.2} textAnchor="middle" dominantBaseline="central" fill="#c0392b" className="note">
+            Auch andere Lösungen sind richtig.
+          </text>
+        )}
       </svg>
     </div>
   );

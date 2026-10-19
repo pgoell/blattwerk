@@ -296,6 +296,22 @@ def test_neu_wuerfeln_stores_another_seed_and_keeps_the_other_props(editor):
     assert props_of(doc(page, client))["seed"] == PF["seed"]
 
 
+def test_start_and_goal_grow_the_block_by_the_note_line_in_one_undo(editor):
+    """Gegeben Start und Ziel keeps a line for the key's note: the block grows by it, and one undo
+    gives back the mode and the height together."""
+    client = user()
+    page = editor(pfeil("d", PF), client=client)
+    pick(page, "d")
+    step(page, lambda: field(page, "Gegeben").select_option("ends"))
+    grown = block_of(doc(page, client))
+    assert grown["props"]["given"] == "ends"
+    assert grown["h"] > H + 7, grown["h"]
+    undo(page)
+    back = block_of(doc(page, client))
+    assert back["props"]["given"] == "start"
+    assert abs(back["h"] - H) < 0.2, back["h"]
+
+
 def test_a_box_field_keeps_focus_and_digits_while_the_block_redraws(editor):
     """Eigene Zahlen: typing "17" into "Zahl in Kästchen 3" keeps the focus and the digits, and stores [0, 2, 17]."""
     client = user()

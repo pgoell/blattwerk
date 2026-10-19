@@ -150,5 +150,7 @@ describe("the pictures of a block", () => {
 
   it("the height of the default block at 180 mm is its viewBox scaled to the width", () => {
     expect(heightFor({ ...DEFAULTS, seed: 1 }, 180)).toBe((layout(DEFAULTS).vbH * 180) / layout(DEFAULTS).vbW);
+    // Given "ends" keeps a line of 6 units for the key's note.
+    expect(layout({ ...DEFAULTS, given: "ends" }).vbH).toBe(layout(DEFAULTS).vbH + 6);
   });
 });

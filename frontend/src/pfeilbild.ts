@@ -55,7 +55,7 @@ export type PfeilbildProps = {
   ops: ("+" | "-" | "*" | ":")[];
   /** The arrows: "one" for arrows in one direction, "both" for arrows in both directions. Under each forward arrow a back arrow shows the inverse operator: "+4" goes back as "−4", "·2" as ":2", ":2" as "·2". Default "one". */
   arrows: "one" | "both";
-  /** Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default "start". */
+  /** Which numbers show: "start" the first box and every operator, "ends" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), "mixed" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default "start". */
   given: "start" | "ends" | "mixed";
   /** Whether each operator place has an ellipse around it, also an empty one. Default true. */
   drawOps: boolean;
@@ -127,16 +127,19 @@ export function inverse(step: Step): Step {
 
 // The drawing in svg units: a box is D across, boxes are G apart, the arrow band A high, the back band B low when the
 // arrows go both ways. `vbW` and `vbH` are the viewBox of the whole drawing.
-export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows">) {
+// With given "ends" a line of N units at the foot holds the key's note that other answers count too: on the pupils'
+// sheet it stays empty, so that the key and the sheet have the same size.
+export function layout(p: Pick<PfeilbildProps, "count" | "columns" | "boxes" | "arrows"> & { given?: PfeilbildProps["given"] }) {
   const [D, G, A, CG, RG] = [10, 8, 8, 8, 4];
   const B = p.arrows === "both" ? A : 0;
+  const N = p.given === "ends" ? 6 : 0;
   const n = p.boxes === "random" ? 8 : p.boxes;
   const picW = n * D + (n - 1) * G;
   const picH = A + D + B;
   const rows = Math.ceil(p.count / p.columns);
   const vbW = p.columns * picW + (p.columns - 1) * CG + 1;
-  const vbH = rows * picH + (rows - 1) * RG + 1;
-  return { D, G, A, B, picW, picH, CG, RG, rows, vbW, vbH };
+  const vbH = rows * picH + (rows - 1) * RG + 1 + N;
+  return { D, G, A, B, N, picW, picH, CG, RG, rows, vbW, vbH };
 }
 
 // The default block is drawn at the scale S0 at 180 mm wide. A block of width w draws its boxes at that scale, and its

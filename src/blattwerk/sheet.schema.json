@@ -3496,7 +3496,7 @@
             "ends",
             "mixed"
           ],
-          "description": "Which numbers show: \"start\" the first box and every operator, \"ends\" the first and the last box (no operators), \"mixed\" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default \"start\"."
+          "description": "Which numbers show: \"start\" the first box and every operator, \"ends\" the first and the last box (no operators; such a picture may have several right answers, so the answer key says under the pictures that other answers count too, and the block keeps a line for that note), \"mixed\" (gemischt) the first box and for each arrow either its operator or the box after it, so that the pupil can solve it from left to right. Default \"start\"."
         },
         "drawOps": {
           "type": "boolean",
