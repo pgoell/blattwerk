@@ -82,6 +82,7 @@ def dreieck_fits(page):
 
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
+    field(page, "Uhren").blur()
 
 
 # kind: (props, width, height, the Y that a few "more" presses pass the paper's edge from, the "more" press, a press that fits)
@@ -126,4 +127,56 @@ def test_911_after_a_refused_press_a_press_that_fits_takes_the_paper_hint_away(e
     refused_after(page, client, more)
     expect(paper_hint(page)).to_be_visible()
     step(page, lambda: fits(page))
+    expect(paper_hint(page)).to_have_count(0)
+
+
+def test_911_a_fewer_press_on_a_block_capped_by_master_is_taken(editor):
+    """#911: a Zahlenmauer master capped at the foot (1 column, 6 walls, 50 mm) takes "Eine Mauer weniger"."""
+    client = user()
+    page = editor(
+        box("b", "zahlenmauer", {**MAUER, "columns": 1, "count": 6}, w=180, h=50, y=230),
+        client=client,
+    )
+    pick(page, "b")
+    step(page, lambda: panel(page, "Eine Mauer weniger").click())
+    assert stored(page, client)["props"]["count"] == 5, stored(page, client)
+    expect(paper_hint(page)).to_have_count(0)
+
+
+def test_911_a_typed_count_past_the_paper_is_refused_and_the_field_goes_back(editor):
+    """#911: typing "1" then "12" into Uhren takes 1, refuses 12, and the stored count goes back to 4;
+    the hint stays, and the field shows 4 after the blur."""
+    client = user()
+    page = editor(box("b", "uhr", UHR, w=180, h=58.5, y=230), client=client)
+    pick(page, "b")
+    field(page, "Uhren").click()
+    page.keyboard.press("Control+A")
+    field(page, "Uhren").press_sequentially("12")
+    expect(paper_hint(page)).to_be_visible()
+    assert stored(page, client)["props"]["count"] == 4, stored(page, client)
+    page.keyboard.press("Tab")
+    expect(field(page, "Uhren")).to_have_value("4")
+
+
+def test_911_undo_of_an_earlier_change_takes_the_paper_hint_away(editor):
+    """#911: after a refused press, one undo of an earlier accepted change takes the hint away."""
+    client = user()
+    page = editor(box("b", "zahlenmauer", MAUER, w=180, h=60, y=230), client=client)
+    pick(page, "b")
+    step(page, lambda: panel(page, "Eine Spalte mehr").click())
+    refused_after(page, client, mauer_more)
+    expect(paper_hint(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    expect(paper_hint(page)).to_have_count(0)
+
+
+def test_911_moving_the_block_up_takes_the_paper_hint_away(editor):
+    """#911: after a refused press, moving the block up through the panel's Y field takes the hint away."""
+    client = user()
+    page = editor(box("b", "zahlenmauer", MAUER, w=180, h=60, y=230), client=client)
+    pick(page, "b")
+    refused_after(page, client, mauer_more)
+    expect(paper_hint(page)).to_be_visible()
+    y = page.locator(".geo").get_by_label("Y", exact=True)
+    step(page, lambda: (y.fill("100"), y.press("Enter")))
     expect(paper_hint(page)).to_have_count(0)

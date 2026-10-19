@@ -374,13 +374,31 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
   const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
   // A maths drawing that would grow past the paper's edge keeps its props, and the panel says why (#911).
-  const [paper, setPaper] = useState<Block["type"]>();
-  useEffect(() => setPaper(undefined), [sel.map((b) => b.id).join()]);
-  const grows = (type: Block["type"], props: object, key?: string) => {
-    const off = sel.filter((b) => b.type === type).find((b) => pastPaper(b, { ...b, props: { ...b.props, ...props } } as Block, H));
-    setPaper(off ? type : undefined);
-    if (!off) style(type, props, key);
+  // The change refused, the block it was for, and that block's props and height at the refusal: the hint stays while the block is as it was (#911).
+  const [denied, setDenied] = useState<{ id: string; props: object; from: string }>();
+  useEffect(() => setDenied(undefined), [sel.map((b) => b.id).join()]);
+  const sig = (b: Block) => JSON.stringify([b.props, b.y]);
+  const picked = (id: string, props?: object) => {
+    const b = sel.find((x) => x.id === id);
+    return b && props ? ({ ...b, props: { ...b.props, ...props } } as Block) : b;
   };
+  // `back` puts a number back that was stored before, so no check refuses it. Returns false when the change is refused.
+  const grows = (type: Block["type"], props: object, key?: string, back?: boolean): boolean => {
+    if (back) {
+      style(type, props, key);
+      setDenied((d) => d && { ...d, from: sig(picked(d.id, props)!) });
+      return true;
+    }
+    const off = sel.filter((b) => b.type === type).find((b) => pastPaper(b, { ...b, props: { ...b.props, ...props } } as Block, H));
+    if (off) setDenied({ id: off.id, props, from: sig(off) });
+    else {
+      setDenied(undefined);
+      style(type, props, key);
+    }
+    return !off;
+  };
+  const refusedBlock = denied && picked(denied.id);
+  const paperHint = !!denied && !!refusedBlock && sig(refusedBlock) === denied.from && pastPaper(refusedBlock, { ...refusedBlock, props: { ...refusedBlock.props, ...denied.props } } as Block, H);
   const wall = sel.length === 1 && sel[0].type === "zahlenmauer" ? sel[0] : undefined;
   const haus = sel.length === 1 && sel[0].type === "zahlenhaus" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
@@ -565,9 +583,9 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           </p>
         ) : null;
       })()}
-      {paper && (
+      {paperHint && refusedBlock && (
         <p className="hint warn" role="status" data-foot="paper">
-          Das passt nicht mehr auf die Seite und wurde nicht übernommen. {FOOT[paper][1]}
+          Das passt nicht mehr auf die Seite und wurde nicht übernommen. {FOOT[refusedBlock.type][1]}
         </p>
       )}
       {/* A text that the foot stops from growing says that its last words are cut. */}
@@ -920,7 +938,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
-      {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key) => grows("uhr", props, key)} />}
+      {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key, back) => grows("uhr", props, key, back)} />}
       {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
       {points && (
         <>

@@ -108,6 +108,9 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
 export function pastPaper(b: Block, next: Block, H: number) {
   const grow = GROWS[b.type];
   if (!grow || b.type !== next.type || !grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) return false;
-  const low = lowest({ ...b, ...tall(b, round(grow[0](next.props, b.w))) });
+  // A change that needs no more height than the props before it takes, even on a block master capped short of its props.
+  const need = round(grow[0](next.props, b.w));
+  if (need <= round(grow[0](b.props, b.w))) return false;
+  const low = lowest({ ...b, ...tall(b, need) });
   return low > H + 0.01 && low > lowest(b) + 0.01;
 }

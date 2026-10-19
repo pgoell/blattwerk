@@ -1,10 +1,11 @@
 // The format panel's settings for an Uhr block: its face, its task, how a time is written, and the times.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UhrBlock } from "../sheet";
 import { parsed, sane, timesOf, type UhrProps } from "../uhr";
 import { newSeed } from "./Maths";
 
-type Apply = (props: Partial<UhrProps>, key?: string) => void;
+// Returns false when the change is refused. `back` takes a number that was stored before, which no check refuses.
+type Apply = (props: Partial<UhrProps>, key?: string, back?: boolean) => boolean | void;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const clock = (t: number) => `${Math.floor(t / 60)}:${pad(t % 60)}`;
@@ -25,6 +26,8 @@ function Whole({
   apply: Apply;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // The number the field had when it got focus: a typed number that is refused goes back to it.
+  const start = useRef(value);
   // An undo or a redo changes the number under the field: the field shows that number, not the draft.
   useEffect(() => setDraft(null), [value]);
   return (
@@ -35,10 +38,14 @@ function Whole({
         inputMode="numeric"
         aria-label={label}
         value={draft ?? String(value)}
+        onFocus={() => {
+          start.current = value;
+        }}
         onChange={(e) => {
           const text = e.target.value;
           setDraft(text);
-          if (/^\d+$/.test(text) && ok(Number(text))) apply({ [name]: Number(text) }, name);
+          if (/^\d+$/.test(text) && ok(Number(text)) && apply({ [name]: Number(text) }, name) === false)
+            apply({ [name]: start.current }, name, true);
         }}
         onBlur={() => setDraft(null)}
       />
