@@ -9,7 +9,7 @@ import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_suchsel_print import key_print
-from ui import at, box, user
+from ui import at, box, pick, user
 
 MQ = {
     "count": 2,
@@ -24,6 +24,12 @@ MQ = {
 NOTE = "Auch andere Lösungen sind richtig."
 TYPED_WRONG = [[0, 0, 1, 2], [0, 1, 0, 3], [0, 1, 1, 7]]
 TYPED_FREE = [[0, 0, 1, 3], [0, 1, 1, 12]]
+TYPED_ONE = [
+    [0, 1, 0, 5],
+    [0, 1, 3, 16],
+    [0, 3, 1, 19],
+    [0, 3, 2, 11],
+]  # one solution: columns 5 and 1, rows 5 and 4
 H = 93.98  # the default height for the block at 180 mm wide; the drawing does not depend on it
 # Each cell of a square: its square, its row and column, its number (None when it has no text), whether it is
 # an answer.
@@ -198,3 +204,23 @@ def test_the_print_has_the_editors_numbers(editor, browser, server):
                 assert item["number"] == shown[place], place
                 compared += 1
     assert compared, "no number to compare"
+
+
+def test_a_typed_square_with_one_solution_has_no_note_and_no_hint(editor, browser, server):
+    """One solution (#954): a typed square that fixes one solution has no "Auch andere Lösungen" note in the key and
+    no hint in the panel, and is neither marked many nor wrong; the key shows that one solution."""
+    client = user()
+    typed = {**MQ, "op": "+", "size": 2, "count": 1, "typed": TYPED_ONE}
+    page = editor(box("k", "malquadrat", typed, w=180, h=H), client=client, theme="")
+    pick(page, "k")
+    expect(page.locator(".panel")).to_be_visible()
+    expect(page.locator(".panel p.hint[role=status]")).to_have_count(0)
+    expect(at(page, "k").locator("g.square.many")).to_have_count(0)
+    expect(at(page, "k").locator("g.square.wrong")).to_have_count(0)
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(".malquadrat text.note")).to_have_count(0)
+    grid = full(cells(paper.locator(".malquadrat")), 2)[0]
+    paper.context.close()
+    assert grid[0][1:3] == [5, 1], grid
+    assert [grid[1][0], grid[2][0]] == [5, 4], grid
+    assert [grid[1][1], grid[1][2], grid[2][1], grid[2][2]] == [10, 6, 9, 5], grid
