@@ -20,7 +20,7 @@
     "@fontsource-variable/playwrite-de-la": "^5.3.0",
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "hyphen": "^1.14.1",
     "lucide-react": "^1.55.0",
     "modern-screenshot": "^4.7.0",
