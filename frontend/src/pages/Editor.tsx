@@ -1056,7 +1056,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
     [frame.style.width, frame.style.height] = [ownW, ownH];
     block.style.transform = was;
-    return { w: Math.max(10, w), h };
+    // An empty text keeps 10 mm, as a new box does.
+    return { w: frame.textContent?.trim() ? w : 10, h };
   };
   // A picked text at the page's foot whose words need more room than it has: the panel warns. Told from the sheet as
   // it is, so it holds after an undo, a reload or a paste too. A shape that shrinks its text tells by `overfit`.

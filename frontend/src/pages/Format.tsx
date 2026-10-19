@@ -506,7 +506,9 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       scaleWhole(side, to / shownOwn(side), to);
       return;
     }
-    place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }) }]));
+    // A typed size of a fitted box keeps that size: fit goes off in the same step.
+    const unfit = (b: Block) => (boxed(b)?.fit === true ? { props: { ...b.props, fit: undefined } } : {});
+    place(sel.map((b) => [b.id, { [side]: to, ...(kept(b) && b[side] > 0 && { [other]: round((b[other] * to) / b[side]) }), ...unfit(b) } as Partial<Box>]));
   };
   // A percent scales the box from its top left corner, or about the group's; a loose block keeps its own shape when it is kept.
   const percent = (side: "w" | "h", p: number) => {
