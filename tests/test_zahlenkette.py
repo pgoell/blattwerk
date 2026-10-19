@@ -4,11 +4,15 @@ The docstrings name the lines of the checklist (#820) that each test proves.
 """
 
 import itertools
+import re
 
 import pytest
 from playwright.sync_api import expect
+from test_feed_print import sheet_id
 from test_gaps import panel, step
+from test_suchsel_print import key_print
 from test_words import redo, undo
+from test_zahlenkette_print import chains_of
 from ui import at, box, doc, pick, reload, user
 
 KETTE = {
@@ -294,12 +298,95 @@ def test_remove_own_numbers_is_one_undo_step(editor):
     assert props_of(doc(page, client))["typed"] == TYPED
 
 
-def test_a_step_too_big_for_the_zahlenraum_warns_and_the_chain_still_draws(editor):
-    """A11: step 9 at bis 20 with 6 rings gives "Eine Kette geht über den Zahlenraum hinaus."; all 6 rings still draw."""
+def test_a_step_too_big_for_the_zahlenraum_is_not_drawn_and_the_panel_says_why(editor):
+    """A11: step 9 at bis 20 with 6 rings: every chain is marked "over" and draws no ring; the panel
+    says the chains do not fit the Zahlenraum."""
     page = editor(kette("d", {**KETTE, "step": 9}))
     pick(page, "d")
     expect(
-        hint(page).filter(has_text="Eine Kette geht über den Zahlenraum hinaus.")
+        hint(page).filter(
+            has_text="Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt."
+        )
     ).to_be_visible()
     for chain in range(4):
-        expect(at(page, "d").locator(f'g.chain[data-chain="{chain}"] g.ring')).to_have_count(6)
+        chain_locator = at(page, "d").locator(f'g.chain[data-chain="{chain}"]')
+        expect(chain_locator).to_have_class(re.compile(r"\bover\b"))
+        expect(chain_locator.locator("g.ring")).to_have_count(0)
+
+
+def test_a_long_mal_chain_at_the_smallest_zahlenraum_is_not_drawn_and_a_shorter_one_stays_inside(
+    editor, browser, server
+):
+    """A11: Mal with 12 rings at bis 100 draws no chain and the panel says why; 7 rings draw every
+    chain, and on the answer key every number stays at most 100."""
+    client = user()
+    page = editor(kette("d", {**KETTE, "op": "*", "max": 100, "rings": 12}), client=client)
+    pick(page, "d")
+    expect(
+        hint(page).filter(
+            has_text="Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt."
+        )
+    ).to_be_visible()
+    expect(at(page, "d").locator("g.chain.over")).to_have_count(4)
+    expect(at(page, "d").locator("g.ring")).to_have_count(0)
+    step(page, lambda: field(page, "Ringe").select_option("7"))
+    for chain in range(4):
+        expect(at(page, "d").locator(f'g.chain[data-chain="{chain}"] g.ring')).to_have_count(7)
+    paper = key_print(browser, server, sheet_id(page))
+    key = chains_of(paper.locator(".zahlenkette"))
+    paper.context.close()
+    assert len(key) == 4
+    for rings in key:
+        assert len(rings) == 7
+        assert all(n is not None and int(n) <= 100 for n in rings), rings
+
+
+def test_more_rings_keep_the_ring_size_and_take_fewer_columns_in_one_undo(editor):
+    """A8: Ringe 6 to 12 keeps the ring size (within 2 %), takes Spalten 2 down to 1 and grows the
+    block; one Ctrl+Z gives back 6 rings, 2 columns and 39 mm."""
+    client = user()
+    page = editor(kette("d", KETTE), client=client)
+    pick(page, "d")
+    before = at(page, "d").locator("g.ring circle").first.bounding_box()["width"]
+    step(page, lambda: field(page, "Ringe").select_option("12"))
+    props = props_of(doc(page, client))
+    assert props["columns"] == 1
+    assert props["rings"] == 12
+    assert block_of(doc(page, client))["h"] > 39
+    after = at(page, "d").locator("g.ring circle").first.bounding_box()["width"]
+    assert abs(after - before) <= before * 0.02
+    undo(page)
+    props = props_of(doc(page, client))
+    assert props["rings"] == 6
+    assert props["columns"] == 2
+    assert block_of(doc(page, client))["h"] == 39
+
+
+def test_a_rechenart_change_into_mal_drops_the_fixed_step_in_one_undo(editor):
+    """A7: Rechenart Mal at bis 100 stores op "*" and drops the fixed step 50; one Ctrl+Z gives back
+    "+" and step 50."""
+    client = user()
+    page = editor(kette("d", {**KETTE, "max": 100, "step": 50}), client=client)
+    pick(page, "d")
+    step(page, lambda: field(page, "Rechenart").select_option("*"))
+    props = props_of(doc(page, client))
+    assert props["op"] == "*"
+    assert "step" not in props
+    undo(page)
+    props = props_of(doc(page, client))
+    assert props["op"] == "+"
+    assert props["step"] == 50
+
+
+def test_a_ring_field_keeps_focus_and_digits_while_the_block_redraws(editor):
+    """A10: typing "17" into "Zahl in Ring 3" keeps the focus and the digits while the block redraws,
+    and stores [0, 2, 17]."""
+    client = user()
+    page = editor(kette("d", KETTE), client=client)
+    pick(page, "d")
+    number = field(page, "Zahl in Ring 3")
+    number.click()
+    step(page, lambda: page.keyboard.type("17"))
+    expect(number).to_be_focused()
+    expect(number).to_have_value("17")
+    assert props_of(doc(page, client))["typed"] == [[0, 2, 17]]

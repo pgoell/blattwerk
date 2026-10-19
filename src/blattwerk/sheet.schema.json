@@ -3271,7 +3271,7 @@
         },
         "max": {
           "type": "number",
-          "description": "The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20."
+          "description": "The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Every number stays in it: a random step is one that fits, and a chain that cannot fit (a fixed step too big, or too many rings, as with \"*\") is not drawn. Default 20."
         },
         "op": {
           "type": "string",

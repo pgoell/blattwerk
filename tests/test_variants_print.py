@@ -665,7 +665,7 @@ def test_a_zahlenhaus_gets_another_seed_and_loses_its_typed_numbers():
 
 
 def test_a_zahlenkette_gets_another_seed_and_loses_its_typed_numbers():
-    """A of #819 (Varianten re-seed): B to D give a Zahlenkette a seed of its own, drop `typed`; A is as stored."""
+    """A of #820 (Varianten re-seed): B to D give a Zahlenkette a seed of its own, drop `typed`; A is as stored."""
     chain = {
         "count": 4,
         "columns": 2,

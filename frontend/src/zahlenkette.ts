@@ -25,10 +25,12 @@
 // - "-": the "+" chain reversed: it starts at a + s * (rings - 1) and goes down by s.
 // - "*": the step s is the fixed one, or random among 2 to 10 with s^(rings - 1) <= max (none: 2). The first number a
 //   is random in 1 to max(1, floor(max / s^(rings - 1))); the numbers a, a * s, a * s^2 and so on.
-// - `over`: true when a number is past max (a fixed step too big, or Mal with many rings). Not refused: the panel warns.
+// - Every number stays in the Zahlenraum. `over`: true when no chain of these settings fits it (a fixed step too big,
+//   or more rings than the Zahlenraum has room for, as Mal with many rings). Such a chain is not drawn, and the panel
+//   says why.
 // - Typed chain (manual mode): the lowest typed ring is the anchor, and every other ring is the anchor plus or minus
 //   (or times, or divided by) the step once per ring away from it. `wrong` is true when another typed ring disagrees,
-//   a number goes below 0, or a backward Mal division is not whole. A wrong chain shows no answers in the key.
+//   a number goes below 0 or past max, or a backward Mal division is not whole. A wrong chain shows no answers in the key.
 //
 // The drawing, on screen and in print alike (sheet.tsx `Zahlenkette`): `div.zahlenkette` (`.solved` in the key) holds
 // one svg; each chain `g.chain[data-chain=i]` (`.wrong` when wrong), each ring `g.ring[data-ring=j]` a circle with a
@@ -59,7 +61,7 @@ export type ZahlenketteProps = {
    * @maximum 12
    */
   rings: number;
-  /** The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. */
+  /** The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Every number stays in it: a random step is one that fits, and a chain that cannot fit (a fixed step too big, or too many rings, as with "*") is not drawn. Default 20. */
   max: number;
   /** The operation: "+" adds the step, "-" takes it away, "*" multiplies by it. "*" needs max 100 or more, under that it becomes "+". Default "+". */
   op: "+" | "-" | "*";
@@ -158,6 +160,14 @@ export function heightFor(p: ZahlenketteProps, w: number): number {
   return L.vbH * Math.min(w / L.vbW, S0);
 }
 
+// The Spalten a block of width w keeps for `rings` rings: its own, or fewer when the chains side by side would be too
+// wide for the rings to keep the default size (at least 1).
+export function fitColumns(p: Pick<ZahlenketteProps, "count" | "columns">, rings: number, w: number): number {
+  let columns = p.columns;
+  while (columns > 1 && layout({ ...p, columns, rings }).vbW * S0 > w + 0.01) columns--;
+  return columns;
+}
+
 // The numbers 0 to n - 1 in an order from `next` (Fisher-Yates).
 function permutation(n: number, next: () => number): number[] {
   const out = Array.from({ length: n }, (_, i) => i);
@@ -169,6 +179,8 @@ function permutation(n: number, next: () => number): number[] {
 }
 
 // The step and the numbers of an untyped chain, from the seed unless the step is fixed.
+// A random step takes only steps whose chain fits the Zahlenraum; when none does, or a fixed step does not, the chain
+// has numbers past max and `made` flags it `over`.
 function generated(p: ZahlenketteProps, next: () => number): { step: number; numbers: number[] } {
   const span = p.rings - 1;
   if (p.op === "*") {
@@ -228,11 +240,13 @@ export function made(props: ZahlenketteProps): Made {
           wrong ||= typed.get(i) !== x;
           return typed.get(i) as number;
         }
-        wrong ||= x < 0 || !Number.isInteger(x);
+        wrong ||= x < 0 || x > p.max || !Number.isInteger(x);
         return Math.max(0, Math.trunc(x));
       });
     }
-    const over = numbers.some((n) => n > p.max);
+    // A chain of the generator that leaves the Zahlenraum is not drawn; a typed chain that leaves it is wrong instead,
+    // so that the teacher's numbers stay in view.
+    const over = !typed.size && numbers.some((n) => n > p.max);
     chains.push({ numbers, given, step: gen.step, wrong, over });
   }
   const out: Made = { chains };

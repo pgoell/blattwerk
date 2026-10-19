@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import type { ZahlenketteBlock } from "../sheet";
 import { draw } from "../bank";
-import { made, sane, startFlags, type ZahlenketteProps } from "../zahlenkette";
+import { fitColumns, made, sane, startFlags, type ZahlenketteProps } from "../zahlenkette";
 
 const ZAHLENRAUM = [10, 20, 100, 1000];
 const RECHENART = { "+": "Plus", "-": "Minus", "*": "Mal" } as const;
@@ -60,7 +60,9 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
         Ringe
         <select aria-label="Ringe" value={p.rings} onChange={(e) => {
           const rings = Number(e.target.value);
-          apply({ rings, free: Array.from({ length: rings }, (_, j) => free[j] ?? false) });
+          // More rings make each chain wider: fewer Spalten keep the rings at their size, and the block grows down instead.
+          const columns = fitColumns(p, rings, block.w);
+          apply({ rings, free: Array.from({ length: rings }, (_, j) => free[j] ?? false), ...(columns !== p.columns ? { columns } : {}) });
         }}>
           {Array.from({ length: 9 }, (_, i) => i + 4).map((n) => (
             <option key={n} value={n}>
@@ -248,7 +250,7 @@ export default function Zahlenkette({ block, apply }: { block: ZahlenketteBlock;
         ) : null,
       )}
       {m.chains.some((ch) => ch.over) && (
-        <p className="hint" role="status">Eine Kette geht über den Zahlenraum hinaus. Nimm weniger Ringe oder einen kleineren Schritt.</p>
+        <p className="hint" role="status">Die Ketten passen nicht in den Zahlenraum und werden nicht gezeigt. Nimm weniger Ringe, einen kleineren Schritt oder einen größeren Zahlenraum.</p>
       )}
       {p.typed && (
         <button

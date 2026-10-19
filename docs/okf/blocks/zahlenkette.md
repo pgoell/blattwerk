@@ -4,7 +4,7 @@ title: "Block: zahlenkette"
 description: "The number chains (Zahlenketten): rings in a row, each step adding or taking away the same number, and which rings are given."
 tags: [block, zahlenkette]
 covers: [zahlenkette]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T01:52:54Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T02:21:48Z }
 ---
 
 # zahlenkette
@@ -40,7 +40,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | count | number | 1 to 12 | yes | Number of chains (Ketten) on the sheet, side by side in rows of `columns`. Default 4. |
 | columns | number | 1 to 4 | yes | Number of chains per row. Default 2. |
 | rings | number | 4 to 12 | yes | Number of rings per chain. Default 6. |
-| max | number |  | yes | The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. |
+| max | number |  | yes | The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Every number stays in it: a random step is one that fits, and a chain that cannot fit (a fixed step too big, or too many rings, as with "*") is not drawn. Default 20. |
 | op | string | `+`, `-`, `*` | yes | The operation: "+" adds the step, "-" takes it away, "*" multiplies by it. "*" needs max 100 or more, under that it becomes "+". Default "+". |
 | step | number | 1 to 1000 | no | The fixed step (Schrittweite): for "+" and "-" a whole number from 1 to 1000, for "*" from 2 to 10. Missing: a random step per chain. Out of range: dropped. |
 | showStep | boolean |  | yes | Whether each arc shows its step on the pupil sheet. On: "+3", "−3" or "·2". Off: the arcs are empty, and the answer key writes the step on them in red. Default false. |

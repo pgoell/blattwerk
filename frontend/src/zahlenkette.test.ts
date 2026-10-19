@@ -1,7 +1,7 @@
 // The Zahlenkette generator: the chains keep their step, the given rings follow the settings, and the typed numbers come out right.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, heightFor, layout, made, sane, startFlags, stepLabel, type ZahlenketteProps } from "./zahlenkette";
+import { DEFAULTS, fitColumns, heightFor, layout, made, sane, startFlags, stepLabel, type ZahlenketteProps } from "./zahlenkette";
 
 const P = (over: Partial<ZahlenketteProps> = {}): ZahlenketteProps => ({ count: 4, columns: 2, rings: 6, max: 20, op: "+", showStep: false, given: "start", seed: 1, ...over });
 
@@ -168,6 +168,43 @@ describe("the chains of a block", () => {
     expect(made(P({ count: 1, op: "+", step: 50, max: 100 })).chains[0].over).toBe(true);
     expect(made(P({ count: 1, op: "+", step: 3, max: 100 })).chains[0].over).toBe(false);
     expect(made(P({ count: 1, op: "*", step: 10, max: 100, rings: 6 })).chains[0].over).toBe(true);
+  });
+
+  it("every number of a chain that is drawn stays in the Zahlenraum, for every Rechenart, ring count and step", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom<ZahlenketteProps["op"]>("+", "-", "*"),
+        fc.constantFrom(10, 20, 100, 1000),
+        fc.integer({ min: 4, max: 12 }),
+        fc.option(fc.integer({ min: 1, max: 1000 }), { nil: undefined }),
+        fc.integer(),
+        (op, max, rings, step, seed) => {
+          for (const c of made(P({ op, max, rings, step, seed })).chains) if (!c.over) for (const n of c.numbers) expect(n >= 0 && n <= max).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it("a long Mal chain at the smallest Zahlenraum is not drawn, a short one stays in it", () => {
+    for (const c of made(P({ op: "*", max: 100, rings: 12 })).chains) expect(c.over).toBe(true);
+    for (const c of made(P({ op: "*", max: 100, rings: 7 })).chains) {
+      expect(c.over).toBe(false);
+      expect(Math.max(...c.numbers)).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("a random step picks one that fits whenever one does", () => {
+    // 11 steps from 0 reach 11, past 10: no chain of 12 rings fits bis 10. Bis 20 one does.
+    expect(made(P({ max: 10, rings: 12 })).chains.every((c) => c.over)).toBe(true);
+    expect(made(P({ max: 20, rings: 12 })).chains.some((c) => c.over)).toBe(false);
+  });
+
+  it("more rings keep fewer Spalten, so that the rings keep their size in the block's width", () => {
+    expect(fitColumns(P(), 6, 180)).toBe(2);
+    expect(fitColumns(P(), 8, 180)).toBe(1);
+    expect(fitColumns(P({ columns: 4 }), 4, 180)).toBe(2);
+    expect(fitColumns(P({ columns: 4 }), 4, 250)).toBe(4);
+    expect(fitColumns(P({ columns: 1 }), 12, 180)).toBe(1);
   });
 
   it("the same props give the same chains", () => {

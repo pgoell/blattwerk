@@ -3106,8 +3106,9 @@ function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: number; so
           const [x, y] = [(i % p.columns) * (chainW + CG), Math.floor(i / p.columns) * (chainH + RG)];
           const top = (j: number) => x + j * (D + G) + D / 2;
           return (
-            <g key={i} className={`chain${c.wrong ? " wrong" : ""}`} data-chain={i}>
-              {c.numbers.map((n, j) => {
+            // A chain that leaves the Zahlenraum is not drawn: its group stays, empty, with the class `over`.
+            <g key={i} className={`chain${c.wrong ? " wrong" : ""}${c.over ? " over" : ""}`} data-chain={i}>
+              {!c.over && c.numbers.map((n, j) => {
                 const shows = c.given[j] || (solved && !c.wrong);
                 return (
                   <g key={j} className="ring" data-ring={j}>
@@ -3119,7 +3120,7 @@ function Zahlenkette({ block, solved }: { block: ZahlenketteBlock; k: number; so
                   </g>
                 );
               })}
-              {c.numbers.slice(1).map((_, j) => {
+              {!c.over && c.numbers.slice(1).map((_, j) => {
                 // The arc from ring j's top centre to ring j+1's, 2.5 units high, with its label above it in the band of A units.
                 const [x1, x2, ya] = [top(j), top(j + 1), y + A];
                 const xm = (x1 + x2) / 2;
