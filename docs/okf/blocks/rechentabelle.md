@@ -4,7 +4,7 @@ title: "Block: rechentabelle"
 description: "The calculation tables (Plus-, Minus-, Mal- and Geteilt-Tabellen): row values down the left, column values along the top, the operator in the corner, and each result cell the row value worked with the column value; which values and cells are given."
 tags: [block, rechentabelle]
 covers: [rechentabelle]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T12:29:34Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T12:54:22Z }
 ---
 
 # rechentabelle
@@ -43,7 +43,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | cols | number | 2 to 10 | yes | Columns per table: the column values along the top. Default 4. |
 | op | string | `+`, `-`, `*`, `:` | yes | The Rechenart in the corner: "+" (Plus), "-" (Minus, row value minus column value), "*" (Mal) or ":" (Geteilt, row value divided by column value; a cell with no whole answer is struck through). Default "+". |
 | max | number |  | yes | Plus and Minus: the Zahlenraum, the largest number in the table, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. |
-| carry | string | `none`, `required`, `either` | yes | Plus and Minus: the Übertrag of every cell: "none" no cell carries, "required" every cell carries at one place at least, "either" no rule. Default "either". |
+| carry | list of string | `none`, `required`, `either` | yes | Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell carries into that place, "required" every cell does, "either" no rule. The Hunderterübergang counts only with max 1000, else it is "either". Default ["either", "either"]. |
 | reihen | list of number |  | yes | Mal and Geteilt: the Einmaleins-Reihen, distinct numbers 1 to 10, as the column values. Default [2, 4, 5, 10]. |
 | order | string | `related`, `random` | yes | Mal and Geteilt: the order of the Reihen along the top: "related" related Reihen side by side (1, 2, 4, 8, 3, 6, 9, 5, 10, 7), "random" a random order. Default "related". |
 | first | string | `all`, `kings`, `near` | yes | Mal and Geteilt: the Erstfaktoren down the left side: "all" 1 to 10, "kings" only the Königsaufgaben 1, 2, 5, 10, "near" the Königsaufgaben plus or minus 1: 3, 4, 6, 9. Default "all". |

@@ -10,6 +10,8 @@ from test_feed_print import printed, sheet_id
 from test_suchsel_print import key_print
 from ui import at, box, user
 
+from blattwerk.maths import carries
+
 RT = {
     "count": 2,
     "columns": 2,
@@ -136,6 +138,28 @@ def test_on_the_key_every_cell_equals_row_op_column(editor, browser, server, op)
                 assert row % col != 0, (i, j, row, col)
             else:
                 assert cell["number"] == apply(op, row, col), (i, j, row, col)
+
+
+@pytest.mark.parametrize("op", ["+", "-"], ids=["plus", "minus"])
+def test_on_the_key_every_cell_keeps_the_rule_per_place(editor, browser, server, op):
+    """Übertrag per place: with Zehnerübergang "required" and Hunderterübergang "none", every key cell carries out of the Einer and not out of the Zehner."""
+    client = user()
+    props = {**RT, "op": op, "max": 1000, "carry": ["required", "none"]}
+    page = editor(box("k", "rechentabelle", props, w=180, h=H), client=client)
+    paper = key_print(browser, server, sheet_id(page))
+    found = tables(items(paper.locator(".rechentabelle")))
+    paper.context.close()
+    assert found
+    for table in found.values():
+        for (i, j), cell in table["cells"].items():
+            row = table["rows"][i]["number"]
+            col = table["cols"][j]["number"]
+            assert row is not None and col is not None, (i, j)
+            if cell["strike"]:
+                continue
+            carried = carries(op, row, col)
+            assert carried[0] == 1, (i, j, row, col, carried)
+            assert carried[1:2] in ([], [0]), (i, j, row, col, carried)
 
 
 def test_the_print_has_the_editors_numbers(editor, browser, server):

@@ -4100,13 +4100,13 @@
           "description": "Plus and Minus: the Zahlenraum, the largest number in the table, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20."
         },
         "carry": {
-          "type": "string",
-          "enum": [
-            "none",
-            "required",
-            "either"
-          ],
-          "description": "Plus and Minus: the Übertrag of every cell: \"none\" no cell carries, \"required\" every cell carries at one place at least, \"either\" no rule. Default \"either\"."
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CarryRule"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"]."
         },
         "reihen": {
           "type": "array",
@@ -4183,6 +4183,14 @@
         "hideCols",
         "tint",
         "seed"
+      ]
+    },
+    "CarryRule": {
+      "type": "string",
+      "enum": [
+        "none",
+        "required",
+        "either"
       ]
     },
     "RechentabelleTyped": {

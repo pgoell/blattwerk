@@ -749,7 +749,7 @@ def test_a_rechentabelle_gets_another_seed_and_loses_its_typed_numbers():
         "cols": 4,
         "op": "+",
         "max": 20,
-        "carry": "either",
+        "carry": ["either", "either"],
         "seed": 7,
         "typed": [[0, 0, 0, 5]],
     }

@@ -17,7 +17,7 @@ RT = {
     "cols": 4,
     "op": "+",
     "max": 20,
-    "carry": "either",
+    "carry": ["either", "either"],
     "reihen": [2, 4, 5, 10],
     "order": "related",
     "first": "all",
@@ -111,7 +111,20 @@ def test_a_rechentabelle_is_inserted_from_the_maths_menu_with_the_default_props(
         ({}, "hideCols", 0, 1, lambda p: panel(p, "Ein versteckter Spaltenwert mehr").click()),
         ({}, "op", "+", "-", lambda p: field(p, "Rechenart").select_option("-")),
         ({}, "max", 20, 100, lambda p: field(p, "Zahlenraum").select_option("100")),
-        ({}, "carry", "either", "none", lambda p: field(p, "Übertrag").select_option("none")),
+        (
+            {},
+            "carry",
+            ["either", "either"],
+            ["none", "either"],
+            lambda p: field(p, "Zehnerübergang").select_option("none"),
+        ),
+        (
+            {"max": 1000},
+            "carry",
+            ["either", "either"],
+            ["either", "required"],
+            lambda p: field(p, "Hunderterübergang").select_option("required"),
+        ),
         ({}, "tint", "none", "blue", lambda p: field(p, "Farbe").select_option("blue")),
         (
             {"op": "*"},
@@ -144,7 +157,8 @@ def test_a_rechentabelle_is_inserted_from_the_maths_menu_with_the_default_props(
         "versteckte-spalten",
         "rechenart",
         "zahlenraum",
-        "uebertrag",
+        "zehner",
+        "hunderter",
         "farbe",
         "anordnung",
         "erstfaktor",
@@ -164,6 +178,20 @@ def test_each_setting_changes_its_prop_and_undoes_and_redoes(
     assert props_of(doc(page, client))[key] == before
     redo(page)
     assert props_of(doc(page, client))[key] == after
+
+
+def test_the_hunderter_and_tausender_selects_show_only_when_the_zahlenraum_reaches_them(editor):
+    """Übertrag: "Zehnerübergang" always shows with Plus and Minus; "Hunderterübergang" only at bis 1000; there is no "Tausenderübergang"."""
+    page = editor(rt("d", RT))
+    pick(page, "d")
+    expect(field(page, "Zehnerübergang")).to_be_visible()
+    expect(field(page, "Hunderterübergang")).to_have_count(0)
+    field(page, "Zahlenraum").select_option("100")
+    expect(field(page, "Zehnerübergang")).to_be_visible()
+    expect(field(page, "Hunderterübergang")).to_have_count(0)
+    field(page, "Zahlenraum").select_option("1000")
+    expect(field(page, "Hunderterübergang")).to_be_visible()
+    expect(page.locator(".panel").get_by_label("Tausenderübergang")).to_have_count(0)
 
 
 def test_the_steppers_show_their_counts_and_stop_at_their_limits(editor):

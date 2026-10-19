@@ -109,7 +109,7 @@ ZAHLENSTRAHL = {
                 "cols": 4,
                 "op": "+",
                 "max": 20,
-                "carry": "either",
+                "carry": ["either", "either"],
                 "reihen": [2, 4, 5, 10],
                 "order": "related",
                 "first": "all",

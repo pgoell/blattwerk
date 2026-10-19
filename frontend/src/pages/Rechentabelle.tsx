@@ -2,7 +2,9 @@
 import { useRef, useState } from "react";
 import type { RechentabelleBlock } from "../sheet";
 import { draw } from "../bank";
-import { FIRST, made, sane, type Op, type RechentabelleProps, type RechentabelleTyped, type Tint } from "../rechentabelle";
+import { FIRST, made, sane, type CarryRule, type Op, type RechentabelleProps, type RechentabelleTyped, type Tint } from "../rechentabelle";
+
+type CarryTuple = [CarryRule, CarryRule];
 
 const RECHENART = [
   ["+", "Plus"],
@@ -109,6 +111,28 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
   }
 
   const mal = p.op === "*" || p.op === ":";
+
+  // The Übertrag of one place: 0 Zehner, 1 Hunderter. A change applies the whole tuple.
+  function carrySelect(place: number, label: string) {
+    return (
+      <label>
+        {label}
+        <select
+          aria-label={label}
+          value={p.carry[place]}
+          onChange={(e) => {
+            const next = [...p.carry] as CarryTuple;
+            next[place] = e.target.value as CarryRule;
+            apply({ carry: next });
+          }}
+        >
+          <option value="either">Egal</option>
+          <option value="required">Mit</option>
+          <option value="none">Ohne</option>
+        </select>
+      </label>
+    );
+  }
 
   return (
     <>
@@ -222,14 +246,8 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
               ))}
             </select>
           </label>
-          <label>
-            Übertrag
-            <select aria-label="Übertrag" value={p.carry} onChange={(e) => apply({ carry: e.target.value as RechentabelleProps["carry"] })}>
-              <option value="none">Ohne Übertrag</option>
-              <option value="required">Mit Übertrag</option>
-              <option value="either">Egal</option>
-            </select>
-          </label>
+          {carrySelect(0, "Zehnerübergang")}
+          {p.max >= 1000 && carrySelect(1, "Hunderterübergang")}
         </>
       )}
       <label>

@@ -9,10 +9,13 @@
 // - `rows` row values and `cols` column values per table, each 2 to 10 (default 4).
 // - `op`, the Rechenart: "+" (default), "-", "*" (Mal) or ":" (Geteilt). Cell (i, j) is row i op column j.
 // - Plus and Minus: `max`, the Zahlenraum, one of 10, 20, 100, 1000 (default 20; any other value gives 20), and
-//   `carry`, the Übertrag: "none" no cell carries at any place, "required" every cell carries at one place at least,
-//   "either" (default) no rule. A carry is as in maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row
-//   value below the column value's digit (with the borrow). The rule holds for every place at once; a rule per place is
-//   #838. Plus: every value and every cell from 1 to max. Minus: every value from 1 to max, every cell 0 or more.
+//   `carry`, the Übertrag per place, [Zehnerübergang, Hunderterübergang] (each a `CarryRule`): "none" no cell carries
+//   into that place, "required" every cell does, "either" (default) no rule. The Hunderterübergang needs max 1000
+//   (below, a cell of 100 at most leaves no room for it) and is "either" below; no cell reaches a Tausenderübergang,
+//   which needs a cell above 1000. What a cell carries is `carryList`,
+//   as maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row value below the column value's digit
+//   (with the borrow). Plus: every value and every cell from 1 to max. Minus: every value from 1 to max, every cell 0
+//   or more.
 // - Mal and Geteilt: `reihen`, the Einmaleins-Reihen, a list of distinct numbers 1 to 10 (default [2, 4, 5, 10]; an
 //   empty or wrong list gives the default). The column values are the Reihen: with `order` "related" (default) in the
 //   order of FAMILY (related Reihen side by side: 1, 2, 4, 8, 3, 6, 9, 5, 10, 7), with "random" in a drawn order. The
@@ -66,7 +69,9 @@
 // ("2 Tabellen"), "Weniger Tabellen nebeneinander" / "Mehr Tabellen nebeneinander" ("2 nebeneinander"), "Eine Zeile
 // weniger/mehr" ("4 Zeilen"), "Eine Spalte weniger/mehr" ("4 Spalten"), "Ein versteckter Zeilenwert weniger/mehr"
 // ("0 Zeilenwerte versteckt"), "Ein versteckter Spaltenwert weniger/mehr" ("0 Spaltenwerte versteckt"); selects
-// "Rechenart", "Zahlenraum" and "Übertrag" (Plus and Minus), "Anordnung" and "Erstfaktor" (Mal and Geteilt), "Farbe";
+// "Rechenart", "Zahlenraum" (Plus and Minus), two selects "Zehnerübergang" and "Hunderterübergang" (shown with max 1000),
+// each with the options "either" "Egal", "required" "Mit", "none" "Ohne";
+// "Anordnung" and "Erstfaktor" (Mal and Geteilt), "Farbe";
 // checkboxes "2er-Reihe" and so on (Mal and Geteilt; the last checked one is disabled); select "Rechentabelle für
 // eigene Zahlen"; number fields "Spaltenwert j", "Zeilenwert i", "Zeile i, Spalte j" (from 1). Hints (p.hint,
 // role=status): per wrong table "Rechentabelle i: Die Zahlen passen nicht zusammen."; loose "carry" "Mit dieser
@@ -104,8 +109,8 @@ export type RechentabelleProps = {
   op: "+" | "-" | "*" | ":";
   /** Plus and Minus: the Zahlenraum, the largest number in the table, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20. */
   max: number;
-  /** Plus and Minus: the Übertrag of every cell: "none" no cell carries, "required" every cell carries at one place at least, "either" no rule. Default "either". */
-  carry: "none" | "required" | "either";
+  /** Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: "none" no cell carries into that place, "required" every cell does, "either" no rule. The Hunderterübergang counts only with max 1000, else it is "either". Default ["either", "either"]. */
+  carry: [CarryRule, CarryRule];
   /** Mal and Geteilt: the Einmaleins-Reihen, distinct numbers 1 to 10, as the column values. Default [2, 4, 5, 10]. */
   reihen: number[];
   /** Mal and Geteilt: the order of the Reihen along the top: "related" related Reihen side by side (1, 2, 4, 8, 3, 6, 9, 5, 10, 7), "random" a random order. Default "related". */
@@ -130,6 +135,7 @@ export type RechentabelleProps = {
   typed?: RechentabelleTyped[];
 };
 
+export type CarryRule = "none" | "required" | "either";
 export type Op = RechentabelleProps["op"];
 export type Tint = RechentabelleProps["tint"];
 // A table: its row and column values, its result cells (cells[i][j] for row i + 1 and column j + 1, 0 where struck or
@@ -157,7 +163,7 @@ export const DEFAULTS: Omit<RechentabelleProps, "seed"> = {
   cols: 4,
   op: "+",
   max: 20,
-  carry: "either",
+  carry: ["either", "either"],
   reihen: [2, 4, 5, 10],
   order: "related",
   first: "all",
@@ -195,8 +201,13 @@ export function sane(p: RechentabelleProps): RechentabelleProps {
   const cols = whole(p.cols, 2, 10) ? p.cols : DEFAULTS.cols;
   const op = OPS.includes(p.op) ? p.op : DEFAULTS.op;
   const max = [10, 20, 100, 1000].includes(p.max) ? p.max : DEFAULTS.max;
-  const carry =
-    p.carry === "none" || p.carry === "required" ? p.carry : "either";
+  const isRule = (x: unknown): x is CarryRule =>
+    x === "none" || x === "required" || x === "either";
+  const carry: [CarryRule, CarryRule] =
+    Array.isArray(p.carry) && p.carry.length === 2 && p.carry.every(isRule)
+      ? [...p.carry]
+      : [...DEFAULTS.carry];
+  if (max < 1000) carry[1] = "either";
   const ok =
     Array.isArray(p.reihen) &&
     p.reihen.length > 0 &&
@@ -293,19 +304,21 @@ export function heightFor(p: RechentabelleProps, w: number): number {
   return L.vbH * Math.min(w / L.vbW, S0);
 }
 
-// Whether a + b (op "+") or a − b (op "-") carries at one place at least, as maths.py `carries`.
-export function carries(op: "+" | "-", a: number, b: number): boolean {
+// What each place of a + b (op "+") or a − b (op "-") carries to the next, units first, as maths.py `carries`. A place
+// beyond the list carries 0.
+export function carryList(op: "+" | "-", a: number, b: number): number[] {
+  const out: number[] = [];
   let carry = 0;
   while (a > 0 || b > 0) {
     carry =
       op === "+"
         ? Number((a % 10) + (b % 10) + carry > 9)
         : Number((a % 10) - carry < b % 10);
-    if (carry) return true;
+    out.push(carry);
     a = Math.floor(a / 10);
     b = Math.floor(b / 10);
   }
-  return false;
+  return out;
 }
 
 // The tables of the settings. The same settings give the same tables on every call.
@@ -358,9 +371,12 @@ function fits(
   useCarry: boolean,
 ): boolean {
   if (op === "+" ? r + c > p.max : r < c) return false;
-  if (!useCarry || p.carry === "either") return true;
-  const carrying = carries(op, r, c);
-  return p.carry === "none" ? !carrying : carrying;
+  if (!useCarry) return true;
+  const list = carryList(op, r, c);
+  return p.carry.every((rule, k) => {
+    const v = list[k] ?? 0;
+    return rule === "none" ? v === 0 : rule === "required" ? v === 1 : true;
+  });
 }
 
 // One try of Plus or Minus values: the column values, then the row values that fit them all.

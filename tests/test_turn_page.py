@@ -115,7 +115,7 @@ RECHENTABELLE = {
     "cols": 4,
     "op": "+",
     "max": 20,
-    "carry": "either",
+    "carry": ["either", "either"],
     "seed": 7,
 }
 DRAWN = {

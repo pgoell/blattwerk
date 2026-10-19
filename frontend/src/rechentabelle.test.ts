@@ -2,7 +2,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
-  carries,
+  carryList,
   DEFAULTS,
   FAMILY,
   FIRST,
@@ -43,10 +43,21 @@ describe("the Rechentabellen of a block", () => {
       cols: 4,
       op: "+",
       max: 20,
-      carry: "either",
+      carry: ["either", "either"],
       tint: "none",
       seed: 0,
     });
+    expect(sane(P({ max: 100, carry: ["none", "required"] })).carry).toEqual([
+      "none",
+      "either",
+    ]);
+    expect(sane(P({ max: 1000, carry: ["none", "required"] })).carry).toEqual(
+      ["none", "required"],
+    );
+    expect(
+      sane(P({ carry: "none" as unknown as RechentabelleProps["carry"] }))
+        .carry,
+    ).toEqual(["either", "either"]);
     expect(s.reihen).toEqual(DEFAULTS.reihen);
     expect(s).not.toHaveProperty("typed");
     expect(sane(P({ rows: 3, hideRows: 5 })).hideRows).toBe(2);
@@ -61,29 +72,74 @@ describe("the Rechentabellen of a block", () => {
     );
   });
 
-  it("Plus: every value and cell from 1 to max, every cell is row plus column, the carry rule holds", () => {
+  it("Plus: every value and cell from 1 to max, every cell is row plus column", () => {
+    fc.assert(
+      fc.property(seeds, fc.constantFrom(10, 20, 100, 1000), (seed, max) => {
+        for (const t of made(P({ seed, max, count: 2, rows: 6, cols: 6 }))
+          .tables) {
+          t.rows.forEach((r, i) =>
+            t.cols.forEach((c, j) => {
+              expect(t.cells[i][j]).toBe(r + c);
+              expect(t.cells[i][j]).toBeLessThanOrEqual(max);
+            }),
+          );
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("Minus: every value from 1 to max, every cell is row minus column and 0 or more", () => {
+    fc.assert(
+      fc.property(seeds, fc.constantFrom(10, 20, 100, 1000), (seed, max) => {
+        for (const t of made(
+          P({ seed, op: "-", max, count: 2, rows: 6, cols: 6 }),
+        ).tables) {
+          expect(t.wrong).toBe(false);
+          t.rows.forEach((r, i) =>
+            t.cols.forEach((c, j) => {
+              expect(t.cells[i][j]).toBe(r - c);
+              expect(t.cells[i][j]).toBeGreaterThanOrEqual(0);
+            }),
+          );
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  it("the Übertrag per place: every cell carries what the rule says, for Plus and Minus at max 100 and 1000", () => {
+    const cases: [RechentabelleProps["carry"], number[]][] = [
+      [
+        ["required", "none"],
+        [1, 0],
+      ],
+      [
+        ["none", "required"],
+        [0, 1],
+      ],
+    ];
     fc.assert(
       fc.property(
         seeds,
-        fc.constantFrom("none", "required", "either"),
-        (seed, carry) => {
-          const max = 100;
+        fc.constantFrom(100, 1000),
+        fc.constantFrom(0, 1),
+        fc.constantFrom("+", "-") as fc.Arbitrary<"+" | "-">,
+        (seed, max, which, op) => {
+          // A carry into the Hunderter needs a Hunderter: with max 100 no table can hold that rule.
+          if (max === 100 && which === 1) return;
+          const [carry, [k0, k1]] = cases[which];
           const m = made(
-            P({
-              seed,
-              max,
-              carry: carry as RechentabelleProps["carry"],
-              count: 2,
-            }),
+            P({ seed, op, max, carry, count: 2, rows: 4, cols: 4 }),
           );
           expect(m.loose).toBeNull();
           for (const t of m.tables) {
             t.rows.forEach((r, i) =>
               t.cols.forEach((c, j) => {
-                expect(t.cells[i][j]).toBe(r + c);
-                expect(t.cells[i][j]).toBeLessThanOrEqual(max);
-                if (carry === "none") expect(carries("+", r, c)).toBe(false);
-                if (carry === "required") expect(carries("+", r, c)).toBe(true);
+                const list = carryList(op, r, c);
+                expect(list[0] ?? 0).toBe(k0);
+                // Below max 1000 the Hunderterübergang is "either".
+                if (max === 1000) expect(list[1] ?? 0).toBe(k1);
               }),
             );
           }
@@ -93,37 +149,11 @@ describe("the Rechentabellen of a block", () => {
     );
   });
 
-  it("Minus: every value from 1 to max, every cell is row minus column and 0 or more, the carry rule holds", () => {
-    fc.assert(
-      fc.property(
-        seeds,
-        fc.constantFrom("none", "required", "either"),
-        (seed, carry) => {
-          for (const t of made(
-            P({
-              seed,
-              op: "-",
-              max: 100,
-              carry: carry as RechentabelleProps["carry"],
-              count: 2,
-              rows: 6,
-              cols: 6,
-            }),
-          ).tables) {
-            t.rows.forEach((r, i) =>
-              t.cols.forEach((c, j) => {
-                expect(t.cells[i][j]).toBe(r - c);
-                expect(t.cells[i][j]).toBeGreaterThanOrEqual(0);
-                expect(t.wrong).toBe(false);
-                if (carry === "none") expect(carries("-", r, c)).toBe(false);
-                if (carry === "required") expect(carries("-", r, c)).toBe(true);
-              }),
-            );
-          }
-        },
-      ),
-      { numRuns: 100 },
-    );
+  it("carryList matches maths.py on hand cases", () => {
+    expect(carryList("+", 47, 38)).toEqual([1, 0]);
+    expect(carryList("-", 52, 27)).toEqual([1, 0]);
+    expect(carryList("-", 305, 127)).toEqual([1, 1, 0]);
+    expect(carryList("+", 5, 4)).toEqual([0]);
   });
 
   it("Mal: every cell is row times column, the columns are the Reihen in FAMILY order with related", () => {

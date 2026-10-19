@@ -417,6 +417,14 @@
           ],
           "type": "object"
         },
+        "CarryRule": {
+          "enum": [
+            "none",
+            "required",
+            "either"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -2407,13 +2415,13 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag of every cell: \"none\" no cell carries, \"required\" every cell carries at one place at least, \"either\" no rule. Default \"either\".",
-              "enum": [
-                "none",
-                "required",
-                "either"
-              ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "items": {
+                "$ref": "#/definitions/CarryRule"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
             },
             "cols": {
               "description": "Columns per table: the column values along the top. Default 4.",
@@ -6099,6 +6107,14 @@
           ],
           "type": "object"
         },
+        "CarryRule": {
+          "enum": [
+            "none",
+            "required",
+            "either"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -8157,13 +8173,13 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag of every cell: \"none\" no cell carries, \"required\" every cell carries at one place at least, \"either\" no rule. Default \"either\".",
-              "enum": [
-                "none",
-                "required",
-                "either"
-              ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "items": {
+                "$ref": "#/definitions/CarryRule"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
             },
             "cols": {
               "description": "Columns per table: the column values along the top. Default 4.",
@@ -11224,6 +11240,14 @@
           ],
           "type": "object"
         },
+        "CarryRule": {
+          "enum": [
+            "none",
+            "required",
+            "either"
+          ],
+          "type": "string"
+        },
         "Compare": {
           "properties": {
             "left": {
@@ -13214,13 +13238,13 @@
         "RechentabelleProps": {
           "properties": {
             "carry": {
-              "description": "Plus and Minus: the Übertrag of every cell: \"none\" no cell carries, \"required\" every cell carries at one place at least, \"either\" no rule. Default \"either\".",
-              "enum": [
-                "none",
-                "required",
-                "either"
-              ],
-              "type": "string"
+              "description": "Plus and Minus: the Übertrag per place, [Zehnerübergang, Hunderterübergang]: \"none\" no cell carries into that place, \"required\" every cell does, \"either\" no rule. The Hunderterübergang counts only with max 1000, else it is \"either\". Default [\"either\", \"either\"].",
+              "items": {
+                "$ref": "#/definitions/CarryRule"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
             },
             "cols": {
               "description": "Columns per table: the column values along the top. Default 4.",
