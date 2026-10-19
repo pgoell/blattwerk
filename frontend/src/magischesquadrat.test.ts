@@ -126,6 +126,28 @@ describe("the Magisches Quadrate of a block", () => {
     expect(sq.cells.flat().filter((v) => v !== 0)).toEqual([1, 1, 9, 9, 1]);
   });
 
+  it.each([
+    { size: 3 as const, max: 20, typed: [[0, 2, 2, 50]] },
+    { size: 3 as const, max: 20, typed: [[0, 1, 2, 200]] },
+    { size: 5 as const, max: 100, typed: [[0, 1, 1, 7]] },
+    { size: 5 as const, max: 100, typed: [[0, 3, 3, 500]] },
+  ])("a typed number far from 1 to max still gives a magic key: $size × $size, typed $typed", (c) => {
+    for (let seed = 0; seed < 50; seed++) {
+      const sq = made({
+        ...DEFAULTS,
+        count: 1,
+        max: c.max,
+        size: c.size,
+        seed,
+        typed: c.typed as [number, number, number, number][],
+      }).squares[0];
+      expect(sq.wrong).toBe(false);
+      expect(lines(sq.cells).every((s) => s === sq.sum)).toBe(true);
+      const [, r, col, v] = c.typed[0];
+      expect(sq.cells[r - 1][col - 1]).toBe(v);
+    }
+  });
+
   it("two typed numbers leave more than one solution, and the key keeps them", () => {
     const sq = made(P({ typed: [[0, 1, 1, 4], [0, 2, 3, 7]] })).squares[0];
     expect(sq.wrong).toBe(false);

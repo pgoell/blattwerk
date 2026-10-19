@@ -40,8 +40,9 @@
 // `solve` from the typed cells alone (the Zielzahl is never typed, it follows from them):
 // - One solution in whole numbers from 0 to 9999: the key shows it.
 // - More than one: the key shows one of them, `many`; the free cells take the drawn square's numbers where those fit,
-//   else up to 50 seeded draws from 1 to max; a key needs whole numbers from 0 to 9999, and distinct ones when the
-//   typed numbers are distinct.
+//   else the drawn square's numbers turned by v → k·v + d (k 1 or −1, d whole, so that the mean at the typed cells
+//   matches: a magic square stays magic), else up to 50 seeded draws from 1 to max (or to twice the largest typed
+//   number, if more); a key needs whole numbers from 0 to 9999, and distinct ones when the typed numbers are distinct.
 // - None (a line with all cells typed and a sum that differs, a key that is not whole or below 0, or no key found):
 //   `wrong`. The pupils' sheet shows the typed cells, the other cells stay empty, also in the key: never a false
 //   number. The Zielzahl does not print on a wrong square.
@@ -320,20 +321,40 @@ export function solve(
   const next = opts.next ?? rng(0);
   const max = opts.max ?? 9999;
   const prefer = opts.prefer;
-  const preferred = (j: number) =>
-    prefer
-      ? j < N
-        ? prefer[Math.floor(j / n)][j % n]
-        : prefer[0].reduce((s, v) => s + v, 0)
-      : 0;
-  for (let t = 0; t <= 50; t++) {
-    const f = free.map((j) => {
-      if (t === 0 && prefer) return preferred(j);
-      if (j === N) return 3 + Math.floor(next() * (n * max - 2));
-      return 1 + Math.floor(next() * max);
-    });
+  const rowSum0 = prefer ? prefer[0].reduce((s, v) => s + v, 0) : 0;
+  // A magic square stays magic under v -> k·v + d: the source square, mapped so that its mean at the known cells is the
+  // mean of the known values. Its free cells, and S when free, are the values to try.
+  const mapFrom = (src: number[][], srcSum: number, k: 1 | -1): number[] => {
+    const pairs = known.flatMap((row, r) => row.flatMap((v, c) => (v === null ? [] : [[v, src[r][c]]])));
+    const d = pairs.length ? Math.round(pairs.reduce((s, [v, p]) => s + v - k * p, 0) / pairs.length) : 0;
+    return free.map((j) => (j < N ? k * src[Math.floor(j / n)][j % n] + d : k * srcSum + n * d));
+  };
+  const attempt = (f: number[]): Solved | null => {
     const x = at(f);
-    if (good(x, !!opts.distinct)) return { kind: "many", cells: toSquare(x), sum: Math.round(x[N]) };
+    return good(x, !!opts.distinct) ? { kind: "many", cells: toSquare(x), sum: Math.round(x[N]) } : null;
+  };
+  if (prefer) {
+    const preferred = free.map((j) => (j < N ? prefer[Math.floor(j / n)][j % n] : rowSum0));
+    for (const f of [preferred, mapFrom(prefer, rowSum0, 1), mapFrom(prefer, rowSum0, -1)]) {
+      const r = attempt(f);
+      if (r) return r;
+    }
+  }
+  // A fresh small drawn square (1 to 9, or 1 to 25) is narrow, so mapped it fits a typed number far from 1 to max.
+  for (let t = 0; t < 20; t++) {
+    const smalls = n === 3 ? [magic3(9, next)] : [magic5(25, next), magic5(5, next, true)];
+    for (const small of smalls)
+      for (const k of [1, -1] as const) {
+        const r = attempt(mapFrom(small.cells, small.sum, k));
+        if (r) return r;
+      }
+  }
+  const knownVals = known.flat().filter((v): v is number => v !== null);
+  const hi = Math.max(max, 2 * Math.max(0, ...knownVals));
+  for (let t = 0; t < 50; t++) {
+    const f = free.map((j) => (j === N ? 3 + Math.floor(next() * (n * hi - 2)) : 1 + Math.floor(next() * hi)));
+    const r = attempt(f);
+    if (r) return r;
   }
   return { kind: "none" };
 }
@@ -367,7 +388,8 @@ function magic3(max: number, next: () => number): { cells: number[][]; sum: numb
 }
 
 // A 5×5 magic square from two orthogonal Latin squares (see the header), with base, P and Q as drawn there.
-function magic5(max: number, next: () => number): { cells: number[][]; sum: number } {
+// With `thin` one Latin square alone (cell = base + L1, 1 to 5): a magic square with a spread of 4, for solve.
+function magic5(max: number, next: () => number, thin = false): { cells: number[][]; sum: number } {
   const pairOk = (a: number, b: number) => [a, b, a + b, a - b].every((x) => m5(x) !== 0);
   const pair = (ok: (a: number, b: number) => boolean, fallback: [number, number]): [number, number] => {
     for (let t = 0; t < 200; t++) {
@@ -384,9 +406,9 @@ function magic5(max: number, next: () => number): { cells: number[][]; sum: numb
   const o1 = shuffle(range(5), next);
   const o2 = shuffle(range(5), next);
   const qMax = Math.max(1, Math.floor((max - 1) / 24));
-  const Q = 1 + Math.floor(next() * qMax);
+  const Q = thin ? 0 : 1 + Math.floor(next() * qMax);
   const pHi = Math.floor((max - 1 - 4 * Q) / 4);
-  const P = 5 * Q + Math.floor(next() * (pHi - 5 * Q + 1));
+  const P = thin ? 1 : 5 * Q + Math.floor(next() * (pHi - 5 * Q + 1));
   const base = 1 + Math.floor(next() * (max - 4 * P - 4 * Q));
   const cells = range(5).map((i) =>
     range(5).map((j) => {
@@ -406,8 +428,8 @@ function squareOf(p: MagischesQuadratProps, i: number, next: () => number): Squa
   const drawn = n === 3 ? magic3(p.max, next) : magic5(p.max, next);
   const order = shuffle(range(N), next);
   const reserve = Array.from({ length: 50 }, () => next());
-  let k = 0;
-  const draw = () => reserve[k++ % 50];
+  // The free-cell draws of solve: a generator seeded by the reserve, so that its tries never replay the same numbers.
+  const draw = rng(Math.floor(reserve[0] * 2 ** 31));
   const typed = (p.typed ?? []).filter(([s, r, c]) => s === i && r <= n && c <= n);
   if (typed.length) {
     const known: (number | null)[][] = range(n).map(() => Array(n).fill(null));
