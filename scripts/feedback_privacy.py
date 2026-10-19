@@ -26,7 +26,8 @@ BLOCK_NAMES = set(
     Zahlenmauern Zahlenhaus Zahlenhäuser Rechendreieck Rechendreiecke Zahlenstrahl
     Zahlenstrahlen Zahlenkette Zahlenketten Pfeilbild Pfeilbilder Operatorfeld Operatorfelder
     Rechenrad Rechenräder Rechentabelle Rechentabellen Magisches Magische Quadrat Quadrate
-    Malquadrat Malquadrate Hunderterfeld Hunderterfelder Uhr Uhren Selbstkontrolle
+    Malquadrat Malquadrate Zerlegungsfeld Zerlegungsfelder
+    Hunderterfeld Hunderterfelder Uhr Uhren Selbstkontrolle
     Selbstkontrollen Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
     Form Formen Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
 )

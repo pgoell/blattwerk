@@ -19,6 +19,7 @@ import Rechenrad from "./Rechenrad";
 import Rechentabelle from "./Rechentabelle";
 import MagischesQuadrat from "./MagischesQuadrat";
 import Malquadrat from "./Malquadrat";
+import Zerlegungsfeld from "./Zerlegungsfeld";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
@@ -133,6 +134,7 @@ const FOOT: Record<string, [string, string]> = {
   rechentabelle: ["Die Rechentabelle ragt unten über den Rand.", "Nimm weniger Tabellen oder Zeilen oder schiebe sie nach oben."],
   magischesquadrat: ["Das Magische Quadrat ragt unten über den Rand.", "Nimm weniger Quadrate oder schiebe es nach oben."],
   malquadrat: ["Das Malquadrat ragt unten über den Rand.", "Nimm weniger Malquadrate oder schiebe es nach oben."],
+  zerlegungsfeld: ["Das Zerlegungsfeld ragt unten über den Rand.", "Nimm weniger Aufgaben oder schiebe es nach oben."],
   zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
   rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
   uhr: ["Die Uhr ragt unten über den Rand.", "Nimm weniger Uhren oder schiebe sie nach oben."],
@@ -429,6 +431,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const rtab = sel.length === 1 && sel[0].type === "rechentabelle" ? sel[0] : undefined;
   const magisch = sel.length === 1 && sel[0].type === "magischesquadrat" ? sel[0] : undefined;
   const malq = sel.length === 1 && sel[0].type === "malquadrat" ? sel[0] : undefined;
+  const zerl = sel.length === 1 && sel[0].type === "zerlegungsfeld" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
@@ -661,6 +664,17 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
       ),
   );
+  const zerlCovers = sel.some(
+    (z) =>
+      z.type === "zerlegungsfeld" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
   const opfeldCovers = sel.some(
     (z) =>
       z.type === "operatorfeld" &&
@@ -755,6 +769,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {malqCovers && (
         <p className="hint warn" role="status" data-cover="malquadrat">
           Das Malquadrat liegt über einem anderen Block. Verschiebe ihn oder mache das Malquadrat kleiner.
+        </p>
+      )}
+      {zerlCovers && (
+        <p className="hint warn" role="status" data-cover="zerlegungsfeld">
+          Das Zerlegungsfeld liegt über einem anderen Block. Verschiebe ihn oder mache das Zerlegungsfeld kleiner.
         </p>
       )}
       {magischCovers && (
@@ -1084,6 +1103,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {rtab && <Rechentabelle key={rtab.id} block={rtab} apply={(props, key) => grows("rechentabelle", props, key)} />}
       {magisch && <MagischesQuadrat key={magisch.id} block={magisch} apply={(props, key) => grows("magischesquadrat", props, key)} />}
       {malq && <Malquadrat key={malq.id} block={malq} apply={(props, key) => grows("malquadrat", props, key)} />}
+      {zerl && <Zerlegungsfeld key={zerl.id} block={zerl} apply={(props, key) => grows("zerlegungsfeld", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}

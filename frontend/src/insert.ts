@@ -15,6 +15,7 @@ import { DEFAULTS as RAD, heightFor as heightForRad, sane as saneRad } from "./r
 import { DEFAULTS as TAB, heightFor as heightForTab, sane as saneTab } from "./rechentabelle";
 import { DEFAULTS as MAGIC, heightFor as heightForMagic, sane as saneMagic } from "./magischesquadrat";
 import { DEFAULTS as MALQ, heightFor as heightForMalq, sane as saneMalq } from "./malquadrat";
+import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "./zerlegungsfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -64,6 +65,10 @@ export const INSERTS = {
   malquadrat: (seed: number): Fresh => {
     const props = { ...MALQ, seed };
     return { w: 180, h: round(heightForMalq(saneMalq(props), 180)), type: "malquadrat", props };
+  },
+  zerlegungsfeld: (seed: number): Fresh => {
+    const props = { ...ZERL, seed };
+    return { w: 180, h: round(heightForZerl(saneZerl(props), 180)), type: "zerlegungsfeld", props };
   },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
@@ -117,6 +122,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   rechentabelle: [(p, w) => heightForTab(saneTab(p), w), ["count", "columns", "rows", "cols"]],
   magischesquadrat: [(p, w) => heightForMagic(saneMagic(p), w), ["count", "columns", "size", "showSum"]],
   malquadrat: [(p, w) => heightForMalq(saneMalq(p), w), ["count", "columns", "size"]],
+  zerlegungsfeld: [(p, w) => heightForZerl(saneZerl(p), w), ["count", "columns"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's

@@ -17,6 +17,7 @@ import { cellAt, edgeAngle, layout as wheelLayout, made as wheelMade, opLabel as
 import { TINT as tableTint, layout as tableLayout, made as tableMade, opLabel as tableLabel, sane as saneTable, type RechentabelleProps } from "./rechentabelle";
 import { layout as magicLayout, made as magicMade, sane as saneMagic, type MagischesQuadratProps } from "./magischesquadrat";
 import { layout as malquadratLayout, made as malquadratMade, opLabel as malquadratOp, sane as saneMalquadrat, type MalquadratProps } from "./malquadrat";
+import { layout as zerlegungsfeldLayout, made as zerlegungsfeldMade, opLabel as zerlegungsfeldOp, sane as saneZerlegungsfeld, type ZerlegungsfeldProps } from "./zerlegungsfeld";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -730,6 +731,12 @@ export type MalquadratBlock = Box & {
   /** The Malquadrate (Einmaleins-Rätsel): row numbers down the left, column numbers along the top, the products (or sums) inside, the sum of each row and column outside and the total in the corner; which numbers are given. */
   props: MalquadratProps;
 };
+// A Zerlegungsfeld: its stored shape is the contract at the top of zerlegungsfeld.ts.
+export type ZerlegungsfeldBlock = Box & {
+  type: "zerlegungsfeld";
+  /** The Zerlegungsfelder (Zehnerübergang in zwei Schritten): each task a + b with the split of b into the part to the full ten and the rest, then the two steps; which boxes are given. */
+  props: ZerlegungsfeldProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -754,7 +761,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZerlegungsfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3588,6 +3595,68 @@ function Malquadrat({ block, solved }: { block: MalquadratBlock; solved: boolean
   );
 }
 
+// A Zerlegungsfeld: its tasks side by side. Each task has four lines of boxes: the task, the split, the first step and
+// the second step. The given boxes show on the sheet; in the key the others too, unless the task is wrong.
+const ZERLEGUNG_LINES: [number, number][][] = [
+  [[0, 0], [1, 17], [2, 34]],
+  [[3, 9], [4, 25]],
+  [[0, 0], [3, 17], [5, 34]],
+  [[5, 0], [4, 17], [2, 34]],
+];
+const ZERLEGUNG_LINE_Y = [0, 14, 26, 38];
+function Zerlegungsfeld({ block, solved }: { block: ZerlegungsfeldBlock; solved: boolean }) {
+  const p = saneZerlegungsfeld(block.props);
+  const { tasks } = zerlegungsfeldMade(p);
+  const { BW, BH, CG, RG, TW, TH, NOTE_H, vbW, vbH } = zerlegungsfeldLayout(p);
+  return (
+    <div className={`zerlegungsfeld${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {tasks.map((t, i) => {
+          const [x0, y0] = [(i % p.columns) * (TW + CG), Math.floor(i / p.columns) * (TH + RG)];
+          const open = solved && !t.wrong;
+          return (
+            <g key={i} className={`task${t.wrong ? " wrong" : ""}${t.many ? " many" : ""}`} data-task={i}>
+              {ZERLEGUNG_LINES.map((line, l) => {
+                const y = y0 + ZERLEGUNG_LINE_Y[l];
+                return (
+                  <g key={l}>
+                    {line.map(([pos, dx]) => {
+                      const x = x0 + dx;
+                      const state = t.given[pos] ? "given" : open ? "answer" : null;
+                      return (
+                        <g key={pos} className="box" data-pos={pos} data-line={l}>
+                          <rect x={x} y={y} width={BW} height={BH} fill="white" stroke="#222" strokeWidth={0.4} />
+                          {state && (
+                            <text x={x + BW / 2} y={y + BH / 2} fontSize={numberSize(String(t.values[pos]).length, BH * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
+                              fill={state === "given" ? "#222" : "#c0392b"} className={state}>{t.values[pos]}</text>
+                          )}
+                        </g>
+                      );
+                    })}
+                    {l !== 1 && (
+                      <>
+                        <text className="op" x={x0 + 14.5} y={y + BH / 2} fontSize={BH * 0.85} textAnchor="middle" dominantBaseline="central">{zerlegungsfeldOp(t.op)}</text>
+                        <text className="eq" x={x0 + 31.5} y={y + BH / 2} fontSize={BH * 0.85} textAnchor="middle" dominantBaseline="central">=</text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+              <line className="branch" x1={x0 + 23} y1={y0 + 8} x2={x0 + 15} y2={y0 + 14} stroke="#222" strokeWidth={0.4} />
+              <line className="branch" x1={x0 + 23} y1={y0 + 8} x2={x0 + 31} y2={y0 + 14} stroke="#222" strokeWidth={0.4} />
+              {solved && t.many && !t.wrong && (
+                <text className="note" x={x0 + TW / 2} y={y0 + TH - NOTE_H / 2} fontSize={Math.min(3.2, TW / 19)} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
+                  Auch andere Lösungen sind richtig.
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3947,6 +4016,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechentabelle") return <Rechentabelle block={block} solved={solved} />;
   if (block.type === "magischesquadrat") return <MagischesQuadrat block={block} solved={solved} />;
   if (block.type === "malquadrat") return <Malquadrat block={block} solved={solved} />;
+  if (block.type === "zerlegungsfeld") return <Zerlegungsfeld block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
