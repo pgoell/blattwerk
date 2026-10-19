@@ -87,6 +87,19 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Rechenrad",
+            "rechenrad",
+            {
+                "count": 2,
+                "columns": 2,
+                "rings": 2,
+                "segments": 8,
+                "max": 20,
+                "op": "+",
+                "task": "outer",
+            },
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},

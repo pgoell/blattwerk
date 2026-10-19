@@ -30,7 +30,8 @@
 //   floor(max / c^(rings − 1)); ":" x1 = y · c^(rings − 1) with y from 0 to floor(max / c^(rings − 1)). Up to 10 draws
 //   for a number that no other segment of the wheel has. With a typed c these ranges may be empty: then the segment
 //   takes 0 and, unless the segment is typed, the wheel is `wrong`.
-// - With task "mixed", per segment the ring of its empty box, from 1 to `rings`.
+// - Per segment the ring of its empty box for task "mixed", from 1 to `rings`, drawn whatever the task, so that a
+//   change of the task keeps every wheel's numbers.
 // - Typed numbers win, also outside the Zahlenraum. A segment with a typed ring number takes its chain from its innermost
 //   typed ring, outward by op and inward by the inverse op. The wheel is `wrong` when a chain number is not whole, not
 //   finite or below 0 (a typed centre 0 with ":", or with "*" inward), or a typed number differs from its chain. Then
@@ -168,16 +169,109 @@ export function heightFor(p: RechenradProps, w: number): number {
   return L.vbH * Math.min(w / L.vbW, S0);
 }
 
-// The wheels of the settings. The same settings give the same wheels on every call. Placeholder until the generator
-// lands: every number 0, nothing wrong.
+// The inverse operator: + and -, * and : swap.
+const INV: Record<Op, Op> = { "+": "-", "-": "+", "*": ":", ":": "*" };
+
+// The result of x op c.
+const apply = (op: Op, x: number, c: number): number => (op === "+" ? x + c : op === "-" ? x - c : op === "*" ? x * c : x / c);
+
+// A random pick from a non-empty list.
+function pick<T>(xs: T[], next: () => number): T {
+  return xs[Math.floor(next() * xs.length)];
+}
+
+// The centre numbers the draw takes: 1 up to max / (2 · (rings − 1)) for "+" and "-"; for "*" and ":" 2 to 10 with c^(rings − 1) ≤ max / 2, narrowed when some c gives the segments room.
+function centreDraw(p: RechenradProps): number[] {
+  if (p.op === "+" || p.op === "-") return Array.from({ length: Math.floor(p.max / (2 * (p.rings - 1))) }, (_, i) => i + 1);
+  const all = Array.from({ length: 9 }, (_, i) => i + 2).filter((c) => c ** (p.rings - 1) * 2 <= p.max);
+  const fit = all.filter((c) => Math.floor(p.max / c ** (p.rings - 1)) + 1 >= p.segments);
+  return fit.length ? fit : all;
+}
+
+// The inner numbers x1 the draw takes with the centre number c; empty when c leaves no room (a typed c).
+function innerRange(p: Pick<RechenradProps, "op" | "max" | "rings">, c: number): number[] {
+  const k = c ** (p.rings - 1);
+  const out: number[] = [];
+  if (p.op === "+") for (let x = 0; x <= p.max - (p.rings - 1) * c; x++) out.push(x);
+  else if (p.op === "-") for (let x = (p.rings - 1) * c; x <= p.max; x++) out.push(x);
+  else if (c >= 1) for (let y = 0; y <= Math.floor(p.max / k); y++) out.push(p.op === "*" ? y : y * k);
+  return out;
+}
+
+// One Rechenrad, the i-th: its draws in the fixed order, then its typed numbers laid over them.
+function wheelOf(p: RechenradProps, i: number, next: () => number): Wheel {
+  const R = p.rings;
+  const S = p.segments;
+  const mine = (p.typed ?? []).filter(([w]) => w === i);
+  const cDrawn = pick(centreDraw(p), next);
+  // The draws of the inner numbers use the generated c, so that a typed c never changes how many draws follow.
+  const shadow = innerRange(p, cDrawn);
+  const us: number[] = [];
+  const drawn: number[] = [];
+  for (let s = 0; s < S; s++) {
+    let u = 0;
+    let x = 0;
+    for (let t = 0; t < 10; t++) {
+      u = next();
+      x = shadow[Math.floor(u * shadow.length)];
+      if (!drawn.includes(x)) break;
+    }
+    us.push(u);
+    drawn.push(x);
+  }
+  const hidden = Array.from({ length: S }, () => 1 + Math.floor(next() * R));
+  const centreTyped = mine.find(([, r]) => r === 0);
+  const c = centreTyped ? centreTyped[3] : cDrawn;
+  const range = innerRange(p, c);
+  let wrong = p.op === ":" && c === 0;
+  // A chain number that is not a whole number from 0 makes the wheel wrong, and shows 0.
+  const fit = (x: number) => {
+    if (Number.isInteger(x) && x >= 0) return x;
+    wrong = true;
+    return 0;
+  };
+  const rings: number[][] = Array.from({ length: R }, () => Array.from({ length: S }, () => 0));
+  for (let s = 0; s < S; s++) {
+    const typed = new Map<number, number>();
+    for (const [, r, seg, v] of mine) if (r >= 1 && seg === s) typed.set(r, v);
+    // vals[r] is the number of ring r in this segment.
+    const vals: number[] = [0];
+    if (typed.size) {
+      // The chain runs from the innermost typed ring: outward by op, inward by the inverse.
+      const k = Math.min(...typed.keys());
+      vals[k] = typed.get(k) ?? 0;
+      for (let r = k + 1; r <= R; r++) vals[r] = fit(apply(p.op, vals[r - 1], c));
+      for (let r = k - 1; r >= 1; r--) vals[r] = fit(apply(INV[p.op], vals[r + 1], c));
+      for (const [r, v] of typed) if (vals[r] !== v) wrong = true;
+    } else {
+      if (!range.length) wrong = true;
+      vals[1] = range.length ? range[Math.floor(us[s] * range.length)] : 0;
+      for (let r = 2; r <= R; r++) vals[r] = fit(apply(p.op, vals[r - 1], c));
+    }
+    for (let r = 1; r <= R; r++) rings[r - 1][s] = vals[r];
+  }
+  const given = Array.from({ length: R }, (_, r) =>
+    Array.from({ length: S }, (_, s) => {
+      if (p.task === "inner") return r !== 0;
+      if (p.task === "middle") return r !== 1;
+      if (p.task === "mixed") return r !== hidden[s] - 1;
+      return r !== R - 1;
+    }),
+  );
+  return { centre: c, rings, given, wrong };
+}
+
+// The wheels of the settings. The same settings give the same wheels on every call.
+const memo = new Map<string, Made>();
+
 export function made(props: RechenradProps): Made {
   const p = sane(props);
-  rng(p.seed);
-  const wheels: Wheel[] = Array.from({ length: p.count }, () => ({
-    centre: 1,
-    rings: Array.from({ length: p.rings }, () => Array.from({ length: p.segments }, () => 0)),
-    given: Array.from({ length: p.rings }, (_, r) => Array.from({ length: p.segments }, () => r < p.rings - 1)),
-    wrong: false,
-  }));
-  return { wheels };
+  const key = JSON.stringify(p);
+  const old = memo.get(key);
+  if (old) return old;
+  const next = rng(p.seed);
+  const out: Made = { wheels: Array.from({ length: p.count }, (_, i) => wheelOf(p, i, next)) };
+  memo.set(key, out);
+  if (memo.size > 50) memo.delete(memo.keys().next().value as string);
+  return out;
 }

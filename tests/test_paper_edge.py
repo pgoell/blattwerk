@@ -132,6 +132,26 @@ def of_fits(page):
     panel(page, "Ein Operatorfeld weniger").click()
 
 
+RECHENRAD = {
+    "count": 2,
+    "columns": 2,
+    "rings": 2,
+    "segments": 8,
+    "max": 20,
+    "op": "+",
+    "task": "outer",
+    "seed": 7,
+}
+
+
+def rr_more(page, i):
+    panel(page, "Ein Rechenrad mehr").click()
+
+
+def rr_fits(page):
+    panel(page, "Ein Rechenrad weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -152,6 +172,14 @@ CASES = {
         of_more,
         of_fits,
     ),  # y 110, see test_operatorfeld_cover.py
+    "rechenrad": (
+        RECHENRAD,
+        180,
+        85.53,
+        110,
+        rr_more,
+        rr_fits,
+    ),  # y 110, see test_rechenrad_cover.py
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 
