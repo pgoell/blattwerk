@@ -20,5 +20,5 @@ mkdir -p "$cache"
 exec docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" \
   -e BLATTWERK_BROWSER -e SHARD -e HOME=/cache -e UV_PROJECT_ENVIRONMENT=/cache/venv -e UV_CACHE_DIR=/cache/uv \
   -v "$cache":/cache -v "$(command -v uv)":/usr/local/bin/uv:ro -v "$PWD":/work -w /work \
-  mcr.microsoft.com/playwright:v1.64.0-noble \
+  mcr.microsoft.com/playwright:v1.63.0-noble \
   sh -c 'uv sync -q; exec uv run --no-sync pytest "$@"' sh "$@"
