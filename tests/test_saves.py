@@ -765,6 +765,9 @@ def test_a_kept_change_is_saved_from_the_list_with_its_sheet_not_opened(run):
     page.get_by_label("Titel", exact=True).fill("Neu")
     change(run)
     answer(run, "a", 500)
+    # The failed save is over only once the page has read its answer: until then the save is under
+    # way, and the tab that shuts sends nothing beside it (#933).
+    expect(page.locator(STATUS)).to_have_text("Nicht gespeichert")
     shut(page, 1)
     assert x_of(run, "a") == 15
     page, _, sent = again(run, None)

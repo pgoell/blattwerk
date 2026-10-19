@@ -270,6 +270,44 @@ def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
     expect(field).to_have_accessible_description(HINT)
 
 
+def test_enter_pressed_twice_makes_one_key_and_no_more_words(account):
+    page = account(user())
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("Doppelt")
+    made = []
+    page.on(
+        "request", lambda r: r.method == "POST" and r.url.endswith("/api/tokens") and made.append(r)
+    )
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
+    # The row comes with the list asked for after the first make: a second make went out before it.
+    expect(row(page, "Doppelt")).to_have_count(1)
+    assert len(made) == 1
+    expect(field).to_have_accessible_description(HINT)
+
+
+def test_a_name_typed_while_the_list_loads_makes_its_key(account):
+    """Review of #934: the guard against a double press lets go once the teacher types."""
+    page = account(user())
+    held = []
+    page.route(
+        "**/api/tokens", lambda r: held.append(r) if r.request.method == "GET" else r.continue_()
+    )
+    field = page.get_by_label("Name des Schlüssels")
+    field.fill("Erster")
+    page.keyboard.press("Enter")
+    expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
+    expect(field).to_have_value("")
+    field.fill("Zweiter")
+    with page.expect_request(lambda r: r.method == "POST" and r.url.endswith("/api/tokens")):
+        page.keyboard.press("Enter")
+    for route in held:
+        route.continue_()
+    page.unroute("**/api/tokens")
+    expect(row(page, "Zweiter")).to_have_count(1)
+
+
 def test_enter_on_the_question_keeps_the_key(account):
     page = account(user())
     make(page, "Laptop")
