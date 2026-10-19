@@ -107,7 +107,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -1037,6 +1037,27 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     block.style.transform = was;
     return h;
   };
+  // A fitted box's width and height, in mm: as wide as its longest line, up to `cap`, where its text breaks. The width
+  // is rounded up with a little slack, so that the print does not break the last word.
+  const fitSize = (b: Block, cap: number) => {
+    const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
+    if (!frame) return undefined;
+    const block = frame.parentElement!;
+    const was = block.style.transform;
+    block.style.transform = "none";
+    const [ownW, ownH] = [frame.style.width, frame.style.height];
+    frame.style.width = "max-content";
+    let w = Math.ceil((frame.getBoundingClientRect().width / k) * 10) / 10 + 0.2;
+    if (w > cap) {
+      frame.style.width = `${cap * k}px`;
+      w = cap;
+    }
+    frame.style.height = "auto";
+    const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
+    [frame.style.width, frame.style.height] = [ownW, ownH];
+    block.style.transform = was;
+    return { w: Math.max(10, w), h };
+  };
   // A picked text at the page's foot whose words need more room than it has: the panel warns. Told from the sheet as
   // it is, so it holds after an undo, a reload or a paste too. A shape that shrinks its text tells by `overfit`.
   useLayoutEffect(() => {
@@ -1072,9 +1093,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         }
         continue;
       }
+      // A fitted box takes its text's width and height, shrinking too, and keeps the edge its words are aligned to.
+      if (shape?.fit === true) {
+        const m = fitSize(b, sizeOf(hist.doc, page)[0] - MARGIN - b.x);
+        if (!m) continue;
+        const at = b.angle || shape.align === "center" ? 0.5 : shape.align === "right" ? 1 : 0;
+        const widened = { ...b, ...fitWidth(b, m.w, at) };
+        grown.set(b.id, { ...fitWidth(b, m.w, at), ...tall(widened, m.h) });
+        continue;
+      }
       const h = natural(b);
       if (h === undefined) continue;
-      const kept = b.type === "table" ? heightsOf(b.props) : undefined;
+      const kept =b.type === "table" ? heightsOf(b.props) : undefined;
       // A table with its rows set goes back to what they need when a text in it changed, down as well. A text box
       // never shrinks by itself. No other change brings a table down: a height the teacher set holds.
       const down = snug && kept;
@@ -3249,6 +3279,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     return true;
   };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
+  // A hand resize of a fitted box keeps the size the teacher gave it: fit goes off in the same step.
+  const unfitted = (b: Block) => (boxed(b)?.fit === true ? { props: { ...b.props, fit: undefined } } : {});
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
@@ -3263,10 +3295,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             [w, h] = [dx || keep ? w : b.w, dy || keep ? h : b.h];
             const [c, s] = dir(b);
             const [lx, ly] = mod & CENTRE ? [0, 0] : [(dx * (w - b.w)) / 2, (dy * (h - b.h)) / 2];
-            return [b.id, { x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
+            return [b.id, { ...unfitted(b), x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
           }
           // In a selection Moveable says where a turned block goes, on both axes whichever handle moved.
           const box = {
+            ...unfitted(b),
             ...((dx || keep || b.angle) && { x: round(e.drag.left / K), w }),
             ...((dy || keep || b.angle) && { y: round(e.drag.top / K), h }),
           };
@@ -5323,6 +5356,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
+                  {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
+                    <label>
+                      <input type="checkbox" checked={boxes[0].props.fit === true} onChange={(e) => look({ fit: e.target.checked || undefined })} /> An Text anpassen
+                    </label>
+                  )}
                   {/* A line stays a line. */}
                   {!rulers.length && (
                     <div className="seg">
