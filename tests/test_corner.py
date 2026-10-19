@@ -82,13 +82,23 @@ def test_the_pdf_prints_the_corner(browser, server):
         found = page.locator('[data-block="a"] .frame').evaluate(
             "el => getComputedStyle(el).borderTopLeftRadius"
         )
+        # The dashes go along the way round the corner: a plain rect where it is square.
+        way = page.locator('[data-block="a"] svg :is(path, rect)').evaluate(
+            "el => el.tagName + ' ' + (el.getAttribute('d') ?? '')"
+        )
         page.close()
-        return found
+        return found, way
 
     # A square corner prints square, and a corner at half the shorter side prints round, as the screen does.
-    assert printed(square) == "0px"
+    radius_, way = printed(square)
+    assert radius_ == "0px"
+    assert way == "rect "
+    radius_, way = printed(round_)
     # Half of the 40 mm shorter side, at the print's scale of 226.772 px per 60 mm of width.
-    assert float(printed(round_)[:-2]) == pytest.approx(0.5 * 40 * 226.772 / 60, abs=1)
+    assert float(radius_[:-2]) == pytest.approx(0.5 * 40 * 226.772 / 60, abs=1)
+    # The way of the dashes turns round the corners: 45 short lines to a quarter turn.
+    assert way.startswith("path M")
+    assert len(way.split("L")) > 100
 
 
 def test_no_corner_keeps_4_mm(editor):
