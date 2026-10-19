@@ -1861,6 +1861,13 @@
                 "$ref": "#/definitions/PfeilbildTyped"
               },
               "type": "array"
+            },
+            "typedOps": {
+              "description": "Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator \"+\", \"-\", \"*\" or \":\", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/PfeilbildTypedOp"
+              },
+              "type": "array"
             }
           },
           "type": "object"
@@ -1872,6 +1879,32 @@
           },
           "maxItems": 3,
           "minItems": 3,
+          "type": "array"
+        },
+        "PfeilbildTypedOp": {
+          "description": "An operator the teacher typed onto an arrow: the picture's index (from 0), the arrow's index (from 0), the operator, the operand (1 to 9999).",
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "enum": [
+                "+",
+                "-",
+                "*",
+                ":"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
           "type": "array"
         },
         "PointsBlock": {
@@ -7160,6 +7193,13 @@
                 "$ref": "#/definitions/PfeilbildTyped"
               },
               "type": "array"
+            },
+            "typedOps": {
+              "description": "Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator \"+\", \"-\", \"*\" or \":\", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/PfeilbildTypedOp"
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -7182,6 +7222,32 @@
           },
           "maxItems": 3,
           "minItems": 3,
+          "type": "array"
+        },
+        "PfeilbildTypedOp": {
+          "description": "An operator the teacher typed onto an arrow: the picture's index (from 0), the arrow's index (from 0), the operator, the operand (1 to 9999).",
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "enum": [
+                "+",
+                "-",
+                "*",
+                ":"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
           "type": "array"
         },
         "PointsBlock": {
@@ -11806,6 +11872,13 @@
                 "$ref": "#/definitions/PfeilbildTyped"
               },
               "type": "array"
+            },
+            "typedOps": {
+              "description": "Operators the teacher typed onto arrows. Each entry is [picture index from 0, arrow index from 0 (arrow j joins box j and box j + 1), operator \"+\", \"-\", \"*\" or \":\", operand 1 to 9999]. A typed operator wins over the seed's, also one not in `ops` or past the Zahlenraum; a picture whose numbers then do not fit 0 to max or are not whole is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/PfeilbildTypedOp"
+              },
+              "type": "array"
             }
           },
           "type": "object"
@@ -11817,6 +11890,32 @@
           },
           "maxItems": 3,
           "minItems": 3,
+          "type": "array"
+        },
+        "PfeilbildTypedOp": {
+          "description": "An operator the teacher typed onto an arrow: the picture's index (from 0), the arrow's index (from 0), the operator, the operand (1 to 9999).",
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "enum": [
+                "+",
+                "-",
+                "*",
+                ":"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
           "type": "array"
         },
         "PointsBlock": {
