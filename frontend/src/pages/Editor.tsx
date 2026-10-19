@@ -1239,7 +1239,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const at = kept.findIndex((f) => f.i === h);
       return at < 0 ? [] : [at];
     });
-    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields, hidden } } as Block) : b)) }), "", line.n);
+    // With every shown word emptied only hidden fields are left: they show again, as no line shows nothing.
+    const props = { ...block.props, fields, hidden: hidden.length && hidden.length < fields.length ? hidden : undefined };
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props } as Block) : b)) }), "", line.n);
   });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -2023,7 +2025,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       bs.map((b) => {
         if (!ids.includes(b.id) || b.type !== "name") return b;
         const off = shown ? (b.props.hidden ?? []).filter((h) => h !== i) : [...(b.props.hidden ?? []), i].sort((x, y) => x - y);
-        return { ...b, props: { ...b.props, hidden: off } } as Block;
+        return { ...b, props: { ...b.props, hidden: off.length ? off : undefined } } as Block;
       }),
     );
   }

@@ -86,6 +86,17 @@ def test_renaming_with_a_field_hidden_keeps_the_hidden_word(editor):
     assert blocks[0]["props"] == {"fields": ["Datum", "Klasse"], "hidden": [0]}
 
 
+def test_emptying_the_last_shown_word_shows_the_hidden_fields(editor):
+    """I6: a line never shows nothing, also when the one field it shows loses its word."""
+    client = user()
+    page = editor(box("n", "name", {"hidden": [0, 1]}), client=client)
+    at(page, "n").dblclick()
+    page.get_by_label("Feld 3").fill("")
+    page.keyboard.press("Enter")
+    expect(fields(page, "n")).to_have_text(["Name:", "Datum:"])
+    assert saved(page, client)[0]["props"] == {"fields": ["Name", "Datum"]}
+
+
 def test_a_tick_is_one_undo_step_and_sets_every_picked_line(editor):
     """I8: one tick is one undo step, and with two name lines picked the tick sets both."""
     page = editor(box("a", "name", {}), box("b", "name", {}, z=2))
