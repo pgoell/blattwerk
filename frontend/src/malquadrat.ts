@@ -60,8 +60,9 @@
 //   open branches over the divisors of its value for one factor (a value 0 branches "a = 0", then "b = 0"). The first
 //   assignment in which every typed cell is exact and every number of the result is at most 99999 stays. The search
 //   tries every value, so a typed set is `wrong` only when no square fits it. A cap of 2000 nodes keeps typing from
-//   freezing: a square whose search reaches it is `unsure`, shows only its typed cells (in the key too) and gets no
-//   hint. Of 3000 random subsets of true squares and 20000 random typed sets none reached it; the slowest took 19 ms.
+//   freezing: a square whose first search reaches it is `unsure`, shows only its typed cells (in the key too) and gets
+//   no hint. Of 2400 random subsets of true squares and 20000 random typed sets none reached it, in the first search
+//   or the second; the slowest took 31 ms for both searches together.
 // - A subset of a drawn square's numbers always gives that square back: when the drawn numbers already fit, they are
 //   the answer.
 // - A wrong square shows its typed cells on the pupils' sheet; the other cells stay empty, also in the key: never a
@@ -554,7 +555,7 @@ export function solve(
   let steps = 0;
   // Once set, the first solution: a leaf with the same row and column numbers does not count.
   let first: number[] | null = null;
-  const search =(iv: Iv): number[] | null => {
+  const search = (iv: Iv): number[] | null => {
     if (steps++ >= cap) return null;
     const x = iv.slice();
     if (!propagate(eqs, x)) return null;
