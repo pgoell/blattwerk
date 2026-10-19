@@ -578,4 +578,61 @@ describe("solve says one or many exactly (#954)", () => {
     expect(full.unsure).toBeFalsy();
     expect(full.kind !== "none" && full.other).toBeDefined();
   });
+
+  // Every square whose 2n numbers are 0..K.
+  const allSquares = (n: number, op: "*" | "+", K: number): number[][][] => {
+    const out: number[][][] = [];
+    for (let code = 0; code < (K + 1) ** (2 * n); code++) {
+      let x = code;
+      const digit = () => {
+        const v = x % (K + 1);
+        x = Math.floor(x / (K + 1));
+        return v;
+      };
+      const f = range(n).map(digit);
+      const g = range(n).map(digit);
+      out.push(fullSquare(n, op, f, g));
+    }
+    return out;
+  };
+
+  for (const op of OPS)
+    for (const [n, K] of [
+      [2, 12],
+      [3, 5],
+    ] as const) {
+      it(`brute force agrees with one and many (${op} n=${n})`, { timeout: 120000 }, () => {
+        const all = allSquares(n, op, K);
+        const bounds = range(2 * n).map((): [number, number] => [0, K]);
+        const rand = rng(n * 1000 + (op === "*" ? 1 : 2));
+        let ones = 0;
+        let manys = 0;
+        for (let k = 0; k < 400; k++) {
+          const truth = all[Math.floor(rand() * all.length)];
+          let chosen = positions(n).filter(() => rand() < 0.3);
+          if (!chosen.length) chosen = [positions(n)[Math.floor(rand() * positions(n).length)]];
+          const known: (number | null)[][] = range(n + 2).map(() => Array(n + 2).fill(null) as null[]);
+          for (const [r, c] of chosen) known[r][c] = truth[r][c];
+          const matches = all.filter((sq) => chosen.every(([r, c]) => sq[r][c] === truth[r][c]));
+          expect(matches.length).toBeGreaterThan(0);
+          const dr = rng(k + 17);
+          const drawn = range(n + 2).map(() => range(n + 2).map(() => Math.floor(dr() * 31)));
+          const res = solve(n, op, known, drawn, 2000, bounds);
+          if (matches.length === 1) {
+            ones++;
+            expect(res.kind).toBe("one");
+            if (res.kind !== "none") expect(res.cells).toEqual(matches[0]);
+          } else {
+            manys++;
+            expect(res.kind).toBe("many");
+            if (res.kind !== "none") {
+              expect(res.unsure).toBeFalsy();
+              expect(res.other).toBeDefined();
+              if (res.other) for (const [r, c] of chosen) expect(res.other[r][c]).toBe(truth[r][c]);
+            }
+          }
+        }
+        console.log(`brute force ${op} n=${n} K=${K}: ${ones} one, ${manys} many (of 400)`);
+      });
+    }
 });
