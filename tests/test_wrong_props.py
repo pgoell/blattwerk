@@ -45,6 +45,17 @@ ZAHLENKETTE = {
     "given": "start",
     "seed": 7,
 }
+PFEILBILD = {
+    "count": 4,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "arrows": "one",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
 ZAHLENSTRAHL = {
     "start": 0,
     "end": 20,
@@ -114,6 +125,7 @@ WRONG = {
     "zahlenmauer": {**ZAHLENMAUER, "base": "x"},
     "zahlenhaus": {**ZAHLENHAUS, "max": "x"},
     "zahlenkette": {**ZAHLENKETTE, "max": "x"},
+    "pfeilbild": {**PFEILBILD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},
     "hunderterfeld": {**HUNDERTERFELD, "from": "x"},

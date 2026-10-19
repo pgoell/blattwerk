@@ -89,6 +89,27 @@ def kette_fits(page):
     panel(page, "Eine Kette weniger").click()
 
 
+PFEIL = {
+    "count": 4,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "arrows": "one",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
+
+
+def pfeil_more(page, i):
+    panel(page, "Ein Pfeilbild mehr").click()
+
+
+def pfeil_fits(page):
+    panel(page, "Ein Pfeilbild weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -100,6 +121,7 @@ CASES = {
     "zahlenmauer": ({**MAUER, "columns": 1}, 180, 60, 230, mauer_more, mauer_fits),
     "rechendreieck": (DREIECK, 180, 50, 230, dreieck_more, dreieck_fits),
     "zahlenkette": (KETTE, 180, 39, 230, kette_more, kette_fits),
+    "pfeilbild": (PFEIL, 180, 53.9, 230, pfeil_more, pfeil_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

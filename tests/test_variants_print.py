@@ -686,3 +686,29 @@ def test_a_zahlenkette_gets_another_seed_and_loses_its_typed_numbers():
         seeds.add(props["seed"])
     assert len(seeds) == 4
     assert doc["pages"][0]["blocks"][0]["props"] == chain
+
+
+def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
+    """Varianten of #821: B to D give a Pfeilbild a seed of its own, drop `typed`; A is as stored."""
+    picture = {
+        "count": 4,
+        "columns": 2,
+        "boxes": 4,
+        "max": 20,
+        "ops": ["+", "-"],
+        "arrows": "one",
+        "given": "start",
+        "drawOps": True,
+        "seed": 7,
+        "typed": [[0, 0, 9]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "p", "type": "pfeilbild", "props": picture}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in picture.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == picture

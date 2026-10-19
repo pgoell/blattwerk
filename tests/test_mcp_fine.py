@@ -106,7 +106,7 @@ def test_fine_schemas_are_generated(server, tmp_path):
         tool = next(t for t in mcp.tools() if t["name"] == "add_block")
         own = tool["inputSchema"].get("definitions", {})
         variants = tool["inputSchema"]["properties"]["props"]["anyOf"]
-        assert len(variants) == 18
+        assert len(variants) == 19
         blocks = [
             e["then"]["$ref"].rsplit("/", 1)[-1] for e in SCHEMA["definitions"]["Block"]["allOf"]
         ]
