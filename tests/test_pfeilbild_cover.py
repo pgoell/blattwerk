@@ -1,0 +1,114 @@
+"""A Pfeilbild grown over a block says so, and moves nothing; near the paper's foot it grows past the
+margin and says so (#821, as the Zahlenkette #820)."""
+
+import pytest
+from playwright.sync_api import expect
+from test_gaps import panel, step
+from ui import TEXT, at, box, pick, saved, user
+
+PF = {
+    "count": 4,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "arrows": "one",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
+
+
+@pytest.fixture
+def editor(editor):
+    """The editor with its panel open, where the Pfeilbild's settings are."""
+
+    def start(*blocks, **more):
+        return editor(*blocks, theme="", **more)
+
+    return start
+
+
+def pfeil(name="k", y=50, **more):
+    """A Pfeilbild block of 180 by 53.9 mm over the blocks of z 1."""
+    return box(name, "pfeilbild", PF, z=2, w=180, h=53.9, y=y, **more)
+
+
+def hint(page):
+    return page.locator('p[data-cover="pfeil"]')
+
+
+def foot(page):
+    return page.locator('p[data-foot="haus"], p[data-foot="over"]')
+
+
+def more_pictures(page):
+    """Presses Ein Pfeilbild mehr once, and waits for the save."""
+    step(page, lambda: panel(page, "Ein Pfeilbild mehr").click())
+
+
+def test_a_pfeilbild_near_the_foot_grows_past_it_and_keeps_its_box_size(editor):
+    """Layout: one more Pfeilbild (count 5, three rows) takes a block at y 205 past the margin's foot
+    but not past the paper: the stored height grows, the box size stays, and the foot hint says so."""
+    client = user()
+    page = editor(pfeil(y=205), box("t", "text", TEXT, x=150, y=205, w=40, h=30), client=client)
+    pick(page, "k")
+    before = at(page, "k").locator("g.box rect").first.bounding_box()["width"]
+    more_pictures(page)
+    stored = {b["id"]: b for b in saved(page, client)}
+    assert stored["k"]["h"] > 53.9 and 282 < 205 + stored["k"]["h"] <= 297, stored["k"]
+    assert stored["t"]["x"] == 150 and stored["t"]["y"] == 205, stored["t"]
+    after = at(page, "k").locator("g.box rect").first.bounding_box()["width"]
+    assert abs(after - before) <= 0.01 * before, (before, after)
+    expect(foot(page)).to_be_visible()
+
+
+def test_one_undo_takes_the_grown_height_and_the_foot_hint_back(editor):
+    """Layout: one more Pfeilbild takes a block at y 205 past the foot; one undo takes the grown height
+    and the foot hint back, and the stored height is 53.9 again."""
+    client = user()
+    page = editor(pfeil(y=205), box("t", "text", TEXT, x=150, y=205, w=40, h=30), client=client)
+    pick(page, "k")
+    expect(foot(page)).to_have_count(0)
+    more_pictures(page)
+    expect(foot(page)).to_be_visible()
+    assert {b["id"]: b for b in saved(page, client)}["k"]["h"] > 53.9
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert {b["id"]: b for b in saved(page, client)}["k"]["h"] == 53.9
+    expect(foot(page)).to_have_count(0)
+
+
+def test_growing_over_a_text_warns_and_moves_nothing(editor):
+    """Layout: one more Pfeilbild grows a block over a text: the text stays and the hint says the
+    block covers it."""
+    client = user()
+    page = editor(pfeil(y=20), box("t", "text", TEXT, y=85), client=client)
+    pick(page, "k")
+    expect(hint(page)).to_have_count(0)
+    more_pictures(page)
+    stored = {b["id"]: b for b in saved(page, client)}
+    assert stored["k"]["h"] > 53.9, stored["k"]
+    assert stored["t"]["y"] == 85, stored["t"]
+    expect(hint(page)).to_be_visible()
+
+
+def test_one_undo_takes_the_height_and_the_hint_back(editor):
+    """Layout: one undo takes the grown height and the cover hint back, and the stored height is 53.9 again."""
+    client = user()
+    page = editor(pfeil(y=20), box("t", "text", TEXT, y=85), client=client)
+    pick(page, "k")
+    more_pictures(page)
+    expect(hint(page)).to_be_visible()
+    step(page, lambda: page.get_by_label("Rückgängig", exact=True).first.click())
+    assert {b["id"]: b for b in saved(page, client)}["k"]["h"] == 53.9
+    expect(hint(page)).to_have_count(0)
+
+
+def test_no_hint_while_nothing_overlaps(editor):
+    """Layout: with no block under the Pfeilbild, growing it shows no cover hint."""
+    client = user()
+    page = editor(pfeil(y=20), box("t", "text", TEXT, y=200), client=client)
+    pick(page, "k")
+    more_pictures(page)
+    expect(at(page, "k").locator(".pfeilbild")).to_be_visible()
+    expect(hint(page)).to_have_count(0)
