@@ -97,6 +97,20 @@ def test_emptying_the_last_shown_word_shows_the_hidden_fields(editor):
     assert saved(page, client)[0]["props"] == {"fields": ["Name", "Datum"]}
 
 
+def test_a_tick_never_empties_one_of_several_lines(editor):
+    """I6: with two lines picked, the field one of them shows alone cannot be unticked."""
+    client = user()
+    page = editor(box("a", "name", {}), box("b", "name", {"hidden": [0, 1]}, z=2), client=client)
+    pick(page, "a", "b")
+    expect(page.get_by_label("Klasse", exact=True)).to_be_disabled()
+    page.get_by_label("Datum", exact=True).uncheck()
+    expect(fields(page, "a")).to_have_count(2)
+    expect(fields(page, "b")).to_have_text(["Klasse:"])
+    a, b = sorted(saved(page, client), key=lambda x: x["id"])
+    assert a["props"] == {"hidden": [1]}
+    assert b["props"] == {"hidden": [0, 1]}
+
+
 def test_a_tick_is_one_undo_step_and_sets_every_picked_line(editor):
     """I8: one tick is one undo step, and with two name lines picked the tick sets both."""
     page = editor(box("a", "name", {}), box("b", "name", {}, z=2))

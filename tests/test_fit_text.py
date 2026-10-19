@@ -178,6 +178,42 @@ def test_a_group_resize_turns_fit_off(editor):
         assert b["w"] > 20
 
 
+def test_a_locked_box_keeps_its_place_and_size(editor):
+    client = user()
+    page = editor(
+        box("a", "text", {**RECT, **TEXT, "align": "center"}, x=40, w=150, h=20, locked=True),
+        client=client,
+    )
+    pick(page, "a")
+    tick(page)
+    (a,) = saved(page, client)
+    assert a["props"]["fit"] is True
+    assert (a["x"], a["w"], a["h"]) == (40, 150, 20)
+
+
+def test_a_linked_text_does_not_fit(editor):
+    """A text linked to the Lernwörter grows on with its list and keeps its width."""
+    client = user()
+    page = editor(
+        box("a", "text", {**FITTED, **TEXT, "list": True}, x=40, w=150, h=20), client=client
+    )
+    pick(page, "a")
+    page.keyboard.press("Control+b")
+    expect(at(page, "a").locator(".frame")).to_have_css("font-weight", "700")
+    (a,) = saved(page, client)
+    assert a["props"]["bold"] is True
+    assert (a["x"], a["w"]) == (40, 150)
+
+
+def test_a_fitted_width_is_rounded_to_a_hundredth(editor):
+    client = user()
+    page = editor(box("a", "text", {**RECT, **TEXT}, x=40, w=150, h=20), client=client)
+    pick(page, "a")
+    tick(page)
+    (a,) = saved(page, client)
+    assert a["w"] == round(a["w"], 2)
+
+
 def test_a_typed_width_turns_fit_off(editor):
     client = user()
     page = editor(box("a", "text", {**FITTED, **TEXT}, x=40, w=20, h=20), client=client)

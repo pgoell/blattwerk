@@ -1049,7 +1049,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     block.style.transform = "none";
     const [ownW, ownH] = [frame.style.width, frame.style.height];
     frame.style.width = "max-content";
-    let w = Math.ceil((frame.getBoundingClientRect().width / k) * 10) / 10 + 0.2;
+    let w = Math.round((Math.ceil((frame.getBoundingClientRect().width / k) * 10) / 10 + 0.2) * 100) / 100;
     if (w > cap) {
       frame.style.width = `${cap * k}px`;
       w = cap;
@@ -1097,7 +1097,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         continue;
       }
       // A fitted box takes its text's width and height, shrinking too, and keeps the edge its words are aligned to.
-      if (shape?.fit === true) {
+      // A locked box keeps its place and size, and a linked text grows on with its list: neither fits.
+      if (shape?.fit === true && !b.locked && shape.list !== true) {
         const at = b.angle || shape.align === "center" ? 0.5 : shape.align === "right" ? 1 : 0;
         // The room to the margins from the edge that stays: a box that keeps its middle widens to both sides.
         const W = sizeOf(hist.doc, page)[0];
@@ -2058,11 +2059,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     );
   }
   // Shows or hides field i of every picked name line, in one step. Each line has its own words, so i is its own field.
+  // A line whose one shown field is i, which stays shown.
+  const onlyShown = (b: NameBlock, i: number) => {
+    const off = new Set(b.props.hidden ?? []);
+    return !off.has(i) && (b.props.fields ?? FIELDS).every((_, j) => j === i || off.has(j));
+  };
   function showField(i: number, shown: boolean) {
     change((bs) =>
       bs.map((b) => {
-        if (!ids.includes(b.id) || b.type !== "name") return b;
-        const off = shown ? (b.props.hidden ?? []).filter((h) => h !== i) : [...(b.props.hidden ?? []), i].sort((x, y) => x - y);
+        if (!ids.includes(b.id) || b.type !== "name" || (!shown && onlyShown(b, i))) return b;
+        const off = shown ? (b.props.hidden ?? []).filter((h) => h !== i) : [...new Set([...(b.props.hidden ?? []), i])].sort((x, y) => x - y);
         return { ...b, props: { ...b.props, hidden: off.length ? off : undefined } } as Block;
       }),
     );
@@ -5385,13 +5391,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {nameFields.length > 0 && (
                 <>
                   <h2>Namenszeile</h2>
-                  {/* The last field shown stays shown. */}
+                  {/* The last field a picked line shows stays shown. */}
                   {nameFields.map((word, i) => {
                     const off = (free[0] as NameBlock).props.hidden ?? [];
                     const shown = !off.includes(i);
                     return (
                       <label key={i} className="tick">
-                        <input type="checkbox" checked={shown} disabled={shown && off.length === nameFields.length - 1} onChange={(e) => showField(i, e.target.checked)} /> {word}
+                        <input type="checkbox" checked={shown} disabled={shown && free.some((b) => onlyShown(b as NameBlock, i))} onChange={(e) => showField(i, e.target.checked)} /> {word}
                       </label>
                     );
                   })}
