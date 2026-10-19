@@ -4,7 +4,7 @@ title: "Zahlenhäuser"
 description: A heading, a name line, and four Zahlenhäuser with the left box of each floor given and the rest to fill in.
 tags: [zahlenhaus, zahlenraum-10, klasse-1]
 covers: [text, name, zahlenhaus]
-generated: { by: "human:pgoell", at: 2026-10-18T19:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Zahlenhäuser

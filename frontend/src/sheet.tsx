@@ -218,6 +218,13 @@ export type TextProps = {
    * @maximum 1
    */
   tip?: number;
+  /** How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.
+   * @minimum 0
+   * @maximum 0.5
+   */
+  corner?: number;
+  /** True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows. */
+  fit?: boolean;
   /** Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. */
   floor?: boolean;
   /** Width of the border in mm. Absent means 0.5.
@@ -330,6 +337,8 @@ export type NameBlock = Box & {
   props: {
     /** The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. */
     fields?: string[];
+    /** The fields the line leaves out, as indexes into its words from 0, such as [2] for a line without "Klasse". At least one field stays shown. Absent means every field shows. */
+    hidden?: number[];
   };
 };
 export type PointsBlock = Box & {
@@ -1023,6 +1032,10 @@ export function tall(b: Box, h: number): Partial<Box> {
   const half = (h - b.h) / 2;
   return { h, x: Math.round((b.x - s * half) * 100) / 100, y: Math.round((b.y + (c - 1) * half) * 100) / 100 };
 }
+// A new width for a block: `at` is the share of the width that stays in place (0 the left edge, 0.5 the middle, 1 the right).
+export function fitWidth(b: Box, w: number, at: number): Partial<Box> {
+  return { w, x: Math.round((b.x + (b.w - w) * at) * 100) / 100 };
+}
 const flipped = (b: Box): CSSProperties | undefined => (b.flipX || b.flipY ? { transform: `scale(${b.flipX ? -1 : 1}, ${b.flipY ? -1 : 1})` } : undefined);
 // How many rows of its ruling fit a block. Moveable's pixels leave a height a hair short of a full row.
 export const rowsOf = (b: RulingBlock) => Math.floor(b.h / RULINGS[kindOf(b.props.kind)].row + 0.05);
@@ -1481,7 +1494,7 @@ function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; 
   const bottoms = frameCut !== undefined ? `calc(100% - ${frameCut}px)` : tight ? (below > 0 ? `calc(-1px - ${p.syllables ? ".3em - " : ""}${below}em)` : p.syllables ? "calc(-1px - .3em)" : "-1px") : p.syllables ? "calc(-1px - .3em)" : "-1px";
   const [tailUp, tailRight, tailDown, tailLeft] = tailReach(block).map((mm) => mm * k);
   const grow = (v: string, px: number) => (px > 0 ? `calc(${v} - ${px}px)` : v);
-  const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${4 * k}px` : 0;
+  const radius = p.kind === "circle" ? "50%" : p.kind === "rounded" ? `${radiusOf(p, block.w, block.h) * k}px` : 0;
   // A circle's clip grows by the side reach on each side, so its curve keeps the circle's radius as the box grows (#740).
   const roundR = p.kind === "circle" && side > 0 ? `calc(50% + ${side}em)` : radius;
   const text = (
@@ -1688,7 +1701,7 @@ function Bank({ words, seed }: { words: string[]; seed: number }) {
 
 // The dashes of a box's border. The middle of the stroke is `w` by `h` mm, half the stroke's width inside the box.
 function Ring({ w, h, edge, p }: { w: number; h: number; edge: number; p: TextProps }) {
-  const r = p.kind === "rounded" ? Math.max(0, Math.min(4 - edge / 2, w / 2, h / 2)) : 0;
+  const r = p.kind === "rounded" ? Math.max(0, Math.min(radiusOf(p, w + edge, h + edge) - edge / 2, w / 2, h / 2)) : 0;
   const [rx, ry] = p.kind === "circle" ? [w / 2, h / 2] : [r, r];
   return <Dashes way={around(edge / 2, edge / 2, edge / 2 + w, edge / 2 + h, rx, ry)} edge={edge} p={p} fill="none" />;
 }
@@ -1842,10 +1855,13 @@ export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: bool
   if (flipX) fit = [fit[0], fit[3], fit[2], fit[1]];
   return flipY ? [fit[2], fit[1], fit[0], fit[3]] : fit;
 }
+// A rounded box's corner radius in mm: the share of its shorter side, 4 mm where none is set, at most half that side.
+export const radiusOf = (p: Partial<TextProps>, w: number, h: number) => Math.min(p.corner === undefined ? 4 : p.corner * Math.min(w, h), Math.min(w, h) / 2);
 // Where a shape's adjust handle stands, in mm from the box's top left, unflipped and unturned: the triangle's tip, the
-// star's upper left inner corner, the bubble's tail tip. Another kind has none.
+// star's upper left inner corner, the bubble's tail tip, the rounded box's corner. Another kind has none.
 export function handleOf(kind: Kind | undefined, w: number, h: number, p: Partial<TextProps>): [number, number] | undefined {
   if (kind === "triangle") return [(tipOf(p) ?? 0.5) * w, 0];
+  if (kind === "rounded") return [radiusOf(p, w, h), 0];
   if (kind === "star") {
     const [x, y] = POINTS.star!(w, h, 0, p)[9]!;
     return [x, y];
@@ -1861,6 +1877,7 @@ export function adjusted(kind: Kind | undefined, w: number, h: number, at: [numb
   const [x, y] = at;
   const thou = (v: number) => Math.round(v * 1000) / 1000;
   if (kind === "triangle") return { tip: thou(clamp(x / w, 0, 1)) };
+  if (kind === "rounded") return { corner: thou(clamp(x / Math.min(w, h), 0, 0.5)) };
   if (kind === "bubble") return { tail: inBody(thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))) };
   if (kind === "star") {
     // The point in POINTS.star's unit square, projected on the ray from its middle through inner corner 9.
@@ -3605,16 +3622,20 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "ruling") return <Lines block={block} k={k}>{children}</Lines>;
   if (block.type === "symbol") return <img src={symbol(block.props.code)} alt="" draggable={false} style={flipped(block)} />;
   // While a name line is written in, `children` holds one field for each word, in the word's place of the line.
-  if (block.type === "name")
+  if (block.type === "name") {
+    const off = block.props.hidden ?? [];
     return (
       <div className="fields" style={{ fontSize: 12 * PT * k }}>
-        {(block.props.fields ?? FIELDS).map((field, i) => (
-          <span key={i}>
-            {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
-          </span>
-        ))}
+        {(block.props.fields ?? FIELDS).map((field, i) =>
+          off.includes(i) ? null : (
+            <span key={i} className={i === 0 ? "name" : undefined}>
+              {field}:{(children as ReactNode[] | undefined)?.[i] ?? <i />}
+            </span>
+          ),
+        )}
       </div>
     );
+  }
   // The words' row is the box between its lines, in an even count of pixels: so they stand whole pixels below the
   // box's top. A part of a pixel Chromium rounds one way on a sharp screen and another in print.
   // While the score is written in, `children` is its field in place of the number.

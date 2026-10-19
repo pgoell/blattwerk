@@ -4,7 +4,7 @@ title: "Wochentage als Tabelle"
 description: A heading, a name line, and a table with the weekdays Montag to Freitag in a bold head row.
 tags: [tabelle, wochentage, klasse-1]
 covers: [text, name, table]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Wochentage als Tabelle

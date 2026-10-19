@@ -4,7 +4,7 @@ title: mm and pt
 description: Lengths are mm from the paper's top left, font sizes are pt, and a text box needs room for its lines.
 tags: [units, mm, pt, layout, text]
 covers: [text, maths]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # mm and pt

@@ -4,7 +4,7 @@ title: "Block: name"
 description: "The line the pupil writes their name (and date, class) on."
 tags: [block, name]
 covers: [name]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T06:04:58Z }
 ---
 
 # name
@@ -38,6 +38,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
 | fields | list of string |  | no | The words of the name line in order, such as "Name", "Datum" and "Klasse". Left out, the line uses FIELDS. |
+| hidden | list of number |  | no | The fields the line leaves out, as indexes into its words from 0, such as [2] for a line without "Klasse". At least one field stays shown. Absent means every field shows. |
 
 # Examples
 

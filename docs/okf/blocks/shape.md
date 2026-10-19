@@ -4,7 +4,7 @@ title: "Block: shape"
 description: "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
 tags: [block, shape]
 covers: [shape]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-18T03:32:53Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T06:04:58Z }
 ---
 
 # shape
@@ -77,6 +77,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | tail | list of number |  | no | Where a speech bubble's tail ends, as shares of the box's width and height: [across, down]. Across runs from 0 at the left edge to 1 at the right, down from 0 at the top to 1 at the foot of the box. The tip may lie one box beyond each edge: across and down from -1 to 2. Absent means [0.2, 1]. |
 | inner | number | 0.1 to 0.9 | no | How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38. |
 | tip | number | 0 to 1 | no | Where a triangle's tip stands across its top, as a share of the width: 0 over the left corner, 1 over the right. Absent means 0.5, the middle. |
+| corner | number | 0 to 0.5 | no | How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm. |
+| fit | boolean |  | no | True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows. |
 | floor | boolean |  | no | Set by the editor on a shape whose text the teacher has sized: the text then keeps at least 10 pt. Absent means off. |
 | dash | string | `dashed`, `dotted` | no | Style of the border: "dashed" for dashes, "dotted" for dots. Absent means a solid border. |
 | trace | boolean or string | `outline` or `dotted` | no | Nachspuren: the text prints in grey to write over. true is plain grey, "outline" a thin outline of the letters, "dotted" dotted letters (in fonts that have them, else grey). Absent means no trace text. |

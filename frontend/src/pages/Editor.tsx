@@ -107,7 +107,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -118,7 +118,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung } from "./Format";
+import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -915,6 +915,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // What has a fill and a border. The first shows its settings; a change goes to all of them.
   const boxes = sel.filter((b) => b.type === "shape" || b.type === "text");
   const fill = boxes[0]?.props.fill ?? "none";
+  // The words of the picked name lines, when only name lines are picked: the panel shows a checkbox for each.
+  const nameFields = free.length > 0 && free.every((b) => b.type === "name") ? ((free[0] as NameBlock).props.fields ?? FIELDS) : [];
   const stroke = boxes[0]?.props.stroke ?? "none";
   // The block the brush picks its look up from: the first with more of a look than a numbering, or else the first.
   const source = sel.find((b) => takes(b).length > 1) ?? (sel[0] as Block | undefined);
@@ -1037,6 +1039,28 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     block.style.transform = was;
     return h;
   };
+  // A fitted box's width and height, in mm: as wide as its longest line, up to `cap`, where its text breaks. The width
+  // is rounded up with a little slack, so that the print does not break the last word.
+  const fitSize = (b: Block, cap: number) => {
+    const frame = sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] > :is(.frame, .table)`);
+    if (!frame) return undefined;
+    const block = frame.parentElement!;
+    const was = block.style.transform;
+    block.style.transform = "none";
+    const [ownW, ownH] = [frame.style.width, frame.style.height];
+    frame.style.width = "max-content";
+    let w = Math.round((Math.ceil((frame.getBoundingClientRect().width / k) * 10) / 10 + 0.2) * 100) / 100;
+    if (w > cap) {
+      frame.style.width = `${cap * k}px`;
+      w = cap;
+    }
+    frame.style.height = "auto";
+    const h = Math.ceil((frame.getBoundingClientRect().height / k) * 100) / 100;
+    [frame.style.width, frame.style.height] = [ownW, ownH];
+    block.style.transform = was;
+    // An empty text keeps 10 mm, as a new box does.
+    return { w: frame.textContent?.trim() ? w : 10, h };
+  };
   // A picked text at the page's foot whose words need more room than it has: the panel warns. Told from the sheet as
   // it is, so it holds after an undo, a reload or a paste too. A shape that shrinks its text tells by `overfit`.
   useLayoutEffect(() => {
@@ -1070,6 +1094,23 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
           grown.set(b.id, { props: { ...b.props, floor: true } } as Partial<Block>);
           tight.current = true;
         }
+        continue;
+      }
+      // A fitted box takes its text's width and height, shrinking too, and keeps the edge its words are aligned to.
+      // A locked box keeps its place and size, and a linked text grows on with its list: neither fits.
+      if (shape?.fit === true && !b.locked && shape.list !== true) {
+        const at = b.angle || shape.align === "center" ? 0.5 : shape.align === "right" ? 1 : 0;
+        // The room to the margins from the edge that stays: a box that keeps its middle widens to both sides.
+        const W = sizeOf(hist.doc, page)[0];
+        const [left, right] = [b.x + b.w * at - MARGIN, W - MARGIN - b.x - b.w * at];
+        const cap = Math.max(10, at === 0 ? right : at === 1 ? left : 2 * Math.min(left, right));
+        const m = fitSize(b, cap);
+        if (!m) continue;
+        const widened = { ...b, ...fitWidth(b, m.w, at) };
+        // It stops at the page's foot, as a text that grows does.
+        const h = Math.min(m.h, Math.max(widened.h, footTop(widened, H)));
+        if (Math.abs(m.w - b.w) <= 0.005 && Math.abs(h - b.h) <= 0.005) continue;
+        grown.set(b.id, { ...fitWidth(b, m.w, at), ...tall(widened, h) });
         continue;
       }
       const h = natural(b);
@@ -1227,10 +1268,19 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const line = nameWriting.current;
     if (editing || !line) return;
     nameWriting.current = undefined;
-    const fields = words.map((w) => w.trim()).filter(Boolean);
+    const kept = words.map((w, i) => ({ word: w.trim(), i })).filter((f) => f.word);
+    const fields = kept.map((f) => f.word);
     if (!fields.length || fields.join("\n") === wordsKept.current) return;
-    if (!live.current.doc.pages[line.n]?.blocks.some((b) => b.id === line.id && b.type === "name")) return;
-    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props: { ...b.props, fields } } as Block) : b)) }), "", line.n);
+    const block = live.current.doc.pages[line.n]?.blocks.find((b) => b.id === line.id);
+    if (block?.type !== "name") return;
+    // A hidden field keeps its word, but its index moves when a word before it drops out with its field.
+    const hidden = (block.props.hidden ?? []).flatMap((h) => {
+      const at = kept.findIndex((f) => f.i === h);
+      return at < 0 ? [] : [at];
+    });
+    // With every shown word emptied only hidden fields are left: they show again, as no line shows nothing.
+    const props = { ...block.props, fields, hidden: hidden.length && hidden.length < fields.length ? hidden : undefined };
+    turn((p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === line.id ? ({ ...b, props } as Block) : b)) }), "", line.n);
   });
   // A field the panel took the focus from has no blur left to end it: it ends once its block is no longer picked.
   // So does the field of a cell that undo took away with its row.
@@ -2006,6 +2056,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             : x,
         ),
       "text",
+    );
+  }
+  // Shows or hides field i of every picked name line, in one step. Each line has its own words, so i is its own field.
+  // A line whose one shown field is i, which stays shown.
+  const onlyShown = (b: NameBlock, i: number) => {
+    const off = new Set(b.props.hidden ?? []);
+    return !off.has(i) && (b.props.fields ?? FIELDS).every((_, j) => j === i || off.has(j));
+  };
+  function showField(i: number, shown: boolean) {
+    change((bs) =>
+      bs.map((b) => {
+        if (!ids.includes(b.id) || b.type !== "name" || (!shown && onlyShown(b, i))) return b;
+        const off = shown ? (b.props.hidden ?? []).filter((h) => h !== i) : [...new Set([...(b.props.hidden ?? []), i])].sort((x, y) => x - y);
+        return { ...b, props: { ...b.props, hidden: off.length ? off : undefined } } as Block;
+      }),
     );
   }
   // Sets what a shape and a text share: the frame, and the text in it.
@@ -3249,6 +3314,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     return true;
   };
   // A handle on an edge leaves the other axis as it is, to the hundredth of a mm, unless the block keeps its shape.
+  // A fitted box sized by hand keeps that size (`unfitted`).
   const resize = (events: OnResize[]) =>
     flushSync(() =>
       place(
@@ -3263,10 +3329,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             [w, h] = [dx || keep ? w : b.w, dy || keep ? h : b.h];
             const [c, s] = dir(b);
             const [lx, ly] = mod & CENTRE ? [0, 0] : [(dx * (w - b.w)) / 2, (dy * (h - b.h)) / 2];
-            return [b.id, { x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
+            return [b.id, { ...unfitted(b), x: round(b.x + b.w / 2 + lx * c - ly * s - w / 2), y: round(b.y + b.h / 2 + lx * s + ly * c - h / 2), w, h }];
           }
           // In a selection Moveable says where a turned block goes, on both axes whichever handle moved.
           const box = {
+            ...unfitted(b),
             ...((dx || keep || b.angle) && { x: round(e.drag.left / K), w }),
             ...((dy || keep || b.angle) && { y: round(e.drag.top / K), h }),
           };
@@ -3642,9 +3709,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const box = { x: round(Math.min(px, fx)), y: round(Math.min(py, fy)), w: round(Math.abs(px - fx)), h: round(Math.abs(py - fy)) };
     change((bs) => bs.map((o) => (o.id === b.id ? { ...b, ...box, props: { ...b.props, from } } : o)), "drag");
   }
-  // How far down the adjust handle of a triangle or a bubble stands from its point, in mm: 12 px inside the box, clear
-  // of Moveable's handles on its edge.
-  const pullOf = (kind?: string) => (kind === "triangle" ? 12 / k : kind === "bubble" ? -12 / k : 0);
+  // How far down the adjust handle of a triangle, a rounded box or a bubble stands from its point, in mm: 12 px inside
+  // the box, clear of Moveable's handles on its edge.
+  const pullOf = (kind?: string) => (kind === "triangle" || kind === "rounded" ? 12 / k : kind === "bubble" ? -12 / k : 0);
   // A bubble's handle is pulled into the box only while its tip lies in the box: outside, the handle stands on the tip.
   const pullAt = (b: Block, [x, y]: [number, number]) => {
     const kind = (b.props as TextProps).kind;
@@ -3669,7 +3736,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const raw: [number, number] = [fx - b.x, fy - b.y];
     const local: [number, number] = [raw[0], raw[1] - pullAt(b, raw)];
     const props = adjusted(p.kind, b.w, b.h, local);
-    const same = new Set(sel.filter((o) => drawn(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
+    const same = new Set(sel.filter((o) => adjustable(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
     change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
   }
   // Resizes a group from the boxes it began with. The corner opposite the dragged one stays, or with Ctrl the middle,
@@ -3703,7 +3770,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     place(
       start.current.map((b) => {
         const [bx, by] = [round(fx + (b.x - fx) * s), round(fy + (b.y - fy) * s)];
-        return [b.id, { x: bx, y: by, w: round(fx + (b.x + b.w - fx) * s - bx), h: round(fy + (b.y + b.h - fy) * s - by) }];
+        return [b.id, { x: bx, y: by, w: round(fx + (b.x + b.w - fx) * s - bx), h: round(fy + (b.y + b.h - fy) * s - by), ...unfitted(b) }];
       }),
       "drag",
     );
@@ -4930,7 +4997,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                         <ScoreInput max={b.props.max} change={(max) => scoreOn(b.id, max, n)} end={() => setEditing("")} blur={(e) => stays(e) || setEditing("")} />
                       ) : b.type === "name" && editing === b.id ? (
                         // Each word is a field of its own, in its place on the line. Enter and leaving the line keep them.
-                        words.map((word, i) => (
+                        // A hidden field has no input: its word stays as it is.
+                        words.map((word, i) => !(b.props.hidden ?? []).includes(i) && (
                           <input
                             key={i}
                             aria-label={`Feld ${i + 1}`}
@@ -5041,7 +5109,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     return <i key={`reach-${b.id}`} className="reach" data-id={b.id} style={{ left: (r.x - r.hw) * k, top: (r.y - r.hh) * k, width: 2 * r.hw * k, height: 2 * r.hh * k, transform: b.angle ? `rotate(${b.angle}deg)` : undefined }} />;
                   })}
                   {/* One handle per picked bubble, star or triangle, which moves the point its shape takes. */}
-                  {free.length === sel.length && !cropping && sel.filter((b) => drawn(b) && !b.locked).map((b) => (
+                  {free.length === sel.length && !cropping && sel.filter((b) => adjustable(b) && !b.locked).map((b) => (
                     <i
                       key={b.id}
                       className="adjust"
@@ -5320,6 +5388,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                   </label>
                 </>
               )}
+              {nameFields.length > 0 && (
+                <>
+                  <h2>Namenszeile</h2>
+                  {/* The last field a picked line shows stays shown. */}
+                  {nameFields.map((word, i) => {
+                    const off = (free[0] as NameBlock).props.hidden ?? [];
+                    const shown = !off.includes(i);
+                    return (
+                      <label key={i} className="tick">
+                        <input type="checkbox" checked={shown} disabled={shown && free.some((b) => onlyShown(b as NameBlock, i))} onChange={(e) => showField(i, e.target.checked)} /> {word}
+                      </label>
+                    );
+                  })}
+                </>
+              )}
               {boxes.length > 0 && (
                 <>
                   <h2>Füllung und Rand</h2>
@@ -5389,6 +5472,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       </button>
                     ))}
                   </div>
+                  {/* A circle, triangle or star keeps its text in a share of its outline, and a linked text grows on. */}
+                  {boxes.every((b) => ["rect", "rounded", "bubble"].includes(b.props.kind ?? "rect") && b.props.list !== true) && (
+                    <label className="tick">
+                      <input type="checkbox" checked={boxes[0].props.fit === true} onChange={(e) => look({ fit: e.target.checked || undefined })} /> An Text anpassen
+                    </label>
+                  )}
                 </>
               )}
               {rulers.length > 0 && rulers.length === sel.length && (

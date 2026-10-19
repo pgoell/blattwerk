@@ -4,7 +4,7 @@ title: "Ein Bild zeichnen und platzieren"
 description: A heading, a name line, one simple line drawing made as SVG and uploaded, and three labels to write on the picture.
 tags: [bild, svg, sachunterricht, klasse-1]
 covers: [text, image]
-generated: { by: "human:pgoell", at: 2026-10-18T04:30:00Z }
+generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 ---
 
 # Ein Bild zeichnen und platzieren
