@@ -295,6 +295,23 @@ def school_block(client, kind):
             "zahlenhaus",
             {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 3},
         )
+    if kind == "zahlenkette":
+        return box(
+            "k",
+            "zahlenkette",
+            {
+                "count": 4,
+                "columns": 2,
+                "rings": 6,
+                "max": 20,
+                "op": "+",
+                "showStep": False,
+                "given": "start",
+                "seed": 7,
+            },
+            w=180,
+            h=39,
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -326,6 +343,7 @@ def school_block(client, kind):
         "rechendreieck",
         "zahlenmauer",
         "zahlenhaus",
+        "zahlenkette",
         "selbstkontrolle",
         "name",
         "points",

@@ -136,6 +136,7 @@
             "zahlenmauer",
             "rechendreieck",
             "zahlenhaus",
+            "zahlenkette",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -322,6 +323,18 @@
           },
           "then": {
             "$ref": "#/definitions/ZahlenhausBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "zahlenkette"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/ZahlenketteBlock"
           }
         },
         {
@@ -3153,6 +3166,180 @@
       "minItems": 3,
       "maxItems": 3,
       "description": "A number the teacher typed into a box: the house's index (from 0), the box's index (0 the roof, then 1 + 2f and 2 + 2f for floor f), the value (0 to 9999)."
+    },
+    "ZahlenketteBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "zahlenkette"
+        },
+        "props": {
+          "$ref": "#/definitions/ZahlenketteProps",
+          "description": "The number chains (Zahlenketten): rings in a row, each step adding or taking away the same number, and which rings are given."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "ZahlenketteProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of chains (Ketten) on the sheet, side by side in rows of `columns`. Default 4.",
+          "minimum": 1,
+          "maximum": 12
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of chains per row. Default 2.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "rings": {
+          "type": "number",
+          "description": "Number of rings per chain. Default 6.",
+          "minimum": 4,
+          "maximum": 12
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum: the largest number a chain may reach, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20."
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "+",
+            "-",
+            "*"
+          ],
+          "description": "The operation: \"+\" adds the step, \"-\" takes it away, \"*\" multiplies by it. \"*\" needs max 100 or more, under that it becomes \"+\". Default \"+\"."
+        },
+        "step": {
+          "type": "number",
+          "description": "The fixed step (Schrittweite): for \"+\" and \"-\" a whole number from 1 to 1000, for \"*\" from 2 to 10. Missing: a random step per chain. Out of range: dropped.",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "showStep": {
+          "type": "boolean",
+          "description": "Whether each arc shows its step on the pupil sheet. On: \"+3\", \"−3\" or \"·2\". Off: the arcs are empty, and the answer key writes the step on them in red. Default false."
+        },
+        "given": {
+          "type": "string",
+          "enum": [
+            "start",
+            "ends",
+            "random",
+            "free"
+          ],
+          "description": "Which rings show their number: \"start\" the first two, \"ends\" the first and the last, \"random\" a few per chain from the seed, \"free\" the rings flagged in `free`, the same for every chain. Default \"start\"."
+        },
+        "free": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "description": "With `given` \"free\": one flag per ring, a flagged ring shows its number. The same for every chain. Missing or of another length: the first two rings."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random chains. The same seed always gives the same chains."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KetteTyped"
+          },
+          "description": "Numbers the teacher typed into rings. Each entry is [chain index from 0, ring index from 0, value 0 to 9999]. The lowest typed ring of a chain is its anchor. A chain whose numbers do not fit its step is marked wrong."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "rings",
+        "max",
+        "op",
+        "showStep",
+        "given",
+        "seed"
+      ]
+    },
+    "KetteTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "A number the teacher typed into a ring: the chain's index (from 0), the ring's index (from 0), the value (0 to 9999)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",

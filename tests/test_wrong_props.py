@@ -35,6 +35,16 @@ ZAHLENMAUER = {
 }
 RECHENDREIECK = {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "seed": 3}
 ZAHLENHAUS = {"count": 4, "columns": 4, "floors": 4, "max": 10, "given": "side", "seed": 3}
+ZAHLENKETTE = {
+    "count": 4,
+    "columns": 2,
+    "rings": 6,
+    "max": 20,
+    "op": "+",
+    "showStep": False,
+    "given": "start",
+    "seed": 7,
+}
 ZAHLENSTRAHL = {
     "start": 0,
     "end": 20,
@@ -103,6 +113,7 @@ WRONG = {
     "suchsel": {**SUCHSEL, "cols": "x"},
     "zahlenmauer": {**ZAHLENMAUER, "base": "x"},
     "zahlenhaus": {**ZAHLENHAUS, "max": "x"},
+    "zahlenkette": {**ZAHLENKETTE, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},
     "hunderterfeld": {**HUNDERTERFELD, "from": "x"},

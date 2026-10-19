@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit Zahlenketten. Lege das Blatt mit dem Titel Eval Zahlenketten an.",
+  "recipe": "zahlenketten",
+  "expect": {"types": ["zahlenkette"], "text": ["Zahlenkette"]}
+}

@@ -28,6 +28,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [zahlenhaus](zahlenhaus.md): The number houses (Zahlenhäuser): a roof number and floors of two boxes that add up to it, and which boxes are given.
 
+* [zahlenkette](zahlenkette.md): The number chains (Zahlenketten): rings in a row, each step adding or taking away the same number, and which rings are given.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.
