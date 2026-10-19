@@ -197,6 +197,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "operatorfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/OperatorfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -273,6 +285,7 @@
                 "zahlenhaus",
                 "zahlenkette",
                 "pfeilbild",
+                "operatorfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -1471,6 +1484,173 @@
             "/"
           ],
           "type": "string"
+        },
+        "OperatorfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/OperatorfeldProps",
+              "description": "The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given."
+            },
+            "type": {
+              "const": "operatorfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "OperatorfeldProps": {
+          "properties": {
+            "boxes": {
+              "description": "Kästchen per Operatorfeld: ohne Zentrum the boxes of the ring, mit Zentrum the outer boxes around the centre. Default 4.",
+              "maximum": 8,
+              "minimum": 3,
+              "type": "number"
+            },
+            "centre": {
+              "description": "Whether the field has a centre (mit Zentrum): one number in the middle, linked to every outer box. Without (ohne Zentrum) the boxes stand in a closed ring and each pair of neighbours is linked. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of Operatorfelder per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of Operatorfelder on the sheet, side by side in rows of `columns`. Default 2.",
+              "maximum": 6,
+              "minimum": 1,
+              "type": "number"
+            },
+            "drawOps": {
+              "description": "Whether each operator place has an ellipse around it, also an empty one. Default true.",
+              "type": "boolean"
+            },
+            "given": {
+              "description": "Which numbers show: \"start\" the first box (mit Zentrum the centre) and every operator; \"ops\" every box and no operator; \"mixed\" (gemischt) the first box (mit Zentrum the centre) and for each link either its operator or its other box. Ohne Zentrum with \"+\" or \"-\" and \"*\" or \":\" together, \"ops\" and \"mixed\" may have several right answers (\"+2\" or \"·2\"), so the answer key says under the fields that other answers count too, and the block keeps a line for that note. Default \"start\".",
+              "enum": [
+                "start",
+                "ops",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "max": {
+              "description": "The Zahlenraum: the largest number a box may show, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20.",
+              "type": "number"
+            },
+            "only": {
+              "description": "The Einschränkung: \"none\", \"tens\" (nur Zehnerzahlen: every number and every \"+\" or \"-\" operand a multiple of 10, needs max 100 or more) or \"hundreds\" (nur Hunderterzahlen: multiples of 100, needs max 1000). Too small a max gives \"none\". Default \"none\".",
+              "enum": [
+                "none",
+                "tens",
+                "hundreds"
+              ],
+              "type": "string"
+            },
+            "ops": {
+              "description": "The Rechenarten: \"+\", \"-\", \"*\" (Mal) and \":\" (Geteilt), in that order, each once. Mit Zentrum only \"+\" and \"-\"; \"*\" and \":\" need max 20 or more; the others are dropped. Several give each link its own (gemischt). Empty or not a list: [\"+\"]. Default [\"+\", \"-\"].",
+              "items": {
+                "enum": [
+                  "+",
+                  "-",
+                  "*",
+                  ":"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Seed for the random fields. The same seed always gives the same fields.",
+              "type": "number"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed into boxes. Each entry is [field index from 0, box index from 0 (mit Zentrum 0 is the centre), value 0 to 9999]. The operators of the links at a typed box follow from its numbers; a field where no allowed operator links two numbers is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/OperatorfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "OperatorfeldTyped": {
+          "description": "A number the teacher typed into a box: the field's index (from 0), the box's index (from 0; mit Zentrum 0 is the centre), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         },
         "Page": {
           "properties": {
@@ -4822,6 +5002,9 @@
               "$ref": "#/definitions/PfeilbildProps"
             },
             {
+              "$ref": "#/definitions/OperatorfeldProps"
+            },
+            {
               "$ref": "#/definitions/ZahlenstrahlProps"
             },
             {
@@ -4856,6 +5039,7 @@
             "zahlenhaus",
             "zahlenkette",
             "pfeilbild",
+            "operatorfeld",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -5273,6 +5457,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "operatorfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/OperatorfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -5349,6 +5545,7 @@
                 "zahlenhaus",
                 "zahlenkette",
                 "pfeilbild",
+                "operatorfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -6574,6 +6771,185 @@
             "/"
           ],
           "type": "string"
+        },
+        "OperatorfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/OperatorfeldProps",
+              "description": "The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given."
+            },
+            "type": {
+              "const": "operatorfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "OperatorfeldProps": {
+          "properties": {
+            "boxes": {
+              "description": "Kästchen per Operatorfeld: ohne Zentrum the boxes of the ring, mit Zentrum the outer boxes around the centre. Default 4.",
+              "maximum": 8,
+              "minimum": 3,
+              "type": "number"
+            },
+            "centre": {
+              "description": "Whether the field has a centre (mit Zentrum): one number in the middle, linked to every outer box. Without (ohne Zentrum) the boxes stand in a closed ring and each pair of neighbours is linked. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of Operatorfelder per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of Operatorfelder on the sheet, side by side in rows of `columns`. Default 2.",
+              "maximum": 6,
+              "minimum": 1,
+              "type": "number"
+            },
+            "drawOps": {
+              "description": "Whether each operator place has an ellipse around it, also an empty one. Default true.",
+              "type": "boolean"
+            },
+            "given": {
+              "description": "Which numbers show: \"start\" the first box (mit Zentrum the centre) and every operator; \"ops\" every box and no operator; \"mixed\" (gemischt) the first box (mit Zentrum the centre) and for each link either its operator or its other box. Ohne Zentrum with \"+\" or \"-\" and \"*\" or \":\" together, \"ops\" and \"mixed\" may have several right answers (\"+2\" or \"·2\"), so the answer key says under the fields that other answers count too, and the block keeps a line for that note. Default \"start\".",
+              "enum": [
+                "start",
+                "ops",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "max": {
+              "description": "The Zahlenraum: the largest number a box may show, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20.",
+              "type": "number"
+            },
+            "only": {
+              "description": "The Einschränkung: \"none\", \"tens\" (nur Zehnerzahlen: every number and every \"+\" or \"-\" operand a multiple of 10, needs max 100 or more) or \"hundreds\" (nur Hunderterzahlen: multiples of 100, needs max 1000). Too small a max gives \"none\". Default \"none\".",
+              "enum": [
+                "none",
+                "tens",
+                "hundreds"
+              ],
+              "type": "string"
+            },
+            "ops": {
+              "description": "The Rechenarten: \"+\", \"-\", \"*\" (Mal) and \":\" (Geteilt), in that order, each once. Mit Zentrum only \"+\" and \"-\"; \"*\" and \":\" need max 20 or more; the others are dropped. Several give each link its own (gemischt). Empty or not a list: [\"+\"]. Default [\"+\", \"-\"].",
+              "items": {
+                "enum": [
+                  "+",
+                  "-",
+                  "*",
+                  ":"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Seed for the random fields. The same seed always gives the same fields.",
+              "type": "number"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed into boxes. Each entry is [field index from 0, box index from 0 (mit Zentrum 0 is the centre), value 0 to 9999]. The operators of the links at a typed box follow from its numbers; a field where no allowed operator links two numbers is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/OperatorfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "centre",
+            "count",
+            "columns",
+            "boxes",
+            "max",
+            "ops",
+            "only",
+            "given",
+            "drawOps",
+            "seed"
+          ],
+          "type": "object"
+        },
+        "OperatorfeldTyped": {
+          "description": "A number the teacher typed into a box: the field's index (from 0), the box's index (from 0; mit Zentrum 0 is the centre), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         },
         "Page": {
           "properties": {
@@ -9766,6 +10142,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "operatorfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/OperatorfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -9842,6 +10230,7 @@
                 "zahlenhaus",
                 "zahlenkette",
                 "pfeilbild",
+                "operatorfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -11040,6 +11429,173 @@
             "/"
           ],
           "type": "string"
+        },
+        "OperatorfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/OperatorfeldProps",
+              "description": "The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given."
+            },
+            "type": {
+              "const": "operatorfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "OperatorfeldProps": {
+          "properties": {
+            "boxes": {
+              "description": "Kästchen per Operatorfeld: ohne Zentrum the boxes of the ring, mit Zentrum the outer boxes around the centre. Default 4.",
+              "maximum": 8,
+              "minimum": 3,
+              "type": "number"
+            },
+            "centre": {
+              "description": "Whether the field has a centre (mit Zentrum): one number in the middle, linked to every outer box. Without (ohne Zentrum) the boxes stand in a closed ring and each pair of neighbours is linked. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of Operatorfelder per row. Default 2.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of Operatorfelder on the sheet, side by side in rows of `columns`. Default 2.",
+              "maximum": 6,
+              "minimum": 1,
+              "type": "number"
+            },
+            "drawOps": {
+              "description": "Whether each operator place has an ellipse around it, also an empty one. Default true.",
+              "type": "boolean"
+            },
+            "given": {
+              "description": "Which numbers show: \"start\" the first box (mit Zentrum the centre) and every operator; \"ops\" every box and no operator; \"mixed\" (gemischt) the first box (mit Zentrum the centre) and for each link either its operator or its other box. Ohne Zentrum with \"+\" or \"-\" and \"*\" or \":\" together, \"ops\" and \"mixed\" may have several right answers (\"+2\" or \"·2\"), so the answer key says under the fields that other answers count too, and the block keeps a line for that note. Default \"start\".",
+              "enum": [
+                "start",
+                "ops",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "max": {
+              "description": "The Zahlenraum: the largest number a box may show, one of 10, 20, 100 or 1000. Any other value gives 20. Default 20.",
+              "type": "number"
+            },
+            "only": {
+              "description": "The Einschränkung: \"none\", \"tens\" (nur Zehnerzahlen: every number and every \"+\" or \"-\" operand a multiple of 10, needs max 100 or more) or \"hundreds\" (nur Hunderterzahlen: multiples of 100, needs max 1000). Too small a max gives \"none\". Default \"none\".",
+              "enum": [
+                "none",
+                "tens",
+                "hundreds"
+              ],
+              "type": "string"
+            },
+            "ops": {
+              "description": "The Rechenarten: \"+\", \"-\", \"*\" (Mal) and \":\" (Geteilt), in that order, each once. Mit Zentrum only \"+\" and \"-\"; \"*\" and \":\" need max 20 or more; the others are dropped. Several give each link its own (gemischt). Empty or not a list: [\"+\"]. Default [\"+\", \"-\"].",
+              "items": {
+                "enum": [
+                  "+",
+                  "-",
+                  "*",
+                  ":"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "seed": {
+              "description": "Seed for the random fields. The same seed always gives the same fields.",
+              "type": "number"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed into boxes. Each entry is [field index from 0, box index from 0 (mit Zentrum 0 is the centre), value 0 to 9999]. The operators of the links at a typed box follow from its numbers; a field where no allowed operator links two numbers is marked wrong.",
+              "items": {
+                "$ref": "#/definitions/OperatorfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "OperatorfeldTyped": {
+          "description": "A number the teacher typed into a box: the field's index (from 0), the box's index (from 0; mit Zentrum 0 is the centre), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         },
         "Page": {
           "properties": {
@@ -14384,6 +14940,9 @@
             },
             {
               "$ref": "#/definitions/PfeilbildProps"
+            },
+            {
+              "$ref": "#/definitions/OperatorfeldProps"
             },
             {
               "$ref": "#/definitions/ZahlenstrahlProps"

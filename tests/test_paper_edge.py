@@ -110,6 +110,28 @@ def pfeil_fits(page):
     panel(page, "Ein Pfeilbild weniger").click()
 
 
+OPERATORFELD = {
+    "centre": False,
+    "count": 2,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "only": "none",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
+
+
+def of_more(page, i):
+    panel(page, "Ein Operatorfeld mehr").click()
+
+
+def of_fits(page):
+    panel(page, "Ein Operatorfeld weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -122,6 +144,14 @@ CASES = {
     "rechendreieck": (DREIECK, 180, 50, 230, dreieck_more, dreieck_fits),
     "zahlenkette": (KETTE, 180, 39, 230, kette_more, kette_fits),
     "pfeilbild": (PFEIL, 180, 53.9, 230, pfeil_more, pfeil_fits),
+    "operatorfeld": (
+        OPERATORFELD,
+        180,
+        85.99,
+        110,
+        of_more,
+        of_fits,
+    ),  # y 110, see test_operatorfeld_cover.py
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

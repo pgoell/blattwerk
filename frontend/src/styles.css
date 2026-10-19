@@ -534,6 +534,8 @@ body:has(.print) { background: #fff; }
 .zahlenkette svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .pfeilbild { height: 100%; font-family: Andika; }
 .pfeilbild svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .operatorfeld { height: 100%; font-family: Andika; }
+.operatorfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .rechendreieck { height: 100%; font-family: Andika; }
 .rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zahlenstrahl { height: 100%; font-family: Andika; }

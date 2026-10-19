@@ -12,6 +12,7 @@ import { at, layout as wallLayout, made as walled, sane as saneWall } from "./za
 import { layout as houseLayout, made as housed, numberSize, sane as saneHouse, type ZahlenhausProps } from "./zahlenhaus";
 import { layout as chainLayout, made as chained, sane as saneChain, stepLabel, type ZahlenketteProps } from "./zahlenkette";
 import { inverse, layout as arrowLayout, made as arrowMade, noted as arrowNoted, opLabel, sane as saneArrow, type PfeilbildProps } from "./pfeilbild";
+import { boxAt, layout as opLayout, made as opMade, noted as opNoted, opLabel as opLabelOf, sane as saneOp, type OperatorfeldProps } from "./operatorfeld";
 import { FIELDS as RECHEN_FIELDS, layout, made as drawnRechen, sane as saneRechen, type RechendreieckProps } from "./rechendreieck";
 import { TINT, dotAt, made as drawnFeld, sane as saneFeld, type HunderterfeldProps } from "./hunderterfeld";
 import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, written, type UhrProps } from "./uhr";
@@ -695,6 +696,12 @@ export type PfeilbildBlock = Box & {
   /** The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given. */
   props: PfeilbildProps;
 };
+// An Operatorfeld: its stored shape is the contract at the top of operatorfeld.ts.
+export type OperatorfeldBlock = Box & {
+  type: "operatorfeld";
+  /** The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given. */
+  props: OperatorfeldProps;
+};
 // A Zahlenstrahl: its stored shape is the contract at the top of zahlenstrahl.ts.
 export type ZahlenstrahlBlock = Box & {
   type: "zahlenstrahl";
@@ -719,7 +726,7 @@ export type SelbstkontrolleBlock = Box & {
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {
@@ -3257,6 +3264,83 @@ function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number; solved
   );
 }
 
+// An Operatorfeld: its fields in columns. Each field is a ring of boxes, or a centre with outer boxes, and each link
+// between two boxes carries an operator. A wrong field shows no answers and is marked `wrong`; a field past the
+// Zahlenraum is not drawn.
+function Operatorfeld({ block, solved }: { block: OperatorfeldBlock; k: number; solved: boolean }) {
+  const p = saneOp(block.props);
+  const { fields } = opMade(p);
+  const { D, R, F, CG, RG, vbW, vbH } = opLayout(p);
+  return (
+    <div className={`operatorfeld${solved ? " solved" : ""}`}>
+      <svg viewBox={`-0.5 -0.5 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMin meet">
+        {fields.map((field, i) => {
+          const [x, y] = [(i % p.columns) * (F + CG), Math.floor(i / p.columns) * (F + RG)];
+          const [cx, cy] = [x + F / 2, y + F / 2];
+          const mid = (j: number) => boxAt(p.centre, p.boxes, j, cx, cy, R);
+          // A link from the edge of box a to the edge of box b: its arrow head's tip at b, the head's base 2 units back.
+          const span = (a: [number, number], b: [number, number]) => {
+            const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+            const len = Math.hypot(dx, dy);
+            const [ux, uy] = [dx / len, dy / len];
+            const t = (D / 2) / Math.max(Math.abs(ux), Math.abs(uy)) + 0.5;
+            const [sx, sy] = [a[0] + ux * t, a[1] + uy * t];
+            const [tx, ty] = [b[0] - ux * t, b[1] - uy * t];
+            const [bx, by] = [tx - 2 * ux, ty - 2 * uy];
+            const [px, py] = [-uy * 1.1, ux * 1.1];
+            return {
+              line: `M${sx} ${sy} L${bx} ${by}`,
+              head: `M${tx} ${ty} L${bx + px} ${by + py} L${bx - px} ${by - py} Z`,
+              middle: [(sx + tx) / 2, (sy + ty) / 2] as const,
+            };
+          };
+          return (
+            <g key={i} className={`field${field.wrong ? " wrong" : ""}${field.over ? " over" : ""}`} data-field={i}>
+              {!field.over && field.links.map((link, j) => {
+                const arrow = span(mid(link.from), mid(link.to));
+                const shows = field.opGiven[j] || (solved && !field.wrong);
+                const text = opLabelOf(link);
+                return (
+                  <g key={j} className="link" data-link={j}>
+                    <path d={arrow.line} fill="none" stroke="#222" strokeWidth={0.4} />
+                    <path d={arrow.head} fill="#222" />
+                    {p.drawOps && (
+                      <ellipse cx={arrow.middle[0]} cy={arrow.middle[1]} rx={5.5} ry={2.6} fill="white" stroke="#222" strokeWidth={0.3} />
+                    )}
+                    {shows && (
+                      <text x={arrow.middle[0]} y={arrow.middle[1]} fontSize={text.length > 3 ? 2.8 : 3.2} textAnchor="middle" dominantBaseline="central"
+                        fill={field.opGiven[j] ? "#222" : "#c0392b"} className={field.opGiven[j] ? "op" : "answer"}>{text}</text>
+                    )}
+                  </g>
+                );
+              })}
+              {!field.over && field.numbers.map((n, j) => {
+                const [bx, by] = mid(j);
+                const shows = field.given[j] || (solved && !field.wrong);
+                return (
+                  <g key={j} className="box" data-box={j}>
+                    <rect x={bx - D / 2} y={by - D / 2} width={D} height={D} fill="white" stroke="#222" strokeWidth={0.4} />
+                    {shows && (
+                      <text x={bx} y={by} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"
+                        fill={field.given[j] ? "#222" : "#c0392b"} className={field.given[j] ? "given" : "answer"}>{n}</text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+        {/* With a noted field the key says that other answers count too, in its own line at the foot. */}
+        {solved && opNoted(p) && (
+          <text x={vbW / 2} y={vbH - 3.5} fontSize={Math.min(3.2, vbW / 18)} textAnchor="middle" dominantBaseline="central" fill="#c0392b" className="note">
+            Auch andere Lösungen sind richtig.
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
 // are circles just inside the corners, its outer fields rectangles beyond the middle of each side. The svg scales
 // with the block.
@@ -3611,6 +3695,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "zahlenhaus") return <Zahlenhaus block={block} k={k} solved={solved} />;
   if (block.type === "zahlenkette") return <Zahlenkette block={block} k={k} solved={solved} />;
   if (block.type === "pfeilbild") return <Pfeilbild block={block} k={k} solved={solved} />;
+  if (block.type === "operatorfeld") return <Operatorfeld block={block} k={k} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;

@@ -10,6 +10,7 @@ import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
 import { DEFAULTS as HAUS, heightFor as heightForHaus, sane as saneHaus } from "./zahlenhaus";
 import { DEFAULTS as KETTE, heightFor as heightForKette, sane as saneKette } from "./zahlenkette";
 import { DEFAULTS as PFEIL, heightFor as heightForPfeil, sane as sanePfeil } from "./pfeilbild";
+import { DEFAULTS as OPFELD, heightFor as heightForOpfeld, sane as saneOpfeld } from "./operatorfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -39,6 +40,10 @@ export const INSERTS = {
   pfeilbild: (seed: number): Fresh => {
     const props = { ...PFEIL, seed };
     return { w: 180, h: round(heightForPfeil(sanePfeil(props), 180)), type: "pfeilbild", props };
+  },
+  operatorfeld: (seed: number): Fresh => {
+    const props = { ...OPFELD, seed };
+    return { w: 180, h: round(heightForOpfeld(saneOpfeld(props), 180)), type: "operatorfeld", props };
   },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
@@ -87,6 +92,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zahlenhaus: [(p, w) => heightForHaus(saneHaus(p), w), ["count", "columns", "floors"]],
   zahlenkette: [(p, w) => heightForKette(saneKette(p), w), ["count", "columns", "rings"]],
   pfeilbild: [(p, w) => heightForPfeil(sanePfeil(p), w), ["count", "columns", "boxes", "arrows", "given", "ops"]],
+  operatorfeld: [(p, w) => heightForOpfeld(saneOpfeld(p), w), ["count", "columns", "centre", "given", "ops"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's

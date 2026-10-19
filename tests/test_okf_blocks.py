@@ -50,7 +50,7 @@ def pages(tmp_path: Path) -> Path:
 
 def test_a_page_per_block_type():
     types = block_types()
-    assert len(types) == 19
+    assert len(types) == 20
     index = (BLOCKS / "index.md").read_text()
     for block_type in types:
         assert (BLOCKS / f"{block_type}.md").is_file(), block_type

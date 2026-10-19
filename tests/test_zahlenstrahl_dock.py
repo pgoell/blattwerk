@@ -72,6 +72,21 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Operatorfeld",
+            "operatorfeld",
+            {
+                "centre": False,
+                "count": 2,
+                "columns": 2,
+                "boxes": 4,
+                "max": 20,
+                "ops": ["+", "-"],
+                "only": "none",
+                "given": "start",
+                "drawOps": True,
+            },
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},

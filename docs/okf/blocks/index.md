@@ -32,6 +32,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [pfeilbild](pfeilbild.md): The arrow pictures (Pfeilbilder): boxes joined by arrows, each arrow labelled with an operator, and which boxes and operators are given.
 
+* [operatorfeld](operatorfeld.md): The operator fields (Operatorfelder): number boxes joined by operators, in a ring or around a centre, and which numbers and operators are given.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.

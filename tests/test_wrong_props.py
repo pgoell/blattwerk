@@ -56,6 +56,18 @@ PFEILBILD = {
     "drawOps": True,
     "seed": 7,
 }
+OPERATORFELD = {
+    "centre": False,
+    "count": 2,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "only": "none",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
 ZAHLENSTRAHL = {
     "start": 0,
     "end": 20,
@@ -126,6 +138,7 @@ WRONG = {
     "zahlenhaus": {**ZAHLENHAUS, "max": "x"},
     "zahlenkette": {**ZAHLENKETTE, "max": "x"},
     "pfeilbild": {**PFEILBILD, "max": "x"},
+    "operatorfeld": {**OPERATORFELD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},
     "hunderterfeld": {**HUNDERTERFELD, "from": "x"},
