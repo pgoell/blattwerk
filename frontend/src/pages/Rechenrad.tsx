@@ -38,6 +38,7 @@ export default function Rechenrad({ block, apply }: { block: RechenradBlock; app
     const key = `${c},${ring},${segment}`;
     return (
       <input
+        key={key}
         className="typed"
         inputMode="numeric"
         aria-label={label}

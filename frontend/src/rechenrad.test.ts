@@ -131,6 +131,24 @@ describe("the Rechenräder of a block", () => {
     for (const task of ["inner", "middle", "mixed"] as const) expect(rings(task)).toEqual(rings("outer"));
   });
 
+  it("a typed ring the wheel does not have plays no part", () => {
+    expect(made(P({ count: 1, seed: 5, typed: [[0, 3, 0, 15]] })).wheels).toEqual(made(P({ count: 1, seed: 5 })).wheels);
+  });
+
+  it("a typed number that does not fit shows as typed and the wheel is wrong", () => {
+    const [w] = made(P({ count: 1, typed: [[0, 0, 0, 7], [0, 1, 0, 5], [0, 2, 0, 99]] })).wheels;
+    expect(w.wrong).toBe(true);
+    expect([w.rings[0][0], w.rings[1][0]]).toEqual([5, 99]);
+  });
+
+  it("a wrong wheel shows no made-up number", () => {
+    for (const props of [P({ op: ":", typed: [[0, 0, 0, 0]] }), P({ op: "-", max: 10, typed: [[0, 0, 0, 15]] })]) {
+      const [w] = made(props).wheels;
+      expect(w.wrong).toBe(true);
+      expect(w.given.flat().some(Boolean)).toBe(false);
+    }
+  });
+
   it("a typed centre 0 with Mal or Geteilt gives a wrong wheel of whole numbers", () => {
     for (const op of ["*", ":"] as const) {
       const [w] = made(P({ op, rings: 3, typed: [[0, 0, 0, 0]] })).wheels;

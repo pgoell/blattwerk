@@ -347,6 +347,17 @@ def test_a_typed_zero_centre_with_geteilt_is_wrong_and_shows_no_nan_or_infinity(
     expect(at(page, "d").locator("g.wheel[data-wheel='0'].wrong")).to_have_count(1)
     text = at(page, "d").locator(".rechenrad svg").text_content()
     assert "NaN" not in text and "Infinity" not in text, text
+    # No inner number fits a centre of 0 with Geteilt: every box stays empty, none shows a made-up 0.
+    expect(at(page, "d").locator("g.wheel[data-wheel='0'] g.box text")).to_have_count(0)
+
+
+def test_a_typed_number_that_does_not_fit_shows_as_typed(editor):
+    """Review of #927: typed 5 in ring 1 and 99 in ring 2 of segment 1 with a centre +7: the wheel is wrong and both show as typed."""
+    page = editor(rr("d", {**RR, "typed": [[0, 0, 0, 7], [0, 1, 0, 5], [0, 2, 0, 99]]}))
+    pick(page, "d")
+    expect(hint(page)).to_have_text("Rechenrad 1: Die Zahlen passen nicht zum Zentrum.")
+    expect(field(page, "Ring 1, Feld 1")).to_have_value("5")
+    expect(field(page, "Ring 2, Feld 1")).to_have_value("99")
 
 
 def test_neu_wuerfeln_changes_only_the_seed(editor):

@@ -34,8 +34,10 @@
 //   change of the task keeps every wheel's numbers.
 // - Typed numbers win, also outside the Zahlenraum. A segment with a typed ring number takes its chain from its innermost
 //   typed ring, outward by op and inward by the inverse op. The wheel is `wrong` when a chain number is not whole, not
-//   finite or below 0 (a typed centre 0 with ":", or with "*" inward), or a typed number differs from its chain. Then
-//   no box ever shows NaN or Infinity. A wrong wheel's key shows no answers: its empty boxes stay empty.
+//   finite or below 0 (a typed centre 0 with ":", or with "*" inward), or a typed number differs from its chain. A
+//   typed number shows as typed. A box whose number is made up (such a chain number, or no inner number fits a typed
+//   centre) holds 0 and stays empty, also where its ring shows: no box ever shows NaN, Infinity or a false number.
+//   Typed numbers of a ring the wheel does not have (after fewer rings) stay stored and play no part. A wrong wheel's key shows no answers: its empty boxes stay empty.
 //
 // The drawing (sheet.tsx `Rechenrad`, on screen, print and in the key alike): `div.rechenrad` holds one svg. Each
 // wheel `g.wheel[data-wheel=i]` (class `wrong`) has `g.centre` with a circle and `text.given` (the op label), and each
@@ -224,34 +226,43 @@ function wheelOf(p: RechenradProps, i: number, next: () => number): Wheel {
   const c = centreTyped ? centreTyped[3] : cDrawn;
   const range = innerRange(p, c);
   let wrong = p.op === ":" && c === 0;
-  // A chain number that is not a whole number from 0 makes the wheel wrong, and shows 0.
-  const fit = (x: number) => {
-    if (Number.isInteger(x) && x >= 0) return x;
-    wrong = true;
-    return 0;
-  };
+  // A box whose number is made up (not whole, below 0, or no inner number fits the centre) shows 0 and stays empty.
+  const madeUp: boolean[][] = Array.from({ length: R }, () => Array.from({ length: S }, () => false));
   const rings: number[][] = Array.from({ length: R }, () => Array.from({ length: S }, () => 0));
   for (let s = 0; s < S; s++) {
+    // Typed numbers of rings this wheel no longer has stay stored but play no part.
     const typed = new Map<number, number>();
-    for (const [, r, seg, v] of mine) if (r >= 1 && seg === s) typed.set(r, v);
-    // vals[r] is the number of ring r in this segment.
+    for (const [, r, seg, v] of mine) if (r >= 1 && r <= R && seg === s) typed.set(r, v);
+    // vals[r] is the chain's number of ring r in this segment, NaN where none fits.
     const vals: number[] = [0];
     if (typed.size) {
       // The chain runs from the innermost typed ring: outward by op, inward by the inverse.
       const k = Math.min(...typed.keys());
       vals[k] = typed.get(k) ?? 0;
-      for (let r = k + 1; r <= R; r++) vals[r] = fit(apply(p.op, vals[r - 1], c));
-      for (let r = k - 1; r >= 1; r--) vals[r] = fit(apply(INV[p.op], vals[r + 1], c));
-      for (const [r, v] of typed) if (vals[r] !== v) wrong = true;
+      for (let r = k + 1; r <= R; r++) vals[r] = apply(p.op, vals[r - 1], c);
+      for (let r = k - 1; r >= 1; r--) vals[r] = apply(INV[p.op], vals[r + 1], c);
     } else {
-      if (!range.length) wrong = true;
-      vals[1] = range.length ? range[Math.floor(us[s] * range.length)] : 0;
-      for (let r = 2; r <= R; r++) vals[r] = fit(apply(p.op, vals[r - 1], c));
+      vals[1] = range.length ? range[Math.floor(us[s] * range.length)] : NaN;
+      for (let r = 2; r <= R; r++) vals[r] = apply(p.op, vals[r - 1], c);
     }
-    for (let r = 1; r <= R; r++) rings[r - 1][s] = vals[r];
+    for (let r = 1; r <= R; r++) {
+      const t = typed.get(r);
+      const x = vals[r];
+      const ok = Number.isInteger(x) && x >= 0;
+      // A typed number wins and shows as typed; one its chain does not give makes the wheel wrong.
+      if (t !== undefined) {
+        wrong ||= t !== x;
+        rings[r - 1][s] = t;
+      } else {
+        wrong ||= !ok;
+        madeUp[r - 1][s] = !ok;
+        rings[r - 1][s] = ok ? x : 0;
+      }
+    }
   }
   const given = Array.from({ length: R }, (_, r) =>
     Array.from({ length: S }, (_, s) => {
+      if (madeUp[r][s]) return false;
       if (p.task === "inner") return r !== 0;
       if (p.task === "middle") return r !== 1;
       if (p.task === "mixed") return r !== hidden[s] - 1;
