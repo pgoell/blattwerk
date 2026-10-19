@@ -47,8 +47,11 @@
 // - Propagation: a linear equation narrows each number's interval from the others' intervals; a product narrows each
 //   factor from the other (above 0 both factors are at least 1; 0 needs a factor 0), and a cap narrows each factor to
 //   99999 over the other's lowest value. Repeat until nothing changes. An empty interval means `wrong`.
-// - When a row or column number stays free after that, the square has more than one solution: `many`, and the key says
-//   "Auch andere Lösungen sind richtig."
+// - When propagation fixes every row and column number, the square has one solution. Otherwise, after the first
+//   solution, a second search under its own cap of 2000 nodes looks for one with other row or column numbers: found,
+//   the square has more than one solution, `many`, and the key says "Auch andere Lösungen sind richtig."; not found,
+//   one. A second search that reaches its cap gives `many`: the note keeps the key true (a pupil's other answer may be
+//   right), where "one" without proof could mark a right answer wrong (#954).
 // - Plus also, at each node: the equations must have a whole solution (column operations to one pivot per row; two row
 //   sums whose difference n does not divide fail here), and the equations solved for F, G and then other numbers turn
 //   every bound and the cap into an inequality over the free numbers alone, which narrows them (g + f = v ties two
@@ -57,8 +60,9 @@
 //   open branches over the divisors of its value for one factor (a value 0 branches "a = 0", then "b = 0"). The first
 //   assignment in which every typed cell is exact and every number of the result is at most 99999 stays. The search
 //   tries every value, so a typed set is `wrong` only when no square fits it. A cap of 2000 nodes keeps typing from
-//   freezing: a square whose search reaches it is `unsure`, shows only its typed cells (in the key too) and gets no
-//   hint. Of 3000 random subsets of true squares and 20000 random typed sets none reached it; the slowest took 19 ms.
+//   freezing: a square whose first search reaches it is `unsure`, shows only its typed cells (in the key too) and gets
+//   no hint. Of 2400 random subsets of true squares and 20000 random typed sets none reached it, in the first search
+//   or the second; the slowest took 31 ms for both searches together.
 // - A subset of a drawn square's numbers always gives that square back: when the drawn numbers already fit, they are
 //   the answer.
 // - A wrong square shows its typed cells on the pupils' sheet; the other cells stay empty, also in the key: never a
@@ -160,9 +164,10 @@ export const MAXES = [20, 100, 1000];
 // - `heightFor(p: MalquadratProps, w: number): number`: the height in mm at width w, at the default scale at most (S0
 //   = 180 / layout(DEFAULTS).vbW, as magischesquadrat.ts).
 // - `opLabel(op: "*" | "+"): string`: "·" or "+".
-// - `solve(n, op, known: (number | null)[][], drawn: number[][], cap = 2000): { kind: "none"; unsure?: true } | { kind:
-//   "one" | "many"; cells: number[][] }`: the teacher's own square from its typed cells (see the contract above);
-//   `unsure` when the search reached its node cap.
+// - `solve(n, op, known: (number | null)[][], drawn: number[][], cap = 2000, bounds?: [number, number][]): { kind:
+//   "none"; unsure?: true } | { kind: "one" | "many"; cells: number[][]; other?: number[][]; unsure?: true }`: the
+//   teacher's own square from its typed cells (see the contract above); `unsure` when a search reached its node cap,
+//   `other` a second solution, `bounds` narrows the row and column numbers.
 // - `made(p: MalquadratProps): Made` (p already sane).
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
@@ -471,8 +476,11 @@ function project(eqs: Eq[], x: Iv): boolean {
   return true;
 }
 
-// `unsure`: the search reached its cap, so the set may still fit.
-export type Solved = { kind: "none"; unsure?: true } | { kind: "one" | "many"; cells: number[][] };
+// `unsure`: a search reached its cap, so a "none" set may still fit and a "many" set may have one solution only.
+// `other`: a second solution, with other row or column numbers than `cells`.
+export type Solved =
+  | { kind: "none"; unsure?: true }
+  | { kind: "one" | "many"; cells: number[][]; other?: number[][]; unsure?: true };
 
 // The search's cap, in nodes, so that typing never freezes the editor (see the contract).
 const STEPS = 2000;
@@ -490,8 +498,16 @@ const divisorsOf = (v: number): number[] => {
 };
 
 // The numbers of a square of size n from its typed cells, exactly: propagation, then a depth-first search that tries every value, up to `cap` nodes.
-// Kind "many" when the root propagation leaves a row or column number free.
-export function solve(n: number, op: "*" | "+", known: (number | null)[][], drawn: number[][], cap = STEPS): Solved {
+// Kind "one" when propagation fixes every row and column number or a second search proves no other; "many" when it
+// finds one (`other`) or reaches its cap (`unsure`). `bounds` narrows the row and column numbers (the tests' check).
+export function solve(
+  n: number,
+  op: "*" | "+",
+  known: (number | null)[][],
+  drawn: number[][],
+  cap = STEPS,
+  bounds?: [number, number][],
+): Solved {
   const F = 2 * n;
   const G = 2 * n + 1;
   const sumOf = (S: number, base: number): Eq => ({
@@ -511,8 +527,10 @@ export function solve(n: number, op: "*" | "+", known: (number | null)[][], draw
     eqs.push(eqAt(n, op, r, c, v));
   }
   const root: Iv = range(2 * n + 2).map((k): [number, number] => (k < 2 * n ? [0, 9999] : [0, n * 9999]));
-  if (!propagate(eqs, root)) return { kind: "none" };
-  const kind = root.slice(0, 2 * n).every(([lo, hi]) => lo === hi) ? "one" : "many";
+  bounds?.forEach(([lo, hi], k) => (root[k] = [Math.max(root[k][0], lo), Math.min(root[k][1], hi)]));
+  if (root.some(([lo, hi]) => lo > hi) || !propagate(eqs, root)) return { kind: "none" };
+  // Propagation alone fixed every row and column number: one solution, no second search needed.
+  const fixed = root.slice(0, 2 * n).every(([lo, hi]) => lo === hi);
 
   const grid = (nums: number[]) => {
     const cells = range(n + 2).map(() => Array(n + 2).fill(0) as number[]);
@@ -535,6 +553,8 @@ export function solve(n: number, op: "*" | "+", known: (number | null)[][], draw
   // Each node: propagate, then either an open product's factor to branch on (a divisor of its value), or the open
   // unknown with the smallest interval. Alternatives are tried in order; the first complete assignment that fits wins.
   let steps = 0;
+  // Once set, the first solution: a leaf with the same row and column numbers does not count.
+  let first: number[] | null = null;
   const search = (iv: Iv): number[] | null => {
     if (steps++ >= cap) return null;
     const x = iv.slice();
@@ -572,7 +592,8 @@ export function solve(n: number, op: "*" | "+", known: (number | null)[][], draw
       for (let i = 0; i < 2 * n + 2; i++) if (x[i][0] < x[i][1] && (k < 0 || x[i][1] - x[i][0] < x[k][1] - x[k][0])) k = i;
       if (k < 0) {
         const nums = x.map((r) => r[0]);
-        return fits(grid(nums)) ? nums : null;
+        const f = first;
+        return fits(grid(nums)) && !(f && range(2 * n).every((i) => nums[i] === f[i])) ? nums : null;
       }
       alts = [[k, withDrawn(k, range(x[k][1] - x[k][0] + 1).map((t) => x[k][0] + t))]];
     }
@@ -587,7 +608,13 @@ export function solve(n: number, op: "*" | "+", known: (number | null)[][], draw
   };
   const nums = drawnFits ? dn : search(root);
   if (!nums) return steps > cap ? { kind: "none", unsure: true } : { kind: "none" };
-  return { kind, cells: grid(nums) };
+  if (fixed) return { kind: "one", cells: grid(nums) };
+  // A second search, under its own cap, for a solution with other row or column numbers.
+  first = nums;
+  steps = 0;
+  const other = search(root);
+  if (other) return { kind: "many", cells: grid(nums), other: grid(other) };
+  return steps > cap ? { kind: "many", cells: grid(nums), unsure: true } : { kind: "one", cells: grid(nums) };
 }
 
 const shuffle = <T>(xs: T[], next: () => number): T[] => {
