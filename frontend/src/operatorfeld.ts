@@ -50,7 +50,7 @@
 // label. A shown number or label has class `given` (box) or `op` (label) in #222; in the key a missing one has class
 // `answer` in #c0392b. With `noted` the key has `text.note` "Auch andere Lösungen sind richtig." in the line at the foot.
 //
-// Units: a box is D = 10 across; outer boxes stand at radius R from the field's middle, R = 32 ohne Zentrum and 24 mit
+// Units: a box is D = 10 across; outer boxes stand at radius R from the field's middle, R = 32 ohne Zentrum and 34 mit
 // Zentrum; a field is F = 2R + D square. Fields side by side are CG = 8 apart, rows RG = 6 apart.
 
 import { rng } from "./zahlenmauer";
@@ -160,7 +160,7 @@ export function noted(p: Partial<Pick<OperatorfeldProps, "centre" | "given" | "o
 // the pupils' sheet it stays empty, so that the key and the sheet have the same size. `vbW` and `vbH` are the viewBox.
 export function layout(p: Pick<OperatorfeldProps, "count" | "columns" | "centre"> & Partial<Pick<OperatorfeldProps, "given" | "ops">>) {
   const [D, CG, RG] = [10, 8, 6];
-  const R = p.centre ? 24 : 32;
+  const R = p.centre ? 34 : 32;
   const F = 2 * R + D;
   const N = noted(p) ? 6 : 0;
   const rows = Math.ceil(p.count / p.columns);
@@ -187,6 +187,132 @@ export function heightFor(p: OperatorfeldProps, w: number): number {
   return L.vbH * Math.min(w / L.vbW, S0);
 }
 
+// The inverse operator: + and -, * and : swap.
+const INV: Record<Op, Op> = { "+": "-", "-": "+", "*": ":", ":": "*" };
+
+// The result of x op n.
+function apply(op: Op, x: number, n: number): number {
+  return op === "+" ? x + n : op === "-" ? x - n : op === "*" ? x * n : x / n;
+}
+
+// The operands that x op n takes from x within 0 to M: "+" 1 up to M - x, "−" 1 up to x, "·" 2 to 10 (x at least 1), ":" 2 to 10 that divide x.
+function operands(op: Op, x: number, M: number): number[] {
+  const out: number[] = [];
+  if (op === "+") for (let n = 1; n <= M - x; n++) out.push(n);
+  else if (op === "-") for (let n = 1; n <= x; n++) out.push(n);
+  else if (op === "*") {
+    if (x >= 1) for (let n = 2; n <= 10 && x * n <= M; n++) out.push(n);
+  } else for (let n = 2; n <= 10; n++) if (x >= n && x % n === 0) out.push(n);
+  return out;
+}
+
+// A random pick from a non-empty list.
+function pick<T>(xs: T[], next: () => number): T {
+  return xs[Math.floor(next() * xs.length)];
+}
+
+// One try mit Zentrum: the centre C, then each outer box an op from C. A box takes up to 10 draws for a number no other outer box has.
+function centreAttempt(p: OperatorfeldProps, M: number, next: () => number): { numbers: number[]; links: Link[] } | null {
+  const C = Math.floor(next() * (M + 1));
+  const usable = p.ops.map((op) => ({ op, cands: operands(op, C, M) })).filter((u) => u.cands.length);
+  if (!usable.length) return null;
+  const outer: number[] = [];
+  const links: Link[] = [];
+  for (let i = 0; i < p.boxes; i++) {
+    let op: Op = "+";
+    let n = 0;
+    for (let t = 0; t < 10; t++) {
+      const use = pick(usable, next);
+      op = use.op;
+      n = pick(use.cands, next);
+      if (!outer.includes(apply(op, C, n))) break;
+    }
+    outer.push(apply(op, C, n));
+    links.push({ from: 0, to: i + 1, op, n });
+  }
+  return { numbers: [C, ...outer], links };
+}
+
+// One try ohne Zentrum: box 0, then each box from the one before by a move, the last move back to box 0. A move forward
+// is an op in `ops`; a move back is the inverse of one, so it links the box after to the box before.
+function ringAttempt(p: OperatorfeldProps, M: number, next: () => number): { numbers: number[]; links: Link[] } | null {
+  const k = p.boxes;
+  const numbers = [Math.floor(next() * (M + 1))];
+  const links: Link[] = [];
+  for (let j = 0; j < k; j++) {
+    const x = numbers[j];
+    const last = j === k - 1;
+    const usable = OPS.filter((o) => p.ops.includes(o) || p.ops.includes(INV[o]))
+      .map((op) => ({ op, cands: operands(op, x, M).filter((n) => !last || apply(op, x, n) === numbers[0]) }))
+      .filter((u) => u.cands.length);
+    if (!usable.length) return null;
+    const use = pick(usable, next);
+    const n = pick(use.cands, next);
+    const to = (j + 1) % k;
+    if (!last) numbers.push(apply(use.op, x, n));
+    links.push(p.ops.includes(use.op) ? { from: j, to, op: use.op, n } : { from: to, to: j, op: INV[use.op], n });
+  }
+  return { numbers, links };
+}
+
+// The numbers and links of an untyped field. None in 50 tries: `over`, zeros and "+1" links in the shape, not drawn.
+function generated(p: OperatorfeldProps, M: number, u: number, next: () => number): { numbers: number[]; links: Link[]; over: boolean } {
+  for (let t = 0; t < 50; t++) {
+    const got = p.centre ? centreAttempt(p, M, next) : ringAttempt(p, M, next);
+    if (got) {
+      return { numbers: got.numbers.map((x) => x * u), links: got.links.map((l) => (l.op === "+" || l.op === "-" ? { ...l, n: l.n * u } : l)), over: false };
+    }
+  }
+  const k = p.boxes;
+  return {
+    numbers: Array.from({ length: p.centre ? k + 1 : k }, () => 0),
+    links: Array.from({ length: k }, (_, j): Link => (p.centre ? { from: 0, to: j + 1, op: "+", n: 1 } : { from: j, to: (j + 1) % k, op: "+", n: 1 })),
+    over: true,
+  };
+}
+
+// The flags of the shown boxes and operators of one field with B boxes and L links.
+function givenFlags(p: OperatorfeldProps, B: number, L: number, next: () => number): { given: boolean[]; opGiven: boolean[] } {
+  const g = Array.from({ length: B }, () => false);
+  const og = Array.from({ length: L }, () => false);
+  g[0] = true;
+  if (p.given === "start") og.fill(true);
+  else if (p.given === "ops") g.fill(true);
+  else {
+    for (let j = 0; j < L; j++) {
+      // Ohne Zentrum the last link always shows its operator.
+      if (!p.centre && j === L - 1) og[j] = true;
+      else if (next() < 0.5) og[j] = true;
+      else g[j + 1] = true;
+    }
+  }
+  return { given: g, opGiven: og };
+}
+
+// The operand n that takes x to y with op, or null.
+function operandFor(op: Op, x: number, y: number): number | null {
+  if (op === "+") return y - x >= 1 ? y - x : null;
+  if (op === "-") return x - y >= 1 ? x - y : null;
+  for (let n = 2; n <= 10; n++) if (apply(op, x, n) === y) return n;
+  return null;
+}
+
+// A link with a typed end takes the first op of `ops` that fits its numbers in its own direction, else the first that fits
+// the other way round (the link turns). None fits: the link keeps its op and the field is wrong.
+function relink(l: Link, numbers: number[], ops: Op[]): Link {
+  const x = numbers[l.from];
+  const y = numbers[l.to];
+  for (const op of ops) {
+    const n = operandFor(op, x, y);
+    if (n !== null) return { ...l, op, n };
+  }
+  for (const op of ops) {
+    const n = operandFor(op, y, x);
+    if (n !== null) return { from: l.to, to: l.from, op, n };
+  }
+  return l;
+}
+
 // The fields of the settings. The same settings give the same fields on every call.
 const memo = new Map<string, Made>();
 
@@ -196,9 +322,26 @@ export function made(props: OperatorfeldProps): Made {
   const old = memo.get(key);
   if (old) return old;
   const next = rng(p.seed);
-  // TODO(#822): the fields, as the contract at the top says.
-  void next;
-  const out: Made = { fields: [] };
+  const u = p.only === "tens" ? 10 : p.only === "hundreds" ? 100 : 1;
+  const M = p.max / u;
+  const fields: Field[] = [];
+  for (let i = 0; i < p.count; i++) {
+    // The draws of every field happen whatever its typed boxes, so that the fields after it stay as they were.
+    const gen = generated(p, M, u, next);
+    const flags = givenFlags(p, gen.numbers.length, gen.links.length, next);
+    const typed = new Map<number, number>();
+    for (const [c, b, v] of p.typed ?? []) if (c === i && b < gen.numbers.length) typed.set(b, v);
+    let numbers = gen.numbers;
+    let links = gen.links;
+    let wrong = false;
+    if (typed.size) {
+      numbers = gen.numbers.map((x, b) => typed.get(b) ?? x);
+      links = gen.links.map((l) => (typed.has(l.from) || typed.has(l.to) ? relink(l, numbers, p.ops) : l));
+      wrong = links.some((l) => apply(l.op, numbers[l.from], l.n) !== numbers[l.to]);
+    }
+    fields.push({ numbers, links, given: flags.given, opGiven: flags.opGiven, wrong, over: gen.over && !typed.size });
+  }
+  const out: Made = { fields };
   memo.set(key, out);
   if (memo.size > 50) memo.delete(memo.keys().next().value as string);
   return out;

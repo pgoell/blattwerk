@@ -86,12 +86,25 @@ PFEIL = {
     "drawOps": True,
     "seed": 7,
 }
+OPERATORFELD = {
+    "centre": False,
+    "count": 2,
+    "columns": 2,
+    "boxes": 4,
+    "max": 20,
+    "ops": ["+", "-"],
+    "only": "none",
+    "given": "start",
+    "drawOps": True,
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
     "zahlenhaus": (HAUS, 55),
     "zahlenkette": (KETTE, 39),
     "pfeilbild": (PFEIL, 54),
+    "operatorfeld": (OPERATORFELD, 86),  # the default height: 75 * 180 / 157
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),

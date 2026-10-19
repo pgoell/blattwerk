@@ -14,6 +14,7 @@ import Zahlenmauer from "./Zahlenmauer";
 import Zahlenhaus from "./Zahlenhaus";
 import Zahlenkette from "./Zahlenkette";
 import Pfeilbild from "./Pfeilbild";
+import Operatorfeld from "./Operatorfeld";
 import Rechendreieck from "./Rechendreieck";
 import Zahlenstrahl from "./Zahlenstrahl";
 import Hunderterfeld from "./Hunderterfeld";
@@ -123,6 +124,7 @@ const FOOT: Record<string, [string, string]> = {
   zahlenhaus: ["Das Zahlenhaus ragt unten über den Rand.", "Nimm weniger Häuser oder Stockwerke oder schiebe es nach oben."],
   zahlenkette: ["Die Zahlenkette ragt unten über den Rand.", "Nimm weniger Ketten oder Ringe oder schiebe sie nach oben."],
   pfeilbild: ["Das Pfeilbild ragt unten über den Rand.", "Nimm weniger Pfeilbilder oder Kästchen oder schiebe es nach oben."],
+  operatorfeld: ["Das Operatorfeld ragt unten über den Rand.", "Nimm weniger Operatorfelder oder schiebe es nach oben."],
   zahlenmauer: ["Die Zahlenmauer ragt unten über den Rand.", "Nimm weniger Mauern oder Grundsteine oder schiebe sie nach oben."],
   rechendreieck: ["Das Rechendreieck ragt unten über den Rand.", "Nimm weniger Dreiecke oder schiebe es nach oben."],
   uhr: ["Die Uhr ragt unten über den Rand.", "Nimm weniger Uhren oder schiebe sie nach oben."],
@@ -414,6 +416,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
   const haus = sel.length === 1 && sel[0].type === "zahlenhaus" ? sel[0] : undefined;
   const kette = sel.length === 1 && sel[0].type === "zahlenkette" ? sel[0] : undefined;
   const pfeil = sel.length === 1 && sel[0].type === "pfeilbild" ? sel[0] : undefined;
+  const opfeld = sel.length === 1 && sel[0].type === "operatorfeld" ? sel[0] : undefined;
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
@@ -602,6 +605,17 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
           z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
       ),
   );
+  const opfeldCovers = sel.some(
+    (z) =>
+      z.type === "operatorfeld" &&
+      page.some(
+        (b) =>
+          b.id !== z.id &&
+          !(b.type === "shape" && !boxed(b)?.text) &&
+          !b.group?.some((g) => z.group?.includes(g)) &&
+          z.x < b.x + b.w && b.x < z.x + z.w && z.y < b.y + b.h && b.y < z.y + z.h,
+      ),
+  );
 
   return (
     <>
@@ -665,6 +679,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {pfeilCovers && (
         <p className="hint warn" role="status" data-cover="pfeil">
           Das Pfeilbild liegt über einem anderen Block. Verschiebe ihn oder mache das Pfeilbild kleiner.
+        </p>
+      )}
+      {opfeldCovers && (
+        <p className="hint warn" role="status" data-cover="operator">
+          Das Operatorfeld liegt über einem anderen Block. Verschiebe ihn oder mache das Operatorfeld kleiner.
         </p>
       )}
       {/* A shape that a smaller size made, and whose text grew it back, says why it stays as tall as its text. */}
@@ -984,6 +1003,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => grows("zahlenhaus", props, key)} />}
       {kette && <Zahlenkette key={kette.id} block={kette} apply={(props, key) => grows("zahlenkette", props, key)} />}
       {pfeil && <Pfeilbild key={pfeil.id} block={pfeil} apply={(props, key) => grows("pfeilbild", props, key)} />}
+      {opfeld && <Operatorfeld key={opfeld.id} block={opfeld} apply={(props, key) => grows("operatorfeld", props, key)} />}
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}

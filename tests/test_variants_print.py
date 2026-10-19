@@ -688,6 +688,33 @@ def test_a_zahlenkette_gets_another_seed_and_loses_its_typed_numbers():
     assert doc["pages"][0]["blocks"][0]["props"] == chain
 
 
+def test_an_operatorfeld_gets_another_seed_and_loses_its_typed_numbers():
+    """Varianten of #822: B to D give an Operatorfeld a seed of its own, drop `typed`; A is as stored."""
+    field = {
+        "centre": False,
+        "count": 2,
+        "columns": 2,
+        "boxes": 4,
+        "max": 20,
+        "ops": ["+", "-"],
+        "only": "none",
+        "given": "start",
+        "drawOps": True,
+        "seed": 7,
+        "typed": [[0, 0, 9]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "o", "type": "operatorfeld", "props": field}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in field.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == field
+
+
 def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #821: B to D give a Pfeilbild a seed of its own, drop `typed`; A is as stored."""
     picture = {
