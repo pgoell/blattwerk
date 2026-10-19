@@ -94,23 +94,25 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
     const need = round(Math.min(heightForSelbst(saneSelbst(next.props), doc, b.w), foot));
     if (need > b.h) return tall(b, need);
   }
+  const need = growsTo(b, next);
+  return need === undefined ? {} : tall(b, need);
+}
+
+// The height a GROWS block takes for a change of its props, or undefined where it keeps its own. Every GROWS block may
+// pass the foot: capped, its drawing would shrink to fit the room left. A change that needs no more than the props
+// before it keeps the height, also on a block that master capped short of its props (#911).
+function growsTo(b: Block, next: Block) {
   const grow = GROWS[b.type];
-  if (grow && b.type === next.type && grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) {
-    // Every GROWS block may pass the foot: capped, its drawing would shrink to fit the room left.
-    const need = round(grow[0](next.props, b.w));
-    if (need > b.h) return tall(b, need);
-  }
-  return {};
+  if (!grow || b.type !== next.type || !grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) return undefined;
+  const need = round(grow[0](next.props, b.w));
+  return need > b.h && need > round(grow[0](b.props, b.w)) ? need : undefined;
 }
 
 // Whether a change of a GROWS block's props would grow it below the paper's edge, `H` mm down: what hangs there is
 // not printed, so the panel refuses such a change, as it does for a maths block (#911).
 export function pastPaper(b: Block, next: Block, H: number) {
-  const grow = GROWS[b.type];
-  if (!grow || b.type !== next.type || !grow[1].some((key) => (next.props as any)[key] !== (b.props as any)[key])) return false;
-  // A change that needs no more height than the props before it takes, even on a block master capped short of its props.
-  const need = round(grow[0](next.props, b.w));
-  if (need <= round(grow[0](b.props, b.w))) return false;
+  const need = growsTo(b, next);
+  if (need === undefined) return false;
   const low = lowest({ ...b, ...tall(b, need) });
   return low > H + 0.01 && low > lowest(b) + 0.01;
 }

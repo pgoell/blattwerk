@@ -139,8 +139,33 @@ def test_911_a_fewer_press_on_a_block_capped_by_master_is_taken(editor):
     )
     pick(page, "b")
     step(page, lambda: panel(page, "Eine Mauer weniger").click())
-    assert stored(page, client)["props"]["count"] == 5, stored(page, client)
+    block = stored(page, client)
+    assert block["props"]["count"] == 5, block
+    # Fewer walls need no more room than before: the block keeps its height and stays on the paper.
+    assert block["h"] == 50, block
     expect(paper_hint(page)).to_have_count(0)
+
+
+def test_911_a_typed_count_refused_after_a_taken_one_brings_the_old_height_back(editor):
+    """#911, review: "8" grows the Uhr, then "1" "2" is refused past the paper: count and height go back to
+    the 4 clocks and 58.5 mm the block had when the field got focus."""
+    client = user()
+    page = editor(box("b", "uhr", UHR, w=180, h=58.5, y=150), client=client)
+    pick(page, "b")
+    uhren = field(page, "Uhren")
+    uhren.click()
+    page.keyboard.press("Control+A")
+    step(page, lambda: uhren.press_sequentially("8"))
+    assert stored(page, client)["h"] > 58.5
+    page.keyboard.press("Control+A")
+    uhren.press_sequentially("12")
+    expect(paper_hint(page)).to_be_visible()
+    for _ in range(50):
+        block = stored(page, client)
+        if block["props"]["count"] == 4 and block["h"] == 58.5:
+            break
+        page.wait_for_timeout(100)
+    assert block["props"]["count"] == 4 and block["h"] == 58.5, block
 
 
 def test_911_a_typed_count_past_the_paper_is_refused_and_the_field_goes_back(editor):

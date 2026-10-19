@@ -382,10 +382,13 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     const b = sel.find((x) => x.id === id);
     return b && props ? ({ ...b, props: { ...b.props, ...props } } as Block) : b;
   };
-  // `back` puts a number back that was stored before, so no check refuses it. Returns false when the change is refused.
-  const grows = (type: Block["type"], props: object, key?: string, back?: boolean): boolean => {
-    if (back) {
+  // `back` puts a number back that was stored before, with the height the block had then, so no check refuses it.
+  // Returns false when the change is refused.
+  const grows = (type: Block["type"], props: object, key?: string, back?: number): boolean => {
+    if (back !== undefined) {
+      const b = sel.find((x) => x.type === type)!;
       style(type, props, key);
+      place([[b.id, tall(b, back)]], key);
       setDenied((d) => d && { ...d, from: sig(picked(d.id, props)!) });
       return true;
     }
