@@ -235,15 +235,15 @@ def test_i1b_a_quick_second_click_keeps_the_first_when_its_answer_is_late(editor
     page = editor(
         box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
     )
-    held = []
+    sent = []
 
     def hold(route):
-        # The first answer waits until the second click is sent; then both go on.
-        if held:
-            held.pop().continue_()
+        # The first answer waits until the second click is sent; then both go on, and later ones too.
+        sent.append(route)
+        if len(sent) == 2:
+            sent[0].continue_()
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     pick(page, "m")
     page.get_by_label("Eine Aufgabe weniger").click()
@@ -264,15 +264,15 @@ def test_i1c_a_quick_more_then_less_ends_at_the_height_it_had(editor):
     client = user()
     props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
     page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
-    held = []
+    sent = []
 
     def hold(route):
-        # The first answer waits until the second click is sent; then both go on.
-        if held:
-            held.pop().continue_()
+        # The first answer waits until the second click is sent; then both go on, and later ones too.
+        sent.append(route)
+        if len(sent) == 2:
+            sent[0].continue_()
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     pick(page, "m")
     page.route("**/api/maths", hold)
@@ -289,14 +289,15 @@ def test_i1d_two_quick_clicks_that_both_count_are_two_undo_steps(editor):
     client = user()
     props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
     page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
-    held = []
+    sent = []
 
     def hold(route):
-        if held:
-            held.pop().continue_()
+        # The first answer waits until the second click is sent; then both go on, and later ones too.
+        sent.append(route)
+        if len(sent) == 2:
+            sent[0].continue_()
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     pick(page, "m")
     page.route("**/api/maths", hold)
@@ -344,13 +345,13 @@ def test_i1f_a_click_before_a_refused_answer_builds_on_the_blocks_own(editor):
     page = editor(
         box("m", "maths", props, y=FOOT - height(props) - 1, h=height(props)), client=client
     )
-    held = []
+    sent = []
 
     def hold(route):
-        if held:
+        # Only the first request waits; the ones after it, "Spalte mehr" too, go on.
+        sent.append(route)
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     pick(page, "m")
     page.route("**/api/maths", hold)
@@ -358,7 +359,7 @@ def test_i1f_a_click_before_a_refused_answer_builds_on_the_blocks_own(editor):
     page.get_by_label("Eine Spalte mehr").click()
     expect(tasks(page).nth(1)).to_have_text("4 Spalten")
     expect(at(page, "m").locator(".maths > div")).to_have_count(12)
-    held.pop().continue_()
+    sent[0].continue_()
     page.evaluate(FRAMES)
     page.evaluate(FRAMES)
     expect(tasks(page).nth(1)).to_have_text("4 Spalten")
@@ -411,19 +412,19 @@ def test_i1h_a_failed_clicks_line_goes_when_a_later_click_lands(editor):
     client = user()
     props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
     page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
-    held = []
+    sent = []
 
     def hold(route):
-        if held:
+        # Only the first request waits; the ones after it, "weniger" too, go on.
+        sent.append(route)
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     pick(page, "m")
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe mehr").click()
     page.get_by_label("Eine Aufgabe weniger").click()
-    held.pop().abort()
+    sent[0].abort()
     expect(at(page, "m").locator(".maths > div")).to_have_count(9)
     expect(tasks(page).first).to_have_text("9 Aufgaben")
     page.evaluate(FRAMES)
@@ -439,12 +440,19 @@ def test_i1j_a_failed_clicks_change_rides_on_the_next_click(editor):
     client = user()
     props = maths(client, ops=["+", "-"], max=100, count=9, columns=3, size=14, format="row")
     page = editor(box("m", "maths", props, y=40, h=height(props)), client=client)
-    held = []
-    page.route("**/api/maths", lambda route: route.continue_() if held else held.append(route))
+    sent = []
+
+    def hold(route):
+        # Only the first request waits; the ones after it, "Neu würfeln" too, go on.
+        sent.append(route)
+        if len(sent) > 1:
+            route.continue_()
+
     pick(page, "m")
+    page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe mehr").click()
     page.get_by_role("button", name="Neu würfeln").click()
-    held.pop().abort()
+    sent[0].abort()
     expect(at(page, "m").locator(".maths > div")).to_have_count(10)
     expect(tasks(page).first).to_have_text("10 Aufgaben")
     expect(page.get_by_role("button", name="Erneut versuchen")).to_be_hidden()
@@ -460,13 +468,20 @@ def test_i1k_a_moot_retry_that_fails_again_says_nothing(editor):
     page.get_by_label("Eine Aufgabe mehr").click()
     again = page.get_by_role("button", name="Erneut versuchen")
     expect(again).to_be_visible()
-    held = []
+    sent = []
+
+    def hold(route):
+        # Only the retry waits; the click after it, "weniger" too, goes on.
+        sent.append(route)
+        if len(sent) > 1:
+            route.continue_()
+
     page.unroute("**/api/maths")
-    page.route("**/api/maths", lambda route: route.continue_() if held else held.append(route))
+    page.route("**/api/maths", hold)
     again.click()
     asked(click("Eine Aufgabe weniger"))(page)
     expect(tasks(page).first).to_have_text("9 Aufgaben")
-    held.pop().abort()
+    sent[0].abort()
     page.evaluate(FRAMES)
     page.evaluate(FRAMES)
     expect(again).to_be_hidden()
