@@ -202,6 +202,7 @@ export default function Malquadrat({ block, apply }: { block: MalquadratBlock; a
         })}
       </div>
       {m.squares.map((s, k) => {
+        if (s.unsure) return null;
         if (s.wrong) return <p key={k} className="hint" role="status">{`Malquadrat ${k + 1}: Die Zahlen passen nicht zusammen.`}</p>;
         if (s.many) return <p key={k} className="hint" role="status">{`Malquadrat ${k + 1}: Es gibt mehr als eine Lösung.`}</p>;
         return null;
