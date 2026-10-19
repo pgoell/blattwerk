@@ -178,6 +178,25 @@ def rt_fits(page):
     panel(page, "Eine Zeile weniger").click()
 
 
+MAGISCHES_QUADRAT = {
+    "count": 2,
+    "columns": 2,
+    "size": 3,
+    "max": 20,
+    "given": 4,
+    "showSum": False,
+    "seed": 7,
+}
+
+
+def mq_more(page, i):
+    panel(page, "Ein Quadrat mehr").click()
+
+
+def mq_fits(page):
+    panel(page, "Ein Quadrat weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -214,6 +233,8 @@ CASES = {
         rt_more,
         rt_fits,
     ),  # y 190: the default height, one more row (16.5 mm) passes the paper's foot at 282 mm
+    # y 110: one square (count 1 to 2) keeps the height, the next (2 to 3, two lines, about 206 mm) passes the paper's edge.
+    "magischesquadrat": (MAGISCHES_QUADRAT, 180, 96.52, 110, mq_more, mq_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

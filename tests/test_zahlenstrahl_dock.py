@@ -119,6 +119,18 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Magisches Quadrat",
+            "magischesquadrat",
+            {
+                "count": 2,
+                "columns": 2,
+                "size": 3,
+                "max": 20,
+                "given": 4,
+                "showSum": False,
+            },
+        ),
+        (
             "Rechendreieck",
             "rechendreieck",
             {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},
