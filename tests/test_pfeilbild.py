@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import expect
 from test_gaps import panel, step
 from test_words import redo, undo
-from ui import at, box, doc, insert, pick, reload, user
+from ui import at, box, doc, insert, pick, reload, tool, user
 
 PF = {
     "count": 4,
@@ -570,6 +570,21 @@ def test_eigene_operatoren_field_keeps_focus_and_text_while_the_block_redraws(ed
     )
     expect(op_field).to_be_focused()
     expect(op_field).to_have_value("+12")
+
+
+def test_a_typed_operator_against_the_typed_numbers_gives_the_hint_and_no_key(editor):
+    """Eigene Operatoren: boxes 5 and 7 typed, "+3" typed between them: the hint says the numbers do
+    not fit the operators, the picture is marked wrong, and the key shows no answer for it."""
+    client = user()
+    props = {**PF, "typed": [[0, 0, 5], [0, 1, 7]], "typedOps": [[0, 0, "+", 3]]}
+    page = editor(pfeil("d", props), client=client)
+    pick(page, "d")
+    expect(hint(page)).to_have_text("Pfeilbild 1: die Zahlen passen nicht zu den Operatoren.")
+    first = at(page, "d").locator("g.picture[data-picture='0']")
+    expect(first).to_have_class("picture wrong")
+    tool(page, "Lösungen zeigen").click()
+    expect(at(page, "d").locator("g.picture[data-picture='1'] text.answer").first).to_be_attached()
+    expect(first.locator("text.answer")).to_have_count(0)
 
 
 def test_eigene_operatoren_of_pfeilbild_2_store_under_picture_1(editor):
