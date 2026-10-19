@@ -19,6 +19,7 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Operatorfelder](operatorfelder.md): A heading, a name line, and four Operatorfelder of four boxes with the start number and the operators given and the other boxes to fill in.
 * [Rechenräder](rechenraeder.md): A heading, a name line, and four Rechenräder of two rings with the centre's number given and the outer ring to fill in.
 * [Rechentabellen](rechentabellen.md): A heading, a name line, and a Maltabelle of the 2er, 5er and 10er Reihe with the row values given and the result cells to fill in.
+* [Magische Quadrate](magische-quadrate.md): A heading, a name line, and two 3 × 3 Magische Quadrate bis 20 with the Zielzahl shown and four cells given.
 * [Zahlenstrahl bis 100](zahlenstrahl-bis-100.md): A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 * [Hunderterfeld](hunderterfeld.md): A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.
 * [Ein Blatt mit zwei Seiten](seiten.md): Two pages: a heading, a name line and a text task on page 1, then a heading and a ruling on page 2.

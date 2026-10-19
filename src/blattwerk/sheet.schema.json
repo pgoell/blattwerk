@@ -141,6 +141,7 @@
             "operatorfeld",
             "rechenrad",
             "rechentabelle",
+            "magischesquadrat",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -387,6 +388,18 @@
           },
           "then": {
             "$ref": "#/definitions/RechentabelleBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "magischesquadrat"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/MagischesQuadratBlock"
           }
         },
         {
@@ -4201,6 +4214,157 @@
       "minItems": 4,
       "maxItems": 4,
       "description": "A number the teacher typed: the table's index (from 0), the row (0 is the column values' row), the column (0 is the row values' column), the value (0 to 9999)."
+    },
+    "MagischesQuadratBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "magischesquadrat"
+        },
+        "props": {
+          "$ref": "#/definitions/MagischesQuadratProps",
+          "description": "The magic squares (Magische Quadrate): 3×3 or 5×5 squares where every row, column and both diagonals have the same sum, the Zielzahl; which cells are given, and optionally the Zielzahl above."
+        },
+        "id": {
+          "type": "string",
+          "description": "Unique id of the block on its sheet."
+        },
+        "x": {
+          "type": "number",
+          "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright."
+        },
+        "y": {
+          "type": "number",
+          "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width of the block in mm, before any turn."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height of the block in mm, before any turn."
+        },
+        "z": {
+          "type": "number",
+          "description": "Stacking order on the page: a block with a higher z lies over one with a lower z."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked."
+        },
+        "mark": {
+          "type": "string",
+          "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none."
+        },
+        "group": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group."
+        },
+        "angle": {
+          "type": "number",
+          "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "flipX": {
+          "type": "boolean",
+          "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored."
+        },
+        "flipY": {
+          "type": "boolean",
+          "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored."
+        },
+        "keep": {
+          "type": "boolean",
+          "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off."
+        }
+      },
+      "required": [
+        "h",
+        "id",
+        "locked",
+        "props",
+        "type",
+        "w",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    "MagischesQuadratProps": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "number",
+          "description": "Number of magic squares on the sheet, side by side in rows of `columns`. Default 2.",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of squares per row. Default 2.",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "size": {
+          "type": "number",
+          "enum": [
+            3,
+            5
+          ],
+          "description": "Cells per side: 3 (a 3×3 square) or 5 (a 5×5 square). Default 3."
+        },
+        "max": {
+          "type": "number",
+          "description": "The Zahlenraum, the largest number in a drawn square: 20, 100, 1000 or any whole number from 9 (3×3) or 25 (5×5) to 9999. A 5×5 with a smaller value gives 100. Default 20.",
+          "minimum": 9,
+          "maximum": 9999
+        },
+        "given": {
+          "type": "number",
+          "description": "The Schwierigkeit: how many cells are given on the pupils' sheet; the others are to fill in. 2 to 8 for a 3×3, 6 to 24 for a 5×5. With 3 or more (3×3) or 15 or more (5×5), or one fewer with showSum, the given cells allow exactly one solution; with fewer the key says that other solutions are right too. Default 4 (3×3) or 15 (5×5).",
+          "minimum": 2,
+          "maximum": 24
+        },
+        "showSum": {
+          "type": "boolean",
+          "description": "Whether the Zielzahl, the sum of every row, column and diagonal, prints above each square (\"Zielzahl: 15\"). Default false."
+        },
+        "seed": {
+          "type": "number",
+          "description": "Seed for the random squares. The same seed always gives the same squares."
+        },
+        "typed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MagischesQuadratTyped"
+          },
+          "description": "Numbers the teacher typed. Each entry is [square index from 0, row from 1, column from 1, value 0 to 9999]. A square with typed numbers shows exactly its typed cells; the others are worked out from them. A square whose typed numbers fit no magic square is marked wrong and its key shows no answers."
+        }
+      },
+      "required": [
+        "count",
+        "columns",
+        "size",
+        "max",
+        "given",
+        "showSum",
+        "seed"
+      ]
+    },
+    "MagischesQuadratTyped": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "A number the teacher typed: the square's index (from 0), the row (from 1), the column (from 1), the value (0 to 9999)."
     },
     "ZahlenstrahlBlock": {
       "type": "object",
