@@ -150,6 +150,100 @@ describe("the Rechentabellen of a block", () => {
     );
   });
 
+  const RULES = ["none", "required", "either"] as const;
+  // The carry settings the panel offers at a max: the Hunderter one only from 1000.
+  const carriesFor = (max: number): RechentabelleProps["carry"][] =>
+    max >= 1000
+      ? RULES.flatMap((a) =>
+          RULES.map((b) => [a, b] as RechentabelleProps["carry"]),
+        )
+      : RULES.map((a) => [a, "either"] as RechentabelleProps["carry"]);
+  // Whether a cell r op c, read from carryList, keeps the rule: a place below the top one as its rule says, and "none"
+  // at the top one rules out the places above it.
+  const ruleHolds = (
+    op: "+" | "-",
+    max: number,
+    carry: RechentabelleProps["carry"],
+    r: number,
+    c: number,
+  ): boolean => {
+    const list = carryList(op, r, c);
+    const top = max >= 1000 ? 2 : 1;
+    const above = carry[top - 1] === "none" ? "none" : "either";
+    return range(Math.max(top, list.length)).every((k) => {
+      const v = list[k] ?? 0;
+      const rule = k < top ? carry[k] : above;
+      return rule === "none" ? v === 0 : rule === "required" ? v === 1 : true;
+    });
+  };
+  const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+  it("every panel setting of Plus and Minus has a pair that keeps the carry rule (so the last fallback is never reached)", () => {
+    for (const op of ["+", "-"] as const)
+      for (const max of [10, 20, 100, 1000])
+        for (const carry of carriesFor(max)) {
+          const colHi = op === "+" ? max - 1 : Math.floor(max / 2);
+          const rowHi = op === "+" ? max - 1 : max;
+          const fitsSome = range(rowHi).some((i) =>
+            range(colHi).some((j) => {
+              const r = i + 1;
+              const c = j + 1;
+              if (op === "+" ? r + c > max : r < c) return false;
+              return ruleHolds(op, max, carry, r, c);
+            }),
+          );
+          expect(fitsSome, `${op} max ${max} carry ${carry}`).toBe(true);
+        }
+  });
+
+  it("the carry rule holds in every cell whatever level the values came from", () => {
+    fc.assert(
+      fc.property(
+        seeds,
+        fc.constantFrom("+", "-") as fc.Arbitrary<"+" | "-">,
+        fc.constantFrom(10, 20, 100, 1000),
+        fc.constantFrom(...RULES),
+        fc.constantFrom(...RULES),
+        fc.integer({ min: 2, max: 10 }),
+        fc.integer({ min: 2, max: 10 }),
+        (seed, op, max, k0, k1, rows, cols) => {
+          const carry = (
+            max >= 1000 ? [k0, k1] : [k0, "either"]
+          ) as RechentabelleProps["carry"];
+          const m = made(P({ seed, op, max, carry, count: 2, rows, cols }));
+          for (const t of m.tables)
+            t.rows.forEach((r) =>
+              t.cols.forEach((c) =>
+                expect(ruleHolds(op, max, carry, r, c)).toBe(true),
+              ),
+            );
+        },
+      ),
+      { numRuns: 300 },
+    );
+  });
+
+  it("every panel setting, rows and cols 2 to 10, seed 1: every cell keeps the carry rule (timing)", () => {
+    for (const op of ["+", "-"] as const)
+      for (const max of [10, 20, 100, 1000])
+        for (const carry of carriesFor(max))
+          for (let rows = 2; rows <= 10; rows++)
+            for (let cols = 2; cols <= 10; cols++) {
+              const m = made(
+                P({ seed: 1, op, max, carry, count: 1, rows, cols }),
+              );
+              for (const t of m.tables)
+                t.rows.forEach((r) =>
+                  t.cols.forEach((c) =>
+                    expect(
+                      ruleHolds(op, max, carry, r, c),
+                      `${op} ${max} ${carry} ${rows}x${cols}`,
+                    ).toBe(true),
+                  ),
+                );
+            }
+  });
+
   it("seed 999987 bis 1000 Minus with a required Hunderterübergang carries into the Hunderter in every cell (#962)", () => {
     const m = made(
       P({
