@@ -396,6 +396,9 @@ def test_a_second_try_after_a_failed_load_prints_and_shows_the_variants(editor):
     open_dialog(page)
     expect(page.get_by_role("alert")).to_have_text(LOADING)
     press(page, "PDF")
+    # The press stays busy (PDF disabled) while it waits for the server: its line is only final once the button is back.
+    pdf = page.get_by_role("dialog").get_by_role("button", name="PDF", exact=True)
+    expect(pdf).to_be_enabled(timeout=30000)
     expect(page.get_by_role("alert")).to_have_text(LOADING)
     page.unroute("**/api/sheets/*/variante/*")
     data = download_pdf(page)
