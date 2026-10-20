@@ -289,7 +289,7 @@ export default function Rechentabelle({ block, apply }: { block: RechentabelleBl
       )}
       {m.loose === "carry" && (
         <p className="hint" role="status">
-          Mit dieser Übertrag-Regel passt keine ganze Tabelle: die Regel ist gelockert.
+          Mit dieser Übertrag-Regel gibt es nicht genug verschiedene Zahlen: manche Werte kommen zweimal vor.
         </p>
       )}
       {m.loose === "distinct" && (

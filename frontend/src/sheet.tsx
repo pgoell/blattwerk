@@ -3933,7 +3933,7 @@ function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBlock; k:
     return () => document.fonts.removeEventListener("loadingdone", fit);
   }, []);
   const whole = check.lost.length === 0;
-  const hint = check.lost.length ? "Die Selbstkontrolle hat ihre Quelle verloren." : check.empty ? "Wähle rechts die Blöcke, die die Selbstkontrolle prüft." : check.fault;
+  const hint = check.lost.length ? "Die Selbstkontrolle hat ihre Quelle verloren." : check.empty && check.bare ? "Füge zuerst Aufgaben ein, dann wähle sie rechts unter „Blöcke“." : check.empty ? "Wähle rechts unter „Blöcke“ die Blöcke, die die Selbstkontrolle prüft." : check.fault;
   return (
     <div ref={root} className={`selbstkontrolle${solved ? " solved" : ""}${p.turn === "none" ? "" : ` ${p.turn}`}`} style={{ fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }}>
       {whole && p.turn === "fold" && <div className="fold">Hier umknicken</div>}

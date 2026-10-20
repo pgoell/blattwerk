@@ -15,8 +15,8 @@
 //   top place that counts holds for every place above it too: bis 100 "Ohne Zehnerübergang" has no 20 + 80 = 100,
 //   bis 1000 "Ohne Hunderterübergang" no 100 + 900 = 1000. What a cell carries is `carryList`,
 //   as maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row value below the column value's digit
-//   (with the borrow). Plus: every value and every cell from 1 to max. Minus: every value from 1 to max, every cell 0
-//   or more.
+//   (with the borrow); a place the numbers do not reach carries 0. Plus: every value and every cell from 1 to max.
+//   Minus: every value from 1 to max, every cell 0 or more.
 // - Mal and Geteilt: `reihen`, the Einmaleins-Reihen, a list of distinct numbers 1 to 10 (default [2, 4, 5, 10]; an
 //   empty or wrong list gives the default). The column values are the Reihen: with `order` "related" (default) in the
 //   order of FAMILY (related Reihen side by side: 1, 2, 4, 8, 3, 6, 9, 5, 10, 7), with "random" in a drawn order. The
@@ -41,7 +41,10 @@
 // so that the tables after a typed one stay as they were:
 // - The values. Plus and Minus: up to 200 tries, each draws the column values one after the other (distinct), then the
 //   row values (distinct, each up to 50 draws for one that fits every column value with the rules). When no try fits,
-//   200 more without the carry rule (`loose` "carry"), then 200 where values may repeat (`loose` "distinct"). Mal and
+//   the carry rule still holds: an exact depth-first search over the columns in a drawn order (`exactValues`) finds
+//   distinct values if such a set exists; else 200 tries where values may repeat, then the first column value and
+//   row value that fit, repeated. `loose` "distinct" when both carry rules are "either" (only the Zahlenraum is too
+//   small), else "carry" (values repeat under the rule). Mal and
 //   Geteilt: the column order (drawn also with "related", so that the order setting keeps the draws), the row order,
 //   and for Geteilt one d per row (up to 10 draws for a dividend no other row has).
 // - The hidden values: a drawn order of the rows and one of the columns (the first hideRows and hideCols are hidden),
@@ -76,8 +79,8 @@
 // checkboxes "2er-Reihe" and so on (Mal and Geteilt; the last checked one is disabled); select "Rechentabelle für
 // eigene Zahlen"; number fields "Spaltenwert j", "Zeilenwert i", "Zeile i, Spalte j" (from 1). Hints (p.hint,
 // role=status): per wrong table "Rechentabelle i: Die Zahlen passen nicht zusammen."; loose "carry" "Mit dieser
-// Übertrag-Regel passt keine ganze Tabelle: die Regel ist gelockert."; loose "distinct" "Der Zahlenraum ist zu klein:
-// manche Werte kommen zweimal vor."; Mal and Geteilt with cols > reihen or rows > the Erstfaktoren "Mehr Zeilen oder
+// Übertrag-Regel gibt es nicht genug verschiedene Zahlen: manche Werte kommen zweimal vor."; loose "distinct" "Der
+// Zahlenraum ist zu klein: manche Werte kommen zweimal vor."; Mal and Geteilt with cols > reihen or rows > the Erstfaktoren "Mehr Zeilen oder
 // Spalten als Reihen oder Erstfaktoren: Werte wiederholen sich." Fewer rows or columns than hidden values lowers the
 // hidden count in the same step.
 
@@ -363,22 +366,22 @@ function draw(
   return null;
 }
 
-// Whether row value r and column value c fit a Plus or Minus cell under the carry rule (when useCarry).
+// Whether row value r and column value c fit a Plus or Minus cell under the carry rule.
 function fits(
   p: RechentabelleProps,
   op: "+" | "-",
   r: number,
   c: number,
-  useCarry: boolean,
 ): boolean {
   if (op === "+" ? r + c > p.max : r < c) return false;
-  if (!useCarry) return true;
   const list = carryList(op, r, c);
   // The places the panel shows: the Zehnerübergang, and from max 1000 the Hunderterübergang. "none" at the top one
   // holds for every place above it too (so that 20 + 80 = 100 is no cell of a table without Übertrag).
   const top = p.max >= 1000 ? 2 : 1;
   const above = p.carry[top - 1] === "none" ? "none" : "either";
-  return list.every((v, k) => {
+  // Every place the numbers reach, and the places the list does not reach carry 0 (#962).
+  return range(Math.max(top, list.length)).every((k) => {
+    const v = list[k] ?? 0;
     const rule = k < top ? p.carry[k] : above;
     return rule === "none" ? v === 0 : rule === "required" ? v === 1 : true;
   });
@@ -389,7 +392,6 @@ function additiveTry(
   p: RechentabelleProps,
   op: "+" | "-",
   next: () => number,
-  useCarry: boolean,
   distinct: boolean,
 ) {
   const colHi = op === "+" ? p.max - 1 : Math.floor(p.max / 2);
@@ -400,12 +402,12 @@ function additiveTry(
   for (let j = 0; j < p.cols; j++) {
     const v = draw(1, colHi, next, (x) => {
       if (distinct && cols.includes(x)) return false;
-      const left = room.filter((r) => fits(p, op, r, x, useCarry)).length;
+      const left = room.filter((r) => fits(p, op, r, x)).length;
       return distinct ? left >= p.rows : left > 0;
     });
     if (v === null) return null;
     cols.push(v);
-    room = room.filter((r) => fits(p, op, r, v, useCarry));
+    room = room.filter((r) => fits(p, op, r, v));
   }
   const rows: number[] = [];
   for (let i = 0; i < p.rows; i++) {
@@ -416,29 +418,88 @@ function additiveTry(
   return { cols, rows };
 }
 
-// Plus and Minus values: the strict level, then without the carry rule, then with repeated values. The levels stack.
+// Plus and Minus values with distinct columns and rows, every cell under the carry rule, found by a depth-first search
+// over the columns in a drawn order. Null when no such set exists.
+function exactValues(
+  p: RechentabelleProps,
+  op: "+" | "-",
+  next: () => number,
+): { cols: number[]; rows: number[] } | null {
+  const colHi = op === "+" ? p.max - 1 : Math.floor(p.max / 2);
+  const rowHi = op === "+" ? p.max - 1 : p.max;
+  const fitting = new Map<number, Set<number>>();
+  for (let c = 1; c <= colHi; c++) {
+    const rs = new Set(
+      range(rowHi)
+        .map((i) => i + 1)
+        .filter((r) => fits(p, op, r, c)),
+    );
+    if (rs.size >= p.rows) fitting.set(c, rs);
+  }
+  const cands = shuffle([...fitting.keys()], next);
+  const cols: number[] = [];
+  const search = (from: number, room: number[]): number[] | null => {
+    if (cols.length === p.cols) {
+      const rows: number[] = [];
+      let free = room;
+      for (let i = 0; i < p.rows; i++) {
+        const k = Math.floor(next() * free.length);
+        rows.push(free[k]);
+        free = free.filter((_, j) => j !== k);
+      }
+      return rows;
+    }
+    for (let k = from; k <= cands.length - (p.cols - cols.length); k++) {
+      const set = fitting.get(cands[k])!;
+      const left = room.filter((r) => set.has(r));
+      if (left.length < p.rows) continue;
+      cols.push(cands[k]);
+      const rows = search(k + 1, left);
+      if (rows) return rows;
+      cols.pop();
+    }
+    return null;
+  };
+  const rows = search(
+    0,
+    range(rowHi).map((i) => i + 1),
+  );
+  if (!rows) return null;
+  return { cols: [...cols], rows };
+}
+
+// Plus and Minus values, the carry rule kept at every level: 200 random tries without repeats, then the exact search
+// without repeats, then 200 random tries where values may repeat, then the first pair that fits, repeated. `loose`
+// "distinct" when both carry rules are "either" (only the Zahlenraum is too small), else "carry".
 function additiveValues(
   p: RechentabelleProps,
   op: "+" | "-",
   next: () => number,
 ): { cols: number[]; rows: number[]; loose: Made["loose"] } {
-  const levels: [boolean, boolean, Made["loose"]][] = [
-    [true, true, null],
-    [false, true, "carry"],
-    [false, false, "distinct"],
-  ];
-  for (const [useCarry, distinct, loose] of levels) {
-    for (let t = 0; t < 200; t++) {
-      const got = additiveTry(p, op, next, useCarry, distinct);
-      if (got) return { ...got, loose };
-    }
+  for (let t = 0; t < 200; t++) {
+    const got = additiveTry(p, op, next, true);
+    if (got) return { ...got, loose: null };
   }
-  // Not reached in practice: 1 and 1 fit every Plus and Minus cell.
-  return {
-    cols: Array(p.cols).fill(1),
-    rows: Array(p.rows).fill(1),
-    loose: "distinct",
-  };
+  const exact = exactValues(p, op, next);
+  if (exact) return { ...exact, loose: null };
+  const loose: Made["loose"] =
+    p.carry[0] === "either" && p.carry[1] === "either" ? "distinct" : "carry";
+  for (let t = 0; t < 200; t++) {
+    const got = additiveTry(p, op, next, false);
+    if (got) return { ...got, loose };
+  }
+  const colHi = op === "+" ? p.max - 1 : Math.floor(p.max / 2);
+  const rowHi = op === "+" ? p.max - 1 : p.max;
+  for (let c = 1; c <= colHi; c++)
+    for (let r = 1; r <= rowHi; r++)
+      if (fits(p, op, r, c))
+        return {
+          cols: Array(p.cols).fill(c),
+          rows: Array(p.rows).fill(r),
+          loose,
+        };
+  // Not reached: the tests show that every panel setting has a pair that fits.
+  return { cols: Array(p.cols).fill(1), rows: Array(p.rows).fill(1), loose };
 }
 
 // Mal and Geteilt values: the column values from the Reihen, the row values from the Erstfaktoren; Geteilt's rows are dividends.
