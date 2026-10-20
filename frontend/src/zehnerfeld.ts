@@ -31,7 +31,12 @@
 //   3 colour 1 struck through. An entry that is not three whole numbers in range is dropped; of two for the same task
 //   and dot the last one stays. A dot not below C plays no part (and stays stored), as does a task the block lacks.
 // - `typed`: numbers the teacher typed, each entry [task 0 to 11, position 0 to 2, value 0 to 100]. The positions: 0
-//   the first number a, 1 the second number b, 2 the result r. Dropped and kept as `marks`.
+//   the first number a, 1 the second number b, 2 the result r. An entry that is not three whole numbers in range is
+//   dropped; of two for the same task and position the last one stays; an entry of a task the block lacks stays
+//   stored and plays no part.
+// - A change of `field` or `op` in the panel drops `typed` in the same undo step (the typed pairs belong to the old
+//   field and Rechenart). `marks` stay through every change: dot k keeps its index. Varianten B to D drop `typed`
+//   and keep `marks`, as for every block.
 // - `seed` alone gives the drawn tasks.
 //
 // The rule every task keeps, drawn or typed (C the field's size): Plus a ≥ 1, b ≥ 1, r = a + b ≤ C; Minus 1 ≤ a ≤ C,
@@ -94,7 +99,8 @@
 // with C ≥ 20 select "Zehnerübergang" ("any" "egal", "yes" "mit Zehnerübergang", "no" "ohne Zehnerübergang"); checkbox
 // "Trennlinien"; select "Farben" ("color" "Farbe", "grey" "Graustufen", "own" "Eigene Farben"), with "own" two colour
 // inputs "Erste Farbe" and "Zweite Farbe"; checkbox "Punkte selbst setzen"; with 2 or more tasks select "Aufgabe"
-// ("Aufgabe 1" ...), the task the fields below set. Without `manual`: number fields "Erste Zahl", "Zweite Zahl"
+// ("Aufgabe 1" ...), the task the fields below set. A colour input commits on change (one undo step), not per
+// input event. Without `manual`: number fields "Erste Zahl", "Zweite Zahl"
 // showing the task's a and b (empty for a wrong or empty task); each field is one undo step (key `typed:i:p`), its
 // text kept as a draft while it has focus. With `manual`: a grid `.punkte` of C buttons "Punkt n" (n from 1), each
 // with `data-mark` 0 to 3; a click cycles the mark 0, 1, 2, 3, 0 and is one undo step. Hints (p.hint, role=status):
