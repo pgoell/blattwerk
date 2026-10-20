@@ -867,7 +867,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Einer step: \"yes\" every task crosses a ten there (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -910,7 +910,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Zehner step, crossing a hundred there (Plus: the Zehner of both numbers add up to 10 or more; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000 and a second number of 2 or 3 digits. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"
@@ -7236,7 +7236,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Einer step: \"yes\" every task crosses a ten there (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -7279,7 +7279,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Zehner step, crossing a hundred there (Plus: the Zehner of both numbers add up to 10 or more; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000 and a second number of 2 or 3 digits. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "required": [
@@ -13075,7 +13075,7 @@
             },
             "einer": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Einer step: \"yes\" every task crosses a ten there (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
+              "description": "The Übergang at the Einer, crossing a ten: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), \"no\" none does, \"any\" either. Default \"any\"."
             },
             "grid": {
               "description": "Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true.",
@@ -13118,7 +13118,7 @@
             },
             "zehner": {
               "$ref": "#/definitions/Rule",
-              "description": "The Übergang in the Zehner step, crossing a hundred there (Plus: the Zehner of both numbers add up to 10 or more; Minus: the first number's Zehner is smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000 and a second number of 2 or 3 digits. Default \"any\"."
+              "description": "The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): \"yes\", \"no\" or \"any\". Counts only with max 1000. Default \"any\"."
             }
           },
           "type": "object"

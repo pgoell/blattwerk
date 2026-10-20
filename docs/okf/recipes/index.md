@@ -22,7 +22,7 @@ Whole sheets for common tasks. Each recipe is a doc that passes the schema; star
 * [Magische Quadrate](magische-quadrate.md): A heading, a name line, and two 3 × 3 Magische Quadrate bis 20 with the Zielzahl shown and four cells given.
 * [Malquadrate](malquadrate.md): A heading, a name line, and two Malquadrate for the Einmaleins with the factors given at the edges and the products to fill in.
 * [Zerlegungsfelder](zerlegungsfelder.md): A heading, a name line, and six Zerlegungsfelder bis 20 for the Zehnerübergang in two steps, with the first and the second number given and the split and the result to fill in.
-* [Halbschriftlich rechnen](halbschriftlich.md): A heading, a name line, and six Plusaufgaben bis 1000 for the halbschriftliche Rechnen with the Zehnerübergang in the Einer step, with the first and the second number given and the steps and the result to fill in.
+* [Halbschriftlich rechnen](halbschriftlich.md): A heading, a name line, and six Plusaufgaben bis 1000 for the halbschriftliche Rechnen with the Zehnerübergang in the Einer step, the second number split place by place, with the first and the second number given and the steps and the result to fill in.
 * [Zahlenstrahl bis 100](zahlenstrahl-bis-100.md): A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 * [Hunderterfeld](hunderterfeld.md): A heading, a name line, and a Hundertertafel with twenty numbers hidden for the pupil to fill in.
 * [Ein Blatt mit zwei Seiten](seiten.md): Two pages: a heading, a name line and a text task on page 1, then a heading and a ruling on page 2.
