@@ -28,6 +28,7 @@ describe("INSERTS", () => {
     expect(INSERTS.magischesquadrat(7)).toMatchObject({ w: 180, type: "magischesquadrat", props: { count: 2, columns: 2, size: 3, max: 20, given: 4, showSum: false, seed: 7 } });
     expect(INSERTS.malquadrat(7)).toMatchObject({ w: 180, type: "malquadrat", props: { count: 2, columns: 2, size: 3, op: "*", reihen: [2, 3, 4, 5, 6, 7, 8, 9], max: 20, task: "factors", seed: 7 } });
     expect(INSERTS.zerlegungsfeld(7)).toMatchObject({ w: 180, type: "zerlegungsfeld", props: { count: 6, columns: 3, op: "+", max: 20, step: "zehner", big: false, task: "task", seed: 7 } });
+    expect(INSERTS.halbschriftlich(7)).toMatchObject({ type: "halbschriftlich", props: { count: 6, columns: 2, op: "+", max: 1000, digits: 3, einer: "any", zehner: "any", seed: 7 } });
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });
