@@ -5,9 +5,13 @@ import signal
 import subprocess
 from pathlib import Path
 
+import pytest
+
 FRONTEND = Path(__file__).parent.parent / "frontend"
 
 
+# On CI, beside the suite, the run took 30 to 54 s and passed the suite's 60 s (#957): it gets 3 minutes.
+@pytest.mark.timeout(240)
 def test_the_properties_of_the_sheet_model_hold():
     """One run of `mise run test:model`. A property that fails prints its seed, and the seed is
     in what vitest wrote, so it stands in the failure here."""
@@ -20,10 +24,10 @@ def test_the_properties_of_the_sheet_model_hold():
         start_new_session=True,
     )
     try:
-        # The run takes a second. A minute is its whole budget, on a machine busy with the suite.
-        said, _ = run.communicate(timeout=60)
+        # The run takes about 12 s alone. Three minutes are its whole budget, on a machine busy with the suite.
+        said, _ = run.communicate(timeout=180)
     except subprocess.TimeoutExpired:
         os.killpg(run.pid, signal.SIGKILL)
         said, _ = run.communicate()
-        raise AssertionError(f"no end after a minute, and until then:\n{said}") from None
+        raise AssertionError(f"no end after three minutes, and until then:\n{said}") from None
     assert run.returncode == 0, said
