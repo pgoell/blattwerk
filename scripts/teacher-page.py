@@ -695,7 +695,9 @@ def fit(page: Page) -> None:
     Then it stamps the time, so a verb that joined before knows the size is back.
     """
     size = wanted()
-    page.set_viewport_size({"width": size[0], "height": size[1]})
+    # A page that crashed says so to the next verb; the holder and its window stay.
+    with suppress(Error):
+        page.set_viewport_size({"width": size[0], "height": size[1]})
     (STATE / "fit").write_text(str(time.time()))
 
 
