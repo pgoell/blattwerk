@@ -169,6 +169,23 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Halbschriftlich rechnen",
+            "halbschriftlich",
+            {
+                "count": 6,
+                "columns": 2,
+                "op": "+",
+                "max": 1000,
+                "digits": 3,
+                "einer": "any",
+                "zehner": "any",
+                "grid": True,
+                "head": False,
+                "tint": False,
+                "ops": True,
+            },
+        ),
+        (
             "Zerlegungsfeld",
             "zerlegungsfeld",
             {

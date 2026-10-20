@@ -147,6 +147,20 @@ ZERLEGUNGSFELD = {
     "task": "task",
     "seed": 7,
 }
+HALBSCHRIFTLICH = {
+    "count": 6,
+    "columns": 2,
+    "op": "+",
+    "max": 1000,
+    "digits": 3,
+    "einer": "any",
+    "zehner": "any",
+    "grid": True,
+    "head": False,
+    "tint": False,
+    "ops": True,
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
@@ -159,6 +173,10 @@ DRAWN = {
     "magischesquadrat": (MAGISCHES_QUADRAT, 96.52),  # the default height: 37 * 180 / 69
     "malquadrat": (MALQUADRAT, 93.98),  # the default height: 59 * 180 / 113
     "zerlegungsfeld": (ZERLEGUNGSFELD, 128.9),  # the default height: 111 * 180 / 155
+    "halbschriftlich": (
+        HALBSCHRIFTLICH,
+        86,
+    ),  # the default height: 3 rows of 25 mm, 2 gaps of 5 mm, 1 mm stroke
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),
