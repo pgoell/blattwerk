@@ -21,6 +21,8 @@ jobs:
       - uses: ./.github/actions/setup-mise
       - name: Ruff and ty
         run: mise run lint
+      - name: File size
+        run: scripts/check-file-size
 
   shards:
     name: Test shard ${{ matrix.shard }}/8

@@ -54,6 +54,7 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 - A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start, stop or remove docker containers and images, or write under `~/.local/share/blattwerk/` or the deploy's copy `~/.local/share/blattwerk-canary/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.
 - Bring master into a pushed branch with `git merge origin/master`, never a rebase: the fence refuses the force push a rebase needs.
 - Way back if the hook itself breaks and refuses every Bash and Edit call: no session can mend it, so in a terminal outside Claude Code delete the `hooks` block from `.claude/settings.json` (or bring back a good one: `git checkout origin/master -- .claude/hooks/fence.py`), then start a new session.
+- Every `uses:` in a workflow names a full commit SHA, with the version as a comment. The repo refuses an action on a tag, and any action whose owner is not in `.github/selected-actions.json`. Dependabot updates the SHAs.
 - This project was generated from `gh:pgoell/project-template`. Update with `uvx copier update`.
 
 ## Subagents in a worktree
