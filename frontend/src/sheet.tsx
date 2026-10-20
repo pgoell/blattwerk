@@ -3757,7 +3757,7 @@ function Halbschriftlich({ block, solved }: { block: HalbschriftlichBlock; solve
                     )),
                   )}
                 {solved && t.many && !t.wrong && (
-                  <text className="note" x={x0 + TW / 2} y={y0 + (TH - 0.5) * Q} fontSize={Q * 0.6} fill="#c0392b" textAnchor="middle" dominantBaseline="central">
+                  <text className="note" x={x0 + TW / 2} y={y0 + TH - Q / 2} fontSize={Q * 0.6} fill="#c0392b" textAnchor="middle" dominantBaseline="central">
                     Auch andere Lösungen sind richtig.
                   </text>
                 )}
