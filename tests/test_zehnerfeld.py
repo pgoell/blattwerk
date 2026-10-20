@@ -293,13 +293,33 @@ def test_typing_erste_zahl_is_one_undo_step_and_keeps_focus_and_digits(editor):
     page = editor(zeh({"count": 1}), client=client)
     pick(page, "k")
     number = field(page, "Erste Zahl")
+    was = number.input_value()
     number.click()
     number.press("Control+A")
     step(page, lambda: page.keyboard.type("12"))
     expect(number).to_be_focused()
     expect(number).to_have_value("12")
+    # Strg+Z in the box is the sheet's undo: the box shows the drawn number again and nothing typed stays.
     step(page, lambda: number.press("Control+z"))
-    expect(number).not_to_have_value("12")
+    expect(number).to_have_value(was)
+    assert "typed" not in props_of(doc(page, client))
+    step(page, lambda: number.press("Control+y"))
+    expect(number).to_have_value("12")
+
+
+def test_a_typed_number_above_the_field_gives_the_hint_and_no_dots(editor):
+    """Eigene Zahlen (#829): 150 typed into "Erste Zahl" on a Hunderterfeld does not fit: the hint, no dot, no
+    number in the task, and the box keeps 150."""
+    page = editor(zeh({"count": 1, "field": "hundert", "max": 100}))
+    pick(page, "k")
+    number = field(page, "Erste Zahl")
+    number.click()
+    number.press("Control+A")
+    step(page, lambda: page.keyboard.type("150"))
+    expect(hint(page)).to_have_text(NOTE_WRONG)
+    expect(number).to_have_value("150")
+    expect(drawn(page).locator("g.task[data-task='0'] text")).to_have_count(2)  # only + and =
+    expect(drawn(page).locator("circle.dot:not([data-mark='0'])")).to_have_count(0)
 
 
 def test_typed_numbers_that_do_not_fit_give_the_hint_and_no_dots(editor):

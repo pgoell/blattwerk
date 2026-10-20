@@ -3882,7 +3882,7 @@ function Zehnerfeld({ block, solved }: { block: ZehnerfeldBlock; solved: boolean
                     </g>
                   );
                 })}
-                {!t.none && (
+                {(!t.none || p.manual) && (
                   <>
                     <text className="op" x={bx + B + 2.5} y={by + LH / 2} fontSize={5.5} fill="#222" textAnchor="middle" dominantBaseline="central">
                       {zehnOp(p.op)}

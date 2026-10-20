@@ -101,7 +101,7 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
         if ((e.ctrlKey || e.metaKey) && /^[zy]$/i.test(e.key)) setDraft(null);
       },
       onChange: (e: ChangeEvent<HTMLInputElement>) => {
-        if (!/^\d{0,4}$/.test(e.target.value)) return;
+        if (!/^\d{0,3}$/.test(e.target.value)) return;
         setDraft({ key, text: e.target.value });
         change(e.target.value);
       },

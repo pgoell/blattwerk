@@ -839,6 +839,36 @@ def test_a_zerlegungsfeld_gets_another_seed_and_loses_its_typed_numbers():
     assert doc["pages"][0]["blocks"][0]["props"] == zerlegung
 
 
+def test_a_zehnerfeld_gets_another_seed_loses_its_typed_numbers_and_keeps_its_marks():
+    """Varianten of #829: B to D give a Zehnerfeld a seed of its own and drop `typed`; the dots set by hand
+    (`marks`) stay; A is as stored."""
+    zehner = {
+        "count": 4,
+        "columns": 2,
+        "field": "zwanzig",
+        "op": "+",
+        "task": "dots",
+        "max": 20,
+        "cross": "any",
+        "lines": True,
+        "colors": "color",
+        "manual": False,
+        "marks": [[0, 0, 1], [0, 1, 3]],
+        "seed": 7,
+        "typed": [[0, 0, 7]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "q", "type": "zehnerfeld", "props": zehner}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in zehner.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == zehner
+
+
 def test_a_halbschriftlich_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #828: B to D give a Halbschriftlich block a seed of its own, drop `typed`; A is as stored."""
     halb = {

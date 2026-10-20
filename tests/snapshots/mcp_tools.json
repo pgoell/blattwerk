@@ -5556,7 +5556,7 @@
               "type": "string"
             },
             "typed": {
-              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 100]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
               "items": {
                 "$ref": "#/definitions/ZehnerfeldTyped"
               },
@@ -5566,7 +5566,7 @@
           "type": "object"
         },
         "ZehnerfeldTyped": {
-          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 100).",
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
           "items": {
             "type": "number"
           },
@@ -12344,7 +12344,7 @@
               "type": "string"
             },
             "typed": {
-              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 100]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
               "items": {
                 "$ref": "#/definitions/ZehnerfeldTyped"
               },
@@ -12367,7 +12367,7 @@
           "type": "object"
         },
         "ZehnerfeldTyped": {
-          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 100).",
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
           "items": {
             "type": "number"
           },
@@ -18217,7 +18217,7 @@
               "type": "string"
             },
             "typed": {
-              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 100]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
               "items": {
                 "$ref": "#/definitions/ZehnerfeldTyped"
               },
@@ -18227,7 +18227,7 @@
           "type": "object"
         },
         "ZehnerfeldTyped": {
-          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 100).",
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
           "items": {
             "type": "number"
           },

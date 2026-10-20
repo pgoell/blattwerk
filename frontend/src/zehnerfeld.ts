@@ -30,7 +30,7 @@
 // - `marks`: the dots the teacher set, each entry [task 0 to 11, dot 0 to 99, mark 1 to 3]: 1 colour 1, 2 colour 2,
 //   3 colour 1 struck through. An entry that is not three whole numbers in range is dropped; of two for the same task
 //   and dot the last one stays. A dot not below C plays no part (and stays stored), as does a task the block lacks.
-// - `typed`: numbers the teacher typed, each entry [task 0 to 11, position 0 to 2, value 0 to 100]. The positions: 0
+// - `typed`: numbers the teacher typed, each entry [task 0 to 11, position 0 to 2, value 0 to 999]. The positions: 0
 //   the first number a, 1 the second number b, 2 the result r. An entry that is not three whole numbers in range is
 //   dropped; of two for the same task and position the last one stays; an entry of a task the block lacks stays
 //   stored and plays no part.
@@ -108,7 +108,7 @@
 // ins Feld.". Buttons "Eigene Zahlen entfernen" (with typed), "Neu würfeln" (changes only the seed). Every setting is
 // one undo step.
 
-/** A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 100). */
+/** A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits). */
 export type ZehnerfeldTyped = [number, number, number];
 /** A dot the teacher set: the task's index (from 0), the dot (0 to 99), the mark (1, 2 or 3). */
 export type ZehnerfeldMark = [number, number, number];
@@ -149,7 +149,7 @@ export type ZehnerfeldProps = {
   marks?: ZehnerfeldMark[];
   /** Seed for the random tasks. The same seed always gives the same tasks. */
   seed: number;
-  /** Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 100]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers. */
+  /** Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers. */
   typed?: ZehnerfeldTyped[];
 };
 
@@ -218,7 +218,7 @@ export function sane(p: ZehnerfeldProps): ZehnerfeldProps {
     for (const t of p.typed) {
       if (!Array.isArray(t) || t.length !== 3 || !t.every((x) => Number.isInteger(x))) continue;
       const [i, pos, v] = t;
-      if (i < 0 || i > 11 || pos < 0 || pos > 2 || v < 0 || v > 100) continue;
+      if (i < 0 || i > 11 || pos < 0 || pos > 2 || v < 0 || v > 999) continue;
       typed.delete(`${i}:${pos}`);
       typed.set(`${i}:${pos}`, [i, pos, v]);
     }

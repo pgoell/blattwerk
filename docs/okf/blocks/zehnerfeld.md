@@ -4,7 +4,7 @@ title: "Block: zehnerfeld"
 description: "The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand."
 tags: [block, zehnerfeld]
 covers: [zehnerfeld]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-20T08:18:58Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-20T08:27:20Z }
 ---
 
 # zehnerfeld
@@ -51,7 +51,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | manual | boolean |  | yes | Punkte selbst setzen: true shows in each field exactly the dots in `marks` and no task; the number boxes stay empty for the pupil. Default false. |
 | marks | list of list of number |  | no | The dots the teacher set with `manual`. Each entry is [task index from 0, dot 0 to 99 counted row by row, mark 1 colour 1, 2 colour 2 or 3 colour 1 struck through]. |
 | seed | number |  | yes | Seed for the random tasks. The same seed always gives the same tasks. |
-| typed | list of list of number |  | no | Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 100]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers. |
+| typed | list of list of number |  | no | Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers. |
 
 # Examples
 

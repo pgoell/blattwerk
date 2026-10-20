@@ -139,7 +139,7 @@ describe("typed tasks", () => {
       const count = int(1, 12);
       const typed: ZehnerfeldTyped[] = [];
       for (let e = int(0, 8); e > 0; e--) {
-        const value = R() < 0.5 ? int(0, 100) : int(1, C);
+        const value = R() < 0.5 ? int(0, 999) : int(1, C);
         typed.push([int(0, 11), int(0, 2), value]);
       }
       const p: ZehnerfeldProps = {
