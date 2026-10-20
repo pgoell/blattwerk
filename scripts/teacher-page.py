@@ -365,8 +365,32 @@ def value(page: Page, name: str) -> str:
         raise Refused(f'no field on the page is called "{name}"') from None
 
 
+def wanted() -> list[int]:
+    """The size the holder keeps the window at: what `resize` wrote last, else VIEW."""
+    try:
+        size = json.loads((STATE / "size.json").read_text())
+        return [size["width"], size["height"]]
+    except OSError, ValueError, KeyError:
+        return [VIEW["width"], VIEW["height"]]
+
+
+def holder_since(moment: float) -> None:
+    """Waits until the holder has put the size back after `moment`, for up to 3 s. Reads no page,
+    so a box that is open does not hold it.
+    """
+    late = time.monotonic() + 3
+    while time.monotonic() < late:
+        with suppress(OSError, ValueError):
+            if float((STATE / "fit").read_text()) >= moment:
+                return
+        time.sleep(0.05)
+
+
 def resize(page: Page, wide: str, high: str) -> str:
-    page.set_viewport_size({"width": number(wide), "height": number(high)})
+    # The holder owns the size: a verb's connection that ends clears the page's own size.
+    w, h = number(wide), number(high)
+    (STATE / "size.json").write_text(json.dumps({"width": w, "height": h}))
+    page.set_viewport_size({"width": w, "height": h})
     return shown(page, f"window is {wide} x {high}")
 
 
@@ -647,7 +671,8 @@ def hold() -> None:
         # that no verb answers within PATIENCE seconds.
         waiting: list = []
         context.on("dialog", remember(waiting))
-        context.pages[0].goto(BASE)
+        page = context.pages[0]
+        page.goto(BASE)
         # Chromium picked a free port and wrote it down.
         port = (profile / "DevToolsActivePort").read_text().split()[0]
         # From here on `stop` knows whom to ask, and its signal waits until it is read.
@@ -660,7 +685,17 @@ def hold() -> None:
         while signal.sigtimedwait({signal.SIGTERM}, 1.0) is None:
             context.cookies()
             overdue(waiting, time.monotonic())
+            fit(page)
         context.close()
+
+
+def fit(page: Page) -> None:
+    """Puts the window back at its size, as each second does: a verb's connection ending clears it.
+    Then it stamps the time, so a verb that joined before knows the size is back.
+    """
+    size = wanted()
+    page.set_viewport_size({"width": size[0], "height": size[1]})
+    (STATE / "fit").write_text(str(time.time()))
 
 
 def stop() -> bool:
@@ -684,6 +719,7 @@ def stop() -> bool:
 def start() -> str:
     stop()
     STATE.mkdir(parents=True, exist_ok=True)
+    (STATE / "size.json").unlink(missing_ok=True)
     with (STATE / "log").open("w") as log:
         # A session of its own: the window outlives this call and the shell that made it.
         child = subprocess.Popen(
@@ -712,7 +748,10 @@ def joined():
     if not state:
         raise Refused("no page is running: start it first, with the verb `start`")
     with sync_playwright() as p:
+        joining = time.time()
         browser = p.chromium.connect_over_cdp(state["endpoint"])
+        # The holder puts the size back within a second of the last verb's connection ending.
+        holder_since(joining)
         yield browser.contexts[0].pages[0]
 
 
