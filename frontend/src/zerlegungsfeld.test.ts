@@ -63,6 +63,23 @@ function oracleOf(op: "+" | "-", u: number): Row[] {
   return rows;
 }
 
+// The oracle's rows by the value at one position, so that a case reads only the rows that hold its first typed value.
+const indexes = new Map<string, Map<number, Row[]>>();
+function rowsWith(op: "+" | "-", u: number, pos: number, value: number): Row[] {
+  const key = `${op}${u}:${pos}`;
+  let index = indexes.get(key);
+  if (!index) {
+    index = new Map();
+    for (const row of oracleOf(op, u)) {
+      const list = index.get(row[pos]);
+      if (list) list.push(row);
+      else index.set(row[pos], [row]);
+    }
+    indexes.set(key, index);
+  }
+  return index.get(value) ?? [];
+}
+
 describe("drawn tasks", () => {
   it("keep the rule, the Zahlenraum, big and the grain, over many seeds", () => {
     let tasksSeen = 0;
@@ -164,7 +181,8 @@ describe("solve against a brute force oracle", () => {
         for (const pos of positions.slice(0, k)) known[pos] = pick(121);
       }
 
-      const rows = oracleOf(op, u);
+      const first = known.findIndex((k) => k !== null);
+      const rows = rowsWith(op, u, first, known[first]!);
       let n = 0;
       for (const row of rows) {
         if (known.every((k, pos) => k === null || k === row[pos])) n++;
