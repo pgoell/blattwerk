@@ -87,7 +87,9 @@ verify_branch_protection() {
   actual_raw=$(mktemp)
   actual_norm=$(mktemp)
   expected_norm=$(mktemp)
-  trap 'rm -f "$actual_raw" "$actual_norm" "$expected_norm"' RETURN
+  # A RETURN trap stays set after the function; clear it so it does not fire on
+  # the next function's return.
+  trap 'rm -f "$actual_raw" "$actual_norm" "$expected_norm"; trap - RETURN' RETURN
 
   gh api "/repos/$OWNER_REPO/branches/$DEFAULT_BRANCH/protection" > "$actual_raw"
 
@@ -149,8 +151,13 @@ echo "→ applying repo-level settings"
 gh api --method PATCH "/repos/$OWNER_REPO" --input "$REPO_SETTINGS" >/dev/null
 
 echo "→ turning on vulnerability alerts and Dependabot security updates"
-# Security updates need the alerts on first.
+# Security updates need the alerts on first. GitHub turns the alerts on a moment
+# after the PUT returns: wait until they read back on.
 gh api --method PUT "/repos/$OWNER_REPO/vulnerability-alerts" >/dev/null
+for _ in {1..15}; do
+  gh api "/repos/$OWNER_REPO/vulnerability-alerts" --silent 2>/dev/null && break
+  sleep 2
+done
 gh api --method PUT "/repos/$OWNER_REPO/automated-security-fixes" >/dev/null
 
 echo "→ applying branch protection"
