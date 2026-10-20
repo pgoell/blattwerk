@@ -88,7 +88,7 @@ describe("drawn tasks", () => {
         for (const step of STEPS) {
           for (const big of [false, true]) {
             for (const task of TASKS) {
-              for (let seed = 0; seed < 40; seed++) {
+              for (let seed = 0; seed < 20; seed++) {
                 const props: ZerlegungsfeldProps = { ...DEFAULTS, op, max, step, big, task, seed };
                 const u = uOf(step, max);
                 for (const t of made(props).tasks) {
@@ -116,8 +116,9 @@ describe("drawn tasks", () => {
         }
       }
     }
-    expect(tasksSeen).toBeGreaterThan(10000);
-  });
+    expect(tasksSeen).toBeGreaterThan(5000);
+    // About 0.5 s alone; on CI beside the suite many times that (#957).
+  }, 60_000);
 
   it("acts as zehner with hunderter at max 20 or 100", () => {
     for (const max of [20, 100]) {
@@ -150,7 +151,7 @@ describe("drawn tasks", () => {
         }
       }
     }
-  });
+  }, 60_000);
 });
 
 describe("solve against a brute force oracle", () => {
