@@ -68,6 +68,30 @@ def test_the_network_coming_back_opens_the_app_as_signed_in(window, server):
     expect(page.get_by_role("alert")).to_have_count(0)
 
 
+def test_the_network_coming_back_as_the_failure_page_is_drawn_is_not_lost(window, server):
+    """#959: an online event in the instant the failure page is drawn, before its own listener is attached, asks anyway."""
+    page, _ = window()
+    # Fires the event in the same task as the page's first alert, before React runs the effect that adds its listener.
+    page.add_init_script(
+        "new MutationObserver((_, watch) => { if (!document.querySelector('[role=alert]')) return;"
+        " watch.disconnect(); dispatchEvent(new Event('online')); })"
+        ".observe(document, { childList: true, subtree: true })"
+    )
+    requests = []
+
+    def cut_once(route):
+        requests.append(route)
+        if len(requests) == 1:
+            route.abort()
+        else:
+            route.continue_()
+
+    page.route(ME, cut_once)
+    page.goto(server)
+    expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible(timeout=10000)
+    expect(page.get_by_role("alert")).to_have_count(0)
+
+
 def test_the_network_coming_back_during_a_check_is_not_missed(window, server):
     """#481: an online event while the account check is out asks again when that check fails."""
     page, _ = window()

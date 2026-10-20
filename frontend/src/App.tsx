@@ -35,10 +35,11 @@ export default function App() {
   // shows the loading page while a try is out.
   const [down, setDown] = useState(false);
   const [trying, setTrying] = useState(false);
-  // Where the account is unknown and no failure page stands, the network back asks here: that page is gone during a
-  // try, and an online event then would be lost with the try's failure (#481). Where it stands, its own listener asks.
+  // Where the account is unknown, the network back asks here. The failure page's own listener is added after it is
+  // drawn, so an online event in that instant would be lost (#959); here it never is. A try out at the time is
+  // superseded, and the page's listener may ask too: the newest try decides.
   const askHere = useRef(false);
-  askHere.current = user === undefined && !(down && !trying);
+  askHere.current = user === undefined;
   // Each try takes the next number, and only the newest one's answer counts: an older try that answers late is no
   // answer about the account now. A sign-in takes a number too, so a check still out before it is outdated.
   const tries = useRef(0);
