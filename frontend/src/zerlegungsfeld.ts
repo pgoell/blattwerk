@@ -108,7 +108,7 @@ export type ZerlegungsfeldProps = {
   task: "task" | "split" | "result";
   /** Seed for the random tasks. The same seed always gives the same tasks. */
   seed: number;
-  /** Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten), 4 the right part, 5 the Zwischenergebnis (the full ten). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers. */
+  /** Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with "hunderter" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers. */
   typed?: ZerlegungsfeldTyped[];
 };
 

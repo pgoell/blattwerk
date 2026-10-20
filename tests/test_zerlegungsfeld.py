@@ -311,6 +311,20 @@ def test_rechenart_uebergang_and_zahlenraum_changes_drop_typed_in_one_undo_step(
     assert "typed" not in props_of(doc(page2, client))
     undo(page2)
     assert props_of(doc(page2, client))["typed"] == typed
+    # To bis 1000 with Hunderter stored: the unit changes from 10 to 100, so the typed numbers go.
+    page3 = editor(zf("f", {**ZF, "max": 100, "step": "hunderter", "typed": typed}), client=client)
+    pick(page3, "f")
+    step(page3, lambda: field(page3, "Zahlenraum").select_option(label="bis 1000"))
+    assert "typed" not in props_of(doc(page3, client))
+    undo(page3)
+    assert props_of(doc(page3, client))["typed"] == typed
+    # A change that keeps the unit keeps the typed numbers.
+    step(page3, lambda: field(page3, "Zahlenraum").select_option(label="bis 20"))
+    assert props_of(doc(page3, client))["typed"] == typed
+    page4 = editor(zf("g", {**ZF, "typed": typed}), client=client)
+    pick(page4, "g")
+    step(page4, lambda: field(page4, "Zahlenraum").select_option(label="bis 1000"))
+    assert props_of(doc(page4, client))["typed"] == typed
 
 
 def test_steppers_show_their_counts_and_stop_at_their_limits(editor):
@@ -365,11 +379,14 @@ def test_the_first_typed_number_keeps_the_drawn_given_numbers_as_typed_entries(e
     page = editor(zf("d", ZF), client=client)
     pick(page, "d")
     drawn = given_positions(at(page, "d").locator(".zerlegungsfeld")).get(0, set())
-    assert drawn
+    assert drawn == {0, 1}
+    b = values(at(page, "d").locator(".zerlegungsfeld"), 0)[1]
     field(page, "Erste Zahl").click()
     step(page, lambda: page.keyboard.type("7"))
     stored = [e for e in props_of(doc(page, client))["typed"] if e[0] == 0]
-    assert {e[1] for e in stored} >= drawn, (drawn, stored)
+    assert sorted(stored) == [[0, 0, 7], [0, 1, b]], (b, stored)
+    expect(field(page, "Zweite Zahl")).to_have_value(str(b))
+    assert values(at(page, "d").locator(".zerlegungsfeld"), 0)[1] == b
 
 
 @pytest.mark.parametrize(

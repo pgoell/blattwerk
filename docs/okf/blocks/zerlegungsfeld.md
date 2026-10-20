@@ -4,7 +4,7 @@ title: "Block: zerlegungsfeld"
 description: "The Zerlegungsfelder (Zehnerübergang in zwei Schritten): each task a + b with the split of b into the part to the full ten and the rest, then the two steps; which boxes are given."
 tags: [block, zerlegungsfeld]
 covers: [zerlegungsfeld]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T23:49:47Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-10-20T00:34:52Z }
 ---
 
 # zerlegungsfeld
@@ -45,7 +45,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | big | boolean |  | yes | Expert option: false draws a second number below the ten (or hundred) as in 8 + 5; true draws one of at least the ten (or hundred) as in 3 + 34 = 3 + 7 + 27. Default false. |
 | task | string | `task`, `split`, `result` | yes | The Aufgabentyp, which boxes are given: "task" the first and the second number; "split" also the two parts of the split; "result" the first number and the result. The pupil fills the other boxes. Every drawn task has one solution. Default "task". |
 | seed | number |  | yes | Seed for the random tasks. The same seed always gives the same tasks. |
-| typed | list of list of number |  | no | Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten), 4 the right part, 5 the Zwischenergebnis (the full ten). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers. |
+| typed | list of list of number |  | no | Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with "hunderter" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers. |
 
 # Examples
 
