@@ -373,7 +373,9 @@ def test_logout_in_one_tab_empties_the_clipboard_of_an_editor_open_in_another(ed
         "keys",
         pytest.param(
             "button",
-            marks=pytest.mark.webkit_xfail(204, "no test can put a picture on WebKit's clipboard"),
+            marks=pytest.mark.webkit_xfail(
+                204, "WebKit's Einfügen reads no picture the clipboard holds"
+            ),
         ),
     ],
 )

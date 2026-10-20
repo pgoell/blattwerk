@@ -686,10 +686,8 @@ SOURCES = {
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
     "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
 }
-# The source that pastes a picture by the Einfügen button, which WebKit's clipboard does not hold.
-NO_PICTURE = pytest.mark.webkit_xfail(
-    204, "headless WebKit on Linux keeps no picture on the clipboard"
-)
+# The source that pastes a picture by the Einfügen button, which reads no picture in WebKit.
+NO_PICTURE = pytest.mark.webkit_xfail(204, "WebKit's Einfügen reads no picture the clipboard holds")
 MARKS = {"einfügen": NO_PICTURE}
 # #775: now and then Playwright sees neither the route nor the request of a picture's upload,
 # which the page sends and the server answers. So the page holds that answer itself.

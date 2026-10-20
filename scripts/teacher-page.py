@@ -388,9 +388,10 @@ def holder_since(moment: float) -> None:
 
 def resize(page: Page, wide: str, high: str) -> str:
     # The holder owns the size: a verb's connection that ends clears the page's own size.
+    # Written once the browser took it: a size it refuses would stop the holder.
     w, h = number(wide), number(high)
-    (STATE / "size.json").write_text(json.dumps({"width": w, "height": h}))
     page.set_viewport_size({"width": w, "height": h})
+    (STATE / "size.json").write_text(json.dumps({"width": w, "height": h}))
     return shown(page, f"window is {wide} x {high}")
 
 
