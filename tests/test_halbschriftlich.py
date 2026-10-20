@@ -5,6 +5,8 @@ that each test proves. The numbers are read from the page, never pinned: the gen
 and the answer key are in test_halbschriftlich_print.py.
 """
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_feed_print import sheet_id
@@ -310,7 +312,7 @@ def test_stellenwerte_zeigen_draws_the_place_letters_above_the_numbers(editor):
 
 def test_zweite_zahl_faerben_tints_the_second_number_and_its_parts(editor):
     """Zweite Zahl färben (#828): with "Zweite Zahl färben" the second number and its parts are tinted (rect.tint,
-    #dbeafe); without it none."""
+    #9cc3f5 at 0.35); without it none."""
     page = editor(hal())
     pick(page, "k")
     expect(at(page, "k").locator("rect.tint")).to_have_count(0)
@@ -318,7 +320,9 @@ def test_zweite_zahl_faerben_tints_the_second_number_and_its_parts(editor):
     tints = at(page, "k").locator("rect.tint")
     expect(tints.first).to_be_visible()
     assert tints.count() > 0
-    expect(tints.first).to_have_attribute("fill", "#dbeafe")
+    # See-through, so that the Karo squares stay visible under the tint.
+    expect(tints.first).to_have_attribute("fill", "#9cc3f5")
+    expect(tints.first).to_have_attribute("fill-opacity", "0.35")
 
 
 def test_rechenzeichen_der_schritte_drucken_off_leaves_the_signs_out_of_the_step_lines(
@@ -329,9 +333,20 @@ def test_rechenzeichen_der_schritte_drucken_off_leaves_the_signs_out_of_the_step
     page = editor(hal(props={"ops": False}))
     pick(page, "k")
     expect(at(page, "k").locator("text.op")).to_have_count(6)
+    expect(at(page, "k").locator("text.eq")).to_have_count(6)
     paper = key_print(browser, server, sheet_id(page))
     assert paper.locator(".halbschriftlich text.op").count() > 6
+    assert paper.locator(".halbschriftlich text.eq").count() > 6
     paper.context.close()
+
+
+def test_a_task_with_many_answers_gets_room_for_any_of_them(editor):
+    """Eigene Zahlen (#828): a task with only its result typed (101: 1 + 100, but also 50 + 51) has many answers, so
+    its pupils' sheet gets S step lines (3 with dreistellig), not only the one line of 1 + 100."""
+    page = editor(hal(props={"count": 1, "typed": [[0, 2, 101]]}))
+    task = at(page, "k").locator('g.task[data-task="0"]')
+    expect(task).to_have_class(re.compile(r"\bmany\b"))
+    expect(task.locator('g.slot[data-pos="0"]')).to_have_count(1 + 3)
 
 
 def test_typed_numbers_win_and_the_rest_is_worked_out(editor, browser, server):
@@ -472,13 +487,16 @@ def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(edi
     page = editor(hal(), client=client)
     pick(page, "k")
     number = field(page, "Erste Zahl")
-    # A click is intercepted by the field's <label> in the panel (open app issue), so the test focuses it.
+    drawn_b = field(page, "Zweite Zahl").input_value()
     number.click()
     number.press("Control+A")
     step(page, lambda: page.keyboard.type("12"))
     expect(number).to_be_focused()
     expect(number).to_have_value("12")
-    assert [0, 0, 12] in props_of(doc(page, client))["typed"]
+    typed = props_of(doc(page, client))["typed"]
+    # The first number typed keeps the drawn second number as a typed entry, so the sheet still shows it.
+    assert [0, 0, 12] in typed and [0, 1, int(drawn_b)] in typed
+    expect(field(page, "Zweite Zahl")).to_have_value(drawn_b)
     step(page, lambda: number.press("Control+z"))
     assert "typed" not in props_of(doc(page, client))
 

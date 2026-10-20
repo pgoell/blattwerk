@@ -3702,7 +3702,8 @@ function Halbschriftlich({ block, solved }: { block: HalbschriftlichBlock; solve
             // The key shows the answers of a task that is not wrong and not empty; a wrong or empty task's key is its sheet.
             const open = solved && !t.wrong && !blank;
             const stepSigns = !blank && (p.ops || open);
-            const steps = t.wrong || blank ? S : t.steps.length;
+            // A task with many answers gets S lines, room for any of them.
+            const steps = t.wrong || blank || t.many ? S : t.steps.length;
             const kind = (pos: number): "given" | "answer" | null => (t.given[pos] ? "given" : open ? "answer" : null);
             // One slot: its digits as one text, right-aligned in its D squares, and in the plain layout its white box.
             const slot = (l: number, pos: number, value: number | null, k: "given" | "answer" | null) => {
@@ -3713,7 +3714,7 @@ function Halbschriftlich({ block, solved }: { block: HalbschriftlichBlock; solve
               return (
                 <g key={pos} className="slot" data-line={l} data-pos={pos}>
                   {!p.grid && <rect x={x} y={y} width={D * Q} height={Q} fill="white" stroke="#222" strokeWidth={0.3} />}
-                  {p.tint && pos === 1 && <rect className="tint" x={x} y={y} width={D * Q} height={Q} fill="#dbeafe" />}
+                  {p.tint && pos === 1 && <rect className="tint" x={x} y={y} width={D * Q} height={Q} fill="#9cc3f5" fillOpacity={0.35} />}
                   {k && (
                     <text className={k} x={xs} y={y + Q / 2} fontSize={Q * 0.75} fill={k === "given" ? "#222" : "#c0392b"} textAnchor="middle" dominantBaseline="central">
                       {digits}

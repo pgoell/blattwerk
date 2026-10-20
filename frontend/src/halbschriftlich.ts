@@ -75,11 +75,11 @@
 // `g.task[data-task=i]` (class `wrong`, class `many`, class `none` for an empty drawn task when `none`). A number slot is
 // `g.slot[data-line=l][data-pos=p]` (line 0 the task: p 0 a, 1 b, 2 r; line j + 1 step j: p 0 s(j), 1 part j, 2 s(j+1)):
 // without `grid` a white rect with stroke #222 of 0.3 around its D squares; with `tint` the slots of p 1 have a
-// `rect.tint` fill #dbeafe under the digits; the digits as one `text` per slot (class `given` in #222, in the key an
+// `rect.tint` fill #9cc3f5 at fill-opacity 0.35 under the digits (see-through, so the Karo squares show); the digits as one `text` per slot (class `given` in #222, in the key an
 // empty position class `answer` in #c0392b), letter-spaced so that each digit sits in its square, size Q · 0.75.
 // Every drawn line has `text.op` ("+" or "−") in its sign square and `text.eq` ("=") in its = square.
-// Line 0 always draws with its signs. Step lines on the pupils' sheet: the task's own steps (S lines for a wrong task or
-// an empty one), each with its empty slots, and with `ops` also its `text.op` and `text.eq`; `ops` changes only the
+// Line 0 draws with its signs (an empty task under `none` without them). Step lines on the pupils' sheet: the task's own
+// steps (S lines for a wrong task, an empty one, or one with many answers, room for any of them), each with its empty slots, and with `ops` also its `text.op` and `text.eq`; `ops` changes only the
 // signs. In the key: the task's own steps with their signs and every number as `answer`; a wrong or empty task's key
 // is its pupils' sheet. With `none` the sheet shows no words for it: the empty tasks stay blank, the panel says why. With `head`
 // `text.head` letters ("E", "Z", "H", "T" from the right) in #555, size Q · 0.6, over each of the three number columns.
@@ -261,7 +261,8 @@ function fits(op: "+" | "-", max: number, einer: Rule, zehner: Rule, a: number, 
 const tableMemo = new Map<string, { A: number[]; n: number[] }>();
 
 function table(p: HalbschriftlichProps): { A: number[]; n: number[] } {
-  const key = JSON.stringify({ ...p, seed: 0, typed: undefined });
+  // Only what decides which (a, b) fit: a stepper or a look change reuses the table.
+  const key = JSON.stringify({ op: p.op, max: p.max, ...acts(p) });
   const old = tableMemo.get(key);
   if (old) return old;
   const { k, einer, zehner } = acts(p);
