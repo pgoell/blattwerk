@@ -131,7 +131,7 @@ describe("typed tasks", () => {
     const R = rng(829);
     const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(R() * xs.length)];
     const int = (lo: number, hi: number): number => lo + Math.floor(R() * (hi - lo + 1));
-    for (let round = 0; round < 150; round++) {
+    for (let round = 0; round < 2000; round++) {
       const field = pick(FIELDS);
       const C = CSIZE[field];
       const op = pick(OPS);
