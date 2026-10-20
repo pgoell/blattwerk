@@ -10,8 +10,8 @@ The docstrings name the lines of the checklist.
 import re
 
 import pytest
+from conftest import WEBKIT
 from playwright.sync_api import expect
-from test_clipboard import no_picture
 from test_drop import PDF, PNG, landed, spot
 from ui import TEXT, at, box, centre, copy_picture, drop, maths, pick, saved, sheet, user
 
@@ -82,6 +82,16 @@ def store(page):
     page.get_by_role("button", name="Dieses Blatt als Vorlage").click()
 
 
+# Records the name the app gives the PDF's link, the name the teacher's browser saves it under.
+RECORD_LINK = """() => {
+    const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+        window.__pdfName = this.download;
+        return click.call(this);
+    };
+}"""
+
+
 @pytest.mark.parametrize("how", HOW)
 @pytest.mark.parametrize("name", ["PDF", "Lösungen"])
 def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(editor, how, name):
@@ -102,9 +112,14 @@ def test_a_pdf_that_cannot_be_made_leaves_the_sheet_and_comes_with_the_next_try(
     expect(page).to_have_url(address)
     expect(at(page, "a")).to_have_text("Hallo")
     mend()
+    page.evaluate(RECORD_LINK)
     with page.expect_download() as got:
         again(page)
-    assert got.value.suggested_filename == f"Plus bis 20{' Lösungen' * (name != 'PDF')}.pdf"
+    want = f"Plus bis 20{' Lösungen' * (name != 'PDF')}.pdf"
+    assert page.evaluate("() => window.__pdfName") == want
+    # WebKit's Playwright renames a download to Plus_bis_20.pdf, so only Chromium checks that name.
+    if not WEBKIT:
+        assert got.value.suggested_filename == want
     with open(got.value.path(), "rb") as file:
         assert file.read(5) == b"%PDF-"
     expect(page.locator(LINE)).to_have_count(0)
@@ -232,7 +247,7 @@ def by_drop(page, file=PNG):
 
 
 @pytest.mark.parametrize("how", HOW)
-@pytest.mark.parametrize("add", [by_button, pytest.param(by_paste, marks=no_picture), by_drop])
+@pytest.mark.parametrize("add", [by_button, by_paste, by_drop])
 def test_a_picture_that_cannot_be_sent_names_the_cause_and_lands_with_the_next_try(
     editor, how, add
 ):
