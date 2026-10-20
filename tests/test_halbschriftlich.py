@@ -446,7 +446,7 @@ def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(edi
     pick(page, "k")
     number = field(page, "Erste Zahl")
     # A click is intercepted by the field's <label> in the panel (open app issue), so the test focuses it.
-    number.focus()
+    number.click()
     number.press("Control+A")
     step(page, lambda: page.keyboard.type("12"))
     expect(number).to_be_focused()

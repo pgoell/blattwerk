@@ -89,9 +89,10 @@ export default function Halbschriftlich({ block, apply }: { block: Halbschriftli
     const key = `${c},${pos}`;
     const text = task?.given[pos] ? String(task.values[pos]) : "";
     return (
-      <label key={pos}>
+      <label key={pos} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
         {NAMES[pos]}
         <input
+          style={{ width: "100%", boxSizing: "border-box" }}
           className="typed"
           inputMode="numeric"
           aria-label={NAMES[pos]}
