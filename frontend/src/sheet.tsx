@@ -2138,7 +2138,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
   const { solved } = how;
   const module = useSplitter(true);
   const svg = useRef<SVGSVGElement>(null);
-  const tools = useRef({ draw: () => {}, seen: () => {} });
+  const tools = useRef({ draw: () => {}, seen: () => {}, drawn: () => {} });
   const size = useRef([0, 0]);
   const marks = useRef<Mark[]>([]);
   // With no splitter the block has no bows, and says it is done: a page prints without bows sooner than not at
@@ -2187,7 +2187,16 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
       frame = 0;
       changed.takeRecords();
     };
+    // WebKit sends no `loadingdone` for a font that was on its way at the draw, and the letters it moves keep the
+    // bows of the font before (#960): until it is in, the bows are not yet those of the text, and say so.
+    let gone = false;
+    tools.current.drawn = () => {
+      if (document.fonts.status !== "loading") return;
+      own.classList.add("unsplit");
+      document.fonts.ready.then(() => gone || later());
+    };
     return () => {
+      gone = true;
       cancelAnimationFrame(frame);
       resized.disconnect();
       changed.disconnect();
@@ -2200,6 +2209,7 @@ function Bows({ block, ...how }: { block: Box & { props: object } } & Draw) {
     tools.current.draw = () => {
       tools.current.seen();
       draw();
+      tools.current.drawn();
     };
     svg.current!.classList.add("unsplit");
     tools.current.draw();

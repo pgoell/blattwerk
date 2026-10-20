@@ -328,6 +328,31 @@ def test_bows_are_measured_anew_only_for_the_block_that_changed(editor):
     assert page.evaluate(DRAWS)["b"] == 0
 
 
+def test_a_font_that_comes_in_late_moves_the_bows_with_its_letters(browser, server):
+    """#960: WebKit sends no loadingdone for a font on its way at the draw; the bows wait for it."""
+    client = user()
+    shape = {**TEXT, "kind": "rect", "fill": "none", "text": "Banane", "syllables": True}
+    mine = sheet(client, [box("a", "shape", shape)])["id"]
+    context = browser.new_context(viewport={"width": 1400, "height": 1000})
+    context.add_init_script("localStorage.setItem('tour', '1')")
+    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
+    held = []
+    context.route("**/fonts/andika/**", lambda route: held.append(route))
+    page = context.new_page()
+    with page.expect_request("**/fonts/andika/**"):
+        page.goto(f"{server}/blatt/{mine}")
+    expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
+    # Drawn in the font that stands in, the bows say they are not yet those of the text.
+    expect(at(page, "a").locator(".syl").first).to_be_attached()
+    expect(at(page, "a").locator(".unsplit")).to_have_count(1)
+    # The font comes in: an unroute lets the requests it held go on.
+    context.unroute("**/fonts/andika/**")
+    assert held
+    assert syls(page, "a") == ["Ba", "na", "ne"]
+    expect_under(bows(page, "a"))
+    context.close()
+
+
 def opened(browser, server, client, mine, path="blatt", **more):
     """A page of a window of its own, where the splitter's chunk fails to load, on the sheet
     `mine`; and the errors the page throws."""
