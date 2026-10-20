@@ -239,7 +239,7 @@ describe("made with typed numbers", () => {
   it("never marks a task wrong when its typed numbers are the drawn ones, and marks many only with two solutions", () => {
     const next = rng(7);
     const bad: string[] = [];
-    for (let c = 0; c < 20; c++) {
+    for (let c = 0; c < 300; c++) {
       const all = settings();
       const base = all[Math.floor(next() * all.length)];
       const p = { ...base, seed: 1 + Math.floor(next() * 1000), count: 12 };
@@ -278,6 +278,7 @@ describe("made with typed numbers", () => {
         continue;
       }
       wrongs++;
+      if (countBig(base.op, known, 1) !== 0) bad.push(`false hint: ${JSON.stringify(known)} has a solution`);
       if (t.steps.length) bad.push("wrong task has steps");
       for (let q = 0; q < 3; q++) {
         const want = known[q] ?? 0;
