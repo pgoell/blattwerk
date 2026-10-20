@@ -17,6 +17,7 @@ import { DEFAULTS as MAGIC, heightFor as heightForMagic, sane as saneMagic } fro
 import { DEFAULTS as MALQ, heightFor as heightForMalq, sane as saneMalq } from "./malquadrat";
 import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "./zerlegungsfeld";
 import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFor as widthForHalb } from "./halbschriftlich";
+import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -76,6 +77,11 @@ export const INSERTS = {
     const w = round(widthForHalb(props));
     return { w, h: round(heightForHalb(saneHalb(props), w)), type: "halbschriftlich", props };
   },
+  zehnerfeld: (seed: number): Fresh => {
+    const props = { ...ZEHN, seed };
+    const w = round(widthForZehn(props));
+    return { w, h: round(heightForZehn(saneZehn(props), w)), type: "zehnerfeld", props };
+  },
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
@@ -130,6 +136,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   malquadrat: [(p, w) => heightForMalq(saneMalq(p), w), ["count", "columns", "size"]],
   zerlegungsfeld: [(p, w) => heightForZerl(saneZerl(p), w), ["count", "columns"]],
   halbschriftlich: [(p, w) => heightForHalb(saneHalb(p), w), ["count", "columns", "head", "digits", "max", "typed"]],
+  zehnerfeld: [(p, w) => heightForZehn(saneZehn(p), w), ["count", "columns", "field"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's
