@@ -1,8 +1,7 @@
 """A Halbschriftlich block grown over a block says so, and moves nothing; near the paper's foot it grows past the
 margin and says so (#828, as the Zerlegungsfeld #827).
 
-The hint texts are copied from the Zerlegungsfeld's pattern. They are not in the contract, so they must be checked
-against the Halbschriftlich panel and drawing once the block exists: a hint whose words differ is a wrong test.
+The hint words are those of frontend/src/pages/Format.tsx.
 """
 
 import pytest
@@ -24,11 +23,8 @@ HAL = {
     "ops": True,
     "seed": 7,
 }
-FOOT = "Das Halbschriftlich rechnen ragt unten über den Rand."
-COVER = (
-    "Das Halbschriftlich rechnen liegt über einem anderen Block. "
-    "Verschiebe ihn oder mache das Halbschriftlich rechnen kleiner."
-)
+FOOT = "Der Block Halbschriftlich rechnen ragt unten über den Rand."
+COVER = "Der Block Halbschriftlich rechnen liegt über einem anderen Block. Verschiebe ihn oder mache ihn kleiner."
 H = 86  # the default height at 146 mm wide
 GROWN = 116  # 4 rows of tasks: 4 · 25 + 3 · 5 + 1
 

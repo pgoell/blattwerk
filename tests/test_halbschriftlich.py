@@ -31,7 +31,6 @@ DEFAULTS = {k: v for k, v in HAL.items() if k != "seed"}
 MINUS = "\N{MINUS SIGN}"
 H = 86  # the default height: 3 rows of 25 mm, 2 gaps of 5 mm and 1 mm of stroke, at 146 mm wide
 NOTE = "Auch andere Lösungen sind richtig."
-NO_TASK = "Mit diesen Einstellungen gibt es keine Aufgabe."
 
 
 @pytest.fixture
@@ -247,23 +246,6 @@ def test_the_zehner_select_shows_only_with_bis_1000_and_zweistellig_or_more(edit
     expect(field(page, "Übergang bei den Zehnern")).to_have_count(0)
 
 
-def test_settings_with_no_task_give_the_hint_and_every_slot_empty_also_in_the_key(
-    editor, browser, server
-):
-    """Settings (#828): Plus, bis 1000, einstellig and Zehner "mit Übergang" give the hint "Mit diesen Einstellungen
-    gibt es keine Aufgabe.", and every slot is empty, also in the key.
-
-    Open point: the contract says zehner counts only with digits 2 or 3 and acts as "any" with einstellig, so these
-    settings draw tasks. This test follows the checklist; it fails until the contract or the test is settled.
-    """
-    page = editor(hal(props={"digits": 1, "zehner": "yes"}))
-    pick(page, "k")
-    expect(hint(page)).to_have_text(NO_TASK)
-    paper = key_print(browser, server, sheet_id(page))
-    expect(paper.locator(".halbschriftlich text")).to_have_count(0)
-    paper.context.close()
-
-
 @pytest.mark.parametrize("grid", [True, False])
 def test_karo_on_draws_the_squares_and_off_draws_plain_boxes(editor, grid):
     """Karo (#828): Karo on draws g.karo behind the tasks; off draws plain rects, one box per number."""
@@ -288,16 +270,15 @@ def test_karo_checkbox_is_one_undo_step(editor):
 
 
 def test_stellenwerte_zeigen_draws_the_place_letters_above_the_numbers(editor):
-    """Stellenwerte (#828): with "Stellenwerte zeigen" the block draws text.head letters (H, Z, E, T) above the number
-    columns; without it none."""
+    """Stellenwerte (#828): with "Stellenwerte zeigen" each of the three number columns of a task shows the letters
+    T, H, Z, E left to right (bis 1000, D = 4); without it none."""
     page = editor(hal())
     pick(page, "k")
     expect(at(page, "k").locator("text.head")).to_have_count(0)
     field(page, "Stellenwerte zeigen").check()
-    heads = at(page, "k").locator("text.head")
+    heads = at(page, "k").locator("g.task[data-task='0'] text.head")
     expect(heads.first).to_be_visible()
-    texts = heads.all_text_contents()
-    assert texts and set(texts) <= {"T", "H", "Z", "E"} and "E" in texts, texts
+    assert heads.all_text_contents() == ["T", "H", "Z", "E"] * 3
 
 
 def test_zweite_zahl_faerben_tints_the_second_number_and_its_parts(editor):

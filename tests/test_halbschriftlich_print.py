@@ -6,7 +6,7 @@ The numbers are read from the printed page, never pinned: the generator may chan
 import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
-from test_halbschriftlich import MINUS, NO_TASK, NOTE, hal, step_count, values
+from test_halbschriftlich import MINUS, NOTE, hal, step_count, values
 from test_suchsel_print import key_print
 from ui import pick
 
@@ -72,19 +72,6 @@ def test_the_key_fills_every_box_of_every_drawn_task_and_the_sheet_leaves_the_re
         top = line_of(paper, task, 0)
         assert set(top) == {0, 1, 2}, top
         assert top[0] + top[1] == top[2], top
-    paper.context.close()
-
-
-def test_the_key_of_a_no_task_setting_is_empty(editor, browser, server):
-    """Settings (#828): with no task, the key shows no number and the panel hint says why.
-
-    Open point: see test_settings_with_no_task_give_the_hint_and_every_slot_empty_also_in_the_key.
-    """
-    page = editor(hal(props={"digits": 1, "zehner": "yes"}))
-    pick(page, "k")
-    expect(page.locator(".panel p.hint[role=status]")).to_have_text(NO_TASK)
-    paper = key_print(browser, server, sheet_id(page))
-    assert paper.locator(".halbschriftlich text").count() == 0
     paper.context.close()
 
 
