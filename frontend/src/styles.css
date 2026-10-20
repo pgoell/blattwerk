@@ -548,6 +548,13 @@ body:has(.print) { background: #fff; }
 .zerlegungsfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .halbschriftlich { height: 100%; font-family: Andika; }
 .halbschriftlich svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zehnerfeld { height: 100%; font-family: Andika; }
+.zehnerfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+/* The dots of a Zehnerfeld set by hand: as many columns as the field, each dot as wide as the panel lets it be. */
+.punkte button { width: 100%; min-width: 0; aspect-ratio: 1; height: auto; padding: 0; border-radius: 50%; border: 1px solid #888; background: #fff; }
+.punkte button[data-mark="1"] { background: var(--dot1); }
+.punkte button[data-mark="2"] { background: var(--dot2); }
+.punkte button[data-mark="3"] { background: linear-gradient(to top right, transparent 40%, #fff 40%, #fff 44%, #222 44%, #222 56%, #fff 56%, #fff 60%, transparent 60%), var(--dot1); }
 .block .rechendreieck { height: 100%; font-family: Andika; }
 .rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zahlenstrahl { height: 100%; font-family: Andika; }

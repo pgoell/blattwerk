@@ -23,6 +23,7 @@ SAID = set(
 # The app's own block names (Editor.tsx, NAMES and PLURALS): the app's words, no person's.
 BLOCK_NAMES = set(
     """Text Texte Bild Bilder Symbol Symbole Lineatur Lineaturen Suchsel Zahlenmauer
+    Zehnerfeld Zehnerfelder Zwanzigerfeld Zwanzigerfelder
     Zahlenmauern Zahlenhaus Zahlenhäuser Rechendreieck Rechendreiecke Zahlenstrahl
     Zahlenstrahlen Zahlenkette Zahlenketten Pfeilbild Pfeilbilder Operatorfeld Operatorfelder
     Rechenrad Rechenräder Rechentabelle Rechentabellen Magisches Magische Quadrat Quadrate

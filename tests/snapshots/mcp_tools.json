@@ -281,6 +281,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zehnerfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZehnerfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -364,6 +376,7 @@
                 "malquadrat",
                 "zerlegungsfeld",
                 "halbschriftlich",
+                "zehnerfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -513,6 +526,14 @@
           ],
           "type": "string"
         },
+        "Cross": {
+          "enum": [
+            "any",
+            "yes",
+            "no"
+          ],
+          "type": "string"
+        },
         "Doc": {
           "properties": {
             "breaks": {
@@ -656,6 +677,15 @@
           "enum": [
             "row",
             "rows"
+          ],
+          "type": "string"
+        },
+        "Field": {
+          "enum": [
+            "zehn",
+            "zehn2",
+            "zwanzig",
+            "hundert"
           ],
           "type": "string"
         },
@@ -5356,6 +5386,194 @@
           },
           "type": "object"
         },
+        "ZehnerfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZehnerfeldProps",
+              "description": "The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand."
+            },
+            "type": {
+              "const": "zehnerfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZehnerfeldMark": {
+          "description": "A dot the teacher set: the task's index (from 0), the dot (0 to 99), the mark (1, 2 or 3).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "ZehnerfeldProps": {
+          "properties": {
+            "color1": {
+              "description": "The first colour with `colors` \"own\", as \"#rrggbb\". Default \"#e3463b\".",
+              "type": "string"
+            },
+            "color2": {
+              "description": "The second colour with `colors` \"own\", as \"#rrggbb\". Default \"#1d4ea6\".",
+              "type": "string"
+            },
+            "colors": {
+              "description": "Farben: \"color\" red and blue, \"grey\" Graustufen (black and grey, for black and white copies), \"own\" the colours `color1` and `color2`. Default \"color\".",
+              "enum": [
+                "color",
+                "grey",
+                "own"
+              ],
+              "type": "string"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (fields) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "cross": {
+              "$ref": "#/definitions/Cross",
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+            },
+            "field": {
+              "$ref": "#/definitions/Field",
+              "description": "The Typ of field: \"zehn\" Zehnerfeld 1 × 10, \"zehn2\" Zehnerfeld 2 × 5, \"zwanzig\" Zwanzigerfeld 2 × 10, \"hundert\" Hunderterfeld 10 × 10. The dots count row by row from the top left. Default \"zwanzig\"."
+            },
+            "lines": {
+              "description": "Trennlinien: true draws a strong line after each five dots, across and down. Default true.",
+              "type": "boolean"
+            },
+            "manual": {
+              "description": "Punkte selbst setzen: true shows in each field exactly the dots in `marks` and no task; the number boxes stay empty for the pupil. Default false.",
+              "type": "boolean"
+            },
+            "marks": {
+              "description": "The dots the teacher set with `manual`. Each entry is [task index from 0, dot 0 to 99 counted row by row, mark 1 colour 1, 2 colour 2 or 3 colour 1 struck through].",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldMark"
+              },
+              "type": "array"
+            },
+            "max": {
+              "description": "The Zahlenraum: 5, 10, 20, 50 or 100, at most the field's size (10, 20 or 100). Plus results and Minus first numbers stay within it. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: the first number's dots in colour 1, the second number's in colour 2) or \"-\" (Minus: the first number's dots in colour 1, the second number's of them struck through). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"dots\" the field shows the dots and the pupil writes the task; \"write\" the task's two numbers show and the pupil paints the dots and writes the result; \"mixed\" the two by turns, starting with \"dots\". Default \"dots\".",
+              "enum": [
+                "dots",
+                "write",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZehnerfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
         "ZerlegungsfeldBlock": {
           "properties": {
             "angle": {
@@ -6108,6 +6326,9 @@
               "$ref": "#/definitions/HalbschriftlichProps"
             },
             {
+              "$ref": "#/definitions/ZehnerfeldProps"
+            },
+            {
               "$ref": "#/definitions/ZahlenstrahlProps"
             },
             {
@@ -6149,6 +6370,7 @@
             "malquadrat",
             "zerlegungsfeld",
             "halbschriftlich",
+            "zehnerfeld",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -6650,6 +6872,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zehnerfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZehnerfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -6733,6 +6967,7 @@
                 "malquadrat",
                 "zerlegungsfeld",
                 "halbschriftlich",
+                "zehnerfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -6882,6 +7117,14 @@
           ],
           "type": "string"
         },
+        "Cross": {
+          "enum": [
+            "any",
+            "yes",
+            "no"
+          ],
+          "type": "string"
+        },
         "Doc": {
           "properties": {
             "breaks": {
@@ -7025,6 +7268,15 @@
           "enum": [
             "row",
             "rows"
+          ],
+          "type": "string"
+        },
+        "Field": {
+          "enum": [
+            "zehn",
+            "zehn2",
+            "zwanzig",
+            "hundert"
           ],
           "type": "string"
         },
@@ -11922,6 +12174,207 @@
           ],
           "type": "object"
         },
+        "ZehnerfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZehnerfeldProps",
+              "description": "The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand."
+            },
+            "type": {
+              "const": "zehnerfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZehnerfeldMark": {
+          "description": "A dot the teacher set: the task's index (from 0), the dot (0 to 99), the mark (1, 2 or 3).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "ZehnerfeldProps": {
+          "properties": {
+            "color1": {
+              "description": "The first colour with `colors` \"own\", as \"#rrggbb\". Default \"#e3463b\".",
+              "type": "string"
+            },
+            "color2": {
+              "description": "The second colour with `colors` \"own\", as \"#rrggbb\". Default \"#1d4ea6\".",
+              "type": "string"
+            },
+            "colors": {
+              "description": "Farben: \"color\" red and blue, \"grey\" Graustufen (black and grey, for black and white copies), \"own\" the colours `color1` and `color2`. Default \"color\".",
+              "enum": [
+                "color",
+                "grey",
+                "own"
+              ],
+              "type": "string"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (fields) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "cross": {
+              "$ref": "#/definitions/Cross",
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+            },
+            "field": {
+              "$ref": "#/definitions/Field",
+              "description": "The Typ of field: \"zehn\" Zehnerfeld 1 × 10, \"zehn2\" Zehnerfeld 2 × 5, \"zwanzig\" Zwanzigerfeld 2 × 10, \"hundert\" Hunderterfeld 10 × 10. The dots count row by row from the top left. Default \"zwanzig\"."
+            },
+            "lines": {
+              "description": "Trennlinien: true draws a strong line after each five dots, across and down. Default true.",
+              "type": "boolean"
+            },
+            "manual": {
+              "description": "Punkte selbst setzen: true shows in each field exactly the dots in `marks` and no task; the number boxes stay empty for the pupil. Default false.",
+              "type": "boolean"
+            },
+            "marks": {
+              "description": "The dots the teacher set with `manual`. Each entry is [task index from 0, dot 0 to 99 counted row by row, mark 1 colour 1, 2 colour 2 or 3 colour 1 struck through].",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldMark"
+              },
+              "type": "array"
+            },
+            "max": {
+              "description": "The Zahlenraum: 5, 10, 20, 50 or 100, at most the field's size (10, 20 or 100). Plus results and Minus first numbers stay within it. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: the first number's dots in colour 1, the second number's in colour 2) or \"-\" (Minus: the first number's dots in colour 1, the second number's of them struck through). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"dots\" the field shows the dots and the pupil writes the task; \"write\" the task's two numbers show and the pupil paints the dots and writes the result; \"mixed\" the two by turns, starting with \"dots\". Default \"dots\".",
+              "enum": [
+                "dots",
+                "write",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "count",
+            "columns",
+            "field",
+            "op",
+            "task",
+            "max",
+            "cross",
+            "lines",
+            "colors",
+            "manual",
+            "seed"
+          ],
+          "type": "object"
+        },
+        "ZehnerfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
         "ZerlegungsfeldBlock": {
           "properties": {
             "angle": {
@@ -12489,6 +12942,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zehnerfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZehnerfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -12572,6 +13037,7 @@
                 "malquadrat",
                 "zerlegungsfeld",
                 "halbschriftlich",
+                "zehnerfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -12721,6 +13187,14 @@
           ],
           "type": "string"
         },
+        "Cross": {
+          "enum": [
+            "any",
+            "yes",
+            "no"
+          ],
+          "type": "string"
+        },
         "Doc": {
           "properties": {
             "breaks": {
@@ -12864,6 +13338,15 @@
           "enum": [
             "row",
             "rows"
+          ],
+          "type": "string"
+        },
+        "Field": {
+          "enum": [
+            "zehn",
+            "zehn2",
+            "zwanzig",
+            "hundert"
           ],
           "type": "string"
         },
@@ -17564,6 +18047,194 @@
           },
           "type": "object"
         },
+        "ZehnerfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZehnerfeldProps",
+              "description": "The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand."
+            },
+            "type": {
+              "const": "zehnerfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZehnerfeldMark": {
+          "description": "A dot the teacher set: the task's index (from 0), the dot (0 to 99), the mark (1, 2 or 3).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "ZehnerfeldProps": {
+          "properties": {
+            "color1": {
+              "description": "The first colour with `colors` \"own\", as \"#rrggbb\". Default \"#e3463b\".",
+              "type": "string"
+            },
+            "color2": {
+              "description": "The second colour with `colors` \"own\", as \"#rrggbb\". Default \"#1d4ea6\".",
+              "type": "string"
+            },
+            "colors": {
+              "description": "Farben: \"color\" red and blue, \"grey\" Graustufen (black and grey, for black and white copies), \"own\" the colours `color1` and `color2`. Default \"color\".",
+              "enum": [
+                "color",
+                "grey",
+                "own"
+              ],
+              "type": "string"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 2.",
+              "maximum": 4,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks (fields) on the sheet, side by side in rows of `columns`. Default 4.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "cross": {
+              "$ref": "#/definitions/Cross",
+              "description": "The Zehnerübergang: \"yes\" every task crosses a ten (Plus: the Einer of both numbers add up to more than 10, as 8 + 5; Minus: the Einer of the result and the second number do, as 13 − 5), \"no\" none does (6 + 4 = 10 and 20 − 4 do not cross), \"any\" either. Counts only with the Zwanziger- and Hunderterfeld. Default \"any\"."
+            },
+            "field": {
+              "$ref": "#/definitions/Field",
+              "description": "The Typ of field: \"zehn\" Zehnerfeld 1 × 10, \"zehn2\" Zehnerfeld 2 × 5, \"zwanzig\" Zwanzigerfeld 2 × 10, \"hundert\" Hunderterfeld 10 × 10. The dots count row by row from the top left. Default \"zwanzig\"."
+            },
+            "lines": {
+              "description": "Trennlinien: true draws a strong line after each five dots, across and down. Default true.",
+              "type": "boolean"
+            },
+            "manual": {
+              "description": "Punkte selbst setzen: true shows in each field exactly the dots in `marks` and no task; the number boxes stay empty for the pupil. Default false.",
+              "type": "boolean"
+            },
+            "marks": {
+              "description": "The dots the teacher set with `manual`. Each entry is [task index from 0, dot 0 to 99 counted row by row, mark 1 colour 1, 2 colour 2 or 3 colour 1 struck through].",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldMark"
+              },
+              "type": "array"
+            },
+            "max": {
+              "description": "The Zahlenraum: 5, 10, 20, 50 or 100, at most the field's size (10, 20 or 100). Plus results and Minus first numbers stay within it. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: the first number's dots in colour 1, the second number's in colour 2) or \"-\" (Minus: the first number's dots in colour 1, the second number's of them struck through). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "task": {
+              "description": "The Aufgabentyp: \"dots\" the field shows the dots and the pupil writes the task; \"write\" the task's two numbers show and the pupil paints the dots and writes the result; \"mixed\" the two by turns, starting with \"dots\". Default \"dots\".",
+              "enum": [
+                "dots",
+                "write",
+                "mixed"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 2, value 0 to 999]. Positions: 0 the first number, 1 the second number, 2 the result. The other positions are worked out from them; a task whose typed numbers do not fit the field is marked wrong and shows no dots and no numbers.",
+              "items": {
+                "$ref": "#/definitions/ZehnerfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZehnerfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 2), the value (0 to 999; above the field's size it never fits).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
         "ZerlegungsfeldBlock": {
           "properties": {
             "angle": {
@@ -18309,6 +18980,9 @@
             },
             {
               "$ref": "#/definitions/HalbschriftlichProps"
+            },
+            {
+              "$ref": "#/definitions/ZehnerfeldProps"
             },
             {
               "$ref": "#/definitions/ZahlenstrahlProps"

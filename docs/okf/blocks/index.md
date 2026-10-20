@@ -46,6 +46,8 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 
 * [halbschriftlich](halbschriftlich.md): The Halbschriftlich tasks (semi-written addition and subtraction): each task a + b = r and its steps place by place, the highest place first; Karo or plain, place letters, tint, signs of the steps for the pupils.
 
+* [zehnerfeld](zehnerfeld.md): The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand.
+
 * [zahlenstrahl](zahlenstrahl.md): The number line (Zahlenstrahl): its range, ticks and the tasks on it.
 
 * [hunderterfeld](hunderterfeld.md): The hundred square (Hunderterfeld or Hundertertafel) and what the pupil fills in.
