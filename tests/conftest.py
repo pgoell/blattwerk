@@ -45,7 +45,8 @@ def _pw_sent(self, object, method, params, timeout, no_reply=False):
     # The first catch on CI named a second thread as the sender (#463): such a send keeps its way.
     if thread is not threading.main_thread():
         said += " by\n" + "".join(traceback.format_stack(limit=25))
-    _pw_keep(sent, self._last_id + 1, said)
+    # The id the send is about to take, as the driver answers it: `prefix@N` since 1.64.
+    _pw_keep(sent, f"{self._call_id_prefix}@{self._last_id + 1}", said)
     return _pw_send(self, object, method, params, timeout, no_reply)
 
 

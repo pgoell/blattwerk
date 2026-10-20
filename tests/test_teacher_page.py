@@ -19,7 +19,7 @@ from uuid import uuid4
 
 import pytest
 from PIL import Image, ImageChops
-from playwright.sync_api import expect
+from playwright.sync_api import Error, expect
 from test_bar import TIP
 from test_zoom import expect_scroll, fit, roomy, scroll
 from ui import (
@@ -417,6 +417,15 @@ def test_resize_sets_the_windows_size(editor, folder):
     assert said == f"window is 900 x 700: {folder / 'last.png'}"
     assert page.evaluate("[innerWidth, innerHeight]") == [900, 700]
     assert size(folder / "last.png") == (900, 700)
+
+
+def test_a_size_the_browser_refuses_is_not_kept_for_the_holder(editor, folder):
+    page = editor(box("a", "text", ONE))
+    tool.resize(page, "900", "700")
+    with pytest.raises(Error):
+        tool.resize(page, "-5", "100")
+    # The holder sets the kept size each second: a refused one would end it.
+    assert tool.wanted() == [900, 700]
 
 
 def test_screenshot_is_the_window_and_a_point_read_from_it_is_the_mouses(editor, folder):

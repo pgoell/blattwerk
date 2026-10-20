@@ -30,8 +30,8 @@ def test_a_second_reply_names_what_was_sent_under_its_id(browser, monkeypatch):
     connection: Any = browser._impl_obj._connection
     context = browser.new_context()
     context.close()
-    last = connection._last_id
-    assert max(connection._probe_sent) == last
+    last = f"{connection._call_id_prefix}@{connection._last_id}"
+    assert list(connection._probe_sent)[-1] == last
     err = io.StringIO()
     monkeypatch.setattr(sys, "__stderr__", err)
     with pytest.raises(KeyError):
@@ -91,12 +91,12 @@ def test_a_send_from_a_second_thread_keeps_the_way_it_came(monkeypatch):
     # What the first catch on CI showed (#463): the sender was not the test's thread.
     from conftest import _pw_sent
 
-    fake: Any = SimpleNamespace(_last_id=4, __dict__={})
+    fake: Any = SimpleNamespace(_call_id_prefix="abcd", _last_id=4, __dict__={})
     thing = SimpleNamespace(_guid="page@1")
     monkeypatch.setattr("conftest._pw_send", lambda *args: None)
     other = threading.Thread(target=lambda: _pw_sent(fake, thing, "route", {}, 0), name="other")
     other.start()
     other.join()
-    said = fake._probe_sent[5]
+    said = fake._probe_sent["abcd@5"]
     assert said.startswith("route on page@1 from other by\n")
     assert "test_dispatch_probe.py" in said
