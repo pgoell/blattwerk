@@ -7,7 +7,7 @@ from PIL import Image, ImageChops
 from playwright.sync_api import expect
 from test_fields import colour
 from test_zoom import expect_width, wheel, width
-from ui import FIELD, TABLE, TEXT, at, box, pick, sheet, syls, user
+from ui import BROWSER, FIELD, TABLE, TEXT, at, box, pick, sheet, syls, user
 
 from blattwerk import pdf
 
@@ -122,6 +122,11 @@ def test_a_word_split_by_hand_has_its_bows_where_the_teacher_set_them(editor):
     assert syls(page, "a") == ["Die", "Ma", "us", "isst", "Äpfel"]
 
 
+@pytest.mark.xfail(
+    BROWSER == "webkit",
+    strict=False,
+    reason="#960: a bow in WebKit can lie 1.3 px left of its syllable, rarely",
+)
 def test_a_shape_and_each_cell_of_a_table_have_their_bows(editor):
     shape = {**TEXT, "kind": "rect", "fill": "none", "text": "Banane", "syllables": True}
     cells = {**TABLE, "cells": [["Oma", "Igel"], ["3", "Radio"]], "line": "#222222"}
