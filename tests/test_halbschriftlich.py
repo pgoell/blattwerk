@@ -31,6 +31,7 @@ DEFAULTS = {k: v for k, v in HAL.items() if k != "seed"}
 MINUS = "\N{MINUS SIGN}"
 H = 86  # the default height: 3 rows of 25 mm, 2 gaps of 5 mm and 1 mm of stroke, at 146 mm wide
 NOTE = "Auch andere Lösungen sind richtig."
+NO_TASK = "Mit diesen Einstellungen gibt es keine Aufgabe."
 
 
 @pytest.fixture
@@ -241,6 +242,35 @@ def test_the_zehner_select_shows_only_with_bis_1000(editor):
     expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
     field(page, "Zahlenraum").select_option(label="bis 100")
     expect(field(page, "Übergang bei den Zehnern")).to_have_count(0)
+
+
+def test_settings_with_no_task_give_the_hint_and_every_slot_empty_also_in_the_key(
+    editor, browser, server
+):
+    """Settings (#828): Plus, bis 1000, einstellig, Einer "ohne Übergang" and Zehner "mit Übergang" give the hint
+    "Mit diesen Einstellungen gibt es keine Aufgabe.", and every slot is empty, on the sheet and in the key."""
+    page = editor(hal(props={"digits": 1, "einer": "no", "zehner": "yes"}))
+    pick(page, "k")
+    expect(page.locator(".panel p.hint[role=status]")).to_have_text(NO_TASK)
+    expect(at(page, "k").locator(".halbschriftlich text")).to_have_count(0)
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(".halbschriftlich text")).to_have_count(0)
+    paper.context.close()
+
+
+def test_ohne_uebergang_bei_den_zehnern_never_crosses_a_hundred_also_with_einstellig(
+    editor, browser, server
+):
+    """Übergang bei den Zehnern (#828): Plus, bis 1000, einstellig, Zehner "ohne Übergang", 12 tasks: in the key no
+    task crosses a hundred, so a // 100 equals r // 100 in every task."""
+    page = editor(hal(props={"count": 12, "digits": 1, "zehner": "no"}))
+    pick(page, "k")
+    paper = key_print(browser, server, sheet_id(page))
+    loc = paper.locator(".halbschriftlich")
+    for task in range(12):
+        v = values(loc, task, 0)
+        assert v[0] // 100 == v[2] // 100, v
+    paper.context.close()
 
 
 @pytest.mark.parametrize("grid", [True, False])

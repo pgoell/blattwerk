@@ -136,6 +136,16 @@ def test_a_wrong_typed_task_shows_no_answer_in_the_key(editor, browser, server):
     paper.context.close()
 
 
+def test_the_key_of_a_no_task_setting_is_empty(editor, browser, server):
+    """Key (#828): with no task (Plus, bis 1000, einstellig, Einer "ohne", Zehner "mit Übergang"), the printed key
+    has no answer text."""
+    page = editor(hal(props={"digits": 1, "einer": "no", "zehner": "yes"}))
+    pick(page, "k")
+    paper = key_print(browser, server, sheet_id(page))
+    expect(paper.locator(".halbschriftlich text")).to_have_count(0)
+    paper.context.close()
+
+
 def test_the_note_shows_only_on_a_typed_task_with_many_solutions(editor, browser, server):
     """Key (#828): "Auch andere Lösungen sind richtig." shows in the key's note row of a task with many solutions and
     of no other task."""
