@@ -416,6 +416,23 @@ def school_block(client, kind):
             w=180,
             h=93.98,  # the default height: 59 * 180 / 113
         )
+    if kind == "zerlegungsfeld":
+        return box(
+            "k",
+            "zerlegungsfeld",
+            {
+                "count": 6,
+                "columns": 3,
+                "op": "+",
+                "max": 20,
+                "step": "zehner",
+                "big": False,
+                "task": "task",
+                "seed": 7,
+            },
+            w=180,
+            h=128.9,  # the default height: 111 * 180 / 155
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -454,6 +471,7 @@ def school_block(client, kind):
         "rechentabelle",
         "magischesquadrat",
         "malquadrat",
+        "zerlegungsfeld",
         "selbstkontrolle",
         "name",
         "points",

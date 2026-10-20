@@ -217,6 +217,26 @@ def ml_fits(page):
     panel(page, "Ein Malquadrat weniger").click()
 
 
+ZERLEGUNGSFELD = {
+    "count": 6,
+    "columns": 3,
+    "op": "+",
+    "max": 20,
+    "step": "zehner",
+    "big": False,
+    "task": "task",
+    "seed": 7,
+}
+
+
+def zf_more(page, i):
+    panel(page, "Eine Aufgabe mehr").click()
+
+
+def zf_fits(page):
+    panel(page, "Eine Aufgabe weniger").click()
+
+
 def uhr_fits(page):
     field(page, "Uhren").fill("3")
     field(page, "Uhren").blur()
@@ -257,6 +277,8 @@ CASES = {
     "magischesquadrat": (MAGISCHES_QUADRAT, 180, 96.52, 110, mq_more, mq_fits),
     # y 110: two squares (2 to 3, two lines, about 193 mm tall) pass the paper's edge.
     "malquadrat": (MALQUADRAT, 180, 93.98, 110, ml_more, ml_fits),
+    # y 110: 110 + 128.9 fits; one more row of tasks (6 to 9, about 196 mm tall) passes the paper's edge.
+    "zerlegungsfeld": (ZERLEGUNGSFELD, 180, 128.9, 110, zf_more, zf_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 
