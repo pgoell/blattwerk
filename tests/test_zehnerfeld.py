@@ -274,6 +274,23 @@ def test_punkte_selbst_setzen_cycles_the_mark_of_a_dot_and_rückgängig_takes_on
     expect(button).to_have_attribute("data-mark", "0")
 
 
+@pytest.mark.parametrize("field_type", ["zehn", "zwanzig", "hundert"])
+def test_the_dots_set_by_hand_fit_in_the_panel_and_take_the_blocks_colours(editor, field_type):
+    """Punkte (#829, review): the grid of "Punkt n" buttons fits in the panel with no sideways scroll, its last
+    column inside the panel, and a set dot shows the colour of the block's Farben (here Graustufen)."""
+    page = editor(zeh({"manual": True, "count": 1, "field": field_type, "colors": "grey"}))
+    pick(page, "k")
+    panel = page.locator(".panel")
+    expect(panel.locator(".punkte")).to_be_visible()
+    assert panel.evaluate("p => p.scrollWidth <= p.clientWidth")
+    last = panel.get_by_role("button", name="Punkt 10", exact=True)
+    right = panel.bounding_box()
+    assert last.bounding_box()["x"] + last.bounding_box()["width"] <= right["x"] + right["width"]
+    first = panel.get_by_role("button", name="Punkt 1", exact=True)
+    step(page, lambda: first.click())
+    expect(first).to_have_css("background-color", "rgb(34, 34, 34)")
+
+
 def test_switching_punkte_selbst_setzen_off_brings_the_dots_back_and_keeps_the_marks(editor):
     """Punkte (#829): switching the setting off draws the task's dots again; the marks stay stored."""
     client = user()

@@ -243,7 +243,10 @@ export default function Zehnerfeld({ block, apply }: { block: ZehnerfeldBlock; a
         </label>
       )}
       {p.manual ? (
-        <div className="punkte" style={{ display: "grid", gridTemplateColumns: `repeat(${k.cols}, 1fr)`, gap: 4 }}>
+        <div
+          className="punkte"
+          style={{ display: "grid", gridTemplateColumns: `repeat(${k.cols}, minmax(0, 1fr))`, gap: 2, ["--dot1" as string]: col1, ["--dot2" as string]: col2 }}
+        >
           {Array.from({ length: k.C }, (_, j) => {
             const mark = rawMarks.find((e) => Array.isArray(e) && e[0] === c && e[1] === j)?.[2] ?? 0;
             return <button key={j} aria-label={`Punkt ${j + 1}`} data-mark={mark} onClick={() => cycle(j)} />;
