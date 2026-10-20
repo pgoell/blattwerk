@@ -223,12 +223,13 @@ describe("the Rechentabellen of a block", () => {
     );
   });
 
-  it("every panel setting, rows and cols 2 to 10, seed 1: every cell keeps the carry rule (timing)", () => {
+  // Rows and cols 2, 6 and 10 only: every size took a minute on CI. The property above draws the sizes between.
+  it("every panel setting, rows and cols 2, 6 and 10, seed 1: every cell keeps the carry rule", () => {
     for (const op of ["+", "-"] as const)
       for (const max of [10, 20, 100, 1000])
         for (const carry of carriesFor(max))
-          for (let rows = 2; rows <= 10; rows++)
-            for (let cols = 2; cols <= 10; cols++) {
+          for (const rows of [2, 6, 10])
+            for (const cols of [2, 6, 10]) {
               const m = made(
                 P({ seed: 1, op, max, carry, count: 1, rows, cols }),
               );
