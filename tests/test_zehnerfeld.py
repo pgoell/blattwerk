@@ -98,7 +98,7 @@ def test_a_zehnerfeld_is_inserted_from_the_maths_menu_with_the_defaults(editor):
     assert isinstance(props["seed"], int)
     shown = page.locator(".zehnerfeld").first
     expect(shown.locator("g.task")).to_have_count(4)
-    expect(shown.locator("g.task[data-task='0'] g.slot[data-line='0']")).to_have_count(3)
+    expect(shown.locator("g.task[data-task='0'] g.slot")).to_have_count(3)
     expect(shown.locator("g.task[data-task='0'] text.op").first).to_have_text("+")
 
 
@@ -209,18 +209,21 @@ def test_the_zehnerubergang_select_is_absent_for_zehnerfeld_1_x_10(editor):
 
 def test_zwanzigerfeld_bis_10_mit_zehnerubergang_gives_the_hint_and_no_dots(editor):
     """Zahlenraum (#829): "bis 10" with "mit Zehnerübergang" on the Zwanzigerfeld has no task: the hint says so and no
-    field draws a dot."""
+    field draws a dot: every field stays empty, with no number and no sign."""
     page = editor(zeh({"max": 10, "cross": "yes"}))
     pick(page, "k")
     expect(hint(page)).to_have_text(NOTE_NONE)
-    expect(drawn(page).locator("circle.dot")).to_have_count(0)
+    expect(drawn(page).locator("circle.dot")).to_have_count(80)
+    expect(drawn(page).locator("circle.dot:not([data-mark='0'])")).to_have_count(0)
+    expect(drawn(page).locator("g.task text")).to_have_count(0)
 
 
 def test_trennlinien_on_draws_the_lines_and_off_draws_none(editor):
     """Trennlinien (#829): with the checkbox on, the fields draw line.trenn; off, none."""
     page = editor(zeh({"lines": True}))
     pick(page, "k")
-    expect(drawn(page).locator("line.trenn").first).to_be_visible()
+    # One line after the fifth column of each of the four Zwanzigerfelder.
+    expect(drawn(page).locator("line.trenn")).to_have_count(4)
     field(page, "Trennlinien").uncheck()
     expect(drawn(page).locator("line.trenn")).to_have_count(0)
 
