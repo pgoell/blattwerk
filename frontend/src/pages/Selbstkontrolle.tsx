@@ -44,6 +44,27 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
   return (
     <>
       <h2>Selbstkontrolle</h2>
+      <p className="hint">Die Kinder prüfen ihre Ergebnisse selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst.</p>
+      <h2>Blöcke</h2>
+      {lost.map((id) => (
+        <label key={id}>
+          <input type="checkbox" checked onChange={() => toggle(id)} />
+          Gelöschter Block
+        </label>
+      ))}
+      {maths.map((b) => (
+        <label key={b.id}>
+          <input type="checkbox" checked={p.links.includes(b.id)} onChange={() => toggle(b.id)} />
+          {labelOf(b, doc)}
+          {paged && ` (Seite ${pageOf(b)})`}
+          {p.form === "word" && !worded(b) && <span className="hint"> (nicht im Lösungswort)</span>}
+        </label>
+      ))}
+      {maths.length === 0 && lost.length === 0 && (
+        <p className="hint">
+          Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr.
+        </p>
+      )}
       <label>
         Überschrift
         <input type="text" aria-label="Überschrift" value={p.title} onChange={(e) => apply({ title: e.target.value }, "title")} />
@@ -70,21 +91,6 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
           Neu mischen
         </button>
       )}
-      <h2>Blöcke</h2>
-      {lost.map((id) => (
-        <label key={id}>
-          <input type="checkbox" checked onChange={() => toggle(id)} />
-          Gelöschter Block
-        </label>
-      ))}
-      {maths.map((b) => (
-        <label key={b.id}>
-          <input type="checkbox" checked={p.links.includes(b.id)} onChange={() => toggle(b.id)} />
-          {labelOf(b, doc)}
-          {paged && ` (Seite ${pageOf(b)})`}
-          {p.form === "word" && !worded(b) && <span className="hint"> (nicht im Lösungswort)</span>}
-        </label>
-      ))}
       {fault && (
         <p className="hint warn" role="status">
           {fault}

@@ -210,6 +210,8 @@ def test_the_lost_link_in_the_panel_is_a_ticked_box_that_unlinks_it(editor):
     )
     pick(page, "s")
     expect(field(page, "Gelöschter Block")).to_be_checked()
+    # A lost link is a choice, so the panel does not say the sheet has no task block (#963).
+    expect(page.locator(".panel p.hint", has_text="noch kein Aufgabenblock")).to_have_count(0)
     # Unticked, the box goes with the link, so a click and no wait for an unticked box.
     step(page, lambda: field(page, "Gelöschter Block").click())
     assert props_of(doc(page, client), "s")["links"] == []

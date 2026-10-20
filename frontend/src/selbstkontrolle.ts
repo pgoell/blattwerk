@@ -59,8 +59,9 @@
 //   upper case) not the task count "Das Wort hat <n> Buchstaben, die Aufgaben sind <m>.", two tasks with the same key
 //   result and different letters "Aufgabe <i> und <j> haben dasselbe Ergebnis <text>, das Wort braucht dort <A> und
 //   <B>." (tasks counted from 1 across the sources). Two different results may share a letter.
-// - With no link: `empty` is true; the editor shows "Wähle rechts die Blöcke, die die Selbstkontrolle prüft." and
-//   print shows nothing but the heading.
+// - With no link: `empty` is true; the editor shows "Wähle rechts unter „Blöcke“ die Blöcke, die die Selbstkontrolle
+//   prüft.", or, when `bare` (no block of the sheet gives tasks yet), "Füge zuerst Aufgaben ein, dann wähle sie rechts
+//   unter „Blöcke“.", and print shows nothing but the heading.
 // `labelOf(b, doc)`: the block type's name ("Rechnen", "Zahlenmauer", "Rechendreieck", "Zahlenstrahl",
 // "Hunderterfeld", "Uhr"), with " <n>" (1 up, sheet order) when the sheet has more than one block of that type.
 //
@@ -101,13 +102,17 @@
 // Zahlenstrahl's is, since it needs the doc), to the page's foot at most; it never shrinks by
 // itself, and the teacher resizes it as a text block.
 //
-// The panel (pages/Selbstkontrolle.tsx), by aria-label: "Überschrift" (text input), "Form" (select: "mixed"
+// The panel (pages/Selbstkontrolle.tsx), top to bottom: the heading, then the line "Die Kinder prüfen ihre Ergebnisse
+// selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst." (`p.hint`, panel only, not on the
+// sheet), then the heading "Blöcke" with the choice: a lost link as a ticked checkbox "Gelöschter Block" that unlinks
+// it, then a checkbox per maths block of the sheet, in sheet order, labelled by `labelOf` (and " (Seite <n>)" when the
+// sheet has more than one page): ticked when linked; a block not `worded` shows "(nicht im Lösungswort)" beside it with
+// "word". With no maths block and no lost link, the line "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst
+// Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr." (`p.hint`). Then, by
+// aria-label: "Überschrift" (text input), "Form" (select: "mixed"
 // Lösungen durcheinander, "word" Lösungswort, "sum" Kontrollsumme), for "word" "Lösungswort" (text input),
 // "Schriftgröße" (number input), "Drucken" (select: "none" Normal, "upside" Auf dem Kopf, "fold" Mit Knicklinie),
-// "Neu mischen" (button, a new seed; for "mixed" and "word"), and a checkbox per maths block of the sheet, in sheet
-// order, labelled by `labelOf` (and " (Seite <n>)" when the sheet has more than one page): ticked when linked; a
-// block not `worded` shows "(nicht im Lösungswort)" beside it with "word". A lost link shows as a ticked checkbox
-// "Gelöschter Block" that unlinks it. `p.hint.warn[role=status]` shows the fault. Each change is one undo step;
+// "Neu mischen" (button, a new seed; for "mixed" and "word"). `p.hint.warn[role=status]` shows the fault. Each change is one undo step;
 // typing into one field is one step.
 //
 // The props type lives here; sheet.tsx imports it (and draws the block), never the other way round but for types.
@@ -149,6 +154,8 @@ export const DEFAULTS: Omit<SelbstkontrolleProps, "seed"> = { form: "mixed", lin
 export type Result = { text: string; value?: number };
 export type Check = {
   empty: boolean;
+  /** No block of the sheet gives tasks yet, so the hint asks for them first. */
+  bare: boolean;
   lost: string[];
   sources: Block[];
   mixed: string[];
@@ -328,6 +335,7 @@ export function checked(p: SelbstkontrolleProps, doc: Doc): Check {
 
   return {
     empty: q.links.length === 0,
+    bare: !placed(doc).some(({ b }) => tasksOf(b) !== undefined),
     lost: q.links.filter((id) => !all.has(id)),
     sources,
     mixed,

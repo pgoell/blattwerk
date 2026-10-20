@@ -150,6 +150,29 @@ describe("the Rechentabellen of a block", () => {
     );
   });
 
+  it("seed 999987 bis 1000 Minus with a required Hunderterübergang carries into the Hunderter in every cell (#962)", () => {
+    const m = made(
+      P({
+        seed: 999987,
+        op: "-",
+        max: 1000,
+        carry: ["none", "required"],
+        count: 2,
+        rows: 4,
+        cols: 4,
+      }),
+    );
+    expect(m.loose).toBeNull();
+    for (const t of m.tables)
+      t.rows.forEach((r) =>
+        t.cols.forEach((c) => {
+          const list = carryList("-", r, c);
+          expect(list[0] ?? 0).toBe(0);
+          expect(list[1] ?? 0).toBe(1);
+        }),
+      );
+  });
+
   it("carryList matches maths.py on hand cases", () => {
     expect(carryList("+", 47, 38)).toEqual([1, 0]);
     expect(carryList("-", 52, 27)).toEqual([1, 0]);

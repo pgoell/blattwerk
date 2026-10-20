@@ -15,8 +15,8 @@
 //   top place that counts holds for every place above it too: bis 100 "Ohne Zehnerübergang" has no 20 + 80 = 100,
 //   bis 1000 "Ohne Hunderterübergang" no 100 + 900 = 1000. What a cell carries is `carryList`,
 //   as maths.py `carries`: Plus a digit sum above 9, Minus a digit of the row value below the column value's digit
-//   (with the borrow). Plus: every value and every cell from 1 to max. Minus: every value from 1 to max, every cell 0
-//   or more.
+//   (with the borrow); a place the numbers do not reach carries 0. Plus: every value and every cell from 1 to max.
+//   Minus: every value from 1 to max, every cell 0 or more.
 // - Mal and Geteilt: `reihen`, the Einmaleins-Reihen, a list of distinct numbers 1 to 10 (default [2, 4, 5, 10]; an
 //   empty or wrong list gives the default). The column values are the Reihen: with `order` "related" (default) in the
 //   order of FAMILY (related Reihen side by side: 1, 2, 4, 8, 3, 6, 9, 5, 10, 7), with "random" in a drawn order. The
@@ -378,7 +378,9 @@ function fits(
   // holds for every place above it too (so that 20 + 80 = 100 is no cell of a table without Übertrag).
   const top = p.max >= 1000 ? 2 : 1;
   const above = p.carry[top - 1] === "none" ? "none" : "either";
-  return list.every((v, k) => {
+  // Every place the numbers reach, and the places the list does not reach carry 0 (#962).
+  return range(Math.max(top, list.length)).every((k) => {
+    const v = list[k] ?? 0;
     const rule = k < top ? p.carry[k] : above;
     return rule === "none" ? v === 0 : rule === "required" ? v === 1 : true;
   });

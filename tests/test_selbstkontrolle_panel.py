@@ -86,3 +86,48 @@ def test_neu_mischen_stores_a_new_seed_and_shuffles_the_same_results_anew(editor
     assert second != first
     undo(page)
     expect(items).to_have_text(first)
+
+
+DESCRIPTION = "Die Kinder prüfen ihre Ergebnisse selbst: die Selbstkontrolle zeigt die Lösungen der Blöcke, die du unten wählst."
+EMPTY = "Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr."
+ADD_FIRST = "Füge zuerst Aufgaben ein, dann wähle sie rechts unter „Blöcke“."
+CHOOSE = "Wähle rechts unter „Blöcke“ die Blöcke, die die Selbstkontrolle prüft."
+
+
+def test_on_a_sheet_with_no_task_block_the_panel_and_the_hint_say_add_tasks_first(editor):
+    """A sheet with only a Selbstkontrolle: the panel says what the block does and that no task block
+    is there yet, and the sheet's hint asks for tasks first."""
+    client = user()
+    page = editor(box("s", "selbstkontrolle", SK, z=2, w=180, h=60), client=client)
+    pick(page, "s")
+    expect(page.locator(".panel p.hint").first).to_have_text(DESCRIPTION)
+    expect(page.locator(".panel p.hint").nth(1)).to_have_text(EMPTY)
+    expect(at(page, "s").locator("p.hint")).to_have_text(ADD_FIRST)
+
+
+def test_adding_a_task_block_shows_its_checkbox_and_the_hint_asks_to_choose_and_undo_goes_back(
+    editor,
+):
+    """A Rechnen block added from the dock: its checkbox shows in the panel and the hint asks to choose;
+    undo takes the block back and the empty line and the first hint return."""
+    client = user()
+    page = editor(box("s", "selbstkontrolle", SK, z=2, w=180, h=60), client=client)
+    pick(page, "s")
+    page.locator(".dock, .insert").get_by_label("Rechnen", exact=True).click()
+    pick(page, "s")
+    expect(page.locator(".panel p.hint", has_text=EMPTY)).to_have_count(0)
+    expect(page.locator(".panel").get_by_label("Rechnen", exact=True)).to_be_visible()
+    expect(at(page, "s").locator("p.hint")).to_have_text(CHOOSE)
+    undo(page)
+    pick(page, "s")
+    expect(page.locator(".panel p.hint", has_text=EMPTY)).to_have_count(1)
+    expect(at(page, "s").locator("p.hint")).to_have_text(ADD_FIRST)
+
+
+def test_the_description_line_shows_in_the_panel_and_not_on_the_sheet(editor):
+    """The line about the block is in the panel; the sheet's Selbstkontrolle block does not print it."""
+    client = user()
+    page = editor(box("s", "selbstkontrolle", SK, z=2, w=180, h=60), client=client)
+    pick(page, "s")
+    expect(page.locator(".panel p.hint", has_text=DESCRIPTION)).to_have_count(1)
+    expect(at(page, "s")).not_to_contain_text("Die Kinder prüfen")
