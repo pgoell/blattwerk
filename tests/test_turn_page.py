@@ -137,6 +137,16 @@ MALQUADRAT = {
     "task": "factors",
     "seed": 7,
 }
+ZERLEGUNGSFELD = {
+    "count": 6,
+    "columns": 3,
+    "op": "+",
+    "max": 20,
+    "step": "zehner",
+    "big": False,
+    "task": "task",
+    "seed": 7,
+}
 DRAWN = {
     "suchsel": (SUCHSEL, 60),
     "zahlenmauer": (MAUER, 60),
@@ -148,6 +158,7 @@ DRAWN = {
     "rechentabelle": (RECHENTABELLE, 84.22),  # the default height: 51 * 180 / 109
     "magischesquadrat": (MAGISCHES_QUADRAT, 96.52),  # the default height: 37 * 180 / 69
     "malquadrat": (MALQUADRAT, 93.98),  # the default height: 59 * 180 / 113
+    "zerlegungsfeld": (ZERLEGUNGSFELD, 128.9),  # the default height: 111 * 180 / 155
     "rechendreieck": (DREIECK, 60),
     "zahlenstrahl": (ZAHLENSTRAHL, 40),
     "hunderterfeld": (FELD, 180),

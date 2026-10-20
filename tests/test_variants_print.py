@@ -814,6 +814,31 @@ def test_a_malquadrat_gets_another_seed_and_loses_its_typed_numbers():
     assert doc["pages"][0]["blocks"][0]["props"] == square
 
 
+def test_a_zerlegungsfeld_gets_another_seed_and_loses_its_typed_numbers():
+    """Varianten of #827: B to D give a Zerlegungsfeld a seed of its own, drop `typed`; A is as stored."""
+    zerlegung = {
+        "count": 6,
+        "columns": 3,
+        "op": "+",
+        "max": 20,
+        "step": "zehner",
+        "big": False,
+        "task": "task",
+        "seed": 7,
+        "typed": [[0, 0, 7]],
+    }
+    doc = {"pages": [{"blocks": [{"id": "q", "type": "zerlegungsfeld", "props": zerlegung}]}]}
+    assert variants.vary(doc, "A")[0] is doc
+    seeds = {7}
+    kept = {k: v for k, v in zerlegung.items() if k != "typed"}
+    for letter in "BCD":
+        props = variants.vary(doc, letter)[0]["pages"][0]["blocks"][0]["props"]
+        assert props == {**kept, "seed": props["seed"]}
+        seeds.add(props["seed"])
+    assert len(seeds) == 4
+    assert doc["pages"][0]["blocks"][0]["props"] == zerlegung
+
+
 def test_a_pfeilbild_gets_another_seed_and_loses_its_typed_numbers():
     """Varianten of #821 and #921: B to D give a Pfeilbild a seed of its own, drop `typed` and
     `typedOps`; A is as stored."""

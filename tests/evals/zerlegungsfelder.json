@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit sechs Aufgaben zum Zehnerübergang bis 20 im Zerlegungsfeld. Lege das Blatt mit dem Titel Eval Zerlegungsfeld an.",
+  "recipe": "zerlegungsfelder",
+  "expect": {"types": ["zerlegungsfeld"], "text": ["Zerlegungsfeld"]}
+}

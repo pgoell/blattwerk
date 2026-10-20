@@ -257,6 +257,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zerlegungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZerlegungsfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -338,6 +350,7 @@
                 "rechentabelle",
                 "magischesquadrat",
                 "malquadrat",
+                "zerlegungsfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -5163,6 +5176,157 @@
             }
           },
           "type": "object"
+        },
+        "ZerlegungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZerlegungsfeldProps",
+              "description": "The Zerlegungsfelder (Zehnerübergang in zwei Schritten): each task a + b with the split of b into the part to the full ten and the rest, then the two steps; which boxes are given."
+            },
+            "type": {
+              "const": "zerlegungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZerlegungsfeldProps": {
+          "properties": {
+            "big": {
+              "description": "Expert option: false draws a second number below the ten (or hundred) as in 8 + 5; true draws one of at least the ten (or hundred) as in 3 + 34 = 3 + 7 + 27. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 3.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "step": {
+              "description": "The Übergang: \"zehner\" (the first step reaches the full ten) or \"hunderter\" (the full hundred, with multiples of 10 such as 370 + 50; only with max 1000, else it acts as \"zehner\"). Default \"zehner\".",
+              "enum": [
+                "zehner",
+                "hunderter"
+              ],
+              "type": "string"
+            },
+            "task": {
+              "description": "The Aufgabentyp, which boxes are given: \"task\" the first and the second number; \"split\" also the two parts of the split; \"result\" the first number and the result. The pupil fills the other boxes. Every drawn task has one solution. Default \"task\".",
+              "enum": [
+                "task",
+                "split",
+                "result"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with \"hunderter\" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers.",
+              "items": {
+                "$ref": "#/definitions/ZerlegungsfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZerlegungsfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 5), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         }
       },
       "properties": {
@@ -5759,6 +5923,9 @@
               "$ref": "#/definitions/MalquadratProps"
             },
             {
+              "$ref": "#/definitions/ZerlegungsfeldProps"
+            },
+            {
               "$ref": "#/definitions/ZahlenstrahlProps"
             },
             {
@@ -5798,6 +5965,7 @@
             "rechentabelle",
             "magischesquadrat",
             "malquadrat",
+            "zerlegungsfeld",
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
@@ -6275,6 +6443,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zerlegungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZerlegungsfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -6356,6 +6536,7 @@
                 "rechentabelle",
                 "magischesquadrat",
                 "malquadrat",
+                "zerlegungsfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -11364,6 +11545,167 @@
             "seed"
           ],
           "type": "object"
+        },
+        "ZerlegungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZerlegungsfeldProps",
+              "description": "The Zerlegungsfelder (Zehnerübergang in zwei Schritten): each task a + b with the split of b into the part to the full ten and the rest, then the two steps; which boxes are given."
+            },
+            "type": {
+              "const": "zerlegungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZerlegungsfeldProps": {
+          "properties": {
+            "big": {
+              "description": "Expert option: false draws a second number below the ten (or hundred) as in 8 + 5; true draws one of at least the ten (or hundred) as in 3 + 34 = 3 + 7 + 27. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 3.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "step": {
+              "description": "The Übergang: \"zehner\" (the first step reaches the full ten) or \"hunderter\" (the full hundred, with multiples of 10 such as 370 + 50; only with max 1000, else it acts as \"zehner\"). Default \"zehner\".",
+              "enum": [
+                "zehner",
+                "hunderter"
+              ],
+              "type": "string"
+            },
+            "task": {
+              "description": "The Aufgabentyp, which boxes are given: \"task\" the first and the second number; \"split\" also the two parts of the split; \"result\" the first number and the result. The pupil fills the other boxes. Every drawn task has one solution. Default \"task\".",
+              "enum": [
+                "task",
+                "split",
+                "result"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with \"hunderter\" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers.",
+              "items": {
+                "$ref": "#/definitions/ZerlegungsfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "count",
+            "columns",
+            "op",
+            "max",
+            "step",
+            "big",
+            "task",
+            "seed"
+          ],
+          "type": "object"
+        },
+        "ZerlegungsfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 5), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         }
       },
       "properties": {
@@ -11747,6 +12089,18 @@
               "if": {
                 "properties": {
                   "type": {
+                    "const": "zerlegungsfeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/ZerlegungsfeldBlock"
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
                     "const": "zahlenstrahl"
                   }
                 }
@@ -11828,6 +12182,7 @@
                 "rechentabelle",
                 "magischesquadrat",
                 "malquadrat",
+                "zerlegungsfeld",
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
@@ -16653,6 +17008,157 @@
             }
           },
           "type": "object"
+        },
+        "ZerlegungsfeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/ZerlegungsfeldProps",
+              "description": "The Zerlegungsfelder (Zehnerübergang in zwei Schritten): each task a + b with the split of b into the part to the full ten and the rest, then the two steps; which boxes are given."
+            },
+            "type": {
+              "const": "zerlegungsfeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "ZerlegungsfeldProps": {
+          "properties": {
+            "big": {
+              "description": "Expert option: false draws a second number below the ten (or hundred) as in 8 + 5; true draws one of at least the ten (or hundred) as in 3 + 34 = 3 + 7 + 27. Default false.",
+              "type": "boolean"
+            },
+            "columns": {
+              "description": "Number of tasks per row. Default 3.",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            "count": {
+              "description": "Number of tasks on the sheet, side by side in rows of `columns`. Default 6.",
+              "maximum": 12,
+              "minimum": 1,
+              "type": "number"
+            },
+            "max": {
+              "description": "The Zahlenraum, 20, 100 or 1000: the result of a Plus task and the first number of a Minus task are at most max. Default 20.",
+              "type": "number"
+            },
+            "op": {
+              "description": "The Rechenart: \"+\" (Plus: 8 + 5 = 8 + 2 + 3) or \"-\" (Minus: 13 − 5 = 13 − 3 − 2). Default \"+\".",
+              "enum": [
+                "+",
+                "-"
+              ],
+              "type": "string"
+            },
+            "seed": {
+              "description": "Seed for the random tasks. The same seed always gives the same tasks.",
+              "type": "number"
+            },
+            "step": {
+              "description": "The Übergang: \"zehner\" (the first step reaches the full ten) or \"hunderter\" (the full hundred, with multiples of 10 such as 370 + 50; only with max 1000, else it acts as \"zehner\"). Default \"zehner\".",
+              "enum": [
+                "zehner",
+                "hunderter"
+              ],
+              "type": "string"
+            },
+            "task": {
+              "description": "The Aufgabentyp, which boxes are given: \"task\" the first and the second number; \"split\" also the two parts of the split; \"result\" the first number and the result. The pupil fills the other boxes. Every drawn task has one solution. Default \"task\".",
+              "enum": [
+                "task",
+                "split",
+                "result"
+              ],
+              "type": "string"
+            },
+            "typed": {
+              "description": "Numbers the teacher typed. Each entry is [task index from 0, position 0 to 5, value 0 to 9999]. Positions: 0 the first number, 1 the second number, 2 the result, 3 the left part of the split (to the full ten, with \"hunderter\" the full hundred), 4 the right part, 5 the Zwischenergebnis (that full ten or hundred). A task with typed numbers shows exactly its typed boxes; the others are worked out from them. A task whose typed numbers do not fit is marked wrong and its key shows no answers.",
+              "items": {
+                "$ref": "#/definitions/ZerlegungsfeldTyped"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "ZerlegungsfeldTyped": {
+          "description": "A number the teacher typed: the task's index (from 0), the position (0 to 5), the value (0 to 9999).",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         }
       },
       "properties": {
@@ -17242,6 +17748,9 @@
             },
             {
               "$ref": "#/definitions/MalquadratProps"
+            },
+            {
+              "$ref": "#/definitions/ZerlegungsfeldProps"
             },
             {
               "$ref": "#/definitions/ZahlenstrahlProps"

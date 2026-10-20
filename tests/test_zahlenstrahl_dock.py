@@ -169,6 +169,19 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Zerlegungsfeld",
+            "zerlegungsfeld",
+            {
+                "count": 6,
+                "columns": 3,
+                "op": "+",
+                "max": 20,
+                "step": "zehner",
+                "big": False,
+                "task": "task",
+            },
+        ),
+        (
             "Uhr",
             "uhr",
             {

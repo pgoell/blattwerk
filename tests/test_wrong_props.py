@@ -97,6 +97,16 @@ MALQUADRAT = {
     "task": "factors",
     "seed": 7,
 }
+ZERLEGUNGSFELD = {
+    "count": 6,
+    "columns": 3,
+    "op": "+",
+    "max": 20,
+    "step": "zehner",
+    "big": False,
+    "task": "task",
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -181,6 +191,7 @@ WRONG = {
     "rechentabelle": {**RECHENTABELLE, "max": "x"},
     "magischesquadrat": {**MAGISCHES_QUADRAT, "max": "x"},
     "malquadrat": {**MALQUADRAT, "max": "x"},
+    "zerlegungsfeld": {**ZERLEGUNGSFELD, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},
