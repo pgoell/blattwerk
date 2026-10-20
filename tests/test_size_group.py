@@ -433,6 +433,27 @@ def school_block(client, kind):
             w=180,
             h=128.9,  # the default height: 111 * 180 / 155
         )
+    if kind == "halbschriftlich":
+        return box(
+            "k",
+            "halbschriftlich",
+            {
+                "count": 6,
+                "columns": 2,
+                "op": "+",
+                "max": 1000,
+                "digits": 3,
+                "einer": "any",
+                "zehner": "any",
+                "grid": True,
+                "head": False,
+                "tint": False,
+                "ops": True,
+                "seed": 7,
+            },
+            w=146,
+            h=86,  # the default height: 3 rows of 25 mm, 2 gaps of 5 mm, 1 mm stroke
+        )
     if kind == "rechendreieck":
         return box("k", "rechendreieck", DREIECK)
     if kind == "zahlenmauer":
@@ -472,6 +493,7 @@ def school_block(client, kind):
         "magischesquadrat",
         "malquadrat",
         "zerlegungsfeld",
+        "halbschriftlich",
         "selbstkontrolle",
         "name",
         "points",

@@ -546,6 +546,8 @@ body:has(.print) { background: #fff; }
 .malquadrat svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zerlegungsfeld { height: 100%; font-family: Andika; }
 .zerlegungsfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .halbschriftlich { height: 100%; font-family: Andika; }
+.halbschriftlich svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .rechendreieck { height: 100%; font-family: Andika; }
 .rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
 .block .zahlenstrahl { height: 100%; font-family: Andika; }

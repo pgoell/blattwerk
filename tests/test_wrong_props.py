@@ -107,6 +107,20 @@ ZERLEGUNGSFELD = {
     "task": "task",
     "seed": 7,
 }
+HALBSCHRIFTLICH = {
+    "count": 6,
+    "columns": 2,
+    "op": "+",
+    "max": 1000,
+    "digits": 3,
+    "einer": "any",
+    "zehner": "any",
+    "grid": True,
+    "head": False,
+    "tint": False,
+    "ops": True,
+    "seed": 7,
+}
 RECHENRAD = {
     "count": 2,
     "columns": 2,
@@ -192,6 +206,7 @@ WRONG = {
     "magischesquadrat": {**MAGISCHES_QUADRAT, "max": "x"},
     "malquadrat": {**MALQUADRAT, "max": "x"},
     "zerlegungsfeld": {**ZERLEGUNGSFELD, "max": "x"},
+    "halbschriftlich": {**HALBSCHRIFTLICH, "max": "x"},
     "rechenrad": {**RECHENRAD, "max": "x"},
     "rechendreieck": {**RECHENDREIECK, "max": "x"},
     "zahlenstrahl": {**ZAHLENSTRAHL, "start": "x"},

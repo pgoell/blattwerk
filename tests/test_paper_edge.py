@@ -227,6 +227,20 @@ ZERLEGUNGSFELD = {
     "task": "task",
     "seed": 7,
 }
+HALBSCHRIFTLICH = {
+    "count": 6,
+    "columns": 2,
+    "op": "+",
+    "max": 1000,
+    "digits": 3,
+    "einer": "any",
+    "zehner": "any",
+    "grid": True,
+    "head": False,
+    "tint": False,
+    "ops": True,
+    "seed": 7,
+}
 
 
 def zf_more(page, i):
@@ -234,6 +248,15 @@ def zf_more(page, i):
 
 
 def zf_fits(page):
+    panel(page, "Eine Aufgabe weniger").click()
+
+
+def hal_more(page, i):
+    # y 200: 3 rows (86 mm) fit; the 7th task makes a 4th row (116 mm), so 200 + 116 passes the paper's edge.
+    panel(page, "Eine Aufgabe mehr").click()
+
+
+def hal_fits(page):
     panel(page, "Eine Aufgabe weniger").click()
 
 
@@ -279,6 +302,7 @@ CASES = {
     "malquadrat": (MALQUADRAT, 180, 93.98, 110, ml_more, ml_fits),
     # y 110: 110 + 128.9 fits; one more row of tasks (6 to 9, about 196 mm tall) passes the paper's edge.
     "zerlegungsfeld": (ZERLEGUNGSFELD, 180, 128.9, 110, zf_more, zf_fits),
+    "halbschriftlich": (HALBSCHRIFTLICH, 146, 86, 200, hal_more, hal_fits),
     "uhr": (UHR, 180, 58.5, 230, uhr_more, uhr_fits),
 }
 

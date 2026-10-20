@@ -29,7 +29,7 @@ The button "Varianten drucken" opens a dialog. The teacher picks how many varian
 
 Variant A is the stored sheet. Letters B to D draw new content from each block's own seed and the letter. The same letter gives the same content on every run.
 
-* Changes: maths (new exercises), suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
+* Changes: maths (new exercises), suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle (their seed), text and shape (mix, bank, holeSeed), and table (bank).
 * Stays: a block without a seed prints the same on every letter. Give every block that should change a whole-number seed: `seed` on the seeded blocks; `mix`, `bank` or `holeSeed` on a text or shape; `bank` on a table.
 * Numbers the teacher typed into stones or fields (`typed`) and operators typed onto a Pfeilbild's arrows (`typedOps`) are dropped in B to D.
 

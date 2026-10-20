@@ -1,0 +1,5 @@
+{
+  "prompt": "Mach mir ein Arbeitsblatt mit sechs Plusaufgaben bis 1000 zum halbschriftlichen Rechnen mit Zehnerübergang. Lege das Blatt mit dem Titel Eval Halbschriftlich an.",
+  "recipe": "halbschriftlich",
+  "expect": {"types": ["halbschriftlich"], "text": ["Halbschriftlich"]}
+}
