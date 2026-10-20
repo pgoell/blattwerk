@@ -1,3 +1,2 @@
 # Block types with no recipe yet. A new type fails tests/test_mcp_coverage.py until it gets a recipe
 # or is added here on purpose. Remove a line once a recipe uses its type: the test fails until you do.
-zehnerfeld
