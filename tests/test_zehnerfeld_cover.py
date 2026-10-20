@@ -22,9 +22,10 @@ ZEH = {
     "manual": False,
     "seed": 7,
 }
-FOOT = "Der Block Zehnerfeld ragt unten über den Rand."
+FOOT = "Das Zehnerfeld ragt unten über den Rand."
 COVER = (
-    "Der Block Zehnerfeld liegt über einem anderen Block. Verschiebe ihn oder mache ihn kleiner."
+    "Das Zehnerfeld liegt über einem anderen Block. Verschiebe ihn oder mache das Zehnerfeld "
+    "kleiner."
 )
 H = 82  # the default height of 6 tasks: 3 rows of 23 mm, 2 gaps of 6 mm and 1 mm of stroke, at 127 mm wide
 GROWN = 111  # 4 rows of tasks: 4 · 23 + 3 · 6 + 1
