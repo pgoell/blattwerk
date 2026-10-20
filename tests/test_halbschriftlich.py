@@ -103,13 +103,12 @@ def digit(n, place):
 
 
 def crosses(op, a, b, place):
-    """Whether the step at place crosses (contract: Plus a_p + b_p ≥ 10, Minus a_p < b_p; no step when b_p is 0)."""
-    bp = digit(b, place)
-    if bp == 0:
-        return False
+    """Whether the task crosses a ten (place 0) or a hundred (place 1) on its way: the result leaves the ten or
+    hundred of the first number (contract: the Übertrag of written arithmetic, 395 + 7 crosses a hundred)."""
+    m = 10 ** (place + 1)
     if op == "+":
-        return digit(a, place) + bp >= 10
-    return digit(a, place) < bp
+        return a % m + b % m >= m
+    return a % m < b % m
 
 
 def test_a_halbschriftlich_is_inserted_from_the_maths_menu_with_the_defaults(editor):
@@ -232,15 +231,13 @@ def test_uebergang_bei_den_zehnern_mit_and_ohne_hold_in_every_drawn_task(
     paper.context.close()
 
 
-def test_the_zehner_select_shows_only_with_bis_1000_and_zweistellig_or_more(editor):
-    """Übergang bei den Zehnern (#828): the select shows with bis 1000 and zweistellig or dreistellig, not with bis 100
-    and not with einstellig."""
+def test_the_zehner_select_shows_only_with_bis_1000(editor):
+    """Übergang bei den Zehnern (#828): the select shows with bis 1000, also with einstellig (395 + 7 crosses a
+    hundred), and not with bis 100."""
     page = editor(hal())
     pick(page, "k")
     expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
     field(page, "Stellen der zweiten Zahl").select_option(label="einstellig")
-    expect(field(page, "Übergang bei den Zehnern")).to_have_count(0)
-    field(page, "Stellen der zweiten Zahl").select_option(label="zweistellig")
     expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
     field(page, "Zahlenraum").select_option(label="bis 100")
     expect(field(page, "Übergang bei den Zehnern")).to_have_count(0)

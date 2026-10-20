@@ -17,7 +17,7 @@ When a teacher asks for: "Ein Arbeitsblatt mit sechs Plusaufgaben bis 1000 zum h
 * `op` is "+" (Plus, the default) or "-" (Minus).
 * `max` is the Zahlenraum, 100 or 1000 (default 1000).
 * `digits` is the places of the second number, 1, 2 or 3 (default 3). 3 counts only with max 1000.
-* `einer` is the Übergang in the Einer step: "yes" (every task crosses the ten there, as in 8 + 5), "no" (none does) or "any" (default). `zehner` is the same for the Zehner step, crossing the hundred; it counts only with max 1000 and two or three places.
+* `einer` is the Zehnerübergang: "yes" (every task crosses a ten, as in 348 + 5), "no" (none does) or "any" (default). `zehner` is the same for crossing a hundred, as the Übertrag of written arithmetic (395 + 7 and 385 + 17 cross a hundred); it counts only with max 1000. With one place, "no" at the Einer and "yes" at the Zehner leave no task.
 * `head` set to true draws the place letters T H Z E above the numbers. `grid` set to false draws plain boxes instead of Karo. `ops` set to false leaves the signs of the steps out for the pupils to write.
 * The block's height follows its tasks. Six tasks in two columns are 146 mm wide and 86 mm tall, the size the insert gives.
 * See [halbschriftlich](../blocks/halbschriftlich.md) for the other props.

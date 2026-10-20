@@ -165,7 +165,7 @@ export default function Halbschriftlich({ block, apply }: { block: Halbschriftli
         </select>
       </label>
       {ruleSelect("Übergang bei den Einern", k.einer, (einer) => apply({ einer }, "einer"))}
-      {p.max === 1000 && k.k >= 2 && ruleSelect("Übergang bei den Zehnern", k.zehner, (zehner) => apply({ zehner }, "zehner"))}
+      {p.max === 1000 && ruleSelect("Übergang bei den Zehnern", k.zehner, (zehner) => apply({ zehner }, "zehner"))}
       <label>
         <input type="checkbox" aria-label="Karo" checked={p.grid} onChange={(e) => apply({ grid: e.target.checked }, "grid")} />
         Karo

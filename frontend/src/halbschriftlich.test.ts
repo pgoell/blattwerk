@@ -58,14 +58,19 @@ function oracleSteps(op: Op, a: number, b: number, k: number): [number, number, 
 // Does (a, b) keep the rule of the panel setting? Each rule is checked on the digits of a and b.
 function oracleFits(op: Op, max: number, digits: number, einer: Rule, zehner: Rule, a: number, b: number): boolean {
   const k = actingK(max, digits);
-  const zAct = max === 1000 && k >= 2 ? zehner : "any";
+  const zAct = max === 1000 ? zehner : "any";
   if (a < 1 || a > max) return false;
   if (b < 10 ** (k - 1) || b > 10 ** k - 1) return false;
   const r = op === "+" ? a + b : a - b;
   if (op === "+" && r > max) return false;
   if (op === "-" && (b > a || r < 0)) return false;
-  const crosses = (p: number): boolean =>
-    op === "+" ? digitAt(a, p) + digitAt(b, p) >= 10 : digitAt(a, p) < digitAt(b, p);
+  // A crossing of a ten (p 0) or a hundred (p 1) anywhere on the way: walk the steps one by one and look whether a step
+  // smaller than m leaves the ten or hundred it starts in (a step of m or more moves whole tens or hundreds and comes
+  // first, so it crosses nothing in this sense). No formula of the model.
+  const crosses = (p: number): boolean => {
+    const m = 10 ** (p + 1);
+    return oracleSteps(op, a, b, 4).some(([s, part, t]) => part < m && Math.floor(s / m) !== Math.floor(t / m));
+  };
   if (einer === "yes" && !crosses(0)) return false;
   if (einer === "no" && crosses(0)) return false;
   if (zAct === "yes" && !crosses(1)) return false;
@@ -173,8 +178,30 @@ describe("the drawn tasks", () => {
       }
     }
     expect(bad).toEqual([]);
-    // The panel reaches none in no setting: every panel setting has a pair (see the report).
-    expect(noneSettings).toEqual([]);
+    // A one-digit second number crosses a hundred only through the Einer: "ohne" at the Einer and "mit" at the Zehner
+    // leave no task. The brute force finds exactly these settings empty, and `made` agrees (checked above).
+    expect(noneSettings).toEqual(["+ 1000 1 no yes", "- 1000 1 no yes"]);
+  });
+
+  it("counts a carry that runs on: 395 + 7 and 385 + 17 cross a hundred", () => {
+    const plus = { ...DEFAULTS, op: "+" as Op, max: 1000, einer: "any" as Rule, seed: 0 };
+    // The oracle's walk agrees on the two examples.
+    expect(oracleFits("+", 1000, 1, "any", "no", 395, 7)).toBe(false);
+    expect(oracleFits("+", 1000, 1, "any", "yes", 395, 7)).toBe(true);
+    expect(oracleFits("+", 1000, 2, "any", "no", 385, 17)).toBe(false);
+    expect(oracleFits("-", 1000, 1, "any", "no", 402, 7)).toBe(false);
+    // "ohne" at the Zehner never draws a task that crosses a hundred, at any Stellen; "mit" always does.
+    const bad: string[] = [];
+    for (const digits of [1, 2, 3])
+      for (const op of ["+", "-"] as Op[])
+        for (const zehner of ["no", "yes"] as Rule[])
+          for (const seed of SEEDS)
+            for (const t of made({ ...plus, op, digits, zehner, seed, count: 12 }).tasks) {
+              const [a, b] = t.values;
+              const walk = t.steps.some(([s, part, e]) => part < 100 && Math.floor(s / 100) !== Math.floor(e / 100));
+              if (walk !== (zehner === "yes")) bad.push(`${a} ${op} ${b} with zehner ${zehner}`);
+            }
+    expect(bad).toEqual([]);
   });
 });
 
@@ -336,7 +363,7 @@ describe("sane", () => {
     const p = { ...DEFAULTS, seed: 0, max: 100, digits: 3, zehner: "yes" as Rule };
     expect(sane(p).digits).toBe(3);
     expect(acts(p)).toEqual({ k: 2, einer: "any", zehner: "any" });
-    expect(acts({ ...p, max: 1000, digits: 1 }).zehner).toBe("any");
+    expect(acts({ ...p, max: 1000, digits: 1 }).zehner).toBe("yes");
     expect(acts({ ...p, max: 1000, digits: 2 }).zehner).toBe("yes");
     expect(sane({ ...p, seed: NaN }).seed).toBe(0);
     expect(sane(p).typed).toBeUndefined();

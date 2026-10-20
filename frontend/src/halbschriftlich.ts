@@ -11,9 +11,9 @@
 // - `digits`, the places of the second number: 1, 2 or 3 (default 3; any other value gives the default). A drawn second
 //   number has exactly that many digits (2: 10 to 99). 3 counts only with max 1000; with max 100 it acts as 2 (and
 //   stays stored).
-// - `einer`, the Übergang in the Einer step: "any" (default), "yes" or "no". `zehner`, the Übergang in the Zehner
-//   step: the same values. `zehner` counts only with max 1000 and digits (as it acts) 2 or 3; else it acts as "any"
-//   (and stays stored). Any other value gives "any".
+// - `einer`, the Übergang (Übertrag) at the Einer, crossing a ten: "any" (default), "yes" or "no". `zehner`, the
+//   Übergang at the Zehner, crossing a hundred: the same values. `zehner` counts only with max 1000 (any digits: 395 + 7
+//   crosses a hundred too); with max 100 it acts as "any" (and stays stored). Any other value gives "any".
 // - `grid`, Karo: true (default) draws the 5 mm squares behind the tasks; false draws plain white with a box per number.
 // - `head`, Stellenwerte: false (default); true draws a row of place letters (T H Z E) above each task's numbers.
 // - `tint`: false (default); true tints the second number and its parts in the steps.
@@ -30,10 +30,11 @@
 // s(j + 1) = s(j) + part j for Plus and s(j) − part j for Minus; the last s is r. So 345 + 103 has two steps.
 //
 // The rule every task keeps, drawn or typed: a ≥ 1, b ≥ 1; Plus r = a + b ≤ 9999; Minus r = a − b ≥ 0.
-// The Übergang of the step at place p (p = 0 the Einer, 1 the Zehner), where a_p and b_p are the digits of a and b at p:
-// Plus: the step crosses a multiple of 10^(p+1) exactly when a_p + b_p ≥ 10; Minus: exactly when a_p < b_p (the higher
-// places of b are already added or taken away, and they do not change digit p). "yes" needs that, "no" forbids it. A
-// place where b's digit is 0 has no step, so it has no Übergang: "yes" there cannot hold, "no" always holds.
+// The Übergang at place p (p = 0 the Einer, 1 the Zehner) is the Übertrag of written arithmetic out of place p: the task
+// crosses a multiple of 10^(p+1) in some step. With m = 10^(p+1): Plus crosses exactly when (a mod m) + (b mod m) ≥ m;
+// Minus exactly when (a mod m) < (b mod m). So a carry that runs on counts at every place it reaches: 385 + 17
+// (385 + 10 = 395, 395 + 7 = 402) and 395 + 7 cross a hundred, and "Übergang bei den Zehnern: ohne" never gives them.
+// "yes" needs the crossing, "no" forbids it.
 //
 // The drawn tasks (`made`, memo of 50, `rng` from zahlenmauer.ts). The drawn task keeps, besides the rule: a ≤ max,
 // b has exactly k digits (k = `digits` as it acts), Plus r ≤ max, and the `einer` and `zehner` rules as they act.
@@ -88,8 +89,8 @@
 // "Eine Aufgabe mehr" ("6 Aufgaben", "1 Aufgabe"), "Weniger Aufgaben nebeneinander" / "Mehr Aufgaben nebeneinander"
 // ("2 nebeneinander"); select "Rechenart" ("Plus", "Minus"; a change drops `typed` in the same undo step); select
 // "Zahlenraum" ("bis 100", "bis 1000"); select "Stellen der zweiten Zahl" ("einstellig", "zweistellig", with bis 1000
-// also "dreistellig"; it shows k as it acts, so a stored 3 with bis 100 reads "zweistellig"; a choice stores its number); select "Übergang bei den Einern" ("egal", "mit Übergang", "ohne Übergang"); with bis 1000 and
-// zweistellig or dreistellig select "Übergang bei den Zehnern" (the same words); checkboxes "Karo", "Stellenwerte
+// also "dreistellig"; it shows k as it acts, so a stored 3 with bis 100 reads "zweistellig"; a choice stores its number); select "Übergang bei den Einern" ("egal", "mit Übergang", "ohne Übergang"); with bis 1000
+// select "Übergang bei den Zehnern" (the same words); checkboxes "Karo", "Stellenwerte
 // zeigen", "Zweite Zahl färben", "Rechenzeichen der Schritte drucken"; select "Aufgabe für eigene Zahlen" (with 2 or
 // more tasks, "Aufgabe 1" ...); number fields "Erste Zahl", "Zweite Zahl", "Ergebnis" showing the given numbers (typed or
 // drawn), the other fields empty; each field is one undo step (key `typed:i:p`). Hints (p.hint, role=status): with
@@ -119,9 +120,9 @@ export type HalbschriftlichProps = {
   max: number;
   /** The places of the second number: 1, 2 or 3 digits (3 only with max 1000, else it acts as 2). One step per digit that is not 0. Default 3. */
   digits: number;
-  /** The Übergang in the Einer step: "yes" every task crosses a ten there (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), "no" none does, "any" either. Default "any". */
+  /** The Übergang at the Einer, crossing a ten: "yes" every task crosses a ten (Plus: the Einer of both numbers add up to 10 or more; Minus: the first number's Einer is smaller than the second's), "no" none does, "any" either. Default "any". */
   einer: Rule;
-  /** The Übergang in the Zehner step, crossing a hundred there (Plus: the Zehner of both numbers add up to 10 or more; Minus: the first number's Zehner is smaller than the second's): "yes", "no" or "any". Counts only with max 1000 and a second number of 2 or 3 digits. Default "any". */
+  /** The Übergang at the Zehner, crossing a hundred in any step, as the Übertrag of written arithmetic (Plus: the last two digits of both numbers add up to 100 or more, so 395 + 7 crosses; Minus: the first number's last two digits are smaller than the second's): "yes", "no" or "any". Counts only with max 1000. Default "any". */
   zehner: Rule;
   /** Karo: true draws 5 mm squares behind the tasks, one digit to a square; false draws plain white with a box per number. Default true. */
   grid: boolean;
@@ -222,7 +223,7 @@ export function sane(p: HalbschriftlichProps): HalbschriftlichProps {
 export function acts(p: HalbschriftlichProps): { k: number; einer: Rule; zehner: Rule } {
   const s = sane(p);
   const k = s.max === 100 && s.digits === 3 ? 2 : s.digits;
-  return { k, einer: s.einer, zehner: s.max === 1000 && k >= 2 ? s.zehner : "any" };
+  return { k, einer: s.einer, zehner: s.max === 1000 ? s.zehner : "any" };
 }
 
 export function opLabel(op: "+" | "-"): string {
@@ -248,9 +249,8 @@ function fits(op: "+" | "-", max: number, einer: Rule, zehner: Rule, a: number, 
   if (a < 1 || a > max) return false;
   if (op === "+" ? a + b > max : b > a) return false;
   const cross = (p: number): boolean => {
-    const ap = Math.floor(a / 10 ** p) % 10;
-    const bp = Math.floor(b / 10 ** p) % 10;
-    return op === "+" ? ap + bp >= 10 : ap < bp;
+    const m = 10 ** (p + 1);
+    return op === "+" ? (a % m) + (b % m) >= m : a % m < b % m;
   };
   if (einer !== "any" && cross(0) !== (einer === "yes")) return false;
   if (zehner !== "any" && cross(1) !== (zehner === "yes")) return false;
