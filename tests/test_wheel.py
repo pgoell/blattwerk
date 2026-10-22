@@ -4,7 +4,7 @@ import math
 
 import pytest
 from playwright.sync_api import expect
-from test_zoom import WATCH, expect_width, kept, settled, wheel, width
+from test_zoom import WATCH, expect_width, kept, pinch, settled, wheel, width
 from ui import TEXT, at, box, centre, pick
 
 WINDOW = "[innerWidth, innerHeight, devicePixelRatio, visualViewport.scale]"
@@ -113,10 +113,10 @@ def test_a_pinch_over_the_thumbnails_follows_the_fingers(editor):
     page = opened(editor)
     over = centre(page.locator(PAPER))
     wide = thumb(page)
-    wheel(page, -100 * math.log(2), over)
+    pinch(page, -100 * math.log(2), over)
     assert kept(page) is True
     expect_thumb(page, wide * 2)
-    wheel(page, 100 * math.log(2), over)
+    pinch(page, 100 * math.log(2), over)
     assert kept(page) is True
     expect_thumb(page, wide)
 

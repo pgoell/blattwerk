@@ -88,6 +88,28 @@ def wheel(page, delta, point=None, ctrl=True):
         page.keyboard.up("Control")
 
 
+def pinch(page, delta, point):
+    """A trackpad pinch: Ctrl and a wheel whose delta is not a whole number.
+
+    Chromium delivers that delta as it is. WebKit rounds a wheel it is sent to a
+    whole number, and a whole delta is a notch, so there the page sends the event.
+    """
+    if BROWSER != "webkit":
+        wheel(page, delta, point)
+        return
+    page.mouse.move(*point)
+    page.evaluate(
+        """([x, y, delta]) => {
+            const el = document.elementFromPoint(x, y);
+            el.dispatchEvent(new WheelEvent("wheel", {
+                deltaX: 0, deltaY: delta, ctrlKey: true, bubbles: true, cancelable: true,
+                clientX: x, clientY: y,
+            }));
+        }""",
+        [*point, delta],
+    )
+
+
 def kept(page):
     """Whether the page kept the last wheel from the browser, once that wheel has arrived."""
     page.wait_for_function("window.kept !== undefined")
@@ -219,15 +241,15 @@ def test_a_trackpad_pinch_follows_the_fingers(editor):
     # Four small events, as a trackpad sends them: together the fingers have doubled.
     step = -100 * math.log(2) / 4
     for n in range(1, 5):
-        wheel(page, step, point)
+        pinch(page, step, point)
         expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
     for n in range(3, -1, -1):
-        wheel(page, -step, point)
+        pinch(page, -step, point)
         expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
     # The same doubling in one event, then back.
-    wheel(page, -100 * math.log(2), point)
+    pinch(page, -100 * math.log(2), point)
     expect_under(page, point, (60, 80), wide * 2)
-    wheel(page, 100 * math.log(2), point)
+    pinch(page, 100 * math.log(2), point)
     expect_under(page, point, (60, 80), wide)
     # A mouse wheel's notch is a whole number.
     wheel(page, -100, point)
