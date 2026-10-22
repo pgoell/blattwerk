@@ -340,10 +340,19 @@ def before_move(data_dir):
 
 
 def kept(rows, before, columns, con):
-    """Every old cell survives. The licence columns are new, and empty on an old upload."""
+    """Every cell present before this open is still there.
+
+    The open that can write adds the licence columns, empty. A later open finds them and
+    leaves them. A read that had to wait does the move only once the reader lets go, so
+    `moved` may be looking at a table that already has the columns.
+    """
     others = [table for table in TABLES if table != "uploads"]
     assert {table: rows[table] for table in others} == {table: before[table] for table in others}
     names = [row[1] for row in con.execute("PRAGMA table_info(uploads)")]
+    if columns[-len(LICENCE) :] == LICENCE:
+        assert names == columns
+        assert rows["uploads"] == before["uploads"]
+        return
     assert names == [*columns, *LICENCE]
     width = len(columns)
     assert [row[:width] for row in rows["uploads"]] == before["uploads"]
