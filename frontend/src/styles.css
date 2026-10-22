@@ -253,6 +253,18 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* The answer key's mark stands in the top margin, in the colour of the answers. */
 .paper .key { position: absolute; z-index: 3000; font-family: Andika; line-height: 1; color: #c0392b; }
 .folio { position: absolute; z-index: 0; pointer-events: none; font-family: Andika; line-height: 1; white-space: nowrap; }
+/* The page's picture, under the blocks. The clip keeps it on the paper; the picture itself may be larger. */
+.ground-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.ground { position: absolute; overflow: hidden; pointer-events: none; }
+.ground.live { pointer-events: auto; cursor: move; outline: 1px dashed var(--accent); }
+.ground-turn { position: absolute; transform-origin: center center; }
+.ground img { position: absolute; max-width: none; }
+.ground-box { display: grid; gap: 8px; padding: 0 14px 14px; border-bottom: 1px solid var(--line); }
+.ground-box h2 { padding-inline: 0; }
+.ground-box .hint { padding-inline: 0; margin: 0; }
+.ground-box > button { width: 100%; }
+.sheet .ground-handle { position: absolute; z-index: 3002; width: 14px; height: 14px; margin: -7px; border: 2px solid #fff; border-radius: 2px; background: var(--sel); touch-action: none; cursor: nwse-resize; }
+.sheet .ground-handle.scale { border-radius: 50%; }
 /* What Chromium prints into the PDF: the pages alone, each one a sheet of A4. */
 body:has(.print) { background: #fff; }
 #root:has(.print) { display: block; min-height: 0; }

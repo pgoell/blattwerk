@@ -29,6 +29,7 @@ import { decimal, decimalsOf, GAP } from "./decimal";
 import { KARO, PT, mathsHeight } from "./height";
 export { KARO, PT, mathsHeight };
 import { Scissors } from "lucide-react";
+import { GroundView } from "./ground";
 
 // One page's blocks, as the sheet document stores them: mm from the page's top-left corner. `mark` is the numbering
 // before a block: a counting one such as "1.", "a)" or "(1)", or a symbol's code. `angle` turns the box about its
@@ -785,7 +786,7 @@ export type Guides = {
   y: number[];
 };
 // A page can have guide lines of its own, beside the sheet's, and a grid and a format of its own in place of the
-// sheet's.
+// sheet's. `ground` is the picture the page lies on, under every block.
 export type Page = {
   /** The blocks printed on this page, drawn in order. */
   blocks: Block[];
@@ -795,6 +796,35 @@ export type Page = {
   grid?: number;
   /** Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies. */
   landscape?: boolean;
+  /** The picture this page lies on, under every block. Left out, the page is blank. */
+  ground?: Ground;
+};
+// The picture a page lies on. It fills the page and keeps its proportions. `cut` is the share cropped off each
+// edge, as for an image block. `turns` is quarter turns clockwise. The editor fades it to 1, 0.5 or 0.25.
+export type Ground = {
+  /** The id of the uploaded picture file, as the server stores it. */
+  upload: number;
+  /** The picture's width over its height, from the picture as stored. 1 for a square. */
+  ratio: number;
+  /** Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none. */
+  cut: number[];
+  /** Quarter turns clockwise, from 0 to 3. Left out, none.
+   * @minimum 0
+   * @maximum 3
+   */
+  turns?: number;
+  /** How solid the ground prints: 1 for full strength, 0.5 or 0.25 so the blocks stand out. Left out, 1.
+   * @minimum 0
+   * @maximum 1
+   */
+  opacity?: number;
+  /** Shift from the centred ground, in mm: across, then down. Left out, the ground stays centred. */
+  at?: [number, number];
+  /** How much larger the ground is than the size that fills the page and keeps its proportions. 1 fills the page. Left out, 1.
+   * @minimum 0.25
+   * @maximum 4
+   */
+  scale?: number;
 };
 // The pages, and what every page shares: guide lines, the grid's cell in mm (0 for none), and whether the A4 lies
 // on its side.
@@ -4475,6 +4505,11 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
     <Whole.Provider value={all}>
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
+        {all.pages[page].ground && (
+          <div className="ground-clip">
+            <GroundView ground={all.pages[page].ground} w={w} h={h} k={K} />
+          </div>
+        )}
         <PageNumber doc={all} page={page} />
         {all.pages[page].blocks.map((b) => (
           <div key={b.id} className="block" data-block={b.id} style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>

@@ -26,19 +26,28 @@ def path(user_id: int, upload_id: int) -> Path:
     return db.DATA_DIR / "users" / str(user_id) / "uploads" / str(upload_id)
 
 
+def _upload(value: object) -> int | None:
+    # A client wrote the document. Only a number names a file in the uploads folder.
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def shown(doc: dict) -> set[int]:
-    """The uploads the image blocks of a document show."""
-    # A client wrote the document, so any part may be missing or of another kind. Only a number
-    # names a file in the uploads folder.
+    """The uploads a document shows: image blocks, and a page's ground."""
     ids = set()
     # A template from before sheets had pages holds its blocks itself, and still draws.
     pages = doc.get("pages", [doc])
     for page in pages if isinstance(pages, list) else []:
-        blocks = page.get("blocks") if isinstance(page, dict) else None
+        if not isinstance(page, dict):
+            continue
+        ground = page.get("ground")
+        upload = _upload(ground.get("upload")) if isinstance(ground, dict) else None
+        if upload is not None:
+            ids.add(upload)
+        blocks = page.get("blocks")
         for block in blocks if isinstance(blocks, list) else []:
             props = block.get("props") if isinstance(block, dict) else None
-            upload = props.get("upload") if isinstance(props, dict) else None
-            if isinstance(upload, int) and block.get("type") == "image":
+            upload = _upload(props.get("upload")) if isinstance(props, dict) else None
+            if upload is not None and block.get("type") == "image":
                 ids.add(upload)
     return ids
 
