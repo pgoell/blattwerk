@@ -121,7 +121,8 @@ describe("drawn tasks", () => {
                 }
               }
         }
-  }, 2000);
+    // Every setting, twelve tasks, three seeds: a busy CI shard takes longer than 2 s.
+  }, 30_000);
 });
 
 // Random typed numbers on random settings: a task is wrong exactly when no (a, b) fits, and otherwise keeps the rule
@@ -181,7 +182,8 @@ describe("typed tasks", () => {
         expect(solve(op, known, null, C)).toEqual([fa, fb, op === "+" ? fa + fb : fa - fb]);
       }
     }
-  }, 2000);
+    // Two thousand typed rounds: a busy CI shard takes longer than 2 s.
+  }, 30_000);
 });
 
 describe("small contract checks", () => {
