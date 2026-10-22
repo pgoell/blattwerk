@@ -706,10 +706,6 @@ def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
     """A stored clip of another build, or of none, harms neither the editor nor the sheet."""
     page = editor(box("a", "shape", RECT, w=40))
     unpick(page)
-    # The browser's clipboard outlives a test: a picture an earlier one left there would paste.
-    # A blank, as a copy of blocks with no words leaves: words no copy of the editor's left there
-    # would paste as a text block.
-    page.evaluate("navigator.clipboard.writeText(' ')")
     page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
     page.keyboard.press("Control+v")
     # The next copy heals it.
@@ -792,6 +788,27 @@ def clipboard_picture(page):
         page.wait_for_timeout(100)
     assert got["png"] is not None, f"no picture on the clipboard, only {got['types']}"
     return got["types"], page.evaluate(PIXELS, got["png"])
+
+
+@chromium_only
+def test_an_editor_starts_with_an_empty_clipboard(editor):
+    """A picture one editor leaves is not there when the next one opens."""
+    page = editor(box("a", "text", TEXT))
+    copy_picture(page)
+    again = editor(box("b", "text", TEXT))
+    held = again.evaluate(
+        """async () => {
+            const items = await navigator.clipboard.read();
+            const types = items.flatMap((item) => item.types);
+            let text = "";
+            for (const item of items) {
+                if (item.types.includes("text/plain")) text += await (await item.getType("text/plain")).text();
+            }
+            return { types, text };
+        }"""
+    )
+    assert [kind for kind in held["types"] if kind.startswith("image/")] == []
+    assert held["text"].strip() == ""
 
 
 @chromium_only
