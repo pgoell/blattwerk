@@ -19,7 +19,7 @@
 Preconditions:
 
 - `src/blattwerk/static/index.html` is current. `mise run test:webkit` depends on `build`.
-- WebKit's browser is installed (`uv run playwright install webkit` once). On a host whose `ldconfig -p` lists `libgtk-4.so.1`, `scripts/test-webkit.sh` runs `uv run pytest` on the host. Without that library, and with docker, the script runs the same pytest inside `mcr.microsoft.com/playwright:v1.64.0-noble`.
+- WebKit's browser is installed (`uv run playwright install webkit` once) and launches. On a host whose `ldconfig -p` lists `libgtk-4.so.1`, `scripts/test-webkit.sh` runs `uv run pytest` on the host. Without that library, and with docker, the script runs the same pytest inside `mcr.microsoft.com/playwright:v1.64.0-noble`. `libgtk-4.so.1` only chooses the branch. A download that prints Playwright's missing-dependency warning does not launch until those libraries are installed.
 - Node ids, not `-k`. One worker: `-n 0`.
 
 - **Editor keys.** Run the node id below. The four cases are Enter/F2 and text/shape. Each case selects the block, presses the key, types, and the field shows the new word. Exit code 0.
@@ -43,6 +43,6 @@ mise run test:webkit
 - These tests do not exercise `/einladung` or `Neues Blatt`. A green WebKit log is not proof of signup.
 - `tests/test_clipboard.py` marks picture paste `webkit_xfail` 204: WebKit's Einfügen reads no picture the clipboard holds. A green run of `test_the_button_ausschneiden_cuts` does not cover that xfail.
 - The fixture sets `localStorage.tour`, grants clipboard-read (and clipboard-write except on WebKit), and clears clipboard text when the editor opens. A drive that skips those steps is a different setup.
-- `BLATTWERK_BROWSER=webkit` is set by `scripts/test-webkit.sh`. Exporting it yourself and calling `uv run pytest` is the same browser only when the host has the WebKit libraries. Otherwise the shell script is the entry point.
+- `BLATTWERK_BROWSER=webkit` is set by `scripts/test-webkit.sh`. Exporting it yourself and calling `uv run pytest` is the same browser only when the host has the WebKit binary and the libraries Playwright names. Otherwise the shell script is the entry point, and it still needs those libraries when it chooses the host.
 - `-n auto` is the default in `pyproject.toml`. Pass `-n 0` so one worker owns the browser.
 - Do not describe a node that was not in the command as passed.

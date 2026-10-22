@@ -74,7 +74,7 @@ uv run python .cursor/skills/verify-blattwerk/drive.py webkit \
   tests/test_clipboard.py::test_the_button_ausschneiden_cuts
 ```
 
-That is `mise run test:webkit -- -n 0 --tb=short` plus those node ids. Pass node ids. Do not use `-k`.
+That is `mise run test:webkit -- -n 0 --tb=short` plus those node ids. Pass node ids. Do not use `-k`. The host branch of `scripts/test-webkit.sh` runs when `libgtk-4.so.1` is installed. The WebKit binary and the libraries Playwright names still have to be present; a missing-dependency warning from `playwright install webkit` means the launch will fail.
 
 Selectors and the per-feature steps are in `features/`.
 
