@@ -77,6 +77,11 @@ def login(page, who, on, count):
     """Logs in on the login page, with the form for an address or else with the client's cookie,
     and opens the sheet `on` of `count` blocks."""
     if isinstance(who, str):
+        # The wipe starts in the click and ends after the form has gone. The next line leaves
+        # this page: a navigation before that write lands drops it, and the previous account's
+        # words stay on the clipboard (#772).
+        if BROWSER != "webkit":
+            track_writes(page)
         page.fill("#email", who)
         page.fill("#password", PASSWORD)
         with page.expect_response("**/api/login") as answer:
@@ -92,6 +97,7 @@ def login(page, who, on, count):
             page.wait_for_function("localStorage.getItem('clip') === null")
         else:
             expect(page.locator("#email")).to_have_count(0)
+            writes_landed(page)
     else:
         cookie = {"name": "session", "value": who.cookies["session"], "url": origin(page)}
         page.context.add_cookies([cookie])
