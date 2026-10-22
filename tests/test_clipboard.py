@@ -795,6 +795,29 @@ def clipboard_picture(page):
 
 
 @chromium_only
+def test_an_editor_starts_with_an_empty_clipboard(editor):
+    """A picture one editor leaves is not there when the next one opens."""
+    page = editor(box("a", "text", TEXT))
+    copy_picture(page)
+    again = editor(box("b", "text", TEXT))
+    held = again.evaluate(
+        """async () => {
+            const items = await navigator.clipboard.read();
+            const types = items.flatMap((item) => item.types);
+            let text = "";
+            for (const item of items) {
+                if (item.types.includes("text/plain")) text += await (await item.getType("text/plain")).text();
+            }
+            return { types, text };
+        }"""
+    )
+    assert [kind for kind in held["types"] if kind.startswith("image/")] == []
+    assert held["text"].strip() == ""
+    again.keyboard.press("Control+v")
+    expect(blocks(again)).to_have_count(1)
+
+
+@chromium_only
 @pytest.mark.parametrize("kind", KINDS)
 def test_every_block_type_copied_puts_a_picture_on_the_clipboard(editor, kind):
     """B1"""
