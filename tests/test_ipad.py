@@ -55,7 +55,8 @@ DESKTOP = {
         ".stage": [236, 44, 900, 956],
         ".panel": [1136, 44, 264, 956],
         ".sheet": [268, 76, 821, 1161.1],
-        ".dock": [281, 938, 810, 46],
+        # One tool wider since the Sachunterricht button joined the plain dock.
+        ".dock": [264, 938, 844, 46],
     },
 }
 PHONE = {
