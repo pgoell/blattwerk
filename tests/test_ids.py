@@ -23,6 +23,11 @@ BELOW = -(2**63) - 1
 ROUTES = {
     "save": ("PATCH", "/api/sheets/{}"),
     "duplicate": ("POST", "/api/sheets/{}/duplicate"),
+    "share": ("GET", "/api/sheets/{}/share"),
+    "share_on": ("POST", "/api/sheets/{}/share"),
+    "share_off": ("DELETE", "/api/sheets/{}/share"),
+    "share_renew": ("POST", "/api/sheets/{}/share/renew"),
+    "share_picture": ("GET", "/api/shares/not-a-real-token-value-here-000/uploads/{}"),
     "delete": ("DELETE", "/api/sheets/{}"),
     "pdf": ("GET", "/api/sheets/{}/pdf"),
     "render": ("GET", "/api/render/{}"),

@@ -74,6 +74,17 @@ CREATE TABLE IF NOT EXISTS tokens (
 CREATE TABLE IF NOT EXISTS templates {TEMPLATES};
 CREATE TABLE IF NOT EXISTS sheets {SHEETS};
 CREATE TABLE IF NOT EXISTS uploads {UPLOADS};
+-- A link to a frozen copy of one sheet. The token is the link. Deleting the sheet or the
+-- account deletes the row, and the link dies with it.
+CREATE TABLE IF NOT EXISTS shares (
+    token TEXT PRIMARY KEY,
+    sheet_id INTEGER NOT NULL UNIQUE REFERENCES sheets (id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    doc TEXT NOT NULL,
+    updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS shares_user ON shares (user_id);
 CREATE TABLE IF NOT EXISTS attempts (
     key TEXT NOT NULL,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
