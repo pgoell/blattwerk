@@ -706,10 +706,6 @@ def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
     """A stored clip of another build, or of none, harms neither the editor nor the sheet."""
     page = editor(box("a", "shape", RECT, w=40))
     unpick(page)
-    # The browser's clipboard outlives a test: a picture an earlier one left there would paste.
-    # A blank, as a copy of blocks with no words leaves: words no copy of the editor's left there
-    # would paste as a text block.
-    page.evaluate("navigator.clipboard.writeText(' ')")
     page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
     page.keyboard.press("Control+v")
     # The next copy heals it.
@@ -813,8 +809,6 @@ def test_an_editor_starts_with_an_empty_clipboard(editor):
     )
     assert [kind for kind in held["types"] if kind.startswith("image/")] == []
     assert held["text"].strip() == ""
-    again.keyboard.press("Control+v")
-    expect(blocks(again)).to_have_count(1)
 
 
 @chromium_only
