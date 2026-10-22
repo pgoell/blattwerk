@@ -72,6 +72,10 @@
             }
           },
           "description": "The page numbers printed on each page. Left out, none are printed."
+        },
+        "credits": {
+          "type": "boolean",
+          "description": "Prints the credits of the sheet's pictures in small type at the foot of the last page. Left out, they print when a picture's licence asks for credit, and not when none does."
         }
       },
       "required": [

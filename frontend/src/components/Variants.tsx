@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 
 import { FileDown, FileCheck } from "lucide-react";
 import { api } from "../api";
 import { ask, flush, isGone, signed } from "../saves";
-import { Paper, read, sizeOf, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
+import { Paper, read, sizeOf, type Credit, type Doc, type SelbstkontrolleBlock, type SuchselBlock } from "../sheet";
 import { checked, sane as saneSelbst } from "../selbstkontrolle";
 import { laid } from "../suchsel";
 
@@ -86,7 +86,7 @@ function shorts(count: number, doc: Doc, got: Record<string, Variant>): Short[] 
   );
 }
 
-export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash, newer: loadNewer, print: printNow, fresh }: {
+export default function Variants({ id, doc, count, setCount, letters, setLetters, opener, onClose, clash, newer: loadNewer, print: printNow, fresh, notes = [] }: {
   id: number;
   doc: Doc;
   count: number;
@@ -103,6 +103,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
   print?: boolean;
   // A newer version was loaded for this dialog: the line says so.
   fresh?: boolean;
+  notes?: Credit[];
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [shown, setShown] = useState("A");
@@ -248,7 +249,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
       </fieldset>
       <div className="preview" data-variant={letter} ref={box}>
         {variant
-          ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} />)
+          ? variant.pages.map((_, n) => <Paper key={n} doc={variant} k={fit(variant, n, variant.pages.length, room)} page={n} notes={notes} />)
           : "Lädt …"}
       </div>
       {line && <div className="clash" role="alert">{line}</div>}

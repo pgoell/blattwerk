@@ -13,7 +13,7 @@ import markdown
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from blattwerk import auth, feedback, maths, oauth, pdf, remote, sheets, templates, uploads
+from blattwerk import auth, feedback, maths, oauth, pdf, remote, search, sheets, templates, uploads
 
 # `npm run build` in frontend/ writes here.
 STATIC = Path(__file__).parent / "static"
@@ -40,6 +40,7 @@ app.include_router(maths.router)
 app.include_router(oauth.router)
 app.include_router(pdf.router)
 app.include_router(remote.router)
+app.include_router(search.router)
 app.include_router(sheets.router)
 app.include_router(templates.router)
 app.include_router(uploads.router)

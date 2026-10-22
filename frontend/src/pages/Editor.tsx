@@ -103,6 +103,7 @@ import { api, post, type Refusal, type User } from "../api";
 import { DRAWERS, opening } from "../components/Blank";
 import Failed from "../components/Failed";
 import Feedback from "../components/Feedback";
+import PictureSearch from "../components/PictureSearch";
 import Logo from "../components/Logo";
 import Menu, { type Item } from "../components/Menu";
 import ZoomList from "../components/ZoomList";
@@ -113,7 +114,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, Credits, creditsOf, creditsOn, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Credit, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -412,6 +413,18 @@ const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem an
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
+  const [picturesOpen, setPicturesOpen] = useState(false);
+  const [foundNotes, setFoundNotes] = useState<Credit[]>([]);
+  const uploadKey = [...new Set(hist.doc.pages.flatMap((p) => p.blocks.flatMap((b) => (b.type === "image" ? [b.props.upload] : []))))].sort((a, b) => a - b).join(",");
+  useEffect(() => {
+    if (!uploadKey) return void setFoundNotes([]);
+    let gone = false;
+    signed(api<Credit[]>(`/picture-notes?ids=${uploadKey}`)).then(
+      (notes) => void (gone || setFoundNotes(notes)),
+      () => void (gone || setFoundNotes([])),
+    );
+    return () => void (gone = true);
+  }, [uploadKey]);
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
@@ -876,6 +889,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   }
   // Page numbers are sheet-wide. A change turns them on and keeps the rest; "Aus" turns them off and keeps the rest too.
   const folio = pageNumbersOf(hist.doc);
+  const noted = creditsOf(hist.doc, foundNotes);
+  const shownCredits = creditsOn(hist.doc, noted.map((note) => note.licence));
+  // A click on the choice the sheet already stores makes no step. Left out, the footer follows the licences.
+  const setCredits = (on: boolean) => {
+    if (hist.doc.credits === on) return;
+    update((doc) => ({ ...doc, credits: on }));
+  };
   // A click on what is already set makes no step to undo.
   const numbering = (change: Partial<PageNumbers>, on = true) => {
     const next = { ...folio, ...change, on };
@@ -922,6 +942,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // A format still goes to a locked block, and its box follows where the content needs it: the edge it starts at stays.
   // A sheet laid on its side brings it back onto the page as any other block.
   const free = sel.filter((b) => !blocks.some((o) => o.locked && (o === b || (b.group && o.group?.[0] === b.group[0]))));
+  const pictureNotes = noted.filter((note) => free.some((b) => b.type === "image" && b.props.upload === note.id));
   // What lines up as one thing, as in PowerPoint: a group picked whole, the outermost such, or else a block by itself.
   const thing = (b: Block) => b.group?.find((g) => blocks.every((o) => !o.group?.includes(g) || ids.includes(o.id))) ?? b.id;
   const things = [...new Set(free.map(thing))].map((t) => free.filter((b) => thing(b) === t));
@@ -2782,6 +2803,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       unfit,
     );
   }
+  // A found picture is copied into the uploads first, then placed like one the teacher picked.
+  async function placeFound(id: number) {
+    await attempt(
+      NO_PICTURE,
+      async () => {
+        const where = mark();
+        const { id: upload } = await signed(api<{ id: number }>(`/picture-search/${id}`, { method: "POST" }));
+        const { width, height } = await served(upload);
+        const w = round(Math.min(100, (100 * width) / height));
+        calm(() => add(w, round((w * height) / width), { type: "image", props: { upload, ratio: width / height, cut: [0, 0, 0, 0] } }, where()));
+      },
+      unfit,
+    );
+  }
   // Dropped files land with the first one's middle under the pointer, on the page that lies there, and each next one
   // 5 mm right and down. They stay where they were dropped, also on a block, so they only move as far as the page
   // needs to hold them. The page and the spot are read at once: the desk may scroll while the pictures are on their way.
@@ -4407,13 +4442,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       <i className="sep" data-name="Einfügen" />
       <Tool icon={Type} label="Text" data-tour="text" onClick={() => addInsert(INSERTS.text())} />
       <Tool icon={Heading} label="Überschrift" onClick={() => addInsert(INSERTS.heading())} />
-      <Tool icon={ImagePlus} label="Bild" onClick={() => picker.current!.click()} />
+      <Tool icon={ImagePlus} label="Bild" onClick={() => setPicturesOpen(true)} />
       <input
         ref={picker}
         type="file"
         accept={TYPES.join()}
         hidden
         onChange={(e) => {
+          setPicturesOpen(false);
           upload(e.target.files?.[0]);
           // The same picture can be picked again.
           e.target.value = "";
@@ -4626,6 +4662,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               setLetters={setLetters}
               opener={variantsDoor}
               onClose={() => { setVariants(false); setFromPress(undefined); }}
+              notes={foundNotes}
               clash={!!saver?.clash}
               newer={(key) => newerSheet({ count, letters, print: key, newer: true })}
               print={fromPress?.print}
@@ -4947,6 +4984,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                   beside them, in px of the screen. */}
               <div className={keepsFractions() ? "scaled fractions" : "scaled"} style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
                 <PageNumber doc={hist.doc} page={n} />
+                <Credits doc={hist.doc} page={n} notes={noted} />
                 {p.blocks.map((b) => (
 
                   <div
@@ -5416,6 +5454,21 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                       onChange={(e) => fadePicture(Math.round(100 - +e.target.value) / 100)}
                     />
                   </label>
+                  {pictureNotes.map((note) => {
+                    const safe = note.page.startsWith("https://pixabay.com/") || note.page.startsWith("https://www.pixabay.com/");
+                    return (
+                      <p key={note.id} className="hint">
+                        {note.source}, {note.author}, {note.licence}.{" "}
+                        {safe ? (
+                          <a href={note.page} target="_blank" rel="noreferrer">
+                            Bildseite
+                          </a>
+                        ) : (
+                          note.page
+                        )}
+                      </p>
+                    );
+                  })}
                 </>
               )}
               {nameFields.length > 0 && (
@@ -5677,6 +5730,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 Alle entfernen
               </button>
               <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
+              <h2>Bildnachweise</h2>
+              <div className="seg" role="group" aria-label="Bildnachweise">
+                <button className={shownCredits ? "" : "on"} aria-pressed={!shownCredits} onClick={() => setCredits(false)}>Aus</button>
+                <button className={shownCredits ? "on" : ""} aria-pressed={shownCredits} onClick={() => setCredits(true)}>An</button>
+              </div>
+              <p className="hint">Am Fuß der letzten Seite. Ohne Wahl an, wenn eine Lizenz einen Nachweis verlangt, sonst aus.</p>
               <h2>Seitenzahlen</h2>
               <div className="seg" role="group" aria-label="Seitenzahlen">
                 <button className={folio.on ? "" : "on"} aria-pressed={!folio.on} onClick={() => numbering({}, false)}>Aus</button>
@@ -5729,6 +5788,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
             </>
           )}
         </aside>
+      )}
+      {picturesOpen && (
+        <PictureSearch
+          onFile={() => picker.current?.click()}
+          onPlace={(id) => {
+            setPicturesOpen(false);
+            void placeFound(id);
+          }}
+          onClose={() => setPicturesOpen(false)}
+        />
       )}
       {tour && (
         <Tour

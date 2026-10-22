@@ -442,8 +442,9 @@ def test_a_real_colour_picker_moved_away_and_back_adds_no_undo_step(editor):
 
 def test_a_picture_given_to_the_file_dialog_lands_on_the_sheet(editor):
     page = editor(box("a", "text", TEXT))
+    press(page, page.get_by_label("Bild", exact=True))
     with page.expect_file_chooser() as dialog:
-        press(page, page.get_by_label("Bild", exact=True))
+        press(page, page.get_by_role("button", name="Datei wählen", exact=True))
     # The dialog is the system's and no key of the test reaches it: the chooser takes the file.
     dialog.value.set_files({"name": "bild.png", "mimeType": "image/png", "buffer": png()})
     expect(page.locator(".block[data-id]")).to_have_count(2)

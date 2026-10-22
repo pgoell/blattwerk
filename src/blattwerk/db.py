@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS tokens (
 CREATE TABLE IF NOT EXISTS templates {TEMPLATES};
 CREATE TABLE IF NOT EXISTS sheets {SHEETS};
 CREATE TABLE IF NOT EXISTS uploads {UPLOADS};
+-- Pixabay asks that a search be kept for a day. The row holds the term and the hits, no teacher.
+CREATE TABLE IF NOT EXISTS picture_cache (
+    name TEXT PRIMARY KEY,
+    hits TEXT NOT NULL,
+    until REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS attempts (
     key TEXT NOT NULL,
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -138,7 +144,25 @@ def open_db() -> sqlite3.Connection:
             # row's id again.
             log.warning("Database is busy: the move to AUTOINCREMENT waits, this request reads")
             con.execute("PRAGMA query_only = ON")
+    # Not in UPLOADS: the move to AUTOINCREMENT copies a table with SELECT *, which would break
+    # if the new table had columns the old one lacks. A found picture's source is added after.
+    credit_columns(con)
     return con
+
+
+def credit_columns(con: sqlite3.Connection) -> None:
+    """The licence note of a found picture. A read-only connection leaves the table as it is."""
+    if con.execute("PRAGMA query_only").fetchone()[0]:
+        return
+    have = {row["name"] for row in con.execute("PRAGMA table_info(uploads)")}
+    for name in ("source", "author", "licence", "page"):
+        if name in have:
+            continue
+        try:
+            con.execute(f"ALTER TABLE uploads ADD COLUMN {name} TEXT")
+        except sqlite3.OperationalError as error:
+            if "duplicate column" not in str(error).lower():
+                raise
 
 
 def old(con: sqlite3.Connection) -> list[str]:

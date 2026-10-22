@@ -827,6 +827,8 @@ export type Doc = {
     /** Prints the number in black. Left out, it is grey. */
     black?: boolean;
   };
+  /** Prints the credits of the sheet's pictures in small type at the foot of the last page. Left out, they print when a picture's licence asks for credit, and not when none does. */
+  credits?: boolean;
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
 // The server counts a sheet's saved documents in `version`.
@@ -964,7 +966,7 @@ function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks, credits }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   // A sheet from the API may lack its guides and grid, or hold them wrong: then it has none.
   guides: guides && typeof guides === "object" && Array.isArray(guides.x) && Array.isArray(guides.y) ? guides : { x: [], y: [] },
@@ -974,7 +976,36 @@ export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumber
   pageNumbers,
   // A sheet may come from anywhere: only a plain object of mends is kept.
   breaks: breaks && typeof breaks === "object" && !Array.isArray(breaks) ? breaks : undefined,
+  // Only the teacher's choice is kept. Left out, the footer follows the licences.
+  ...(credits === true || credits === false ? { credits } : {}),
 });
+
+// A picture found in the editor, and where it came from. The upload stores this; the sheet does not.
+export type Credit = {
+  id: number;
+  source: string;
+  author: string;
+  licence: string;
+  page: string;
+};
+// A licence that asks for no credit. Pixabay's does not. Any other named licence does.
+const FREE_LICENCES = new Set(["Pixabay-Lizenz"]);
+export const creditsOn = (doc: { credits?: boolean }, licences: string[]) =>
+  doc.credits === true || doc.credits === false ? doc.credits : licences.some((licence) => licence.length > 0 && !FREE_LICENCES.has(licence));
+export const creditLine = (note: Credit) => `${note.source}, ${note.author}, ${note.licence}, ${note.page}`;
+export const creditsOf = (doc: Doc, notes: Credit[]): Credit[] => {
+  const by = new Map(notes.map((note) => [note.id, note]));
+  const seen = new Set<number>();
+  const lines: Credit[] = [];
+  for (const page of doc.pages)
+    for (const block of page.blocks) {
+      if (block.type !== "image" || seen.has(block.props.upload)) continue;
+      seen.add(block.props.upload);
+      const note = by.get(block.props.upload);
+      if (note) lines.push(note);
+    }
+  return lines;
+};
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.
 export const wordsIn = (doc: { words?: unknown }): string[] =>
@@ -4462,10 +4493,25 @@ export function PageNumber({ doc, page }: { doc: Doc; page: number }) {
   ) : null;
 }
 
+// The credits of a sheet's pictures, on the last page only, in small type above a foot number.
+export function Credits({ doc, page, notes }: { doc: Doc; page: number; notes: Credit[] }) {
+  const lines = creditsOf(doc, notes);
+  if (page !== doc.pages.length - 1 || !lines.length || !creditsOn(doc, lines.map((note) => note.licence))) return null;
+  const folio = folioOf(doc, page);
+  const bottom = (folio && folio.at !== "top" ? 12 : 6) * K;
+  return (
+    <p className="credits" style={{ left: 12 * K, right: 12 * K, bottom, fontSize: 7 * PT * K }}>
+      {lines.map((note, i) => (
+        <span key={note.id}>{i === 0 ? `Bildnachweis: ${creditLine(note)}` : creditLine(note)}</span>
+      ))}
+    </p>
+  );
+}
+
 // A page with nothing to take hold of, at `k` pixels per mm: page one drawn small in the list, every page at its
 // true size in the PDF, where it needs no transform. The answer key says on each page that it is one; with the page
 // number at the top right, it moves to the top left.
-export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; k: number; page?: number; solved?: boolean; letter?: string }) {
+export function Paper({ doc, k, page = 0, solved = false, letter, notes = [] }: { doc: Doc; k: number; page?: number; solved?: boolean; letter?: string; notes?: Credit[] }) {
   const all = read(doc);
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
@@ -4476,6 +4522,7 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
     <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         <PageNumber doc={all} page={page} />
+        <Credits doc={all} page={page} notes={notes} />
         {all.pages[page].blocks.map((b) => (
           <div key={b.id} className="block" data-block={b.id} style={{ left: b.x * K, top: b.y * K, width: b.w * K, height: b.h * K, zIndex: b.z, ...turned(b) }}>
             <Draw block={b} k={K} solved={solved} />

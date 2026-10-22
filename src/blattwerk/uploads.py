@@ -1,5 +1,6 @@
 """Uploads: the pictures of image blocks, kept per user on the data volume."""
 
+import json
 import threading
 from typing import Annotated
 
@@ -7,7 +8,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
-from blattwerk import pdf, svg
+from blattwerk import pdf, pictures, svg
 from blattwerk.auth import Teacher, current_teacher
 from blattwerk.db import Con, Id
 from blattwerk.pictures import path
@@ -48,9 +49,8 @@ def parsed(data: bytes) -> bytes | None:
         return svg.clean(data)
 
 
-@router.post("/uploads")
-async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
-    data = await file.read(MAX_BYTES + 1)
+async def stored(data: bytes) -> tuple[bytes, str]:
+    """The bytes to keep and their type. A file that is no picture is refused."""
     if len(data) > MAX_BYTES:
         raise HTTPException(413)
     type_ = kind(data)
@@ -66,14 +66,37 @@ async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
         if len(cleaned) > MAX_BYTES:
             raise HTTPException(413)
         data = cleaned
+    return data, type_
+
+
+def write_upload(
+    con: Con, user_id: int, data: bytes, type_: str, credit: dict | None = None
+) -> int:
+    """Stores one picture. `credit` is the source of a found picture; an upload has none."""
+    credit = credit or {}
     upload_id = con.execute(
-        "INSERT INTO uploads (user_id, type) VALUES (?, ?)", (user["id"], type_)
+        "INSERT INTO uploads (user_id, type, source, author, licence, page)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            user_id,
+            type_,
+            credit.get("source"),
+            credit.get("author"),
+            credit.get("licence"),
+            credit.get("page"),
+        ),
     ).lastrowid
     assert upload_id is not None
-    out = path(user["id"], upload_id)
+    out = path(user_id, upload_id)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(data)
-    return {"id": upload_id}
+    return upload_id
+
+
+@router.post("/uploads")
+async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
+    data, type_ = await stored(await file.read(MAX_BYTES + 1))
+    return {"id": write_upload(con, user["id"], data, type_)}
 
 
 @router.get("/uploads/{upload_id}")
@@ -100,3 +123,63 @@ def serve(
     if row["type"] == "image/svg+xml":
         headers |= SVG_CSP
     return FileResponse(path(user_id, upload_id), media_type=row["type"], headers=headers)
+
+
+def chosen_ids(raw: str) -> list[int]:
+    """Up to 200 ids from a comma list. Anything else is left out."""
+    chosen = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part.isdigit():
+            continue
+        number = int(part)
+        if number >= 2**63:
+            continue
+        chosen.append(number)
+        if len(chosen) == 200:
+            break
+    return chosen
+
+
+def notes_for(con: Con, user_id: int, ids: list[int]) -> list[dict]:
+    """The licence notes of this teacher's pictures, in the order asked, with a source only."""
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    rows = con.execute(
+        "SELECT id, source, author, licence, page FROM uploads"
+        f" WHERE user_id = ? AND source IS NOT NULL AND id IN ({marks})",
+        (user_id, *ids),
+    ).fetchall()
+    by = {row["id"]: row for row in rows}
+    return [
+        {
+            "id": i,
+            "source": by[i]["source"] or "",
+            "author": by[i]["author"] or "",
+            "licence": by[i]["licence"] or "",
+            "page": by[i]["page"] or "",
+        }
+        for i in ids
+        if i in by
+    ]
+
+
+@router.get("/picture-notes")
+def picture_notes(
+    request: Request,
+    con: Con,
+    ids: str = "",
+    session: Annotated[str | None, Cookie()] = None,
+    token: pdf.Token = None,
+) -> list[dict]:
+    """Licence notes for picture ids. A render token sees only the pictures on its sheet."""
+    chosen = chosen_ids(ids)
+    if token:
+        row = pdf.opened(con, token)
+        held = row["doc"]
+        doc = json.loads(held) if isinstance(held, str) else held
+        shown = pictures.shown(doc if isinstance(doc, dict) else {})
+        return notes_for(con, row["user_id"], [i for i in chosen if i in shown])
+    user = current_teacher(request, con, session)
+    return notes_for(con, user["id"], chosen)

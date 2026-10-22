@@ -1118,7 +1118,8 @@ def test_drop_refuses_a_file_outside_the_run_folder_and_one_that_is_missing(
 def test_upload_puts_a_picture_on_the_sheet_by_the_bild_buttons_file_box(editor, folder):
     Image.new("RGB", (40, 30), "red").save(folder / "bild.png")
     page = editor(box("a", "text", ONE))
-    tool.upload(page, "bild.png", "Bild")
+    tool.click(page, "Bild")
+    tool.upload(page, "bild.png", "Datei wählen")
     expect(page.locator(".block .picture img")).to_have_count(1)
 
 
