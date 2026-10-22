@@ -27,11 +27,22 @@ def give(page, name, mime, data):
     )
 
 
-def settled(page):
-    """Waits until the change has left the saved sheet and come back saved."""
-    status = page.locator("header [role=status]")
-    expect(status).not_to_have_text("Gespeichert")
-    expect(status).to_have_text("Gespeichert", timeout=8000)
+# The status line is not enough. An undo that puts back the saved sheet never leaves
+# "Gespeichert", and a save that finishes before the next line is read has left it already.
+SHEET = """async (want) => {
+    const id = location.pathname.split("/").pop();
+    const res = await fetch("/api/sheets/" + id, { cache: "no-store" });
+    if (!res.ok) return false;
+    const pages = (await res.json()).doc?.pages ?? [];
+    if (want === "one") {
+        const ground = pages[0] && pages[0].ground;
+        const cut = (ground && ground.cut) || [];
+        return pages.length === 1 && !!ground && cut.join(",") === "0,0,0,0"
+            && (ground.opacity ?? 1) === 1 && (ground.turns ?? 0) === 0;
+    }
+    return pages.length === 2 && pages.every((p) => p.ground && p.ground.upload)
+        && pages[0].ground.upload !== pages[1].ground.upload;
+}"""
 
 
 def test_a_photo_is_the_ground_under_the_blocks_and_undo_takes_it_back(editor):
@@ -92,7 +103,7 @@ def test_a_photo_is_the_ground_under_the_blocks_and_undo_takes_it_back(editor):
     expect(ground(page)).to_have_count(0)
     page.get_by_label("Rückgängig", exact=True).click()
     expect(ground(page)).to_have_count(1)
-    settled(page)
+    page.wait_for_function(SHEET, arg="one", timeout=8000)
     stored = doc(page, client)["pages"][0]["ground"]
     assert stored["cut"] == [0, 0, 0, 0]
     assert stored["upload"] > 0
@@ -117,7 +128,7 @@ def test_one_pdf_page_or_every_page_becomes_a_ground(editor):
     expect(page.get_by_role("button", name="Alle Seiten", exact=True)).to_be_visible()
     page.get_by_role("button", name="Alle Seiten", exact=True).click()
     expect(ground(page)).to_have_count(2)
-    settled(page)
+    page.wait_for_function(SHEET, arg="all", timeout=8000)
     pages = doc(page, client)["pages"]
     assert len(pages) == 2
     assert pages[0]["blocks"][0]["id"] == "a"
