@@ -115,6 +115,38 @@ CREATE TABLE IF NOT EXISTS oauth_grants (
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_used TEXT
 );
+-- One school, the teachers who have a seat there, and the copies in its folder. A seat is one
+-- school per teacher. The folder keeps the author's name after the account is gone.
+CREATE TABLE IF NOT EXISTS schools (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS seats (
+    user_id INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    school_id INTEGER NOT NULL REFERENCES schools (id) ON DELETE CASCADE,
+    admin INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS folder_sheets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    school_id INTEGER NOT NULL REFERENCES schools (id) ON DELETE CASCADE,
+    author_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+    author_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    doc TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS folder_files (
+    entry_id INTEGER NOT NULL REFERENCES folder_sheets (id) ON DELETE CASCADE,
+    upload_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    PRIMARY KEY (entry_id, upload_id)
+);
+CREATE INDEX IF NOT EXISTS seats_school ON seats (school_id);
+CREATE INDEX IF NOT EXISTS folder_sheets_school ON folder_sheets (school_id);
+CREATE INDEX IF NOT EXISTS folder_files_upload ON folder_files (upload_id);
 """
 
 

@@ -15,6 +15,7 @@ import Login from "./pages/Login";
 import Photos, { forgetPhotos } from "./pages/Photos";
 import Print from "./pages/Print";
 import SetPassword from "./pages/SetPassword";
+import FolderSheet from "./pages/FolderSheet";
 import SheetList from "./pages/SheetList";
 import * as saves from "./saves";
 import { type Sheet } from "./sheet";
@@ -149,6 +150,7 @@ export default function App() {
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
+            <Route path="/ordner/:id" element={<FolderSheet />} />
             <Route path="/blatt/:id" element={first && first.id === id ? <Suspense fallback={wait}><Editor key={id} user={user} wait={wait} first={first.sheet} /></Suspense> : wait} />
             <Route path="/feedback/fotos" element={<Photos />} />
             <Route path="/oauth/authorize" element={<Consent />} />

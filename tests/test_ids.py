@@ -29,12 +29,23 @@ ROUTES = {
     "upload": ("GET", "/api/uploads/{}"),
     "template": ("DELETE", "/api/templates/{}"),
     "reset": ("POST", "/api/admin/users/{}/reset"),
+    "folder": ("GET", "/api/folder/{}"),
+    "folder-copy": ("POST", "/api/folder/{}/copy"),
+    "folder-replace": ("POST", "/api/folder/{}/replace"),
+    "folder-label": ("PATCH", "/api/folder/{}"),
+    "folder-delete": ("DELETE", "/api/folder/{}"),
+    "unseat": ("DELETE", "/api/admin/schools/{}/seats/1"),
 }
 
 
 def ask(client, method, path, sheet_id):
     """Asks the route for the id. A save brings a title, so only the id can be at fault."""
-    body = {"title": "Neu"} if method == "PATCH" else None
+    body = None
+    if method == "PATCH":
+        # The folder's label, or a sheet's title: a body the route accepts, so the id is at fault.
+        body = {"label": "Neu"} if "/folder/" in path else {"title": "Neu"}
+    elif path.endswith("/replace"):
+        body = {"sheet_id": 1}
     return client.request(method, path.format(sheet_id), json=body)
 
 
