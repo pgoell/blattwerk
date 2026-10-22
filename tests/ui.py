@@ -503,6 +503,28 @@ TOUCH = """([kind, points]) => {
         cancelable: true,
     };
     const kept = on.dispatchEvent(new TouchEvent(kind.toLowerCase(), init));
+    // WebKit has no real touch, so the events above scroll nothing (#205). A finger moving up
+    // or down the page list scrolls that panel, unless the page cancelled the touch: a drag
+    // calls preventDefault, and that is what keeps the panel still.
+    if (kind === "touchMove" && kept && held.pan !== false && held.at.length === 1) {
+        const [x, y] = held.at[0];
+        const [sx, sy] = held.from;
+        if (!held.pan && Math.hypot(x - sx, y - sy) > 10) {
+            const down = Math.abs(y - sy) > Math.abs(x - sx);
+            const panel = down ? on.closest("aside.left") : null;
+            let scroll = !!(panel && panel.scrollHeight > panel.clientHeight);
+            for (let node = on; scroll && node; node = node.parentElement) {
+                const action = getComputedStyle(node).touchAction;
+                if (action === "none" || action === "pan-x") scroll = false;
+                if (node === panel) break;
+            }
+            held.pan = scroll ? { panel, y: sy } : false;
+        }
+        if (held.pan) {
+            held.pan.panel.scrollTop += held.pan.y - y;
+            held.pan.y = y;
+        }
+    } else if (kind === "touchMove") held.pan = false;
     if (kind !== "touchMove") held.tap &&= kept;
     if (kind !== "touchEnd" || !held.tap) return;
     // A tap: Safari then sends the mouse's events too, where the finger came down.
@@ -519,7 +541,8 @@ TOUCH = """([kind, points]) => {
 def finger(page, start):
     """A finger down at the start for as long as the block runs. Gives the way to send touches."""
     # Playwright's own touchscreen only taps, so the browser is told of each touch by hand: Chromium
-    # over its debugging line, WebKit, which has none, by the events themselves.
+    # over its debugging line, WebKit, which has none, by the events themselves. The page list's
+    # scroll goes with those events: a touch the page dispatched scrolls nothing on its own.
     session = None if BROWSER == "webkit" else page.context.new_cdp_session(page)
     cancelled = []
 
