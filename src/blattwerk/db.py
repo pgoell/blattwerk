@@ -22,12 +22,17 @@ ID = re.compile("[1-9][0-9]*")
 # An attempt is one login try, keyed by email or IP.
 # AUTOINCREMENT, so a deleted row's id never goes to a later one: a folder is named after its
 # account, and a browser may keep an upload under its address for good.
+# plan, paid_until and renewal are the account's plan. A database from before them gains the
+# columns in ensure_plan: CREATE TABLE IF NOT EXISTS does not add a column.
 USERS = """(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     admin INTEGER NOT NULL DEFAULT 0,
-    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    plan TEXT NOT NULL DEFAULT 'free',
+    paid_until TEXT,
+    renewal TEXT NOT NULL DEFAULT 'none'
 )"""
 TEMPLATES = """(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,6 +120,14 @@ CREATE TABLE IF NOT EXISTS oauth_grants (
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_used TEXT
 );
+-- A provider event, once. The same id again does not move the plan a second time.
+CREATE TABLE IF NOT EXISTS billing_events (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    paid_until TEXT,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -126,6 +139,16 @@ def open_db() -> sqlite3.Connection:
     )
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    try:
+        ensure_plan(con)
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+            raise
+        # Another connection kept the file for the whole wait. The request can read; a later one
+        # adds the columns. Until then a row from before the columns is read as a free account.
+        log.warning("Database is busy: the plan columns wait, this request reads")
+        con.execute("PRAGMA query_only = ON")
+        return con
     if not migrated(con):
         try:
             migrate(con)
@@ -139,6 +162,22 @@ def open_db() -> sqlite3.Connection:
             log.warning("Database is busy: the move to AUTOINCREMENT waits, this request reads")
             con.execute("PRAGMA query_only = ON")
     return con
+
+
+# Added to `users` for a database that already exists. The default fills the rows already there.
+PLAN_COLUMNS = (
+    ("plan", "TEXT NOT NULL DEFAULT 'free'"),
+    ("paid_until", "TEXT"),
+    ("renewal", "TEXT NOT NULL DEFAULT 'none'"),
+)
+
+
+def ensure_plan(con: sqlite3.Connection) -> None:
+    """Adds the plan columns to a database from before them."""
+    have = {row["name"] for row in con.execute("PRAGMA table_info(users)")}
+    for name, decl in PLAN_COLUMNS:
+        if name not in have:
+            con.execute(f"ALTER TABLE users ADD COLUMN {name} {decl}")
 
 
 def old(con: sqlite3.Connection) -> list[str]:
