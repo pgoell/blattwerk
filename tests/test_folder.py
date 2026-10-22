@@ -251,6 +251,12 @@ def test_replace_keeps_the_author_and_the_label():
         == "Deutsch"
     )
     assert cara.patch(f"/api/folder/{entry['id']}", json={"label": "x"}).status_code == 404
+    # An empty body is refused for the author, and is still 404 for someone with no seat.
+    stranger = sign_in("fremd@example.com")
+    assert stranger.patch(f"/api/folder/{entry['id']}", json={}).status_code == 404
+    assert stranger.post(f"/api/folder/{entry['id']}/replace", json={}).status_code == 404
+    assert bea.patch(f"/api/folder/{entry['id']}", json={}).status_code == 422
+    assert bea.post(f"/api/folder/{entry['id']}/replace", json={}).status_code == 422
 
 
 def test_pictures_are_copied_into_the_folder_and_out(data_dir):

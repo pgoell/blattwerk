@@ -12,7 +12,7 @@ import sqlite3
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 from blattwerk import pictures, sheets
@@ -133,6 +133,14 @@ def entry_of(
 
 def may_change(seat: sqlite3.Row, row: sqlite3.Row, user: sqlite3.Row) -> bool:
     return bool(seat["admin"]) or row["author_id"] == user["id"]
+
+
+def load_entry(entry_id: Id, user: Teacher, con: Con) -> tuple[sqlite3.Row, sqlite3.Row]:
+    """404 before the body is read, so a bad body does not tell a stranger the sheet is there."""
+    return entry_of(con, entry_id, user)
+
+
+Entry = Annotated[tuple[sqlite3.Row, sqlite3.Row], Depends(load_entry)]
 
 
 def listed(rows: list[sqlite3.Row], user_id: int, sort: str, q: str) -> list[dict]:
@@ -298,8 +306,8 @@ def one(entry_id: Id, user: Teacher, con: Con) -> dict:
 
 
 @router.patch("/folder/{entry_id}")
-def relabel(entry_id: Id, body: Relabel, user: Teacher, con: Con) -> dict:
-    seat, row = entry_of(con, entry_id, user)
+def relabel(body: Relabel, user: Teacher, con: Con, found: Entry) -> dict:
+    seat, row = found
     if not may_change(seat, row, user):
         raise HTTPException(404)
     updated = con.execute(
@@ -311,8 +319,8 @@ def relabel(entry_id: Id, body: Relabel, user: Teacher, con: Con) -> dict:
 
 
 @router.post("/folder/{entry_id}/replace")
-def replace(entry_id: Id, body: Replace, user: Teacher, con: Con) -> dict:
-    seat, row = entry_of(con, entry_id, user)
+def replace(body: Replace, user: Teacher, con: Con, found: Entry) -> dict:
+    seat, row = found
     if not may_change(seat, row, user):
         raise HTTPException(404)
     own = sheets.find(con, body.sheet_id, user)

@@ -159,7 +159,7 @@ export default function FolderSheet() {
           <button type="submit">Kennzeichen speichern</button>
         </form>
       )}
-      <div className="preview" ref={frame}>
+      <div className="folder-pages" ref={frame}>
         {doc.pages.map((_, i) => <Paper key={i} doc={doc} page={i} k={width / sizeOf(doc, i)[0]} />)}
       </div>
     </main>
