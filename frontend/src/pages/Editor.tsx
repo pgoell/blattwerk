@@ -5732,8 +5732,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               <p className="hint">Eine einzelne Hilfslinie entfernen: an ihrer Zahl vom Blatt ziehen oder mit der rechten Maustaste auf die Zahl klicken.</p>
               <h2>Bildnachweise</h2>
               <div className="seg" role="group" aria-label="Bildnachweise">
-                <button className={shownCredits ? "" : "on"} aria-pressed={!shownCredits} onClick={() => setCredits(false)}>Aus</button>
-                <button className={shownCredits ? "on" : ""} aria-pressed={shownCredits} onClick={() => setCredits(true)}>An</button>
+                <button className={shownCredits ? "" : "on"} aria-label="Bildnachweise aus" aria-pressed={!shownCredits} onClick={() => setCredits(false)}>Aus</button>
+                <button className={shownCredits ? "on" : ""} aria-label="Bildnachweise an" aria-pressed={shownCredits} onClick={() => setCredits(true)}>An</button>
               </div>
               <p className="hint">Am Fuß der letzten Seite. Ohne Wahl an, wenn eine Lizenz einen Nachweis verlangt, sonst aus.</p>
               <h2>Seitenzahlen</h2>

@@ -307,7 +307,9 @@ def test_a_found_picture_lands_with_its_licence_undo_and_the_print(
     page.get_by_label("Wiederholen", exact=True).click()
     expect(page.locator(".block .picture img")).to_have_count(1)
     page.get_by_role("tab", name="Ansicht").click()
-    page.get_by_role("group", name="Bildnachweise").get_by_role("button", name="An").click()
+    page.get_by_role("group", name="Bildnachweise").get_by_role(
+        "button", name="Bildnachweise an"
+    ).click()
     expect(page.locator(".sheet.on .credits")).to_contain_text("Josch13")
     expect(page.locator(".sheet.on .credits")).to_contain_text("Pixabay-Lizenz")
     assert doc_credits(page, client) is True
