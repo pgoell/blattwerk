@@ -1,5 +1,7 @@
 """Ctrl and the wheel beside the desk: never the browser's zoom, over the thumbnails their size."""
 
+import math
+
 import pytest
 from playwright.sync_api import expect
 from test_zoom import WATCH, expect_width, kept, settled, wheel, width
@@ -99,11 +101,24 @@ def test_thumbnails_made_smaller_and_larger_again_stand_two_in_a_row_as_before(e
 def test_a_pinch_over_the_thumbnails_sizes_them_smoothly(editor):
     page = opened(editor)
     over = centre(page.locator(PAPER))
-    # A trackpad sends many small turns of the wheel with Ctrl.
+    # A whole delta stays on the buttons' curve, however small: ten of -10 are one notch.
     for n in range(1, 6):
         wheel(page, -10, over)
         assert kept(page) is True
         expect_thumb(page, 97 * 1.25 ** (n / 10))
+
+
+def test_a_pinch_over_the_thumbnails_follows_the_fingers(editor):
+    """#164. A delta that is not whole is a pinch: the thumbnails take the fingers' scale."""
+    page = opened(editor)
+    over = centre(page.locator(PAPER))
+    wide = thumb(page)
+    wheel(page, -100 * math.log(2), over)
+    assert kept(page) is True
+    expect_thumb(page, wide * 2)
+    wheel(page, 100 * math.log(2), over)
+    assert kept(page) is True
+    expect_thumb(page, wide)
 
 
 def test_the_thumbnail_drawn_larger_is_the_whole_page(editor):
