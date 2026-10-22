@@ -408,6 +408,10 @@ def editor(browser, server, playwright):
         # The editor fits the sheet to the desk as it opens, and the desk's observer may set the
         # width anew a frame later. A place read before then is not where the block ends up.
         page.wait_for_function(MEASURED, timeout=10000)
+        # One browser serves the whole run, and every context shares its clipboard. Empty it
+        # before the test uses the page, or a picture an earlier test left there pastes here (#182).
+        page.bring_to_front()
+        page.evaluate("navigator.clipboard.writeText('')")
         return page
 
     yield start
