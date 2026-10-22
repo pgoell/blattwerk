@@ -326,17 +326,38 @@ def sequence(con):
 
 
 COUNTED = ["users", "templates", "sheets", "uploads"]
+# Added after the AUTOINCREMENT copy. `INSERT SELECT *` cannot carry columns the old table lacks.
+LICENCE = ["source", "author", "licence", "page"]
+
+
+def before_move(data_dir):
+    """Every row as the old database stored it, and the columns `uploads` had."""
+    plain = sqlite3.connect(data_dir / "blattwerk.db")
+    before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
+    columns = [row[1] for row in plain.execute("PRAGMA table_info(uploads)")]
+    plain.close()
+    return before, columns
+
+
+def kept(rows, before, columns, con):
+    """Every old cell survives. The licence columns are new, and empty on an old upload."""
+    others = [table for table in TABLES if table != "uploads"]
+    assert {table: rows[table] for table in others} == {table: before[table] for table in others}
+    names = [row[1] for row in con.execute("PRAGMA table_info(uploads)")]
+    assert names == [*columns, *LICENCE]
+    width = len(columns)
+    assert [row[:width] for row in rows["uploads"]] == before["uploads"]
+    blank = (None,) * len(LICENCE)
+    assert [row[width:] for row in rows["uploads"]] == [blank] * len(before["uploads"])
 
 
 def moved(data_dir, users):
     """Opens an old database and checks the move; `users` is the counter it must end with."""
-    plain = sqlite3.connect(data_dir / "blattwerk.db")
-    before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
-    plain.close()
+    before, columns = before_move(data_dir)
 
     con = db.open_db()
     rows, tables, seq = after = dump(con)
-    assert rows == before
+    kept(rows, before, columns, con)
     assert [r["user_id"] for r in con.execute("SELECT user_id FROM uploads")] == [1, 2]
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
@@ -467,13 +488,11 @@ def test_empty_old_tables_move_too(data_dir):
 
 def test_many_requests_move_an_old_database_once(data_dir):
     old_database(data_dir)
-    plain = sqlite3.connect(data_dir / "blattwerk.db")
-    before = {t: plain.execute(f"SELECT * FROM {t} ORDER BY 1").fetchall() for t in TABLES}
-    plain.close()
+    before, columns = before_move(data_dir)
     with ThreadPoolExecutor(8) as pool:
         cons = list(pool.map(lambda _: db.open_db(), range(8)))
     rows, tables, seq = dump(cons[0])
-    assert rows == before
+    kept(rows, before, columns, cons[0])
     assert seq == [("sheets", 2), ("templates", 2), ("uploads", 2), ("users", 2)]
     assert not [name for name, _ in tables if name.endswith("_new")]
     for con in cons:

@@ -121,7 +121,7 @@ describe("drawn tasks", () => {
                 }
               }
         }
-  }, 2000);
+  });
 });
 
 // Random typed numbers on random settings: a task is wrong exactly when no (a, b) fits, and otherwise keeps the rule
@@ -181,7 +181,7 @@ describe("typed tasks", () => {
         expect(solve(op, known, null, C)).toEqual([fa, fb, op === "+" ? fa + fb : fa - fb]);
       }
     }
-  }, 2000);
+  });
 });
 
 describe("small contract checks", () => {
