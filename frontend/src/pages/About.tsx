@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 // The licenses of the symbols, the fonts and the syllable patterns ask for these credits; the same stand in NOTICE.
+// The Sachunterricht drawings are CC0 and do not ask for a credit. The card is there so the licence can be read.
 export default function About() {
   return (
     <main>
@@ -13,6 +14,14 @@ export default function About() {
           Alle Symbole stammen von <a href="https://openmoji.org">OpenMoji</a>, dem quelloffenen Emoji- und Icon-Projekt,
           und stehen unter der Lizenz <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.de">CC BY-SA 4.0</a>.
           Blattomat zeigt sie unverändert. <a href="/openmoji/LICENSE.txt">Lizenztext</a>
+        </p>
+      </div>
+      <div className="card">
+        <label>Sachunterricht</label>
+        <p>
+          Die Strichzeichnungen für Sachunterricht sind für Blattomat gezeichnet und unter{" "}
+          <a href="https://creativecommons.org/publicdomain/zero/1.0/legalcode">CC0 1.0</a> freigegeben.
+          Ein Nachweis auf dem Blatt ist nicht nötig. <a href="/sachunterricht/LICENCE.txt">Lizenztext</a>
         </p>
       </div>
       <div className="card">

@@ -84,3 +84,20 @@ The patterns come unchanged from the hyphen package (patterns/de-1996.js).
 
 Both license texts are in frontend/public/syllables/LICENSE.txt.
 Blattomat splits the words in the browser: no word goes to a server.
+
+Sachunterricht line drawings
+----------------------------
+The SVG files in frontend/public/sachunterricht are original black line
+drawings made for Blattomat. They are not taken from another picture set.
+
+Licence: CC0 1.0 Universal
+(https://creativecommons.org/publicdomain/zero/1.0/legalcode).
+The legal code, as read on 22 October 2026, is in
+frontend/public/sachunterricht/LICENCE.txt.
+
+CC0 1.0 waives copyright and related rights to the extent the law allows,
+and where a waiver does not hold it grants a royalty-free licence that
+includes commercial use (section 3, Public License Fallback). It does not
+ask for credit. No drawing in the set asks for a credit on the sheet.
+Each picture's source, author, licence and address are in
+frontend/public/sachunterricht/pictures.json, beside the files.

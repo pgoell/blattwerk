@@ -861,6 +861,13 @@ body:has(.print) { background: #fff; }
 .symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; max-height: 196px; margin-bottom: 8px; overflow: auto; }
 .symbols button { min-height: 36px; padding: 0; border-color: transparent; background: none; }
 .symbols img { width: 26px; height: 26px; }
+.topics { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.topics button { min-height: 26px; padding: 0 8px; }
+.topics button.on { background: var(--ink); color: var(--bg); }
+.drawing-set { max-height: 320px; margin-bottom: 8px; overflow: auto; }
+.drawings { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; }
+.drawings button { min-height: 64px; padding: 4px; border-color: transparent; background: #fff; }
+.drawings img { width: 100%; height: 56px; object-fit: contain; }
 /* Silbenbögen: a block's words as they are split, in a box that scrolls, and the open word's letters with a
    button in each gap. A word split by hand is underlined. */
 .words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; margin-bottom: 8px; overflow: auto; }

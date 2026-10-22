@@ -118,6 +118,8 @@ type Props = {
   size: number[];
   // The whole sheet, for the maths blocks a Selbstkontrolle can check.
   doc: Doc;
+  // Puts a Sachunterricht drawing on the page as a picture. Absent in the numbering picker.
+  onDrawing?: (id: string) => void;
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
@@ -340,7 +342,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe, onDrawing }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -1160,7 +1162,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       {sign && (
         <>
           <h2>Symbol</h2>
-          <Symbols value={sign.props.code} onPick={(code) => style("symbol", { code })} />
+          <Symbols value={sign.props.code} onPick={(code) => style("symbol", { code })} onDrawing={onDrawing} />
         </>
       )}
       {crop && (
@@ -1768,21 +1770,89 @@ function Num({ label, value, disabled, units, onCommit }: { label: string; value
   );
 }
 
-// Every symbol as a button, narrowed by a search through the German and English names.
-function Symbols({ value, onPick }: { value: string; onPick: (code: string) => void }) {
+type Drawing = { id: string; topic: string; name: string; keywords: string };
+type Catalogue = { topics: { id: string; name: string }[]; pictures: Drawing[] };
+
+// The line drawings, by topic, narrowed by a German search over names and keywords.
+export function Drawings({ onPick }: { onPick: (id: string) => void }) {
+  const [data, setData] = useState<Catalogue>();
   const [query, setQuery] = useState("");
+  const [topic, setTopic] = useState("");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    fetch("/sachunterricht/pictures.json")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((got: Catalogue) => void (gone || setData(got)))
+      .catch(() => void (gone || setFailed(true)));
+    return () => void (gone = true);
+  }, []);
+  const q = query.trim().toLowerCase();
+  const shown = (data?.pictures ?? []).filter((p) => (!topic || p.topic === topic) && (!q || `${p.name} ${p.keywords}`.toLowerCase().includes(q)));
+  return (
+    <>
+      <input type="text" aria-label="Sachunterricht suchen" placeholder="Suchen, z. B. Baum" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {data && (
+        <div className="topics">
+          <button className={topic ? "" : "on"} aria-pressed={!topic} onClick={() => setTopic("")}>Alle</button>
+          {data.topics.map((item) => (
+            <button key={item.id} className={topic === item.id ? "on" : ""} aria-pressed={topic === item.id} onClick={() => setTopic(item.id)}>{item.name}</button>
+          ))}
+        </div>
+      )}
+      <div className="drawing-set">
+        {data?.topics.map((item) => {
+          const items = shown.filter((p) => p.topic === item.id);
+          if (!items.length) return null;
+          return (
+            <section key={item.id}>
+              <h2>{item.name}</h2>
+              <div className="drawings">
+                {items.map((p) => (
+                  <button key={p.id} aria-label={p.name} title={p.name} onClick={() => onPick(p.id)}>
+                    <img src={`/sachunterricht/${p.id}.svg`} alt="" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+      {data && !shown.length && <p className="hint">Kein Bild gefunden.</p>}
+      {failed && <p className="hint">Die Bilder konnten nicht geladen werden.</p>}
+    </>
+  );
+}
+
+// Every symbol as a button, narrowed by a search through the German and English names.
+// With `onDrawing`, a second tab opens the Sachunterricht line drawings.
+function Symbols({ value, onPick, onDrawing }: { value: string; onPick: (code: string) => void; onDrawing?: (id: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"symbols" | "sach">("symbols");
   const found = SYMBOLS.filter(([, de, en]) => `${de} ${en}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
     <>
-      <input type="text" aria-label="Symbol suchen" placeholder="Suchen, z. B. Schere" value={query} onChange={(e) => setQuery(e.target.value)} />
-      <div className="symbols">
-        {found.map(([code, de]) => (
-          <button key={code} className={code === value ? "on" : ""} aria-label={de} title={de} onClick={() => onPick(code)}>
-            <img src={symbol(code)} alt="" />
-          </button>
-        ))}
-      </div>
-      {!found.length && <p className="hint">Kein Symbol gefunden.</p>}
+      {onDrawing && (
+        <div className="seg" role="tablist" aria-label="Bilder">
+          <button role="tab" aria-selected={tab === "symbols"} className={tab === "symbols" ? "on" : ""} onClick={() => setTab("symbols")}>Symbole</button>
+          <button role="tab" aria-selected={tab === "sach"} className={tab === "sach" ? "on" : ""} onClick={() => setTab("sach")}>Sachunterricht</button>
+        </div>
+      )}
+      {tab === "sach" && onDrawing ? (
+        <Drawings onPick={onDrawing} />
+      ) : (
+        <>
+          <input type="text" aria-label="Symbol suchen" placeholder="Suchen, z. B. Schere" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="symbols">
+            {found.map(([code, de]) => (
+              <button key={code} className={code === value ? "on" : ""} aria-label={de} title={de} onClick={() => onPick(code)}>
+                <img src={symbol(code)} alt="" />
+              </button>
+            ))}
+          </div>
+          {!found.length && <p className="hint">Kein Symbol gefunden.</p>}
+        </>
+      )}
     </>
   );
 }

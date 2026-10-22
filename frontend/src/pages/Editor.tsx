@@ -48,6 +48,7 @@ import {
   FileX,
   Fullscreen,
   Layers,
+  Leaf,
   Heading,
   House,
   ImagePlus,
@@ -124,7 +125,7 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
-import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
+import Format, { Drawings, adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -593,6 +594,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [mathMenu, setMathMenu] = useState<{ x: number; y: number }>();
   const [lens, setLens] = useState<{ x: number; y: number; up: boolean }>();
   const [tab, setTab] = useState(TABS[0]);
+  // The Sachunterricht drawings, open from the insert bar with nothing selected.
+  const [library, setLibrary] = useState(false);
   // A block picked on the list's tab shows its settings, as in PowerPoint (#429).
   const idKey = ids.join();
   useEffect(() => {
@@ -2850,6 +2853,17 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     // The session run out says nothing, and a picture that can be sent again counts before a file's own fault.
     if (why.length) throw why.find((e) => e?.message === "401") ?? why.find((e) => !unfit(status(e))) ?? why[0];
   }
+  // A drawing from the set is uploaded, then placed like a picture the teacher picked.
+  async function placeDrawing(id: string) {
+    if (!/^[a-z0-9-]+$/.test(id)) return;
+    const res = await fetch(`/sachunterricht/${id}.svg`);
+    if (!res.ok) {
+      await attempt(NO_PICTURE, () => Promise.reject(new Error("415")), unfit);
+      return;
+    }
+    const blob = await res.blob();
+    await upload(new File([blob], `${id}.svg`, { type: "image/svg+xml" }));
+  }
   // What an insert button makes, from insert.ts.
   const addInsert = (f: Insert) => add(f.w, f.h, f);
   // A maths block starts with plus exercises up to 20; the server makes them.
@@ -4422,6 +4436,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       <Tool icon={Smile} label="Symbol" onClick={() => addInsert(INSERTS.symbol())} />
       <Tool icon={Table} label="Tabelle" onClick={() => addInsert(INSERTS.table())} />
       <i className="sep" data-name="Schule" />
+      <Tool icon={Leaf} label="Sachunterricht" onClick={() => { setIds([]); setTab("Format"); setLibrary(true); showRight(true); }} />
       <Tool icon={Rows3} label="Lineatur" onClick={() => addInsert(INSERTS.ruling())} />
       <Tool icon={UserPen} label="Namenszeile" onClick={() => addInsert(INSERTS.name())} />
       <Tool icon={SquareSlash} label="Punkte" onClick={() => addInsert(INSERTS.points())} />
@@ -5341,7 +5356,13 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               ))}
             </div>
           )}
-          {tab === "Format" && !sel.length && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
+          {tab === "Format" && !sel.length && library && (
+            <>
+              <h2>Sachunterricht</h2>
+              <Drawings onPick={(id) => { setLibrary(false); void placeDrawing(id); }} />
+            </>
+          )}
+          {tab === "Format" && !sel.length && !library && <p className="hint">Wähle etwas auf dem Blatt aus, um es zu formatieren.</p>}
           {/* Blattform's panel has no tabs, and its bar no room for one more mode: there this button leads to the
               list, and "Start" in the bar leads back. */}
           {tab === "Format" && !sel.length && leaf && <button onClick={() => setTab("Lernwörter")}>Lernwörter</button>}
@@ -5401,6 +5422,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 link={takeText}
                 feed={feed}
                 toList={() => setTab("Lernwörter")}
+                onDrawing={(id) => { setLibrary(false); void placeDrawing(id); }}
               />
               {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
