@@ -668,6 +668,12 @@ def hold() -> None:
         )
         # A teacher's Einfügen reads the clipboard: the window may do it without a question.
         context.grant_permissions(["clipboard-read", "clipboard-write"])
+        # A test that must still be unsaved when the next verb runs sets this. A verb can
+        # spend the usual two seconds on a slow runner: the holder waits up to a second
+        # between verbs, and the next process starts after that.
+        delay = os.environ.get("BLATTWERK_SAVE_AFTER")
+        if delay:
+            context.add_init_script(f"window.saveAfter = {int(delay)}")
         # A box waits for the verb that meets it. The holder keeps each one and says no to any
         # that no verb answers within PATIENCE seconds.
         waiting: list = []

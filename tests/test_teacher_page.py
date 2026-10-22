@@ -549,9 +549,14 @@ def test_click_refuses_a_name_that_is_there_twice_and_lists_the_places(editor):
     expect_picked(page, "b")
 
 
-def run(folder, server, *words, limit=120):
-    """The command line, as `mise run teacher:page --` calls it. A call past `limit` s fails."""
+def run(folder, server, *words, limit=120, save_after=None):
+    """The command line, as `mise run teacher:page --` calls it. A call past `limit` s fails.
+
+    `save_after` is how long the window waits before a save, in ms. The start call carries it.
+    """
     env = {**os.environ, "TEACHER_PAGE_DIR": str(folder), "TEACHER_PAGE_URL": server}
+    if save_after is not None:
+        env["BLATTWERK_SAVE_AFTER"] = str(save_after)
     return subprocess.run(
         [sys.executable, SCRIPT, *words], env=env, capture_output=True, text=True, timeout=limit
     )
@@ -953,18 +958,19 @@ def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, serv
 
 @pytest.mark.native
 def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, server):
-    # A typed text is an unsaved change until the save goes out, two seconds on: `open` comes first.
+    # A typed text stays unsaved until the save goes out. On a slow runner a verb spends
+    # that two seconds, so this window waits longer than the gap between type and open.
     email = f"{uuid4().hex}@example.com"
     client = user(email)
     made = sheet(client, [box("a", "text", ONE)], title="Probe")
 
-    def ok(*words):
-        done = run(folder, server, *words)
+    def ok(*words, save_after=None):
+        done = run(folder, server, *words, save_after=save_after)
         assert done.returncode == 0, (words, done.stdout, done.stderr)
         return done.stdout
 
     try:
-        ok("start")
+        ok("start", save_after=15000)
         ok("click", "E-Mail")
         ok("type", email)
         ok("click", "Passwort")
