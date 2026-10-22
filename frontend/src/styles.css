@@ -158,7 +158,7 @@ footer a { color: var(--faint); margin: 0 10px; text-decoration: none; }
 .card > :last-child { margin-bottom: 0; }
 h1 + .card, h1 + button { margin-top: 14px; }
 label { display: block; font-weight: 500; margin-bottom: 6px; }
-input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=number], input[type=date], textarea, select {
   width: 100%; min-height: var(--ctl); padding: 0 9px; font: inherit; color: inherit; background: var(--well);
   border: 1px solid var(--line); border-radius: 6px;
   transition: border-color 150ms ease, box-shadow 150ms ease;

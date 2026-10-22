@@ -14,6 +14,8 @@ import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Photos, { forgetPhotos } from "./pages/Photos";
 import Print from "./pages/Print";
+import School from "./pages/School";
+import SchoolJoin from "./pages/SchoolJoin";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
 import * as saves from "./saves";
@@ -144,6 +146,7 @@ export default function App() {
       <Routes>
         <Route path="/einladung/:token" element={<SetPassword invite onDone={enter} />} />
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
+        <Route path="/schulplatz/:token" element={<SchoolJoin user={user ?? null} onDone={enter} />} />
         <Route path="/ueber" element={<About />} />
         <Route path="/druck/:id" element={<Print />} />
         {user ? (
@@ -154,6 +157,7 @@ export default function App() {
             <Route path="/oauth/authorize" element={<Consent />} />
             {/* Another account starts the page anew: nothing of the one before stays on it, not a key shown once. */}
             <Route path="/konto" element={<Account key={user.id} user={user} onGone={() => enter(null)} />} />
+            <Route path="/schule" element={<School user={user} />} />
             {user.admin && <Route path="/admin" element={<Admin />} />}
             <Route path="*" element={<main><h1>Seite nicht gefunden</h1></main>} />
           </Route>
@@ -165,6 +169,7 @@ export default function App() {
       <footer>
         <a href="/impressum">Impressum</a>
         <a href="/datenschutz">Datenschutz</a>
+        <a href="/auftragsverarbeiter">Auftragsverarbeiter</a>
         <Link to="/ueber">Über</Link>
       </footer>
     </>
@@ -222,6 +227,7 @@ function Layout({ user }: { user: User }) {
         <NavLink to="/" className="brand"><Logo /></NavLink>
         <Feedback>Feedback</Feedback>
         <NavLink to="/feedback/fotos">Fotos</NavLink>
+        <NavLink to="/schule">Schule</NavLink>
         {user.admin && <NavLink to="/admin">Admin</NavLink>}
         <NavLink to="/konto">Konto</NavLink>
       </nav>

@@ -115,6 +115,46 @@ CREATE TABLE IF NOT EXISTS oauth_grants (
     created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_used TEXT
 );
+-- A school buys seats. The price is not stored here: Pascal writes it on the invoice.
+CREATE TABLE IF NOT EXISTS schools (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    street TEXT NOT NULL,
+    postcode TEXT NOT NULL,
+    city TEXT NOT NULL,
+    country TEXT NOT NULL,
+    admin_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    seats INTEGER NOT NULL,
+    year_ends TEXT,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS school_seats (
+    school_id INTEGER NOT NULL REFERENCES schools (id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
+    PRIMARY KEY (school_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS school_invites (
+    token TEXT PRIMARY KEY,
+    school_id INTEGER NOT NULL REFERENCES schools (id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    school_id INTEGER NOT NULL REFERENCES schools (id) ON DELETE CASCADE,
+    number TEXT NOT NULL UNIQUE,
+    seats INTEGER NOT NULL,
+    amount_cents INTEGER,
+    vat_rate INTEGER,
+    vat_note TEXT NOT NULL DEFAULT '',
+    tax_number TEXT NOT NULL DEFAULT '',
+    seller_address TEXT NOT NULL DEFAULT '',
+    due TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',
+    issued TEXT,
+    paid TEXT,
+    created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
