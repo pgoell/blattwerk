@@ -298,25 +298,30 @@ def test_the_admin_pages_loads_and_links_that_fail_say_so_and_a_try_does_them(ad
     page = admin_page(admin())
     rows = page.locator(".rows li")
     expect(rows).to_have_count(1)
-    # The page is left and come back to with the server away: it asks for its two lists anew.
+    # The page is left and come back to with the server away: it asks for its three lists anew.
     page.get_by_role("link", name="Konto").click()
     mend = cut(page, how, loads=True)
     page.get_by_role("link", name="Admin").click()
     lines = page.get_by_role("alert")
-    expect(lines).to_have_count(2)
+    expect(lines).to_have_count(3)
     # In the order their answers failed to come.
     users = lines.filter(has_text=f"Die Konten konnten nicht geladen werden. {WHY[how]}")
     folders = f"Die nicht gelöschten Ordner konnten nicht geladen werden. {WHY[how]}"
+    schools = f"Die Schulen konnten nicht geladen werden. {WHY[how]}"
     expect(users).to_have_count(1)
     expect(lines.filter(has_text=folders)).to_have_count(1)
+    expect(lines.filter(has_text=schools)).to_have_count(1)
     expect(rows).to_have_count(0)
     mend()
     with page.expect_response("**/api/admin/users"):
         users.get_by_role("button", name=AGAIN).click()
     expect(rows).to_have_text(["admin@example.com (Admin)Passwort-Link"])
     with page.expect_response("**/api/admin/leftovers") as got:
-        lines.get_by_role("button", name=AGAIN).click()
+        lines.filter(has_text=folders).get_by_role("button", name=AGAIN).click()
     assert got.value.status == 200
+    with page.expect_response("**/api/admin/schools") as schools_got:
+        lines.filter(has_text=schools).get_by_role("button", name=AGAIN).click()
+    assert schools_got.value.status == 200
     expect(lines).to_have_count(0)
     links = {
         "Einladung erstellen": ("Die Einladung konnte nicht erstellt werden.", "einladung"),
