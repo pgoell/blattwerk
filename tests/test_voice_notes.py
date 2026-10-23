@@ -227,11 +227,14 @@ def test_logout_while_recording_stops_the_mic_and_drops_the_clip(browser, server
     page.fill("#password", PASSWORD)
     with page.expect_response("**/api/login") as answer:
         page.get_by_role("button", name="Anmelden").click()
-    expect(page.locator("#email")).to_have_count(0)
+    assert answer.value.ok
     if BROWSER == "webkit":
+        # The Secure cookie does not stick on this http server. The next call is a 401
+        # and the form comes back after some ms (#727). The cookie goes in before the check.
         value = answer.value.header_value("set-cookie").split(";")[0].split("=", 1)[1]
         context.add_cookies([{"name": "session", "value": value, "url": server}])
         page.goto(f"{server}/")
+    expect(page.locator("#email")).to_have_count(0)
     button(page).click()
     expect(form(page)).to_be_visible()
     expect(page.locator(CLIPS)).to_have_count(0)

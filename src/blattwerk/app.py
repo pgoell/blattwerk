@@ -15,11 +15,13 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 from blattwerk import (
     auth,
+    billing,
     feedback,
     maths,
     oauth,
     pdf,
     remote,
+    shares,
     sheets,
     templates,
     texthelp,
@@ -46,12 +48,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(billing.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)
 app.include_router(oauth.router)
 app.include_router(pdf.router)
 app.include_router(remote.router)
 app.include_router(sheets.router)
+app.include_router(shares.router)
 app.include_router(templates.router)
 app.include_router(texthelp.router)
 app.include_router(uploads.router)
@@ -137,4 +141,9 @@ def frontend(path: str) -> FileResponse:
     # The Claude Desktop extension, a zip that mimetypes does not know: a file to save, not text.
     if file.suffix == ".mcpb":
         return FileResponse(file, media_type="application/octet-stream")
-    return FileResponse(file)
+    # A share preview is a page a visitor can open. It stays out of search engines, and the
+    # token in its address is not sent on to any other site.
+    headers = {}
+    if path == "teilen" or path.startswith("teilen/"):
+        headers = {"X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin"}
+    return FileResponse(file, headers=headers)
