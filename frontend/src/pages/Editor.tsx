@@ -96,7 +96,7 @@ import {
   ZoomOut,
   type LucideIcon,
 } from "lucide-react";
-import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
+import Moveable, { type OnDrag, type OnResize, type OnResizeEnd, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, post, type Refusal, type User } from "../api";
@@ -113,7 +113,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -124,7 +124,9 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
+import { canHelp } from "../texthelp";
 import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
+import TextHelp from "./TextHelp";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -323,6 +325,15 @@ const span = (boxes: Box[], axis: Axis) => {
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
+// A dead key on a German keyboard, by the physical key. The key left of backspace adds an acute
+// accent, and with Shift a grave, and the key left of 1 adds a circumflex. The mark is what that
+// key adds to the next letter.
+const DEAD: Record<string, string> = { Equal: "\u0301", Backquote: "\u0302" };
+const DEAD_SHIFT: Record<string, string> = { Equal: "\u0300" };
+// Pressed twice, or followed by Space, the dead key types the accent on its own.
+const SPACING: Record<string, string> = { "\u0301": "\u00b4", "\u0300": "`", "\u0302": "^" };
+const deadMark = (e: KeyboardEvent) =>
+  e.ctrlKey || e.metaKey || e.altKey ? "" : (e.shiftKey ? DEAD_SHIFT[e.code] : DEAD[e.code]) || "";
 
 // `wait` is the loading page, which the app draws while this script loads too. `first` is the sheet as the app
 // asked for it meanwhile, null where it is not there, or "failed" where the load failed.
@@ -412,6 +423,8 @@ const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem an
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
+  // The text whose help dialog is open, and the page it stood on when she asked.
+  const [help, setHelp] = useState<{ id: string; page: number } | null>(null);
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
@@ -540,6 +553,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Whether the last press was in the format panel, with no key since: the field then stays open though it loses
   // the focus, and a select or a colour picked there hands the keys back.
   const inPanel = useRef(false);
+  // The accent of a dead key that was the first key from the panel. The browser composes one only in a
+  // control that can take text, and a colour or a list cannot, so the next letter is made with it here.
+  const accent = useRef("");
   // What is written in stays open when it loses the focus to the panel: by the keys, or by a press, which on the
   // word beside a colour names nothing that takes the focus. So does it under the bar's menu "Mehr", which hands
   // the focus back when it shuts.
@@ -711,6 +727,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The desk's height in pixels, which a fit follows too.
   const [high, setHigh] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // The zoom a wheel reads. The listener is replaced only after paint, so a wheel on a busy runner
+  // still holds the previous render: the ref is the zoom drawn, or the one a zoom just asked for.
+  const zoomNow = useRef(1);
+  // Each page's width and height in mm, for the same reason.
+  const sizeNow = useRef<number[][]>([]);
   // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
   const fitted = useRef(false);
   // The page in use when Ganze Seite was pressed, and a count that makes each press a change to draw.
@@ -816,12 +837,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
-  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean }>(undefined);
+  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean; ctrl?: boolean }>(undefined);
   const press = useRef(0);
   // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
   const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
+  // Set when Ctrl+click opened the pages' menu, so the click of that press does not also change the choice.
+  const ctrlMenu = useRef(false);
   const grab = useRef([0, 0]);
   // The pointer that holds an adjust handle, for a browser that would not capture it.
   const adjusting = useRef<number>(undefined);
@@ -845,8 +868,10 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const chosenNow = chosen.includes(page) ? chosen : [page];
   const choiceOf = (n: number) => (chosenNow.includes(n) ? chosenNow : [n]);
   const { blocks } = pages[page];
+  const helping = help ? pages[help.page]?.blocks.find((b): b is TextBlock => b.type === "text" && b.id === help.id) : undefined;
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  sizeNow.current = sizes;
   // A mend holds for the word in every block of the sheet, in one step: it stands in the sheet, and in the block it was
   // made in, which takes it along when copied; the other blocks' own entries for it go. Counts undefined takes the word
   // back to the module's own split everywhere.
@@ -903,10 +928,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const dirty = !saver || saver.unsaved || hist.doc !== saver.saved.doc || title !== saver.saved.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
+  zoomNow.current = zoom;
   // A zoom by hand: the buttons, the wheel, a pinch. It stays between a quarter and four times the page's width.
   const zoomTo = (z: number) => {
     fitted.current = false;
-    setZoom(Math.min(4, Math.max(0.25, z)));
+    const next = Math.min(4, Math.max(0.25, z));
+    // Ahead of the render, so a second notch in the same turn stacks on this one.
+    zoomNow.current = next;
+    setZoom(next);
   };
   const sel = blocks.filter((b) => ids.includes(b.id));
   // The panel's lock, kept by each block: on when every picked block keeps its ratio. A new width then sets the height
@@ -999,9 +1028,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   useLayoutEffect(() => {
     // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
     const docks = [...stage.current!.querySelectorAll<HTMLElement>(".dock")];
-    const observer = new ResizeObserver(() =>
-      stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`),
-    );
+    const fit = () =>
+      stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`);
+    // The observer reports the height a frame later. Until that report the sheet keeps the room of one row, and a
+    // dock that has already wrapped lies over the sheet scrolled to its end (#408).
+    if (docks.length) fit();
+    const observer = new ResizeObserver(fit);
     for (const el of docks) observer.observe(el);
     return () => observer.disconnect();
   }, [leaf, pages.length > 1]);
@@ -1435,6 +1467,32 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
+    // The dead key itself only moved the caret back. Its accent is still waiting, and this key is
+    // the letter it marks, a second press of it, or Space, which types the accent alone.
+    if (accent.current) {
+      const mark = accent.current;
+      const fieldNow = written();
+      const root = !fieldNow ? null : "dom" in fieldNow ? fieldNow.dom : fieldNow;
+      const here = !!root && (root === target || root.contains(target));
+      const next = e.key === "Dead" ? deadMark(e) : "";
+      if (here && e.key === "Dead" && e.repeat) {
+        e.preventDefault();
+        return;
+      }
+      if (here && next && next !== mark) {
+        accent.current = next;
+        e.preventDefault();
+        return;
+      }
+      accent.current = "";
+      const letter = e.key.length === 1 && !(e.ctrlKey || e.metaKey || e.altKey);
+      if (here && (e.key === "Dead" || letter)) {
+        e.preventDefault();
+        const alone = e.key === "Dead" || e.key === " ";
+        document.execCommand("insertText", false, alone ? SPACING[mark] : (e.key + mark).normalize("NFC"));
+        return;
+      }
+    }
     const select = target.matches(".panel select");
     // Shift alone is no key yet, and a key that only switches something or opens the menu is none either.
     const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock", "NumLock", "ScrollLock", "ContextMenu"].includes(e.key);
@@ -1472,6 +1530,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       // a key of the field's that types none, as Backspace or Ctrl+Z, is done there by hand, and any other only brings
       // the caret back. With nothing written in the key goes on to the sheet.
       if (e.key === "Enter" || (open && (e.key === "Tab" || act(e)))) e.preventDefault();
+      // A dead key does not follow the caret: the browser has already called it "Dead" and will not
+      // compose it in the text. The accent is kept for the letter that comes next.
+      if (e.key === "Dead" && open) {
+        const mark = deadMark(e);
+        if (mark) {
+          accent.current = mark;
+          e.preventDefault();
+        }
+      }
       if (open || e.key === "Enter" || e.key === "Escape") return;
     }
     // Escape calls a thumbnail's drag off.
@@ -1816,16 +1883,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const by = pinch ? Math.exp(-e.deltaY / 100) : 1.25 ** (-e.deltaY / 100);
       if (on.closest(".pages")) return setThumb((w) => Math.min(THUMBS[1], Math.max(THUMBS[0], w * by)));
       if (!stage.current!.contains(on)) return;
-      const next = Math.min(4, Math.max(0.25, zoom * by));
       // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
-      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
-      let page = under.getBoundingClientRect();
-      const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
+      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el): el is HTMLElement => el.matches(".sheet")) ?? sheet.current!;
+      const mm = sizeNow.current[+under.dataset.page!][0];
+      // The listener closes over the scale of the render that set it, and it is replaced only after paint.
+      // A busy runner delivers the wheel once the desk has been measured and drawn, while the listener still
+      // holds the old scale: the point then misses the page by whole centimetres and never arrives (#325).
+      // The box is the scale on the screen. The ref is the zoom drawn, or the one a zoom just asked for.
+      let box = under.getBoundingClientRect();
+      const kNow = box.width / mm;
+      const [x, y] = [(e.clientX - box.left) / kNow, (e.clientY - box.top) / kNow];
+      const next = Math.min(4, Math.max(0.25, zoomNow.current * by));
       flushSync(() => zoomTo(next));
-      // Scroll the page point that was under the pointer back under it.
-      page = under.getBoundingClientRect();
+      // Scroll the page point that was under the pointer back under it. The scale is the box after the
+      // zoom, not fit times the step: the same turn may have measured the desk anew.
+      box = under.getBoundingClientRect();
+      const scale = box.width / mm;
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
-      desk.current!.scrollBy(Math.round(page.left + x * fit * next - e.clientX), Math.round(page.top + y * fit * next - e.clientY));
+      desk.current!.scrollBy(Math.round(box.left + x * scale - e.clientX), Math.round(box.top + y * scale - e.clientY));
     }
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
@@ -3448,6 +3523,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       "drag",
     );
   };
+  // A tap on a resize handle is no drag. Its finger area reaches into the block beside the selection,
+  // so the tap is that block's (#206). Over empty paper it changes nothing. A drag still sizes.
+  const resizeEnded = (e: OnResizeEnd) => {
+    if (e.isDrag) {
+      if (e.lastEvent) settle(e.lastEvent.direction);
+      return;
+    }
+    const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".block:not(.sel)"));
+    if (under) pick(under, !!e.inputEvent?.shiftKey);
+  };
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
   // The text of cells on the system's clipboard, as copy() does for blocks: the browser's copy first, then the fallback.
@@ -4704,6 +4789,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 aria-pressed={chosenNow.includes(n)}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
                 onClick={(e) => {
+                  // Ctrl+click on a Mac is the right click. Its menu has already chosen the pages.
+                  if (ctrlMenu.current) {
+                    ctrlMenu.current = false;
+                    dragged.current = false;
+                    return;
+                  }
                   if (!dragged.current) {
                     if (e.shiftKey) {
                       // From the page in use to this one; the page in use stays.
@@ -4728,9 +4819,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 // The mouse and the pen drag once they have moved 4 px. A finger holds first: see the listeners on the thumbnails.
                 onPointerDown={(e) => {
                   dragged.current = false;
+                  // A Ctrl+click's menu may have taken the click. The next press is a new one.
+                  ctrlMenu.current = false;
                   touch.current = e.pointerType === "touch";
                   if (e.pointerType === "touch" || e.button) return;
-                  tug.current = { from: n, x: e.clientX, y: e.clientY };
+                  tug.current = { from: n, x: e.clientX, y: e.clientY, ctrl: e.ctrlKey };
                   e.currentTarget.setPointerCapture(e.pointerId);
                 }}
                 onPointerMove={(e) => {
@@ -4744,9 +4837,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 onPointerUp={(e) => e.pointerType !== "touch" && release()}
                 onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
                 // A held finger would open the browser's menu and end the touch. The mouse gets the page's menu.
+                // A Ctrl+click on a Mac is that right click. Chrome can send the press as the main button, so a
+                // drag has already started, and this event comes while the button is still down. A drag that has
+                // not moved is that click: drop it and open the menu. The click of the press must not also choose.
                 onContextMenu={(e) => {
+                  // The press recorded Ctrl, or this event carries it. Either one is the Mac right click.
+                  const asRight = !!(e.ctrlKey || tug.current?.ctrl);
+                  if (asRight && tug.current && tug.current.slot === undefined) quit();
                   if (tug.current || !touch.current) e.preventDefault();
-                  if (!tug.current && !touch.current) thumbMenu(n, e.clientX, e.clientY);
+                  if (!tug.current && !touch.current) {
+                    if (asRight) ctrlMenu.current = true;
+                    thumbMenu(n, e.clientX, e.clientY);
+                  }
                 }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
@@ -5269,8 +5371,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     }}
                     onResize={(e) => resize([e])}
                     onResizeGroup={(e) => resize(e.events)}
-                    onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-                    onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                    onResizeEnd={resizeEnded}
+                    onResizeGroupEnd={resizeEnded}
                   />
                 </>
               )}
@@ -5403,8 +5505,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 list={takeList}
                 link={takeText}
                 feed={feed}
+                onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
                 toList={() => setTab("Lernwörter")}
               />
+              {helping && help && (
+                <TextHelp
+                  block={helping}
+                  page={help.page}
+                  onClose={() => setHelp(null)}
+                  onTake={(fn, to) => {
+                    const from = help.page;
+                    // The box grows with the new words, in this same step, as a text the teacher typed does.
+                    tight.current = true;
+                    flushSync(() => {
+                      update(fn, "", to ?? from);
+                      setHelp(null);
+                      if (to !== undefined && to !== from) {
+                        setAt(to);
+                        setChosen([to]);
+                        setIds([]);
+                      }
+                    });
+                    if (to !== undefined && to !== from) seek();
+                  }}
+                />
+              )}
               {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
                   <h2>Bild</h2>

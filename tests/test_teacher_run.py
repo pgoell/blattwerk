@@ -396,12 +396,14 @@ def test_t1_the_brief_clears_downloads_with_the_verb_tidy():
 def test_t2_both_pr_lists_take_20_and_keep_five_by_merge_time():
     prs = section(PRS)
     commands = [line.strip() for line in prs.splitlines() if line.strip().startswith("gh pr list")]
-    assert len(commands) == 2
+    assert len(commands) == 3
     for command in commands:
         assert "-L 20 --json number,title,body,url,mergedAt" in command
         assert "--jq 'sort_by(.mergedAt) | reverse | " in command
     assert ".[0:5][] |" in commands[0]
     assert ".[5:10][] |" in commands[1]
+    # Issue #497: a `test` title can still change the app, so the third list keeps those.
+    assert 'test("^test[(:!]")' in commands[2]
     assert "-L 5 " not in prs
 
 
@@ -498,7 +500,7 @@ def test_406_4_a_snapshot_is_searched_in_its_file_with_the_grep_tool():
 def test_406_5_the_jq_leaves_out_the_types_a_teacher_cannot_see_before_five_are_taken():
     prs = section(PRS)
     commands = re.findall(r"gh pr list [^\n]*--jq '(.+)'$", prs, re.M)
-    assert len(commands) == 2
+    assert len(commands) == 3
     # Sixteen merged pull requests, newest first. The ones that are no teacher's: 1, 3, 5, 7, 9, 10.
     titles = [
         "ci(deps): bump a runner",
@@ -538,7 +540,8 @@ def test_406_5_the_jq_leaves_out_the_types_a_teacher_cannot_see_before_five_are_
             check=True,
         ).stdout
         listed.append([int(n) for n in re.findall(r"^#(\d+) ", out, re.M)])
-    assert listed == [[2, 4, 6, 8, 11], [12, 13, 14, 15, 16]]
+    # The third list is the `test` titles the first two leave out (#497): number 7.
+    assert listed == [[2, 4, 6, 8, 11], [12, 13, 14, 15, 16], [7]]
 
 
 def test_406_7_a_delete_in_the_mcp_page_is_answered_with_handle_dialog():
@@ -734,3 +737,31 @@ def test_758_6_the_mcp_page_opens_in_a_context_of_its_own_for_each_run():
     sign_in = section("## Sign in")
     assert "`date +%s`" in sign_in
     assert "`isolatedContext` `teacher-run-N`" in sign_in
+
+
+# What issue #497 found in the brief's eighth run.
+
+
+def test_497_a_test_title_is_read_because_it_can_change_the_app():
+    prs = section(PRS)
+    assert "A title that starts with `test` can still change the app, as #480 did" in prs
+    assert "`gh pr view N -R pgoell/blattwerk --json title,body`" in prs
+    assert "Try a claim a teacher can see, and skip one that changes nothing a teacher sees." in prs
+
+
+def test_497_a_claim_clicks_cannot_try_is_not_a_fault_of_the_app():
+    prs = section(PRS)
+    assert "a claim you cannot try with clicks and keys is not a fault of the app" in prs
+    assert "A block type the app does not offer" in prs
+
+
+def test_497_stacked_blocks_show_nothing_about_ink():
+    prs = section(PRS)
+    assert "shows nothing about ink, line spacing or a font" in prs
+    assert "move them apart on the screen and in the PDF before you judge" in prs
+
+
+def test_497_the_brief_names_the_dialog_pdf_and_the_offscreen_list():
+    rules = section("## Rules")
+    assert '`click "Aufgabenfamilien"` turns the panel to the list' in rules
+    assert "take that dialog's button, not the bar's of the same name" in rules

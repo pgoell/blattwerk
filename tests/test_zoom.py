@@ -291,6 +291,61 @@ def test_ctrl_wheel_keeps_the_point_on_a_page_not_in_use(editor):
         expect_under(page, point, (60, 40), wide * 1.25**step, 2)
 
 
+def test_ctrl_wheel_keeps_the_point_when_the_desk_is_measured_in_the_same_turn(editor):
+    """A wheel while the desk is measured keeps the point. The listener still holds the old scale (#325)."""
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
+    page = editor(box("a", "text", TEXT), pages=rest)
+    page.locator('.sheet[data-page="2"]').evaluate("el => el.scrollIntoView()")
+    # The resize delivers the wheel: the page is already the new width, and the listener is still the old one.
+    page.evaluate(
+        """() => {
+            const desk = document.querySelector(".desk");
+            const start = desk.clientWidth;
+            new ResizeObserver(() => {
+                if (desk.clientWidth === start || window.__wheeled) return;
+                window.__wheeled = true;
+                const sheet = document.querySelector('.sheet[data-page="2"]');
+                const before = sheet.getBoundingClientRect();
+                const k = before.width / 210;
+                window.__point = [before.x + 60 * k, before.y + 40 * k];
+                sheet.dispatchEvent(new WheelEvent("wheel", {
+                    deltaY: -100, ctrlKey: true, clientX: window.__point[0], clientY: window.__point[1],
+                    bubbles: true, cancelable: true,
+                }));
+            }).observe(desk);
+        }"""
+    )
+    page.set_viewport_size({"width": 1700, "height": 1000})
+    page.wait_for_function("window.__point")
+    point = page.evaluate("window.__point")
+    room = page.locator(".desk").evaluate(
+        """el => {
+            const look = getComputedStyle(el);
+            return el.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
+        }"""
+    )
+    expect_under(page, point, (60, 40), room * 1.25, 2)
+
+
+def test_ctrl_wheel_stacks_on_a_zoom_in_the_same_turn(editor):
+    """A button's notch and a wheel's notch in one turn stack. The listener still holds the old zoom (#325)."""
+    page = editor(box("a", "text", TEXT))
+    wide = width(page)
+    point = spot(page, 60, 80)
+    page.evaluate(
+        """([x, y]) => {
+            window.addEventListener("click", () => {
+                document.querySelector(".sheet.on").dispatchEvent(new WheelEvent("wheel", {
+                    deltaY: -100, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true,
+                }));
+            });
+            document.querySelector('button[aria-label="Größer"]').click();
+        }""",
+        list(point),
+    )
+    expect_under(page, point, (60, 80), wide * 1.25**2)
+
+
 def test_space_and_drag_moves_the_desk(editor):
     """A3"""
     page = editor(box("a", "text", TEXT))

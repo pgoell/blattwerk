@@ -40,6 +40,6 @@ uv run python .cursor/skills/verify-blattwerk/drive.py drive clipboard
 - `Kopieren` is disabled when nothing is selected. `F2` leaves the block selected. A click on the empty corner of the sheet clears the selection (`unpick` in `tests/ui.py`).
 - Einfügen of the editor's own copy uses the blocks in `localStorage` key `clip` when the clipboard words are that copy. A failure to read the clipboard still pastes those blocks (`pasteAny` in `frontend/src/pages/Editor.tsx`).
 - Control+V is a paste event. The key handler does not paste on keydown (`Ctrl+V alone is not here` in the editor). Playwright's `Control+v` produces the paste the tests use.
-- This drive does not paste a picture and does not cut. WebKit's Einfügen reads no picture the clipboard holds (`webkit_xfail` 204 in `tests/test_clipboard.py`). Do not treat a text paste as proof of that picture path.
+- This drive does not paste a picture and does not cut. Do not treat a text paste as proof of that picture path. The picture path is `copy_picture` then Einfügen in `tests/test_clipboard.py`.
 - The pytest fixture clears the clipboard when an editor page opens, because one browser context shares a clipboard across tests. A second drive in one context without that clear can paste the previous picture.
 - After reload the aria snapshot shows `Kopieren` disabled and three `Hallo` paragraphs. Disabled Kopieren is the empty selection, not a failed paste.
