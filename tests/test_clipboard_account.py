@@ -367,18 +367,7 @@ def test_logout_in_one_tab_empties_the_clipboard_of_an_editor_open_in_another(ed
     expect(blocks(tab)).to_have_count(1)
 
 
-@pytest.mark.parametrize(
-    "by",
-    [
-        "keys",
-        pytest.param(
-            "button",
-            marks=pytest.mark.webkit_xfail(
-                204, "WebKit's Einfügen reads no picture the clipboard holds"
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("by", ["keys", "button"])
 def test_the_next_account_pastes_a_picture_from_another_app(editor, by):
     """I6"""
     a = user()

@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
-from ui import BROWSER, PASSWORD, reload, user
+from ui import PASSWORD, reload, user
 
 from blattwerk.app import app
 
@@ -44,8 +44,11 @@ def bearer(token):
 def make(page, name):
     """Types the name and presses Enter, then gives the key as the page shows it."""
     field = page.get_by_label("Name des Schlüssels")
-    field.fill(name)
-    # #749: once in WebKit the name was gone when Enter came. This tells whether the field lost it.
+    # The field is a controlled input. WebKit's fill writes the DOM and often never
+    # tells React, so the next draw of the list puts the name back to empty (#749).
+    # Keys go through onChange, and a later draw keeps what was typed.
+    field.click()
+    field.press_sequentially(name)
     expect(field).to_have_value(name)
     page.keyboard.press("Enter")
     shown = page.locator("[data-testid=new-token] code")
@@ -71,11 +74,6 @@ def test_key_is_shown_once_and_never_stored(account):
     expect(page.locator("body")).not_to_contain_text(token)
 
 
-# Not strict: once in CI, as the first test of a fresh WebKit, the name typed was gone at Enter;
-# none in 109 runs here. Cause not found.
-@pytest.mark.xfail(
-    BROWSER == "webkit", strict=False, reason="#749: the name typed is gone at Enter, once"
-)
 def test_revoke_takes_the_key_away(account):
     client = user()
     page = account(client)

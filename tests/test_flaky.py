@@ -9,6 +9,10 @@ ROOT = Path(__file__).parent.parent
 PLAIN = "tests/test_flaky.py::test_plain_target"
 ONE = "tests/test_flaky.py::test_target_with_one_param"
 TWO = "tests/test_flaky.py::test_target_with_two_params"
+# As typed, with the umlaut. pytest's own id escapes it to \xe4.
+UMLAUT = "tests/test_flaky.py::test_target_with_an_umlaut"
+UMLAUT_TYPED = f"{UMLAUT}[text-Randstärke]"
+UMLAUT_PRINTED = f"{UMLAUT}[text-Randst\\xe4rke]"
 
 
 def test_plain_target():
@@ -23,6 +27,12 @@ def test_target_with_one_param(n):
 @pytest.mark.parametrize("n", [30, 200])
 @pytest.mark.parametrize("kind", ["a-b", "c"])
 def test_target_with_two_params(n, kind):
+    pass
+
+
+@pytest.mark.parametrize("label", ["Randstärke"])
+@pytest.mark.parametrize("kind", ["text"])
+def test_target_with_an_umlaut(kind, label):
     pass
 
 
@@ -51,6 +61,14 @@ def test_a_parametrised_test_runs_twenty_times_by_its_full_id(node, param):
 
 def test_an_id_with_no_brackets_still_runs_twenty_times():
     assert collected(PLAIN) == twenty(PLAIN)
+
+
+def test_an_id_with_an_umlaut_runs_twenty_times_by_the_name_as_typed():
+    assert collected(UMLAUT_TYPED) == twenty(UMLAUT, r"text-Randst\xe4rke")
+
+
+def test_an_id_as_pytest_prints_it_with_q_runs_twenty_times():
+    assert collected(UMLAUT_PRINTED) == twenty(UMLAUT, r"text-Randst\xe4rke")
 
 
 def test_several_ids_run_in_one_call_with_and_without_brackets():
