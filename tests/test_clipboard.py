@@ -406,6 +406,10 @@ OTHER_APP = """async (b64) => {
 }"""
 
 
+@pytest.mark.skipif(
+    BROWSER == "webkit",
+    reason="WebKit on Linux refuses a clipboard write that is not the page's own",
+)
 def test_a_picture_copied_while_the_block_picture_is_drawn_stays_a_picture(editor):
     """#1011: a picture copied elsewhere while the block picture is drawn stays what a paste brings,
     and the late block picture does not replace it."""
