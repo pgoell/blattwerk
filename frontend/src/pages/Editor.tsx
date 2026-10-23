@@ -711,6 +711,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The desk's height in pixels, which a fit follows too.
   const [high, setHigh] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // The zoom a wheel reads. The listener is replaced only after paint, so a wheel on a busy runner
+  // still holds the previous render: the ref is the zoom drawn, or the one a zoom just asked for.
+  const zoomNow = useRef(1);
+  // Each page's width and height in mm, for the same reason.
+  const sizeNow = useRef<number[][]>([]);
   // Set by Ganze Seite, cleared by a zoom by hand: while it is set, a new size of the desk fits the page again.
   const fitted = useRef(false);
   // The page in use when Ganze Seite was pressed, and a count that makes each press a change to draw.
@@ -849,6 +854,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const { blocks } = pages[page];
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
+  sizeNow.current = sizes;
   // A mend holds for the word in every block of the sheet, in one step: it stands in the sheet, and in the block it was
   // made in, which takes it along when copied; the other blocks' own entries for it go. Counts undefined takes the word
   // back to the module's own split everywhere.
@@ -905,10 +911,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const dirty = !saver || saver.unsaved || hist.doc !== saver.saved.doc || title !== saver.saved.title;
   const loose = (mod & LOOSE) > 0;
   const k = fit * zoom;
+  zoomNow.current = zoom;
   // A zoom by hand: the buttons, the wheel, a pinch. It stays between a quarter and four times the page's width.
   const zoomTo = (z: number) => {
     fitted.current = false;
-    setZoom(Math.min(4, Math.max(0.25, z)));
+    const next = Math.min(4, Math.max(0.25, z));
+    // Ahead of the render, so a second notch in the same turn stacks on this one.
+    zoomNow.current = next;
+    setZoom(next);
   };
   const sel = blocks.filter((b) => ids.includes(b.id));
   // The panel's lock, kept by each block: on when every picked block keeps its ratio. A new width then sets the height
@@ -1815,16 +1825,24 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       const by = 1.25 ** (-e.deltaY / 100);
       if (on.closest(".pages")) return setThumb((w) => Math.min(THUMBS[1], Math.max(THUMBS[0], w * by)));
       if (!stage.current!.contains(on)) return;
-      const next = Math.min(4, Math.max(0.25, zoom * by));
       // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.
-      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".sheet")) ?? sheet.current!;
-      let page = under.getBoundingClientRect();
-      const [x, y] = [(e.clientX - page.left) / k, (e.clientY - page.top) / k];
+      const under = document.elementsFromPoint(e.clientX, e.clientY).find((el): el is HTMLElement => el.matches(".sheet")) ?? sheet.current!;
+      const mm = sizeNow.current[+under.dataset.page!][0];
+      // The listener closes over the scale of the render that set it, and it is replaced only after paint.
+      // A busy runner delivers the wheel once the desk has been measured and drawn, while the listener still
+      // holds the old scale: the point then misses the page by whole centimetres and never arrives (#325).
+      // The box is the scale on the screen. The ref is the zoom drawn, or the one a zoom just asked for.
+      let box = under.getBoundingClientRect();
+      const kNow = box.width / mm;
+      const [x, y] = [(e.clientX - box.left) / kNow, (e.clientY - box.top) / kNow];
+      const next = Math.min(4, Math.max(0.25, zoomNow.current * by));
       flushSync(() => zoomTo(next));
-      // Scroll the page point that was under the pointer back under it.
-      page = under.getBoundingClientRect();
+      // Scroll the page point that was under the pointer back under it. The scale is the box after the
+      // zoom, not fit times the step: the same turn may have measured the desk anew.
+      box = under.getBoundingClientRect();
+      const scale = box.width / mm;
       // Whole px: Safari cuts a fraction off, always the same way, and the page creeps with each step.
-      desk.current!.scrollBy(Math.round(page.left + x * fit * next - e.clientX), Math.round(page.top + y * fit * next - e.clientY));
+      desk.current!.scrollBy(Math.round(box.left + x * scale - e.clientX), Math.round(box.top + y * scale - e.clientY));
     }
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);

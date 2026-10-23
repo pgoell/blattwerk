@@ -9,7 +9,6 @@ from test_order import boxes, expect_stack
 from test_pages import expect_in_use, expect_order, three
 from test_pages_many import expect_chosen, pick_many
 from ui import (
-    BROWSER,
     FIELD,
     LINE,
     RECT,
@@ -157,7 +156,6 @@ def test_kopieren_keeps_the_block_and_einfuegen_on_a_block_adds_a_copy(editor):
     expect(at(page, "b")).not_to_have_class("block sel")
 
 
-@pytest.mark.webkit_xfail(204, "WebKit's Einfügen reads no picture the clipboard holds")
 def test_einfuegen_pastes_a_picture_from_another_app(editor):
     """A4"""
     page = editor(*texts("a"))
@@ -840,27 +838,23 @@ def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
 
 
-# Not strict: it fails in CI in two runs of seven, and here in 2 of 20 cold starts on one busy core.
-# No block lies under the finger then. What the page held is in the failure's text.
-@pytest.mark.xfail(
-    BROWSER == "webkit", strict=False, reason="#225: the tap picks nothing, now and then"
-)
 def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
-    """#179"""
+    """#179, #225"""
     page = editor(*texts("a"), touch=True)
-    start = centre(at(page, "a"))
-    with finger(page, start) as touch:
+    with finger(page, centre(at(page, "a"))) as touch:
         touch("touchCancel")
         outlast(page)
         expect(several(page)).to_have_attribute("aria-pressed", "false")
         expect_picked(page)
-        # The finger comes down again, and its lift is a tap.
-        touch("touchStart", start)
-        early = page.evaluate(STATE, list(start))
+        # The finger comes down again, and its lift is a tap. The centre is read now, not before
+        # the wait: the desk can take its last size in that time, and the old point then lies on
+        # the page and on no block (#225). A hold that fires in a slow lift does select the block.
+        point = centre(at(page, "a"))
+        touch("touchStart", point)
     try:
         expect_picked(page, "a")
     except AssertionError as e:
-        raise AssertionError(f"DIAG {early} {page.evaluate(STATE, list(start))}") from e
+        raise AssertionError(f"DIAG {page.evaluate(STATE, list(point))}") from e
 
 
 STATE = """([x, y]) => ({
