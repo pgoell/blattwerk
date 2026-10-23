@@ -251,7 +251,6 @@ def test_a_short_swipe_over_the_thumbnails_moves_no_page(editor):
     expect_order(page, "abc")
 
 
-@pytest.mark.webkit_xfail(205, "no browser scrolls for the touch events a page dispatches")
 def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor):
     """A2"""
     names = "abcdefghijklmn"
