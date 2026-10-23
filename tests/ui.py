@@ -545,10 +545,15 @@ def finger(page, start):
     # scroll goes with those events: a touch the page dispatched scrolls nothing on its own.
     session = None if BROWSER == "webkit" else page.context.new_cdp_session(page)
     cancelled = []
+    began = 0
 
     def touch(kind, *at):
+        nonlocal began
         if kind == "touchCancel":
             cancelled.append(kind)
+        # A finger that comes down again after a cancel is a new touch, and it lifts.
+        if kind == "touchStart":
+            began += 1
         if session:
             touched = [{"x": x, "y": y} for x, y in at]
             session.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": touched})
@@ -557,8 +562,8 @@ def finger(page, start):
 
     touch("touchStart", start)
     yield touch
-    # A cancelled touch has no lift to send.
-    if not cancelled:
+    # A cancelled touch has no lift to send. One that came down again after the cancel does.
+    if began > 1 or not cancelled:
         touch("touchEnd")
     if session:
         session.detach()
