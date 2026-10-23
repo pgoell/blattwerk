@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { api, post, type Refusal } from "../api";
 import Failed from "../components/Failed";
+import ShareDialog from "../components/ShareDialog";
 import { attempt } from "../fault";
 import { ask, forget, served, signed, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
@@ -12,6 +13,7 @@ const day = (stamp: string) => new Date(`${stamp.replace(" ", "T")}Z`).toLocaleD
 
 export default function SheetList() {
   const [sheets, setSheets] = useState<Sheet[]>();
+  const [sharing, setSharing] = useState<Sheet>();
   const navigate = useNavigate();
 
   // Asked for at once, and again whenever a save lands: a sheet just left shows as it was left once its save is in.
@@ -117,6 +119,9 @@ export default function SheetList() {
               <button type="button" className="plain" aria-label={`${sheet.title} umbenennen`} title="Umbenennen" onClick={() => rename(sheet)}>
                 <Pencil size={16} aria-hidden />
               </button>
+              <button type="button" className="plain" aria-label={`${sheet.title} teilen`} title="Teilen" onClick={() => setSharing(sheet)}>
+                <Share2 size={16} aria-hidden />
+              </button>
               <button type="button" className="plain" aria-label={`${sheet.title} duplizieren`} title="Duplizieren" onClick={() => duplicate(sheet)}>
                 <Copy size={16} aria-hidden />
               </button>
@@ -127,6 +132,7 @@ export default function SheetList() {
           </li>
         ))}
       </ul>
+      {sharing && <ShareDialog id={sharing.id} title={sharing.title} onClose={() => setSharing(undefined)} />}
     </main>
   );
 }

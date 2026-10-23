@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Photos, { forgetPhotos } from "./pages/Photos";
 import Print from "./pages/Print";
+import ShareView from "./pages/ShareView";
 import SetPassword from "./pages/SetPassword";
 import SheetList from "./pages/SheetList";
 import * as saves from "./saves";
@@ -146,6 +147,7 @@ export default function App() {
         <Route path="/passwort/:token" element={<SetPassword onDone={enter} />} />
         <Route path="/ueber" element={<About />} />
         <Route path="/druck/:id" element={<Print />} />
+        <Route path="/teilen/:token" element={<ShareView user={user ?? null} onDone={enter} />} />
         {user ? (
           <Route element={<Layout user={user} />}>
             <Route path="/" element={<SheetList />} />
