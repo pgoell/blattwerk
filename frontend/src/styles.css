@@ -136,9 +136,14 @@ dialog.menu .mini {
 }
 dialog.menu .mini button { width: auto; min-height: 28px; padding: 0 6px; justify-content: center; }
 dialog.feedback h1, dialog.variants h1 { margin-top: 0; }
+dialog.ask h1 { margin-top: 0; font-size: 1.15rem; }
 dialog.feedback label, dialog.variants > label { margin-top: 14px; }
 dialog.variants > label { display: flex; }
 dialog.feedback .row, dialog.variants .row, dialog.ask .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+dialog.ask .row { flex-wrap: wrap; }
+.share-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+.share-page .pages { display: flex; flex-direction: column; align-items: center; gap: 24px; margin: 16px 0; }
+.share-page .row { display: flex; gap: 8px; margin-top: 8px; }
 nav a.active { background: var(--accent-soft); color: var(--accent); }
 nav a.brand { margin-right: auto; padding-left: 0; background: none; }
 @media (max-width: 480px) {
@@ -238,6 +243,14 @@ ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .sheets small { color: var(--muted); font-size: 12px; }
 .sheets li > div { display: flex; margin-top: 2px; }
 .sheets button { flex: 1; padding: 0; }
+.folder-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.schools form { margin-top: 12px; }
+.schools form button { margin-top: 8px; }
+.schools strong { display: block; margin-top: 16px; }
+.folder-bar input, .folder-bar select { flex: 1 1 12rem; width: auto; }
+.folder-bar .seg { flex: 1 1 auto; }
+.folder-pages { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; width: 100%; margin-top: 16px; }
+main:has(.folder-pages) { max-width: 800px; }
 /* Paper is white under either theme, and so is all that lies on it. */
 .paper, .sheet, .sample { color-scheme: light; }
 /* A letter is as wide as its font says, at every size. Chromium on Linux, which prints the PDF, otherwise rounds

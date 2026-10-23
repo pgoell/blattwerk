@@ -48,6 +48,11 @@ def test_logged_out_gets_401():
     assert client.get("/api/sheets/1").status_code == 401
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
+    assert client.get("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/sheets/1/share/renew").status_code == 401
+    assert client.delete("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/shares/abc/copy").status_code == 401
     assert client.delete("/api/sheets/1").status_code == 401
     assert client.get("/api/sheets/1/pdf").status_code == 401
     assert client.post("/api/maths", json=MATHS).status_code == 401
@@ -487,6 +492,71 @@ def test_many_requests_start_a_new_database_once(data_dir):
         cons = list(pool.map(lambda _: db.open_db(), range(8)))
     assert sequence(cons[0]) == [("sheets", 0), ("templates", 0), ("uploads", 0), ("users", 5)]
     for con in cons:
+        con.close()
+
+
+def test_a_second_open_waits_for_the_schema_write(data_dir, monkeypatch):
+    """The browser's server and the test open one new file together.
+
+    The schema script takes a write lock. A second open that starts its own write while the first
+    still holds one used to raise `database is locked` and fail the test (#342). It waits instead.
+    """
+    # Shorter than the pause below, so an open that waits on SQLite gives up first.
+    monkeypatch.setattr(db, "WAIT", 0.3)
+    started = threading.Event()
+    release = threading.Event()
+
+    class Holding(sqlite3.Connection):
+        def executescript(self, script):
+            # The first script holds the write lock, as it does while it creates the tables.
+            if not started.is_set():
+                self.execute("BEGIN IMMEDIATE")
+                started.set()
+                assert release.wait(2)
+                self.execute("ROLLBACK")
+            return super().executescript(script)
+
+    previous = db.sqlite3.connect
+    opened = threading.Event()
+    seen = threading.Lock()
+    arrived = {"n": 0}
+
+    def connect(*args, **more):
+        con = previous(*args, factory=Holding, **more)
+        with seen:
+            arrived["n"] += 1
+            if arrived["n"] >= 2:
+                opened.set()
+        return con
+
+    monkeypatch.setattr(db.sqlite3, "connect", connect)
+    errors = []
+    done = []
+
+    def open_one():
+        try:
+            done.append(db.open_db())
+        except sqlite3.OperationalError as error:
+            errors.append(error)
+
+    first = threading.Thread(target=open_one)
+    first.start()
+    assert started.wait(2)
+    second = threading.Thread(target=open_one)
+    second.start()
+    # In its own open, and past connecting. Waiting out SQLite would have failed it.
+    assert opened.wait(2)
+    assert not release.wait(0.5)
+    release.set()
+    first.join(2)
+    second.join(2)
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert errors == []
+    assert len(done) == 2
+    for con in done:
+        assert db.migrated(con)
+        assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         con.close()
 
 

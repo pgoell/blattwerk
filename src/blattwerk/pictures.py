@@ -85,9 +85,11 @@ def clear(con: sqlite3.Connection, user_id: int) -> None:
     old = [(row["id"], file) for row in rows if aged(file := path(user_id, row["id"]))]
     if not old:
         return
+    # A share link keeps the pictures of its snapshot, after the sheet itself has moved on.
     docs = con.execute(
         "SELECT doc FROM sheets WHERE user_id = ?1 UNION ALL"
-        " SELECT doc FROM templates WHERE user_id = ?1",
+        " SELECT doc FROM templates WHERE user_id = ?1 UNION ALL"
+        " SELECT doc FROM shares WHERE user_id = ?1",
         (user_id,),
     )
     used = set().union(*(shown(json.loads(row["doc"])) for row in docs))

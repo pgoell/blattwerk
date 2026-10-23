@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from blattwerk import pictures
 from blattwerk.auth import Teacher
+from blattwerk.billing import allow_new
 from blattwerk.db import Con, Id, Whole
 from blattwerk.schema import check, refuse_any_fault
 
@@ -65,6 +66,7 @@ def create(body: Sheet, user: Teacher, con: Con, strict: bool = False) -> dict:
     check(body.doc)
     if strict:
         refuse_any_fault(body.doc)
+    allow_new(con, user)
     pictures.touch(user["id"], body.doc)
     return public(
         con.execute(
@@ -145,6 +147,10 @@ def save(sheet_id: Id, body: Change, user: Teacher, con: Con, strict: bool = Fal
 
 @router.post("/sheets/{sheet_id}/duplicate")
 def duplicate(sheet_id: Id, user: Teacher, con: Con) -> dict:
+    # Missing stays 404. The free count, where one is configured, only refuses a copy that would
+    # be a new sheet.
+    find(con, sheet_id, user)
+    allow_new(con, user)
     # The copy's title stays within the 80 characters a save allows.
     return public(
         con.execute(
