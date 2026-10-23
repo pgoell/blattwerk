@@ -211,6 +211,20 @@ TOPS = """(name) => {
     }
     return tops.map((top) => Math.round(top - tops[0]));
 }"""
+# Both blocks, once the font the words are set in has laid the lines out. The fallback is narrower
+# than Andika: a block measured in it puts "die" on the first line, and the same block in Andika
+# puts it on the second. Two reads a moment apart caught one of each (#407).
+LINES = (
+    """async () => {
+    const rich = document.querySelector('.block[data-id="a"] .rich');
+    await document.fonts.load(getComputedStyle(rich).font);
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const lines = """
+    + TOPS
+    + """;
+    return [lines("a"), lines("b")];
+}"""
+)
 
 
 def test_a_gap_breaks_the_lines_where_its_words_do_without_the_flag(editor):
@@ -219,9 +233,9 @@ def test_a_gap_breaks_the_lines_where_its_words_do_without_the_flag(editor):
         box("a", "text", {**TEXT, "rich": [{"runs": LONG}]}, w=60),
         box("b", "text", {**TEXT, "rich": [{"runs": LONG_PLAIN}]}, z=2, w=60),
     )
-    tops = page.evaluate(TOPS, "a")
-    assert len(set(tops)) > 1
-    assert tops == page.evaluate(TOPS, "b")
+    gap, plain = page.evaluate(LINES)
+    assert len(set(gap)) > 1
+    assert gap == plain
 
 
 def test_a_gap_word_is_in_the_field_and_grey_when_a_text_is_typed_in(editor):
