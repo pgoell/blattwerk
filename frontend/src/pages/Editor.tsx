@@ -833,12 +833,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
-  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean }>(undefined);
+  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean; ctrl?: boolean }>(undefined);
   const press = useRef(0);
   // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
   const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
+  // Set when Ctrl+click opened the pages' menu, so the click of that press does not also change the choice.
+  const ctrlMenu = useRef(false);
   const grab = useRef([0, 0]);
   // The pointer that holds an adjust handle, for a browser that would not capture it.
   const adjusting = useRef<number>(undefined);
@@ -4779,6 +4781,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 aria-pressed={chosenNow.includes(n)}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
                 onClick={(e) => {
+                  // Ctrl+click on a Mac is the right click. Its menu has already chosen the pages.
+                  if (ctrlMenu.current) {
+                    ctrlMenu.current = false;
+                    dragged.current = false;
+                    return;
+                  }
                   if (!dragged.current) {
                     if (e.shiftKey) {
                       // From the page in use to this one; the page in use stays.
@@ -4803,9 +4811,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 // The mouse and the pen drag once they have moved 4 px. A finger holds first: see the listeners on the thumbnails.
                 onPointerDown={(e) => {
                   dragged.current = false;
+                  // A Ctrl+click's menu may have taken the click. The next press is a new one.
+                  ctrlMenu.current = false;
                   touch.current = e.pointerType === "touch";
                   if (e.pointerType === "touch" || e.button) return;
-                  tug.current = { from: n, x: e.clientX, y: e.clientY };
+                  tug.current = { from: n, x: e.clientX, y: e.clientY, ctrl: e.ctrlKey };
                   e.currentTarget.setPointerCapture(e.pointerId);
                 }}
                 onPointerMove={(e) => {
@@ -4819,9 +4829,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 onPointerUp={(e) => e.pointerType !== "touch" && release()}
                 onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
                 // A held finger would open the browser's menu and end the touch. The mouse gets the page's menu.
+                // A Ctrl+click on a Mac is that right click. Chrome can send the press as the main button, so a
+                // drag has already started, and this event comes while the button is still down. A drag that has
+                // not moved is that click: drop it and open the menu. The click of the press must not also choose.
                 onContextMenu={(e) => {
+                  // The press recorded Ctrl, or this event carries it. Either one is the Mac right click.
+                  const asRight = !!(e.ctrlKey || tug.current?.ctrl);
+                  if (asRight && tug.current && tug.current.slot === undefined) quit();
                   if (tug.current || !touch.current) e.preventDefault();
-                  if (!tug.current && !touch.current) thumbMenu(n, e.clientX, e.clientY);
+                  if (!tug.current && !touch.current) {
+                    if (asRight) ctrlMenu.current = true;
+                    thumbMenu(n, e.clientX, e.clientY);
+                  }
                 }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
