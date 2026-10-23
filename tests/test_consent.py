@@ -123,10 +123,11 @@ def test_connections_list(signed_in):
     dialog = page.locator("dialog[aria-labelledby=ask-unlink]")
     expect(dialog).to_contain_text("„Claude“ trennen?")
     assert deleted == []
-    with page.expect_request(lambda req: req.method == "DELETE") as sent:
+    # The request is told before its route runs. The answer comes after that route has noted it.
+    with page.expect_response(lambda res: res.request.method == "DELETE") as sent:
         dialog.get_by_role("button", name="Trennen", exact=True).click()
-    assert sent.value.url.endswith("/api/connections/7")
-    assert deleted == [sent.value.url]
+    assert sent.value.request.url.endswith("/api/connections/7")
+    assert deleted == [sent.value.request.url]
 
 
 def test_consent_after_the_login_with_the_real_server(window, server):  # noqa: F811
