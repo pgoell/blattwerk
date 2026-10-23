@@ -97,11 +97,16 @@ nav a {
   transition: background-color 150ms ease, color 150ms ease;
 }
 nav > button { border: 0; background: none; color: var(--muted); font-weight: 500; }
-dialog.feedback, dialog.variants, dialog.ask {
+dialog.feedback, dialog.variants, dialog.ask, dialog.texthelp {
   width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--bg); color: var(--ink); text-align: left;
 }
-dialog.feedback::backdrop, dialog.variants::backdrop, dialog.ask::backdrop { background: rgba(0, 0, 0, .4); }
+dialog.feedback::backdrop, dialog.variants::backdrop, dialog.ask::backdrop, dialog.texthelp::backdrop { background: rgba(0, 0, 0, .4); }
+dialog.texthelp { width: min(720px, calc(100vw - 24px)); }
+dialog.texthelp .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+dialog.texthelp .levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+dialog.texthelp textarea { width: 100%; min-height: 8em; }
+dialog.texthelp .sample { white-space: pre-wrap; }
 /* The preview scrolls in its own box, so the dialog stays as high as the screen allows. */
 dialog.variants fieldset { margin: 14px 0 0; padding: 0; border: 0; }
 dialog.variants label { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 0 0; }
@@ -135,12 +140,12 @@ dialog.menu .mini {
   background: var(--raise); box-shadow: 0 6px 24px rgb(0 0 0 / .18);
 }
 dialog.menu .mini button { width: auto; min-height: 28px; padding: 0 6px; justify-content: center; }
-dialog.feedback h1, dialog.variants h1 { margin-top: 0; }
+dialog.feedback h1, dialog.variants h1, dialog.texthelp h1 { margin-top: 0; }
 dialog.ask h1 { margin-top: 0; font-size: 1.15rem; }
 dialog.feedback label, dialog.variants > label { margin-top: 14px; }
 dialog.variants > label { display: flex; }
-dialog.feedback .row, dialog.variants .row, dialog.ask .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-dialog.ask .row { flex-wrap: wrap; }
+dialog.feedback .row, dialog.variants .row, dialog.ask .row, dialog.texthelp .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+dialog.ask .row, dialog.texthelp .row { flex-wrap: wrap; }
 .share-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
 .share-page .pages { display: flex; flex-direction: column; align-items: center; gap: 24px; margin: 16px 0; }
 .share-page .row { display: flex; gap: 8px; margin-top: 8px; }

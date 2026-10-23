@@ -113,7 +113,7 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
@@ -124,7 +124,9 @@ import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
+import { canHelp } from "../texthelp";
 import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
+import TextHelp from "./TextHelp";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -421,6 +423,8 @@ const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem an
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
+  // The text whose help dialog is open, and the page it stood on when she asked.
+  const [help, setHelp] = useState<{ id: string; page: number } | null>(null);
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
@@ -864,6 +868,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const chosenNow = chosen.includes(page) ? chosen : [page];
   const choiceOf = (n: number) => (chosenNow.includes(n) ? chosenNow : [n]);
   const { blocks } = pages[page];
+  const helping = help ? pages[help.page]?.blocks.find((b): b is TextBlock => b.type === "text" && b.id === help.id) : undefined;
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
   sizeNow.current = sizes;
@@ -5497,8 +5502,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 list={takeList}
                 link={takeText}
                 feed={feed}
+                onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
                 toList={() => setTab("Lernwörter")}
               />
+              {helping && help && (
+                <TextHelp
+                  block={helping}
+                  page={help.page}
+                  onClose={() => setHelp(null)}
+                  onTake={(fn, to) => {
+                    const from = help.page;
+                    // The box grows with the new words, in this same step, as a text the teacher typed does.
+                    tight.current = true;
+                    flushSync(() => {
+                      update(fn, "", to ?? from);
+                      setHelp(null);
+                      if (to !== undefined && to !== from) {
+                        setAt(to);
+                        setChosen([to]);
+                        setIds([]);
+                      }
+                    });
+                    if (to !== undefined && to !== from) seek();
+                  }}
+                />
+              )}
               {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
                   <h2>Bild</h2>
