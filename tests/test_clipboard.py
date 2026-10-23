@@ -43,8 +43,6 @@ PASTE_BMP = """() => {
 }"""
 # A browser that gives the page no leave to write the system clipboard.
 REFUSE = "() => { navigator.clipboard.writeText = () => Promise.reject(new Error()); }"
-# WebKit on Linux takes a picture written to the system clipboard and gives none back.
-no_picture = pytest.mark.webkit_xfail(204, "WebKit's Einfügen reads no picture the clipboard holds")
 
 
 def button(page, name):
@@ -230,7 +228,6 @@ def test_a_picture_from_another_app_pastes_as_a_picture_block(editor):
     expect_picture(page, client, 2)
 
 
-@no_picture
 def test_the_button_einfuegen_pastes_a_picture_by_touch(editor):
     """A7"""
     client = user()

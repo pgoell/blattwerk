@@ -460,6 +460,32 @@ def test_a_tab_shut_with_a_save_under_way_keeps_the_newer_change_for_the_next_vi
     assert len(sent) == 1
 
 
+def test_a_save_the_browser_drops_as_the_tab_shuts_does_not_send_the_newer_change(run):
+    """#390: WebKit once aborted the save under way before the tab had shut, and the next visit
+    read Gespeichert. The newer change stays for that visit and is not sent beside the first."""
+    page, gate = start(run)
+    change(run)
+    nudge(run)
+    moved = at(page, "a").evaluate(LEFT)
+    # The browser drops the save it was still sending, as it can when the tab goes.
+    gate.saves.pop().abort()
+    page.evaluate(TURNS)
+    assert not gate.saves
+    assert shut(page, gates=True) == ASKS
+    assert not gate.saves
+    assert x_of(run, "a") == 15
+    page, gate, sent = again(run, keep=True)
+    expect_ready(page, 1)
+    expect(at(page, "a")).to_have_css("left", moved)
+    expect(page.locator(STATUS)).to_have_text("Speichert …")
+    assert let_go(page, gate).status == 200
+    expect(page.locator(STATUS)).to_have_text("Gespeichert")
+    expect(page.locator(".clash")).to_have_count(0)
+    assert x_of(run, "a") == 17
+    assert record(page, run.ids["a"]) is None
+    assert len(sent) == 1
+
+
 @pytest.mark.parametrize("how", ["reload", "shut"])
 def test_a_change_whose_save_failed_is_saved_on_the_next_visit(run, how):
     """A7"""

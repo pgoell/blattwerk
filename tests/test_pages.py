@@ -685,9 +685,6 @@ SOURCES = {
     "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
     "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
 }
-# The source that pastes a picture by the Einfügen button, which reads no picture in WebKit.
-NO_PICTURE = pytest.mark.webkit_xfail(204, "WebKit's Einfügen reads no picture the clipboard holds")
-MARKS = {"einfügen": NO_PICTURE}
 # #775: now and then Playwright sees neither the route nor the request of a picture's upload,
 # which the page sends and the server answers. So the page holds that answer itself.
 HOLD_UPLOAD = """() => {
@@ -721,7 +718,7 @@ def asked(page, url, ask):
 
 
 @pytest.mark.parametrize("how", CHANGES)
-@pytest.mark.parametrize("source", [pytest.param(s, marks=MARKS.get(s, ())) for s in SOURCES])
+@pytest.mark.parametrize("source", SOURCES)
 def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source, how):
     """#156: it lands on the page in use when it was asked for, wherever that page is by then."""
     page = three(editor)
