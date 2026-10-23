@@ -105,6 +105,51 @@ MEASURED = """() => {
     const widest = Math.max(...sheets.map((el) => el.getBoundingClientRect().width));
     return Math.abs(widest - room) < 1;
 }"""
+# WebKit on Linux gives Control+V the picture, then clipboard.read() returns that item with no
+# type. Einfügen reads, so the picture is missing (#204). The bytes stay in the item the page
+# wrote: keep them, and put the type back when a read finds none.
+READ_PICTURE = """(() => {
+    const clip = navigator.clipboard;
+    if (!clip || !clip.write || clip.write.kept) return;
+    const write = clip.write.bind(clip);
+    const writeText = clip.writeText.bind(clip);
+    const read = clip.read.bind(clip);
+    let kept = null;
+    const remember = async (items) => {
+        const parts = {};
+        for (const item of items) {
+            for (const type of item.types) {
+                const blob = await item.getType(type);
+                parts[type] = new Blob([await blob.arrayBuffer()], { type });
+            }
+        }
+        const picture = Object.keys(parts).some((type) => type.startsWith("image/"));
+        kept = picture ? parts : null;
+    };
+    const wrapped = async (items) => {
+        await write(items);
+        try {
+            await remember(items);
+        } catch {
+            kept = null;
+        }
+    };
+    wrapped.kept = true;
+    clip.write = wrapped;
+    clip.writeText = async (text) => {
+        await writeText(text);
+        kept = null;
+    };
+    clip.read = async () => {
+        const found = await read();
+        const seen = found.some((item) => item.types.some((type) => type.startsWith("image/")));
+        if (seen || !kept) return found;
+        const parts = { ...kept };
+        for (const item of found)
+            for (const type of item.types) if (!parts[type]) parts[type] = item.getType(type);
+        return [new ClipboardItem(parts)];
+    };
+})();"""
 
 
 @pytest.hookimpl(trylast=True)
@@ -383,6 +428,8 @@ def editor(browser, server, playwright):
         # A copy stamps the system clipboard and a paste reads it; headless Chromium asks no one.
         # WebKit knows no leave to write, and lets the page write without one.
         context.grant_permissions(["clipboard-read", *([] if WEBKIT else ["clipboard-write"])])
+        if WEBKIT:
+            context.add_init_script(READ_PICTURE)
         # The tour would open on the first visit and lie over the sheet.
         context.add_init_script("localStorage.setItem('tour', '1')")
         if theme is not None:
