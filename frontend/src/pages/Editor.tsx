@@ -1021,9 +1021,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   useLayoutEffect(() => {
     // Blattform has two side by side, the second once the sheet has more pages than one: the higher counts.
     const docks = [...stage.current!.querySelectorAll<HTMLElement>(".dock")];
-    const observer = new ResizeObserver(() =>
-      stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`),
-    );
+    const fit = () =>
+      stage.current!.parentElement!.style.setProperty("--dock", `${Math.max(...docks.map((el) => el.offsetHeight))}px`);
+    // The observer reports the height a frame later. Until that report the sheet keeps the room of one row, and a
+    // dock that has already wrapped lies over the sheet scrolled to its end (#408).
+    if (docks.length) fit();
+    const observer = new ResizeObserver(fit);
     for (const el of docks) observer.observe(el);
     return () => observer.disconnect();
   }, [leaf, pages.length > 1]);
