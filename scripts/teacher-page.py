@@ -42,7 +42,8 @@ debugging port. Python's Playwright has no `launch_server`, and a context that a
 ends with that client: so the holder owns the page, and the mouse stays where a verb left it.
 
 The files lie in /tmp/teacher-run, or where TEACHER_PAGE_DIR says. The window opens on the stage,
-http://127.0.0.1:8220; TEACHER_PAGE_URL names another server, for the tests only.
+http://127.0.0.1:8220; TEACHER_PAGE_URL names another server, for the tests only. TEACHER_SAVE_AFTER
+is how long, in ms, a change waits before it is saved. A teacher's page has none and waits 2 s.
 """
 
 import base64
@@ -699,6 +700,10 @@ def hold() -> None:
         )
         # A teacher's Einfügen reads the clipboard: the window may do it without a question.
         context.grant_permissions(["clipboard-read", "clipboard-write"])
+        # A test that must still be unsaved after the next verbs says how long to wait. It is read
+        # as the page is made, before the app's own scripts.
+        if delay := os.environ.get("TEACHER_SAVE_AFTER"):
+            context.add_init_script(f"window.saveAfter = {int(delay)}")
         # A box waits for the verb that meets it. The holder keeps each one and says no to any
         # that no verb answers within PATIENCE seconds.
         waiting: list = []
