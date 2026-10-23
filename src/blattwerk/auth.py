@@ -17,6 +17,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 
 from blattwerk import db
+from blattwerk.billing import view
 from blattwerk.db import Con, Id
 
 SESSION_DAYS = 90
@@ -190,7 +191,7 @@ def start_session(con: sqlite3.Connection, response: Response, user_id: int) -> 
 
 
 def public(user: sqlite3.Row) -> dict:
-    return {"id": user["id"], "email": user["email"], "admin": bool(user["admin"])}
+    return {"id": user["id"], "email": user["email"], "admin": bool(user["admin"]), **view(user)}
 
 
 @router.post("/login")
