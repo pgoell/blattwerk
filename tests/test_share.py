@@ -234,6 +234,29 @@ def test_a_picture_only_the_link_shows_stays():
     assert not pictures.path(made_sheet["user_id"], upload_id).is_file()
 
 
+def test_copy_stops_at_the_free_sheet_cap(monkeypatch):
+    """A copy is a new sheet, so the same cap as create and duplicate applies."""
+    monkeypatch.setenv("BLATTWERK_FREE_SHEETS", "1")
+    owner = user()
+    other = user()
+    made_sheet = made(owner, upload(owner))
+    token = turn_on(owner, made_sheet["id"])["token"]
+    own = other.post(
+        "/api/sheets",
+        json={
+            "title": "Eigenes",
+            "doc": {"pages": [{"blocks": []}], "guides": {"x": [], "y": []}, "grid": 0},
+        },
+    )
+    assert own.status_code == 200
+    blocked = other.post(f"/api/shares/{token}/copy")
+    assert blocked.status_code == 402
+    assert "39" not in blocked.text
+    assert [row["id"] for row in other.get("/api/sheets").json()] == [own.json()["id"]]
+    # A link that is not there stays missing, even at the cap.
+    assert other.post("/api/shares/" + "a" * 43 + "/copy").status_code == 404
+
+
 def test_deleted_sheet_kills_the_link():
     owner = user()
     made_sheet = made(owner, upload(owner))

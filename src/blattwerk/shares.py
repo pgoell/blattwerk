@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 
 from blattwerk import pictures
 from blattwerk.auth import Teacher
+from blattwerk.billing import allow_new
 from blattwerk.db import Con, Id
 from blattwerk.schema import check
 from blattwerk.sheets import COLUMNS, find, public
@@ -191,6 +192,9 @@ def preview_picture(token: str, upload_id: Id, con: Con) -> FileResponse:
 @router.post("/shares/{token}/copy")
 def copy(token: str, user: Teacher, con: Con) -> dict:
     row = by_token(con, token)
+    # A copy is a new sheet, so the free count applies the same way as create and duplicate.
+    # Before the transaction: a refusal must not start one, and a missing link stays 404.
+    allow_new(con, user)
     doc = json.loads(row["doc"])
     blobs = picture_bytes(con, row["user_id"], doc)
     # The new upload rows, their files and the new sheet land together, or not at all.
