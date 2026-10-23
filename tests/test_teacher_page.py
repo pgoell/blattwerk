@@ -7,6 +7,7 @@ verbs alone, stop.
 
 import base64
 import importlib.util
+import io
 import os
 import re
 import subprocess
@@ -20,6 +21,7 @@ from uuid import uuid4
 import pytest
 from PIL import Image, ImageChops
 from playwright.sync_api import Error, expect
+from pypdf import PdfReader
 from test_bar import TIP
 from test_zoom import expect_scroll, fit, roomy, scroll
 from ui import (
@@ -473,6 +475,26 @@ def test_pdf_saves_what_the_bars_button_sends(editor, folder, name, args):
     assert path.read_bytes().startswith(b"%PDF")
 
 
+def test_497_pdf_with_the_variants_dialog_open_takes_the_dialogs_button(editor):
+    # Issue #497: with "Varianten drucken" open, `pdf` and `pdf Lösungen` each found the bar's
+    # button and the dialog's, and refused. The dialog's is the one a click can hit, and its file
+    # holds one page per variant. The bar's file of this sheet would be a single page.
+    page = editor(box("a", "text", ONE))
+    panel = page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    if not panel.is_visible():
+        page.get_by_role("tab", name="Ansicht").click()
+    panel.click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog).to_be_visible()
+    assert tool.where(page, "PDF").count("\n") == 1
+    assert tool.where(page, "Lösungen").count("\n") == 1
+    plain = PdfReader(io.BytesIO(Path(tool.pdf(page)).read_bytes()))
+    assert len(plain.pages) == 2
+    expect(dialog).to_be_visible()
+    key = PdfReader(io.BytesIO(Path(tool.pdf(page, "Lösungen")).read_bytes()))
+    assert len(key.pages) == 2
+
+
 def test_pdf_gives_the_focus_back_to_the_slider_that_had_it(editor):
     # Issue #321: after `pdf` the bar's button had the focus, and `key End` did nothing.
     page = shape(editor)
@@ -719,6 +741,37 @@ def test_click_turns_the_page_to_the_one_control_below_the_window(editor):
     said = tool.click(page, "Randstärke")
     assert said.endswith(": " + str(tool.STATE / "last.png") + " (turned the page to it)"), said
     expect(slider(page)).to_be_focused()
+
+
+def below(page, name):
+    """Pushes `name` in the panel below the window, under a tall spacer, and leaves the scroll at the top."""
+    page.locator(".panel").get_by_label(name, exact=True).evaluate(
+        """el => {
+            const panel = el.closest(".panel");
+            const spacer = document.createElement("div");
+            spacer.style.height = "3000px";
+            panel.insertBefore(spacer, panel.firstChild);
+            panel.scrollTop = 0;
+        }"""
+    )
+
+
+def test_497_click_turns_to_the_one_list_that_shares_a_headings_name(editor):
+    # Issue #497: "Aufgabenfamilien" is a heading and the list. With both below the window the
+    # turn to the one control and the preference for that control did not combine, and the click
+    # said to scroll.
+    client = user()
+    page = editor(box("a", "maths", maths(client)), client=client)
+    pick(page, "a")
+    select = page.locator(".panel").get_by_label("Aufgabenfamilien", exact=True)
+    expect(select).to_be_attached()
+    below(page, "Aufgabenfamilien")
+    lines = tool.where(page, "Aufgabenfamilien").splitlines()
+    assert len(lines) == 2
+    assert all("(outside the window)" in line for line in lines), lines
+    said = tool.click(page, "Aufgabenfamilien")
+    assert said.endswith("(turned the page to it)"), said
+    expect(select).to_be_focused()
 
 
 def test_click_says_a_greyed_control_does_nothing(editor):
