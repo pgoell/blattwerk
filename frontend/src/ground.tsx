@@ -1,6 +1,7 @@
 // The picture a page lies on: how it fills the page, and how it is drawn. The type lives on the page in sheet.tsx.
 import type { PointerEvent } from "react";
 import type { Ground } from "./sheet";
+import { uploadAddress } from "./uploadAddress";
 
 export type { Ground };
 
@@ -131,7 +132,7 @@ export function GroundView({
         }}
       >
         <img
-          src={`/api/uploads/${ground.upload}`}
+          src={uploadAddress(ground.upload)}
           alt=""
           draggable={false}
           style={{ left: px(drawn.sx), top: px(drawn.sy), width: px(drawn.sw), height: px(drawn.sh) }}
