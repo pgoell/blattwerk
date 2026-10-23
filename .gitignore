@@ -26,6 +26,7 @@ node_modules/
 frontend/.mcpb-stage/
 frontend/.mcp-http/
 src/blattwerk/static/
+src/blattwerk/.build.lock
 .claude/worktrees/
 
 # Eval runs: scripts/eval.py writes its tables here
