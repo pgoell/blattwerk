@@ -17,6 +17,7 @@ from blattwerk import (
     auth,
     billing,
     feedback,
+    folder,
     maths,
     oauth,
     pdf,
@@ -49,6 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(billing.router)
+app.include_router(folder.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)
 app.include_router(oauth.router)
