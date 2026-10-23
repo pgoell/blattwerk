@@ -52,9 +52,21 @@ FILL = ["Stern", "Sprechblase", "Füllung", "Rand"]
 DASH = ["Randstärke", "Durchgezogen", "Gestrichelt", "Gepunktet"]
 ORDER = {
     # A text alone has the switch of the line numbers after the solution words and Schüttelwörter.
+    # Text anpassen is the first control of the text, after the place and the size.
     "text": (
         TEXT,
-        [*START, *FONT, *PLACE, *TURN[:-2], "Zeilennummern", *TURN[-2:], *OUTLINE, *FILL, *DASH],
+        [
+            *START,
+            "Text anpassen",
+            *FONT,
+            *PLACE,
+            *TURN[:-2],
+            "Zeilennummern",
+            *TURN[-2:],
+            *OUTLINE,
+            *FILL,
+            *DASH,
+        ],
     ),
     # A shape can be mirrored, and its border, which it has, can be taken away.
     # The border's transparency (#129) comes after its width; a text has no border, so it is off.

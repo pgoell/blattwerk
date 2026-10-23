@@ -1,13 +1,14 @@
 """Uploads: the pictures of image blocks, kept per user on the data volume."""
 
 import threading
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
-from blattwerk import pdf, svg
+from blattwerk import folder, pdf, svg
 from blattwerk.auth import Teacher, current_teacher
 from blattwerk.db import Con, Id
 from blattwerk.pictures import path
@@ -76,6 +77,14 @@ async def upload(file: UploadFile, user: Teacher, con: Con) -> dict:
     return {"id": upload_id}
 
 
+def response(file: Path, type_: str) -> FileResponse:
+    # An upload never changes, so the browser may keep it. A folder copy is the same bytes.
+    headers = {"Cache-Control": "private, max-age=31536000, immutable", **NOSNIFF}
+    if type_ == "image/svg+xml":
+        headers |= SVG_CSP
+    return FileResponse(file, media_type=type_, headers=headers)
+
+
 @router.get("/uploads/{upload_id}")
 def serve(
     upload_id: Id,
@@ -85,18 +94,25 @@ def serve(
     token: pdf.Token = None,
 ) -> FileResponse:
     # Chromium, printing a sheet, stands for the sheet's owner, for that sheet's pictures alone.
-    user_id = (
-        pdf.shows(con, token, upload_id) if token else current_teacher(request, con, session)["id"]
-    )
+    if token:
+        user_id = pdf.shows(con, token, upload_id)
+        row = con.execute(
+            "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user_id)
+        ).fetchone()
+        own = path(user_id, upload_id)
+        if not row or not own.is_file():
+            raise HTTPException(404, headers=NOSNIFF)
+        return response(own, row["type"])
+    user_id = current_teacher(request, con, session)["id"]
     row = con.execute(
         "SELECT type FROM uploads WHERE id = ? AND user_id = ?", (upload_id, user_id)
     ).fetchone()
-    # Someone else's picture is as missing as one that never was, and so is a row whose file a
-    # sweep deleted before it failed to delete the row.
-    if not row or not path(user_id, upload_id).is_file():
-        raise HTTPException(404, headers=NOSNIFF)
-    # An upload never changes, so the browser may keep it.
-    headers = {"Cache-Control": "private, max-age=31536000, immutable", **NOSNIFF}
-    if row["type"] == "image/svg+xml":
-        headers |= SVG_CSP
-    return FileResponse(path(user_id, upload_id), media_type=row["type"], headers=headers)
+    own = path(user_id, upload_id)
+    if row and own.is_file():
+        return response(own, row["type"])
+    # A folder copy, for a teacher at that school, once the author's file is gone.
+    copied = folder.served_copy(con, user_id, upload_id)
+    if copied:
+        return response(*copied)
+    # Someone else's picture is as missing as one that never was.
+    raise HTTPException(404, headers=NOSNIFF)

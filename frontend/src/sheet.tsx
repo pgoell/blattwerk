@@ -26,6 +26,7 @@ import { CELL_H, CELL_W, INK as UHR_INK, RED, hands, sane as saneUhr, timesOf, w
 import { checked, lettersOf, sane as saneSelbst, type SelbstkontrolleProps } from "./selbstkontrolle";
 import { LEFT as STRAHL_LEFT, arrowXs, below, boxUnder, made as drawnStrahl, sane as saneStrahl, xOf, type ZahlenstrahlProps } from "./zahlenstrahl";
 import { decimal, decimalsOf, GAP } from "./decimal";
+import { uploadAddress } from "./uploadAddress";
 import { KARO, PT, mathsHeight } from "./height";
 export { KARO, PT, mathsHeight };
 import { Scissors } from "lucide-react";
@@ -4308,7 +4309,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
     return (
       <div className="picture" style={flipped(block)}>
         <img
-          src={`/api/uploads/${block.props.upload}`}
+          src={uploadAddress(block.props.upload)}
           alt=""
           draggable={false}
           style={{ width: `${100 / w}%`, height: `${100 / h}%`, left: `${(-100 * l) / w}%`, top: `${(-100 * t) / h}%`, clipPath, opacity: block.props.opacity }}
