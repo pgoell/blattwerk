@@ -257,6 +257,31 @@ def test_copy_stops_at_the_free_sheet_cap(monkeypatch):
     assert other.post("/api/shares/" + "a" * 43 + "/copy").status_code == 404
 
 
+def test_a_ground_is_on_the_preview_and_the_copy_has_its_own():
+    """A page ground is a picture the link shows, and the copy points at its own file."""
+    owner = user()
+    other = user()
+    upload_id = upload(owner)
+    page = {
+        "blocks": [],
+        "ground": {"upload": upload_id, "ratio": 1.5, "cut": [0, 0, 0, 0]},
+    }
+    made_sheet = sheet(owner, page, title="Grund")
+    token = turn_on(owner, made_sheet["id"])["token"]
+    preview = guest().get(f"/api/shares/{token}")
+    assert preview.status_code == 200
+    assert preview.json()["doc"]["pages"][0]["ground"]["upload"] == upload_id
+    got = guest().get(f"/api/shares/{token}/uploads/{upload_id}")
+    assert got.status_code == 200
+    assert got.content == png()
+    copied = other.post(f"/api/shares/{token}/copy")
+    assert copied.status_code == 200
+    new_id = copied.json()["doc"]["pages"][0]["ground"]["upload"]
+    assert new_id != upload_id
+    assert other.get(f"/api/uploads/{new_id}").content == png()
+    assert other.get(f"/api/uploads/{upload_id}").status_code == 404
+
+
 def test_deleted_sheet_kills_the_link():
     owner = user()
     made_sheet = made(owner, upload(owner))

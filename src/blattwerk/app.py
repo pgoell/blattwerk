@@ -18,6 +18,7 @@ from blattwerk import (
     billing,
     feedback,
     folder,
+    grounds,
     maths,
     oauth,
     pdf,
@@ -61,6 +62,7 @@ app.include_router(shares.router)
 app.include_router(templates.router)
 app.include_router(texthelp.router)
 app.include_router(uploads.router)
+app.include_router(grounds.router)
 
 
 @app.get("/impressum", response_class=HTMLResponse)

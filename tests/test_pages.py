@@ -677,7 +677,8 @@ def test_undo_of_a_change_on_the_page_in_use_keeps_the_selection(editor):
 
 
 PICKED = {"name": "bild.png", "mimeType": "image/png", "buffer": PNG[2]}
-PICKER = "input[type=file]"
+# The page panel has a second file input, for the ground. This one is the Bild button's.
+PICKER = 'input[type=file]:not([aria-label="Hintergrunddatei"])'
 # What asks the server for a block, and the request that waits.
 SOURCES = {
     "maths": ("**/api/maths", lambda page: button(page, "Rechnen").click()),
