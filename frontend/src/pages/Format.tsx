@@ -118,6 +118,8 @@ type Props = {
   size: number[];
   // The whole sheet, for the maths blocks a Selbstkontrolle can check.
   doc: Doc;
+  // Opens text help for the one selected text. Absent when that text cannot be helped.
+  onHelp?: () => void;
 };
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
@@ -340,7 +342,7 @@ const BORDERS: [Border, string][] = [
   ["down", "Innen senkrecht"],
 ];
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe, onHelp }: Props) {
   // A locked block neither turns nor flips. A table stays level, a line turns by its ends, and only a picture, a
   // symbol, a shape or a text in an outline can flip. A group picked whole goes as one: a line in it goes round
   // with it by quarters, and whatever is in it changes sides in a flip.
@@ -864,6 +866,11 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
       </div>
       {text && (
         <>
+          {onHelp && (
+            <button type="button" onClick={onHelp}>
+              Text anpassen
+            </button>
+          )}
           <h2>Schrift</h2>
           <FontSelect label="Schriftart" value={fontOf(text.font)} unknown={unknownFont(sel.map((b) => boxed(b)?.font))} onChange={(font) => look({ font })} />
           <div className="seg">

@@ -51,6 +51,7 @@ import {
   Heading,
   House,
   ImagePlus,
+  Wallpaper,
   Link2,
   LayoutTemplate,
   Lock,
@@ -113,18 +114,21 @@ import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { attempt, drop as dropFault, note, status } from "../fault";
 import { ask, attach, discard, flush, get, inClash, isGone, keepAsNew, newer, onNewer, open, overwrite, owe, refused, reset, set, signed, takeOwed, useSaves } from "../saves";
-import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextProps } from "../sheet";
+import { Draw, FIELDS, K, MARGIN, lengthened, keepsFractions, Mark, Numbers, PageNumber, PT, Paper, RULINGS, ScoreInput, Whole, Words, adjusted, bandOf, innerOf, pageNumbersOf, wordsIn, boxed, cleared, colsOf, dir, fadeOf, far, fitOf, handleOf, isLine, kindOf, listOf, listed, lowest, mathsHeight, numbers, overFoot, parasOf, reachOf, read, rowsOf, sizeOf, spliced, squares, stored, stepOf, sum, tailReach, tall, tied, traceOf, turned, fitWidth, writtenStyle, type Axis, type Block, type Box, type Corner, type Doc, type Fade, type Guides, type ImageBlock, type Kind, type List, type MathsProps, type ListMode, type NameBlock, type Page, type PageNumbers, type Range, type RulingBlock, type Sheet, type ShapeBlock, type TableBlock, type TextBlock, type TextProps } from "../sheet";
 import { blatt, follow as growRulings, landed as carried, linked, loose as cutLoose, looseText, pasted, unshown } from "../words";
 import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
 import { atOnce, copied, hash, mark as markCopy, onTheWay, refused as refusedWords } from "../clip";
+import { FADES, GROUND_HINT, GroundView, RIGHTS_PLACEHOLDER, SCALE_MAX, SCALE_MIN, paint as paintGround, trim as trimGround, turnedCut, type Ground } from "../ground";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
 import type { LineStyle, Pen } from "../edges";
+import { canHelp } from "../texthelp";
 import Format, { adjustable, bounds, drawn, frameOf, has, hull, inked, mirrored, norm, outline, scaledGroup, sized as resized, swung, unfit as unfitted } from "./Format";
+import TextHelp from "./TextHelp";
 import { generate, kept as keptMaths, newSeed } from "./Maths";
 import { FRAMES as FRAME_KINDS, INSERTS, MATHS, filled, grown, type Fresh as Insert } from "../insert";
 import { parasFromHtml } from "../pasted";
@@ -421,6 +425,8 @@ const CLASH_BAR = "Dieses Blatt wurde in einem anderen Fenster oder auf einem an
 function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opened, waiting }: { file: Sheet; user: User; reload: () => void; over: () => void; choice?: "busy" | "failed"; asNew: () => void; discard: () => void; renew: (sheet: Sheet, variants?: Opened) => void; opened?: Opened; waiting: RefObject<boolean | undefined> }) {
   // The saver has brought an old document up to date.
   const [hist, draw] = useState<Hist>(() => ({ past: [], doc: file.doc, future: [] }));
+  // The text whose help dialog is open, and the page it stood on when she asked.
+  const [help, setHelp] = useState<{ id: string; page: number } | null>(null);
   // The same as it stands after every change so far, drawn or not: a change knows at once what the one before left.
   const live = useRef(hist);
   const setHist = (step: (h: typeof hist) => typeof hist) => draw((live.current = step(live.current)));
@@ -718,6 +724,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Crop mode: the picture being cropped and the cut its frame shows, stored only when the mode ends.
   const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
+  // The page ground, unlocked to shift and scale, or with its crop handles out. A PDF of several pages waits in `pdfAsk`.
+  const [shaping, setShaping] = useState(false);
+  const [trimming, setTrimming] = useState(false);
+  const [pdfAsk, setPdfAsk] = useState<{ file: File; pages: number; page: number }>();
+  const groundFile = useRef<HTMLInputElement>(null);
+  const groundHold = useRef<{ kind: "move" | "scale" | "trim"; x: number; y: number; ground: Ground; edge?: number; dist?: number } | undefined>(undefined);
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
   // The desk's height in pixels, which a fit follows too.
@@ -833,12 +845,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const owed = useRef<OnDrag[]>(undefined);
   // The thumbnails, and the press on one of them: where it began, and its gap once it is a drag.
   const strip = useRef<HTMLDivElement>(null);
-  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean }>(undefined);
+  const tug = useRef<{ from: number; x: number; y: number; slot?: number; held?: boolean; left?: boolean; ctrl?: boolean }>(undefined);
   const press = useRef(0);
   // The panel scrolls while a drag rests near its edge: the frame that does it, its speed and the pointer.
   const auto = useRef({ frame: 0, speed: 0, x: 0, y: 0, last: 0, rest: 0 });
   // Set by a drag, for the click that follows it.
   const dragged = useRef(false);
+  // Set when Ctrl+click opened the pages' menu, so the click of that press does not also change the choice.
+  const ctrlMenu = useRef(false);
   const grab = useRef([0, 0]);
   // The pointer that holds an adjust handle, for a browser that would not capture it.
   const adjusting = useRef<number>(undefined);
@@ -862,6 +876,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const chosenNow = chosen.includes(page) ? chosen : [page];
   const choiceOf = (n: number) => (chosenNow.includes(n) ? chosenNow : [n]);
   const { blocks } = pages[page];
+  const helping = help ? pages[help.page]?.blocks.find((b): b is TextBlock => b.type === "text" && b.id === help.id) : undefined;
   // Each page's width and height in mm.
   const sizes = pages.map((_, n) => sizeOf(hist.doc, n));
   sizeNow.current = sizes;
@@ -1964,6 +1979,132 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
     update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key, n, n);
+  }
+  // The page without its ground, or with `ground` in its place.
+  function withGround(p: Page, ground: Ground | undefined): Page {
+    if (!ground) {
+      const { ground: _gone, ...rest } = p;
+      return rest;
+    }
+    return { ...p, ground };
+  }
+  function oneGround(item: { id: number; width: number; height: number }, n: number) {
+    const ground: Ground = { upload: item.id, ratio: item.width / item.height, cut: [0, 0, 0, 0] };
+    turn((p) => withGround(p, ground), "", n);
+    setAt(n);
+    setShaping(false);
+    setTrimming(false);
+    setPdfAsk(undefined);
+  }
+  // Each PDF page becomes the ground of one sheet page, from `from` on. Pages are added when the PDF has more.
+  function manyGrounds(made: { id: number; width: number; height: number }[], from: number) {
+    update((doc) => {
+      const pages = doc.pages.slice();
+      const lie = doc.pages[from]?.landscape;
+      made.forEach((item, i) => {
+        const ground: Ground = { upload: item.id, ratio: item.width / item.height, cut: [0, 0, 0, 0] };
+        const n = from + i;
+        if (pages[n]) pages[n] = { ...pages[n], ground };
+        else pages.push({ blocks: [], ground, ...(lie !== undefined ? { landscape: lie } : {}) });
+      });
+      return { ...doc, pages };
+    }, "", from);
+    setAt(from);
+    setChosen([from]);
+    setShaping(false);
+    setTrimming(false);
+    setPdfAsk(undefined);
+  }
+  function fadeGround(opacity: number) {
+    turn((p) => (p.ground && (p.ground.opacity ?? 1) !== opacity ? { ...p, ground: { ...p.ground, opacity } } : p));
+  }
+  function turnGround() {
+    turn((p) => (p.ground ? { ...p, ground: { ...p.ground, turns: ((p.ground.turns ?? 0) + 1) % 4, cut: turnedCut(p.ground.cut) } } : p));
+  }
+  function clearGround() {
+    turn((p) => withGround(p, undefined));
+    setShaping(false);
+    setTrimming(false);
+  }
+  function beginGround(e: PointerEvent<HTMLElement>, kind: "move" | "scale" | "trim", edge?: number) {
+    const g = live.current.doc.pages[page].ground;
+    if (!g || e.button) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const [w, h] = sizeOf(live.current.doc, page);
+    const box = paintGround(w, h, g);
+    const rect = sheet.current?.getBoundingClientRect();
+    let dist: number | undefined;
+    if (kind === "scale" && rect) {
+      dist = Math.hypot((e.clientX - rect.left) / k - (box.x + box.width / 2), (e.clientY - rect.top) / k - (box.y + box.height / 2));
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    groundHold.current = { kind, x: e.clientX, y: e.clientY, ground: g, edge, dist };
+  }
+  function dragGround(e: PointerEvent<HTMLElement>) {
+    const hold = groundHold.current;
+    if (!hold) return;
+    const [w, h] = sizeOf(live.current.doc, page);
+    const box = paintGround(w, h, hold.ground);
+    if (hold.kind === "move") {
+      const at: [number, number] = [round((hold.ground.at?.[0] ?? 0) + (e.clientX - hold.x) / k), round((hold.ground.at?.[1] ?? 0) + (e.clientY - hold.y) / k)];
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, at } } : p), "ground");
+      return;
+    }
+    if (hold.kind === "scale" && hold.dist && sheet.current) {
+      const rect = sheet.current.getBoundingClientRect();
+      const dist = Math.hypot((e.clientX - rect.left) / k - (box.x + box.width / 2), (e.clientY - rect.top) / k - (box.y + box.height / 2));
+      const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, round((hold.ground.scale ?? 1) * (dist / hold.dist))));
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, scale } } : p), "ground");
+      return;
+    }
+    if (hold.kind === "trim" && hold.edge !== undefined) {
+      const [l, t, r, b] = hold.ground.cut;
+      const cw = Math.max(0.05, 1 - (l || 0) - (r || 0));
+      const ch = Math.max(0.05, 1 - (t || 0) - (b || 0));
+      const along = hold.edge % 2 === 0 ? ((e.clientX - hold.x) / k / box.width) * cw : ((e.clientY - hold.y) / k / box.height) * ch;
+      const cut = trimGround(hold.ground.cut, hold.edge, (hold.edge < 2 ? 1 : -1) * along);
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, cut } } : p), "ground");
+    }
+  }
+  function endGround() {
+    groundHold.current = undefined;
+  }
+  const NO_GROUND = "Der Hintergrund konnte nicht hochgeladen werden.";
+  function groundWhy(s: string, e: unknown) {
+    const detail = (e as Refusal).detail;
+    if (detail) return detail;
+    if (s === "413" || s === "415" || s === "422") return GROUND_HINT;
+    return undefined;
+  }
+  async function postGround(file: File, which?: string) {
+    const body = new FormData();
+    body.append("file", file);
+    if (which !== undefined) body.append("which", which);
+    return signed(api<{ pages: number; made: { page: number; id: number; width: number; height: number }[] }>("/grounds", { method: "POST", body }));
+  }
+  async function chooseGround(file: File) {
+    setPdfAsk(undefined);
+    await attempt(NO_GROUND, async () => {
+      const pdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const body = await postGround(file);
+      const n = latest.current.page;
+      if (!pdf || body.pages <= 1) {
+        const item = body.made[0] ?? (await postGround(file, "1")).made[0];
+        calm(() => oneGround(item, n));
+        return;
+      }
+      setPdfAsk({ file, pages: body.pages, page: 1 });
+    }, groundWhy);
+  }
+  async function takeAsked(which: string) {
+    if (!pdfAsk) return;
+    const file = pdfAsk.file;
+    const n = latest.current.page;
+    await attempt(NO_GROUND, async () => {
+      const body = await postGround(file, which);
+      calm(() => (which === "all" ? manyGrounds(body.made, n) : oneGround(body.made[0], n)));
+    }, groundWhy);
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
@@ -4871,6 +5012,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 aria-pressed={chosenNow.includes(n)}
                 // The click after a drag is the drag's end, not a visit. The next one, also by Enter, visits again.
                 onClick={(e) => {
+                  // Ctrl+click on a Mac is the right click. Its menu has already chosen the pages.
+                  if (ctrlMenu.current) {
+                    ctrlMenu.current = false;
+                    dragged.current = false;
+                    return;
+                  }
                   if (!dragged.current) {
                     if (e.shiftKey) {
                       // From the page in use to this one; the page in use stays.
@@ -4895,9 +5042,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 // The mouse and the pen drag once they have moved 4 px. A finger holds first: see the listeners on the thumbnails.
                 onPointerDown={(e) => {
                   dragged.current = false;
+                  // A Ctrl+click's menu may have taken the click. The next press is a new one.
+                  ctrlMenu.current = false;
                   touch.current = e.pointerType === "touch";
                   if (e.pointerType === "touch" || e.button) return;
-                  tug.current = { from: n, x: e.clientX, y: e.clientY };
+                  tug.current = { from: n, x: e.clientX, y: e.clientY, ctrl: e.ctrlKey };
                   e.currentTarget.setPointerCapture(e.pointerId);
                 }}
                 onPointerMove={(e) => {
@@ -4911,9 +5060,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 onPointerUp={(e) => e.pointerType !== "touch" && release()}
                 onPointerCancel={(e) => e.pointerType !== "touch" && quit()}
                 // A held finger would open the browser's menu and end the touch. The mouse gets the page's menu.
+                // A Ctrl+click on a Mac is that right click. Chrome can send the press as the main button, so a
+                // drag has already started, and this event comes while the button is still down. A drag that has
+                // not moved is that click: drop it and open the menu. The click of the press must not also choose.
                 onContextMenu={(e) => {
+                  // The press recorded Ctrl, or this event carries it. Either one is the Mac right click.
+                  const asRight = !!(e.ctrlKey || tug.current?.ctrl);
+                  if (asRight && tug.current && tug.current.slot === undefined) quit();
                   if (tug.current || !touch.current) e.preventDefault();
-                  if (!tug.current && !touch.current) thumbMenu(n, e.clientX, e.clientY);
+                  if (!tug.current && !touch.current) {
+                    if (asRight) ctrlMenu.current = true;
+                    thumbMenu(n, e.clientX, e.clientY);
+                  }
                 }}
               >
                 {/* The thumbnails draw late: a new page has its button before its picture. */}
@@ -4935,6 +5093,65 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
           <label className="tick numbers">
             <input type="checkbox" checked={folio.on} onChange={(e) => numbering({}, e.target.checked)} /> Seitenzahlen
           </label>
+          <div className="ground-box">
+            <h2>Hintergrund</h2>
+            <p className="hint">{GROUND_HINT}</p>
+            <p className="hint" data-placeholder="rights">{RIGHTS_PLACEHOLDER}</p>
+            <button onClick={() => groundFile.current?.click()}>
+              <Wallpaper size={16} aria-hidden />
+              Hintergrund wählen
+            </button>
+            <input
+              ref={groundFile}
+              type="file"
+              aria-label="Hintergrunddatei"
+              accept="image/jpeg,image/png,application/pdf,.pdf"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void chooseGround(file);
+              }}
+            />
+            {pages[page].ground && (
+              <>
+                <button aria-pressed={shaping} className={shaping ? "on" : undefined} onClick={() => (setShaping((on) => !on), setTrimming(false))}>
+                  Hintergrund bearbeiten
+                </button>
+                <div className="seg" role="group" aria-label="Deckkraft">
+                  {FADES.map((opacity) => (
+                    <button key={opacity} aria-pressed={(pages[page].ground?.opacity ?? 1) === opacity} className={(pages[page].ground?.opacity ?? 1) === opacity ? "on" : undefined} onClick={() => fadeGround(opacity)}>
+                      {opacity * 100} %
+                    </button>
+                  ))}
+                </div>
+                <button onClick={turnGround}>Drehen</button>
+                <button aria-pressed={trimming} className={trimming ? "on" : undefined} onClick={() => setTrimming((on) => !on)}>
+                  Zuschneiden
+                </button>
+                <button onClick={clearGround}>Hintergrund entfernen</button>
+              </>
+            )}
+            {pdfAsk && (
+              <>
+                <p className="hint">Die PDF hat {pdfAsk.pages} Seiten.</p>
+                <label className="tick">
+                  Seite
+                  <input
+                    type="number"
+                    aria-label="Seite der PDF"
+                    min={1}
+                    max={pdfAsk.pages}
+                    value={pdfAsk.page}
+                    onChange={(e) => setPdfAsk({ ...pdfAsk, page: Math.min(pdfAsk.pages, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}
+                  />
+                </label>
+                <button onClick={() => void takeAsked(String(pdfAsk.page))}>Diese Seite</button>
+                <button onClick={() => void takeAsked("all")}>Alle Seiten</button>
+                <button onClick={() => setPdfAsk(undefined)}>Abbrechen</button>
+              </>
+            )}
+          </div>
           <h2>Vorlagen</h2>
           {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
             const group = builtIn.filter((t) => t.group === g);
@@ -5116,6 +5333,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
                   beside them, in px of the screen. */}
               <div className={keepsFractions() ? "scaled fractions" : "scaled"} style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
+                {p.ground && (
+                  <div className="ground-clip">
+                    <GroundView
+                      ground={p.ground}
+                      w={sizes[n][0]}
+                      h={sizes[n][1]}
+                      k={K}
+                      live={shaping && n === page && !trimming}
+                      onPointerDown={shaping && n === page && !trimming ? (e) => beginGround(e, "move") : undefined}
+                      onPointerMove={shaping && n === page ? dragGround : undefined}
+                      onPointerUp={endGround}
+                    />
+                  </div>
+                )}
                 <PageNumber doc={hist.doc} page={n} />
                 {p.blocks.map((b) => (
 
@@ -5292,6 +5523,41 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
                   ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
+                  {p.ground && shaping && !trimming && (
+                    <i
+                      className="ground-handle scale"
+                      aria-label="Hintergrund skalieren"
+                      style={{ left: (paintGround(sizes[n][0], sizes[n][1], p.ground).x + paintGround(sizes[n][0], sizes[n][1], p.ground).width) * k, top: (paintGround(sizes[n][0], sizes[n][1], p.ground).y + paintGround(sizes[n][0], sizes[n][1], p.ground).height) * k }}
+                      onPointerDown={(e) => beginGround(e, "scale")}
+                      onPointerMove={dragGround}
+                      onPointerUp={endGround}
+                      onPointerCancel={endGround}
+                    />
+                  )}
+                  {p.ground && trimming &&
+                    [0, 1, 2, 3].map((edge) => {
+                      const box = paintGround(sizes[n][0], sizes[n][1], p.ground!);
+                      const [W, H] = sizes[n];
+                      const at = [
+                        [Math.min(W, Math.max(0, box.x)), Math.min(H, Math.max(0, box.y + box.height / 2))],
+                        [Math.min(W, Math.max(0, box.x + box.width / 2)), Math.min(H, Math.max(0, box.y))],
+                        [Math.min(W, Math.max(0, box.x + box.width)), Math.min(H, Math.max(0, box.y + box.height / 2))],
+                        [Math.min(W, Math.max(0, box.x + box.width / 2)), Math.min(H, Math.max(0, box.y + box.height))],
+                      ][edge];
+                      return (
+                        <i
+                          key={edge}
+                          className="ground-handle"
+                          data-edge={edge}
+                          aria-label={["Links kürzen", "Oben kürzen", "Rechts kürzen", "Unten kürzen"][edge]}
+                          style={{ left: at[0] * k, top: at[1] * k }}
+                          onPointerDown={(e) => beginGround(e, "trim", edge)}
+                          onPointerMove={dragGround}
+                          onPointerUp={endGround}
+                          onPointerCancel={endGround}
+                        />
+                      );
+                    })}
                   {line &&
                     [false, true].map((end) => (
                       <i
@@ -5570,8 +5836,31 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                 list={takeList}
                 link={takeText}
                 feed={feed}
+                onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
                 toList={() => setTab("Lernwörter")}
               />
+              {helping && help && (
+                <TextHelp
+                  block={helping}
+                  page={help.page}
+                  onClose={() => setHelp(null)}
+                  onTake={(fn, to) => {
+                    const from = help.page;
+                    // The box grows with the new words, in this same step, as a text the teacher typed does.
+                    tight.current = true;
+                    flushSync(() => {
+                      update(fn, "", to ?? from);
+                      setHelp(null);
+                      if (to !== undefined && to !== from) {
+                        setAt(to);
+                        setChosen([to]);
+                        setIds([]);
+                      }
+                    });
+                    if (to !== undefined && to !== from) seek();
+                  }}
+                />
+              )}
               {free.length > 0 && free.every((b) => b.type === "image") && (
                 <>
                   <h2>Bild</h2>
