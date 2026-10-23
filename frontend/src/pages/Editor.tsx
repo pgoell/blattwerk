@@ -51,6 +51,7 @@ import {
   Heading,
   House,
   ImagePlus,
+  Wallpaper,
   Link2,
   LayoutTemplate,
   Lock,
@@ -119,6 +120,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
+import { FADES, GROUND_HINT, GroundView, RIGHTS_PLACEHOLDER, SCALE_MAX, SCALE_MIN, paint as paintGround, trim as trimGround, turnedCut, type Ground } from "../ground";
 import { copied, hash, mark as markCopy, onTheWay, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
@@ -722,6 +724,12 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const [guide, setGuide] = useState<(number | undefined)[]>([]);
   // Crop mode: the picture being cropped and the cut its frame shows, stored only when the mode ends.
   const [draft, setDraft] = useState<{ id: string; cut: number[] }>();
+  // The page ground, unlocked to shift and scale, or with its crop handles out. A PDF of several pages waits in `pdfAsk`.
+  const [shaping, setShaping] = useState(false);
+  const [trimming, setTrimming] = useState(false);
+  const [pdfAsk, setPdfAsk] = useState<{ file: File; pages: number; page: number }>();
+  const groundFile = useRef<HTMLInputElement>(null);
+  const groundHold = useRef<{ kind: "move" | "scale" | "trim"; x: number; y: number; ground: Ground; edge?: number; dist?: number } | undefined>(undefined);
   // The desk's width in pixels. The widest page fills it; zoom multiplies that.
   const [room, setRoom] = useState(210);
   // The desk's height in pixels, which a fit follows too.
@@ -1971,6 +1979,132 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Changes one page, the one in use unless `n` names another. Undo and redo of it show that page.
   function turn(fn: (p: Page) => Page, key?: string, n = page) {
     update((doc) => ({ ...doc, pages: doc.pages.map((p, i) => (i === n ? fn(p) : p)) }), key, n, n);
+  }
+  // The page without its ground, or with `ground` in its place.
+  function withGround(p: Page, ground: Ground | undefined): Page {
+    if (!ground) {
+      const { ground: _gone, ...rest } = p;
+      return rest;
+    }
+    return { ...p, ground };
+  }
+  function oneGround(item: { id: number; width: number; height: number }, n: number) {
+    const ground: Ground = { upload: item.id, ratio: item.width / item.height, cut: [0, 0, 0, 0] };
+    turn((p) => withGround(p, ground), "", n);
+    setAt(n);
+    setShaping(false);
+    setTrimming(false);
+    setPdfAsk(undefined);
+  }
+  // Each PDF page becomes the ground of one sheet page, from `from` on. Pages are added when the PDF has more.
+  function manyGrounds(made: { id: number; width: number; height: number }[], from: number) {
+    update((doc) => {
+      const pages = doc.pages.slice();
+      const lie = doc.pages[from]?.landscape;
+      made.forEach((item, i) => {
+        const ground: Ground = { upload: item.id, ratio: item.width / item.height, cut: [0, 0, 0, 0] };
+        const n = from + i;
+        if (pages[n]) pages[n] = { ...pages[n], ground };
+        else pages.push({ blocks: [], ground, ...(lie !== undefined ? { landscape: lie } : {}) });
+      });
+      return { ...doc, pages };
+    }, "", from);
+    setAt(from);
+    setChosen([from]);
+    setShaping(false);
+    setTrimming(false);
+    setPdfAsk(undefined);
+  }
+  function fadeGround(opacity: number) {
+    turn((p) => (p.ground && (p.ground.opacity ?? 1) !== opacity ? { ...p, ground: { ...p.ground, opacity } } : p));
+  }
+  function turnGround() {
+    turn((p) => (p.ground ? { ...p, ground: { ...p.ground, turns: ((p.ground.turns ?? 0) + 1) % 4, cut: turnedCut(p.ground.cut) } } : p));
+  }
+  function clearGround() {
+    turn((p) => withGround(p, undefined));
+    setShaping(false);
+    setTrimming(false);
+  }
+  function beginGround(e: PointerEvent<HTMLElement>, kind: "move" | "scale" | "trim", edge?: number) {
+    const g = live.current.doc.pages[page].ground;
+    if (!g || e.button) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const [w, h] = sizeOf(live.current.doc, page);
+    const box = paintGround(w, h, g);
+    const rect = sheet.current?.getBoundingClientRect();
+    let dist: number | undefined;
+    if (kind === "scale" && rect) {
+      dist = Math.hypot((e.clientX - rect.left) / k - (box.x + box.width / 2), (e.clientY - rect.top) / k - (box.y + box.height / 2));
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+    groundHold.current = { kind, x: e.clientX, y: e.clientY, ground: g, edge, dist };
+  }
+  function dragGround(e: PointerEvent<HTMLElement>) {
+    const hold = groundHold.current;
+    if (!hold) return;
+    const [w, h] = sizeOf(live.current.doc, page);
+    const box = paintGround(w, h, hold.ground);
+    if (hold.kind === "move") {
+      const at: [number, number] = [round((hold.ground.at?.[0] ?? 0) + (e.clientX - hold.x) / k), round((hold.ground.at?.[1] ?? 0) + (e.clientY - hold.y) / k)];
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, at } } : p), "ground");
+      return;
+    }
+    if (hold.kind === "scale" && hold.dist && sheet.current) {
+      const rect = sheet.current.getBoundingClientRect();
+      const dist = Math.hypot((e.clientX - rect.left) / k - (box.x + box.width / 2), (e.clientY - rect.top) / k - (box.y + box.height / 2));
+      const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, round((hold.ground.scale ?? 1) * (dist / hold.dist))));
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, scale } } : p), "ground");
+      return;
+    }
+    if (hold.kind === "trim" && hold.edge !== undefined) {
+      const [l, t, r, b] = hold.ground.cut;
+      const cw = Math.max(0.05, 1 - (l || 0) - (r || 0));
+      const ch = Math.max(0.05, 1 - (t || 0) - (b || 0));
+      const along = hold.edge % 2 === 0 ? ((e.clientX - hold.x) / k / box.width) * cw : ((e.clientY - hold.y) / k / box.height) * ch;
+      const cut = trimGround(hold.ground.cut, hold.edge, (hold.edge < 2 ? 1 : -1) * along);
+      turn((p) => (p.ground ? { ...p, ground: { ...hold.ground, cut } } : p), "ground");
+    }
+  }
+  function endGround() {
+    groundHold.current = undefined;
+  }
+  const NO_GROUND = "Der Hintergrund konnte nicht hochgeladen werden.";
+  function groundWhy(s: string, e: unknown) {
+    const detail = (e as Refusal).detail;
+    if (detail) return detail;
+    if (s === "413" || s === "415" || s === "422") return GROUND_HINT;
+    return undefined;
+  }
+  async function postGround(file: File, which?: string) {
+    const body = new FormData();
+    body.append("file", file);
+    if (which !== undefined) body.append("which", which);
+    return signed(api<{ pages: number; made: { page: number; id: number; width: number; height: number }[] }>("/grounds", { method: "POST", body }));
+  }
+  async function chooseGround(file: File) {
+    setPdfAsk(undefined);
+    await attempt(NO_GROUND, async () => {
+      const pdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const body = await postGround(file);
+      const n = latest.current.page;
+      if (!pdf || body.pages <= 1) {
+        const item = body.made[0] ?? (await postGround(file, "1")).made[0];
+        calm(() => oneGround(item, n));
+        return;
+      }
+      setPdfAsk({ file, pages: body.pages, page: 1 });
+    }, groundWhy);
+  }
+  async function takeAsked(which: string) {
+    if (!pdfAsk) return;
+    const file = pdfAsk.file;
+    const n = latest.current.page;
+    await attempt(NO_GROUND, async () => {
+      const body = await postGround(file, which);
+      calm(() => (which === "all" ? manyGrounds(body.made, n) : oneGround(body.made[0], n)));
+    }, groundWhy);
   }
   function change(fn: (blocks: Block[]) => Block[], key?: string) {
     turn((p) => ({ ...p, blocks: fn(p.blocks) }), key);
@@ -4870,6 +5004,65 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
           <label className="tick numbers">
             <input type="checkbox" checked={folio.on} onChange={(e) => numbering({}, e.target.checked)} /> Seitenzahlen
           </label>
+          <div className="ground-box">
+            <h2>Hintergrund</h2>
+            <p className="hint">{GROUND_HINT}</p>
+            <p className="hint" data-placeholder="rights">{RIGHTS_PLACEHOLDER}</p>
+            <button onClick={() => groundFile.current?.click()}>
+              <Wallpaper size={16} aria-hidden />
+              Hintergrund wählen
+            </button>
+            <input
+              ref={groundFile}
+              type="file"
+              aria-label="Hintergrunddatei"
+              accept="image/jpeg,image/png,application/pdf,.pdf"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void chooseGround(file);
+              }}
+            />
+            {pages[page].ground && (
+              <>
+                <button aria-pressed={shaping} className={shaping ? "on" : undefined} onClick={() => (setShaping((on) => !on), setTrimming(false))}>
+                  Hintergrund bearbeiten
+                </button>
+                <div className="seg" role="group" aria-label="Deckkraft">
+                  {FADES.map((opacity) => (
+                    <button key={opacity} aria-pressed={(pages[page].ground?.opacity ?? 1) === opacity} className={(pages[page].ground?.opacity ?? 1) === opacity ? "on" : undefined} onClick={() => fadeGround(opacity)}>
+                      {opacity * 100} %
+                    </button>
+                  ))}
+                </div>
+                <button onClick={turnGround}>Drehen</button>
+                <button aria-pressed={trimming} className={trimming ? "on" : undefined} onClick={() => setTrimming((on) => !on)}>
+                  Zuschneiden
+                </button>
+                <button onClick={clearGround}>Hintergrund entfernen</button>
+              </>
+            )}
+            {pdfAsk && (
+              <>
+                <p className="hint">Die PDF hat {pdfAsk.pages} Seiten.</p>
+                <label className="tick">
+                  Seite
+                  <input
+                    type="number"
+                    aria-label="Seite der PDF"
+                    min={1}
+                    max={pdfAsk.pages}
+                    value={pdfAsk.page}
+                    onChange={(e) => setPdfAsk({ ...pdfAsk, page: Math.min(pdfAsk.pages, Math.max(1, Math.round(Number(e.target.value)) || 1)) })}
+                  />
+                </label>
+                <button onClick={() => void takeAsked(String(pdfAsk.page))}>Diese Seite</button>
+                <button onClick={() => void takeAsked("all")}>Alle Seiten</button>
+                <button onClick={() => setPdfAsk(undefined)}>Abbrechen</button>
+              </>
+            )}
+          </div>
           <h2>Vorlagen</h2>
           {["Allgemein", "Mathe", "Deutsch", "Organisation"].map((g) => {
             const group = builtIn.filter((t) => t.group === g);
@@ -5051,6 +5244,20 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
               {/* The blocks are laid out as the PDF's are and scaled to the zoom as one. What marks or moves them lies
                   beside them, in px of the screen. */}
               <div className={keepsFractions() ? "scaled fractions" : "scaled"} style={{ width: sizes[n][0] * K, height: sizes[n][1] * K, transform: `scale(${k / K})`, "--px": `${K / k}px` } as CSSProperties}>
+                {p.ground && (
+                  <div className="ground-clip">
+                    <GroundView
+                      ground={p.ground}
+                      w={sizes[n][0]}
+                      h={sizes[n][1]}
+                      k={K}
+                      live={shaping && n === page && !trimming}
+                      onPointerDown={shaping && n === page && !trimming ? (e) => beginGround(e, "move") : undefined}
+                      onPointerMove={shaping && n === page ? dragGround : undefined}
+                      onPointerUp={endGround}
+                    />
+                  </div>
+                )}
                 <PageNumber doc={hist.doc} page={n} />
                 {p.blocks.map((b) => (
 
@@ -5227,6 +5434,41 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
                   ))}
                   {cropping && <Crop block={cropping} box={whole(cropping)} cut={draft!.cut} k={k} grip={grip} trim={trim} />}
+                  {p.ground && shaping && !trimming && (
+                    <i
+                      className="ground-handle scale"
+                      aria-label="Hintergrund skalieren"
+                      style={{ left: (paintGround(sizes[n][0], sizes[n][1], p.ground).x + paintGround(sizes[n][0], sizes[n][1], p.ground).width) * k, top: (paintGround(sizes[n][0], sizes[n][1], p.ground).y + paintGround(sizes[n][0], sizes[n][1], p.ground).height) * k }}
+                      onPointerDown={(e) => beginGround(e, "scale")}
+                      onPointerMove={dragGround}
+                      onPointerUp={endGround}
+                      onPointerCancel={endGround}
+                    />
+                  )}
+                  {p.ground && trimming &&
+                    [0, 1, 2, 3].map((edge) => {
+                      const box = paintGround(sizes[n][0], sizes[n][1], p.ground!);
+                      const [W, H] = sizes[n];
+                      const at = [
+                        [Math.min(W, Math.max(0, box.x)), Math.min(H, Math.max(0, box.y + box.height / 2))],
+                        [Math.min(W, Math.max(0, box.x + box.width / 2)), Math.min(H, Math.max(0, box.y))],
+                        [Math.min(W, Math.max(0, box.x + box.width)), Math.min(H, Math.max(0, box.y + box.height / 2))],
+                        [Math.min(W, Math.max(0, box.x + box.width / 2)), Math.min(H, Math.max(0, box.y + box.height))],
+                      ][edge];
+                      return (
+                        <i
+                          key={edge}
+                          className="ground-handle"
+                          data-edge={edge}
+                          aria-label={["Links kürzen", "Oben kürzen", "Rechts kürzen", "Unten kürzen"][edge]}
+                          style={{ left: at[0] * k, top: at[1] * k }}
+                          onPointerDown={(e) => beginGround(e, "trim", edge)}
+                          onPointerMove={dragGround}
+                          onPointerUp={endGround}
+                          onPointerCancel={endGround}
+                        />
+                      );
+                    })}
                   {line &&
                     [false, true].map((end) => (
                       <i

@@ -283,6 +283,26 @@ def test_pictures_are_copied_into_the_folder_and_out(data_dir):
     assert bea.get(f"/api/uploads/{new_id}").content == png()
 
 
+def test_a_ground_is_copied_into_the_folder_and_out(data_dir):
+    """A page ground is a picture of the folder, and the copy out has its own file."""
+    _boss, anna, bea, _school = seat_school()
+    upload_id = upload(anna)
+    page = {
+        "blocks": [],
+        "ground": {"upload": upload_id, "ratio": 1.5, "cut": [0, 0, 0, 0]},
+    }
+    made = sheet(anna, page, title="Mit Grund")
+    entry = anna.post("/api/folder", json={"sheet_id": made["id"], "label": ""}).json()["sheet"]
+    user_id = anna.get("/api/me").json()["id"]
+    (data_dir / "users" / str(user_id) / "uploads" / str(upload_id)).unlink()
+    db.open_db().execute("DELETE FROM uploads WHERE id = ?", (upload_id,))
+    assert bea.get(f"/api/uploads/{upload_id}").content == png()
+    copied = bea.post(f"/api/folder/{entry['id']}/copy").json()
+    new_id = copied["doc"]["pages"][0]["ground"]["upload"]
+    assert new_id != upload_id
+    assert bea.get(f"/api/uploads/{new_id}").content == png()
+
+
 def test_no_seat_and_no_session_have_no_folder():
     """No seat, no folder. Logged out, the folder is a login, and the site admin has no seat here."""
     guest = TestClient(app, base_url="https://testserver")

@@ -773,6 +773,58 @@
           ],
           "type": "object"
         },
+        "Ground": {
+          "properties": {
+            "at": {
+              "description": "Shift from the centred ground, in mm: across, then down. Left out, the ground stays centred.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cut": {
+              "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "opacity": {
+              "description": "How solid the ground prints: 1 for full strength, 0.5 or 0.25 so the blocks stand out. Left out, 1.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "ratio": {
+              "description": "The picture's width over its height, from the picture as stored. 1 for a square.",
+              "type": "number"
+            },
+            "scale": {
+              "description": "How much larger the ground is than the size that fills the page and keeps its proportions. 1 fills the page. Left out, 1.",
+              "maximum": 4,
+              "minimum": 0.25,
+              "type": "number"
+            },
+            "turns": {
+              "description": "Quarter turns clockwise, from 0 to 3. Left out, none.",
+              "maximum": 3,
+              "minimum": 0,
+              "type": "number"
+            },
+            "upload": {
+              "description": "The id of the uploaded picture file, as the server stores it.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "upload",
+            "ratio",
+            "cut"
+          ],
+          "type": "object"
+        },
         "Guides": {
           "properties": {
             "x": {
@@ -2232,6 +2284,10 @@
             "grid": {
               "description": "The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies.",
               "type": "number"
+            },
+            "ground": {
+              "$ref": "#/definitions/Ground",
+              "description": "The picture this page lies on, under every block. Left out, the page is blank."
             },
             "guides": {
               "$ref": "#/definitions/Guides",
@@ -7364,6 +7420,58 @@
           ],
           "type": "object"
         },
+        "Ground": {
+          "properties": {
+            "at": {
+              "description": "Shift from the centred ground, in mm: across, then down. Left out, the ground stays centred.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cut": {
+              "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "opacity": {
+              "description": "How solid the ground prints: 1 for full strength, 0.5 or 0.25 so the blocks stand out. Left out, 1.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "ratio": {
+              "description": "The picture's width over its height, from the picture as stored. 1 for a square.",
+              "type": "number"
+            },
+            "scale": {
+              "description": "How much larger the ground is than the size that fills the page and keeps its proportions. 1 fills the page. Left out, 1.",
+              "maximum": 4,
+              "minimum": 0.25,
+              "type": "number"
+            },
+            "turns": {
+              "description": "Quarter turns clockwise, from 0 to 3. Left out, none.",
+              "maximum": 3,
+              "minimum": 0,
+              "type": "number"
+            },
+            "upload": {
+              "description": "The id of the uploaded picture file, as the server stores it.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "upload",
+            "ratio",
+            "cut"
+          ],
+          "type": "object"
+        },
         "Guides": {
           "properties": {
             "x": {
@@ -8895,6 +9003,10 @@
             "grid": {
               "description": "The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies.",
               "type": "number"
+            },
+            "ground": {
+              "$ref": "#/definitions/Ground",
+              "description": "The picture this page lies on, under every block. Left out, the page is blank."
             },
             "guides": {
               "$ref": "#/definitions/Guides",
@@ -13434,6 +13546,58 @@
           ],
           "type": "object"
         },
+        "Ground": {
+          "properties": {
+            "at": {
+              "description": "Shift from the centred ground, in mm: across, then down. Left out, the ground stays centred.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cut": {
+              "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none.",
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "opacity": {
+              "description": "How solid the ground prints: 1 for full strength, 0.5 or 0.25 so the blocks stand out. Left out, 1.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "ratio": {
+              "description": "The picture's width over its height, from the picture as stored. 1 for a square.",
+              "type": "number"
+            },
+            "scale": {
+              "description": "How much larger the ground is than the size that fills the page and keeps its proportions. 1 fills the page. Left out, 1.",
+              "maximum": 4,
+              "minimum": 0.25,
+              "type": "number"
+            },
+            "turns": {
+              "description": "Quarter turns clockwise, from 0 to 3. Left out, none.",
+              "maximum": 3,
+              "minimum": 0,
+              "type": "number"
+            },
+            "upload": {
+              "description": "The id of the uploaded picture file, as the server stores it.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "upload",
+            "ratio",
+            "cut"
+          ],
+          "type": "object"
+        },
         "Guides": {
           "properties": {
             "x": {
@@ -14893,6 +15057,10 @@
             "grid": {
               "description": "The grid's cell on this page in mm, in place of the sheet's. 0 for no grid. Left out, the sheet's grid applies.",
               "type": "number"
+            },
+            "ground": {
+              "$ref": "#/definitions/Ground",
+              "description": "The picture this page lies on, under every block. Left out, the page is blank."
             },
             "guides": {
               "$ref": "#/definitions/Guides",

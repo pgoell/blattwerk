@@ -101,6 +101,10 @@
         "landscape": {
           "type": "boolean",
           "description": "Lays this page on its side, 297 by 210 mm, in place of the sheet's format. Left out, the sheet's format applies."
+        },
+        "ground": {
+          "$ref": "#/definitions/Ground",
+          "description": "The picture this page lies on, under every block. Left out, the page is blank."
         }
       },
       "required": [
@@ -5942,6 +5946,58 @@
       "required": [
         "x",
         "y"
+      ]
+    },
+    "Ground": {
+      "type": "object",
+      "properties": {
+        "upload": {
+          "type": "number",
+          "description": "The id of the uploaded picture file, as the server stores it."
+        },
+        "ratio": {
+          "type": "number",
+          "description": "The picture's width over its height, from the picture as stored. 1 for a square."
+        },
+        "cut": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Four numbers for the share cropped off the left, top, right and bottom: each a fraction of the picture, 0 for none."
+        },
+        "turns": {
+          "type": "number",
+          "description": "Quarter turns clockwise, from 0 to 3. Left out, none.",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "opacity": {
+          "type": "number",
+          "description": "How solid the ground prints: 1 for full strength, 0.5 or 0.25 so the blocks stand out. Left out, 1.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "at": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Shift from the centred ground, in mm: across, then down. Left out, the ground stays centred."
+        },
+        "scale": {
+          "type": "number",
+          "description": "How much larger the ground is than the size that fills the page and keeps its proportions. 1 fills the page. Left out, 1.",
+          "minimum": 0.25,
+          "maximum": 4
+        }
+      },
+      "required": [
+        "upload",
+        "ratio",
+        "cut"
       ]
     }
   }

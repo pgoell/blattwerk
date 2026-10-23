@@ -67,6 +67,11 @@ def retarget(doc: dict, mapping: dict[int, int]) -> dict:
     for page in pages:
         if not isinstance(page, dict):
             continue
+        ground = page.get("ground")
+        if isinstance(ground, dict):
+            upload = ground.get("upload")
+            if isinstance(upload, int) and upload in mapping:
+                ground["upload"] = mapping[upload]
         blocks = page.get("blocks")
         if not isinstance(blocks, list):
             continue
