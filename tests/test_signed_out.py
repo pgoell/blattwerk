@@ -54,7 +54,17 @@ def login(page, server, client, password=PASSWORD):
         page.context.add_cookies([cookie])
     page.get_by_label("E-Mail").fill(client.get("/api/me").json()["email"])
     page.get_by_label("Passwort").fill(password)
-    page.get_by_role("button", name="Anmelden").click()
+    button = page.get_by_role("button", name="Anmelden")
+    button.click()
+    if password != PASSWORD:
+        return
+    # WebKit once left this form standing, the fields filled and no fault said, so the editor
+    # never came (shard 19 on the merge of #999). The same test had passed on the commit before.
+    # The cause is not proven. The click goes again when the form stays.
+    try:
+        expect(button).to_be_hidden()
+    except AssertionError:
+        button.click()
 
 
 def listed(page, server, client):
