@@ -32,8 +32,10 @@ A box that a verb meets is answered no unless `box yes` asks yes, and the output
 A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a name: the words
 on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
 once, or once as a control beside plain text of that name. A name below or above the window turns
-the page to it, if it is the only one. Every verb that acts also writes the window to last.png and
-prints that path. Every verb of the window prints the page's path, `The page is /blatt/12`.
+the page to it when it is that one place, and a heading of the same name does not stop the turn.
+A control in an open dialog is taken over one of the same name that the dialog covers. Every verb
+that acts also writes the window to last.png and prints that path. Every verb of the window prints
+the page's path, `The page is /blatt/12`.
 
 One process, `hold`, keeps the window under xvfb-run, and each verb joins it over Chromium's
 debugging port. Python's Playwright has no `launch_server`, and a context that a client makes
@@ -173,27 +175,56 @@ def inside(page: Page, x: float, y: float) -> bool:
     return 0 <= x < wide and 0 <= y < high
 
 
+def in_dialog(found: Found) -> bool:
+    """Whether the place lies in an open modal dialog, the layer a click can hit."""
+    return found.el.evaluate(
+        """el => {
+            const dialog = el.closest("dialog");
+            return !!dialog && dialog.open && dialog.matches(":modal");
+        }"""
+    )
+
+
+def meant(spots: list[Found]) -> Found | None:
+    """The place a name means, or nothing where several stay.
+
+    The only control wins over a heading of the same name, wherever it lies. Failing that, the
+    only control in an open modal dialog wins over one the dialog covers. A lone text is taken.
+    Two controls with no dialog between them, or two texts, are not one place.
+    """
+    controls = [spot for spot in spots if spot.control]
+    if len(controls) == 1:
+        return controls[0]
+    dialog = [spot for spot in controls if in_dialog(spot)]
+    if len(dialog) == 1:
+        return dialog[0]
+    if len(spots) == 1:
+        return spots[0]
+    return None
+
+
 def point(page: Page, target: str) -> tuple[float, float]:
     """The place in the window that the target names."""
     if at := XY.fullmatch(target):
         return float(at[1]), float(at[2])
     spots = places(page, target)
-    seen = [s for s in spots if inside(page, s.x, s.y)]
-    if not seen and len(spots) == 1:
-        # The one place lies below or above the window: the page turns to it.
-        spots[0].el.evaluate("el => el.scrollIntoView({block: 'center'})")
+    choice = meant(spots)
+    if choice is not None and not inside(page, choice.x, choice.y):
+        # The one place lies below or above the window: the page turns to it. A heading of the
+        # same name does not make it two places, so the turn still happens.
+        choice.el.evaluate("el => el.scrollIntoView({block: 'center'})")
         NOTES.append("turned the page to it")
         spots = places(page, target)
-        seen = [s for s in spots if inside(page, s.x, s.y)]
+        choice = meant(spots)
+    seen = [spot for spot in spots if inside(page, spot.x, spot.y)]
+    if choice is not None and inside(page, choice.x, choice.y):
+        return choice.x, choice.y
     listed = ", ".join(f"{s.x},{s.y}" for s in seen or spots)
-    if not seen:
+    if choice is not None or not seen:
         raise Refused(f'"{target}" lies outside the window, at {listed}: scroll to it')
     if len(seen) > 1:
-        # A bar's button and a panel's heading may share a name, as "Text" does with a text picked:
-        # the control is the one that is taken. Two controls, or none, stay a refusal.
-        controls = [s for s in seen if s.control]
-        if len(controls) == 1:
-            return controls[0].x, controls[0].y
+        # A bar's button and a panel's heading may share a name, as "Text" does with a text picked.
+        # Two controls, or none, stay a refusal: the caller gives one as X,Y.
         raise Refused(f'"{target}" is on the page {len(seen)} times, at {listed}: give one as X,Y')
     return seen[0].x, seen[0].y
 
