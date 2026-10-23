@@ -9,6 +9,7 @@ The task hashes contents. The build script holds one lock until npm exits.
 """
 
 import os
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -109,21 +110,33 @@ def test_a_new_timestamp_with_the_same_bytes_does_not_rebuild(tmp_path):
 
 
 def test_side_by_side_runs_with_the_same_bytes_do_not_rebuild(tmp_path):
+    """Same bytes skip the build when several runs overlap.
+
+    A fresh check rewrites ``state/task-sources/*-content`` with the same bytes.
+    The rewrite truncates the file, and a parallel read can see it empty and run
+    the task. Each run here reads the baseline the first run finished writing.
+    """
     src = project(tmp_path)
     env, log = env_for(tmp_path)
     out = prime(tmp_path, env, log)
     older_than(src, out)
-    procs = [
-        subprocess.Popen(
-            ["mise", "run", "build"],
-            cwd=tmp_path,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+    state = tmp_path / "state"
+    procs = []
+    for index in range(4):
+        copy = tmp_path / f"state-{index}"
+        # Keep links as links. trusted-configs points at the project, and
+        # following it copies this state directory back into itself.
+        shutil.copytree(state, copy, symlinks=True)
+        procs.append(
+            subprocess.Popen(
+                ["mise", "run", "build"],
+                cwd=tmp_path,
+                env={**env, "MISE_STATE_DIR": str(copy)},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
         )
-        for _ in range(4)
-    ]
     for proc in procs:
         out_text, _ = proc.communicate()
         assert proc.returncode == 0, out_text
