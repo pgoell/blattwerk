@@ -96,7 +96,7 @@ import {
   ZoomOut,
   type LucideIcon,
 } from "lucide-react";
-import Moveable, { type OnDrag, type OnResize, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
+import Moveable, { type OnDrag, type OnResize, type OnResizeEnd, type OnRotate, type OnRotateEnd, type OnRotateGroup } from "react-moveable";
 import Selecto from "react-selecto";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, post, type Refusal, type User } from "../api";
@@ -3510,6 +3510,16 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       "drag",
     );
   };
+  // A tap on a resize handle is no drag. Its finger area reaches into the block beside the selection,
+  // so the tap is that block's (#206). Over empty paper it changes nothing. A drag still sizes.
+  const resizeEnded = (e: OnResizeEnd) => {
+    if (e.isDrag) {
+      if (e.lastEvent) settle(e.lastEvent.direction);
+      return;
+    }
+    const under = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".block:not(.sel)"));
+    if (under) pick(under, !!e.inputEvent?.shiftKey);
+  };
   // Tab goes to the next cell of a table and Shift+Tab to the one before, as in PowerPoint. Past the last cell a
   // new row begins.
   // The text of cells on the system's clipboard, as copy() does for blocks: the browser's copy first, then the fallback.
@@ -5331,8 +5341,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
                     }}
                     onResize={(e) => resize([e])}
                     onResizeGroup={(e) => resize(e.events)}
-                    onResizeEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
-                    onResizeGroupEnd={(e) => e.lastEvent && settle(e.lastEvent.direction)}
+                    onResizeEnd={resizeEnded}
+                    onResizeGroupEnd={resizeEnded}
                   />
                 </>
               )}
