@@ -323,6 +323,15 @@ const span = (boxes: Box[], axis: Axis) => {
 const step = (at: number, max: number) => (at + 5 <= max ? at + 5 : Math.min(MARGIN, max));
 // A page drawn small in the left panel.
 const Thumb = memo(Paper);
+// A dead key on a German keyboard, by the physical key. The key left of backspace adds an acute
+// accent, and with Shift a grave, and the key left of 1 adds a circumflex. The mark is what that
+// key adds to the next letter.
+const DEAD: Record<string, string> = { Equal: "\u0301", Backquote: "\u0302" };
+const DEAD_SHIFT: Record<string, string> = { Equal: "\u0300" };
+// Pressed twice, or followed by Space, the dead key types the accent on its own.
+const SPACING: Record<string, string> = { "\u0301": "\u00b4", "\u0300": "`", "\u0302": "^" };
+const deadMark = (e: KeyboardEvent) =>
+  e.ctrlKey || e.metaKey || e.altKey ? "" : (e.shiftKey ? DEAD_SHIFT[e.code] : DEAD[e.code]) || "";
 
 // `wait` is the loading page, which the app draws while this script loads too. `first` is the sheet as the app
 // asked for it meanwhile, null where it is not there, or "failed" where the load failed.
@@ -540,6 +549,9 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // Whether the last press was in the format panel, with no key since: the field then stays open though it loses
   // the focus, and a select or a colour picked there hands the keys back.
   const inPanel = useRef(false);
+  // The accent of a dead key that was the first key from the panel. The browser composes one only in a
+  // control that can take text, and a colour or a list cannot, so the next letter is made with it here.
+  const accent = useRef("");
   // What is written in stays open when it loses the focus to the panel: by the keys, or by a press, which on the
   // word beside a colour names nothing that takes the focus. So does it under the bar's menu "Mehr", which hands
   // the focus back when it shuts.
@@ -1448,6 +1460,32 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   };
   onKey.current = (e) => {
     const target = e.target as HTMLElement;
+    // The dead key itself only moved the caret back. Its accent is still waiting, and this key is
+    // the letter it marks, a second press of it, or Space, which types the accent alone.
+    if (accent.current) {
+      const mark = accent.current;
+      const fieldNow = written();
+      const root = !fieldNow ? null : "dom" in fieldNow ? fieldNow.dom : fieldNow;
+      const here = !!root && (root === target || root.contains(target));
+      const next = e.key === "Dead" ? deadMark(e) : "";
+      if (here && e.key === "Dead" && e.repeat) {
+        e.preventDefault();
+        return;
+      }
+      if (here && next && next !== mark) {
+        accent.current = next;
+        e.preventDefault();
+        return;
+      }
+      accent.current = "";
+      const letter = e.key.length === 1 && !(e.ctrlKey || e.metaKey || e.altKey);
+      if (here && (e.key === "Dead" || letter)) {
+        e.preventDefault();
+        const alone = e.key === "Dead" || e.key === " ";
+        document.execCommand("insertText", false, alone ? SPACING[mark] : (e.key + mark).normalize("NFC"));
+        return;
+      }
+    }
     const select = target.matches(".panel select");
     // Shift alone is no key yet, and a key that only switches something or opens the menu is none either.
     const real = !["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock", "NumLock", "ScrollLock", "ContextMenu"].includes(e.key);
@@ -1485,6 +1523,15 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
       // a key of the field's that types none, as Backspace or Ctrl+Z, is done there by hand, and any other only brings
       // the caret back. With nothing written in the key goes on to the sheet.
       if (e.key === "Enter" || (open && (e.key === "Tab" || act(e)))) e.preventDefault();
+      // A dead key does not follow the caret: the browser has already called it "Dead" and will not
+      // compose it in the text. The accent is kept for the letter that comes next.
+      if (e.key === "Dead" && open) {
+        const mark = deadMark(e);
+        if (mark) {
+          accent.current = mark;
+          e.preventDefault();
+        }
+      }
       if (open || e.key === "Enter" || e.key === "Escape") return;
     }
     // Escape calls a thumbnail's drag off.
