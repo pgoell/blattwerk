@@ -23,6 +23,9 @@ type Saver = {
   // those. The first and the newest are kept: the first that arrived is the one it took.
   out?: Kept;
   lost: Kept[];
+  // Set when a save leaves, cleared only by an HTTP answer. A fetch the browser cancels has none: the server may
+  // still hold that save, or be about to, so the tab sends nothing beside it as it shuts (#390).
+  flying?: boolean;
   tries: number;
   // The server holds another device's document: saving stops until the teacher has chosen.
   clash: boolean;
@@ -152,9 +155,14 @@ function plan(s: Saver, ms: number) {
   s.timer = setTimeout(() => send(s), ms);
 }
 
+// An HTTP status, or a 401 from a session that has since changed. Anything else is the browser dropping the fetch.
+const answered = (e: Refusal) => /^\d+$/.test(e.message) || e.message === "stale";
+
 // One save of a sheet at a time, always based on the saver's version. `closing` is the window that shuts.
 function send(s: Saver, closing = false) {
   clearTimeout(s.timer);
+  // The save under way was cancelled on the way out. Another on this version would land beside it (#390).
+  if (closing && s.flying) return;
   if (s.dead || s.out || s.clash || s.stop || s.gone || !unsaved(s)) return;
   // A refused document is not sent again. A title changed since still goes, alone: the server keeps the document.
   const held = refusal(s);
@@ -168,6 +176,7 @@ function send(s: Saver, closing = false) {
   // `keepalive` lets a save outlive the window. The browser sends no such request over 64 KiB, so a larger sheet
   // goes without it: left for another page of the app, it arrives all the same.
   const keepalive = (closing || !s.open) && new Blob([body]).size < 60 * 1024;
+  s.flying = true;
   s.slow ??= setTimeout(() => {
     s.late = true;
     tell();
@@ -176,6 +185,7 @@ function send(s: Saver, closing = false) {
   tell();
   ask<Sheet>(`/sheets/${s.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body, keepalive }).then(
     (sheet) => {
+      s.flying = false;
       if (s.dead) return;
       if (held) s.saved = { doc: s.saved.doc, title: now.title };
       else {
@@ -187,7 +197,10 @@ function send(s: Saver, closing = false) {
       s.tries = 0;
       settle(s, 1);
     },
-    (e: Refusal) => fail(s, now, e),
+    (e: Refusal) => {
+      if (answered(e)) s.flying = false;
+      return fail(s, now, e);
+    },
   );
 }
 
@@ -733,7 +746,8 @@ export function enter(owner?: number) {
 }
 
 // A window that shuts runs no script after this: the change is kept, and sent only where no save is under way, for
-// two saves of one sheet on one version would clash with each other.
+// two saves of one sheet on one version would clash with each other. One the browser already dropped still counts:
+// it may arrive after the tab is gone (#390).
 addEventListener("pagehide", () =>
   savers.forEach((s) => {
     send(s, true);
