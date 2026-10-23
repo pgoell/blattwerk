@@ -1,12 +1,13 @@
 """What the first key does after a list or a colour picker of the format panel that shut with no
-pick, while something is written in, and what Tab does after a letter typed from there."""
+pick, while something is written in, what Tab does after a letter typed from there, and whether
+a dead key's accent survives as that first key."""
 
 import pytest
 from playwright.sync_api import expect
 from test_keys_focus import KINDS
 from test_keys_panel import SELECTS, expect_words, write
 from test_keys_shut import COLOURS, WRITTEN, opened, shut
-from ui import TEXT, at, box, expect_picked, pick
+from ui import BROWSER, TEXT, at, box, expect_picked, pick
 
 # Every control the first key may come from, with a way to shut what it opened.
 FROM = [(*c, "beside") for c in WRITTEN] + [(*s, "same") for s in SELECTS]
@@ -168,6 +169,144 @@ def test_delete_after_a_shut_list_or_picker_removes_the_block_with_nothing_writt
     page.keyboard.press("Delete")
     expect(at(page, name)).to_have_count(0)
     expect(at(page, "z")).to_have_count(1)
+
+
+# Asked #230
+#
+# A dead key is the accent key left of backspace (physical code Equal) or the one left of 1
+# (Backquote). Its keydown says "Dead" and carries no letter. Chromium composes the accent only
+# when the focused control can take text, so a colour or a list still focused gets no
+# composition: the next letter would be plain. These events are that keydown and the letter,
+# not a composition handed in already made.
+
+
+def dead_letter(page, code, letter, shift=False):
+    """Presses a dead key, then `letter`, on whatever has the focus when each goes down.
+
+    Chromium sends them as real key events, so the letter comes with its text and would be
+    typed plain if the accent were lost. WebKit has no way to send a dead key: the same
+    keydowns are dispatched by script.
+    """
+    letter_code = "Space" if letter == " " else "Key" + letter.upper()
+    if BROWSER == "chromium":
+        cdp = page.context.new_cdp_session(page)
+        vk = {"Equal": 187, "Backquote": 192}[code]
+        cdp.send(
+            "Input.dispatchKeyEvent",
+            {
+                "type": "keyDown",
+                "key": "Dead",
+                "code": code,
+                "modifiers": 8 if shift else 0,
+                "windowsVirtualKeyCode": vk,
+            },
+        )
+        cdp.send(
+            "Input.dispatchKeyEvent",
+            {
+                "type": "keyUp",
+                "key": "Dead",
+                "code": code,
+                "modifiers": 8 if shift else 0,
+                "windowsVirtualKeyCode": vk,
+            },
+        )
+        cdp.send(
+            "Input.dispatchKeyEvent",
+            {
+                "type": "keyDown",
+                "key": letter,
+                "code": letter_code,
+                "text": letter,
+                "unmodifiedText": letter,
+                "windowsVirtualKeyCode": 32 if letter == " " else ord(letter.upper()),
+            },
+        )
+        cdp.send(
+            "Input.dispatchKeyEvent",
+            {
+                "type": "keyUp",
+                "key": letter,
+                "code": letter_code,
+                "windowsVirtualKeyCode": 32 if letter == " " else ord(letter.upper()),
+            },
+        )
+        return
+    page.evaluate(
+        """([code, letter, letterCode, shift]) => {
+            const down = (key, code, el, shift) => el.dispatchEvent(new KeyboardEvent("keydown", {
+                key, code, shiftKey: shift, bubbles: true, cancelable: true,
+            }));
+            down("Dead", code, document.activeElement, shift);
+            down(letter, letterCode, document.activeElement, false);
+        }""",
+        [code, letter, letter_code, shift],
+    )
+
+
+@pytest.mark.parametrize(
+    "name, label, way, code, letter, accented, shift",
+    [
+        pytest.param(
+            "text", "Farbe", "beside", "Equal", "e", "é", False, id="acute-after-a-colour"
+        ),
+        pytest.param(
+            "text", "Schriftart", "same", "Equal", "e", "é", False, id="acute-after-a-list"
+        ),
+        pytest.param("shape", "Farbe", "beside", "Equal", "e", "é", False, id="acute-in-a-shape"),
+        pytest.param("table", "Farbe", "beside", "Equal", "e", "é", False, id="acute-in-a-cell"),
+        pytest.param(
+            "table",
+            "Schriftart der Tabelle",
+            "same",
+            "Equal",
+            "e",
+            "é",
+            False,
+            id="acute-after-a-tables-list",
+        ),
+        pytest.param("ruling", "Farbe", "beside", "Equal", "e", "é", False, id="acute-in-a-ruling"),
+        pytest.param(
+            "ruling",
+            "Art der Lineatur",
+            "same",
+            "Equal",
+            "e",
+            "é",
+            False,
+            id="acute-after-a-rulings-list",
+        ),
+        pytest.param(
+            "text", "Farbe", "beside", "Backquote", "e", "ê", False, id="circumflex-after-a-colour"
+        ),
+        pytest.param("text", "Farbe", "beside", "Equal", "e", "è", True, id="grave-after-a-colour"),
+        pytest.param(
+            "text", "Farbe", "beside", "Equal", " ", "\u00b4", False, id="the-accent-on-its-own"
+        ),
+    ],
+)
+def test_a_dead_key_as_the_first_key_types_the_accent(
+    editor, name, label, way, code, letter, accented, shift
+):
+    """The accent key then e on a German keyboard types é at the caret. The key left of 1 then e
+    types ê, that accent key with Shift then e types è, and the accent key then Space types the
+    accent on its own."""
+    page, area, control, was = begun(editor, name, label, way)
+    dead_letter(page, code, letter, shift)
+    expect_words(area, f"Wor{accented}t")
+    expect_kept(page, area, control, was, name)
+    page.keyboard.type("x")
+    expect_words(area, f"Wor{accented}xt")
+
+
+def test_a_dead_key_typed_in_the_text_is_not_composed_by_the_panel(editor):
+    """A dead key that is already in the text is the browser's. Composing it here would type é.
+    The event carries no composition of its own, so the letter stays plain."""
+    page = editor(box("text", *KINDS["text"]), box("b", "text", TEXT, z=2))
+    area = write(page, "text")
+    dead_letter(page, "Equal", "e")
+    # Chromium types the letter. WebKit's scripted keydown types nothing. Neither types é.
+    expect_words(area, "Woret" if BROWSER == "chromium" else "Wort")
 
 
 # Asked #224

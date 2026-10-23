@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
@@ -15,6 +16,10 @@ DATA_DIR = Path(os.environ.get("BLATTWERK_DATA_DIR", "data"))
 log = logging.getLogger(__name__)
 # Seconds a connection waits for another one's lock.
 WAIT = 5
+# One schema script at a time. A test and the browser's server open one new file in one
+# process, and both used to run this script. It needs the write lock, and the open that
+# lost it raised "database is locked" (#342).
+schema_lock = threading.Lock()
 # An id as the app writes it in a folder's or a file's name.
 ID = re.compile("[1-9][0-9]*")
 
@@ -130,6 +135,23 @@ CREATE TABLE IF NOT EXISTS billing_events (
 );
 """
 
+# Every table the script creates. Read from the script, so a new table is made on the next open.
+CREATED = tuple(re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", SCHEMA))
+
+
+def schema_ready(con: sqlite3.Connection) -> bool:
+    """The script has nothing left to write. A read, so a writer of the schema is left alone."""
+    try:
+        names = con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        found = {name for (name,) in names}
+        # A table may be here and still want its counter, or be missing `sqlite_sequence` entirely.
+        return all(name in found for name in CREATED) and migrated(con)
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+            raise
+        # A writer holds the file. The caller takes the schema lock and looks again.
+        return False
+
 
 def open_db() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -138,29 +160,42 @@ def open_db() -> sqlite3.Connection:
         DATA_DIR / "blattwerk.db", timeout=WAIT, autocommit=True, check_same_thread=False
     )
     con.row_factory = sqlite3.Row
-    con.executescript(SCHEMA)
-    try:
-        ensure_plan(con)
-    except sqlite3.OperationalError as error:
-        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
-            raise
-        # Another connection kept the file for the whole wait. The request can read; a later one
-        # adds the columns. Until then a row from before the columns is read as a free account.
-        log.warning("Database is busy: the plan columns wait, this request reads")
-        con.execute("PRAGMA query_only = ON")
-        return con
-    if not migrated(con):
-        try:
-            migrate(con)
-        except sqlite3.OperationalError as error:
-            if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
-                raise
-            # Another connection kept its read or its write open for the whole wait. The request
-            # goes on, and a later one moves the tables. Until then no INSERT may take an id: a
-            # table from before AUTOINCREMENT or one without its counter would hand out a deleted
-            # row's id again.
-            log.warning("Database is busy: the move to AUTOINCREMENT waits, this request reads")
-            con.execute("PRAGMA query_only = ON")
+    # Per connection. The script is not run again once the tables are there, and it was what
+    # turned this on.
+    con.execute("PRAGMA foreign_keys = ON")
+    # The plan columns are not a new table, so a database that already has every table still
+    # needs them. They go on before the move: the copy reads every column of the old table.
+    if not schema_ready(con) or not plan_ready(con):
+        with schema_lock:
+            # The open that held the lock may have finished the script while this one waited.
+            if not schema_ready(con):
+                con.executescript(SCHEMA)
+            if not plan_ready(con):
+                try:
+                    ensure_plan(con)
+                except sqlite3.OperationalError as error:
+                    if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+                        raise
+                    # Another connection kept the file for the whole wait. The request can read;
+                    # a later one adds the columns. Until then a row from before the columns is
+                    # read as a free account.
+                    log.warning("Database is busy: the plan columns wait, this request reads")
+                    con.execute("PRAGMA query_only = ON")
+                    return con
+            if not migrated(con):
+                try:
+                    migrate(con)
+                except sqlite3.OperationalError as error:
+                    if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+                        raise
+                    # Another connection kept its read or its write open for the whole wait.
+                    # The request goes on, and a later one moves the tables. Until then no
+                    # INSERT may take an id: a table from before AUTOINCREMENT or one without
+                    # its counter would hand out a deleted row's id again.
+                    log.warning(
+                        "Database is busy: the move to AUTOINCREMENT waits, this request reads"
+                    )
+                    con.execute("PRAGMA query_only = ON")
     return con
 
 
@@ -170,6 +205,17 @@ PLAN_COLUMNS = (
     ("paid_until", "TEXT"),
     ("renewal", "TEXT NOT NULL DEFAULT 'none'"),
 )
+
+
+def plan_ready(con: sqlite3.Connection) -> bool:
+    """The account table already has the plan columns. A read, so a writer is left alone."""
+    try:
+        have = {row["name"] for row in con.execute("PRAGMA table_info(users)")}
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+            raise
+        return False
+    return all(name in have for name, _ in PLAN_COLUMNS)
 
 
 def ensure_plan(con: sqlite3.Connection) -> None:

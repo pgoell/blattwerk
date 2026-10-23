@@ -41,7 +41,7 @@ mise run test:webkit
 ## Gotchas
 
 - These tests do not exercise `/einladung` or `Neues Blatt`. A green WebKit log is not proof of signup.
-- `tests/test_clipboard.py` marks picture paste `webkit_xfail` 204: WebKit's Einfügen reads no picture the clipboard holds. A green run of `test_the_button_ausschneiden_cuts` does not cover that xfail.
+- A green run of `test_the_button_ausschneiden_cuts` does not cover a picture pasted from another app. That path is `test_the_button_einfuegen_pastes_a_picture_by_touch` and `test_einfuegen_pastes_a_picture_from_another_app`.
 - The fixture sets `localStorage.tour`, grants clipboard-read (and clipboard-write except on WebKit), and clears clipboard text when the editor opens. A drive that skips those steps is a different setup.
 - `BLATTWERK_BROWSER=webkit` is set by `scripts/test-webkit.sh`. Exporting it yourself and calling `uv run pytest` is the same browser only when the host has the WebKit binary and the libraries Playwright names. Otherwise the shell script is the entry point, and it still needs those libraries when it chooses the host.
 - `-n auto` is the default in `pyproject.toml`. Pass `-n 0` so one worker owns the browser.

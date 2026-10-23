@@ -7,8 +7,8 @@ from playwright.sync_api import expect
 from test_clipboard import REFUSE, STAR
 from test_order import boxes, expect_stack
 from test_pages import expect_in_use, expect_order, three
+from test_pages_many import expect_chosen, pick_many
 from ui import (
-    BROWSER,
     FIELD,
     LINE,
     RECT,
@@ -156,7 +156,6 @@ def test_kopieren_keeps_the_block_and_einfuegen_on_a_block_adds_a_copy(editor):
     expect(at(page, "b")).not_to_have_class("block sel")
 
 
-@pytest.mark.webkit_xfail(204, "WebKit's Einfügen reads no picture the clipboard holds")
 def test_einfuegen_pastes_a_picture_from_another_app(editor):
     """A4"""
     page = editor(*texts("a"))
@@ -259,6 +258,30 @@ def right_thumb(page, n):
     expect(menu(page)).to_be_visible()
 
 
+def ctrl_click_as_main_button(page, n):
+    """Ctrl+click as Chrome on a Mac can send it.
+
+    The press is the main button, so the thumbnail starts a drag, and contextmenu follows
+    while that button is still down. Linux Chromium does not fire that event for a Ctrl+left
+    click. Playwright's dispatch_event builds a plain Event for contextmenu, so this sends a
+    MouseEvent, which is what that Mac press carries.
+    """
+    el = thumb(page, n)
+    x, y = centre(el)
+    page.mouse.move(x, y)
+    page.keyboard.down("Control")
+    page.mouse.down()
+    el.evaluate(
+        """(el, at) => el.dispatchEvent(new MouseEvent("contextmenu", {
+          bubbles: true, cancelable: true, composed: true, view: window,
+          clientX: at.x, clientY: at.y, button: 0, buttons: 1, ctrlKey: true
+        }))""",
+        {"x": x, "y": y},
+    )
+    page.mouse.up()
+    page.keyboard.up("Control")
+
+
 def test_a_right_click_on_a_thumbnail_opens_the_pages_menu(editor):
     """A10"""
     page = three(editor)
@@ -275,6 +298,43 @@ def test_a_right_click_on_a_thumbnail_opens_the_pages_menu(editor):
             re.compile("^Einfügen"),
         ]
     )
+
+
+def test_a_ctrl_click_sent_as_the_main_button_opens_the_pages_menu(editor):
+    """#171. Chrome on a Mac may send Ctrl+click as the main button. The pages' menu still opens."""
+    page = three(editor)
+    watch(page)
+    ctrl_click_as_main_button(page, 1)
+    expect(menu(page)).to_be_visible()
+    assert kept(page)
+    expect(page.get_by_role("menuitem")).to_have_text(
+        [
+            "Neue Seite",
+            "Seite duplizieren",
+            "Seite löschen",
+            re.compile("^Ausschneiden"),
+            re.compile("^Kopieren"),
+            re.compile("^Einfügen"),
+        ]
+    )
+    # As a right click on a thumbnail that was not chosen: that page alone, and no drag.
+    expect_in_use(page, 1)
+    expect_order(page, "abc")
+
+
+def test_a_ctrl_click_sent_as_the_main_button_chooses_as_a_right_click(editor):
+    """#171. A chosen thumbnail keeps the choice; another is chosen alone. The pages stay put."""
+    page = three(editor)
+    pick_many(page, 0, 1)
+    ctrl_click_as_main_button(page, 1)
+    expect(menu(page)).to_be_visible()
+    expect_chosen(page, 0, 1)
+    page.keyboard.press("Escape")
+    expect(menu(page)).to_have_count(0)
+    ctrl_click_as_main_button(page, 2)
+    expect(menu(page)).to_be_visible()
+    expect_chosen(page, 2)
+    expect_order(page, "abc")
 
 
 def test_neue_seite_comes_after_the_thumbnails_page(editor):
@@ -778,27 +838,23 @@ def test_a_finger_that_leaves_where_it_came_down_drags_the_selected_block(editor
     expect(page.get_by_role("button", name="Rückgängig")).to_be_enabled()
 
 
-# Not strict: it fails in CI in two runs of seven, and here in 2 of 20 cold starts on one busy core.
-# No block lies under the finger then. What the page held is in the failure's text.
-@pytest.mark.xfail(
-    BROWSER == "webkit", strict=False, reason="#225: the tap picks nothing, now and then"
-)
 def test_a_touch_the_browser_cancels_starts_no_selecting_of_several(editor):
-    """#179"""
+    """#179, #225"""
     page = editor(*texts("a"), touch=True)
-    start = centre(at(page, "a"))
-    with finger(page, start) as touch:
+    with finger(page, centre(at(page, "a"))) as touch:
         touch("touchCancel")
         outlast(page)
         expect(several(page)).to_have_attribute("aria-pressed", "false")
         expect_picked(page)
-        # The finger comes down again, and its lift is a tap.
-        touch("touchStart", start)
-        early = page.evaluate(STATE, list(start))
+        # The finger comes down again, and its lift is a tap. The centre is read now, not before
+        # the wait: the desk can take its last size in that time, and the old point then lies on
+        # the page and on no block (#225). A hold that fires in a slow lift does select the block.
+        point = centre(at(page, "a"))
+        touch("touchStart", point)
     try:
         expect_picked(page, "a")
     except AssertionError as e:
-        raise AssertionError(f"DIAG {early} {page.evaluate(STATE, list(start))}") from e
+        raise AssertionError(f"DIAG {page.evaluate(STATE, list(point))}") from e
 
 
 STATE = """([x, y]) => ({
