@@ -119,7 +119,7 @@ import Field, { hole, list, tint, type Marks, type Picked } from "./Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../gaps";
 import { made } from "../zahlenmauer";
 import { pictureOf } from "../picture";
-import { copied, hash, mark as markCopy, onTheWay, refused as refusedWords } from "../clip";
+import { atOnce, copied, hash, mark as markCopy, onTheWay, refused as refusedWords } from "../clip";
 import { totals } from "../totals";
 import { EDGE, anchorOf, beside, emptied, evened, heightsOf, merged, next, putTsv, rectOf, sized, slotsIn, spanAt, spansOf, tsvOf, unmerged, widthsOf, type Rect } from "../cells";
 import { bordered, cutLines, lined, type Border } from "../borders";
@@ -1442,15 +1442,18 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
-    // The editor's own copy comes with its picture: the blocks come first.
-    if (ownCopy(text.replace(/\r\n/g, "\n")) && !writing.current) {
+    // The editor's own words bring the blocks, picture or not. While those words have not been written, a picture
+    // there is the one copied before. Once they have, a picture without them was copied afterwards: it wins, even
+    // while the block picture is still drawn (#1011).
+    const ours = ownCopy(text.replace(/\r\n/g, "\n"));
+    if (ours || (writing.current && (!picture || !stamped.current))) {
       e.preventDefault();
       e.stopPropagation();
       paste();
       return;
     }
-    if (!picture || writing.current) {
-      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
+    if (!picture) {
+      if (!typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
     }
     e.preventDefault();
@@ -2945,11 +2948,14 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   const pending = useRef<string | null>(null);
   // The text of the last cells copied: a paste of exactly that, with line breaks, spreads over the cells.
   const cellsCopied = useRef("");
+  // Set when this copy's own copy event wrote its words. A picture found after that was copied later.
+  const stamped = useRef(false);
   useEffect(() => {
     const copied = (e: ClipboardEvent) => {
       if (pending.current === null) return;
       e.clipboardData!.setData("text/plain", pending.current);
       pending.current = null;
+      stamped.current = true;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -2957,7 +2963,7 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     return () => window.removeEventListener("copy", copied, true);
   }, []);
   // In a browser that makes no such copy the words land a moment later: until then a paste still finds the older
-  // picture there, which is stale.
+  // picture there, which is stale. Once this copy's words were written, a picture without them is a newer one.
   const writing = useRef(0);
   // A copy with no words still stamps the system's clipboard, with a blank.
   const wordsOf = (held: Block[]) => held.map((b) => ("text" in b.props && b.props.text) || "").filter(Boolean).join("\n") || " ";
@@ -2977,7 +2983,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
     const words = wordsOf(held);
     localStorage.setItem("copied", hash(words));
     pending.current = words;
-    document.execCommand("copy");
+    stamped.current = false;
+    // The copy event's clipboardchange is ours. A change we did not count is a picture copied afterwards.
+    const watching = listens.current;
+    if (watching) credited.current++;
+    if (!document.execCommand("copy") && watching) credited.current = Math.max(0, credited.current - 1);
     pending.current = null;
     copied();
     writing.current++;
@@ -2986,16 +2996,98 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
   // picture is drawn after it, and a refused picture still leaves the words.
   // A copy made while an earlier one's picture is still drawn wins: the earlier write is called off.
+  // So does a picture copied from elsewhere while this one is still drawn: the late write would replace it (#1011).
   const lastCopy = useRef(0);
+  // clipboardchange events this page is about to cause. One it did not cause means the clipboard moved on.
+  const credited = useRef(0);
+  const listens = useRef(false);
+  useEffect(() => {
+    const clip = navigator.clipboard;
+    if (!clip?.addEventListener) return;
+    listens.current = true;
+    const moved = () => {
+      if (credited.current > 0) {
+        credited.current--;
+        return;
+      }
+      lastCopy.current++;
+    };
+    clip.addEventListener("clipboardchange", moved);
+    return () => {
+      listens.current = false;
+      clip.removeEventListener("clipboardchange", moved);
+    };
+  }, []);
+  const countChange = () => listens.current && credited.current++;
+  const dropChange = () => {
+    if (listens.current) credited.current = Math.max(0, credited.current - 1);
+  };
+  // Whether the clipboard still holds this copy's words. A read the browser refuses counts as yes: the picture
+  // goes out as before, and a browser that can say the clipboard moved does so through clipboardchange.
+  async function stillHolds(words: string): Promise<boolean> {
+    try {
+      const want = words.replace(/\r\n/g, "\n");
+      for (const item of await navigator.clipboard.read()) {
+        if (!item.types.includes("text/plain")) continue;
+        const got = (await (await item.getType("text/plain")).text()).replace(/\r\n/g, "\n");
+        if (got === want) return true;
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  }
+  // The write starts in the key press, as Safari wants, and the picture fills it in when drawn. It is filled in
+  // only while the clipboard is still this copy: a picture copied from elsewhere meanwhile stays (#1011). A write
+  // this page starts in between waits until this one has landed, so it cannot be replaced by the late picture.
   function toClipboard(held: Block[], words: string): Promise<void> {
     const n = ++lastCopy.current;
-    const write = () => (n === lastCopy.current && navigator.clipboard?.writeText(words)) || Promise.resolve();
+    let settle: (blob: Blob) => void = () => {};
+    let cancel: (err: Error) => void = () => {};
+    const png = new Promise<Blob>((res, rej) => {
+      settle = res;
+      cancel = rej;
+    });
+    png.catch(() => {});
+    const text = new Blob([words], { type: "text/plain" });
+    let gone = false;
+    let backed = false;
+    const giveUp = () => {
+      if (lastCopy.current === n) lastCopy.current++;
+      gone = true;
+      cancel(new Error("clipboard moved"));
+    };
+    const wordsOnly = () => {
+      if (backed || gone || n !== lastCopy.current || !navigator.clipboard?.writeText) return Promise.resolve();
+      backed = true;
+      countChange();
+      return navigator.clipboard.writeText(words).catch(() => dropChange());
+    };
+    let gesture: Promise<void>;
     try {
-      const png = pictureOf(held, live.current.doc, page).then((blob) => (n === lastCopy.current ? blob : Promise.reject(new Error("newer copy"))));
-      return navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": new Blob([words], { type: "text/plain" }) })]).catch(write);
+      gesture = atOnce(() => navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": text })]));
     } catch {
-      return write();
+      cancel(new Error("no write"));
+      return wordsOnly();
     }
+    const drawn = pictureOf(held, live.current.doc, page)
+      .then(async (blob) => {
+        if (n !== lastCopy.current) {
+          cancel(new Error("newer copy"));
+          return;
+        }
+        if (!(await stillHolds(words)) || n !== lastCopy.current) {
+          giveUp();
+          return;
+        }
+        countChange();
+        settle(blob);
+      })
+      .catch(() => {
+        cancel(new Error("no picture"));
+        return wordsOnly();
+      });
+    return Promise.all([gesture.catch(() => wordsOnly()), drawn]).then(() => {});
   }
   // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {
@@ -3089,8 +3181,8 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
   // first, then for words.
   async function pasteAny() {
     if (reading.current) return;
-    if (writing.current) {
-      // The blocks are here while the picture is drawn; a second press in the same moment pastes nothing more.
+    if (writing.current && !stamped.current) {
+      // The words have not reached the clipboard, so a picture there is the one copied before.
       reading.current = true;
       queueMicrotask(() => (reading.current = false));
       return paste();

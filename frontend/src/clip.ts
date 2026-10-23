@@ -57,8 +57,8 @@ export function wipeAt(login: Promise<{ id: number }>) {
   // A failed login rejects it too; that is no fault. Nor is a browser that takes no such item: the login goes on.
   empty.catch(() => {});
   try {
-    clipboard
-      .write([new ClipboardItem({ "text/plain": empty })])
+    // Begun in the click, not behind a copy's picture: Safari drops a write begun later.
+    atOnce(() => clipboard.write([new ClipboardItem({ "text/plain": empty })]))
       .then(() => (localStorage.removeItem(TYPED), localStorage.removeItem("copied"), localStorage.removeItem(BY)))
       .catch(() => {});
   } catch {
@@ -137,4 +137,39 @@ const writes = new Set<Promise<unknown>>();
 export function onTheWay(write: Promise<unknown>) {
   writes.add(write);
   write.finally(() => writes.delete(write));
+}
+
+// Chrome commits a clipboard write when its blob arrives, even if a later write already finished, and the
+// earlier one then replaces the picture copied in between (#1011). Writes from this page wait their turn,
+// so the later one lands last. A write that Safari accepts only inside a click or a key press is marked
+// with `atOnce` and starts in that turn; the ones waiting follow it.
+let tail: Promise<unknown> = Promise.resolve();
+let straight = false;
+
+export function atOnce<T>(run: () => T): T {
+  straight = true;
+  try {
+    return run();
+  } finally {
+    straight = false;
+  }
+}
+
+const board = navigator.clipboard;
+const nativeWrite = board?.write?.bind(board);
+if (board && nativeWrite) {
+  board.write = (items: ClipboardItems) => {
+    if (straight) {
+      const job = nativeWrite(items);
+      const prev = tail;
+      tail = prev.then(() => job, () => job);
+      return job;
+    }
+    const job = tail.then(() => nativeWrite(items), () => nativeWrite(items));
+    tail = job.then(
+      () => {},
+      () => {},
+    );
+    return job;
+  };
 }
