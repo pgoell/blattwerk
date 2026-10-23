@@ -1,0 +1,275 @@
+{
+  "topic": "Wasserkreislauf",
+  "topicNote": "The example named in issue 94. Not picked with the first user.",
+  "generatedOn": "2026-10-22",
+  "verdict": "limits",
+  "askedTheFirstUser": false,
+  "printedOnPaper": false,
+  "shippedInTheApp": false,
+  "pictures": [
+    {
+      "id": "kreislauf",
+      "subject": "Wasserkreislauf",
+      "file": "01-kreislauf.jpg",
+      "tries": 2,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no blue, no color, no shading, no letters, no words, no numbers, no captions, no arrows with text. A primary-school water cycle: sea at the lower left, mountain in the centre, river running down the right into the sea, sun at the upper left drawn as a circle with straight rays, two outlined clouds, rain as short vertical dashes under one cloud, vapour as three empty curved arrows rising from the sea, rain falling on the mountain slope, water seeping down through dotted soil into a thin dotted groundwater band, and the river returning to the sea. No faces.",
+      "errors": [],
+      "reported": [
+        "An image reader reported words on this file. No OCR was available, so the words are not proven. The same reader invented blue and green on files whose channels differ by at most 5.",
+        "The reader reported groundwater as an underground lake. Groundwater fills gaps in the soil and the rock. That reading was not checked by OCR."
+      ],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0233,
+      "paper": 0.9519,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "sonne",
+      "subject": "Sonne",
+      "file": "02-sonne.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers, no caption. A simple sun for a primary school worksheet: one circle and twelve straight rays, nothing else in the picture.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0136,
+      "paper": 0.9781,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "meer",
+      "subject": "Meer",
+      "file": "03-meer.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. A simple sea for a primary school worksheet: a horizontal waterline, gentle waves below it, a flat horizon, a small empty sun circle high above, no boats, no animals, no faces.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0127,
+      "paper": 0.971,
+      "channelGap": 4,
+      "lineOnPaper": true
+    },
+    {
+      "id": "wolke",
+      "subject": "Wolke",
+      "file": "04-wolke.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. One simple cloud for a primary school worksheet: a single scalloped cloud outline, empty inside, nothing else, no face, no rain.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0106,
+      "paper": 0.9844,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "regen",
+      "subject": "Regen",
+      "file": "05-regen.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. Rain for a primary school worksheet: one empty scalloped cloud outline at the top and short separate vertical dashes falling under it, no faces, no landscape, no puddle text.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0168,
+      "paper": 0.9771,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "fluss",
+      "subject": "Fluss",
+      "file": "06-fluss.jpg",
+      "tries": 2,
+      "prompt": "High-contrast ink drawing. Every stroke is pure solid black on a pure white background. No gray, no pencil, no sketch, no shading, no color, no blue, no text, no letters. A winding river between two banks, nothing else.",
+      "errors": [
+        "Near-black covers more than a tenth of the square, so this keeper is a filled mass, not an open outline."
+      ],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.347,
+      "paper": 0.643,
+      "channelGap": 5,
+      "lineOnPaper": false
+    },
+    {
+      "id": "berg",
+      "subject": "Berg",
+      "file": "07-berg.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. One simple mountain for a primary school worksheet: a triangular peak, a smaller peak beside it, a snow cap shown as an outline only, a few pine trees as triangles at the foot, no houses, no animals, no faces, no labels.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0202,
+      "paper": 0.9654,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "boden",
+      "subject": "Boden und Grundwasser",
+      "file": "08-boden.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. A soil cross-section for a primary school water cycle: a strip of grass on top, soil as dots, rain dashes entering the soil, water moving down as a few dashed arrows, and a thin band of groundwater drawn as small circles in the pores of the soil, not a cave and not an underground lake. No text.",
+      "errors": [],
+      "reported": [
+        "The reader reported groundwater as an underground lake. Groundwater fills gaps in the soil and the rock. That reading was not checked by OCR."
+      ],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0225,
+      "paper": 0.9492,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "pflanze",
+      "subject": "Pflanze",
+      "file": "09-pflanze.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. A simple plant for a primary school worksheet about transpiration: one stem, two leaves, a flower of five round petals, three small curved arrows of water vapour rising from the leaves, roots under a soil line. No face, no pot text, no labels.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0168,
+      "paper": 0.9661,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "see",
+      "subject": "See",
+      "file": "10-see.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. A simple lake for a primary school worksheet: an oval shoreline, a few short wave lines inside, a reed clump at one edge, low hills behind as outlines, no boats, no animals, no faces, no labels.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0221,
+      "paper": 0.9632,
+      "channelGap": 5,
+      "lineOnPaper": true
+    }
+  ],
+  "discarded": [
+    {
+      "id": "kreislauf-try1",
+      "subject": "Wasserkreislauf",
+      "file": "01-kreislauf-try1.jpg",
+      "tries": 1,
+      "prompt": "Simple black line drawing on a pure white background for a German primary school worksheet about the water cycle. Thick black outlines only, no shading, no grey fills, no colour, no gradients, no text, no letters, no numbers, no watermark, no border. Left: the sea. Centre: a mountain. Right: a river flowing downhill into the sea. A sun in the upper left. Curved arrows show invisible water vapour rising from the sea, clouds above the mountain, rain falling on the mountain, water soaking into the ground, and the river returning to the sea. Groundwater as a dotted layer under the soil, not an underground lake. No faces on the sun or clouds.",
+      "errors": [],
+      "reported": [
+        "An image reader reported words on this file. No OCR was available, so the words are not proven. The same reader invented blue and green on files whose channels differ by at most 5.",
+        "The reader reported groundwater as an underground lake. Groundwater fills gaps in the soil and the rock. That reading was not checked by OCR."
+      ],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0363,
+      "paper": 0.9376,
+      "channelGap": 3,
+      "lineOnPaper": true
+    },
+    {
+      "id": "fluss-try1",
+      "subject": "Fluss",
+      "file": "06-fluss-try1.jpg",
+      "tries": 1,
+      "prompt": "Coloring-book page, pure white background, only solid black pen strokes, no fill, no gray, no color, no shading, no letters, no words, no numbers. A simple river for a primary school worksheet: a winding river drawn as two parallel lines flowing from a small hill down to a wider mouth, a few reeds as short strokes, no houses, no animals, no faces, no labels.",
+      "errors": [],
+      "reported": [],
+      "model": "unnamed image tool in this agent; the JPEG metadata names no model",
+      "cost": "nothing charged to a Blattomat account; the tool publishes no price",
+      "darkest": 0,
+      "ink": 0.0141,
+      "paper": 0.9647,
+      "channelGap": 3,
+      "lineOnPaper": true
+    }
+  ],
+  "terms": [
+    {
+      "model": "the generator of these twelve JPEGs",
+      "read": "No terms and no model name are in the JPEG metadata, and the tool published none. These files are the experiment record, not pictures the app ships.",
+      "source": ""
+    },
+    {
+      "model": "OpenAI consumer terms (row)",
+      "read": "As between the user and OpenAI, the user owns the output, and OpenAI assigns any interest it has. Output may not be unique. It must not be presented as human-made. OpenAI may use content to train unless the user opts out. Accuracy is not guaranteed. Read on 2026-10-22. These are the consumer terms, not an API data-processing agreement, and not ChatGPT for Teachers.",
+      "source": "https://openai.com/policies/row-terms-of-use/"
+    },
+    {
+      "model": "ChatGPT for Teachers",
+      "read": "Education-only use in the teacher's role. Not for personal or commercial projects unrelated to that work. The help page says it is free through June 2028 for verified U.S. K-12 educators, and that it includes image generation. A German Grundschule teacher is outside that offer. Read on 2026-10-22.",
+      "source": "https://openai.com/policies/education-terms/"
+    },
+    {
+      "model": "Gemini API",
+      "read": "Additional terms effective 2026-03-23: Google does not claim ownership of generated content, and may generate the same content for others. On unpaid services, Google uses prompts and outputs to improve its products, and human reviewers may read them. The API must not be used in a client directed at, or likely to be accessed by, people under 18. Image docs say generated images include a SynthID watermark. Not called.",
+      "source": "https://ai.google.dev/gemini-api/terms"
+    },
+    {
+      "model": "FLUX API, EU",
+      "read": "EU developer terms, read 2026-10-22: as between the parties, the customer owns the output and may use it personally or commercially. Output may not be unique, may be wrong, and must not be presented as human-made. Content credentials must not be stripped. The EU API terms, last revised 2026-08-26, also give Black Forest Labs a perpetual licence to use input and output to improve its models, including training. Not called. The EU pricing page did not yield numbers in the fetch, so no FLUX price is recorded.",
+      "source": "https://bfl.ai/legal/eu-developer-terms-of-service"
+    }
+  ],
+  "costGuess": {
+    "notMeasured": true,
+    "assumption": "200 pictures a year, one try each, at a published price for a 1024 square. The 200 is a guess, not a count of what a teacher does.",
+    "perPictureUsd": {
+      "gpt-image-1 low 1024": 0.011,
+      "gpt-image-1 medium 1024": 0.042,
+      "gpt-image-1 high 1024": 0.167,
+      "gemini-2.5-flash-image": 0.039,
+      "gemini-3.1-flash-image 1k": 0.067,
+      "gemini-3-pro-image 1k": 0.134
+    },
+    "perTeacherPerYearUsdAt200": {
+      "gpt-image-1 low 1024": 2.2,
+      "gpt-image-1 medium 1024": 8.4,
+      "gpt-image-1 high 1024": 33.4,
+      "gemini-2.5-flash-image": 7.8,
+      "gemini-3.1-flash-image 1k": 13.4,
+      "gemini-3-pro-image 1k": 26.8
+    },
+    "sources": [
+      "https://developers.openai.com/api/docs/models/gpt-image-1",
+      "https://ai.google.dev/gemini-api/docs/pricing"
+    ],
+    "readOn": "2026-10-22"
+  },
+  "open": [
+    "The first user has not seen the ten pictures, and has not said whether any would be handed out.",
+    "The topic is the example from the issue, not a topic picked with the first user.",
+    "No second picture model was called. That needs a key and a spend.",
+    "The generator of these files published no licence. Whether the twelve JPEGs stay in the public repo is open.",
+    "No provider, no processor agreement, no cost cap, and no check step. The issue asks for those only after a yes.",
+    "Wikimedia File:Kleiner_Wasserkreislauf.svg by A. Spielhoff is CC0 1.0 (page read 2026-10-22). It was not added. Whether it is good enough is issue 81."
+  ]
+}

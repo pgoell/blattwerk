@@ -26,6 +26,7 @@ from blattwerk import (
     shares,
     sheets,
     templates,
+    texthelp,
     uploads,
 )
 
@@ -59,6 +60,7 @@ app.include_router(remote.router)
 app.include_router(sheets.router)
 app.include_router(shares.router)
 app.include_router(templates.router)
+app.include_router(texthelp.router)
 app.include_router(uploads.router)
 app.include_router(grounds.router)
 
