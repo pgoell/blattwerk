@@ -124,7 +124,9 @@ def test_side_by_side_runs_with_the_same_bytes_do_not_rebuild(tmp_path):
     procs = []
     for index in range(4):
         copy = tmp_path / f"state-{index}"
-        shutil.copytree(state, copy)
+        # Keep links as links. trusted-configs points at the project, and
+        # following it copies this state directory back into itself.
+        shutil.copytree(state, copy, symlinks=True)
         procs.append(
             subprocess.Popen(
                 ["mise", "run", "build"],
