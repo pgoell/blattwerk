@@ -48,6 +48,11 @@ def test_logged_out_gets_401():
     assert client.get("/api/sheets/1").status_code == 401
     assert client.patch("/api/sheets/1", json={"title": "x"}).status_code == 401
     assert client.post("/api/sheets/1/duplicate").status_code == 401
+    assert client.get("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/sheets/1/share/renew").status_code == 401
+    assert client.delete("/api/sheets/1/share").status_code == 401
+    assert client.post("/api/shares/abc/copy").status_code == 401
     assert client.delete("/api/sheets/1").status_code == 401
     assert client.get("/api/sheets/1/pdf").status_code == 401
     assert client.post("/api/maths", json=MATHS).status_code == 401

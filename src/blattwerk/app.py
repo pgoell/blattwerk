@@ -22,6 +22,7 @@ from blattwerk import (
     oauth,
     pdf,
     remote,
+    shares,
     sheets,
     templates,
     uploads,
@@ -55,6 +56,7 @@ app.include_router(oauth.router)
 app.include_router(pdf.router)
 app.include_router(remote.router)
 app.include_router(sheets.router)
+app.include_router(shares.router)
 app.include_router(templates.router)
 app.include_router(uploads.router)
 
@@ -139,4 +141,9 @@ def frontend(path: str) -> FileResponse:
     # The Claude Desktop extension, a zip that mimetypes does not know: a file to save, not text.
     if file.suffix == ".mcpb":
         return FileResponse(file, media_type="application/octet-stream")
-    return FileResponse(file)
+    # A share preview is a page a visitor can open. It stays out of search engines, and the
+    # token in its address is not sent on to any other site.
+    headers = {}
+    if path == "teilen" or path.startswith("teilen/"):
+        headers = {"X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin"}
+    return FileResponse(file, headers=headers)
