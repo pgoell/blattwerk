@@ -33,7 +33,7 @@ Allowed:
   - `value NAME`: prints what the field of that name holds and changes nothing: a colour as `#rrggbb`, a slider's number.
   - `resize W H`
   - `screenshot [NAME]`: writes `/tmp/teacher-run/<NAME>.png`, the window and no more. NAME takes letters, digits, `_`, commas and `-` only: no spaces and no dots.
-  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key. While the bar "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert" waits for a choice, the PDF waits too, and `pdf` says so at once: then `pdf "Andere Version laden"` or `pdf "Mit dieser überschreiben"` makes the choice and saves the file that comes after it.
+  - `pdf [TARGET]`: clicks the bar's `PDF` (`pdf Lösungen` for the answer key), saves the file into `/tmp/teacher-run/` under its own name and prints the path. The focus stays where it was: a slider you clicked before still takes the next key. While the bar "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert" waits for a choice, the PDF waits too, and `pdf` says so at once: then `pdf "Andere Version laden"` or `pdf "Mit dieser überschreiben"` makes the choice and saves the file that comes after it. With the dialog `Varianten drucken` open, `pdf` and `pdf Lösungen` take that dialog's button, not the bar's of the same name.
   - `drop FILE TARGET`: drops the file `/tmp/teacher-run/FILE` at the target, as a teacher drags a file from the desktop onto the sheet. Only a file in `/tmp/teacher-run` drops.
   - `upload FILE TARGET`: clicks the target, such as `"Bild"`, and picks `/tmp/teacher-run/FILE` in the file box it opens: a real upload, as the MCP page's `upload_file` does it.
   - `paste-elsewhere`: stands for another app, such as Word or a mail: pastes with Control+V into a field of its own and prints what that field took, words or a picture or nothing. The app's page and its focus stay as they were.
@@ -41,7 +41,7 @@ Allowed:
   - `box yes VERB [ARGS]` or `box no VERB [ARGS]`: runs that verb and answers the box it meets. A verb without `box` answers no. A box comes with a delete (its button's name ends in `löschen`) and when `open` would leave unsaved work; the output names its words.
   - `tidy`: deletes each `TR*.pdf` and `blattomat*.mcpb` in the downloads folder and each PDF in `/tmp/teacher-run`, and names each one it deleted. It needs no window.
 
-  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. If one of the matches is the only control of that name (a button, a field, a list or a tab), the tool takes that control: `click "Zahlenraum"` takes the list, not the heading above it. With a text picked, `click "Text"` takes the left panel's button, not the right panel's heading, which is also called `Text`. If a named control lies outside the window and is the only one of that name, the tool turns the page or the panel to it by itself, clicks, and its output ends with `(turned the page to it)`. If the tool turns the page to a place you did not mean, as to a heading on page 2, press Escape to unpick the block and try again. A click on a greyed control prints `clicked at X,Y, on a greyed control: nothing happens`. Every verb's output ends with a line `The page is /blatt/12`: the sheet's number for `open /blatt/N`. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
+  `TARGET`, `FROM` and `TO` are either `X,Y` in window pixels, the same pixels as the tool's screenshot, or a visible name in quotes: a control's whole name or a whole text on the screen. No match is an error. In a narrow window the bar folds some buttons away, at 820 wide the zoom's `Ganze Seite`: the error then says the name may lie under `Mehr`, so `click "Mehr"` and look again. So are several: the tool then lists each with its `x,y`, and you use the pixels. If one of the matches is the only control of that name (a button, a field, a list or a tab), the tool takes that control: `click "Zahlenraum"` takes the list, not the heading above it. The same where that control lies outside the window and a heading shares the name: `click "Aufgabenfamilien"` turns the panel to the list. With a text picked, `click "Text"` takes the left panel's button, not the right panel's heading, which is also called `Text`. If a named control lies outside the window and is the only one of that name, the tool turns the page or the panel to it by itself, clicks, and its output ends with `(turned the page to it)`. If the tool turns the page to a place you did not mean, as to a heading on page 2, press Escape to unpick the block and try again. A click on a greyed control prints `clicked at X,Y, on a greyed control: nothing happens`. Every verb's output ends with a line `The page is /blatt/12`: the sheet's number for `open /blatt/N`. A block on the sheet has no name: read its place off the screenshot. Every verb that acts also saves `/tmp/teacher-run/last.png` and prints its path. One call acts and shows: look with your Read tool.
 
   One verb per shell call, then read what it printed. Never chain two verbs with `&&` or `;`, and never run a verb in a loop: the next step depends on what the last one did. A link that opens a new tab (as on `Konto`) does not take the window away: the tool shuts the new tab and says so.
 - The shell commands this brief spells out, `date`, and `ls`, `rm`, `pdftoppm` and `pdffonts` on your own files in `/tmp/teacher-run` and on the `TR*.pdf` files in `~/Downloads`. `pdftoppm` takes `-r` from 60 to 110 (60 for the layout, up to 110 to read small digits), and `-f` and `-l` for one page, as `-f 2 -l 2`. `pdffonts` names the fonts of a PDF.
@@ -253,7 +253,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
 ## 25 minutes on the last five pull requests
 
 1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before. With an "above all", stop after 30 minutes instead, and do not stop at 25.
-2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor`, which a teacher does not see, before they take five:
+2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor` before they take five. A title that starts with `ci`, `chore`, `docs`, `build` or `refactor` is one a teacher does not see. A title that starts with `test` can still change the app, as #480 did:
 
    ```sh
    gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | map(select(.title | test("^(ci|chore|docs|test|build|refactor)[(:!]") | not)) | .[0:5][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
@@ -265,6 +265,7 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - in a narrow window and in a wide one: `resize 820 1180` and `resize 1280 1024`, or `resize_page` in the MCP page. The editor picks its layout when it opens, so open the sheet again after each resize;
    - followed by `Rückgängig` and `Wiederholen`, and by `key Control+z`;
    - with the PDF beside the screen, where the claim is about print.
+   - a claim you cannot try with clicks and keys is not a fault of the app. A block type the app does not offer is one: say so in the report and go on.
 5. Then try to break it:
    - the steps in an odd order;
    - with the session run out: `expire`, then go on working; the MCP page stays signed in.
@@ -274,11 +275,17 @@ Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Bes
    - while a text, a cell or a menu is open;
    - at once after a reload of the page. `key F5` does not reload the tool's window: there a reload is `open /blatt/N`, with the sheet's number, which a line of each verb's output gives (`The page is /blatt/N`), or `open /` and a click on the sheet's title;
    - if the pull request names the iPad: `resize 1180 820` too, or `emulate` an iPad in the MCP page.
-6. After each try, check that the sheet still shows what it should. At the end set the window back to 1280 by 1024.
+6. After each try, check that the sheet still shows what it should. At the end set the window back to 1280 by 1024. A block that lies on another shows nothing about ink, line spacing or a font: move them apart on the screen and in the PDF before you judge.
 7. If time is left after all five, do not stop early: go on to the five pull requests before them.
 
    ```sh
    gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | map(select(.title | test("^(ci|chore|docs|test|build|refactor)[(:!]") | not)) | .[5:10][] | "#\(.number) \(.title)\n\(.url)\n\(.body[0:2500])\n"'
+   ```
+
+8. Those lists leave out a title that starts with `test`, and one of those can still change the app. Read each of them in the same 20, the whole body, with `gh pr view N -R pgoell/blattwerk --json title,body`. Try a claim a teacher can see, and skip one that changes nothing a teacher sees.
+
+   ```sh
+   gh pr list -R pgoell/blattwerk --state merged -L 20 --json number,title,body,url,mergedAt --jq 'sort_by(.mergedAt) | reverse | map(select(.title | test("^test[(:!]"))) | .[] | "#\(.number) \(.title)\n\(.url)\n"'
    ```
 
 ## Issues

@@ -13,7 +13,19 @@ import markdown
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from blattwerk import auth, feedback, folder, maths, oauth, pdf, remote, sheets, templates, uploads
+from blattwerk import (
+    auth,
+    billing,
+    feedback,
+    folder,
+    maths,
+    oauth,
+    pdf,
+    remote,
+    sheets,
+    templates,
+    uploads,
+)
 
 # `npm run build` in frontend/ writes here.
 STATIC = Path(__file__).parent / "static"
@@ -35,6 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(billing.router)
 app.include_router(folder.router)
 app.include_router(feedback.router)
 app.include_router(maths.router)
