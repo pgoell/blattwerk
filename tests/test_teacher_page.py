@@ -1005,8 +1005,11 @@ def test_a_click_on_a_box_names_it_and_box_yes_takes_the_yes_answer(folder, serv
 
 
 @pytest.mark.native
-def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, server):
-    # A typed text is an unsaved change until the save goes out, two seconds on: `open` comes first.
+def test_open_meets_the_leave_question_stays_on_no_and_goes_on_box_yes(folder, server, monkeypatch):
+    # A typed text is unsaved until the save goes out. Two verbs stand between the typing and
+    # `open`. On a loaded runner they take longer than the teacher's 2 s, and the page then leaves
+    # with no question. The page waits 20 s, so `open` still meets the change.
+    monkeypatch.setenv("TEACHER_SAVE_AFTER", "20000")
     email = f"{uuid4().hex}@example.com"
     client = user(email)
     made = sheet(client, [box("a", "text", ONE)], title="Probe")
