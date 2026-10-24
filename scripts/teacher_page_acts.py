@@ -473,7 +473,16 @@ def start() -> str:
         # A session of its own: the window outlives this call and the shell that made it.
         child = subprocess.Popen(
             # A screen with room for the window on its side and upright: `resize 820 1180`.
-            ["xvfb-run", "-a", "-s", "-screen 0 1920x1400x24", sys.executable, __file__, "hold"],
+            # The holder is this script's main, not this module: `running` knows it by that name.
+            [
+                "xvfb-run",
+                "-a",
+                "-s",
+                "-screen 0 1920x1400x24",
+                sys.executable,
+                Path(__file__).resolve().parent / "teacher-page.py",
+                "hold",
+            ],
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=subprocess.STDOUT,
