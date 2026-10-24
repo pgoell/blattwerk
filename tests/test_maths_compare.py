@@ -36,9 +36,9 @@ compares = st.builds(
 
 
 @given(compares)
-# Each example runs the generator's full try budget several times: 100 took 13 to 23 s here and
-# ran out of the 50 s of a busy CI shard once.
-@settings(max_examples=60, deadline=None)
+# A draw with nothing new 200 times stops, so a limit that allows no term does not spend the
+# old try cap (#447, #458).
+@settings(max_examples=100, deadline=None)
 def test_every_comparison_keeps_every_limit(s):
     out = generate(s)
     exercises = out["exercises"]
