@@ -1,36 +1,30 @@
 """Cut, copy and paste: blocks that outlast the editor, and pictures from other apps."""
 
-import base64
+# Tests of one behaviour each live in the sibling modules. Shared helpers stay here so existing imports keep working.
+
 import re
 
 import pytest
 from playwright.sync_api import expect
 from ui import (
     BROWSER,
-    FIELD,
     LINE,
     RECT,
     RULING,
     TABLE,
     TEXT,
-    angle,
     at,
     box,
-    copy_picture,
-    copy_text,
     expect_picked,
     maths,
-    mirror,
     pick,
     picture,
     png,
     saved,
     sheet,
-    track_writes,
     unpick,
     upload,
     user,
-    writes_landed,
 )
 
 STAR = {"code": "2B50"}
@@ -220,83 +214,6 @@ def expect_picture(page, client, count):
     assert served.content.startswith(png()[:8])
 
 
-def test_a_picture_from_another_app_pastes_as_a_picture_block(editor):
-    """A6"""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    copy_picture(page)
-    page.keyboard.press("Control+v")
-    expect_picture(page, client, 2)
-
-
-def test_the_button_einfuegen_pastes_a_picture_by_touch(editor):
-    """A7"""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client, touch=True)
-    copy_picture(page)
-    button(page, "Einfügen").tap()
-    expect_picture(page, client, 2)
-
-
-@pytest.mark.parametrize("kind", ["text", "table"])
-def test_in_a_field_the_keys_work_on_the_words_alone(editor, kind):
-    """I1"""
-    client = user()
-    props, word = (TEXT, "Hallo") if kind == "text" else (TABLE, "H")
-    page = editor(box("a", "shape", RECT), box("b", kind, props, z=2), client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    pick(page, "b")
-    # Enter opens the text, or the first cell, with all of it picked.
-    page.keyboard.press("Enter")
-    field = page.locator(FIELD if kind == "text" else ".block textarea:focus")
-    words = expect(field).to_have_text if kind == "text" else expect(field).to_have_value
-    words(word)
-    page.keyboard.press("Control+x")
-    words("")
-    expect(blocks(page)).to_have_count(2)
-    page.keyboard.press("Control+v")
-    words(word)
-    page.keyboard.press("Control+a")
-    page.keyboard.press("Control+c")
-    page.keyboard.press("ArrowRight")
-    page.keyboard.press("Control+v")
-    words(word * 2)
-    expect(blocks(page)).to_have_count(2)
-    page.keyboard.press("Escape")
-    unpick(page)
-    # The words were copied after the block, so a paste on the sheet gives them, as a text block.
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(3)
-    pasted = shapes(saved(page, client))[-1]
-    assert (pasted["type"], pasted["props"]["text"]) == ("text", word)
-
-
-@pytest.mark.parametrize("kind", ["text", "table", "ruling"])
-def test_a_picture_pasted_while_typing_lands_on_the_sheet(editor, kind):
-    """The field has no place for a picture; its words stay as typed."""
-    client = user()
-    props = {"text": TEXT, "table": TABLE, "ruling": RULING}[kind]
-    page = editor(box("a", kind, props), client=client)
-    copy_picture(page)
-    pick(page, "a")
-    # Enter opens the text, the first cell or the Lineatur, with all of it picked.
-    page.keyboard.press("Enter")
-    field = page.locator(FIELD if kind == "text" else ".block textarea:focus")
-    page.keyboard.type("du")
-    (expect(field).to_have_text if kind == "text" else expect(field).to_have_value)("du")
-    page.keyboard.press("Control+v")
-    expect_picture(page, client, 2)
-    expect(at(page, "a")).to_have_class("block")
-    [held] = [b for b in saved(page, client) if b["id"] == "a"]
-    if kind == "table":
-        assert held["props"]["cells"] == [["du", "Z"], ["3", "7"]]
-    else:
-        assert held["props"]["text"] == "du"
-    if kind == "text":
-        expect(at(page, "a")).to_have_text("du")
-
-
 def test_a_cut_pastes_back_in_place_and_each_further_paste_steps_on(editor):
     """I2"""
     client = user()
@@ -320,64 +237,6 @@ def test_a_paste_beside_its_original_steps_aside(editor):
         page.keyboard.press("Control+v")
         expect(blocks(page)).to_have_count(count)
         assert places(saved(page, client)) == found
-
-
-def test_blocks_copied_after_a_picture_paste_as_blocks(editor):
-    """I3"""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    copy_picture(page)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-    assert [b["type"] for b in saved(page, client)] == ["shape", "shape"]
-
-
-def test_a_paste_right_after_a_copy_brings_the_blocks_and_not_an_older_picture(editor):
-    """I3"""
-    client = user()
-    turned = {**picture(upload(client)), "id": "bild", "x": 75, "y": 60, "w": 60, "h": 40}
-    page = editor({**turned, "angle": 45, "flipX": True}, client=client)
-    copy_picture(page)
-    # A system clipboard that has not caught up: the copy's words never land, so it still holds
-    # the picture.
-    page.evaluate("() => { navigator.clipboard.writeText = () => new Promise(() => {}); }")
-    pick(page, "bild")
-    page.keyboard.press("Control+c")
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-    for name in page.eval_on_selector_all(".block", "els => els.map((el) => el.dataset.id)"):
-        assert angle(page, name) == 45
-        assert mirror(page, name) == (-1, 1)
-
-
-@pytest.mark.parametrize("paste", ["Control+v", "Einfügen"])
-@pytest.mark.parametrize("copy", ["Control+c", "Control+x", "Kopieren", "Ausschneiden"])
-def test_a_copy_the_browser_lets_no_one_write_still_wins_over_an_older_picture(editor, copy, paste):
-    """#174"""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    copy_picture(page)
-    page.evaluate(REFUSE)
-    pick(page, "a")
-    count = 2 if copy in ("Control+c", "Kopieren") else 1
-    for key in (copy, paste):
-        page.keyboard.press(key) if "+" in key else button(page, key).click()
-        expect(blocks(page)).to_have_count(count if key == paste else count - 1)
-    assert [b["type"] for b in saved(page, client)] == ["shape"] * count
-
-
-def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):
-    """I3"""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    copy_picture(page)
-    page.keyboard.press("Control+v")
-    expect_picture(page, client, 2)
-    assert sorted(b["type"] for b in saved(page, client)) == ["image", "shape"]
 
 
 # Holds back the block picture's bytes until the test lets them go, so the picture finishes late on purpose.
@@ -406,29 +265,6 @@ OTHER_APP = """async (b64) => {
 }"""
 
 
-@pytest.mark.skipif(
-    BROWSER == "webkit",
-    reason="WebKit on Linux refuses a clipboard write that is not the page's own",
-)
-def test_a_picture_copied_while_the_block_picture_is_drawn_stays_a_picture(editor):
-    """#1011: a picture copied elsewhere while the block picture is drawn stays what a paste brings,
-    and the late block picture does not replace it."""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    track_writes(page)
-    page.evaluate(HOLD_BLOBS)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    page.evaluate(OTHER_APP, base64.b64encode(png()).decode())
-    page.keyboard.press("Control+v")
-    expect_picture(page, client, 2)
-    page.evaluate("window.releaseBlobs()")
-    writes_landed(page)
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(3)
-    assert sorted(b["type"] for b in saved(page, client)) == ["image", "image", "shape"]
-
-
 def einfuegen(page, how):
     """A paste by the keys, by the toolbar's button or by the right-click menu of the empty page."""
     if how == "keys":
@@ -446,95 +282,6 @@ def fresh(page, client, *old):
     return new
 
 
-@pytest.mark.parametrize("how", ["keys", "button", "menu"])
-@pytest.mark.parametrize("clip", ["blocks copied before", "no blocks copied"])
-def test_words_from_another_app_paste_as_a_text_block(editor, clip, how):
-    """#138: the newest copy wins, here the words."""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), box("b", "text", TEXT, z=2), client=client)
-    if clip == "blocks copied before":
-        pick(page, "a", "b")
-        track_writes(page)
-        page.keyboard.press("Control+c")
-        # The picture lands after the words: wait for every write, or a late one writes over the
-        # other app's words (#764).
-        writes_landed(page)
-    else:
-        assert page.evaluate("localStorage.getItem('clip')") is None
-    copy_text(page, "Wort")
-    einfuegen(page, how)
-    expect(blocks(page)).to_have_count(3)
-    new = fresh(page, client, "a", "b")
-    assert (new["type"], new["props"]) == ("text", {**TEXT, "text": "Wort"})
-
-
-@pytest.mark.parametrize("how", ["keys", "button", "menu"])
-@pytest.mark.parametrize("kind", ["text", "shape"])
-def test_blocks_copied_after_words_from_another_app_paste_as_blocks(editor, kind, how):
-    """#138: the newest copy wins, here the blocks, with words of their own or with none."""
-    client = user()
-    props = TEXT if kind == "text" else RECT
-    page = editor(box("a", kind, props, w=40), client=client)
-    copy_text(page, "Wort")
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    unpick(page)
-    einfuegen(page, how)
-    expect(blocks(page)).to_have_count(2)
-    new = fresh(page, client, "a")
-    assert (new["type"], new["props"]) == (kind, props)
-
-
-def test_a_pasted_text_is_selected_and_one_undo_takes_it_away(editor):
-    """#138"""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    copy_text(page, "Wort")
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-    expect(page.locator(".block.sel")).to_have_text("Wort")
-    # Selected, not opened: the next key is the sheet's.
-    expect(page.locator(FIELD)).to_have_count(0)
-    page.keyboard.press("Control+z")
-    expect(blocks(page)).to_have_count(1)
-    expect(at(page, "a")).to_be_visible()
-    assert [b["id"] for b in saved(page, client)] == ["a"]
-
-
-def test_lines_from_another_app_paste_as_the_paragraphs_of_one_text_that_grows(editor):
-    """#138: Windows ends a line with two signs, and the box is as high as its words need."""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    # Word ends a whole line with a break, which makes no empty last paragraph.
-    copy_text(page, "eins\r\nzwei\ndrei\r\n")
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-    # A text with no formatting is drawn as one piece that breaks at each paragraph's end.
-    assert page.locator(".block.sel p").evaluate("el => el.innerText") == "eins\nzwei\ndrei"
-    new = fresh(page, client, "a")
-    assert new["props"]["text"] == "eins\nzwei\ndrei"
-    assert new["h"] > 12
-    # The height came with the paste: one undo takes all of it away.
-    page.keyboard.press("Control+z")
-    expect(blocks(page)).to_have_count(1)
-
-
-@pytest.mark.parametrize("kind", ["text", "table"])
-def test_words_from_another_app_pasted_while_writing_stay_the_fields(editor, kind):
-    """#138"""
-    client = user()
-    page = editor(box("a", kind, TEXT if kind == "text" else TABLE), client=client)
-    copy_text(page, "Wort")
-    pick(page, "a")
-    # Enter opens the text, or the first cell, with all of it picked.
-    page.keyboard.press("Enter")
-    field = page.locator(FIELD if kind == "text" else ".block textarea:focus")
-    expect(field).to_be_focused()
-    page.keyboard.press("Control+v")
-    (expect(field).to_have_text if kind == "text" else expect(field).to_have_value)("Wort")
-    expect(blocks(page)).to_have_count(1)
-
-
 # The copy's blocks now belong to another account, as after its logout without Abmelden.
 OTHER_OWNER = """() => {
     const held = JSON.parse(localStorage.getItem("clip"));
@@ -545,100 +292,6 @@ MARK = """(words) => {
     const hash = (words) => [...words].reduce((h, c) => (h * 33) ^ c.codePointAt(0), 5381) >>> 0;
     localStorage.setItem("copied", String(hash(words)));
 }"""
-
-
-def test_another_accounts_copy_pastes_nothing_into_a_field_outside_the_editor(editor):
-    """#751: the account page's field takes none of it either."""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    page.evaluate(OTHER_OWNER)
-    page.goto(f"{page.url.rsplit('/blatt/', 1)[0]}/konto")
-    field = page.locator("#key-name")
-    field.click()
-    page.keyboard.press("Control+v")
-    page.keyboard.type("!")
-    expect(field).to_have_value("!")
-
-
-def test_another_accounts_copy_pastes_nothing_into_an_open_text(editor):
-    client = user()
-    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
-    page = editor(box("a", "text", TEXT), target, client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    page.evaluate(OTHER_OWNER)
-    pick(page, "b")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("End")
-    page.keyboard.press("Control+v")
-    page.keyboard.type("!")
-    expect(page.locator(FIELD)).to_have_text("Ziel!")
-    expect(blocks(page)).to_have_count(2)
-
-
-@pytest.mark.parametrize("kind", ["cell", "list", "panel"])
-def test_another_accounts_copy_pastes_nothing_into_a_field(editor, kind):
-    client = user()
-    shape = box("a", "table", TABLE) if kind == "cell" else box("a", "text", TEXT)
-    page = editor(shape, client=client, theme="", words=["Hund"])
-    # Words with a tab: a paste into a cell would spread them over the cells.
-    copy_text(page, "Ge\theim")
-    page.evaluate(MARK, "Ge\theim")
-    if kind == "cell":
-        pick(page, "a")
-        page.keyboard.press("Enter")
-        field = page.locator(".block textarea:focus")
-    elif kind == "list":
-        page.get_by_role("tab", name="Lernwörter").click()
-        field = page.get_by_label("Lernwörter", exact=True)
-    else:
-        pick(page, "a")
-        field = page.locator(".panel input.mm").first
-    field.click()
-    expect(field).to_be_focused()
-    before = field.input_value()
-    page.keyboard.press("End")
-    page.keyboard.press("Control+v")
-    page.keyboard.type("1")
-    expect(field).to_have_value(before + "1")
-
-
-@pytest.mark.skipif(BROWSER == "webkit", reason="WebKit on Linux grants the page no clipboard read")
-def test_own_copy_still_pastes_its_words_into_an_open_text(editor):
-    client = user()
-    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
-    page = editor(box("a", "text", TEXT), target, client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    pick(page, "b")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("End")
-    page.keyboard.press("Control+v")
-    expect(page.locator(FIELD)).to_have_text("ZielHallo")
-
-
-def test_another_apps_words_still_paste_into_an_open_text_after_another_account(editor):
-    client = user()
-    target = box("b", "text", {**TEXT, "text": "Ziel"}, z=2)
-    page = editor(box("a", "text", TEXT), target, client=client)
-    pick(page, "a")
-    track_writes(page)
-    page.keyboard.press("Control+c")
-    page.evaluate(OTHER_OWNER)
-    # The copy's picture lands after its words, and a refused picture falls back to words: wait for
-    # every write, or a late one writes over the other app's words.
-    writes_landed(page)
-    copy_text(page, "Wort")
-    pick(page, "b")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    page.keyboard.press("End")
-    page.keyboard.press("Control+v")
-    expect(page.locator(FIELD)).to_have_text("ZielWort")
 
 
 def test_with_nothing_selected_cut_and_copy_leave_the_clipboard(editor):
@@ -704,77 +357,6 @@ def test_a_cut_keeps_the_order_and_the_group_and_the_paste_is_selected(editor):
     expect_picked(page, table["id"], line["id"])
 
 
-def test_a_pasted_picture_is_selected_and_one_undo_takes_it_away(editor):
-    """I7"""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    copy_picture(page)
-    page.keyboard.press("Control+v")
-    expect_picture(page, client, 2)
-    expect(page.locator(".block.sel")).to_have_count(1)
-    page.keyboard.press("Control+z")
-    expect(blocks(page)).to_have_count(1)
-    expect(at(page, "a")).to_be_visible()
-    assert [b["id"] for b in saved(page, client)] == ["a"]
-
-
-def test_a_refused_file_says_so_in_a_line_and_adds_nothing(editor):
-    """I7"""
-    page = editor(box("a", "text", TEXT))
-    unpick(page)
-    page.evaluate(PASTE_BMP)
-    expect(page.locator(".notice.fault")).to_contain_text(REFUSED)
-    expect(blocks(page)).to_have_count(1)
-
-
-def test_a_copy_pastes_in_another_tab_already_open(editor):
-    """I8"""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    other = sheet(client, [])
-    tab = page.context.new_page()
-    tab.goto(f"{page.url.rsplit('/blatt/', 1)[0]}/blatt/{other['id']}")
-    ready(tab, 0)
-    page.bring_to_front()
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    tab.bring_to_front()
-    unpick(tab)
-    tab.keyboard.press("Control+v")
-    expect(blocks(tab)).to_have_count(1)
-    [pasted] = saved(tab, client)
-    assert (pasted["type"], pasted["props"]) == ("shape", RECT)
-
-
-@pytest.mark.parametrize(
-    "junk", ["[{}]", '"abc"', '[{"id":"q","type":"text"}]', "null", "x{", "[null]"]
-)
-def test_a_clip_that_holds_no_whole_blocks_pastes_nothing(editor, junk):
-    """A stored clip of another build, or of none, harms neither the editor nor the sheet."""
-    page = editor(box("a", "shape", RECT, w=40))
-    unpick(page)
-    page.evaluate("(junk) => localStorage.setItem('clip', junk)", junk)
-    page.keyboard.press("Control+v")
-    # The next copy heals it.
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-
-
-def test_two_presses_at_once_on_einfuegen_stack_no_copies(editor):
-    """I2: a press while the first still reads the clipboard pastes nothing more."""
-    client = user()
-    page = editor(box("a", "shape", RECT, w=40), client=client)
-    pick(page, "a")
-    button(page, "Kopieren").click()
-    button(page, "Einfügen").evaluate("(el) => (el.click(), el.click())")
-    expect(blocks(page)).to_have_count(2)
-    button(page, "Einfügen").click()
-    expect(blocks(page)).to_have_count(3)
-    assert places(saved(page, client)) == [(15, 50), (20, 55), (25, 60)]
-
-
 # The clipboard's items as the browser holds them, and the first picture's bytes in base64.
 CLIPBOARD = """async () => {
     const items = await navigator.clipboard.read();
@@ -835,163 +417,3 @@ def clipboard_picture(page):
         page.wait_for_timeout(100)
     assert got["png"] is not None, f"no picture on the clipboard, only {got['types']}"
     return got["types"], page.evaluate(PIXELS, got["png"])
-
-
-@chromium_only
-def test_an_editor_starts_with_an_empty_clipboard(editor):
-    """A picture one editor leaves is not there when the next one opens."""
-    page = editor(box("a", "text", TEXT))
-    copy_picture(page)
-    again = editor(box("b", "text", TEXT))
-    held = again.evaluate(
-        """async () => {
-            const items = await navigator.clipboard.read();
-            const types = items.flatMap((item) => item.types);
-            let text = "";
-            for (const item of items) {
-                if (item.types.includes("text/plain")) text += await (await item.getType("text/plain")).text();
-            }
-            return { types, text };
-        }"""
-    )
-    assert [kind for kind in held["types"] if kind.startswith("image/")] == []
-    assert held["text"].strip() == ""
-
-
-@chromium_only
-@pytest.mark.parametrize("kind", KINDS)
-def test_every_block_type_copied_puts_a_picture_on_the_clipboard(editor, kind):
-    """B1"""
-    client = user()
-    blocks_ = one(kind, client)
-    page = editor(*blocks_, client=client)
-    all_of(page, len(blocks_))
-    page.keyboard.press("Control+c")
-    types, pixels = clipboard_picture(page)
-    assert types == ["image/png", "text/plain"]
-    assert pixels["width"] > 0 and pixels["height"] > 0
-
-
-@chromium_only
-@pytest.mark.parametrize("how", ["Control+c", "Control+x", "Kopieren", "Ausschneiden"])
-def test_copy_cut_and_their_buttons_all_put_the_picture_on_the_clipboard(editor, how):
-    """B1: the keys and the buttons."""
-    client = user()
-    page = editor(box("a", "shape", RECT), client=client)
-    pick(page, "a")
-    if how.startswith("Control"):
-        page.keyboard.press(how)
-    else:
-        button(page, how).click()
-    types, _ = clipboard_picture(page)
-    assert types == ["image/png", "text/plain"]
-
-
-@chromium_only
-def test_a_paste_here_of_the_copy_brings_the_blocks_not_a_picture(editor):
-    """B2"""
-    client = user()
-    page = editor(box("a", "shape", RECT), client=client)
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    clipboard_picture(page)
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(2)
-    # The button reads the system's clipboard, picture and words: it brings the blocks too.
-    button(page, "Einfügen").click()
-    expect(blocks(page)).to_have_count(3)
-    assert sorted(b["type"] for b in saved(page, client)) == ["shape"] * 3
-
-
-@chromium_only
-def test_the_picture_shows_the_copied_blocks_alone(editor):
-    """B3: block b, blue, lies over a and must not show."""
-    client = user()
-    page = editor(
-        box("a", "shape", {**RECT, "fill": "#ff0000"}, z=1, x=15, y=20, w=80, h=20),
-        box("b", "shape", {**RECT, "fill": "#0000ff"}, z=2, x=60, y=30, w=80, h=20),
-        client=client,
-    )
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    types, pixels = clipboard_picture(page)
-    assert types == ["image/png", "text/plain"]
-    assert pixels["blue"] == 0
-    assert pixels["red"] > 0
-
-
-@chromium_only
-def test_several_blocks_make_one_picture_cropped_to_their_hull(editor):
-    """B4 and B5: the hull is 145 by 60 mm, with 1 mm all round, drawn at 4 px per mm."""
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=20, w=80, h=20),
-        box("b", "shape", RECT, z=2, x=120, y=60, w=40, h=20),
-        client=client,
-    )
-    pick(page, "a", "b")
-    page.keyboard.press("Control+c")
-    _, pixels = clipboard_picture(page)
-    assert abs(pixels["width"] - 147 * 4) <= 2
-    assert abs(pixels["height"] - 62 * 4) <= 2
-    # Zoomed in, the picture is the same size. The first one goes, so the second is a new one.
-    page.evaluate("navigator.clipboard.writeText('anders')")
-    page.keyboard.press("Control+Equal")
-    page.keyboard.press("Control+Equal")
-    page.keyboard.press("Control+c")
-    _, zoomed = clipboard_picture(page)
-    assert (zoomed["width"], zoomed["height"]) == (pixels["width"], pixels["height"])
-
-
-@chromium_only
-def test_a_turned_block_shows_turned_in_the_picture(editor):
-    """B8: a 40 by 20 mm rectangle turned 45 degrees is 42 mm wide; its top left corner is empty."""
-    client = user()
-    page = editor(
-        box("a", "shape", {**RECT, "fill": "#ff0000"}, x=40, y=40, w=40, h=20, angle=45),
-        client=client,
-    )
-    pick(page, "a")
-    page.keyboard.press("Control+c")
-    _, pixels = clipboard_picture(page)
-    assert pixels["width"] > 40 * 4 + 4
-    assert not (pixels["corner"][0] > 200 and pixels["corner"][1] < 80)
-
-
-@chromium_only
-def test_words_copied_in_an_open_text_stay_the_field_s_no_picture(editor):
-    """B7"""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client)
-    pick(page, "a")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_have_text("Hallo")
-    page.keyboard.press("Control+a")
-    page.keyboard.press("Control+c")
-    page.wait_for_timeout(300)
-    types = page.evaluate(CLIPBOARD)["types"]
-    assert "image/png" not in types
-
-
-@chromium_only
-def test_a_second_copy_while_the_first_ones_picture_is_drawn_wins(editor):
-    """The picture of the first may come later than the second's: the clipboard holds the second."""
-    client = user()
-    page = editor(
-        box("bild", "image", picture(upload(client))["props"]),
-        box("t", "text", {**TEXT, "text": "zweite"}, z=2),
-        client=client,
-    )
-    pick(page, "bild")
-    page.keyboard.press("Control+c")
-    pick(page, "t")
-    page.keyboard.press("Control+c")
-    clipboard_picture(page)
-    page.wait_for_function("async () => (await navigator.clipboard.readText()) === 'zweite'")
-    # The first one's write, if it lands, would show here.
-    page.wait_for_timeout(1000)
-    assert page.evaluate("navigator.clipboard.readText()") == "zweite"
-    unpick(page)
-    page.keyboard.press("Control+v")
-    expect(blocks(page)).to_have_count(3)
-    assert sorted(b["type"] for b in saved(page, client)) == ["image", "text", "text"]
