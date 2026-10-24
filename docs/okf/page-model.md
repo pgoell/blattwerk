@@ -4,7 +4,7 @@ title: Page model
 description: How a Blattomat sheet is laid out, A4 in mm, the box of each block, z order, pages, guide lines and the grid.
 tags: [page, layout, doc]
 covers: [text, shape, ruling, name, points, symbol, image, maths, table, suchsel, zahlenmauer, zahlenhaus, zahlenkette, pfeilbild, operatorfeld, rechenrad, rechentabelle, magischesquadrat, malquadrat, zerlegungsfeld, halbschriftlich, zehnerfeld, rechendreieck, zahlenstrahl, hunderterfeld, uhr, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-10-20T10:00:00Z }
+generated: { by: "human:pgoell", at: 2026-10-22T21:40:00Z }
 ---
 
 # Page model
@@ -20,6 +20,12 @@ A sheet is a `doc`: a list of pages, and what the pages share.
 Every page is A4. Upright it is 210 mm wide and 297 mm tall; `landscape: true` lays it on its side, 297 by 210 mm, for the whole doc or for one page. Every length in a doc is in mm, from the paper's top left corner. There is no unit field and no pixel.
 
 The printable area keeps 15 mm from each edge: upright, x from 15 to 195 and y from 15 to 282. A block outside it gets the warning `leaves the page's printable area`.
+
+## The ground
+
+A page may name `ground`, the picture it lies on. The ground fills the page, keeps its proportions, and is drawn under every block. `upload` is the picture's id, `ratio` its width over its height, and `cut` the share cropped off the left, top, right and bottom. `turns` is 0 to 3 quarter turns clockwise. `opacity` is how solid it prints, 1, 0.5 or 0.25. `scale` is how much larger it is than the size that fills the page, from 0.25 to 4. `at` is the shift from the centre in mm, across then down.
+
+A JPEG or a PNG is stored as the file. A PDF page is stored as a JPEG at 300 dpi. The words shown at import about rights are a placeholder and not a decision.
 
 ## The box of a block
 

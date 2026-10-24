@@ -1,0 +1,17 @@
+/* The sheet's print font: SIL's own files, unchanged, as the font's reserved name asks. */
+@font-face { font-family: Andika; src: url(/fonts/andika/Andika-Regular.woff2) format("woff2"); }
+@font-face { font-family: Andika; font-weight: 700; src: url(/fonts/andika/Andika-Bold.woff2) format("woff2"); }
+@font-face { font-family: Andika; font-style: italic; src: url(/fonts/andika/Andika-Italic.woff2) format("woff2"); }
+@font-face { font-family: Andika; font-weight: 700; font-style: italic; src: url(/fonts/andika/Andika-BoldItalic.woff2) format("woff2"); }
+@font-face { font-family: "Grundschrift Urff"; src: url(/fonts/urff/Grundschrift-Regular.otf) format("opentype"); }
+@font-face { font-family: "Grundschrift Urff"; font-weight: 700; src: url(/fonts/urff/Grundschrift-Bold.otf) format("opentype"); }
+@font-face { font-family: "Grundschrift Urff Kontur"; src: url(/fonts/urff/Grundschrift-Kontur.otf) format("opentype"); }
+@font-face { font-family: "Grundschrift Urff Punkt"; src: url(/fonts/urff/Grundschrift-Punkt.otf) format("opentype"); }
+@font-face { font-family: "Fibel Nord"; src: url(/fonts/fibel/FibelNord-Regular.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Nord"; font-weight: 700; src: url(/fonts/fibel/FibelNord-Bold.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Nord"; font-style: italic; src: url(/fonts/fibel/FibelNord-Italic.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Nord"; font-weight: 700; font-style: italic; src: url(/fonts/fibel/FibelNord-BoldItalic.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Sued"; src: url(/fonts/fibel/FibelSued-Regular.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Sued"; font-weight: 700; src: url(/fonts/fibel/FibelSued-Bold.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Sued"; font-style: italic; src: url(/fonts/fibel/FibelSued-Italic.ttf) format("truetype"); }
+@font-face { font-family: "Fibel Sued"; font-weight: 700; font-style: italic; src: url(/fonts/fibel/FibelSued-BoldItalic.ttf) format("truetype"); }

@@ -8,6 +8,12 @@ cocogitto = "latest"
 jq        = "latest"
 node      = "22"
 
+# A new timestamp is not a source change. mise otherwise rebuilds as soon as the
+# recorded metadata differs, before it asks whether the build is still newer than
+# every source. Side-by-side test:webkit runs then each start vite (#256).
+[settings]
+task.source_freshness_hash_contents = true
+
 # ─── Bootstrap ──────────────────────────────────────────────────────────────
 
 [tasks.install]
@@ -38,11 +44,13 @@ run = "test -f frontend/node_modules/.package-lock.json && ! test frontend/packa
 
 [tasks.build]
 description = "Build the frontend into the package"
-# Skipped while the build is newer than its sources: a build under a running test would swap the files it serves.
+# Skipped while the bytes of the sources match the last build: a build under a running test
+# would swap the files it serves. The script holds one lock, because vite empties static/ first
+# and two builds at once die with ENOTEMPTY on fonts/andika (#256).
 sources = ["frontend/src/**/*", "frontend/public/**/*", "frontend/index.html", "frontend/*.json", "frontend/vite.config.ts", "frontend/mcp/**/*", "frontend/mcpb.mjs", "docs/okf/**/*", "src/blattwerk/sheet.schema.json"]
 outputs = ["src/blattwerk/static/index.html", "src/blattwerk/static/blattomat.mcpb"]
 depends = ["deps"]
-run = "npm run build --prefix frontend"
+run = "python3 scripts/build_frontend.py"
 
 # ─── Testing ────────────────────────────────────────────────────────────────
 

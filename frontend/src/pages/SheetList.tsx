@@ -1,25 +1,35 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { Copy, FolderInput, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, post, type Refusal } from "../api";
 import Failed from "../components/Failed";
+import ShareDialog from "../components/ShareDialog";
 import { attempt } from "../fault";
 import { ask, forget, served, signed, useSaves } from "../saves";
 import { EMPTY, Paper, read, sizeOf, type Sheet } from "../sheet";
+import { type Folder, type FolderEntry } from "./FolderSheet";
 
 // The server keeps UTC, as "2026-10-06 09:30:00".
 const day = (stamp: string) => new Date(`${stamp.replace(" ", "T")}Z`).toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+const ORDERS = [["date", "Datum"], ["name", "Name"], ["label", "Kennzeichen"]] as const;
 
 export default function SheetList() {
   const [sheets, setSheets] = useState<Sheet[]>();
+  const [sharing, setSharing] = useState<Sheet>();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
   // Asked for at once, and again whenever a save lands: a sheet just left shows as it was left once its save is in.
   // A load that failed says so where no list stands yet, and `tries` counts the tries after it. A list that stands
-  // stays as it is.
+  // stays as it is. The folder is the same ask: 404 means this teacher has no seat, and the tab stays away.
   const { landed } = useSaves();
   const [failed, setFailed] = useState(false);
   const [tries, setTries] = useState(0);
+  const [folder, setFolder] = useState<Folder | null>();
+  const [folderFailed, setFolderFailed] = useState(false);
+  const [round, setRound] = useState(0);
+  const [sort, setSort] = useState<(typeof ORDERS)[number][0]>("date");
+  const [q, setQ] = useState("");
   useEffect(() => {
     let on = true;
     ask<Sheet[]>("/sheets").then(
@@ -28,6 +38,20 @@ export default function SheetList() {
     );
     return () => void (on = false);
   }, [landed, tries]);
+  useEffect(() => {
+    let on = true;
+    const query = new URLSearchParams({ sort });
+    if (q.trim()) query.set("q", q.trim());
+    ask<Folder>(`/folder?${query}`).then(
+      (got) => on && (setFolder(got), setFolderFailed(false)),
+      (e: Refusal) => {
+        if (!on) return;
+        if (e.message === "404") (setFolder(null), setFolderFailed(false));
+        else setFolderFailed(true);
+      },
+    );
+    return () => void (on = false);
+  }, [landed, tries, round, sort, q]);
   const retry = () => {
     setLate(false);
     setFailed(false);
@@ -42,7 +66,7 @@ export default function SheetList() {
     return () => clearTimeout(wait);
   }, [tries]);
 
-  // Each of the four finds a session that ran out and brings the login then. One that the server could not do says
+  // Each of these finds a session that ran out and brings the login then. One that the server could not do says
   // so above the page, and its `Erneut versuchen` runs the whole of it again: the question is asked once. While one
   // is out, a second press on the same button does nothing.
   const out = useRef(new Set<string>());
@@ -94,19 +118,63 @@ export default function SheetList() {
       setSheets((all) => all?.filter((s) => s.id !== sheet.id));
     });
   }
+  function intoFolder(sheet: Sheet) {
+    const label = prompt("Kennzeichen, zum Beispiel Klasse 2 oder Mathe. Leer lassen geht.");
+    if (label === null) return;
+    act("Das Blatt konnte nicht in den Schulordner gelegt werden.", sheet, async () => {
+      await signed(post("/folder", { sheet_id: sheet.id, label: label.trim().slice(0, 40) }));
+      setQ("");
+      setSort("date");
+      setRound((n) => n + 1);
+      setParams({ tab: "ordner" }, { replace: true });
+    });
+  }
+  function removeFromFolder(entry: FolderEntry) {
+    if (!confirm(`Blatt „${entry.title}“ aus dem Schulordner löschen?`)) return;
+    act("Das Blatt konnte nicht aus dem Schulordner gelöscht werden.", undefined, async () => {
+      await signed(api(`/folder/${entry.id}`, { method: "DELETE" }));
+      setFolder((got) => got && { ...got, sheets: got.sheets.filter((s) => s.id !== entry.id) });
+    });
+  }
+
+  const tab = params.get("tab") === "ordner" && folder ? "ordner" : "mine";
+  const show = (next: "mine" | "ordner") => setParams(next === "ordner" ? { tab: "ordner" } : {}, { replace: true });
 
   return (
     <main>
-      <h1>Meine Blätter</h1>
-      <button type="button" className="primary" onClick={create}>
-        <Plus size={16} aria-hidden />
-        Neues Blatt
-      </button>
-      {!failed && !sheets && <p className="lead" role="status">{late && "Lädt"}</p>}
-      {failed && !sheets && <Failed retry={retry}><p><strong>Die Blätter konnten nicht geladen werden</strong></p></Failed>}
-      {sheets?.length === 0 && <p className="lead">Noch kein Blatt. Leg dein erstes an.</p>}
+      {folder && (
+        <div className="tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === "mine"} onClick={() => show("mine")}>Meine Blätter</button>
+          <button type="button" role="tab" aria-selected={tab === "ordner"} onClick={() => show("ordner")}>Schulordner</button>
+        </div>
+      )}
+      <h1>{tab === "ordner" ? "Schulordner" : "Meine Blätter"}</h1>
+      {tab === "mine" && (
+        <button type="button" className="primary" onClick={create}>
+          <Plus size={16} aria-hidden />
+          Neues Blatt
+        </button>
+      )}
+      {tab === "ordner" && folder && (
+        <>
+          <p className="lead">{folder.school.name}</p>
+          <div className="folder-bar">
+            <input type="search" value={q} maxLength={80} placeholder="Titel oder Kennzeichen" aria-label="Suche im Schulordner" onChange={(e) => setQ(e.target.value)} />
+            <div className="seg" role="group" aria-label="Sortierung">
+              {ORDERS.map(([key, word]) => (
+                <button key={key} type="button" className={sort === key ? "on" : undefined} aria-pressed={sort === key} onClick={() => setSort(key)}>{word}</button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {folderFailed && !folder && <p className="lead">Der Schulordner konnte nicht geladen werden.</p>}
+      {tab === "mine" && !failed && !sheets && <p className="lead" role="status">{late && "Lädt"}</p>}
+      {tab === "mine" && failed && !sheets && <Failed retry={retry}><p><strong>Die Blätter konnten nicht geladen werden</strong></p></Failed>}
+      {tab === "mine" && sheets?.length === 0 && <p className="lead">Noch kein Blatt. Leg dein erstes an.</p>}
+      {tab === "ordner" && folder?.sheets.length === 0 && <p className="lead">{q.trim() ? "Kein Blatt dazu." : "Noch kein Blatt im Schulordner."}</p>}
       <ul className="sheets">
-        {sheets?.map((sheet) => (
+        {tab === "mine" && sheets?.map((sheet) => (
           <li key={sheet.id}>
             <Link to={`/blatt/${sheet.id}`}>
               <Paper doc={sheet.doc} k={147 / sizeOf(read(sheet.doc), 0)[0]} />
@@ -117,16 +185,41 @@ export default function SheetList() {
               <button type="button" className="plain" aria-label={`${sheet.title} umbenennen`} title="Umbenennen" onClick={() => rename(sheet)}>
                 <Pencil size={16} aria-hidden />
               </button>
+              <button type="button" className="plain" aria-label={`${sheet.title} teilen`} title="Teilen" onClick={() => setSharing(sheet)}>
+                <Share2 size={16} aria-hidden />
+              </button>
               <button type="button" className="plain" aria-label={`${sheet.title} duplizieren`} title="Duplizieren" onClick={() => duplicate(sheet)}>
                 <Copy size={16} aria-hidden />
               </button>
+              {folder && (
+                <button type="button" className="plain" aria-label={`${sheet.title} in den Schulordner`} title="In den Schulordner" onClick={() => intoFolder(sheet)}>
+                  <FolderInput size={16} aria-hidden />
+                </button>
+              )}
               <button type="button" className="plain" aria-label={`${sheet.title} löschen`} title="Löschen" onClick={() => remove(sheet)}>
                 <Trash2 size={16} aria-hidden />
               </button>
             </div>
           </li>
         ))}
+        {tab === "ordner" && folder?.sheets.map((entry) => (
+          <li key={entry.id}>
+            <Link to={`/ordner/${entry.id}`}>
+              <Paper doc={entry.doc} k={147 / sizeOf(read(entry.doc), 0)[0]} />
+              <strong>{entry.title}</strong>
+              <small>{entry.author_name} · {day(entry.updated)}{entry.label ? ` · ${entry.label}` : ""}</small>
+            </Link>
+            {(folder.school.admin || entry.mine) && (
+              <div>
+                <button type="button" className="plain" aria-label={`${entry.title} aus dem Schulordner löschen`} title="Löschen" onClick={() => removeFromFolder(entry)}>
+                  <Trash2 size={16} aria-hidden />
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
       </ul>
+      {sharing && <ShareDialog id={sharing.id} title={sharing.title} onClose={() => setSharing(undefined)} />}
     </main>
   );
 }

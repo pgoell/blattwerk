@@ -1,0 +1,114 @@
+/* The school blocks, on the page and in a thumbnail. Their sizes are in em of a font size set to the scale. */
+.block img, .crop img { -webkit-user-drag: none; }
+.block > img { object-fit: contain; }
+.block .ruling { display: block; width: 100%; height: 100%; overflow: visible; }
+/* The text on a ruling: its place and its line height are set to the rows. */
+.block .written { position: absolute; left: 0; width: 100%; margin: 0; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
+.block .written.listed { white-space: nowrap; }
+.written.listed .row { display: flex; flex-wrap: wrap; column-gap: .6em; overflow: hidden; }
+/* A row is a paragraph only so the bows find it: it lays out as the list does, not as a text's paragraph. */
+.written.listed p.row { line-height: inherit; white-space: inherit; overflow-wrap: normal; }
+.written.listed .row span { flex: none; }
+/* A cut picture is larger than its box and clips itself at the cut (Draw in sheet.tsx). The box clips too, on whole
+   pixels: without that the part cut off would give the desk room to scroll to. */
+.block .picture { position: relative; overflow: hidden; }
+.picture img { position: absolute; max-width: none; }
+.block .unknown { font-size: 9pt; color: #777; line-height: 1.3; }
+.block .fields { display: flex; align-items: flex-end; gap: 1em; font-family: Andika; line-height: 1.3; }
+/* An open field's input has a width of its own (size 20), which would widen its span past the line. */
+.fields span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: .3em; }
+.fields span.name { flex: 2; }
+/* A line here is the one pixel that Chromium prints, as a table's is: .06em of these 12 pt is just under a pixel,
+   which Chromium rounds up and Safari on a sharp screen rounds down to half a pixel. */
+.fields i { flex: 1; border-bottom: 1px solid; }
+.block .points {
+  display: flex; align-items: flex-start; justify-content: flex-end; padding: 0 .6em; border: 1px solid; border-radius: .4em;
+  font-family: Andika; white-space: nowrap;
+}
+/* A field written in takes the type and colour of the words it stands for: no border, a thin outline while focused. */
+.block :is(input.score, .fields input) { min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; outline: 0; }
+.block input.score { width: 2.2em; margin: 0 .2em; text-align: center; }
+.block .fields input { flex: 1; }
+.block :is(input.score, .fields input):focus { outline: 1px solid currentColor; }
+.seg input.score { flex-grow: 4; text-align: center; font: 12px var(--mono); }
+/* Maths exercises fill the block's height row by row. A gap is a line to write on; the answer key fills it. */
+.block .maths { display: grid; grid-auto-rows: 1fr; align-items: center; column-gap: 1em; font-family: Andika; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.maths > div { display: flex; align-items: baseline; gap: .5em; white-space: nowrap; }
+/* The numbers of a block are as wide as its widest, flush right: the tasks of a column start under each other. */
+.maths b { flex: none; box-sizing: border-box; min-width: var(--num, 0); text-align: right; }
+/* A family is one grid item: its tasks stand under each other, each a row of its own. */
+.maths > .family { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: .5em; }
+.maths .family > div { display: flex; align-items: baseline; gap: .5em; white-space: nowrap; }
+/* A gap's line in whole pixels, as Chromium prints it: one, and two from 25 pt on. The plain pixel is for a browser
+   without round(). */
+.maths u { display: inline-block; min-width: var(--gap); border-bottom: 1px solid; border-bottom-width: max(1px, round(down, .06em, 1px)); text-align: center; text-decoration: none; }
+/* Paper that outgrows its block is cut at the block's edge. */
+.block .maths-written { align-items: start; overflow: hidden; }
+.maths-written > div { align-items: flex-start; }
+/* The paper's outer lines lie half outside the svg: Chromium, which prints, cuts the right and the lower one away. */
+.maths svg { flex: none; overflow: visible; font-family: Andika; }
+.maths u, .maths .answer { color: #c0392b; }
+.maths u { border-color: #222; }
+.maths .hint { margin: 0; font-size: 12px; }
+/* A comparison's ring is empty for the pupil, who writes the sign in it; the answer key writes it in red. The ring is
+   a circle of the row's height, so it sits on the numbers' line. Scoped to `i`: a numbering ring is a `span`. */
+.maths i.ring { display: inline-block; box-sizing: border-box; width: 1.3em; height: 1.3em; min-width: 0; padding: 0; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); border-radius: 50%; vertical-align: middle; text-align: center; line-height: 1.2em; font-style: normal; color: #c0392b; }
+/* A word search fills its block: the grid is as wide as the block, or as high as the word list under it leaves
+   room, and its squares stay square. The list stands right under the grid. */
+.block .suchsel { display: flex; flex-direction: column; gap: .4em; height: 100%; font-family: Andika; }
+.suchsel svg { flex: 0 1 auto; min-height: 0; width: 100%; font-family: Andika; }
+.suchsel .found { flex: none; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .1em 1em; line-height: 1.3; color: #222; }
+.suchsel .ring { fill: #c0392b; fill-opacity: .12; stroke: #c0392b; }
+.block .zahlenmauer { height: 100%; font-family: Andika; }
+.zahlenmauer svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zahlenhaus { height: 100%; font-family: Andika; }
+.zahlenhaus svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zahlenkette { height: 100%; font-family: Andika; }
+.zahlenkette svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .pfeilbild { height: 100%; font-family: Andika; }
+.pfeilbild svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .operatorfeld { height: 100%; font-family: Andika; }
+.operatorfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .rechenrad { height: 100%; font-family: Andika; }
+.rechenrad svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .rechentabelle { height: 100%; font-family: Andika; }
+.rechentabelle svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .magischesquadrat { height: 100%; font-family: Andika; }
+.magischesquadrat svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .malquadrat { height: 100%; font-family: Andika; }
+.malquadrat svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zerlegungsfeld { height: 100%; font-family: Andika; }
+.zerlegungsfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .halbschriftlich { height: 100%; font-family: Andika; }
+.halbschriftlich svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zehnerfeld { height: 100%; font-family: Andika; }
+.zehnerfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+/* The dots of a Zehnerfeld set by hand: as many columns as the field, each dot as wide as the panel lets it be. */
+.punkte button { width: 100%; min-width: 0; aspect-ratio: 1; height: auto; padding: 0; border-radius: 50%; border: 1px solid #888; background: #fff; }
+.punkte button[data-mark="1"] { background: var(--dot1); }
+.punkte button[data-mark="2"] { background: var(--dot2); }
+.punkte button[data-mark="3"] { background: linear-gradient(to top right, transparent 40%, #fff 40%, #fff 44%, #222 44%, #222 56%, #fff 56%, #fff 60%, transparent 60%), var(--dot1); }
+.block .rechendreieck { height: 100%; font-family: Andika; }
+.rechendreieck svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.block .zahlenstrahl { height: 100%; font-family: Andika; }
+/* A large first or last number reaches past the block's edge rather than being cut off. */
+.zahlenstrahl svg { display: block; width: 100%; height: 100%; font-family: Andika; overflow: visible; }
+.block .hunderterfeld { height: 100%; font-family: Andika; }
+.block .uhr { height: 100%; font-family: Andika; }
+.uhr svg { display: block; width: 100%; height: 100%; font-family: Andika; }
+.maths .letter { display: inline-block; flex: none; box-sizing: border-box; width: 1.4em; height: 1.4em; margin-left: .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); vertical-align: middle; text-align: center; line-height: 1.4em; font-style: normal; color: #c0392b; }
+.selbstkontrolle { font-family: Andika; color: #222; line-height: 1.3; height: 100%; box-sizing: border-box; overflow: hidden; }
+.selbstkontrolle h3.title { margin: 0 0 .3em; font-size: 1.2em; }
+.selbstkontrolle ul { margin: 0; padding: 0; list-style: none; }
+.selbstkontrolle li { display: flex; align-items: baseline; gap: .4em; }
+.selbstkontrolle ul.mixed { display: flex; flex-wrap: wrap; gap: .3em 1.2em; padding: .4em .6em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); }
+.selbstkontrolle .tick { flex: none; display: inline-block; width: .9em; height: .9em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); }
+.selbstkontrolle table.word { margin: 0 auto; border-collapse: collapse; }
+.selbstkontrolle table.word td { min-width: 1.6em; padding: .15em .4em; border: 1px solid #222; border-width: max(1px, round(down, .06em, 1px)); text-align: center; }
+.selbstkontrolle .answer { margin: .3em 0 0; font-size: 1.4em; font-weight: bold; text-align: center; color: #c0392b; }
+.selbstkontrolle { position: relative; }
+.selbstkontrolle .hint { position: absolute; left: 0; bottom: 0; margin: 0; font-size: 12px; line-height: 1.2; color: #c0392b; background: #fffc; }
+.paper .selbstkontrolle .hint { display: none; }
+.selbstkontrolle.upside > .inner, .selbstkontrolle.fold > .inner { transform: rotate(180deg); }
+.selbstkontrolle > .fold { border-bottom: 1px dashed #222; text-align: center; font-size: .8em; color: #666; }
+.hunderterfeld svg { display: block; width: 100%; height: 100%; font-family: Andika; }

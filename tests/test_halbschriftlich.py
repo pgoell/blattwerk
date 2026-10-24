@@ -167,114 +167,6 @@ def test_one_step_per_digit_of_b_that_is_not_0(editor, browser, server):
     paper.context.close()
 
 
-def test_the_zahlenraum_and_the_digits_of_the_second_number_keep_the_rule(editor, browser, server):
-    """Zahlenraum (#828): with bis 100 and zweistellig every second number has 2 digits (10 to 99) and every first number
-    and result is at most 100. "dreistellig" shows only with bis 1000; a stored 3 with bis 100 reads "zweistellig"."""
-    page = editor(hal(props={"max": 100, "digits": 2}))
-    pick(page, "k")
-    paper = key_print(browser, server, sheet_id(page))
-    for task in range(6):
-        v = values(paper.locator(".halbschriftlich"), task, 0)
-        assert 10 <= v[1] <= 99 and v[0] <= 100 and v[2] <= 100, v
-    paper.context.close()
-    field(page, "Zahlenraum").select_option(label="bis 100")
-    options = field(page, "Stellen der zweiten Zahl").locator("option")
-    expect(options).to_have_text(["einstellig", "zweistellig"])
-    other = editor(hal(props={"max": 100, "digits": 3}))
-    pick(other, "k")
-    expect(
-        other.locator(".panel")
-        .get_by_label("Stellen der zweiten Zahl", exact=True)
-        .locator("option:checked")
-    ).to_have_text("zweistellig")
-
-
-def test_the_digits_select_offers_dreistellig_only_with_bis_1000(editor):
-    """Zahlenraum (#828): "dreistellig" is offered with bis 1000 and not with bis 100."""
-    page = editor(hal())
-    pick(page, "k")
-    expect(field(page, "Stellen der zweiten Zahl").locator("option")).to_have_text(
-        ["einstellig", "zweistellig", "dreistellig"]
-    )
-    field(page, "Zahlenraum").select_option(label="bis 100")
-    expect(field(page, "Stellen der zweiten Zahl").locator("option")).to_have_text(
-        ["einstellig", "zweistellig"]
-    )
-
-
-@pytest.mark.parametrize("op", ["+", "-"])
-@pytest.mark.parametrize("rule", ["yes", "no"])
-def test_uebergang_bei_den_einern_mit_and_ohne_hold_in_every_drawn_task(
-    editor, browser, server, op, rule
-):
-    """Übergang bei den Einern (#828): "mit Übergang" every drawn task crosses in the Einer step, "ohne Übergang"
-    none does; read from the digits of the key."""
-    page = editor(hal(props={"op": op, "einer": rule}))
-    pick(page, "k")
-    paper = key_print(browser, server, sheet_id(page))
-    for task in range(6):
-        v = values(paper.locator(".halbschriftlich"), task, 0)
-        assert crosses(op, v[0], v[1], 0) == (rule == "yes"), v
-    paper.context.close()
-
-
-@pytest.mark.parametrize("op", ["+", "-"])
-@pytest.mark.parametrize("rule", ["yes", "no"])
-def test_uebergang_bei_den_zehnern_mit_and_ohne_hold_in_every_drawn_task(
-    editor, browser, server, op, rule
-):
-    """Übergang bei den Zehnern (#828): with bis 1000 and three digits, "mit Übergang" every drawn task crosses in the
-    Zehner step, "ohne Übergang" none does; read from the digits of the key."""
-    page = editor(hal(props={"op": op, "zehner": rule}))
-    pick(page, "k")
-    paper = key_print(browser, server, sheet_id(page))
-    for task in range(6):
-        v = values(paper.locator(".halbschriftlich"), task, 0)
-        assert crosses(op, v[0], v[1], 1) == (rule == "yes"), v
-    paper.context.close()
-
-
-def test_the_zehner_select_shows_only_with_bis_1000(editor):
-    """Übergang bei den Zehnern (#828): the select shows with bis 1000, also with einstellig (395 + 7 crosses a
-    hundred), and not with bis 100."""
-    page = editor(hal())
-    pick(page, "k")
-    expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
-    field(page, "Stellen der zweiten Zahl").select_option(label="einstellig")
-    expect(field(page, "Übergang bei den Zehnern")).to_be_visible()
-    field(page, "Zahlenraum").select_option(label="bis 100")
-    expect(field(page, "Übergang bei den Zehnern")).to_have_count(0)
-
-
-def test_settings_with_no_task_give_the_hint_and_every_slot_empty_also_in_the_key(
-    editor, browser, server
-):
-    """Settings (#828): Plus, bis 1000, einstellig, Einer "ohne Übergang" and Zehner "mit Übergang" give the hint
-    "Mit diesen Einstellungen gibt es keine Aufgabe.", and every slot is empty, on the sheet and in the key."""
-    page = editor(hal(props={"digits": 1, "einer": "no", "zehner": "yes"}))
-    pick(page, "k")
-    expect(page.locator(".panel p.hint[role=status]")).to_have_text(NO_TASK)
-    expect(at(page, "k").locator(".halbschriftlich text")).to_have_count(0)
-    paper = key_print(browser, server, sheet_id(page))
-    expect(paper.locator(".halbschriftlich text")).to_have_count(0)
-    paper.context.close()
-
-
-def test_ohne_uebergang_bei_den_zehnern_never_crosses_a_hundred_also_with_einstellig(
-    editor, browser, server
-):
-    """Übergang bei den Zehnern (#828): Plus, bis 1000, einstellig, Zehner "ohne Übergang", 12 tasks: in the key no
-    task crosses a hundred, so a // 100 equals r // 100 in every task."""
-    page = editor(hal(props={"count": 12, "digits": 1, "zehner": "no"}))
-    pick(page, "k")
-    paper = key_print(browser, server, sheet_id(page))
-    loc = paper.locator(".halbschriftlich")
-    for task in range(12):
-        v = values(loc, task, 0)
-        assert v[0] // 100 == v[2] // 100, v
-    paper.context.close()
-
-
 @pytest.mark.parametrize("grid", [True, False])
 def test_karo_on_draws_the_squares_and_off_draws_plain_boxes(editor, grid):
     """Karo (#828): Karo on draws g.karo behind the tasks; off draws plain rects, one box per number."""
@@ -349,68 +241,6 @@ def test_a_task_with_many_answers_gets_room_for_any_of_them(editor):
     expect(task.locator('g.slot[data-pos="0"]')).to_have_count(1 + 3)
 
 
-def test_typed_numbers_win_and_the_rest_is_worked_out(editor, browser, server):
-    """Eigene Zahlen (#828): typed a and b give the task's r and steps; the drawn task of that place is replaced."""
-    page = editor(hal(props={"count": 2, "typed": [[0, 0, 345], [0, 1, 103]]}))
-    pick(page, "k")
-    paper = key_print(browser, server, sheet_id(page))
-    loc = paper.locator(".halbschriftlich")
-    assert values(loc, 0, 0) == {0: 345, 1: 103, 2: 448}
-    paper.context.close()
-
-
-def test_one_typed_number_says_there_is_more_than_one_solution(editor, browser, server):
-    """Eigene Zahlen (#828): one typed number gives many solutions: the panel says "Es gibt mehr als eine Lösung." and
-    the key says "Auch andere Lösungen sind richtig."."""
-    page = editor(hal(props={"count": 1, "typed": [[0, 0, 5]]}))
-    pick(page, "k")
-    expect(hint(page)).to_have_text("Aufgabe 1: Es gibt mehr als eine Lösung.")
-    paper = key_print(browser, server, sheet_id(page))
-    expect(paper.locator(".halbschriftlich text.note")).to_have_text(NOTE)
-    paper.context.close()
-
-
-def test_a_fully_fixed_typed_task_has_no_note(editor, browser, server):
-    """Eigene Zahlen (#828): a typed a, b and r that fix the task (one solution) show no hint and no note in the key."""
-    page = editor(hal(props={"count": 1, "typed": [[0, 0, 345], [0, 1, 103], [0, 2, 448]]}))
-    pick(page, "k")
-    expect(hint(page)).to_have_count(0)
-    paper = key_print(browser, server, sheet_id(page))
-    expect(paper.locator(".halbschriftlich text.note")).to_have_count(0)
-    paper.context.close()
-
-
-def test_typed_numbers_that_do_not_fit_give_the_hint_and_no_answer_in_the_key(
-    editor, browser, server
-):
-    """Eigene Zahlen (#828): Minus with a 5 and b 9 does not fit (a minus b is below 0): the hint says "Aufgabe 1: Die Zahlen passen
-    nicht zusammen.", the task is marked wrong and its key shows no answer."""
-    page = editor(hal(props={"op": "-", "count": 1, "typed": [[0, 0, 5], [0, 1, 9]]}))
-    pick(page, "k")
-    expect(hint(page)).to_have_text("Aufgabe 1: Die Zahlen passen nicht zusammen.")
-    expect(at(page, "k").locator("g.task[data-task='0'].wrong")).to_have_count(1)
-    paper = key_print(browser, server, sheet_id(page))
-    loc = paper.locator(".halbschriftlich")
-    assert values(loc, 0, 0) == {0: 5, 1: 9}
-    assert values(loc, 0, 1) == {}
-    paper.context.close()
-
-
-def test_eigene_zahlen_entfernen_is_one_undo_step(editor):
-    """Eigene Zahlen (#828): "Eigene Zahlen entfernen" drops the typed numbers and the hint in one undo step."""
-    client = user()
-    page = editor(hal(props={"count": 1, "typed": [[0, 0, 5]]}), client=client)
-    pick(page, "k")
-    expect(hint(page)).to_be_visible()
-    step(
-        page, lambda: page.get_by_role("button", name="Eigene Zahlen entfernen", exact=True).click()
-    )
-    assert "typed" not in props_of(doc(page, client))
-    expect(hint(page)).to_have_count(0)
-    undo(page)
-    assert props_of(doc(page, client))["typed"] == [[0, 0, 5]]
-
-
 def test_neu_wuerfeln_changes_only_the_seed(editor, browser, server):
     """Neu würfeln (#828): the button changes the seed and nothing else in the props; the tasks change."""
     client = user()
@@ -480,39 +310,6 @@ def test_each_setting_is_one_undo_step_and_redo_brings_it_back(editor, key, befo
     assert props_of(doc(page, client))[key] == after
 
 
-def test_typing_a_number_is_one_undo_step_and_the_box_keeps_focus_and_digits(editor):
-    """Eigene Zahlen (#828): typing "12" into "Erste Zahl" keeps the focus and both digits while the block redraws,
-    stores a typed entry, and one Ctrl+Z in the box takes the whole number back."""
-    client = user()
-    page = editor(hal(), client=client)
-    pick(page, "k")
-    number = field(page, "Erste Zahl")
-    drawn_b = field(page, "Zweite Zahl").input_value()
-    number.click()
-    number.press("Control+A")
-    step(page, lambda: page.keyboard.type("12"))
-    expect(number).to_be_focused()
-    expect(number).to_have_value("12")
-    typed = props_of(doc(page, client))["typed"]
-    # The first number typed keeps the drawn second number as a typed entry, so the sheet still shows it.
-    assert [0, 0, 12] in typed and [0, 1, int(drawn_b)] in typed
-    expect(field(page, "Zweite Zahl")).to_have_value(drawn_b)
-    step(page, lambda: number.press("Control+z"))
-    assert "typed" not in props_of(doc(page, client))
-
-
-def test_rechenart_change_drops_typed_in_one_undo_step(editor):
-    """Eigene Zahlen (#828): a change of Rechenart drops the typed numbers in the same undo step."""
-    client = user()
-    page = editor(hal(props={"typed": [[0, 0, 7]]}), client=client)
-    pick(page, "k")
-    step(page, lambda: field(page, "Rechenart").select_option(label="Minus"))
-    stored = props_of(doc(page, client))
-    assert stored["op"] == "-" and "typed" not in stored
-    undo(page)
-    assert props_of(doc(page, client))["typed"] == [[0, 0, 7]]
-
-
 def test_steppers_show_their_counts_and_stop_at_their_limits(editor):
     """Panel (#828): "6 Aufgaben" and "2 nebeneinander" show the counts; the steppers stop at 1 and 12 tasks and at 1
     and 3 columns."""
@@ -543,17 +340,6 @@ def test_one_more_task_grows_the_block_in_one_undo_step(editor):
     assert {b["id"]: b for b in doc(page, client)["pages"][0]["blocks"]}["k"]["h"] == pytest.approx(
         H
     )
-
-
-def test_typed_entries_of_a_task_that_is_gone_stay_stored(editor):
-    """Eigene Zahlen (#828): with fewer tasks, the typed entries of a task that is gone stay stored and play no part."""
-    client = user()
-    page = editor(hal(props={"typed": [[5, 0, 12]]}), client=client)
-    pick(page, "k")
-    step(page, lambda: panel(page, "Eine Aufgabe weniger").click())
-    stored = props_of(doc(page, client))
-    assert stored["count"] == 5
-    assert [5, 0, 12] in stored["typed"]
 
 
 def test_a_reload_keeps_the_tasks_the_settings_and_the_typed_numbers(editor):

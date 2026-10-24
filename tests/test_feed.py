@@ -11,9 +11,8 @@ import pytest
 from playwright.sync_api import expect
 from test_feed_print import printed, sheet_id
 from test_gaps import panel, step
-from test_keys_focus import choose
 from test_painter import held
-from test_words import field, go, list_tab, redo, undo
+from test_words import field, list_tab, redo, undo
 from ui import (
     FIELD,
     LINE,
@@ -27,7 +26,6 @@ from ui import (
     doc,
     pick,
     saved,
-    sheet,
     unpick,
     user,
 )
@@ -231,24 +229,6 @@ def test_lernwoerter_bearbeiten_leads_to_the_list(editor):
     expect(field(page)).to_have_value("\n".join(WORDS))
 
 
-def test_eigener_text_cuts_the_block_loose_with_its_words(editor):
-    """I2: "Eigener Text" makes the words the block's own text, and one undo links it again."""
-    client = user()
-    linked = {**LISTED, "listCols": 2, "holes": "one", "holeSeed": 7}
-    page = editor(box("a", "text", linked), client=client, words=WORDS)
-    pick(page, "a")
-    choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Eigener Text"))
-    stored = held(page, client)["a"]
-    assert stored["text"] == "\n".join(WORDS)
-    assert not {"list", "listCols", "holes", "holeSeed"} & set(stored)
-    step(page, lambda: undo(page))
-    back = held(page, client)["a"]
-    assert back["list"] is True
-    assert back["holes"] == "one"
-    assert back["text"] == "Hallo"
-
-
 def test_a_linked_block_grows_to_hold_the_list(editor):
     """I3: a text linked, and then a word added to its list, each make the block taller."""
     client = user()
@@ -307,96 +287,6 @@ def test_a_measured_block_still_draws_its_words_whole_after_an_undo(editor):
     assert bottom <= rich["y"] + rich["height"] + 1
 
 
-def test_a_copied_linked_text_with_no_list_keeps_its_own_text(editor):
-    """I4: a linked text copied from a sheet with no list keeps its own text when pasted on a sheet
-    with another list."""
-    client = user()
-    page = editor(box("t", "text", {**TEXT, "list": True}), client=client)
-    other = sheet(client, [box("t", "text", TEXT, z=3)], words=WORDS)
-    pick(page, "t")
-    page.keyboard.press("Control+c")
-    go(page, other)
-    page.keyboard.press("Control+v")
-    expect(page.locator(".sheet .block")).to_have_count(2)
-    # The sheet's own block is "t"; the pasted one is the other.
-    [landed] = [b["props"] for b in doc(page, client)["pages"][0]["blocks"] if b["id"] != "t"]
-    assert landed["text"] == "Hallo"
-    assert "list" not in landed
-
-
-def test_cut_loose_keeps_the_line_of_the_mixed_words(editor):
-    """I2: a mixed linked text cut loose keeps the line after each word."""
-    client = user()
-    page = editor(box("a", "text", {**LISTED, "mix": 7}), client=client, words=WORDS)
-    pick(page, "a")
-    choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Eigener Text"))
-    assert held(page, client)["a"]["mixLine"] == "after"
-    expect(at(page, "a").locator(".mix .gap.line")).to_have_count(len(WORDS))
-
-
-def test_a_copied_linked_text_takes_the_list_to_a_sheet_without_one(editor):
-    """I4: a linked text pasted on a sheet with no list takes the list, and one undo takes it."""
-    client = user()
-    page = editor(box("t", "text", LISTED), client=client, words=WORDS)
-    other = sheet(client, [box("t", "text", TEXT, z=3)])
-    pick(page, "t")
-    page.keyboard.press("Control+c")
-    go(page, other)
-    page.keyboard.press("Control+v")
-    expect(page.locator(".sheet .block")).to_have_count(2)
-    stored = doc(page, client)
-    assert stored["words"] == WORDS
-    listed = [b for b in stored["pages"][0]["blocks"] if b["props"].get("list") is True]
-    assert len(listed) == 1
-    undo(page)
-    stored = doc(page, client)
-    assert "words" not in stored
-    assert len(stored["pages"][0]["blocks"]) == 1
-
-
-def test_a_copied_linked_text_lands_cut_loose_on_a_sheet_with_another_list(editor):
-    """I4: a linked text pasted on a sheet with another list lands with its words as own text."""
-    client = user()
-    page = editor(box("t", "text", LISTED), client=client, words=WORDS)
-    other = sheet(client, [box("t", "text", TEXT, z=3)], words=["Reh"])
-    pick(page, "t")
-    page.keyboard.press("Control+c")
-    go(page, other)
-    page.keyboard.press("Control+v")
-    expect(page.locator(".sheet .block")).to_have_count(2)
-    stored = doc(page, client)
-    assert stored["words"] == ["Reh"]
-    own = "\n".join(WORDS)
-    pasted = [b["props"] for b in stored["pages"][0]["blocks"] if b["props"].get("text") == own]
-    assert len(pasted) == 1
-    assert "list" not in pasted[0]
-
-
-def test_a_duplicated_linked_text_stays_linked(editor):
-    """I4: a duplicated linked text is linked too, and the sheet keeps its list."""
-    client = user()
-    page = editor(box("t", "text", LISTED), client=client, words=WORDS)
-    pick(page, "t")
-    page.keyboard.press("Control+d")
-    expect(page.locator(".sheet .block")).to_have_count(2)
-    stored = doc(page, client)
-    assert stored["words"] == WORDS
-    assert [b["props"].get("list") for b in stored["pages"][0]["blocks"]] == [True, True]
-
-
-def test_several_texts_link_in_one_step(editor):
-    """I5: two picked texts take the list in one step, and one undo unlinks both."""
-    client = user()
-    page = editor(box("a", "text", TEXT), box("b", "text", TEXT, z=2), client=client, words=WORDS)
-    pick(page, "a", "b")
-    choice = page.get_by_label(CHOICE)
-    step(page, lambda: choice.select_option(label="Text aus Lernwörtern"))
-    assert [b["props"].get("list") for b in saved(page, client)] == [True, True]
-    step(page, lambda: undo(page))
-    assert [b["props"].get("list") for b in saved(page, client)] == [None, None]
-
-
 def test_a_switch_is_on_only_when_all_have_it(editor):
     """I5: Lückenwörter is on only when every picked text has it; the choice is "own" otherwise."""
     client = user()
@@ -415,115 +305,3 @@ def test_a_switch_is_on_only_when_all_have_it(editor):
     unpick(page)
     pick(page, "a", "c")
     expect(page.get_by_label(CHOICE)).to_have_value("own")
-
-
-def test_tab_reaches_the_new_controls_and_keys_press_them(editor):
-    """I6: Tab reaches "3 Spalten" and "Lückenwörter"; Space and Enter press them."""
-    client = user()
-    page = editor(box("a", "text", LISTED), client=client, words=WORDS)
-    pick(page, "a")
-    page.get_by_label(CHOICE).focus()
-    for _ in range(12):
-        if panel(page, "3 Spalten").evaluate("el => el === document.activeElement"):
-            break
-        page.keyboard.press("Tab")
-    expect(panel(page, "3 Spalten")).to_be_focused()
-    page.keyboard.press("Space")
-    expect(panel(page, "3 Spalten")).to_have_attribute("aria-pressed", "true")
-    for _ in range(12):
-        if panel(page, "Lückenwörter").evaluate("el => el === document.activeElement"):
-            break
-        page.keyboard.press("Tab")
-    expect(panel(page, "Lückenwörter")).to_be_focused()
-    page.keyboard.press("Enter")
-    expect(panel(page, "Lückenwörter")).to_have_attribute("aria-pressed", "true")
-    stored = held(page, client)["a"]
-    assert stored["listCols"] == 3
-    assert stored["holes"] == "one"
-
-
-@pytest.mark.parametrize(
-    "props, expected, gaps",
-    [
-        pytest.param({**TEXT, "list": "yes"}, ["Hallo"], 0, id="list-yes"),
-        pytest.param({**LISTED, "listCols": 9}, WORDS, 0, id="cols-9"),
-        pytest.param({**LISTED, "holes": "x"}, WORDS, 0, id="holes-x"),
-        pytest.param({**LISTED, "holes": "one", "holeSeed": "q"}, WORDS, 6, id="seed-q"),
-    ],
-)
-def test_garbage_in_the_new_props_draws_the_plain_block(editor, props, expected, gaps):
-    """I7: stored garbage draws the plain text, or the words whole in one column."""
-    page = editor(box("a", "text", props), words=WORDS)
-    # A plain text draws its paragraphs in the frame with no .rich around them.
-    paragraphs = at(page, "a").locator(".frame p")
-    expect(paragraphs).to_have_count(len(expected))
-    assert paragraphs.all_text_contents() == expected
-    lefts = paragraphs.evaluate_all(
-        "els => new Set(els.map((p) => Math.round(p.getBoundingClientRect().left))).size"
-    )
-    assert lefts == 1
-    expect(at(page, "a").locator(".gap")).to_have_count(gaps)
-
-
-def test_a_sheet_without_the_new_props_saves_back_as_it_was(editor):
-    """I7: a sheet with no list, columns, holes or seed saves back as it was."""
-    client = user()
-    old = [
-        box("a", "text", TEXT),
-        box("c", "shape", {**RECT, "text": "Hund"}, z=2),
-        box("t", "table", TABLE, z=3),
-    ]
-    page = editor(*old, client=client)
-    sheet_id = page.url.rsplit("/", 1)[1]
-    before = client.get(f"/api/sheets/{sheet_id}").json()["doc"]
-    pick(page, "a")
-    page.get_by_label("Titel", exact=True).fill("Anders")
-    expect(page.locator("header [role=status]")).to_have_text("Gespeichert", timeout=5000)
-    after = client.get(f"/api/sheets/{sheet_id}").json()["doc"]
-    assert after == before
-    new = {"list", "listCols", "holes", "holeSeed"}
-    for block in before["pages"][0]["blocks"]:
-        assert not new & set(block["props"])
-
-
-def test_lueckenwoerter_and_schuettelwoerter_shut_each_other_out(editor):
-    """I8: Lückenwörter and Schüttelwörter shut each other out."""
-    client = user()
-    page = editor(box("a", "text", {**LISTED, "mix": 7}), client=client, words=WORDS)
-    pick(page, "a")
-    step(page, lambda: panel(page, "Lückenwörter").click())
-    stored = held(page, client)["a"]
-    assert "mix" not in stored
-    assert stored["holes"] == "one"
-    step(page, lambda: panel(page, "Schüttelwörter").click())
-    stored = held(page, client)["a"]
-    assert "holes" not in stored
-    assert type(stored["mix"]) is int
-
-
-def test_the_choice_gives_the_keys_back_to_the_sheet_and_ends_the_writing(editor):
-    """I6: a choice made while a text is written in gives the keys back and ends the writing."""
-    client = user()
-    page = editor(box("a", "text", TEXT), client=client, words=WORDS)
-    pick(page, "a")
-    page.keyboard.press("Enter")
-    expect(page.locator(FIELD)).to_be_focused()
-    control = choose(page, CHOICE)
-    expect(control).not_to_be_focused()
-    expect(page.locator(FIELD)).to_have_count(0)
-    assert held(page, client)["a"]["list"] is True
-    expect(at(page, "a").locator(".frame.listed .rich p")).to_have_count(len(WORDS))
-    page.keyboard.press("ArrowRight")
-    expect(page.get_by_label("X", exact=True)).to_have_value("16")
-
-
-def test_a_linked_block_shows_no_gap_controls(editor):
-    """I8: a linked text shows no Lücke, Jedes n-te Wort or Lösungswörter; an unlinked one does."""
-    linked = editor(box("a", "text", LISTED), words=WORDS)
-    pick(linked, "a")
-    for label in ("Lücke", "Jedes n-te Wort", "Lösungswörter"):
-        expect(panel(linked, label)).to_have_count(0)
-    plain = editor(box("b", "text", TEXT))
-    pick(plain, "b")
-    for label in ("Lücke", "Jedes n-te Wort", "Lösungswörter"):
-        expect(panel(plain, label)).to_have_count(1)

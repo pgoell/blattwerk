@@ -40,6 +40,8 @@ mise run fmt            # ruff format
 mise run check-commits  # cocogitto on unpushed commits
 ```
 
+A host without GTK runs `mise run test:webkit` in Docker. Keep a Chromium suite off that machine while those containers start and stop: one beside them has failed its console check with `net::ERR_NETWORK_CHANGED` (#256). Which part of Docker causes that is not proven.
+
 A browser test takes the fixture `editor` (in `tests/conftest.py`) and the helpers in `tests/ui.py`; the recipe at the top of `ui.py` shows one whole test.
 In a test the app's database does not wait for the disk (`unsynced` in `tests/conftest.py`), an `expect` waits up to 5 s, and `editor` gives the page once its fonts are in.
 After a reload wait with `ui.reload(page, address)`, never with `page.reload()` inside `expect_response` and `.finished()` after: that hangs when it catches an answer of the old page.

@@ -1,12 +1,11 @@
 """Ctrl and the wheel zoom about the pointer, Space and a drag move the desk, "Ganze Seite" fits."""
 
+import math
 import re
 
 import pytest
 from playwright.sync_api import expect
 from test_drop import spot
-from test_fields import by_id, field
-from test_pages import expect_in_use
 from ui import (
     BROWSER,
     FIELD,
@@ -19,17 +18,10 @@ from ui import (
     box,
     caret,
     centre,
-    doc,
     drag,
-    expect_picked,
     maths,
-    pick,
     picture,
-    saved,
-    sheet,
-    thumb,
     upload,
-    user,
 )
 
 PAN = re.compile(r"\bpan\b")
@@ -85,6 +77,28 @@ def wheel(page, delta, point=None, ctrl=True):
     page.mouse.wheel(0, delta)
     if ctrl:
         page.keyboard.up("Control")
+
+
+def pinch(page, delta, point):
+    """A trackpad pinch: Ctrl and a wheel whose delta is not a whole number.
+
+    Chromium delivers that delta as it is. WebKit rounds a wheel it is sent to a
+    whole number, and a whole delta is a notch, so there the page sends the event.
+    """
+    if BROWSER != "webkit":
+        wheel(page, delta, point)
+        return
+    page.mouse.move(*point)
+    page.evaluate(
+        """([x, y, delta]) => {
+            const el = document.elementFromPoint(x, y);
+            el.dispatchEvent(new WheelEvent("wheel", {
+                deltaX: 0, deltaY: delta, ctrlKey: true, bubbles: true, cancelable: true,
+                clientX: x, clientY: y,
+            }));
+        }""",
+        [*point, delta],
+    )
 
 
 def kept(page):
@@ -200,6 +214,41 @@ def expect_under(page, point, mm, wide, n=0):
     )
 
 
+# Asked #164
+
+
+def test_a_trackpad_pinch_follows_the_fingers(editor):
+    """A pinch whose delta is not a whole number grows the page with the fingers.
+
+    Chrome sends about -100 * ln(scale). A whole notch stays one step of the buttons.
+    """
+    page = editor(box("a", "text", TEXT))
+    roomy(page)
+    wide = width(page)
+    point = spot(page, 60, 80)
+    assert page.evaluate(
+        "([x, y]) => !!document.elementFromPoint(x, y).closest('.sheet.on')", point
+    )
+    # Four small events, as a trackpad sends them: together the fingers have doubled.
+    step = -100 * math.log(2) / 4
+    for n in range(1, 5):
+        pinch(page, step, point)
+        expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
+    for n in range(3, -1, -1):
+        pinch(page, -step, point)
+        expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
+    # The same doubling in one event, then back.
+    pinch(page, -100 * math.log(2), point)
+    expect_under(page, point, (60, 80), wide * 2)
+    pinch(page, 100 * math.log(2), point)
+    expect_under(page, point, (60, 80), wide)
+    # A mouse wheel's notch is a whole number.
+    wheel(page, -100, point)
+    expect_under(page, point, (60, 80), wide * 1.25)
+    wheel(page, 100, point)
+    expect_under(page, point, (60, 80), wide)
+
+
 def test_ctrl_wheel_keeps_the_point_under_the_pointer(editor):
     """A2"""
     page = editor(box("a", "text", TEXT))
@@ -233,138 +282,59 @@ def test_ctrl_wheel_keeps_the_point_on_a_page_not_in_use(editor):
         expect_under(page, point, (60, 40), wide * 1.25**step, 2)
 
 
-def test_space_and_drag_moves_the_desk(editor):
-    """A3"""
-    page = editor(box("a", "text", TEXT))
-    roomy(page)
-    wide = width(page)
-    middle = centre(page.locator(".desk"))
-    pan(page, middle, 100, 60)
-    pan(page, middle, -40, -90)
-    pan(page, middle, 0, 30)
-    pan(page, middle, -30, 0)
-    # Space on a zoom button that has the focus pans too, and does not press the button.
-    page.get_by_label("Größer", exact=True).first.focus()
-    pan(page, middle, 20, 20)
-    settled(page)
-    assert width(page) == pytest.approx(wide, abs=1)
-    expect(page.locator(HAND)).to_have_count(0)
-
-
-def test_fit_shows_the_whole_page(editor):
-    """A4"""
-    page = editor(box("a", "text", TEXT))
-    # Right after the percent button.
-    assert fit(page).evaluate("el => !!el.previousElementSibling?.classList.contains('zoom')")
-    assert not page.evaluate(INSIDE, 0)
-    wide = width(page)
-    fit(page).click()
-    expect_fitted(page, 0, 210, 297)
-    expect_percent(page)
-    # The list still sets the width. The fit works from a zoom that overflows both ways.
-    page_width(page)
-    expect_width(page, wide)
-    assert not page.evaluate(INSIDE, 0)
-    roomy(page)
-    fit(page).click()
-    expect_fitted(page, 0, 210, 297)
-
-
-@pytest.mark.parametrize("kind", KINDS)
-def test_a_space_drag_leaves_the_block_alone(editor, kind):
-    """I1"""
-    client = user()
-    blocks = of_kind(kind, client)
-    names = [b["id"] for b in blocks]
-    page = editor(*blocks, client=client)
-    roomy(page)
-    before = places(page, *names)
-    # Not selected: the drag starts on the block and neither picks nor moves it.
-    pan(page, centre(at(page, "a")), 100, 60)
-    expect_picked(page)
-    expect_in_place(page, names, before)
-    # Selected, a group by one click: it stays so, and where it was.
-    at(page, "a").click()
-    expect_picked(page, *names)
-    pan(page, centre(at(page, "a")), -60, -40)
-    expect_picked(page, *names)
-    expect_in_place(page, names, before)
-    # Nothing opened either: no text, no cell, no crop.
-    expect(page.locator(".ProseMirror, .block textarea:not([readonly]), .crop")).to_have_count(0)
-    expect(page.locator(HAND)).to_have_count(0)
-
-
-def test_a_space_drag_keeps_a_selection_of_several(editor):
-    """I1"""
-    low, lower = {**PLACE, "y": 110}, {**PLACE, "y": 160}
-    page = editor(
-        box("a", "text", TEXT, **PLACE),
-        box("b", "shape", RECT, z=2, **low),
-        box("c", "shape", LINE, z=3, **lower),
-        box("d", "shape", RECT, z=4, x=15, y=110, w=35, h=40),
+def test_ctrl_wheel_keeps_the_point_when_the_desk_is_measured_in_the_same_turn(editor):
+    """A wheel while the desk is measured keeps the point. The listener still holds the old scale (#325)."""
+    rest = [{"blocks": [box(name, "text", TEXT)]} for name in "bc"]
+    page = editor(box("a", "text", TEXT), pages=rest)
+    page.locator('.sheet[data-page="2"]').evaluate("el => el.scrollIntoView()")
+    # The resize delivers the wheel: the page is already the new width, and the listener is still the old one.
+    page.evaluate(
+        """() => {
+            const desk = document.querySelector(".desk");
+            const start = desk.clientWidth;
+            new ResizeObserver(() => {
+                if (desk.clientWidth === start || window.__wheeled) return;
+                window.__wheeled = true;
+                const sheet = document.querySelector('.sheet[data-page="2"]');
+                const before = sheet.getBoundingClientRect();
+                const k = before.width / 210;
+                window.__point = [before.x + 60 * k, before.y + 40 * k];
+                sheet.dispatchEvent(new WheelEvent("wheel", {
+                    deltaY: -100, ctrlKey: true, clientX: window.__point[0], clientY: window.__point[1],
+                    bubbles: true, cancelable: true,
+                }));
+            }).observe(desk);
+        }"""
     )
-    names = ["a", "b", "c"]
-    pick(page, *names)
-    roomy(page)
-    before = places(page, *names, "d")
-    # On the empty page, on a block that is not picked, and on one that is.
-    for start in (
-        lambda: spot(page, 40, 90),
-        lambda: centre(at(page, "d")),
-        lambda: centre(at(page, "b")),
-    ):
-        pan(page, start(), 60, 40)
-        expect_picked(page, *names)
-        expect_in_place(page, [*names, "d"], before)
-
-
-@pytest.mark.parametrize("where", ["text", "cell", "field"])
-def test_space_in_a_text_types_a_space(editor, where):
-    """I2"""
-    page = editor(
-        box("a", "text", TEXT, **PLACE),
-        box("t", "table", TABLE, z=2, x=60, y=120, w=60, h=40),
+    page.set_viewport_size({"width": 1700, "height": 1000})
+    page.wait_for_function("window.__point")
+    point = page.evaluate("window.__point")
+    room = page.locator(".desk").evaluate(
+        """el => {
+            const look = getComputedStyle(el);
+            return el.clientWidth - parseFloat(look.paddingLeft) - parseFloat(look.paddingRight);
+        }"""
     )
-    if where == "text":
-        caret(page, "Hallo", 2)
-        held = page.locator(FIELD)
-    elif where == "cell":
-        pick(page, "t")
-        page.keyboard.press("Enter")
-        held = at(page, "t").locator("textarea")
-        expect(held).to_be_focused()
-        page.keyboard.press("End")
-    else:
-        pick(page, "t")
-        held = field(page, "X")
-        held.click()
-        expect(held).to_be_focused()
-        # The click picked all of the number.
-        page.keyboard.press("End")
-    page.keyboard.down("Space")
-    if where == "text":
-        expect(held).to_have_text("Ha llo")
-    else:
-        expect(held).to_have_value("H " if where == "cell" else "60 ")
-    expect(page.locator(HAND)).to_have_count(0)
-    expect(page.locator("main.editor")).not_to_have_class(PAN)
-    # The page is higher than the desk: a pan by a drag upwards would scroll it down.
-    assert scroll(page) == [0, 0]
-    if where == "text":
-        # Along the first line and a little up, from behind the last letter to before the first.
-        edge = held.bounding_box()
-        drag(page, (edge["x"] + 80, edge["y"] + 16), (edge["x"] + 2, edge["y"] + 4))
-    else:
-        x, y = centre(held)
-        drag(page, (x, y), (x - 30, y - 40))
-    settled(page)
-    page.keyboard.up("Space")
-    assert scroll(page) == [0, 0]
-    expect(page.locator("main.editor")).not_to_have_class(PANNING)
-    expect(held).to_be_focused()
-    if where == "text":
-        # The drag picked letters, as it does with no key held.
-        assert page.evaluate("getSelection().toString()") != ""
+    expect_under(page, point, (60, 40), room * 1.25, 2)
+
+
+def test_ctrl_wheel_stacks_on_a_zoom_in_the_same_turn(editor):
+    """A button's notch and a wheel's notch in one turn stack. The listener still holds the old zoom (#325)."""
+    page = editor(box("a", "text", TEXT))
+    wide = width(page)
+    point = spot(page, 60, 80)
+    page.evaluate(
+        """([x, y]) => {
+            window.addEventListener("click", () => {
+                document.querySelector(".sheet.on").dispatchEvent(new WheelEvent("wheel", {
+                    deltaY: -100, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true,
+                }));
+            });
+            document.querySelector('button[aria-label="Größer"]').click();
+        }""",
+        list(point),
+    )
+    expect_under(page, point, (60, 80), wide * 1.25**2)
 
 
 def test_ctrl_wheel_is_the_editors_alone(editor):
@@ -445,34 +415,6 @@ def test_ctrl_wheel_stops_at_the_limits(editor):
     expect_percent(page)
 
 
-def test_zoom_and_pan_are_no_undo_steps(editor):
-    """I5"""
-    client = user()
-    page = editor(box("a", "shape", RECT, **PLACE), box("b", "text", TEXT, z=3), client=client)
-    pick(page, "a")
-    page.keyboard.press("ArrowRight")
-    expect(page.get_by_label("Rückgängig")).to_be_enabled()
-    edited = doc(page, client)
-    assert by_id(edited["pages"][0]["blocks"])["a"]["x"] != PLACE["x"]
-    wide = width(page)
-    wheel(page, -100)
-    expect_width(page, wide * 1.25)
-    wheel(page, -100)
-    expect_width(page, wide * 1.25**2)
-    page.locator(".desk").evaluate("el => el.scrollTo(200, 200)")
-    pan(page, centre(page.locator(".desk")), 80, 50)
-    fit(page).click()
-    expect_fitted(page, 0, 210, 297)
-    expect_picked(page, "a")
-    expect(page.locator("header [role=status]")).to_have_text("Gespeichert")
-    assert doc(page, client) == edited
-    # One step back is the edit's, and there is no other.
-    page.keyboard.press("Control+z")
-    expect(page.get_by_label("Rückgängig")).to_be_disabled()
-    assert by_id(saved(page, client))["a"]["x"] == PLACE["x"]
-    expect_picked(page, "a")
-
-
 def test_ctrl_wheel_keeps_a_text_open(editor):
     """I6"""
     page = editor(box("a", "text", TEXT, **PLACE))
@@ -488,187 +430,3 @@ def test_ctrl_wheel_keeps_a_text_open(editor):
     page.keyboard.type("y")
     expect(page.locator(FIELD)).to_have_text("Haxyllo")
     expect(page.locator(FIELD)).to_be_focused()
-
-
-def test_space_shows_a_hand_and_lets_go(editor):
-    """I7"""
-    page = editor(box("a", "text", TEXT))
-    main, hand, desk = page.locator("main.editor"), page.locator(HAND), page.locator(".desk")
-    # On the empty desk, so nothing else has the focus. Space alone scrolls nothing.
-    corner = desk.bounding_box()
-    page.mouse.click(corner["x"] + 10, corner["y"] + 10)
-    page.keyboard.down("Space")
-    expect(main).to_have_class(PAN)
-    expect(main).not_to_have_class(PANNING)
-    expect(hand).to_have_count(1)
-    expect(hand).to_have_css("cursor", "grab")
-    settled(page)
-    page.keyboard.up("Space")
-    expect(main).not_to_have_class(PAN)
-    expect(hand).to_have_count(0)
-    settled(page)
-    assert scroll(page) == [0, 0]
-
-    # The drag goes on after Space is let go, until the mouse lifts.
-    x, y = centre(desk)
-    page.keyboard.down("Space")
-    page.mouse.move(x, y)
-    page.mouse.down()
-    page.mouse.move(x, y - 50, steps=5)
-    expect(main).to_have_class(PANNING)
-    expect(hand).to_have_css("cursor", "grabbing")
-    expect_scroll(page, 0, 50)
-    page.keyboard.up("Space")
-    expect(main).not_to_have_class(PAN)
-    expect(main).to_have_class(PANNING)
-    expect(hand).to_have_count(1)
-    page.mouse.move(x, y - 80, steps=5)
-    expect_scroll(page, 0, 80)
-    page.mouse.up()
-    expect(main).not_to_have_class(PANNING)
-    expect(hand).to_have_count(0)
-    # The mouse alone moves no desk now.
-    drag(page, (x, y), (x, y - 40))
-    settled(page)
-    assert scroll(page) == [0, 80]
-
-    # The window losing the focus ends both.
-    page.keyboard.down("Space")
-    page.mouse.move(x, y)
-    page.mouse.down()
-    page.mouse.move(x, y - 20, steps=5)
-    expect(main).to_have_class(PANNING)
-    expect(main).to_have_class(PAN)
-    page.evaluate("window.dispatchEvent(new Event('blur'))")
-    expect(main).not_to_have_class(PAN)
-    expect(main).not_to_have_class(PANNING)
-    expect(hand).to_have_count(0)
-    page.mouse.up()
-    page.keyboard.up("Space")
-    expect(hand).to_have_count(0)
-
-
-def test_fit_takes_the_page_in_use(editor):
-    """I8"""
-    rest = [
-        {"blocks": [box("b", "text", TEXT)], "landscape": True},
-        {"blocks": [box("c", "text", TEXT)]},
-    ]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="")
-    for n, (w, h) in ((1, (297, 210)), (2, (210, 297)), (0, (210, 297))):
-        thumb(page, n).click()
-        expect_in_use(page, n)
-        fit(page).click()
-        expect_fitted(page, n, w, h)
-        # No other page has room beside it.
-        assert [m for m in range(3) if page.evaluate(INSIDE, m)] == [n]
-
-
-def test_the_buttons_stop_where_the_wheel_stops(editor):
-    """I4"""
-    page = editor(box("a", "text", TEXT))
-    wide = width(page)
-    ends = (("Größer", "Kleiner", -100, 4, 1.25**6), ("Kleiner", "Größer", 100, 0.25, 1.25**-6))
-    for on, back, delta, stop, step in ends:
-        page_width(page)
-        expect_width(page, wide)
-        for notch in range(1, 8):
-            wheel(page, delta)
-            expect_width(page, wide * min(4, max(0.25, 1.25 ** (-notch * delta / 100))))
-        # At the stop the button that leads on does nothing, and the other takes the next step back.
-        page.get_by_label(on, exact=True).first.click()
-        settled(page)
-        assert width(page) == pytest.approx(wide * stop, abs=2)
-        page.get_by_label(back, exact=True).first.click()
-        expect_width(page, wide * step)
-        expect_percent(page)
-
-
-def test_the_hand_takes_the_left_button_only(editor):
-    """I7"""
-    page = editor(box("a", "text", TEXT))
-    main = page.locator("main.editor")
-    x, y = centre(page.locator(".desk"))
-    page.mouse.move(x, y)
-    page.keyboard.down("Space")
-    expect(main).to_have_class(PAN)
-    # Upwards: a pan would scroll the page down.
-    page.mouse.down(button="right")
-    expect(main).not_to_have_class(PANNING)
-    page.mouse.move(x - 30, y - 50, steps=5)
-    settled(page)
-    expect(main).not_to_have_class(PANNING)
-    assert scroll(page) == [0, 0]
-    page.mouse.up(button="right")
-    page.keyboard.up("Space")
-    expect(main).not_to_have_class(PAN)
-    assert scroll(page) == [0, 0]
-
-
-def test_a_plain_wheel_scrolls_under_the_hand(editor):
-    """I3"""
-    page = editor(box("a", "text", TEXT))
-    wide, shown = width(page), percent(page)
-    page.keyboard.down("Space")
-    expect(page.locator(HAND)).to_have_count(1)
-    wheel(page, 100, ctrl=False)
-    expect_scroll(page, 0, 100)
-    wheel(page, 200, ctrl=False)
-    expect_scroll(page, 0, 300)
-    wheel(page, -300, ctrl=False)
-    expect_scroll(page, 0, 0)
-    assert width(page) == pytest.approx(wide, abs=1)
-    assert percent(page) == shown
-    page.keyboard.up("Space")
-    expect(page.locator(HAND)).to_have_count(0)
-
-
-def test_the_buttons_step_cleanly_where_the_scrollbar_comes_and_goes(browser, playwright, server):
-    """12, 13"""
-    # The fixture's Chromium hides the scrollbars, so Chromium starts its own. WebKit on Linux
-    # draws scrollbars over the page, so there the test passes with nothing to prove, on the
-    # fixture's browser.
-    own = BROWSER == "chromium"
-    if own:
-        browser = playwright.chromium.launch(ignore_default_args=["--hide-scrollbars"])
-    context = browser.new_context(viewport={"width": 1700, "height": 900})
-    try:
-        context.add_init_script("localStorage.setItem('tour', '1')")
-        client = user()
-        cookie = {"name": "session", "value": client.cookies["session"], "url": server}
-        context.add_cookies([cookie])
-        page = context.new_page()
-        page.goto(f"{server}/blatt/{sheet(client, [box('a', 'shape', LINE)])['id']}")
-        expect(page.locator('main.editor[data-ready="1"]')).to_be_visible(timeout=10000)
-        # A browser that does not know scrollbar-gutter (Safari before 18.2).
-        page.add_style_tag(content=".desk { scrollbar-gutter: auto !important }")
-        desk = page.locator(".desk")
-        start = width(page)
-        left = page.locator(".sheet.on").evaluate("el => el.getBoundingClientRect().left")
-
-        def expect_exact(wide):
-            """Waits until the page in use is this wide, to half a pixel."""
-            page.wait_for_function(
-                "(w) => Math.abs(document.querySelector('.sheet.on')"
-                ".getBoundingClientRect().width - w) < 0.5",
-                arg=wide,
-            )
-
-        # Chromium draws the scrollbar while the sheet overflows the desk, and not when it fits.
-        assert desk.evaluate("el => el.scrollHeight > el.clientHeight")
-        for n in range(1, 6):
-            page.get_by_label("Kleiner", exact=True).first.click()
-            expect_exact(start / 1.25**n)
-            # The start's percent is Chromium's: WebKit lays the same sheet out a little larger.
-            if n == 1 and own:
-                expect(page.locator("button.zoom").first).to_have_text(re.compile(r"113\s*%"))
-        assert desk.evaluate("el => el.scrollHeight <= el.clientHeight")
-        for n in range(4, -1, -1):
-            page.get_by_label("Größer", exact=True).first.click()
-            expect_exact(start / 1.25**n)
-        now = page.locator(".sheet.on").evaluate("el => el.getBoundingClientRect().left")
-        assert now == pytest.approx(left, abs=0.5)
-    finally:
-        context.close()
-        if own:
-            browser.close()

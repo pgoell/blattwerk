@@ -24,19 +24,49 @@ jobs:
       - name: File size
         run: scripts/check-file-size
 
-  shards:
-    name: Test shard ${{ matrix.shard }}/8
+  # A docs-only pull request skips the sharded suite. Lint, Commits and Test still
+  # run, and Test passes, so branch protection keeps the same three names.
+  # A push to master always runs the suite: the deploy waits for this workflow.
+  changes:
+    name: Changes
     runs-on: ubuntu-latest
-    # With six shards a job took 5 to 8.5 minutes and the limit of 8 cancelled shards whose tests
-    # had all passed (#541, #550), once 73 s after its last step had ended; eight shards take three
-    # quarters of that, and the limit leaves room for such a stall. A run that hangs ends
-    # itself after three silent minutes (tests/conftest.py), so the limit is only the last net.
+    outputs:
+      suite: ${{ steps.paths.outputs.suite }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Decide whether the suite runs
+        id: paths
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "suite=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$base"
+          files="$(git diff --name-only "$base" HEAD)"
+          if printf '%s\n' "$files" | python3 scripts/ci_suite.py; then
+            echo "suite=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "suite=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  shards:
+    name: Test shard ${{ matrix.shard }}/12
+    needs: changes
+    if: needs.changes.outputs.suite == 'true'
+    runs-on: ubuntu-latest
+    # #541, #550: six shards took up to 8.5 min and a limit of 8 cancelled a shard whose tests
+    # had passed. Run 39783927061, eight shards: pytest 418 s to 617 s, every shard the same
+    # weight on paper, because tests/times.json had no time for most tests. Twelve shards and
+    # times from that run bring the slowest step to about six minutes. The limit stays 12.
+    # A hang ends itself after three silent minutes (tests/conftest.py).
     timeout-minutes: 12
     strategy:
       # One flaky test then costs a rerun of its own shard, not of all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -58,43 +88,48 @@ jobs:
       - name: Pytest
         run: mise run test -- -n 8 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/8
+          SHARD: ${{ matrix.shard }}/12
 
   webkit:
-    name: WebKit shard ${{ matrix.shard }}/16
+    name: WebKit shard ${{ matrix.shard }}/24
+    needs: changes
+    if: needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
     # Playwright's own image, the one scripts/test-webkit.sh runs: it has WebKit and its libraries.
     # apt took minutes for them on a runner with a slow mirror. The tag follows uv.lock.
     container: mcr.microsoft.com/playwright:v1.64.0-noble
-    # Slower than Chromium, test for test: sixteen shards, split by time. The limit counts from the
-    # start of the job, and the pull of the image is part of it: it takes half a minute, and on
-    # 2026-10-12 it took five to ten minutes four times, so a shard whose tests had all passed was
-    # cancelled at ten (#439). The tests have a limit of their own, the step's below, and a run
-    # that hangs ends itself after three silent minutes (tests/conftest.py).
+    # Run 39783927061, sixteen shards: pytest 398 s to 639 s, same missing times as the Chromium
+    # shards. Twenty-four shards and fresh times bring the slowest step to about six minutes.
+    # The limit counts from the start of the job, and the pull of the image is part of it: it
+    # takes half a minute, and on 2026-10-12 it took five to ten minutes four times, so a shard
+    # whose tests had all passed was cancelled at ten (#439). The tests have a limit of their
+    # own, the step's below, and a run that hangs ends itself after three silent minutes
+    # (tests/conftest.py).
     timeout-minutes: 25
     strategy:
       # As the shards above: a failure costs a rerun of its own shard only.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
       # With twelve shards the step took up to 515 s against a limit of 9 minutes, as the Chromium
-      # shards before #552; sixteen take three quarters of that, and the limit leaves room for a stall.
+      # shards before #552. Twenty-four take half of that, and the limit leaves room for a stall.
       - name: Pytest
         timeout-minutes: 12
         # The runner has four cores, and WebKit is slower to start than Chromium.
         run: mise run test:webkit -- -n 4 --dist worksteal -v --durations=0 --durations-min=0
         env:
-          SHARD: ${{ matrix.shard }}/16
+          SHARD: ${{ matrix.shard }}/24
 
   # The lists, the colour picker and the file dialog in a real window. Not required yet: the gate
   # Test and branch protection leave it out. On a PR alone: the deploy waits for this whole run on
-  # master to pass, and must not wait for a job no merge waits for.
+  # master to pass, and must not wait for a job no merge waits for. A docs-only PR skips it too.
   native:
     name: Native
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.suite == 'true'
     runs-on: ubuntu-latest
     # The image of the WebKit job: it has xvfb and the libraries a window needs.
     container:
@@ -116,14 +151,37 @@ jobs:
         run: mise run test:native -- --durations=20
 
   # Branch protection requires the check named Test; the shards have other names.
+  # Skipped shards pass only when this pull request did not ask for the suite.
   test:
     name: Test
-    needs: [shards, webkit]
+    needs: [changes, shards, webkit]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: All shards passed
-        run: test "${{ needs.shards.result }}" = success && test "${{ needs.webkit.result }}" = success
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          SHARDS: ${{ needs.shards.result }}
+          WEBKIT: ${{ needs.webkit.result }}
+          SUITE: ${{ needs.changes.outputs.suite }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANGES" != success ]; then
+            echo "changes job: $CHANGES"
+            exit 1
+          fi
+          for result in "$SHARDS" "$WEBKIT"; do
+            case "$result" in
+              success) ;;
+              skipped)
+                test "$SUITE" = false
+                ;;
+              *)
+                echo "shard result: $result"
+                exit 1
+                ;;
+            esac
+          done
 
   commits:
     name: Commits

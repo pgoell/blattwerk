@@ -270,11 +270,25 @@ def check_evals(docs: Path, evals: Path) -> list[str]:
     return problems
 
 
+def _mcp_source(tools_src: Path) -> str:
+    """The tool source the error texts are read from.
+
+    A single file the tests point at stays that file. The repo's tools.ts is read
+    together with the other modules in frontend/mcp, which hold the same Fail texts.
+    """
+    if tools_src.name != "tools.ts":
+        return tools_src.read_text()
+    parts = []
+    for path in sorted(tools_src.parent.glob("*.ts")):
+        parts.append(path.read_text())
+    return "\n".join(parts)
+
+
 def check_error_texts(docs: Path, tools_src: Path) -> list[str]:
     page = docs / "tools/errors-and-limits.md"
     if not page.is_file():
         return ["tools/errors-and-limits.md is missing: the server's error texts have no reference"]
-    text, src = page.read_text(), tools_src.read_text()
+    text, src = page.read_text(), _mcp_source(tools_src)
     literals = [
         m.group(2) for m in re.finditer(r"new Fail\(\s*([\"`])((?:\\.|(?!\1).)*?)\1", src, re.S)
     ]

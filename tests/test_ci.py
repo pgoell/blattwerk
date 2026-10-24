@@ -46,14 +46,19 @@ def test_ci_has_the_checks_the_merge_needs():
     jobs = part(CI, "jobs")
     for name in needed:
         assert re.search(rf"^    name: {name}$", jobs, re.M), name
-    # Test passes only when every shard did; the shards run the suite.
+    # Test passes when every shard did. A pull request that only touches docs or
+    # .cursor/skills skips the shards; Test still passes, under the same name.
     gate = part(CI, "test")
-    assert "needs: [shards, webkit]" in gate
-    for job in ("shards", "webkit"):
-        assert f'test "${{{{ needs.{job}.result }}}}" = success' in gate
+    assert "needs: [changes, shards, webkit]" in gate
+    assert 'if [ "$CHANGES" != success ]' in gate
+    assert "skipped)" in gate
+    assert 'test "$SUITE" = false' in gate
+    assert "exit 1" in gate
     assert "continue-on-error" not in code(CI)
     shards = part(CI, "shards")
-    assert "name: Test shard ${{ matrix.shard }}/8" in shards
+    assert "needs: changes" in shards
+    assert "needs.changes.outputs.suite == 'true'" in shards
+    assert "name: Test shard ${{ matrix.shard }}/12" in shards
     assert "run: mise run test " in shards
 
 
@@ -82,13 +87,18 @@ def test_the_native_job_runs_the_headed_tests_and_no_merge_waits_for_it():
     assert f'install="{install}"' in native
     assert "timeout -k 5 80 $install || timeout -k 5 80 $install" in native
     assert "native" not in part(CI, "test")
-    # The deploy waits for the whole run on master to pass, so the job runs on a PR alone.
-    assert "    if: github.event_name == 'pull_request'\n" in native
+    # The deploy waits for the whole run on master to pass, so the job runs on a PR alone,
+    # and only when that PR runs the suite.
+    assert (
+        "    if: github.event_name == 'pull_request' && needs.changes.outputs.suite == 'true'\n"
+        in native
+    )
     assert "Native" not in PROTECTION["required_status_checks"]["contexts"]
 
 
 def test_the_native_tests_use_the_mouse_and_the_keyboard_only():
-    text = (REPO / "tests/test_native.py").read_text()
+    # The headed tests live in test_native.py and the siblings it was split into.
+    text = "\n".join(p.read_text() for p in sorted((REPO / "tests").glob("test_native*.py")))
     # A locator finds and checks; it neither acts nor sets anything in the page.
     for call in (
         "dispatch_event",
@@ -194,17 +204,35 @@ def test_a_failed_shard_does_not_cancel_the_others_and_a_failure_has_a_name():
         assert "--durations=0" in run
 
 
-def test_webkit_runs_in_sixteen_shards():
-    for job, name in (("shards", "Test shard"), ("webkit", "WebKit shard")):
+def test_the_suite_is_split_into_twelve_and_twenty_four_shards():
+    """Run 39783927061: eight and sixteen shards left pytest at about ten minutes.
+
+    Twelve and twenty-four, weighed by the times from that run, bring it to about six.
+    """
+    expected = {"shards": ("Test shard", 12), "webkit": ("WebKit shard", 24)}
+    for job, (name, n) in expected.items():
         text = part(CI, job)
         (listed,) = re.findall(r"shard: \[([\d, ]+)\]", text)
         numbers = [int(k) for k in listed.split(",")]
-        assert numbers == list(range(1, len(numbers) + 1))
-        n = len(numbers)
-        if job == "webkit":
-            assert n == 16
+        assert numbers == list(range(1, n + 1))
         assert f"name: {name} ${{{{ matrix.shard }}}}/{n}" in text
         assert f"SHARD: ${{{{ matrix.shard }}}}/{n}" in text
+
+
+def test_a_pull_request_skips_the_suite_only_for_docs_and_skills():
+    spec = importlib.util.spec_from_file_location("ci_suite", REPO / "scripts/ci_suite.py")
+    assert spec and spec.loader
+    ci_suite = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ci_suite)
+    assert ci_suite.suite_runs([])
+    assert not ci_suite.suite_runs(["docs/okf/readme.md", ".cursor/skills/why/SKILL.md"])
+    assert ci_suite.suite_runs(["docs/okf/readme.md", "src/blattwerk/app.py"])
+    assert ci_suite.suite_runs([".cursor/rules/python.md"])
+    assert ci_suite.suite_runs(["README.md"])
+    changes = part(CI, "changes")
+    assert '!= "pull_request"' in changes
+    assert "suite=true" in changes
+    assert "python3 scripts/ci_suite.py" in changes
 
 
 def test_the_shard_times_script_reads_the_durations_of_a_log():

@@ -1,0 +1,98 @@
+main:has(.sheets) { max-width: 1040px; }
+footer { text-align: center; font-size: 12px; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+footer a { color: var(--faint); margin: 0 10px; text-decoration: none; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.card.alert { border-color: var(--rec); }
+.card > :first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+h1 + .card, h1 + button { margin-top: 14px; }
+label { display: block; font-weight: 500; margin-bottom: 6px; }
+input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
+  width: 100%; min-height: var(--ctl); padding: 0 9px; font: inherit; color: inherit; background: var(--well);
+  border: 1px solid var(--line); border-radius: 6px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+input::placeholder, textarea::placeholder { color: var(--faint); opacity: 1; }
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+textarea { min-height: 120px; padding-block: 7px; resize: vertical; display: block; }
+.card input + label { margin-top: 14px; }
+
+button, .pick {
+  font: inherit; font-weight: 500; border: 1px solid var(--edge); border-radius: 6px; min-height: var(--ctl);
+  padding: 0 12px; cursor: pointer; background: var(--raise); color: var(--ink);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; user-select: none;
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+button:active, .pick:active { transform: scale(.97); }
+button:disabled, button[aria-disabled=true] { opacity: .4; cursor: default; }
+/* A disabled button swallows the press, and the focus would go with it: the press falls through to the panel. */
+.panel button:disabled { pointer-events: none; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+button.wide { width: 100%; margin-top: 12px; }
+button.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+button.rec { color: var(--rec); }
+button.rec.on, button.danger { background: var(--rec); border-color: transparent; color: var(--bg); }
+button.rec.on { animation: pulse 1.6s ease-in-out infinite; }
+button.plain { background: none; border-color: transparent; color: var(--muted); padding-inline: 8px; }
+/* A button that is its icon. */
+.ib {
+  position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--ctl);
+  min-height: var(--ctl); padding: 0; border: 0; border-radius: 6px; background: none;
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+.pick { width: 100%; min-height: 64px; border-style: dashed; border-color: var(--edge); background: none; color: var(--accent); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--rec) 22%, transparent); } }
+@media (hover: hover) and (pointer: fine) {
+  nav a:hover, footer a:hover { color: var(--ink); }
+  button:not(:disabled, .primary, .on, .danger):hover { border-color: color-mix(in srgb, var(--ink) 35%, var(--edge)); }
+  button.primary:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+  button.plain:hover, .ib:not(:disabled, .on):hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .pick:hover { border-color: var(--accent); }
+}
+/* One of a few choices, side by side; or a number between its minus and its plus. */
+.seg { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--field); border-radius: 6px; }
+.seg > * { flex: 1 0 auto; }
+.seg button { min-height: calc(var(--ctl) - 4px); padding: 0 6px; border: 0; border-radius: 4px; background: none; color: var(--muted); }
+.seg button.on { background: var(--raise); color: var(--ink); box-shadow: 0 0 0 1px var(--edge); }
+.seg output { flex-grow: 4; align-self: center; text-align: center; font: 12px var(--mono); }
+/* A switch is one long label on a row of its own: the label wraps and the button takes the panel's width. */
+.seg.switch > button { flex: 1 1 100%; white-space: normal; min-height: var(--ctl); padding: 6px 8px; line-height: 1.25; }
+
+ul.clips, ul.rows { list-style: none; padding: 0; margin: 12px 0 0; }
+ul.clips:empty { display: none; }
+ul.clips li, ul.rows li { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+ul.rows li { margin: 0; padding: 6px 0; border-top: 1px solid var(--line); }
+ul.rows li:first-child { border-top: 0; }
+ul.clips audio { flex: 1; min-width: 0; }
+ul.rows li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.link {
+  overflow-wrap: anywhere; user-select: all; font: 12px/1.5 var(--mono);
+  background: var(--well); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+}
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; margin-top: 14px; }
+.grid:empty { display: none; }
+.grid figure { margin: 0; position: relative; }
+.grid img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
+.grid figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
+.grid button { position: absolute; top: 4px; right: 4px; width: var(--ctl); padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; }
+
+/* The list of sheets: page one drawn small, the title and the date under it. */
+.sheets { list-style: none; padding: 0; margin: 24px 0 0; display: grid; grid-template-columns: repeat(auto-fill, 147px); gap: 24px 20px; }
+.sheets a { display: block; color: inherit; text-decoration: none; }
+.sheets strong, .sheets small { display: block; }
+.sheets strong { margin-top: 10px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; }
+.sheets small { color: var(--muted); font-size: 12px; }
+.sheets li > div { display: flex; margin-top: 2px; }
+.sheets button { flex: 1; padding: 0; }
+.folder-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.schools form { margin-top: 12px; }
+.schools form button { margin-top: 8px; }
+.schools strong { display: block; margin-top: 16px; }
+.folder-bar input, .folder-bar select { flex: 1 1 12rem; width: auto; }
+.folder-bar .seg { flex: 1 1 auto; }
+.folder-pages { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; width: 100%; margin-top: 16px; }
+main:has(.folder-pages) { max-width: 800px; }
