@@ -29,7 +29,7 @@ def part(text, key):
     return found.group(2)
 
 
-def test_pre_push_runs_lint_and_the_commit_check_only():
+def test_pre_push_runs_lint_the_commit_check_and_the_file_size():
     lines = [line.strip() for line in part(HOOKS, "pre-push").splitlines() if line.strip()]
     assert lines == [
         "commands:",
@@ -37,6 +37,8 @@ def test_pre_push_runs_lint_and_the_commit_check_only():
         "run: mise run lint",
         "check-commits:",
         "run: mise run check-commits",
+        "file-size:",
+        "run: scripts/check-file-size",
     ]
 
 
@@ -55,6 +57,9 @@ def test_ci_has_the_checks_the_merge_needs():
     assert 'test "$SUITE" = false' in gate
     assert "exit 1" in gate
     assert "continue-on-error" not in code(CI)
+    lint = part(CI, "lint")
+    assert "run: mise run lint" in lint
+    assert "run: scripts/check-file-size" in lint
     shards = part(CI, "shards")
     assert "needs: changes" in shards
     assert "needs.changes.outputs.suite == 'true'" in shards
