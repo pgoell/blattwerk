@@ -17,8 +17,8 @@ export default function EditorMain({ s: session, children }: { s: ReturnType<typ
   const panning = session.panning;
   const setEditing = session.setEditing;
   return (
-    <>
     // The Lernwörter reach every Lineatur that draws them, on the pages and on their thumbnails.
+    <>
     <Words.Provider value={learnt}>
     <Whole.Provider value={hist.doc}>
     <main
