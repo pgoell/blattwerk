@@ -97,7 +97,8 @@ def test_the_native_job_runs_the_headed_tests_and_no_merge_waits_for_it():
 
 
 def test_the_native_tests_use_the_mouse_and_the_keyboard_only():
-    text = (REPO / "tests/test_native.py").read_text()
+    # The headed tests live in test_native.py and the siblings it was split into.
+    text = "\n".join(p.read_text() for p in sorted((REPO / "tests").glob("test_native*.py")))
     # A locator finds and checks; it neither acts nor sets anything in the page.
     for call in (
         "dispatch_event",
