@@ -238,7 +238,12 @@ def test_cron_runs_the_code_of_origin_master(world, tmp_path):
         pytest.skip("git is missing")
     repo = tmp_path / "repo"
     (repo / "scripts").mkdir(parents=True)
-    for name in ("feedback_triage.py", "feedback_privacy.py", "feedback-cron.sh"):
+    for name in (
+        "feedback_triage.py",
+        "feedback_model.py",
+        "feedback_privacy.py",
+        "feedback-cron.sh",
+    ):
         shutil.copy2(ROOT / "scripts" / name, repo / "scripts" / name)
     _git(repo, "init", "-q")
     _git(repo, "config", "user.name", "test")

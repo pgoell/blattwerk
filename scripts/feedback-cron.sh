@@ -17,7 +17,7 @@ trap 'rm -rf "$CODE"' EXIT
 # A fetch that hangs or asks for a password must not hold tomorrow's run.
 GIT_TERMINAL_PROMPT=0 timeout 120 git -C "$REPO" fetch -q origin master \
   || echo "fetch failed, running the origin/master of the last fetch"
-git -C "$REPO" archive origin/master scripts/feedback_triage.py scripts/feedback_privacy.py | tar -x -C "$CODE"
+git -C "$REPO" archive origin/master scripts/feedback_triage.py scripts/feedback_model.py scripts/feedback_privacy.py | tar -x -C "$CODE"
 
 echo "== $(date -Is) feedback job at $(git -C "$REPO" rev-parse --short origin/master)"
 python3 "$CODE/scripts/feedback_triage.py" "$@"

@@ -12,12 +12,15 @@ import {
   resolveContext,
 } from "./github.ts";
 import {
-  runQueued,
-  runSimple,
   statusQueryVerdict,
   verdictFactory,
   type WatchClock,
 } from "./policy.ts";
+import {
+  runQueued,
+  runSimple,
+} from "./policy-run.ts";
+
 import { renderJson, renderPretty } from "./render.ts";
 import type * as T from "./types.ts";
 import { nonEmpty, parsePrNumber } from "./types.ts";
