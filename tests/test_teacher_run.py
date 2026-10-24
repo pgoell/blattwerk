@@ -188,7 +188,10 @@ def test_every_verb_of_the_brief_is_a_verb_of_the_tool_and_has_a_test():
     assert len(listed) == len(set(listed))
     assert named - verbs == set()
     assert verbs - set(listed) == set()
-    tests = (REPO / "tests/test_teacher_page.py").read_text()
+    # The tests of one behaviour each live beside test_teacher_page.py.
+    tests = "\n".join(
+        path.read_text() for path in sorted((REPO / "tests").glob("test_teacher_page*.py"))
+    )
     for verb in tool.VERBS:
         assert re.search(rf"^def test_{verb.replace('-', '_')}_", tests, re.M), verb
     assert re.search(r"^def test_tidy_", tests, re.M)
