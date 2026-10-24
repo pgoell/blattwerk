@@ -1,0 +1,20 @@
+# generated
+tests/snapshots/mcp_tools.json
+src/blattwerk/sheet.schema.json
+tests/times.json
+tests/maths_before_451.json
+tests/maths_before_73.json
+
+# vendored skill
+.cursor/skills/statechart/scripts/test/statechart.test.mjs
+.cursor/skills/statechart/scripts/tlc-to-chart.mjs
+.cursor/skills/statechart/scripts/statechart.mjs
+.cursor/skills/statechart/scripts/lib.mjs
+.cursor/skills/poteto-mode/scripts/orch/store.ts
+.cursor/skills/poteto-mode/scripts/orch/orch.test.ts
+.cursor/skills/poteto-mode/scripts/watch-pr/github.ts
+.cursor/skills/poteto-mode/scripts/watch-pr/policy.ts
+.cursor/skills/poteto-mode/SKILL.md
+
+# pinned by cron
+scripts/feedback_triage.py

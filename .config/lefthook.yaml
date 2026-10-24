@@ -1,6 +1,6 @@
 # Git hooks. Installed by `mise run install`.
 #
-# Both hooks stay fast (lint, format and the commit check). The suite takes
+# Both hooks stay fast (lint, format, file size and the commit check). The suite takes
 # minutes: run it with `mise run test` before a push. CI runs it on every
 # pull request and is the gate for the merge.
 
@@ -13,6 +13,8 @@ pre-commit:
   commands:
     lint:
       run: mise run lint
+    file-size:
+      run: scripts/check-file-size {staged_files}
 
 pre-push:
   commands:
@@ -20,3 +22,5 @@ pre-push:
       run: mise run lint
     check-commits:
       run: mise run check-commits
+    file-size:
+      run: scripts/check-file-size

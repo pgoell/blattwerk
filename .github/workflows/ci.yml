@@ -21,6 +21,8 @@ jobs:
       - uses: ./.github/actions/setup-mise
       - name: Ruff and ty
         run: mise run lint
+      - name: File size
+        run: scripts/check-file-size
 
   # A docs-only pull request skips the sharded suite. Lint, Commits and Test still
   # run, and Test passes, so branch protection keeps the same three names.
