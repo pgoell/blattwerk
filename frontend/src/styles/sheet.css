@@ -1,0 +1,54 @@
+/* A4; blocks are placed in millimetres, scaled to the zoom. */
+.sheet {
+  position: relative; isolation: isolate; margin: 0 auto; background: #fff; color: #222; border-radius: 2px;
+  box-shadow: 0 0 0 1px light-dark(rgb(0 0 0 / .08), rgb(0 0 0 / .4)), 0 20px 50px -12px light-dark(rgb(0 0 0 / .18), rgb(0 0 0 / .6));
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+/* Pages lie one under the other; a ring marks the one in use. */
+.sheet + .sheet { margin-top: 32px; }
+/* The page that stands while a sheet loads: upright, as wide as the desk, and after a moment it says that it loads,
+   in a grey that reads on its white in every theme. */
+.sheet.blank { aspect-ratio: 210 / 297; display: grid; place-items: center; color: #62636c; }
+.sheet.on:not(:only-child) { outline: 2px solid var(--accent); outline-offset: 4px; }
+/* A page's blocks, on the desk and in a thumbnail: laid out at the PDF's scale and drawn at the page's by a transform. */
+.scaled { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* Karo paper on the screen; the cell is set to the zoom. */
+.sheet.grid {
+  background-image: linear-gradient(to right, #c9d6ea 1px, transparent 1px), linear-gradient(#c9d6ea 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+}
+/* The teacher's own guide lines. Only the tab takes the pointer, so a line never covers a block. The tab starts in
+   the desk's edge beside the page and stays in view when the page scrolls. */
+.rule { position: absolute; z-index: 2999; pointer-events: none; border: 0 dashed #d9480f; }
+.rule.own { border-style: dotted; }
+.rule.x { top: -24px; bottom: 0; border-left-width: 1px; }
+.rule.y { left: -32px; right: 0; border-top-width: 1px; }
+.rule b {
+  position: sticky; top: 0; left: 0; display: block; width: 30px; height: 18px; margin: 0 0 0 -15px; border-radius: 5px;
+  background: #d9480f; color: #fff; font: 500 11px/18px var(--mono); text-align: center;
+  pointer-events: auto; touch-action: none; cursor: ew-resize;
+}
+.rule.y b { margin: -9px 0 0; cursor: ns-resize; }
+.rule b::after { content: ""; position: absolute; inset: -13px -7px; }
+/* The colour of what marks the selection: the same green on white paper under either theme. */
+.sheet { --sel: #16a878; }
+.sheet .moveable-control-box { --moveable-color: var(--sel); }
+/* A block that Tab scrolls to stops clear of the desk's edge and of the bar that floats over the lower one. */
+.block { position: absolute; min-width: 8px; min-height: 8px; scroll-margin: 32px 32px var(--room); }
+/* A text cut at the foot: a red bar on the block's lower edge. On the desk only, so the PDF has none. */
+.desk .block:has(> .frame[data-cut="true"])::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #d00; pointer-events: none; }
+/* While the format painter is on, the pointer says so all over the desk, also on Moveable's handles. */
+.editor.brush .desk, .editor.brush .desk * { cursor: copy !important; }
+/* While Space is held a hand lies over the desk, above the guides and Moveable's handles, and its drag moves the desk. */
+.hand { position: absolute; inset: 0; z-index: 3002; cursor: grab; touch-action: none; }
+.editor.panning .hand { cursor: grabbing; }
+/* A finger on a selected block moves it; on any other block it scrolls the desk. */
+.block.sel { touch-action: none; }
+.block > * { display: block; width: 100%; height: 100%; }
+/* A line's box can be flat or mostly empty: only the stroke takes the pointer. */
+.block:has(> svg:not(.numbers)) { min-width: 0; min-height: 0; pointer-events: none; }
+.block > svg { width: 1px; height: 1px; overflow: visible; }
+.block > svg * { pointer-events: auto; }
+/* The line numbers of a text take no press and no selection: a click on one selects nothing. */
+.block > .numbers { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.block > .numbers * { pointer-events: none; }
