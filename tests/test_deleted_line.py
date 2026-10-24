@@ -21,6 +21,7 @@ from test_deleted import (
     press,
     tab_to,
 )
+from test_loading import window  # noqa: F401
 from test_saves import (
     NOTICE,
     again,

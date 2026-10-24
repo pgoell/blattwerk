@@ -18,6 +18,7 @@ from test_deleted import (
     expect_new,
     press,
 )
+from test_loading import window  # noqa: F401
 from test_saves import NOTICE, kept_x, run  # noqa: F401
 from test_stale import STATUS
 
