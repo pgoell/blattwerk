@@ -156,7 +156,11 @@ def test_the_tutorial_names_what_the_teacher_does_herself():
 
 
 RECIPES = [f for f in CONCEPTS if f.parent == DOCS / "recipes"]
-EDITOR = (ROOT / "frontend/src/pages/Editor.tsx").read_text()
+EDITOR = "\n".join(
+    p.read_text()
+    for p in sorted((ROOT / "frontend/src/pages/editor").rglob("*"))
+    if p.suffix in {".ts", ".tsx"}
+)
 # The editor's buttons: a Tool's label, a menu entry's label, and the shapes' names.
 BUTTONS = set(re.findall(r'label[=:] ?"([^"]+)"', EDITOR)) | set(
     re.findall(r'\["\w+", "([^"]+)", \w+\]', EDITOR)
@@ -170,7 +174,7 @@ def test_a_recipe_names_the_editors_buttons_as_they_are(path):
     labels = [label for pair in named for label in pair if label]
     assert labels, f'{name(path)}: name the button for the block, as: the button "Tabelle"'
     unknown = [label for label in labels if label not in BUTTONS]
-    assert unknown == [], f"{name(path)}: no such button in Editor.tsx: {unknown}"
+    assert unknown == [], f"{name(path)}: no such button in the editor: {unknown}"
 
 
 @pytest.mark.parametrize("path", HAND_PAGES, ids=name)
@@ -179,7 +183,7 @@ def test_a_page_names_only_buttons_the_editor_has(path):
     named = re.findall(r'buttons? "([^"]+)"(?: and "([^"]+)")?', body)
     labels = [label for pair in named for label in pair if label]
     unknown = [label for label in labels if label not in BUTTONS]
-    assert unknown == [], f"{name(path)}: no such button in Editor.tsx: {unknown}"
+    assert unknown == [], f"{name(path)}: no such button in the editor: {unknown}"
 
 
 FRONTEND = "".join(

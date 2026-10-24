@@ -222,11 +222,15 @@ def test_copied_words_beside_a_block_name_are_still_caught():
 
 
 def test_every_editor_block_name_is_allowed():
-    editor = (Path(__file__).parent.parent / "frontend/src/pages/Editor.tsx").read_text()
+    editor = "\n".join(
+        p.read_text()
+        for p in sorted((Path(__file__).parent.parent / "frontend/src/pages/editor").rglob("*"))
+        if p.suffix in {".ts", ".tsx"}
+    )
     names = []
     for const in ("NAMES", "PLURALS"):
         body = re.search(rf"const {const}\b[^=]*= \{{(.*?)\n\}};", editor, re.DOTALL)
-        assert body, f"{const} not found in Editor.tsx"
+        assert body, f"{const} not found in the editor modules"
         names += re.findall(r'"([^"]+)"', body.group(1))
     single = [n for n in names if " " not in n]
     assert len(single) > 30
