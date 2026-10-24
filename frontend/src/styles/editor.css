@@ -1,0 +1,119 @@
+/* The editor fills the window and brings its own bar: the app's bar and the footer make way. The desk scrolls
+   between the panel of pages and templates on the left and the format panel on the right. */
+#root:has(.editor) { height: 100dvh; }
+#root:has(.editor) > nav, #root:has(.editor) > footer { display: none; }
+.editor {
+  max-width: none; min-height: 0; padding: 0; display: grid; grid-template: auto minmax(0, 1fr) / auto minmax(0, 1fr) auto;
+  background: var(--desk); font-size: 12.5px; line-height: 1.4;
+}
+.editor > header { grid-column: 1 / -1; }
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 44px;
+  padding: 4px max(12px, env(safe-area-inset-right)) 4px max(12px, env(safe-area-inset-left));
+  background: var(--bg); border-bottom: 1px solid var(--split);
+}
+/* While a sheet loads the bar is empty and keeps the height its buttons give it. */
+.top:empty::before { content: ""; height: var(--ctl); }
+/* On a phone the loading bar and panel hold the editor's own, unseen, which wrap as the editor's will. */
+:is(.top, .panel)[inert] > * { visibility: hidden; }
+.top[inert] .hint::after { content: "Gespeichert"; }
+.top .brand { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; color: var(--muted); }
+.top .logo { font-size: 0; gap: 0; }
+/* The sheet's title reads as text until the pointer or the caret is on it; whether it is saved stands beside it. */
+.top input { flex: 0 1 auto; width: auto; min-width: 80px; max-width: 34vw; field-sizing: content; margin-left: 4px; padding: 0 6px; background: none; border-color: transparent; font-weight: 500; text-overflow: ellipsis; }
+/* While it is edited the title takes what its text needs: the editor folds more of the bar away for it. */
+.top input:focus { max-width: none; }
+/* Beside Blattform's green panel the bar is short: a title with no focus takes less, and leaves commands in it. */
+.leaf .top input:not(:focus) { max-width: 20vw; }
+.top input:hover { border-color: var(--line); }
+.top .hint { margin: 0 auto 0 4px; color: var(--faint); white-space: nowrap; }
+.sep { flex: none; width: 1px; height: 16px; margin: 0 5px; background: var(--line); }
+.zoom { min-width: 52px; padding: 0 4px; border-color: transparent; background: none; color: var(--muted); font: 12px var(--mono); }
+.pdf { display: inline-flex; gap: 8px; margin-left: 8px; }
+/* Wider than a phone, the bar is one row and nothing cuts it off: the editor takes out what has no room and lists
+   it behind "Mehr". Before that the title gives way, down to its least width. The hint keeps the room of its longest
+   text, so a save moves no button, and gives way last, where even the buttons that never fold are too many. */
+@media (min-width: 701px) {
+  .top { flex-wrap: nowrap; }
+  .top > * { flex-shrink: 0; }
+  .top input { flex-shrink: 1000; }
+  .top .hint { display: grid; flex-shrink: 1; min-width: 0; overflow: hidden; }
+  .top .hint::after { content: "Nicht gespeichert"; height: 0; visibility: hidden; }
+}
+/* The sheet was saved from somewhere else: the teacher picks which version stays. */
+.clash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
+.clash ul { flex-basis: 100%; margin: 0; padding-left: 1.2em; font-weight: 400; }
+/* Another sheet's change is not saved yet: a line above the page, which makes room for it. */
+.notice { margin: 0; padding: 8px 12px; background: var(--rec); color: var(--bg); font-weight: 500; }
+.notice a { color: inherit; }
+/* An action the server could not do, or a sheet deleted elsewhere: the line holds its buttons. */
+.notice:has(button) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* An icon's name shows while the pointer rests on it: under the bar, over the dock. */
+@media (hover: hover) and (pointer: fine) {
+  :is(.top, .dock, .insert .shapes) .ib:hover::after {
+    content: attr(aria-label); position: absolute; z-index: 5; top: calc(100% + 8px); left: 50%; translate: -50%; padding: 4px 8px;
+    border-radius: 6px; background: var(--ink); color: var(--bg); font: 500 11.5px/1.4 var(--ui); white-space: nowrap; pointer-events: none;
+    /* The editor shifts a name that would poke out of the window or of the left panel. */
+    margin-left: var(--shift, 0px);
+  }
+  /* As many classes as the rule above, or the name falls under the window and a scrollbar squeezes the desk. */
+  .stage .dock .ib:hover::after { top: auto; bottom: calc(100% + 12px); }
+}
+
+.left, .panel { overflow: auto; background: var(--panel); }
+.left h2, .panel h2 { margin: 0; padding: 14px 0 8px; font: 500 11px/1 var(--ui); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.left { grid-area: 2 / 1; width: 236px; display: flex; flex-direction: column; border-right: 1px solid var(--split); }
+.left > * { flex: none; }
+.left h2, .left > .hint { padding-inline: 14px; }
+/* A checkbox with its words beside it, in the panels: the page numbers' switches. */
+.panel label.tick, label.tick { display: flex; gap: 8px; align-items: center; min-height: var(--ctl); }
+.left label.tick { padding-inline: 14px; }
+.head { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); font-weight: 500; }
+/* Every page drawn small; a ring marks the one in use. Ctrl and the wheel set their width, and with it how many
+   stand in a row. */
+.pages { display: grid; grid-template-columns: repeat(auto-fill, var(--thumb)); justify-content: space-between; gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); }
+.pages button, .pages button.on { display: grid; justify-items: start; gap: 6px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.pages button.on { color: var(--ink); }
+.pages .paper { box-shadow: 0 0 0 1px var(--line); }
+.pages .on .paper { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A thumbnail is dragged to move its page: it fades, and a line shows the gap the page will land in. A finger held
+   on it starts the drag, not the system's menu. */
+.pages [data-thumb] { position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+.pages .drag { opacity: .4; cursor: grabbing; }
+.pages .mark { position: absolute; top: 0; bottom: 0; left: -8px; width: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; }
+.pages .mark.end { left: auto; right: -8px; }
+.pages i { display: grid; place-items: center; width: var(--thumb); border: 1px dashed var(--edge); border-radius: 2px; color: var(--faint); }
+.tpl { display: flex; align-items: center; padding-right: 8px; }
+.tpl button:first-child { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; padding: 0 6px 0 14px; border: 0; border-radius: 0; background: none; font-weight: 400; text-align: left; }
+.tpl .lucide { color: var(--muted); }
+.tpl small { flex: none; white-space: nowrap; padding-right: 6px; font-size: 11px; color: var(--faint); }
+.tpl-name { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.tpl-group h3 { margin: 10px 14px 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.tpl-thumb { flex: none; width: 48px; }
+.tpl-thumb svg { display: block; width: 100%; height: auto; }
+.foot { display: grid; gap: 8px; margin-top: auto; padding: 10px 14px; border-top: 1px solid var(--line); }
+/* The field to store a template stays in view under a long list of templates. */
+.left .foot { position: sticky; bottom: 0; background: var(--panel); }
+
+/* The page lies on a dotted surface. Two fingers zoom the page, not the window. */
+.stage { grid-area: 2 / 2; position: relative; display: grid; min-width: 0; min-height: 0; }
+/* What keeps clear of the dock: 88px under a dock of one row, for a mouse or a finger, and more under one that has wrapped. */
+.editor { --room: max(88px, var(--dock, 0px) + 30px); }
+.desk {
+  /* The vertical track always stands: where scrollbar-gutter is unknown, the desk's width would follow its scrollbar. */
+  overflow: auto scroll; scrollbar-gutter: stable; padding: 32px 32px var(--room); touch-action: pan-x pan-y;
+  background: var(--desk) radial-gradient(var(--dot) 1px, transparent 1.5px) 0 0 / 20px 20px;
+}
+/* What can go on the page: a bar that floats over the desk's lower edge. */
+.dock {
+  position: absolute; bottom: 16px; left: 50%; translate: -50%; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 2px;
+  padding: 5px; background: var(--bg); border: 1px solid var(--edge); border-radius: 12px; box-shadow: var(--shadow);
+}
+/* Each tool 2px narrower than it is high, so that the dock holds all of them in one row between the panels. */
+.dock .ib { width: calc(var(--ctl) + 4px); min-height: calc(var(--ctl) + 6px); border-radius: 8px; }
+.dock .ib svg { width: 17px; height: 17px; }
+.dock .sep { height: 20px; }
+/* For a finger the tools need more room than the desk has between the panels: the dock scrolls, as for all that is no mouse. For a mouse it wraps,
+   in a narrow window too, since a dock that scrolls would cut off the name over a tool. */
+@media not all and (pointer: fine) { .dock { overflow-x: auto; } }
+@media (pointer: fine) { .dock { flex-wrap: wrap; justify-content: center; width: max-content; } }

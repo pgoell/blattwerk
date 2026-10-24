@@ -1,0 +1,94 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 var(--ui);
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+#root { min-height: 100dvh; display: flex; flex-direction: column; }
+a { color: var(--accent); text-underline-offset: 3px; }
+h1 { font: 600 20px/1.2 var(--ui); letter-spacing: -.01em; margin: 0 0 6px; text-wrap: balance; }
+.lead, .hint, .status { color: var(--muted); }
+.lead { margin: 0 0 20px; text-wrap: pretty; }
+.hint { font-size: .92em; margin: 0 0 8px; }
+.status { margin-top: 12px; text-align: center; }
+.status:empty { display: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lucide { stroke-width: 1.75; flex: none; }
+
+.logo { display: inline-flex; align-items: center; gap: 8px; font: 600 14px/1 var(--ui); letter-spacing: -.01em; color: var(--ink); }
+.logo svg { width: 22px; height: 22px; }
+.logo rect { fill: var(--accent); }
+.logo path { fill: var(--on-accent); }
+.logo path + path { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; }
+
+nav {
+  position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 2px; align-items: center; min-height: 44px;
+  padding: 4px max(12px, env(safe-area-inset-right)) 4px max(12px, env(safe-area-inset-left));
+  background: var(--bg); border-bottom: 1px solid var(--split);
+}
+nav a {
+  display: inline-flex; align-items: center; min-height: var(--ctl); padding: 0 10px; border-radius: 6px;
+  text-decoration: none; color: var(--muted); font-weight: 500;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+nav > button { border: 0; background: none; color: var(--muted); font-weight: 500; }
+dialog.feedback, dialog.variants, dialog.ask, dialog.texthelp {
+  width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg); color: var(--ink); text-align: left;
+}
+dialog.feedback::backdrop, dialog.variants::backdrop, dialog.ask::backdrop, dialog.texthelp::backdrop { background: rgba(0, 0, 0, .4); }
+dialog.texthelp { width: min(720px, calc(100vw - 24px)); }
+dialog.texthelp .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+dialog.texthelp .levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+dialog.texthelp textarea { width: 100%; min-height: 8em; }
+dialog.texthelp .sample { white-space: pre-wrap; }
+/* The preview scrolls in its own box, so the dialog stays as high as the screen allows. */
+dialog.variants fieldset { margin: 14px 0 0; padding: 0; border: 0; }
+dialog.variants label { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 0 0; }
+/* The dialog lies in the bar, whose rule for the title's field would make each box 80px wide. */
+dialog.variants input { min-width: 0; margin: 0; }
+dialog.variants .preview {
+  display: flex; gap: 12px; height: 320px; overflow: auto; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+}
+/* A page keeps the size the preview gave it: the row never squeezes it narrower. */
+dialog.variants .preview > .paper { flex: none; }
+/* The right click's menu, and the bar's of what it has no room for, where a finger picks: a row is as high as a
+   button. Its backdrop takes the press beside it and shows nothing. */
+dialog.menu {
+  position: fixed; inset: auto; margin: 0; max-width: none; max-height: 100vh; overflow-y: auto; min-width: 220px; padding: 4px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--raise); color: var(--ink); font-size: 13px; box-shadow: 0 6px 24px rgb(0 0 0 / .18);
+}
+dialog.menu::backdrop { background: none; }
+dialog.menu button {
+  display: flex; width: 100%; min-height: var(--ctl); padding: 0 8px; border: 0; border-radius: 5px; background: none; font-weight: 400;
+  justify-content: flex-start; gap: 8px; transform: none; white-space: nowrap;
+}
+/* A command that is on has a tick at the row's end. */
+dialog.menu [aria-checked=true]::after { content: "✓"; margin-left: auto; padding-left: 24px; color: var(--accent); }
+dialog.menu button:not(:disabled):is(:hover, :focus) { outline: 0; background: var(--accent-soft); }
+dialog.menu i { width: 14px; }
+dialog.menu kbd { margin-left: auto; padding-left: 24px; font: inherit; color: var(--faint); }
+dialog.menu hr { margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
+/* The mini toolbar beside the block menu: one row of icons on the menu's own look. */
+dialog.menu .mini {
+  position: fixed; display: flex; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--raise); box-shadow: 0 6px 24px rgb(0 0 0 / .18);
+}
+dialog.menu .mini button { width: auto; min-height: 28px; padding: 0 6px; justify-content: center; }
+dialog.feedback h1, dialog.variants h1, dialog.texthelp h1 { margin-top: 0; }
+dialog.ask h1 { margin-top: 0; font-size: 1.15rem; }
+dialog.feedback label, dialog.variants > label { margin-top: 14px; }
+dialog.variants > label { display: flex; }
+dialog.feedback .row, dialog.variants .row, dialog.ask .row, dialog.texthelp .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+dialog.ask .row, dialog.texthelp .row { flex-wrap: wrap; }
+.share-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+.share-page .pages { display: flex; flex-direction: column; align-items: center; gap: 24px; margin: 16px 0; }
+.share-page .row { display: flex; gap: 8px; margin-top: 8px; }
+nav a.active { background: var(--accent-soft); color: var(--accent); }
+nav a.brand { margin-right: auto; padding-left: 0; background: none; }
+@media (max-width: 480px) {
+  /* Four links and the wordmark do not fit one row on a phone; the leaf alone does. */
+  nav .logo { font-size: 0; gap: 0; }
+  nav { flex-wrap: nowrap; gap: 0; }
+  nav a { padding-inline: 8px; }
+}
+main { flex: 1; width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 16px 48px; }
