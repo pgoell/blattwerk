@@ -106,8 +106,10 @@ export function useDrop(session: ReturnType<typeof useField>) {
   };
   // The text of the last cells copied: a paste of exactly that, with line breaks, spreads over the cells.
   const cellsCopied = useRef("");
+  // Set when this copy's own copy event wrote its words. A picture found after that was copied later.
+  const stamped = useRef(false);
   // In a browser that makes no such copy the words land a moment later: until then a paste still finds the older
-  // picture there, which is stale.
+  // picture there, which is stale. Once this copy's words were written, a picture without them is a newer one.
   const writing = useRef(0);
   // Ctrl+V comes as the browser's paste, which alone brings a picture copied in another app. A field keeps a paste
   // of words as its own. A picture has no place in a text's, a cell's or a Lineatur's field, so it lands on the
@@ -136,15 +138,18 @@ export function useDrop(session: ReturnType<typeof useField>) {
     const picture = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
     const words = !field?.matches(".sheet .ProseMirror, .sheet textarea") || e.clipboardData!.types.includes("text/plain");
     if (field && (words || !picture || writing.current)) return;
-    // The editor's own copy comes with its picture: the blocks come first.
-    if (ownCopy(text.replace(/\r\n/g, "\n")) && !writing.current) {
+    // The editor's own words bring the blocks, picture or not. While those words have not been written, a picture
+    // there is the one copied before. Once they have, a picture without them was copied afterwards: it wins, even
+    // while the block picture is still drawn (#1011).
+    const ours = ownCopy(text.replace(/\r\n/g, "\n"));
+    if (ours || (writing.current && (!picture || !stamped.current))) {
       e.preventDefault();
       e.stopPropagation();
       paste();
       return;
     }
-    if (!picture || writing.current) {
-      if (writing.current || !typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
+    if (!picture) {
+      if (!typed(e.clipboardData?.getData("text/plain") ?? "", e.clipboardData?.getData("text/html"))) paste();
       return;
     }
     e.preventDefault();
@@ -152,5 +157,5 @@ export function useDrop(session: ReturnType<typeof useField>) {
     e.stopPropagation();
     upload(picture, true);
   };
-    return Object.assign(session, { onKey, onPaste, onDrag, fromPage, latest, cellsCopied, writing });
+    return Object.assign(session, { onKey, onPaste, onDrag, fromPage, latest, cellsCopied, stamped, writing });
 }

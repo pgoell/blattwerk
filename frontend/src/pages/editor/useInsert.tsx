@@ -231,11 +231,13 @@ export function useInsert(session: ReturnType<typeof usePageScroll>) {
   // They go out in a copy of the browser's own, which needs no leave and is done before the next paste. A copy with
   // no words waiting, as a field's, stays the browser's.
   const pending = useRef<string | null>(null);
+  const stamped = session.stamped;
   useEffect(() => {
     const copied = (e: ClipboardEvent) => {
       if (pending.current === null) return;
       e.clipboardData!.setData("text/plain", pending.current);
       pending.current = null;
+      stamped.current = true;
       e.preventDefault();
       e.stopPropagation();
     };

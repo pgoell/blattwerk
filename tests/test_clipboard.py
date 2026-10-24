@@ -1,5 +1,6 @@
 """Cut, copy and paste: blocks that outlast the editor, and pictures from other apps."""
 
+import base64
 import re
 
 import pytest
@@ -377,6 +378,55 @@ def test_a_picture_copied_after_blocks_pastes_as_a_picture(editor):
     page.keyboard.press("Control+v")
     expect_picture(page, client, 2)
     assert sorted(b["type"] for b in saved(page, client)) == ["image", "shape"]
+
+
+# Holds back the block picture's bytes until the test lets them go, so the picture finishes late on purpose.
+HOLD_BLOBS = """() => {
+    const blob = HTMLCanvasElement.prototype.toBlob;
+    let hold = true;
+    window.heldBlobs = [];
+    HTMLCanvasElement.prototype.toBlob = function (cb, ...args) {
+        return blob.call(this, (b) => (hold ? window.heldBlobs.push(() => cb(b)) : cb(b)), ...args);
+    };
+    window.releaseBlobs = () => {
+        hold = false;
+        const held = window.heldBlobs;
+        window.heldBlobs = [];
+        for (const go of held) go();
+    };
+}"""
+
+
+# Another app's picture. It goes through the browser's own write, not the page's, which waits its turn.
+OTHER_APP = """async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "image/png" });
+    const write = Clipboard.prototype.write;
+    await write.call(navigator.clipboard, [new ClipboardItem({ "image/png": blob })]);
+}"""
+
+
+@pytest.mark.skipif(
+    BROWSER == "webkit",
+    reason="WebKit on Linux refuses a clipboard write that is not the page's own",
+)
+def test_a_picture_copied_while_the_block_picture_is_drawn_stays_a_picture(editor):
+    """#1011: a picture copied elsewhere while the block picture is drawn stays what a paste brings,
+    and the late block picture does not replace it."""
+    client = user()
+    page = editor(box("a", "shape", RECT, w=40), client=client)
+    track_writes(page)
+    page.evaluate(HOLD_BLOBS)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    page.evaluate(OTHER_APP, base64.b64encode(png()).decode())
+    page.keyboard.press("Control+v")
+    expect_picture(page, client, 2)
+    page.evaluate("window.releaseBlobs()")
+    writes_landed(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(3)
+    assert sorted(b["type"] for b in saved(page, client)) == ["image", "image", "shape"]
 
 
 def einfuegen(page, how):
