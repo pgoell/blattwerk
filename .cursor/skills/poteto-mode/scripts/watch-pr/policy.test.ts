@@ -1,20 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import { WatcherQueryError } from "./github.ts";
 import {
+  applyQueueSnapshot,
   assessGitHubMerge,
   classifyPr,
-  queryBackoffSeconds,
-  readSnapshot,
-  selectTierMajorStackDecision,
-} from "./policy.ts";
-import {
-  applyQueueSnapshot,
   createQueueState,
   evaluateQueue,
   planQueue,
+  queryBackoffSeconds,
+  readSnapshot,
   runQueued,
-} from "./policy-run.ts";
-
+  selectTierMajorStackDecision,
+} from "./policy.ts";
 import {
   fakeReader,
   failedCheck,

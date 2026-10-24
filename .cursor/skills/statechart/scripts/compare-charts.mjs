@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import process from "node:process";
-import {
-  FULL_LABELS,
-  LEGEND_ID,
-  compareCharts,
-  parseMermaid,
-} from "./mermaid.mjs";
+import { FULL_LABELS, LEGEND_ID, compareCharts, parseMermaid } from "./lib.mjs";
 
 const USAGE = "Usage: node compare-charts.mjs EXPECTED.mmd ACTUAL.mmd";
 const HELP = `${USAGE}

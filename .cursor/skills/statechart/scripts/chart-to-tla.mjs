@@ -2,9 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import {
-  parseMermaid,
-} from "./mermaid.mjs";
+import { parseMermaid } from "./lib.mjs";
 
 const USAGE = "Usage: node chart-to-tla.mjs CHART.mmd --module NAME [--dir OUT]";
 const HELP = `${USAGE}
