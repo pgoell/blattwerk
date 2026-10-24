@@ -1887,8 +1887,11 @@ function Canvas({ file, user, reload, over, choice, asNew, discard, renew, opene
         return;
       }
       e.preventDefault();
-      // One notch of a mouse wheel is one step of the buttons.
-      const by = 1.25 ** (-e.deltaY / 100);
+      // A whole delta is a mouse wheel: one step of the buttons per 100.
+      // One that is not whole is a trackpad pinch. Chrome sends about -100 * ln(scale),
+      // and exp(-delta / 100) gives that scale back, so the page follows the fingers.
+      const pinch = !Number.isInteger(e.deltaY);
+      const by = pinch ? Math.exp(-e.deltaY / 100) : 1.25 ** (-e.deltaY / 100);
       if (on.closest(".pages")) return setThumb((w) => Math.min(THUMBS[1], Math.max(THUMBS[0], w * by)));
       if (!stage.current!.contains(on)) return;
       // The page under the pointer, not the one in use: the gaps between the pages do not grow with them.

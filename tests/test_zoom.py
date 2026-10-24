@@ -1,5 +1,6 @@
 """Ctrl and the wheel zoom about the pointer, Space and a drag move the desk, "Ganze Seite" fits."""
 
+import math
 import re
 
 import pytest
@@ -85,6 +86,28 @@ def wheel(page, delta, point=None, ctrl=True):
     page.mouse.wheel(0, delta)
     if ctrl:
         page.keyboard.up("Control")
+
+
+def pinch(page, delta, point):
+    """A trackpad pinch: Ctrl and a wheel whose delta is not a whole number.
+
+    Chromium delivers that delta as it is. WebKit rounds a wheel it is sent to a
+    whole number, and a whole delta is a notch, so there the page sends the event.
+    """
+    if BROWSER != "webkit":
+        wheel(page, delta, point)
+        return
+    page.mouse.move(*point)
+    page.evaluate(
+        """([x, y, delta]) => {
+            const el = document.elementFromPoint(x, y);
+            el.dispatchEvent(new WheelEvent("wheel", {
+                deltaX: 0, deltaY: delta, ctrlKey: true, bubbles: true, cancelable: true,
+                clientX: x, clientY: y,
+            }));
+        }""",
+        [*point, delta],
+    )
 
 
 def kept(page):
@@ -198,6 +221,41 @@ def expect_under(page, point, mm, wide, n=0):
         }""",
         arg=[*point, *mm, wide, n],
     )
+
+
+# Asked #164
+
+
+def test_a_trackpad_pinch_follows_the_fingers(editor):
+    """A pinch whose delta is not a whole number grows the page with the fingers.
+
+    Chrome sends about -100 * ln(scale). A whole notch stays one step of the buttons.
+    """
+    page = editor(box("a", "text", TEXT))
+    roomy(page)
+    wide = width(page)
+    point = spot(page, 60, 80)
+    assert page.evaluate(
+        "([x, y]) => !!document.elementFromPoint(x, y).closest('.sheet.on')", point
+    )
+    # Four small events, as a trackpad sends them: together the fingers have doubled.
+    step = -100 * math.log(2) / 4
+    for n in range(1, 5):
+        pinch(page, step, point)
+        expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
+    for n in range(3, -1, -1):
+        pinch(page, -step, point)
+        expect_under(page, point, (60, 80), wide * 2 ** (n / 4))
+    # The same doubling in one event, then back.
+    pinch(page, -100 * math.log(2), point)
+    expect_under(page, point, (60, 80), wide * 2)
+    pinch(page, 100 * math.log(2), point)
+    expect_under(page, point, (60, 80), wide)
+    # A mouse wheel's notch is a whole number.
+    wheel(page, -100, point)
+    expect_under(page, point, (60, 80), wide * 1.25)
+    wheel(page, 100, point)
+    expect_under(page, point, (60, 80), wide)
 
 
 def test_ctrl_wheel_keeps_the_point_under_the_pointer(editor):
