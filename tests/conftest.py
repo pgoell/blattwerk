@@ -85,9 +85,6 @@ SLOW = {
     "test_full_run_fails_when_the_reloaded_editor_lacks_the_word",
     "test_a_block_on_its_way_finds_its_page_after_the_pages_change",
     "test_every_exercise_keeps_every_limit",
-    # 13 to 23 s on an idle machine: with limits that allow no term the generator spends every
-    # try (#447), and a runner is three times slower.
-    "test_every_comparison_keeps_every_limit",
     "test_every_task_of_three_numbers_keeps_every_limit_and_its_result_is_right",
     # 22 s alone in WebKit, past 60 s at the end of a loaded shard (#608).
     "test_a_shrunk_table_agrees_on_screen_thumb_and_pdf",
