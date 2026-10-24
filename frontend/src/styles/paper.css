@@ -1,0 +1,66 @@
+/* Paper is white under either theme, and so is all that lies on it. */
+.paper, .sheet, .sample { color-scheme: light; }
+/* A letter is as wide as its font says, at every size. Chromium on Linux, which prints the PDF, otherwise rounds
+   each letter to whole pixels, and a line then breaks at another word than on the screen. A field has to be told. */
+.paper, .sheet, .sheet textarea { text-rendering: geometricPrecision; }
+.paper {
+  position: relative; isolation: isolate; overflow: hidden; background: #fff; color: #222; border-radius: 2px;
+  text-align: left;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), var(--shadow); pointer-events: none;
+}
+.paper .block { min-width: 0; min-height: 0; }
+.paper p { margin: 0; line-height: 1.3; white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden; }
+/* The answer key's mark stands in the top margin, in the colour of the answers. */
+.paper .key { position: absolute; z-index: 3000; font-family: Andika; line-height: 1; color: #c0392b; }
+.folio { position: absolute; z-index: 0; pointer-events: none; font-family: Andika; line-height: 1; white-space: nowrap; }
+/* The page's picture, under the blocks. The clip keeps it on the paper; the picture itself may be larger. */
+.ground-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.ground { position: absolute; overflow: hidden; pointer-events: none; }
+.ground.live { pointer-events: auto; cursor: move; outline: 1px dashed var(--accent); }
+.ground-turn { position: absolute; transform-origin: center center; }
+.ground img { position: absolute; max-width: none; }
+.ground-box { display: grid; gap: 8px; padding: 0 14px 14px; border-bottom: 1px solid var(--line); }
+.ground-box h2 { padding-inline: 0; }
+.ground-box .hint { padding-inline: 0; margin: 0; }
+.ground-box > button { width: 100%; }
+.sheet .ground-handle { position: absolute; z-index: 3002; width: 14px; height: 14px; margin: -7px; border: 2px solid #fff; border-radius: 2px; background: var(--sel); touch-action: none; cursor: nwse-resize; }
+.sheet .ground-handle.scale { border-radius: 50%; }
+/* What Chromium prints into the PDF: the pages alone, each one a sheet of A4. */
+body:has(.print) { background: #fff; }
+#root:has(.print) { display: block; min-height: 0; }
+#root:has(.print) footer { display: none; }
+.print .paper { border-radius: 0; box-shadow: none; }
+.print .paper + .paper { break-before: page; }
+/* A page on its side gets a sheet on its side: Chromium takes each page's size from here. */
+@page { size: 210mm 297mm; margin: 0; }
+@page wide { size: 297mm 210mm; margin: 0; }
+.print .paper.wide { page: wide; }
+
+/* Logged out: the pitch beside the form, stacked on a phone. */
+.auth { max-width: 1040px; display: grid; gap: 40px; align-content: center; }
+.auth-form { width: 100%; max-width: 380px; margin: 0 auto; }
+.pitch .logo { margin-bottom: 28px; }
+.claim { font: 600 clamp(28px, 4.4vw, 42px)/1.08 var(--ui); letter-spacing: -.03em; margin: 0 0 14px; text-wrap: balance; }
+.pitch .lead { max-width: 32em; margin: 0; font-size: 15px; }
+.sample { display: none; }
+@media (min-width: 860px) {
+  .auth { grid-template-columns: 1.15fr 1fr; gap: 72px; align-items: center; }
+  .sample {
+    display: block; width: 300px; margin: 44px 0 0 12px; padding: 22px 24px 26px; background: #fff; color: #222;
+    border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), var(--shadow); rotate: -2.5deg;
+    font: 13px/1.5 Andika, sans-serif;
+  }
+  .sample strong { display: block; font-size: 18px; margin: 14px 0 10px; }
+  .sample-head { display: flex; gap: 12px; color: #777; }
+  .sample-head span { flex: 1; border-bottom: 1px solid #bbb; padding-bottom: 2px; }
+  .sample-sums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .sample-sums span::after { content: ""; display: inline-block; width: 2.2em; margin-left: .4em; border-bottom: 1px solid #999; }
+  /* Lineatur: a writing band between two solid lines, a faint line above and below. */
+  .sample-lines { height: 84px; margin-top: 20px; background: repeating-linear-gradient(#cfd8e6 0 1px, transparent 1px 9px, #7d93b5 9px 10px, transparent 10px 18px, #7d93b5 18px 19px, transparent 19px 27px, #cfd8e6 27px 28px, transparent 28px 42px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .auth > * { animation: rise 500ms var(--ease-out) backwards; }
+  .auth > * + * { animation-delay: 70ms; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
