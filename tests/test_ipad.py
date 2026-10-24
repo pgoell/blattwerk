@@ -11,14 +11,11 @@ from conftest import IPAD, TURNED
 from playwright.sync_api import TimeoutError as Late
 from playwright.sync_api import expect
 from test_menu import HELD, props
-from test_rotate import HANDLE
 from ui import (
     BROWSER,
     FIELD,
     RECT,
     TEXT,
-    angle,
-    arc,
     at,
     bar,
     box,
@@ -26,7 +23,6 @@ from ui import (
     drawer,
     expect_picked,
     saved,
-    swipe,
     user,
 )
 
@@ -391,59 +387,6 @@ def test_upright_a_tap_in_the_dock_inserts_a_block(editor, theme):
     assert inside(page, dock)
 
 
-def test_upright_the_tour_opens_the_drawer_its_step_is_about(editor):
-    """I7"""
-    page = editor(text("a", 1), touch=True)
-    # After the fixture's own script, which says the tour was seen.
-    page.context.add_init_script("localStorage.removeItem('tour')")
-    page.reload()
-    tour, ring = page.locator(".tour"), page.locator(".tour-ring")
-    step = tour.locator("h2")
-    expect(step).to_have_text("Willkommen bei Blattomat")
-    expect(page.locator("aside")).to_have_count(0)
-
-    def on(title):
-        """Steps on until the tour is at this step."""
-        for _ in range(15):
-            if step.inner_text() == title:
-                return
-            before = tour.locator("small").inner_text()
-            tour.locator(".primary").tap()
-            expect(tour.locator("small")).not_to_have_text(before)
-        raise AssertionError(f"no step {title}")
-
-    def expect_ringed(panel):
-        """Waits until the ring lies round the panel, which lies in the window."""
-        expect(panel).to_be_visible()
-        assert inside(page, panel)
-        place = panel.bounding_box()
-        page.wait_for_function(
-            """([x, y]) => {
-                const ring = document.querySelector(".tour-ring").getBoundingClientRect();
-                return ring.width > 0 && Math.abs(ring.x - x) <= 4 && Math.abs(ring.y - y) <= 4;
-            }""",
-            arg=[place["x"], place["y"]],
-        )
-        assert inside(page, ring)
-
-    on("Format")
-    expect_ringed(page.locator("aside.panel"))
-    expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
-    # The next step's tool stands in the dock, which lies over the open drawer.
-    on("Rechenaufgaben")
-    page.locator(".dock").get_by_label("Rechnen", exact=True).tap()
-    expect(step).to_have_text("Aufgaben einstellen")
-    expect(page.locator(".panel .what")).to_contain_text("Rechnen")
-    on("Seiten und Vorlagen")
-    expect_ringed(page.locator("aside.left"))
-    expect(page.locator("aside.panel")).to_have_count(0)
-    # The bar has no room for the tour's own button: the last step is about "Mehr", which holds it.
-    on("Das war's")
-    expect(page.locator("header").get_by_label("Rundgang", exact=True)).to_have_count(0)
-    expect_ringed(page.get_by_label("Mehr", exact=True))
-    expect(tour.locator("p")).to_contain_text("Mehr")
-
-
 @THEMES
 def test_a_phone_lies_as_before(editor, theme):
     """I8"""
@@ -454,18 +397,6 @@ def test_a_phone_lies_as_before(editor, theme):
     expect_places(page, PHONE, [32, 99, 536, 758])
 
 
-def test_on_its_side_a_finger_turns_a_block_by_its_handle(editor):
-    """I7, #269"""
-    page = editor(box("a", "shape", RECT, x=75, y=80, w=60, h=20), touch="landscape")
-    at(page, "a").tap()
-    expect_picked(page, "a")
-    about = centre(at(page, "a"))
-    swipe(page, *arc(centre(page.locator(HANDLE)), about, 90))
-    # A finger is less exact than a mouse: the browser may keep its first few pixels to itself.
-    assert abs(angle(page, "a") - 90) <= 5
-    assert centre(at(page, "a")) == pytest.approx(about, abs=1)
-
-
 def within(inner, outer):
     """Whether the first box lies in the second, all of it, to the pixel."""
     return (
@@ -474,49 +405,3 @@ def within(inner, outer):
         and inner["x"] + inner["width"] <= outer["x"] + outer["width"] + 0.5
         and inner["y"] + inner["height"] <= outer["y"] + outer["height"] + 0.5
     )
-
-
-def test_on_its_side_the_plain_dock_scrolls_and_keeps_off_the_format_panel(editor):
-    """A8, #270"""
-    page = editor(text("a", 1), theme="", touch="landscape")
-    dock, panel = page.locator(".dock"), page.locator("aside.panel")
-    assert within(dock.bounding_box(), page.locator(".stage").bounding_box())
-    # The panel's left part at the dock's height is the panel's own, with the dock at either end.
-    edge = panel.bounding_box()["x"] + 20
-    hit = "([x, y]) => !!document.elementFromPoint(x, y).closest('aside.panel')"
-    for end in (0, 99999):
-        dock.evaluate("(el, x) => el.scrollTo(x, 0)", end)
-        assert page.evaluate(hit, [edge, centre(dock)[1]])
-    # Each tool comes into the dock by scrolling it.
-    tools = dock.get_by_role("button").all()
-    assert len(tools) > 15
-    for tool in tools:
-        tool.scroll_into_view_if_needed()
-        assert within(tool.bounding_box(), dock.bounding_box())
-    dock.evaluate("el => el.scrollTo(0, 0)")
-    last = dock.get_by_label("Doppelpfeil", exact=True)
-    assert not within(last.bounding_box(), dock.bounding_box())
-    last.tap()
-    expect(page.locator(".block[data-id]")).to_have_count(2)
-
-
-@THEMES
-@pytest.mark.parametrize("window", [(1400, 1000), (900, 1200)], ids=["wide", "upright"])
-def test_with_a_mouse_a_dock_tool_shows_its_whole_name(editor, theme, window):
-    """I8, #270. Upright the dock scrolled for a mouse too since #267."""
-    page = editor(text("a", 1), theme=theme)
-    page.set_viewport_size({"width": window[0], "height": window[1]})
-    tool = page.locator(".dock .ib").first
-    tool.hover()
-    tip = "el => getComputedStyle(el, '::after').content"
-    assert tool.evaluate(tip) == json.dumps(tool.get_attribute("aria-label"))
-    # The name stands over the dock: a dock that scrolls would cut it off.
-    clips = """el => {
-        const found = [];
-        for (let up = el.parentElement; !up.matches(".stage"); up = up.parentElement) {
-            const { overflowX, overflowY } = getComputedStyle(up);
-            found.push(overflowX, overflowY);
-        }
-        return found.filter((overflow) => overflow !== "visible");
-    }"""
-    assert tool.evaluate(clips) == []

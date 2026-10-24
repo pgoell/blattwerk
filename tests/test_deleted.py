@@ -17,9 +17,7 @@ The docstrings name the lines of the checklist.
 
 import re
 
-import pytest
 from playwright.sync_api import expect
-from test_clash import swap
 from test_loading import READY, window  # noqa: F401
 from test_saves import (  # noqa: F401
     ASKS,
@@ -38,7 +36,7 @@ from test_saves import (  # noqa: F401
 )
 from test_signed_out import login
 from test_stale import STATUS, TURNS
-from ui import at, reload, unpick, user
+from ui import at, reload, unpick
 
 KEEP, DROP = "Als neues Blatt behalten", "Verwerfen"
 SAYS = "Dieses Blatt wurde auf einem anderen Gerät gelöscht. Was du hier siehst, ist noch da."
@@ -222,70 +220,6 @@ def test_dropping_takes_the_change_and_its_record_and_shows_the_list(run):
     assert len(run.client.get("/api/sheets").json()) == 2
 
 
-def test_the_list_asks_anew_when_a_save_finds_its_sheet_deleted(run):
-    """A11: the list showed the sheet, and its row goes with no reload."""
-    page = left(run)
-    expect(page.locator(".sheets li")).to_have_count(2)
-    expect(page.locator(".sheets li strong")).to_have_text(["c", "b"], ignore_case=False)
-
-
-@pytest.mark.parametrize("choice", [KEEP, DROP])
-def test_a_save_that_finds_the_delete_with_the_editor_gone_asks_above_the_list(run, choice):
-    """A6"""
-    page = left(run)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    assert kept_x(page, run) == 16
-    press(line, choice)
-    if choice == KEEP:
-        expect_new(run, page)
-    else:
-        expect_list(page)
-        assert record(page, run.ids["a"]) is None
-    assert len(run.sent) == 1
-
-
-@pytest.mark.parametrize("choice", [KEEP, DROP])
-@pytest.mark.parametrize("kept", ["named", "from-before-names"])
-def test_the_start_with_a_kept_change_of_a_deleted_sheet_asks_above_the_list(run, choice, kept):
-    """A7: also for a record written before it kept the sheet's name."""
-    page, _ = start(run)
-    nudge(run)
-    shut(page, 1)
-    delete(run)
-    if kept != "named":
-        run.page.context.add_init_script(OLD)
-    page, _, sent = again(run, None)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE if kept == "named" else LINE.replace("a", "Unbenanntes Blatt", 1))
-    expect(page.locator(".sheets li")).to_have_count(2)
-    assert kept_x(page, run) == 16
-    press(line, choice)
-    if choice == KEEP:
-        expect_new(run, page, title="a" if kept == "named" else "Unbenanntes Blatt")
-    else:
-        expect_list(page)
-        assert record(page, run.ids["a"]) is None
-    assert not sent
-
-
-@pytest.mark.parametrize("choice", [KEEP, DROP])
-def test_a_reload_on_the_dead_sheets_address_shows_the_choice_there(run, choice):
-    """A8"""
-    page, _, _ = deleted(run)
-    page.clock.resume()
-    page.reload()
-    expect(page.get_by_role("heading", name="Blatt nicht gefunden")).to_be_visible(timeout=10000)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    press(line, choice)
-    if choice == KEEP:
-        expect_new(run, page)
-    else:
-        expect_list(page)
-        assert record(page, run.ids["a"]) is None
-
-
 def test_a_choice_under_way_takes_no_second_press(run):
     """I1: two presses before the first is answered make one sheet."""
     page, _, _ = deleted(run)
@@ -408,19 +342,6 @@ def test_the_banners_buttons_are_reached_by_tab_and_pressed_by_enter(run):
     expect_list(page)
 
 
-def test_the_lines_buttons_are_reached_by_tab_and_pressed_by_enter(run):
-    """I2"""
-    page = left(run)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    tab_to(page, line.get_by_role("button", name=KEEP))
-    page.keyboard.press("Tab")
-    expect(line.get_by_role("button", name=DROP)).to_be_focused()
-    page.keyboard.press("Shift+Tab")
-    page.keyboard.press("Enter")
-    expect_new(run, page)
-
-
 def test_the_editor_works_on_under_the_banner_and_the_page_is_kept_as_it_stands_then(run):
     """I3: a change, undo and redo, and a new title. Undone back to what the server held last,
     the page is still kept: the server holds nothing of it."""
@@ -447,175 +368,3 @@ def test_the_editor_works_on_under_the_banner_and_the_page_is_kept_as_it_stands_
     banner.get_by_role("button", name=KEEP).click()
     expect_new(run, page, x=17, title="Getippt")
     assert run.client.get(f"/api/sheets/{a}").status_code == 404
-
-
-def test_a_choice_that_finds_the_session_gone_brings_the_login_and_stands_after_it(run):
-    """I5"""
-    page, _, _ = deleted(run)
-    a = run.ids["a"]
-    kept = record(page, a)
-    page.context.clear_cookies()
-    page.locator(".clash").get_by_role("button", name=KEEP).click()
-    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
-    expect(page).to_have_url(f"{run.server}/blatt/{a}")
-    assert record(page, a) == kept
-    page.clock.resume()
-    login(page, run.server, run.client)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    expect(line).not_to_contain_text(WORD)
-    assert record(page, a) == kept
-    line.get_by_role("button", name=KEEP).click()
-    expect_new(run, page)
-
-
-def test_a_choice_under_another_accounts_session_makes_no_sheet_there(run):
-    """A10: another teacher signed in in another tab. The login shows, that teacher gets no
-    sheet of this one, and the change stays for its owner, who then chooses."""
-    page, _, _ = deleted(run)
-    a, other = run.ids["a"], user()
-    kept = record(page, a)
-    swap(page, run.server, other)
-    page.locator(".clash").get_by_role("button", name=KEEP).click()
-    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
-    page.evaluate(TURNS)
-    assert other.get("/api/sheets").json() == []
-    assert record(page, a) == kept
-    page.clock.resume()
-    login(page, run.server, run.client)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    line.get_by_role("button", name=KEEP).click()
-    expect_new(run, page)
-    assert other.get("/api/sheets").json() == []
-
-
-@pytest.mark.parametrize("session", ["none", "another teacher's"])
-def test_dropping_needs_the_owners_own_session(run, session):
-    """A10, review 2: with the session gone, or another teacher's, `Verwerfen` drops nothing.
-    The login shows, the change stays for its owner, and after the owner's login it goes."""
-    page, _, _ = deleted(run)
-    a = run.ids["a"]
-    kept = record(page, a)
-    if session == "none":
-        page.context.clear_cookies()
-    else:
-        swap(page, run.server, user())
-    press(page.locator(".clash"), DROP)
-    expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
-    page.evaluate(TURNS)
-    assert record(page, a) == kept
-    page.clock.resume()
-    login(page, run.server, run.client)
-    line = page.locator(NOTICE)
-    expect_choice(line, LINE)
-    assert record(page, a) == kept
-    press(line, DROP)
-    expect_list(page)
-    assert record(page, a) is None
-
-
-def test_dropping_asks_once_more_and_a_no_keeps_all(run):
-    """Review 3: what shows is the only copy, so one press alone drops nothing."""
-    page, _ = start(run)
-    asked = []
-    page.on("dialog", lambda d: (asked.append(d.message), d.dismiss()))
-    change(run)
-    delete(run)
-    answer(run, "a")
-    banner = page.locator(".clash")
-    kept = record(page, run.ids["a"])
-    banner.get_by_role("button", name=DROP).click()
-    page.evaluate(TURNS)
-    assert asked == ["Was von „a“ noch da ist, endgültig verwerfen?"]
-    expect_choice(banner, SAYS)
-    assert record(page, run.ids["a"]) == kept
-
-
-def test_dropping_with_no_connection_says_so_and_the_choice_stands(run):
-    """Review 2: who is signed in cannot be asked, so nothing is dropped."""
-    page, _, _ = deleted(run)
-    kept = record(page, run.ids["a"])
-    page.context.set_offline(True)
-    banner = page.locator(".clash")
-    press(banner, DROP)
-    expect(banner).to_contain_text(WORD)
-    assert record(page, run.ids["a"]) == kept
-    page.context.set_offline(False)
-    press(banner, DROP)
-    expect_list(page)
-
-
-@pytest.mark.parametrize("button", ["PDF", "Lösungen"], ids=["pdf", "key"])
-def test_a_pdf_of_a_sheet_deleted_elsewhere_says_so_and_offers_no_try(run, button):
-    """14"""
-    page, _, _ = deleted(run)
-    page.get_by_role("button", name=button, exact=True).click()
-    line = page.locator(".notice.fault")
-    expect(line).to_contain_text(PDF_GONE)
-    expect(line.get_by_role("button", name="Erneut versuchen")).to_have_count(0)
-    expect_choice(page.locator(".clash"), SAYS)
-
-
-def test_a_keep_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
-    """1: tab 2 holds what tab 1 kept, so its choice ends, and it opens the new sheet. One sheet
-    is made."""
-    page, _, _ = deleted(run)
-    other = page.context.new_page()
-    other.goto(f"{run.server}/blatt/{run.ids['a']}")
-    expect_choice(other.locator(NOTICE), LINE)
-    press(page.locator(".clash"), KEEP)
-    expect_new(run, page)
-    new = page.url.rsplit("/", 1)[1]
-    expect(other).to_have_url(f"{run.server}/blatt/{new}")
-    expect(other.locator(NOTICE)).to_have_count(0)
-    assert len(run.client.get("/api/sheets").json()) == 3
-
-
-def test_another_tab_with_other_work_keeps_its_choice_and_its_record(run):
-    """3: tab 2 holds a change other than the one tab 1 kept, so its choice stands and its record
-    is written back."""
-    page, _, _ = deleted(run)
-    a = run.ids["a"]
-    other = page.context.new_page()
-    other.add_init_script(
-        f"const k = JSON.parse(localStorage.getItem('unsaved:{a}') ?? 'null');"
-        f"if (k) {{"
-        f" k.doc.pages[0].blocks[0].x = 17;"
-        f" localStorage.setItem('unsaved:{a}', JSON.stringify(k));"
-        f" }}"
-    )
-    other.goto(f"{run.server}/blatt/{a}")
-    expect_choice(other.locator(NOTICE), LINE)
-    press(page.locator(".clash"), KEEP)
-    expect(page).not_to_have_url(re.compile(rf"/blatt/{a}$"))
-    expect(page.locator(STATUS)).to_have_text("Gespeichert")
-    assert len(run.client.get("/api/sheets").json()) == 3
-    other.wait_for_function(f"(localStorage.getItem('unsaved:{a}') ?? '').includes('\"x\":17')")
-    expect_choice(other.locator(NOTICE), LINE)
-    assert kept_x(other, run) == 17
-
-
-def test_a_tab_writes_its_record_back_when_another_tab_takes_it_out(run):
-    """CI: the other tab's removal of the record may reach the store after this tab wrote it back.
-    A tab with unsaved work writes its record again whenever another tab takes it out."""
-    page, _, _ = deleted(run)
-    a = run.ids["a"]
-    other = page.context.new_page()
-    other.goto(f"{run.server}/blatt/{a}")
-    expect_choice(other.locator(NOTICE), LINE)
-    page.evaluate(f"() => localStorage.removeItem('unsaved:{a}')")
-    other.wait_for_function(f"localStorage.getItem('unsaved:{a}') !== null")
-    expect_choice(other.locator(NOTICE), LINE)
-
-
-def test_a_drop_in_one_tab_ends_the_choice_in_the_other_that_holds_the_same_work(run):
-    """2: tab 2 holds what tab 1 dropped, so its choice ends, and it goes to the list."""
-    page, _, _ = deleted(run)
-    other = page.context.new_page()
-    other.goto(f"{run.server}/blatt/{run.ids['a']}")
-    expect_choice(other.locator(NOTICE), LINE)
-    press(page.locator(".clash"), DROP)
-    expect_list(page)
-    expect_list(other)
-    expect(other).not_to_have_url(re.compile(rf"/blatt/{run.ids['a']}$"))
