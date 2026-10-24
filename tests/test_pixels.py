@@ -1,32 +1,20 @@
 """The print matches the screen: each kind of block, level and turned, pixel by pixel."""
 
+# Tests of one behaviour each live in the sibling modules. Shared helpers stay here so existing imports keep working.
+
 import io
-import json
-import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 from PIL import Image
 from pixels import (
-    INK,
-    LIMIT,
-    LOADED,
-    TILE,
     as_png,
     dark,
-    diff,
-    grey,
     measures,
     over,
-    runs,
     screen_and_print,
 )
-from playwright.sync_api import expect
-from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, pick, png, sheet, user
-
-from blattwerk import pdf
+from ui import BROWSER, LINE, RECT, RULING, TABLE, TEXT, box, maths, sheet, user
 
 SHOT = Path(__file__).parent.parent / "scripts" / "shot.py"
 FILLED = {**RECT, "fill": "#ffd43b", "strokeWidth": 1}
@@ -329,43 +317,9 @@ def gapped(case):
 GAPPED = ["text", "gapWidth", "shape", "table", "bows"]
 
 
-@pytest.mark.parametrize("case", GAPPED)
-def test_a_gap_prints_as_the_screen_hides_it(browser, server, case):
-    """A11 (1): the pupil's view, the words hidden on the screen."""
-    client = user()
-    assert not faults(browser, server, client, gapped(case), hide_gaps=True)
-
-
-@pytest.mark.parametrize("case", GAPPED)
-def test_a_gap_prints_as_the_answer_key_shows_it(browser, server, case):
-    """A11 (2): the answer key, the words in their colour on the screen and in the PDF."""
-    client = user()
-    assert not faults(browser, server, client, gapped(case), solved=True)
-
-
 # A gap so long that a tile of the measure holds its line and no letters (#411).
 LONG_GAP = [{"text": "Der "}, {"text": "Donaudampfschifffahrtsgesellschaft", "gap": True}]
 LONG_GAP += [{"text": " bellt"}]
-
-
-@pytest.mark.parametrize("look", [{"hide_gaps": True}, {"solved": True}], ids=["hidden", "key"])
-def test_a_long_gaps_line_is_as_dark_as_it_prints(browser, server, look):
-    """#411: before #417 the screen drew a line with a quarter less ink than the print."""
-    client = user()
-    # No bank: its words would put letters into the tile of the line.
-    text = {**TEXT, "text": "Der bellt", "rich": [{"runs": LONG_GAP}]}
-    assert not faults(browser, server, client, [at("text", text, y=20, h=60)], **look)
-
-
-def test_a_gap_left_out_of_the_print_is_over_the_limit(browser, server):
-    """A11 (3): a gap on the screen and none in print: the hidden words show in print."""
-    client = user()
-    shown = sheet(client, gapped("text"))["id"]
-    plain = {**TEXT, "text": "Der Hund bellt", "rich": [{"runs": [{"text": "Der Hund bellt"}]}]}
-    paper = sheet(client, [at("text", plain, y=20, h=90)])["id"]
-    screen, _ = screen_and_print(browser, server, client, shown, hide_gaps=True)
-    _, printed = screen_and_print(browser, server, client, paper)
-    assert over(screen, printed)
 
 
 def mixed_case(case):
@@ -388,124 +342,12 @@ MIXED_TEXT = "Der Hund bellt laut und die Katze schläft in der Straße vor dem 
 MIXED = ["plain", "after", "under", "caps", "shape"]
 
 
-@pytest.mark.parametrize("case", MIXED)
-def test_a_mixed_text_prints_as_the_screen_shows_it(browser, server, case):
-    """The pupil's view: the mixed words on the screen, the lines empty there as in print."""
-    client = user()
-    assert not faults(browser, server, client, mixed_case(case))
-
-
-@pytest.mark.parametrize("case", MIXED)
-def test_a_mixed_text_prints_as_the_answer_key_shows_it(browser, server, case):
-    """The answer key: the words as typed on their lines, in red, on the screen and in the PDF."""
-    client = user()
-    assert not faults(browser, server, client, mixed_case(case), solved=True)
-
-
-@pytest.mark.parametrize("font", ["nord", "sued"])
-def test_an_outline_in_druckschrift_nord_and_sued_prints_as_the_screen_shows_it(
-    browser, server, font
-):
-    """Issue #499: WebKit's screen laid the outline of a Lineatur a pixel lower than the print."""
-    client = user()
-    line = {
-        **box(
-            "a",
-            "ruling",
-            {
-                "kind": "l1",
-                "color": "#222222",
-                "font": font,
-                "text": "jagen Igel und Maus im Garten",
-                "trace": "outline",
-            },
-        ),
-        "x": 45,
-        "y": 37,
-        "w": 120,
-    }
-    assert not faults(browser, server, client, [line])
-
-
-def test_a_mix_left_out_of_the_print_is_over_the_limit(browser, server):
-    """The mixed words on the screen and the plain words in print: the letters differ."""
-    client = user()
-    shown = sheet(client, mixed_case("after"))["id"]
-    plain = {**TEXT, "text": MIXED_TEXT}
-    paper = sheet(client, [at("text", plain, y=20, h=90)])["id"]
-    screen, _ = screen_and_print(browser, server, client, shown)
-    _, printed = screen_and_print(browser, server, client, paper)
-    assert over(screen, printed)
-
-
 LISTED = ["Hund", "Katze", "Maus"]
 LINEATUR = [
     (kind, mode)
     for kind in ("l1", "l2", "l3", "l4", "lines", "k5", "k7")
     for mode in ("copy", "trace", "row")
 ]
-
-
-@pytest.mark.parametrize("kind, mode", LINEATUR)
-def test_a_linked_lineatur_prints_as_the_screen_shows_it(browser, server, kind, mode):
-    client = user()
-    props = {"kind": kind, "color": "#222222", "list": mode, "font": "sas"}
-    assert not faults(browser, server, client, [at("ruling", props, h=60)], words=LISTED)
-
-
-@pytest.mark.parametrize("mode", ["copy", "row"])
-def test_a_turned_linked_lineatur_prints_as_the_screen_shows_it(browser, server, mode):
-    client = user()
-    props = {"kind": "l3", "color": "#222222", "list": mode}
-    assert not faults(browser, server, client, [at("ruling", props, h=60, angle=30)], words=LISTED)
-
-
-def test_a_linked_lineatur_in_a_group_prints_as_the_screen_shows_it(browser, server):
-    client = user()
-    props = {"kind": "l4", "color": "#222222"}
-    grouped = [
-        at("ruling", {**props, "list": "copy"}, y=60, h=40, group=["g"]),
-        at("ruling", {**props, "list": "row"}, y=110, h=40, group=["g"]),
-    ]
-    assert not faults(browser, server, client, grouped, words=LISTED)
-
-
-def test_a_list_left_out_of_the_print_is_over_the_limit(browser, server):
-    """The words on the screen and the blank print of the same sheet: the letters differ."""
-    client = user()
-    block = [at("ruling", {"kind": "l4", "color": "#222222", "list": "row"}, h=60)]
-    shown = sheet(client, block, words=LISTED)["id"]
-    paper = sheet(client, block)["id"]
-    screen, _ = screen_and_print(browser, server, client, shown)
-    _, printed = screen_and_print(browser, server, client, paper)
-    assert over(screen, printed)
-
-
-@pytest.mark.parametrize("kind", KINDS)
-def test_a_block_prints_as_the_screen_shows_it(browser, server, kind):
-    client = user()
-    assert not faults(browser, server, client, blocks(kind, client))
-
-
-@pytest.mark.parametrize("kind", TURNED)
-def test_a_turned_block_prints_as_the_screen_shows_it(browser, server, kind):
-    client = user()
-    # Not a right angle: that would hide a turn about another point.
-    assert not faults(browser, server, client, blocks(kind, client, angle=30))
-
-
-@pytest.mark.parametrize("case", FULLER)
-def test_a_fuller_page_prints_as_the_screen_shows_it(browser, server, case):
-    client = user()
-    assert not faults(browser, server, client, fuller(case, client))
-
-
-def test_the_zoom_and_the_page_number_are_no_difference(browser, server):
-    client = user()
-    # Three pages: the last ones lie where the zoom and "Seite 1 von 3" float over the desk.
-    mine = sheet(client, *(blocks(kind, client) for kind in ("text", "shape", "ruling")))["id"]
-    for page in (1, 2):
-        assert not over(*screen_and_print(browser, server, client, mine, page))
 
 
 def planted(browser, server, here, there):
@@ -515,13 +357,6 @@ def planted(browser, server, here, there):
     screen, _ = screen_and_print(browser, server, client, shown)
     _, printed = screen_and_print(browser, server, client, paper)
     return {name: value for name, (value, _) in measures(screen, printed)[0].items()}
-
-
-def test_a_block_that_prints_elsewhere_is_over_the_limit(browser, server):
-    # A sentence 10 mm lower: far less of the page than a filled box.
-    client = user()
-    found = planted(browser, server, *(blocks("text", client, y=y) for y in (100, 110)))
-    assert found["page"] > LIMIT, found
 
 
 # What the share of the page passes over (issue #282), each planted as the print of another page.
@@ -543,169 +378,12 @@ SHIFTS = {
 }
 
 
-@pytest.mark.parametrize("case", COLOURS)
-def test_a_wrong_colour_is_over_the_limit(browser, server, case):
-    """X1"""
-    found = planted(browser, server, *([block] for block in COLOURS[case]))
-    assert found["ink"] > INK, found
-    assert found["page"] < LIMIT and found["tile"] < TILE, found
-
-
-def test_missing_bows_are_over_the_limit(browser, server):
-    # The bows on the screen and none in print.
-    found = planted(browser, server, bowed(), bowed(on=False))
-    assert found["ink"] > INK, found
-
-
-def test_missing_line_numbers_are_over_the_limit(browser, server):
-    # The numbers on the screen and none in print.
-    numbered = [at("text", {**TEXT, "text": LONG, "lines": 1}, y=20, h=120, w=100, x=30)]
-    plain = [at("text", {**TEXT, "text": LONG}, y=20, h=120, w=100, x=30)]
-    found = planted(browser, server, numbered, plain)
-    assert found["ink"] > INK, found
-
-
-def test_the_answer_key_prints_line_numbers(browser, server):
-    # A gap on the page too: the answer key shows its word on the screen and in print alike.
-    client = user()
-    gapped = {"runs": [{"text": "Der "}, {"text": "Hund", "gap": True}, {"text": " bellt laut"}]}
-    gap = at(
-        "text",
-        {**TEXT, "text": "Der Hund bellt laut", "rich": [gapped], "gapWidth": 12, "lines": 1},
-        x=150,
-        y=20,
-        w=40,
-        h=60,
-    )
-    assert not faults(browser, server, client, [*fuller("line numbers", client), gap], solved=True)
-
-
-def test_bows_under_the_wrong_syllables_are_over_a_limit(browser, server):
-    # The same word with the same number of bows: on the screen each break lies a letter or two
-    # further on than in print, which splits it as "Mar-me-la-den-glä-ser".
-    word = {**TEXT, "text": "Marmeladengläser", "size": 40, "syllables": True}
-    wrong = {**word, "breaks": {"marmeladengläser": [4, 7, 9, 12, 14]}}
-    found = planted(browser, server, [at("text", wrong)], [at("text", word)])
-    assert found["tile"] > TILE or found["ink"] > INK, found
-
-
-def test_missing_tints_are_over_the_limit(browser, server):
-    # The colours on the screen and none in print.
-    found = planted(browser, server, tinted(), tinted(on=False))
-    assert found["ink"] > INK, found
-
-
-def test_swapped_tints_are_over_a_limit(browser, server):
-    # One large word in the pair, and the pair the other way round: print has red first.
-    word = {**TEXT, "text": "Marmelade", "size": 40}
-    swapped = {**word, "tints": list(reversed(BLUE_RED))}
-    found = planted(
-        browser, server, [at("text", {**word, "tints": BLUE_RED})], [at("text", swapped)]
-    )
-    assert found["ink"] > INK, found
-
-
-def test_a_missing_hairline_is_over_the_limit(browser, server):
-    """X2"""
-    hairline = at("shape", {**LINE, "strokeWidth": 0.3}, y=160, h=10)
-    found = planted(browser, server, [at("text", WORDS), hairline], [at("text", WORDS)])
-    assert found["ink"] > INK, found
-    assert found["page"] < LIMIT, found
-
-
-@BLIND
-@pytest.mark.parametrize("case", SHIFTS)
-def test_a_shift_of_half_a_millimetre_is_over_the_limit(browser, server, case):
-    """X3"""
-    found = planted(browser, server, *([SHIFTS[case](y)] for y in (60, 60.5)))
-    assert found["tile"] > TILE, found
-    assert found["page"] < LIMIT, found
-
-
-def test_grid_and_guide_lines_are_no_difference(browser, server):
-    client = user()
-    page = {"blocks": blocks("text", client), "grid": 5, "guides": {"x": [50], "y": [80]}}
-    assert not faults(browser, server, client, page)
-
-
-def test_diff_counts_the_pixels_that_differ():
-    red, white = png(), png(b"\xff\xff\xff")
-    assert diff(red, red)[0] == 0
-    assert diff(red, white)[0] == 1
-    # Less than the tolerance apart is the same: an edge that is smoothed another way.
-    assert diff(png(b"\xff\xff\xff"), png(b"\xd0\xd0\xd0"))[0] == 0
-    # A page cut to half its height differs by the half that is gone; a row of rounding does not.
-    page = Image.new("RGB", (200, 300), "white")
-    assert diff(as_png(page), as_png(page.crop((0, 0, 200, 150))))[0] == 0.5
-    assert diff(as_png(page), as_png(page.crop((0, 0, 200, 299))))[0] == 0
-    marked = Image.open(io.BytesIO(diff(red, white)[1]))
-    assert marked.size == (3, 2) and marked.convert("RGB").getpixel((0, 0)) == (255, 0, 0)
-
-
 def drawn(*boxes):
     """An upright page of four pixels to a millimetre with a box of each place and colour."""
     page = Image.new("RGB", (840, 1188), "white")
     for place, colour in boxes:
         page.paste(colour, tuple(4 * v for v in place))
     return as_png(page)
-
-
-def test_a_measure_over_its_limit_names_its_tile_and_its_number():
-    box, line = (40, 40, 80, 80), (40, 150, 80, 151)
-    page = drawn((box, "#222222"), (line, "#222222"))
-    assert over(page, page) == []
-    # A paler box moves no pixel past the tolerance, and lacks a fifth of the ink.
-    (found,) = over(page, drawn((box, "#555555"), (line, "#222222")))
-    assert re.fullmatch(r"ink 0\.2\d+, limit [\d.]+ around \d5, \d5 mm: red .*", found), found
-    # A line that is gone is all the ink of its tiles, and little of the page.
-    found = measures(page, drawn((box, "#222222")))[0]
-    assert found["ink"][0] == 1 and found["page"][0] < LIMIT
-    assert re.fullmatch(
-        r" around \d5, 1[45]5 mm: red .* on the screen, 0\.0 in print", found["ink"][1]
-    )
-    # A box 2 mm lower: the tiles its edges lie in.
-    found = measures(page, drawn(((40, 42, 80, 82), "#222222"), (line, "#222222")))[0]
-    assert found["tile"][0] > 0.1 > found["page"][0]
-
-
-def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
-    pages = tmp_path / "pages.json"
-    pages.write_text(json.dumps([[box("a", "text", TEXT)]]))
-    out = tmp_path / "out"
-    run = subprocess.run(
-        [sys.executable, str(SHOT), str(pages), str(out)], capture_output=True, text=True
-    )
-    assert run.returncode == 0, run.stderr
-    assert {p.name for p in out.iterdir()} == {"screen.png", "pdf.png", "diff.png"}
-    # The browser it starts is the one whose limits it reads.
-    assert f"In {BROWSER}:" in run.stdout
-    found = re.search(
-        r"([\d.]+) % of the pixels differ, within the limit of ([\d.]+) %", run.stdout
-    )
-    assert found and float(found[1]) < LIMIT * 100 and float(found[2]) == LIMIT * 100
-    for name, limit in ("tile", TILE), ("ink", INK):
-        told = re.search(rf"{name} ([\d.]+), within the limit of ([\d.]+)", run.stdout)
-        assert told and float(told[1]) < limit == float(told[2])
-
-
-def test_a_tables_lines_are_as_wide_and_as_dark_as_they_print(browser, server):
-    """A4"""
-    client = user()
-    page = blocks("table", client)
-    screen, printed = grey(browser, server, client, page)
-    x, y, w, h = (page[0][side] for side in "xywh")
-    # Clear of the letters: a strip down the first column and one along the first row.
-    for part, down in (
-        ((x + 10, y - 3, x + 14, y + h + 3), True),
-        ((x - 3, y + 1, x + w + 3, y + 2), False),
-    ):
-        shown, paper = (runs(dark(picture, part, down)) for picture in (screen, printed))
-        assert len(shown) == len(paper) == 3
-        for (_, darkest, ink), (_, on_paper, printed_ink) in zip(shown, paper, strict=True):
-            # The ink is the line's width in pixels times its darkness. pdfium fills every pixel a
-            # line touches, half a pixel more than the browser draws: 2.2 against 1.8.
-            assert abs(darkest - on_paper) < 0.05, (darkest, on_paper)
-            assert abs(ink - printed_ink) < 0.5, (ink, printed_ink)
 
 
 # Each cell of a table and each cell's text: left, top, width and height in the page's own pixels.
@@ -717,39 +395,6 @@ PLACES = """() => {
         return [(r.x - from.x) / k, (r.y - from.y) / k, r.width / k, r.height / k];
     });
 }"""
-
-
-def test_a_tables_cells_lie_where_they_print(browser, server):
-    """I7"""
-    client = user()
-    mine = sheet(client, fuller("table", client))["id"]
-    # A sharp screen, as an iPad has: there WebKit rounds a border under a pixel down to half.
-    context = browser.new_context(device_scale_factor=2)
-    context.add_init_script("localStorage.setItem('tour', '1')")
-    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
-    shown = context.new_page()
-    shown.goto(f"{server}/blatt/{mine}")
-    shown.locator('main.editor[data-ready="1"]').wait_for()
-    # The page that prints, at one pixel to a pixel as Chromium prints it.
-    paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
-    paper.goto(f"{server}/druck/{mine}")
-    paper.wait_for_selector("body.ready", state="attached")
-    places = [tab.evaluate(f"{LOADED}.then({PLACES})") for tab in (shown, paper)]
-    assert len(places[0]) == 32
-    for here, there in zip(*places, strict=True):
-        assert here == pytest.approx(there, abs=0.01)
-
-    pick(shown, "b60")
-    shown.keyboard.press("Enter")
-    field = shown.locator(".table textarea")
-    expect(field).to_be_focused()
-    (left, top, right, low), cell = (
-        (b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"])
-        for b in (field.bounding_box(), shown.locator('[data-cell="0"]').bounding_box())
-    )
-    assert cell[0] < left < right < cell[2] and cell[1] < top < low < cell[3]
-    paper.close()
-    context.close()
 
 
 def lower(screen, printed, block):
@@ -786,23 +431,3 @@ def right_edge(image, block):
 ROWS = 4.5 if BROWSER == "webkit" else 1
 # A picture's right edge: 3 in WebKit (0.38 mm), of which 2.3 are the print's, and 1.1 in Chromium.
 EDGE = 3.5 if BROWSER == "webkit" else 1.5
-
-
-@pytest.mark.parametrize(
-    "look", [{"font": "sas", "bold": True}, {}], ids=["school script", "andika"]
-)
-def test_a_row_of_text_lies_as_low_as_it_prints(browser, server, look):
-    """A5"""
-    client = user()
-    page = [at("text", {**TEXT, "text": LONG, **look}, h=120)]
-    screen, printed = grey(browser, server, client, page)
-    found = lower(screen, printed, page[0])
-    assert max(abs(by) for by in found) < ROWS, found
-
-
-def test_a_picture_ends_where_it_prints(browser, server):
-    """A6"""
-    client = user()
-    page = blocks("picture", client)
-    screen, printed = (right_edge(image, page[0]) for image in grey(browser, server, client, page))
-    assert abs(screen - printed) < EDGE, (screen, printed)
