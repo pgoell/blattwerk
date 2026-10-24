@@ -51,7 +51,7 @@ A probe lives in `tests/probe_*.py` (git ignores it), imports from `ui`, and run
 
 - Conventional Commits (`feat:`, `fix:`, `chore:` ...). The `commit-msg` hook rejects anything else.
 - A new block type or prop needs a TSDoc description on each field, then `mise run schema`; a new kind of task also needs a recipe in `docs/okf/recipes/` (or the type on `no-recipe-yet.txt` there, on purpose). A hand-written page in `docs/okf/` whose `covers` names a changed type fails until you read it and bump its `generated.at`. A change to the MCP tools or to `frontend/src/sheet.tsx`: run `mise run eval` and put the score before and after in the PR.
-- The `pre-push` hook runs lint and the commit check only. It does not run the suite: run `mise run test` before a push.
+- The `pre-push` hook runs lint, the commit check and the file-size check. It does not run the suite: run `mise run test` before a push.
 - Default branch is `master`. With branch protection applied (`mise run repo:apply-settings`), changes land through PRs that pass Lint, Test and Commits.
 - A hook (`.claude/hooks/fence.py`) refuses Bash commands that skip checks, force push, change the repo settings, start, stop or remove docker containers and images, or write under `~/.local/share/blattwerk/` or the deploy's copy `~/.local/share/blattwerk-canary/`. Read the live data only: `sqlite3 -readonly`, or copy it elsewhere first.
 - Bring master into a pushed branch with `git merge origin/master`, never a rebase: the fence refuses the force push a rebase needs.
