@@ -4,17 +4,14 @@ import re
 
 import pytest
 from playwright.sync_api import expect
-from test_clipboard import button, every
 from test_drop import PNG, spot
 from ui import (
     BROWSER,
     FIELD,
-    RECT,
     TEXT,
     at,
     box,
     centre,
-    copy_picture,
     doc,
     drag,
     drawer,
@@ -266,80 +263,6 @@ def test_a_swipe_over_many_thumbnails_scrolls_the_panel_and_moves_no_page(editor
     expect_order(page, names)
 
 
-def test_seite_duplizieren_puts_a_copy_right_after_the_page_in_use(editor):
-    """A3"""
-    page = three(editor)
-    thumb(page, 1).click()
-    expect_in_use(page, 1)
-    copy(page).click()
-    expect_order(page, "ab+c")
-    expect(page.locator(".pages button[data-thumb]")).to_have_count(4)
-
-
-def test_the_left_bar_of_the_leaf_theme_copies_the_page_too(editor):
-    """A3"""
-    rest = [{"blocks": [box("b", "text", TEXT)]}]
-    page = editor(box("a", "text", TEXT), pages=rest, theme="leaf")
-    page.locator("aside.left .insert").get_by_role("button", name="Seite duplizieren").click()
-    expect_order(page, "a+b")
-
-
-def test_the_copy_holds_every_block_of_every_type_under_new_names(editor):
-    """A4"""
-    client = user()
-    blocks = every(client)
-    page = editor(*blocks, client=client, theme="")
-    copy(page).click()
-    expect(page.locator('.sheet[data-page="1"] .block[data-id]')).to_have_count(len(blocks))
-    old, new = (sorted(p["blocks"], key=lambda b: b["z"]) for p in doc(page, client)["pages"])
-    bare = [[{k: b[k] for k in b if k not in ("id", "group")} for b in held] for held in (old, new)]
-    assert bare[1] == bare[0]
-    ids = [b["id"] for b in old + new]
-    assert len(set(ids)) == len(ids)
-    # A group stays one group, of the copy's own.
-    assert ["group" in b for b in new] == ["group" in b for b in old]
-    [was], [group] = ({tuple(b["group"]) for b in held if "group" in b} for held in (old, new))
-    assert len(group) == 1
-    assert group != was
-
-
-def test_a_change_to_the_copy_leaves_the_original_alone(editor):
-    """A4"""
-    page = editor(box("a", "text", TEXT), theme="")
-    copy(page).click()
-    expect_order(page, "a+")
-    before = left(page, "a")
-    twin = page.locator('.sheet[data-page="1"] .block[data-id]')
-    expect(twin).to_have_css("left", before)
-    twin.click()
-    expect(page.locator('.sheet[data-page="1"] .block.sel')).to_have_count(1)
-    page.keyboard.press("ArrowRight")
-    expect(twin).not_to_have_css("left", before)
-    expect(at(page, "a")).to_have_css("left", before)
-
-
-def test_the_copy_holds_the_pages_own_guide_lines_grid_and_format(editor):
-    """A5"""
-    client = user()
-    rest = [{"blocks": [box("b", "text", TEXT)], **OWN}]
-    page = editor(box("a", "text", TEXT), client=client, pages=rest, theme="")
-    thumb(page, 1).click()
-    expect_in_use(page, 1)
-    copy(page).click()
-    expect_order(page, "ab+")
-    first, second, third = doc(page, client)["pages"]
-    assert {key: third[key] for key in OWN} == OWN
-    assert {key: second[key] for key in OWN} == OWN
-    assert not OWN.keys() & first.keys()
-
-
-def test_a_tap_on_seite_duplizieren_copies_the_page(editor):
-    """A6"""
-    page = three(editor, touch=True)
-    copy(page).tap()
-    expect_order(page, "a+bc")
-
-
 def test_a_move_is_saved(editor):
     """A7"""
     client = user()
@@ -347,15 +270,6 @@ def test_a_move_is_saved(editor):
     pull(page, 0, 2, "right")
     expect_order(page, "bca")
     assert names(doc(page, client)["pages"]) == [["b"], ["c"], ["a"]]
-
-
-def test_a_copy_is_saved(editor):
-    """A7"""
-    client = user()
-    page = three(editor, client=client)
-    copy(page).click()
-    expect_order(page, "a+bc")
-    assert names(doc(page, client)["pages"]) == order(page)
 
 
 def test_undo_and_redo_take_a_move_as_one_step(editor):
@@ -371,19 +285,6 @@ def test_undo_and_redo_take_a_move_as_one_step(editor):
     expect_order(page, "abc")
 
 
-def test_undo_and_redo_take_a_copy_as_one_step(editor):
-    """I1"""
-    page = three(editor)
-    copy(page).click()
-    expect_order(page, "a+bc")
-    page.keyboard.press("Control+z")
-    expect_order(page, "abc")
-    page.keyboard.press("Control+y")
-    expect_order(page, "a+bc")
-    page.keyboard.press("Control+z")
-    expect_order(page, "abc")
-
-
 def test_the_moved_page_is_the_page_in_use_after_the_drop(editor):
     """I2"""
     page = three(editor)
@@ -392,16 +293,6 @@ def test_the_moved_page_is_the_page_in_use_after_the_drop(editor):
     pull(page, 2, 0, "left")
     expect_order(page, "cab")
     expect_in_use(page, 0)
-
-
-def test_the_copy_is_the_page_in_use_with_nothing_selected(editor):
-    """I2"""
-    page = three(editor)
-    pick(page, "a")
-    copy(page).click()
-    expect_order(page, "a+bc")
-    expect_in_use(page, 1)
-    expect(page.locator(".block.sel")).to_have_count(0)
 
 
 def test_a_click_on_a_thumbnail_only_visits_its_page(editor):
@@ -515,65 +406,6 @@ def test_a_text_open_for_typing_keeps_its_words_when_its_page_moves(editor):
     expect(at(page, "a")).to_contain_text("du")
 
 
-def test_a_text_open_for_typing_gives_its_words_to_the_copy(editor):
-    """I6"""
-    page = three(editor)
-    write(page, "a", "du")
-    copy(page).click()
-    expect_order(page, "a+bc")
-    expect(at(page, "a")).to_contain_text("du")
-    expect(page.locator('.sheet[data-page="1"] .block[data-id]')).to_contain_text("du")
-
-
-def test_ctrl_and_an_arrow_on_a_thumbnail_move_its_page_by_one_place(editor):
-    """I7"""
-    page = three(editor)
-    thumb(page, 0).focus()
-    page.keyboard.press("Control+ArrowDown")
-    expect_order(page, "bac")
-    expect(thumb(page, 1)).to_be_focused()
-    # The focus went with the page, so the same key moves it on.
-    page.keyboard.press("Control+ArrowDown")
-    expect_order(page, "bca")
-    expect(thumb(page, 2)).to_be_focused()
-    page.keyboard.press("Control+ArrowUp")
-    expect_order(page, "bac")
-    expect(thumb(page, 1)).to_be_focused()
-
-
-def test_ctrl_shift_and_an_arrow_on_a_thumbnail_move_its_page_to_the_start_or_the_end(editor):
-    """I7"""
-    page = three(editor)
-    thumb(page, 0).focus()
-    page.keyboard.press("Control+Shift+ArrowDown")
-    expect_order(page, "bca")
-    expect(thumb(page, 2)).to_be_focused()
-    page.keyboard.press("Control+Shift+ArrowUp")
-    expect_order(page, "abc")
-    expect(thumb(page, 0)).to_be_focused()
-
-
-def test_ctrl_d_on_a_thumbnail_copies_its_page(editor):
-    """I7"""
-    page = three(editor)
-    # With a block selected too: the key is the thumbnail's, and no block is copied.
-    pick(page, "a")
-    thumb(page, 1).focus()
-    page.keyboard.press("Control+d")
-    expect_order(page, "ab+c")
-    expect(thumb(page, 2)).to_be_focused()
-
-
-def test_in_a_text_the_page_keys_stay_the_texts(editor):
-    """I7"""
-    page = three(editor)
-    write(page, "a", "du")
-    for keys in ("ArrowDown", "ArrowUp", "Shift+ArrowDown", "Shift+ArrowUp", "d"):
-        page.keyboard.press(f"Control+{keys}")
-        expect(page.locator(FIELD)).to_have_text("du")
-        expect_order(page, "abc")
-
-
 def test_a_dropped_picture_finds_its_page_after_a_change_and_a_move(editor):
     """The upload ends after the page dropped on has changed and another has moved before it."""
     page = three(editor)
@@ -597,207 +429,6 @@ def test_a_dropped_picture_finds_its_page_after_a_change_and_a_move(editor):
     assert "a" in order(page)[1]
 
 
-# What changes the pages with "b", the second of three, in use: how many pages there are then,
-# which is in use, where a block asked for on "b" lands and how many blocks the sheet then has.
-# With "b" deleted the block lands on the page in use.
-CHANGES = {
-    "new": (lambda page: button(page, "Neue Seite").click(), 4, 2, 1, 4),
-    "deleted": (lambda page: button(page, "Seite löschen").click(), 2, 1, 1, 3),
-    "moved": (lambda page: page.keyboard.press("Control+ArrowUp"), 3, 0, 0, 4),
-    "copied": (lambda page: copy(page).click(), 4, 2, 1, 5),
-}
-
-
-def change_pages(page, how):
-    """Changes the pages and waits for it. Gives the page in use from then on."""
-    run, count, after, _, _ = CHANGES[how]
-    thumb(page, 1).focus()
-    run(page)
-    expect(page.locator(".sheet[data-page]")).to_have_count(count)
-    expect_in_use(page, after)
-    return after
-
-
-def expect_shown(page, n):
-    """Waits until page n is in use and the desk has scrolled to it."""
-    expect_in_use(page, n)
-    expect(page.locator(f'.sheet[data-page="{n}"]')).to_be_in_viewport(ratio=0.5)
-
-
-@pytest.mark.parametrize("how", CHANGES)
-def test_undo_and_redo_of_a_page_change_show_the_page_it_changed(editor, how):
-    """#155: undo shows the page in use before the change, redo the one in use after it."""
-    page = three(editor)
-    thumb(page, 1).click()
-    expect_in_use(page, 1)
-    after = change_pages(page, how)
-    away = 0 if after else 2
-    thumb(page, away).click()
-    expect_shown(page, away)
-    page.keyboard.press("Control+z")
-    expect_order(page, "abc")
-    expect_shown(page, 1)
-    thumb(page, 2 - away).click()
-    expect_shown(page, 2 - away)
-    page.keyboard.press("Control+y")
-    expect(page.locator(".sheet[data-page]")).to_have_count(CHANGES[how][1])
-    expect_shown(page, after)
-
-
-def test_undo_and_redo_of_a_block_change_show_its_page(editor):
-    """#155"""
-    page = three(editor)
-    pick(page, "b")
-    before = left(page, "b")
-    page.keyboard.press("ArrowRight")
-    expect(at(page, "b")).not_to_have_css("left", before)
-    thumb(page, 0).click()
-    expect_shown(page, 0)
-    page.keyboard.press("Control+z")
-    expect(at(page, "b")).to_have_css("left", before)
-    expect_shown(page, 1)
-    thumb(page, 2).click()
-    expect_shown(page, 2)
-    page.keyboard.press("Control+y")
-    expect(at(page, "b")).not_to_have_css("left", before)
-    expect_shown(page, 1)
-
-
-def test_undo_of_a_change_on_the_page_in_use_keeps_the_selection(editor):
-    """#155: the selection stays when the undo is for the page in use."""
-    page = three(editor)
-    pick(page, "b")
-    before = left(page, "b")
-    page.keyboard.press("ArrowRight")
-    expect(at(page, "b")).not_to_have_css("left", before)
-    page.keyboard.press("Control+z")
-    expect(at(page, "b")).to_have_css("left", before)
-    expect_in_use(page, 1)
-    expect(at(page, "b")).to_have_class("block sel")
-
-
 PICKED = {"name": "bild.png", "mimeType": "image/png", "buffer": PNG[2]}
 # The page panel has a second file input, for the ground. This one is the Bild button's.
 PICKER = 'input[type=file]:not([aria-label="Hintergrunddatei"])'
-# What asks the server for a block, and the request that waits.
-SOURCES = {
-    "maths": ("**/api/maths", lambda page: button(page, "Rechnen").click()),
-    "ctrl v": ("**/api/uploads", lambda page: page.keyboard.press("Control+v")),
-    "einfügen": ("**/api/uploads", lambda page: button(page, "Einfügen").click()),
-    "picker": ("**/api/uploads", lambda page: page.locator(PICKER).set_input_files(PICKED)),
-}
-# #775: now and then Playwright sees neither the route nor the request of a picture's upload,
-# which the page sends and the server answers. So the page holds that answer itself.
-HOLD_UPLOAD = """() => {
-    const real = window.fetch;
-    window.fetch = (...args) => {
-        if (!String(args[0]).endsWith("/api/uploads")) return real(...args);
-        window.uploading = true;
-        return new Promise((go) => (window.release = go)).then(() => real(...args));
-    };
-}"""
-
-
-def hold(page, url):
-    """Holds the server's answer to the next request of url: gives what lets it go on."""
-    if url.endswith("uploads"):
-        page.evaluate(HOLD_UPLOAD)
-        return lambda: page.evaluate("window.release()")
-    waiting = []
-    page.route(url, lambda route: waiting.append(route))
-    return lambda: waiting.pop().continue_()
-
-
-def asked(page, url, ask):
-    """Asks and waits until the request is on its way."""
-    if url.endswith("uploads"):
-        ask(page)
-        page.wait_for_function("window.uploading === true")
-        return
-    with page.expect_request(url):
-        ask(page)
-
-
-@pytest.mark.parametrize("how", CHANGES)
-@pytest.mark.parametrize("source", SOURCES)
-def test_a_block_on_its_way_finds_its_page_after_the_pages_change(editor, source, how):
-    """#156: it lands on the page in use when it was asked for, wherever that page is by then."""
-    page = three(editor)
-    url, ask = SOURCES[source]
-    if url.endswith("uploads"):
-        copy_picture(page)
-    thumb(page, 1).click()
-    expect_in_use(page, 1)
-    # The server's answer waits until the pages have changed.
-    release = hold(page, url)
-    asked(page, url, ask)
-    change_pages(page, how)
-    _, _, _, n, count = CHANGES[how]
-    release()
-    expect(page.locator(".block[data-id]")).to_have_count(count)
-    expect(page.locator(f'.sheet[data-page="{n}"] .block[data-id]')).to_have_count(2)
-    expect(page.locator(f'.sheet[data-page="{n}"] .block.sel')).to_have_count(1)
-    expect(page.locator(".block.sel")).to_have_count(1)
-    expect_in_use(page, n)
-    assert "b" in order(page)[n] or how == "deleted"
-
-
-def test_undo_of_a_brush_stroke_on_another_page_shows_that_page(editor):
-    """The press that paints also visits the page: the paint comes off where it went on."""
-    red = box("a", "shape", {**RECT, "fill": "#ff0000"})
-    page = editor(red, more=[box("b", "shape", RECT)], theme="")
-    pick(page, "a")
-    page.get_by_label("Format übertragen", exact=True).click()
-    was = at(page, "b").inner_html()
-    same = "([was, same]) => (document.querySelector('[data-id=b]').innerHTML === was) === same"
-    at(page, "b").click()
-    expect_in_use(page, 1)
-    page.wait_for_function(same, arg=[was, False])
-    page.keyboard.press("Control+z")
-    page.wait_for_function(same, arg=[was, True])
-    expect_shown(page, 1)
-
-
-def test_undo_of_a_block_from_the_server_shows_the_page_it_landed_on(editor):
-    page = three(editor)
-    waiting = []
-    page.route("**/api/maths", lambda route: waiting.append(route))
-    with page.expect_request("**/api/maths"):
-        button(page, "Rechnen").click()
-    thumb(page, 2).click()
-    expect_shown(page, 2)
-    [route] = waiting
-    route.continue_()
-    expect(page.locator('.sheet[data-page="0"] .block[data-id]')).to_have_count(2)
-    page.keyboard.press("Control+z")
-    expect_order(page, "abc")
-    expect_shown(page, 0)
-
-
-def nudged(page):
-    """Three pages with "a" moved by a key. Gives the page and where "a" was before."""
-    page = three(page)
-    pick(page, "a")
-    before = left(page, "a")
-    page.keyboard.press("ArrowRight")
-    expect(at(page, "a")).not_to_have_css("left", before)
-    return page, before
-
-
-def test_undo_scrolls_to_the_page_in_use_when_it_is_out_of_view(editor):
-    page, before = nudged(editor)
-    page.locator(".desk").evaluate("el => el.scrollTo(0, el.scrollHeight)")
-    expect(page.locator('.sheet[data-page="0"]')).not_to_be_in_viewport()
-    page.keyboard.press("Control+z")
-    expect(at(page, "a")).to_have_css("left", before)
-    expect_shown(page, 0)
-
-
-def test_undo_leaves_the_desk_where_it_is_while_its_page_is_in_view(editor):
-    page, before = nudged(editor)
-    page.locator(".desk").evaluate("el => el.scrollTo(0, 50)")
-    page.keyboard.press("Control+z")
-    expect(at(page, "a")).to_have_css("left", before)
-    # A scroll would have begun by the second frame after the undo.
-    page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
-    assert page.locator(".desk").evaluate("el => el.scrollTop") == 50

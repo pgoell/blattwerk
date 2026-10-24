@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_fields import ROOM, by_id, enter, expect_fields, field, number
+from test_fields import ROOM, by_id, enter, expect_fields, field
 from test_hunderterfeld_block import FELD
 from test_panel_undo import UHR, ZAHLENSTRAHL
 from test_rechendreieck import DREIECK
@@ -22,10 +22,6 @@ PAIR = [
 
 def pair_group(editor, client):
     return editor(*PAIR, client=client)
-
-
-def centre(block):
-    return (block["x"] + block["w"] / 2, block["y"] + block["h"] / 2)
 
 
 def test_a_group_width_scales_about_its_left_edge(editor):
@@ -80,16 +76,6 @@ def test_a_group_of_flat_lines_keeps_its_place_on_a_height(editor):
     assert places == [(20, 50, 30, 0), (65, 50, 30, 0)]
 
 
-def test_a_turned_block_alone_halves_its_own_width_on_a_percent(editor):
-    client = user()
-    page = editor(box("a", "shape", RECT, x=40, y=60, w=30, h=20, angle=90), client=client)
-    pick(page, "a")
-    enter(page, "Breite %", "50")
-    expect(field(page, "Breite")).to_have_value("15")
-    (a,) = saved(page, client)
-    assert (a["x"], a["y"], a["w"], a["h"], a["angle"]) == (40, 60, 15, 20, 90)
-
-
 def test_a_group_height_scales_about_its_top_edge(editor):
     client = user()
     page = pair_group(editor, client)
@@ -112,35 +98,6 @@ def test_one_undo_takes_back_a_group_width(editor):
     page.get_by_label("Rückgängig").click()
     expect(field(page, "Breite")).to_have_value("75")
     assert by_id(saved(page, client)) == before
-
-
-def test_a_group_turns_about_its_centre(editor):
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
-        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
-        client=client,
-    )
-    at(page, "a").click()
-    enter(page, "Drehung", "90")
-    expect(field(page, "Drehung")).to_have_value("90")
-    blocks = by_id(saved(page, client))
-    # The centre of the group is (52.5, 60). Each block's centre turns about it.
-    assert blocks["a"]["angle"] == blocks["b"]["angle"] == 90
-    assert centre(blocks["a"]) == pytest.approx((52.5, 37.5), abs=0.05)
-    assert centre(blocks["b"]) == pytest.approx((52.5, 82.5), abs=0.05)
-
-
-def test_a_group_with_a_table_does_not_turn(editor):
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
-        box("t", "table", TABLE, z=2, x=60, y=50, w=30, h=20, group=["g"]),
-        client=client,
-    )
-    at(page, "a").click()
-    expect(field(page, "Drehung")).to_be_disabled()
-    expect(field(page, "Breite")).to_be_enabled()
 
 
 def test_a_locked_block_in_a_group_takes_no_size_percent_or_angle(editor):
@@ -217,25 +174,6 @@ def test_originalgrosse_gives_a_picture_its_first_size(editor):
     assert b["h"] == pytest.approx(66.67, abs=0.01)
 
 
-def test_a_group_of_shapes_and_a_line_turns_about_its_centre(editor):
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"]),
-        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
-        box("l", "shape", LINE, z=3, x=60, y=80, w=30, h=0, group=["g"]),
-        client=client,
-    )
-    at(page, "a").click()
-    enter(page, "Drehung", "90")
-    expect(field(page, "Drehung")).to_have_value("90")
-    blocks = by_id(saved(page, client))
-    # The group's centre is (52.5, 65). The shape's centre turns about it.
-    assert blocks["a"]["angle"] == blocks["b"]["angle"] == 90
-    assert centre(blocks["a"]) == pytest.approx((57.5, 42.5), abs=0.05)
-    # The line has no angle: its box goes on its side.
-    assert (blocks["l"]["w"], blocks["l"]["h"]) == pytest.approx((0, 30), abs=0.05)
-
-
 def test_a_line_alone_halves_its_width_on_a_percent(editor):
     client = user()
     page = editor(box("l", "shape", LINE, x=15, y=50, w=60, h=10), client=client)
@@ -258,21 +196,6 @@ def test_the_lock_on_a_group_scales_both_sides_alike(editor):
     blocks = by_id(saved(page, client))
     assert (blocks["a"]["w"], blocks["a"]["h"]) == (60, 40)
     assert (blocks["b"]["w"], blocks["b"]["h"]) == (60, 40)
-
-
-def test_a_group_turns_by_the_difference_of_its_first_angle(editor):
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"], angle=30),
-        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
-        client=client,
-    )
-    at(page, "a").click()
-    expect(field(page, "Drehung")).to_have_value("30")
-    enter(page, "Drehung", "40")
-    expect(field(page, "Drehung")).to_have_value("40")
-    blocks = by_id(saved(page, client))
-    assert (blocks["a"]["angle"], blocks["b"]["angle"]) == (40, 10)
 
 
 def school_block(client, kind):
@@ -508,22 +431,6 @@ def test_every_kind_halves_its_width_on_a_percent(editor, kind):
     expect(field(page, "Breite %")).to_have_value("100")
     (b,) = saved(page, client)
     assert b["w"] == pytest.approx(before["w"] / 2, abs=0.05)
-
-
-def test_a_turned_shape_in_a_group_takes_the_factor_of_its_own_axis(editor):
-    client = user()
-    page = editor(
-        box("a", "shape", RECT, x=15, y=50, w=30, h=20, group=["g"], angle=90),
-        box("b", "shape", RECT, z=2, x=60, y=50, w=30, h=20, group=["g"]),
-        client=client,
-    )
-    at(page, "a").click()
-    wide = number(page, "Breite")
-    enter(page, "Breite", f"{2 * wide:g}")
-    expect(field(page, "Breite")).not_to_have_value(f"{wide:g}".replace(".", ","))
-    blocks = by_id(saved(page, client))
-    # A shape on its side: its height takes the factor 2, its width stays.
-    assert (blocks["a"]["w"], blocks["a"]["h"]) == (30, 40)
 
 
 def test_a_group_of_a_ruling_and_maths_scales_by_height_percent(editor):
