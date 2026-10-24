@@ -1,4 +1,17 @@
+import { useLayoutEffect } from "react";
 import Logo from "./Logo";
+
+// The app's bar and the footer stay off a sheet. index.html sets the same attribute before the module,
+// because the stylesheet is linked after it and the bar would paint first (#466). Clearing it on the way
+// out lets the bar show again: a missing sheet, the list, the login.
+export function useSheetChrome() {
+  useLayoutEffect(() => {
+    document.documentElement.dataset.sheet = "";
+    return () => {
+      delete document.documentElement.dataset.sheet;
+    };
+  }, []);
+}
 
 // An iPad held upright: the panels are drawers over the desk. The same words as in styles.css.
 export const DRAWERS = matchMedia("(orientation: portrait) and (min-width: 701px) and (max-width: 1099px)");
@@ -15,6 +28,7 @@ export const opening = () => {
 // is whether the loading has taken half a second: then the page says so. The account, the editor's script and the
 // sheet each draw this anew, so the clock is not its own (App.tsx).
 export default function Blank({ late }: { late: boolean }) {
+  useSheetChrome();
   const { leafy, side } = opening();
   const drawers = DRAWERS.matches;
   const leaf = leafy && !drawers;
