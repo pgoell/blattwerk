@@ -1,0 +1,164 @@
+/* The right panel: what is selected under Format, the grid and the guide lines under Ansicht. */
+.panel { grid-area: 2 / 3; width: 264px; padding: 0 14px 14px; border-left: 1px solid var(--split); }
+.tabs { position: sticky; top: 0; z-index: 1; display: flex; gap: 14px; height: 38px; margin: 0 -14px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.tabs button { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
+.tabs [aria-selected=true] { color: var(--ink); box-shadow: inset 0 -2px var(--accent); }
+/* What is selected. */
+.what { display: flex; align-items: center; justify-content: space-between; min-height: 38px; margin: 0 -14px; padding: 0 14px; border-bottom: 1px solid var(--line); font-weight: 500; }
+/* The fields for place, size and angle, two to a row, each under its name. The lock stands beside the angle. */
+.geo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+.geo h2 { grid-column: 1 / -1; }
+.panel .geo label { display: block; min-height: 0; margin: 0; }
+.geo input:disabled { color: var(--faint); }
+.geo span { align-self: end; display: flex; align-items: center; justify-content: space-between; min-height: var(--ctl); margin-bottom: 8px; color: var(--muted); }
+.panel > .hint { margin-top: 14px; }
+.panel > .warn { color: var(--rec); }
+.panel :is(.seg, .acts, select, label, input[type=text], input[type=number], .places, .wide) { margin: 0 0 8px; }
+.panel select, .panel input[type=text], .panel input[type=number] { background: var(--field); border-color: transparent; }
+/* The font menus' own list, under its select, each name in its face. */
+.fontsel { position: relative; }
+.fontlist { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; max-height: 320px; overflow-y: auto; margin-top: 4px; padding: 4px; border-radius: 6px; background: var(--raise); box-shadow: 0 6px 24px rgb(0 0 0 / .18); }
+.fontgroup { padding: 4px 8px; font-size: 12px; color: var(--muted); }
+.fontlist [role=option] { padding: 6px 8px; border-radius: 4px; font-size: 16px; cursor: pointer; }
+.fontlist [role=option]:hover, .fontlist .hi { background: var(--field); }
+/* The list of Lernwörter: as wide as the panel, and taller only by hand, down. */
+.panel .wordlist { display: block; box-sizing: border-box; width: 100%; margin: 0 0 8px; resize: vertical; background: var(--field); border-color: transparent; font: inherit; }
+/* Buttons that act at once, in equal shares of a row. */
+.acts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.acts .ib { width: auto; }
+/* The nine border buttons of a table, three in a row. */
+.borders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 8px; }
+.panel label { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; min-height: var(--ctl); font-weight: 400; color: var(--muted); }
+.panel input[type=color] { width: 100%; height: var(--ctl); padding: 4px 6px; border: 0; border-radius: 6px; background: var(--field); cursor: pointer; }
+.panel input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.panel input[type=color]::-webkit-color-swatch { border: 1px solid var(--faint); border-radius: 4px; }
+.panel input[type=color]::-moz-color-swatch { border: 1px solid var(--faint); border-radius: 4px; }
+.panel input[type=range] { width: 100%; min-width: 0; height: var(--ctl); margin: 0; accent-color: var(--accent); }
+/* A number's places: the name of the place, its lowest and its highest digit. */
+.places { display: grid; grid-template-columns: 2.5em 1fr 1fr; gap: 6px; align-items: center; font: 12px var(--mono); color: var(--muted); }
+.places select { margin: 0; }
+.panel .bold { font-weight: 700; }
+.panel .italic { font-style: italic; }
+.panel .underline { text-decoration: underline; }
+/* A small wall of the panel: its rows centred, one above the other, each stone a square of buttons or fields. */
+.panel .mauer { display: grid; justify-items: center; gap: 2px; margin: 0 0 8px; }
+.panel .mauer-row { display: flex; gap: 2px; }
+.panel .mauer button, .panel .mauer input { width: 30px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: var(--field); color: var(--ink); text-align: center; font: 12px var(--mono); }
+.panel .mauer button.on { background: var(--ink); color: var(--bg); }
+.panel .dreieck { display: grid; justify-items: center; gap: 2px; margin: 0 0 8px; }
+.panel .dreieck-row { display: flex; gap: 2px; }
+.panel .dreieck button, .panel .dreieck input { width: 30px; height: 24px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: var(--field); color: var(--ink); text-align: center; font: 12px var(--mono); }
+.panel .dreieck button.on { background: var(--ink); color: var(--bg); }
+.panel .strahl { display: flex; flex-wrap: wrap; gap: 2px; margin: 0 0 8px; }
+.panel .strahl button { min-width: 30px; height: 24px; margin: 0; padding: 0 4px; border: 0; border-radius: 4px; background: var(--field); color: var(--ink); font: 12px var(--mono); }
+.panel .strahl button[aria-pressed=true] { background: var(--ink); color: var(--bg); }
+.panel .strahl button[data-task=box] { box-shadow: inset 0 0 0 2px var(--ink); }
+.panel .strahl button[data-task=arrow] { box-shadow: inset 0 -4px 0 var(--muted); }
+.panel .hundert { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 2px; margin: 0 0 8px; }
+.panel .hundert button { width: 100%; aspect-ratio: 1; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 3px; background: var(--field); color: var(--ink); font: 9px var(--mono); }
+.panel .hundert button[data-hidden] { text-decoration: line-through; color: var(--muted); }
+.panel .hundert button[data-tint="1"] { background: #f4c542; color: #222; }
+.panel .hundert button[data-tint="2"] { background: #6f9fd8; color: #222; }
+.panel .hundert button[data-cut=in] { box-shadow: inset 0 0 0 2px var(--ink); }
+.panel .hundert button[data-cut=given] { box-shadow: inset 0 0 0 2px var(--ink); font-weight: 700; }
+.panel .hundert button[data-filled] { background: #222; color: #fff; }
+.symbols { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 2px; max-height: 196px; margin-bottom: 8px; overflow: auto; }
+.symbols button { min-height: 36px; padding: 0; border-color: transparent; background: none; }
+.symbols img { width: 26px; height: 26px; }
+/* Silbenbögen: a block's words as they are split, in a box that scrolls, and the open word's letters with a
+   button in each gap. A word split by hand is underlined. */
+.words { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; margin-bottom: 8px; overflow: auto; }
+.words button { min-height: 28px; padding: 0 8px; }
+.words .own { text-decoration: underline; }
+.gaps { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 8px; font-size: 18px; }
+.gaps button { min-width: 16px; min-height: 28px; padding: 0; border-color: transparent; background: none; color: var(--faint); }
+.gaps button.on { color: var(--accent); font-weight: 700; }
+/* The tour: a ring round the control a step is about, and a card at the window's edge away from it. Neither takes
+   a press meant for the editor. */
+.tour-ring {
+  position: fixed; z-index: 10; border: 2px solid var(--accent); border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tour {
+  position: fixed; z-index: 10; left: 50%; translate: -50%; bottom: calc(16px + env(safe-area-inset-bottom));
+  width: min(420px, 100vw - 24px); padding: 14px 16px 12px; background: var(--bg); border: 1px solid var(--edge);
+  border-radius: 12px; box-shadow: var(--shadow), 0 16px 40px -12px rgba(0, 0, 0, .35); font-size: 13px;
+}
+.tour.up { bottom: auto; top: calc(16px + env(safe-area-inset-top)); }
+.tour small { color: var(--faint); font: 11px var(--mono); }
+.tour h2 { font: 600 15px/1.3 var(--ui); letter-spacing: -.01em; margin: 2px 0 6px; }
+.tour p { margin: 0 0 12px; color: var(--muted); text-wrap: pretty; }
+.tour div { display: flex; gap: 6px; }
+.tour .primary { margin-left: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-ring { animation: ring 1.6s ease-in-out infinite; }
+}
+@keyframes ring { 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
+/* Blattform's own layout, on a wide window. The green panel runs the window's height and names all that can be
+   inserted; Start, Ansicht and Vorlagen in the bar pick what the panels show; the zoom and the page count float over
+   the desk's lower corners. */
+.leaf > header { grid-column: 2 / -1; }
+.leaf .left { grid-area: 1 / 1 / -1; }
+.left .brand { display: flex; padding: 16px 14px 12px; text-decoration: none; }
+.left .brand .lucide { display: none; }
+.left .logo { font-size: 20px; }
+.left .logo svg { width: 28px; height: 28px; }
+.modes { display: inline-flex; gap: 2px; margin-right: 6px; }
+.modes button { border-color: transparent; background: none; color: var(--muted); }
+.modes [aria-selected=true] { background: #0d3b2a; color: #fff; }
+.insert { display: grid; gap: 2px; padding: 0 14px 14px; }
+.insert .ib { width: auto; min-height: 36px; justify-content: flex-start; gap: 12px; padding: 0 4px; color: var(--ink); }
+.insert .ib::after { content: attr(aria-label); }
+.insert .ib svg { box-sizing: content-box; padding: 6px; border-radius: 8px 3px; background: var(--raise); color: var(--accent); }
+.insert .ib.on svg { background: #0d3b2a; }
+/* A divider is its group's heading here. */
+.insert .sep { width: auto; height: auto; margin: 14px 0 4px; background: none; font: 600 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.insert .sep::before { content: attr(data-name); }
+/* The shapes stand in rows, without their names. */
+.shapes { display: contents; }
+.insert .shapes { display: flex; flex-wrap: wrap; gap: 6px; }
+.insert .shapes .ib { padding: 0; }
+.insert .shapes .ib::after { content: none; }
+.leaf .dock { left: 16px; translate: none; }
+.leaf .dock.at { left: auto; right: 28px; min-height: 40px; padding: 0 14px; border-color: transparent; background: #0d3b2a; color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; }
+.leaf .what { min-height: 56px; border-bottom: 0; font-size: 20px; }
+/* A narrow window stacks the panels: pages and templates over the desk, the format under it. */
+@media (max-width: 700px) {
+  .editor { grid-template: auto auto minmax(0, 1fr) auto / minmax(0, 1fr); }
+  /* The bar wraps here. The title starts at 120 px, a third of a phone's window, and takes the room its row has
+     left, so where the rows break is up to the window alone and the loading page, which has no title yet, can lay
+     out the same rows. A wider start would cost a window of 600 px a row of the desk. */
+  .top input { flex: 1 1 120px; max-width: none; }
+  /* While it is edited the title has a row of its own. */
+  .top input:focus { flex-basis: 100%; }
+  .left { grid-area: 2 / 1; width: auto; max-height: 32dvh; border-right: 0; border-bottom: 1px solid var(--split); }
+  .stage { grid-area: 3 / 1; }
+  .panel { grid-area: 4 / 1; width: auto; max-height: 36dvh; border-left: 0; border-top: 1px solid var(--split); }
+}
+/* An iPad held upright: the sheet takes the window's width, and each panel is a drawer that lies over the desk. The
+   bar of insert tools floats over a drawer too, which keeps its last rows clear of it. */
+@media (orientation: portrait) and (min-width: 701px) and (max-width: 1099px) {
+  .editor { grid-template-columns: minmax(0, 1fr); }
+  .stage { grid-area: 2 / 1; }
+  /* The shadow falls on the desk beside a drawer, not on the bar above it. */
+  .left, .panel { grid-area: 2 / 1; z-index: 4; padding-bottom: var(--room); box-shadow: 0 0 32px -4px rgb(0 0 0 / .35); clip-path: inset(0 -40px); }
+  .left { justify-self: start; }
+  .panel { justify-self: end; }
+  .dock { z-index: 5; }
+  /* An open Format drawer: a strip of room past the sheet's right end, so the desk can scroll the picked block clear
+     of the drawer. It reaches past the desk or the widest page, whichever is wider (`--reach`, set by Editor.tsx), so
+     it follows a zoomed sheet too. The desk's padding stays as it is, so the sheet keeps its fit. */
+  .editor.drawn .desk::after { content: ""; display: block; width: calc(max(100%, var(--reach)) + 280px); height: 1px; margin-top: -1px; }
+}
+
+/* Silbenbögen: the bows under the syllables of a block's words, drawn over the block by sheet.tsx, which measures
+   each syllable where it stands. The drawing takes no room and no click, and is not cut at the block's foot, where
+   the bow of a last line hangs below it. */
+/* Silbenfarbe: sheet.tsx colours the syllables as highlights of the text. Safari paints no highlight on text that
+   cannot be selected, as all of a sheet is, so a coloured text can be, and takes no pointer instead: a press on it
+   goes to its block, and selects nothing. The field a text is typed in keeps its pointer. */
+.tinted p { user-select: text; -webkit-user-select: text; pointer-events: none; }
+.tinted .ProseMirror p { pointer-events: auto; }
+.bows { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; fill: none; stroke-linecap: round; }
+/* The number field a double click opens on a Zahlenmauer stone: as big as the stone, its number in the middle. */
+.stone-field { position: absolute; box-sizing: border-box; margin: 0; padding: 0; border: 1px solid #2563eb; background: #fff; color: #222; font: inherit; text-align: center; outline: none; }
