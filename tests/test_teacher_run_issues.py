@@ -119,7 +119,8 @@ def test_406_10_the_above_all_split_still_adds_up_to_50_minutes():
     assert 3 + int(sheets[1]) + int(pulls[1]) + int(issues[1]) == 50
     # Step 1 of the pull requests says the same stop: 30 minutes with an "above all".
     step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
-    assert 'With an "above all", stop after 30 minutes instead, and do not stop at 25.' in step
+    assert "stop after 30 minutes instead, wherever you are, and not before" in step
+    assert "nor at any minute short of 30" in step
 
 
 def test_406_11_a_gap_of_two_words_has_its_steps():
@@ -236,9 +237,9 @@ def test_d10_a_turn_to_the_wrong_place_is_undone_with_escape():
 
 
 def test_d12_above_all_stops_at_30_minutes():
-    assert 'With an "above all", stop after 30 minutes instead, and do not stop at 25.' in section(
-        PRS
-    )
+    step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
+    assert "stop after 30 minutes instead, wherever you are, and not before" in step
+    assert "nor at any minute short of 30" in step
 
 
 def test_d13_a_long_wait_for_answer_is_read_from_a_file():
@@ -309,3 +310,21 @@ def test_497_the_brief_names_the_dialog_pdf_and_the_offscreen_list():
     rules = section("## Rules")
     assert '`click "Aufgabenfamilien"` turns the panel to the list' in rules
     assert "take that dialog's button, not the bar's of the same name" in rules
+
+
+def test_497_an_above_all_uses_every_minute_of_the_30():
+    # The eighth run stopped at 27. "do not stop at 25" still allowed every minute short of 30.
+    step = next(line for line in section(PRS).splitlines() if line.startswith("1. Note the time"))
+    assert "stop after 30 minutes instead, wherever you are, and not before" in step
+    assert "nor at any minute short of 30" in step
+
+
+def test_497_sheet_2_clicks_the_one_seitenbreite():
+    # The zoom's button was Seitenbreite. #623 named it Zoom, and the brief still said the zoom
+    # had a button of that name, so the run treated the one panel button as two matches.
+    sheet2 = section("### 2. ")
+    assert "the zoom has a button of the same name" not in sheet2
+    assert "the zoom's own button is `Zoom`" in sheet2
+    assert "only while the list is open" in sheet2
+    source = "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
+    assert on_screen("Zoom", source)
