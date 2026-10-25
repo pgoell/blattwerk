@@ -14,6 +14,10 @@ import pytest
 # Seconds without a finished test before the run counts as hung. The slowest tests have 120 s of
 # their own (SLOW), and a report comes at each phase, so a run that is only slow never gets here.
 HANG_AFTER = float(os.environ.get("BLATTWERK_HANG", "180"))
+# A test sets a short limit so a silence after a report ends at once. Importing the workers on a
+# loaded runner takes longer than that short limit and is not a hang, so until the first worker
+# is ready the limit is at least this. CI's own limit is 180, and this stays under it (#554).
+UNTIL_READY = 30.0
 GUARD = None  # the Hang of the controller; None in a worker
 SWEEP = []  # the browser test that runs now, where its leftovers are still to collect: see `swept`
 
@@ -24,16 +28,21 @@ class Hang:
     def __init__(self, err):
         self.err = err  # the real stderr, as a file descriptor
         self.timer = None
+        self.after = HANG_AFTER  # the interval the clock is on now; the message names it
         self.running = set()
 
     def say(self, line):
         os.write(self.err, f"{line}\n".encode())
 
-    def restart(self):
+    def arm(self, after):
         self.cancel()
-        self.timer = threading.Timer(HANG_AFTER, self.fire)
+        self.after = after
+        self.timer = threading.Timer(after, self.fire)
         self.timer.daemon = True
         self.timer.start()
+
+    def restart(self):
+        self.arm(HANG_AFTER)
 
     def cancel(self):
         if self.timer:
@@ -41,7 +50,7 @@ class Hang:
 
     def fire(self):
         self.say(
-            f"No test has finished for {HANG_AFTER:g} s: the run hangs. "
+            f"No test has finished for {self.after:g} s: the run hangs. "
             "The stacks of every process follow."
         )
         # A copy: the main thread may still add a test while this one reads.
@@ -82,6 +91,11 @@ def pytest_configure(config):
     # debugger for as long as it likes.
     if not hasattr(config, "workerinput") and config.getoption("numprocesses", None):
         GUARD = Hang(err)
+        # Armed here, not at the first test report. Collection runs on the workers, so a hang
+        # there, or while the workers start, never sends one and used to wait for the job's
+        # limit (#554). The first interval allows the import; a short limit still ends a
+        # silence once a worker is ready.
+        GUARD.arm(max(HANG_AFTER, UNTIL_READY))
 
 
 def pytest_unconfigure(config):
@@ -102,6 +116,23 @@ def pytest_runtest_logfinish(nodeid, location):
     if SWEEP:
         SWEEP.clear()
         gc.collect()
+
+
+def _restart():
+    if GUARD:
+        GUARD.restart()
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodeready(node):
+    """A worker is up. The import that got it here is not a hang, so the clock starts again."""
+    _restart()
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_node_collection_finished(node, ids):
+    """A worker has collected. A hang in collection never gets here (#554)."""
+    _restart()
 
 
 def pytest_runtest_logreport(report):
