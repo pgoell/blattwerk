@@ -7,6 +7,7 @@ import { pairOf, Bows } from "./bows";
 import { flipped } from "./box";
 import { useBreaks, Words } from "./context";
 import { linesIn, fitText, leastOf, cutAt, textIn } from "./fit";
+import { useRealFonts } from "./fontReady";
 import { inset, fontOf, traceOf, INK, FONTS, SIDE, DOTTED_SIDE, fadeOf, fadeMask, textStyle } from "./look";
 import { Rich } from "./rich";
 import { dashes, gapWidth, fitOf, OUTLINES, tailReach, radiusOf, Bank, classes, gapVar, clear, tint, Dashes, POINTS, Outline, Ring } from "./shape";
@@ -45,6 +46,7 @@ export function Line({ block, k, solved }: { block: ShapeBlock; k: number; solve
 export const UP = { top: "flex-start", middle: "center", bottom: "flex-end" };
 // A text or a shape with its text. The editor passes the field the text is typed in.
 export function Frame({ block, k, solved, children }: { block: TextBlock | ShapeBlock; k: number; solved: boolean; children?: ReactNode }) {
+  useRealFonts();
   const p = boxed(block)!;
   const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
