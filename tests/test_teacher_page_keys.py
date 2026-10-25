@@ -54,6 +54,38 @@ def test_type_writes_into_the_text_that_enter_opened(editor):
     expect(page.locator(FIELD)).to_have_text("du da")
 
 
+def test_617_type_of_an_umlaut_opens_a_picked_block_and_keeps_the_letter(editor):
+    # Playwright's type sends Ü as insertText with no keydown. A picked block holds no
+    # editable focus, so the Ü reached nothing and "Übung" became "bung" (#617).
+    page = editor(box("a", "text", ONE))
+    tool.click(page, "Eins")
+    expect_picked(page, "a")
+    expect(page.locator(FIELD)).to_have_count(0)
+    said = tool.type_(page, "Übung")
+    assert said.startswith("typed 5 letters: ")
+    expect(page.locator(FIELD)).to_have_text("EinsÜbung")
+
+
+def test_617_key_of_an_umlaut_is_a_keydown(editor):
+    # `key "Ä"` raised "Unknown key". A letter outside the US layout is a keydown too.
+    page = editor(box("a", "text", ONE))
+    tool.click(page, "Eins")
+    said = tool.key(page, "Ä")
+    assert said.startswith("pressed Ä 1 times: ")
+    expect(page.locator(FIELD)).to_have_text("EinsÄ")
+
+
+def test_617_type_of_an_umlaut_in_an_open_text_lands_once(editor):
+    # An open text already took Ä. The keydown must not put the letter in twice.
+    page = editor(box("a", "text", ONE))
+    tool.click(page, "Eins")
+    tool.key(page, "Enter")
+    expect(page.locator(FIELD)).to_be_focused()
+    said = tool.type_(page, "Maße")
+    assert said.startswith("typed 4 letters: ")
+    expect(page.locator(FIELD)).to_have_text("Maße")
+
+
 @pytest.mark.native
 def test_key_arrows_60_times_and_enter_pick_a_colour_the_eye_can_tell(editor):
     page = editor(box("a", "text", ONE))

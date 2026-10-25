@@ -272,12 +272,14 @@ def test_t3_the_two_pages_of_sheet_4_are_shot_in_the_tools_window():
 
 
 def test_t4_the_picture_and_the_table_of_sheet_3_each_get_a_y():
-    # The picture landed on top of the heading. The heading ends 29 mm from the top, and the
-    # picture, 100 mm wide at most, is 67 high.
+    # The picture lands under the heading (#621). It is put at 40 mm, and the table at 115.
+    # The heading ends 29 mm from the top, and the picture, 100 mm wide at most, is 67 high.
     steps = section("### 3. ").splitlines()
     picture = next(line for line in steps if line.startswith("3. "))
     table = next(line for line in steps if line.startswith("4. "))
-    assert "on top of the heading. Move it below: `fill` the field `Y` with `40`" in picture
+    assert (
+        "picked and under the heading. Put it at 40 mm: `fill` the field `Y` with `40`" in picture
+    )
     assert "below the picture: `fill` the field `Y` with `115`" in table
     assert 15 + 14 < 40 and 40 + 67 < 115
 
