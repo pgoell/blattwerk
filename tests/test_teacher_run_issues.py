@@ -328,3 +328,72 @@ def test_497_sheet_2_clicks_the_one_seitenbreite():
     assert "only while the list is open" in sheet2
     source = "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
     assert on_screen("Zoom", source)
+
+
+def frontend():
+    """The editor's source, joined, for a name a teacher can read on screen."""
+    return "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
+
+
+# What issue #564 found in the brief's tenth run.
+
+
+def test_564_thumbnails_are_under_vorlagen_and_the_badge_opens_nothing():
+    # The run used the Vorlagen tab to reach the thumbnails for Ctrl+arrow, and the badge
+    # "Seite 2 von 3" opened nothing. Start has no thumbnails. The badge is a label.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if line.startswith("- The page thumbnails"))
+    assert "tab `Vorlagen`" in bullet
+    assert "heading `Seiten`" in bullet
+    assert "has no thumbnails" in bullet
+    assert "`key Control+ArrowDown`" in bullet
+    assert "`key Control+ArrowUp`" in bullet
+    assert "`key Control+Shift+ArrowDown`" in bullet
+    assert "`key Control+Shift+ArrowUp`" in bullet
+    assert "badge `Seite 2 von 3`" in bullet
+    assert "a click on it opens nothing" in bullet
+    assert "`Seiten und Vorlagen`" in bullet
+    source = frontend()
+    for label in ("Vorlagen", "Seiten"):
+        assert on_screen(label, source), label
+    stage = (REPO / "frontend/src/pages/editor/Stage.tsx").read_text()
+    badge = re.search(r'<div className="dock at">.*?</div>', stage, re.S)
+    assert badge, stage
+    assert "<button" not in badge.group(0)
+    assert "onClick" not in badge.group(0)
+
+
+def test_564_a_double_click_opens_a_zahlenmauer_stone_on_the_sheet():
+    # #563 fixed the stone. The brief still names a text, a cell and a Lineatur, so a run
+    # types into the panel's small wall.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if "A double click opens" in line)
+    assert "a stone of a Zahlenmauer" in bullet
+    assert "small wall in the right panel" in bullet
+    # F2 opens a text, a cell or a Lineatur. It does not open a stone.
+    assert "F2" not in bullet.split("Zahlenmauer", 1)[1]
+    assert 'label: "Zahlenmauer"' in (REPO / "frontend/src/pages/editor/useTools.tsx").read_text()
+
+
+def test_564_a_table_has_no_drehung_and_stays_level():
+    # Drehung is greyed on a table, so the run made no turned table with cut lines.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("- A table has no `Drehung`")
+    )
+    assert "greyed" in bullet
+    assert "not a fault" in bullet
+    assert "`Schneidelinien`" in bullet
+    assert "level table" in bullet
+    assert "turned table with cut lines cannot be made" in bullet
+    place = (REPO / "frontend/src/pages/format/place.tsx").read_text()
+    turns = re.findall(r'"(Rechtsdrehung[^"]*|Linksdrehung[^"]*)"', place)
+    assert turns
+    for name in turns:
+        assert f"`{name}`" in bullet, name
+    level = next(line for line in place.splitlines() if line.strip().startswith("const level"))
+    assert 'b.type === "table"' in level
+    assert "disabled={level}" in place
+    source = frontend()
+    for label in ("Drehung", "Schneidelinien"):
+        assert on_screen(label, source), label
