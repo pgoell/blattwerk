@@ -20,6 +20,7 @@ from pathlib import Path
 
 from playwright.sync_api import Error, Page, sync_playwright
 from playwright.sync_api import TimeoutError as Late
+from teacher_page_name import read_value
 from teacher_page_ns import g
 
 # A PDF button. `click` on it used to return before the file arrived, and the browser then
@@ -130,13 +131,8 @@ def where(page: Page, name: str) -> str:
 
 
 def value(page: Page, name: str) -> str:
-    """What a field holds: a colour as `#rrggbb`, a slider's or a number field's number."""
-    found = page.get_by_label(name, exact=True).filter(visible=True)
-    try:
-        return f"{name} is {found.input_value(timeout=3000)}"
-    # No field of that name, several, or a button that holds nothing.
-    except Error:
-        raise g("Refused")(f'no field on the page is called "{name}"') from None
+    """What a field holds, or which button under a heading of that name is on."""
+    return read_value(page, name)
 
 
 def wanted() -> list[int]:

@@ -6,6 +6,7 @@ no editable focus, so that text reaches nothing and the letter is lost (#617).
 """
 
 from playwright.sync_api import Page
+from teacher_page_name import press
 from teacher_page_ns import g
 
 # What Playwright's US layout presses. ``\n`` and ``\r`` are Enter.
@@ -25,7 +26,7 @@ def _strike(session, char: str) -> None:
 
 
 def press_key(page: Page, keys: str) -> None:
-    """One press. A letter outside the US layout goes out as its own keydown."""
+    """One press. Plus is the German key. Any other letter outside the US layout is a keydown."""
     if len(keys) == 1 and keys not in US:
         session = page.context.new_cdp_session(page)
         try:
@@ -33,7 +34,7 @@ def press_key(page: Page, keys: str) -> None:
         finally:
             session.detach()
         return
-    page.keyboard.press(keys)
+    press(page, keys)
 
 
 def type_text(page: Page, text: str) -> None:

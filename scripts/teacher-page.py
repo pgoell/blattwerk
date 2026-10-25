@@ -221,14 +221,14 @@ def point(page: Page, target: str) -> tuple[float, float]:
     if at := XY.fullmatch(target):
         return float(at[1]), float(at[2])
     spots = places(page, target)
-    choice = meant(spots)
+    choice = meant(spots) or _name.one(page, target, Found)
     if choice is not None and not inside(page, choice.x, choice.y):
         # The one place lies below or above the window: the page turns to it. A heading of the
         # same name does not make it two places, so the turn still happens.
         choice.el.evaluate("el => el.scrollIntoView({block: 'center'})")
         NOTES.append("turned the page to it")
         spots = places(page, target)
-        choice = meant(spots)
+        choice = meant(spots) or _name.one(page, target, Found)
     seen = [spot for spot in spots if inside(page, spot.x, spot.y)]
     if choice is not None and inside(page, choice.x, choice.y):
         return choice.x, choice.y
@@ -316,6 +316,7 @@ def tidy() -> str:
 
 
 _ns = _load("teacher_page_ns")
+_name = _load("teacher_page_name")
 _acts = _load("teacher_page_acts")
 _keys = _load("teacher_page_keys")
 _clock = _load("teacher_page_clock")
