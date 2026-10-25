@@ -211,6 +211,28 @@ def test_497_pdf_with_the_variants_dialog_open_takes_the_dialogs_button(editor):
     assert len(key.pages) == 2
 
 
+def test_617_click_on_the_variants_pdf_saves_the_file_in_the_run_folder(editor, folder):
+    # `click` on the dialog's PDF failed and the file landed in Downloads. `pdf X,Y` saved it.
+    # `click "PDF"` and a click at that button's place do what `pdf` does (#617).
+    page = editor(box("a", "text", ONE))
+    panel = page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    if not panel.is_visible():
+        page.get_by_role("tab", name="Ansicht").click()
+    panel.click()
+    dialog = page.locator("dialog.variants")
+    expect(dialog).to_be_visible()
+    plain = Path(tool.click(page, "PDF"))
+    assert plain.parent == folder and plain.suffix == ".pdf"
+    assert plain.read_bytes().startswith(b"%PDF")
+    assert len(PdfReader(io.BytesIO(plain.read_bytes())).pages) == 2
+    expect(dialog).to_be_visible()
+    # The same button by its place: `pdf X,Y` saved the file, `click X,Y` did not.
+    place = xy(dialog.get_by_role("button", name="Lösungen", exact=True))
+    key = Path(tool.click(page, place))
+    assert key.parent == folder and key.suffix == ".pdf"
+    assert len(PdfReader(io.BytesIO(key.read_bytes())).pages) == 2
+
+
 def test_pdf_gives_the_focus_back_to_the_slider_that_had_it(editor):
     # Issue #321: after `pdf` the bar's button had the focus, and `key End` did nothing.
     page = shape(editor)

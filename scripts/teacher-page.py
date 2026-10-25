@@ -317,6 +317,8 @@ def tidy() -> str:
 
 _ns = _load("teacher_page_ns")
 _acts = _load("teacher_page_acts")
+_keys = _load("teacher_page_keys")
+_clock = _load("teacher_page_clock")
 click = _acts.click
 double_click = _acts.double_click
 shift_click = _acts.shift_click
@@ -343,8 +345,10 @@ def key_drag(page: Page, key: str, start: str, end: str) -> str:
 
 swipe = _acts.swipe
 wheel = _acts.wheel
-key = _acts.key
-type_ = _acts.type_
+key = _keys.key
+type_ = _keys.type_
+began = _clock.began
+clock = _clock.clock
 where = _acts.where
 value = _acts.value
 wanted = _acts.wanted
@@ -443,7 +447,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         if not yes:
             line += f" To say yes: box yes {shlex.join([name, *args])}"
         lines.append(line)
-    return "\n".join([said, *closed, *lines, place])
+    return "\n".join([said, *closed, *lines, clock(), place])
 
 
 def main(name: str = "", *args: str) -> str:
