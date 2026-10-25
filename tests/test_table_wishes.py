@@ -45,14 +45,9 @@ def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(e
     assert page.evaluate(where) == scrolled
     expect(at(page, "t").locator(".table > div.picked")).to_have_count(4)
     # On the iPad held upright the format panel is a drawer: its button keeps the cells picked.
-    # Chromium's touch emulation loses a tap after such a drag now and then, WebKit's does not
-    # (#723): Chromium clicks.
-    press = (
-        (lambda button: button.tap()) if BROWSER == "webkit" else (lambda button: button.click())
-    )
-    press(bar(page, "right"))
+    bar(page, "right").tap()
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
-    press(page.get_by_role("button", name="Zellen verbinden", exact=True))
+    page.get_by_role("button", name="Zellen verbinden", exact=True).tap()
     expect(cell(page, "t", 0)).to_have_attribute("data-span", "2x2")
 
 

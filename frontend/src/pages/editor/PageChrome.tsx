@@ -97,8 +97,8 @@ export default function PageChrome({ s: session, p, n }: { s: ReturnType<typeof 
                       />
                     )),
                   )}
-                  {/* Over the lines' handles, which run along the cells' edges where these stand. The sheet's touch, a
-                      hold that opens a menu, is not theirs: it took the click of the next tap. */}
+                  {/* Over the lines' handles, which run along the cells' edges where these stand. A hold on the
+                      sheet opens a menu: the handle's touch is not that hold. */}
                   {table && grips.map((g) => (
                     <i key={g.corner} className={`cell-handle cell-handle-${g.corner}`} style={{ left: g.x, top: g.y }} onPointerDown={(e) => gripDown(e, g.corner)} onTouchStart={(e) => e.stopPropagation()} onPointerMove={gripMove} onPointerUp={gripUp} onPointerCancel={gripUp} />
                   ))}
