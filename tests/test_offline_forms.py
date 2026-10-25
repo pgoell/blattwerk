@@ -10,6 +10,8 @@ The docstrings name the lines of the checklist.
 # The fixture `window` is imported, and each test names it as its argument.
 # ruff: noqa: F811
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
@@ -46,10 +48,13 @@ def test_a_login_that_reaches_no_server_blames_no_password_and_works_with_the_ne
     expect(page.get_by_label("E-Mail")).to_have_value(email)
     expect(page.get_by_label("Passwort")).to_have_value(PASSWORD)
     mend()
-    # WebKit keeps no Secure cookie from this http server: the list's load would answer 401 and
-    # take the app back to the login. There the list comes empty, so the heading stands (#752).
+    # WebKit keeps no Secure cookie from this http server. The list's load, and the folder's,
+    # answer 401 and take the app back to the login. The heading stands only until that
+    # answer, so a check that comes late misses it (#484, #752). The list comes empty, and
+    # a teacher with no seat has no folder.
     if BROWSER == "webkit":
         page.route("**/api/sheets", lambda route: route.fulfill(json=[]))
+        page.route(re.compile(r"/api/folder"), lambda route: route.fulfill(status=404))
     assert press(page, "Anmelden", "/login", server) == 200
     expect(page.get_by_role("heading", name="Meine Blätter")).to_be_visible()
 
