@@ -52,6 +52,7 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
   const sheet = session.sheet;
   const slot = session.slot;
   const spaced = session.spaced;
+  const spaceButton = session.spaceButton;
   const spot = session.spot;
   const stage = session.stage;
   const steer = session.steer;
@@ -207,10 +208,10 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
               if (e.button) return;
               e.currentTarget.setPointerCapture(e.pointerId);
               hand.current = [e.clientX, e.clientY, desk.current!.scrollLeft, desk.current!.scrollTop];
-              // A drag: the Space was the hand's, not a space to type.
+              // A drag: the Space was the hand's, not a space to type and not a button to press.
               spaced.current = null;
+              spaceButton.current = null;
               setPanning(true);
-              // A button that has the focus would take Space's keyup as its click.
               if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
             }}
             onPointerMove={(e) => {

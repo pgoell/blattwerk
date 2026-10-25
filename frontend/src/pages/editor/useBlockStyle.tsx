@@ -5,7 +5,7 @@ import { fresh } from "../../history";
 import { FIELDS, K, RULINGS, wordsIn, boxed, colsOf, kindOf, rowsOf, sizeOf, squares, sum, tall, type Block, type Box, type Guides, type ListMode, type NameBlock, type TableBlock, type TextProps } from "../../sheet";
 import { blatt, follow as growRulings, linked, loose as cutLoose, looseText } from "../../words";
 import { list } from "../Field";
-import { EDGE, heightsOf, next } from "../../cells";
+import { EDGE, basisOf, heightsOf, next } from "../../cells";
 import { grown } from "../../insert";
 import { NONE, round } from "./palette";
 import { useDocChange } from "./useDocChange";
@@ -171,8 +171,9 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
       (bs) =>
         bs.map((b) => {
           const patch = byId.get(b.id);
-          // A table with row heights keeps them in proportion to its height. The rows are those on screen: a row the text
-          // holds up is taller than its saved height.
+          // A table with row heights keeps them in proportion to its height. The rows are those on screen, unless a
+          // press below the texts has flattened them: then the saved rows still hold the proportion (#514). A row the
+          // text holds up is taller on screen than it is saved, and that proportion grows (#540).
           const rows = b.type === "table" && patch?.h !== undefined && b.h > EDGE && patch.h !== b.h ? heightsOf(b.props) : undefined;
           if (!rows) return { ...b, ...patch };
           // A row as high as it is saved is taken as saved: the screen lays rows out on parts of a pixel.
@@ -181,7 +182,8 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
             // The rows fill the height without the table's line and the box of solution words.
             const to = patch!.h! - EDGE - boxOf(sheet.current!.querySelector<HTMLElement>(`[data-id="${b.id}"] .table`)!, screen.length);
             if (to <= 0) return { ...b, ...patch };
-            return { ...b, ...patch, props: { ...b.props, rows: screen.map((h) => (h * to) / sum(screen)) } } as Block;
+            const basis = basisOf(rows, screen);
+            return { ...b, ...patch, props: { ...b.props, rows: basis.map((h) => (h * to) / sum(basis)) } } as Block;
           }
           const f = (patch!.h! - EDGE) / (b.h - EDGE);
           return { ...b, ...patch, props: { ...b.props, rows: rows.map((h) => h * f) } } as Block;

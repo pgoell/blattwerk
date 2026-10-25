@@ -38,7 +38,7 @@
 
 ## Sign in
 
-1. Run `date +%s` and take its number as N. `new_page` with `http://127.0.0.1:8220` and `isolatedContext` `teacher-run-N`, then `resize_page` to 1280 by 1024. Signed out, every path shows the form `Anmelden`. The context is new and empty for each run: each stage copies the same live data, so its first upload gets the same address as the first upload of the stage before, and a browser that kept the old picture would show it in place of the new one. The tool's window needs nothing of the kind: each `start` gives it an empty browser.
+1. Run `date +%s` and take its number as N. That number only names the context. The run's minutes come from `The clock is N`, not from this `date`: the shell's `date` can run slow against the work. `new_page` with `http://127.0.0.1:8220` and `isolatedContext` `teacher-run-N`, then `resize_page` to 1280 by 1024. Signed out, every path shows the form `Anmelden`. The context is new and empty for each run: each stage copies the same live data, so its first upload gets the same address as the first upload of the stage before, and a browser that kept the old picture would show it in place of the new one. The tool's window needs nothing of the kind: each `start` gives it an empty browser.
 2. Fill `E-Mail` and `Passwort` with the two values the stage printed and click `Anmelden`.
 3. You land on `Meine Blätter` with the line "Noch kein Blatt. Leg dein erstes an."
 4. Sign in to the tool's window now, so it is ready when a step needs it:

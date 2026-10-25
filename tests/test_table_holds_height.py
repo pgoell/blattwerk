@@ -279,6 +279,73 @@ def test_a_row_held_up_by_its_text_keeps_the_screens_proportion_when_the_table_g
     assert abs(rows[0] - rows[2]) <= 0.05
 
 
+def test_a_table_pressed_below_its_texts_keeps_its_rows_proportions(editor):
+    """Issue 514: rows of 20, 10 and 10 mm, pressed with Höhe 5, then set to 40,26, are 20, 10 and 10 again.
+
+    At 5 the table stays as high as its texts need. The rows on the screen are equal then, and growing
+    it must scale the saved rows, which still hold 2 : 1 : 1.
+    """
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [20, 10, 10]}, h=40 + EDGE), client=client)
+    typed_height(page, 5)
+    pressed = block(page, client)
+    # The texts need more than 5 mm, and the saved rows still hold 2 : 1 : 1.
+    assert pressed["h"] > 20
+    assert abs(pressed["props"]["rows"][0] / pressed["props"]["rows"][1] - 2) <= 0.05
+    typed_height(page, "40,26")
+    rows = saved_rows(page, client)
+    for got, want in zip(rows, (20, 10, 10), strict=True):
+        assert abs(got - want) <= 0.05
+    for n, want in zip((0, 3, 6), (20, 10, 10), strict=True):
+        assert abs(mm_height(page, cell(page, "t", n)) - want) <= 0.15
+
+
+def test_uneven_rows_pressed_below_their_texts_come_back(editor):
+    """Issue 514, from the review of #545: rows 10, 40, 10 at 60,26, Höhe 15, then 60,26, are 10, 40, 10.
+
+    The middle row still covers its text at 15, so the screen is not three equal rows. Scaling that
+    screen gave about 18,7, 22,6, 18,7.
+    """
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [10, 40, 10]}, h=60 + EDGE), client=client)
+    typed_height(page, 15)
+    assert block(page, client)["h"] > 20
+    typed_height(page, "60,26")
+    rows = saved_rows(page, client)
+    for got, want in zip(rows, (10, 40, 10), strict=True):
+        assert abs(got - want) <= 0.05
+
+
+def test_rows_pressed_below_their_texts_keep_their_proportion_grown_in_steps(editor):
+    """Issue 514, the steps folded in from #730: Höhe 5, then 30, then 40,26 brings 20, 10, 10 back.
+
+    At 30 the short rows are still under what their texts need. The next height must not scale the
+    equal rows the screen shows.
+    """
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [20, 10, 10]}, h=40 + EDGE), client=client)
+    typed_height(page, 5)
+    typed_height(page, 30)
+    typed_height(page, "40,26")
+    rows = saved_rows(page, client)
+    for got, want in zip(rows, (20, 10, 10), strict=True):
+        assert abs(got - want) <= 0.05
+
+
+def test_a_handle_grows_a_pressed_table_back_in_its_rows_proportions(editor):
+    """Issue 514, the drag folded in from #730: after Höhe 5, pulling the bottom handle keeps 2 : 1 : 1."""
+    client = user()
+    page = editor(box("t", "table", {**GRID, "rows": [20, 10, 10]}, h=40 + EDGE), client=client)
+    typed_height(page, 5)
+    pick(page, "t")
+    start = centre(page.locator(".moveable-control.moveable-s"))
+    drag(page, start, (start[0], start[1] + 80))
+    rows = saved_rows(page, client)
+    assert block(page, client)["h"] > 35
+    assert abs(rows[0] / rows[1] - 2) <= 0.08
+    assert abs(rows[1] - rows[2]) <= 0.15
+
+
 def test_a_turned_table_holds_its_typed_height(editor):
     """Issue 540: a turned table keeps a typed height when long text is typed and deleted."""
     client = user()

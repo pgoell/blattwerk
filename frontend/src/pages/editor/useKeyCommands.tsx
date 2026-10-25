@@ -19,6 +19,7 @@ export function useKeyCommands(session: ReturnType<typeof useKeys>) {
   const name = session.name;
   const setPan = session.setPan;
   const spaced = session.spaced;
+  const spaceButton = session.spaceButton;
   const asked = session.asked;
   const desk = session.desk;
   const held = session.held;
@@ -56,6 +57,9 @@ export function useKeyCommands(session: ReturnType<typeof useKeys>) {
   const join = (...a: any[]) => (session as Record<string, any>).join(...a);
   const remove = (...a: any[]) => (session as Record<string, any>).remove(...a);
 onKey.current = (e) => {
+    // A new Space starts with no button. A repeat keeps the one the first press named, and a dialog or a
+    // field that returns below leaves it clear so a later keyup cannot press a button from before.
+    if (e.code === "Space" && !e.repeat) spaceButton.current = null;
     const held = keyFocus(e);
     if (!held) return;
     const { target, shut, turnKey, mark, ours } = held;
@@ -132,10 +136,15 @@ onKey.current = (e) => {
       }
       return;
     }
-    // Space is the hand's key and does not scroll the desk, also while it repeats. A focused button keeps it as its own.
+    // Space is the hand's key and does not scroll the desk, also while it repeats. The button, link or
+    // summary it went down on is pressed when the key comes up: WebKit never fires the click if the
+    // focus has moved by then, and shutting a dialog moves it (#582). The hand's press clears it.
     if (space) {
-      if (!target.closest("button, a, summary")) e.preventDefault();
-      if (!e.repeat) setPan(true);
+      e.preventDefault();
+      if (!e.repeat) {
+        spaceButton.current = target.closest("button, a, summary");
+        setPan(true);
+      }
       return;
     }
     // An arrow moves by 1 mm, or by a grid cell, and with Shift by 10 mm. A run of them makes one undo step.
