@@ -3,8 +3,8 @@ import type { Api } from "./api.ts";
 import { INSERTS, MATHS, filled, grown, topZ } from "../src/insert.ts";
 import { fresh } from "../src/history.ts";
 import { mathsHeight } from "../src/height.ts";
-import { MARGIN, overFoot, sizeOf, tall, wordsIn } from "../src/sheet.tsx";
-import { follow } from "../src/words.ts";
+import { MARGIN, overFoot, sizeOf, tall } from "../src/sheet.tsx";
+import { followDoc } from "../src/words.ts";
 import { EDGE, heightsOf } from "../src/cells.ts";
 import type { MathsProps } from "../src/sheet.tsx";
 import { Fail, TOKEN_MESSAGE } from "./errors.ts";
@@ -306,12 +306,8 @@ export function sheetHandlers(api: Api) {
       // An empty list is sent as is: the server stores no list for it, and a missing key would keep the stored one.
       // As the editor's list field: the words as the sheet reads them, and every page's blocks, since a list runs on.
       doc.words = args.words;
-      const words = wordsIn(doc);
-      const all = doc.pages.flatMap((p: any) => p.blocks);
-      doc.pages.forEach((page: any, i: number) => {
-        const [W, H] = sizeOf(doc, i);
-        page.blocks = follow(page.blocks, words, W, H, all);
-      });
+      const next = followDoc(doc);
+      doc.pages = next.pages;
       return args.words;
     });
     return text({ version, words: out, warnings: [] });
