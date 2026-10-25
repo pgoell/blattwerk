@@ -38,7 +38,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 1. Click `Namenszeile`.
 2. Click `Überschrift`, type `Plus und Minus`.
 3. Click `Rechnen`. Twelve plus exercises up to 20 land on the sheet in 3 columns.
-4. With the exercises picked, set in the right panel: under `Rechenart` turn `−` on beside `+`; `Zahlenraum` to `bis 100`; `Übertrag` to `Mit`; click `Eine Aufgabe mehr` until it says `16 Aufgaben`; click `Eine Spalte mehr` once, so it says `4 Spalten`.
+4. With the exercises picked, set in the right panel: under `Rechenart` turn `−` on beside `+`; `Zahlenraum` to `bis 100`; `Übertrag` to `Mit`; click `Eine Aufgabe mehr` until it says `16 Aufgaben`; click `Eine Spalte mehr` once, so it says `4 Spalten`. In the tool's window: `click "−"`, `click "Zahlenraum"`, `key ArrowDown`, `key Enter` (from `bis 20` that step is `bis 100`; `click "bis 100"` finds nothing), `click "Mit"`. `value "Übertrag"` prints `Mit`.
 5. Check on screen: 16 exercises, 4 columns, only plus and minus, no number and no result above 100, no result below 0, each with a carry. The numbers differ from run to run.
 6. Export and compare.
 7. The answer key: `Lösungen zeigen` turns it on screen. In the window of 1280 px it lies under `Mehr` at the bar's right: in the tool's window `click "Mehr"`, then `click "Lösungen zeigen"`; in the MCP page click `Mehr`, `take_snapshot`, and click the item `Lösungen zeigen` by its uid, since the snapshot shows it only while the menu is open. A wider window has it in the bar as the eye icon. The results show on screen. Take a screenshot, then click `Lösungen`, which saves `~/Downloads/TR1 Rechnen Lösungen.pdf`. Turn it into a picture as above. Check that the key holds the same 16 exercises as the sheet, that every result is right (work each one out), and that the plain PDF from step 6 shows no result. Turn `Lösungen zeigen` off again.
@@ -61,7 +61,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
    ```
 
 2. In the MCP page: set `Titel` to `TR3 Bild und Tabelle` first, since the tool's window finds the sheet by it. Click `Überschrift`, type `Mein Haustier`.
-3. `upload_file` on the button `Bild` with `/tmp/teacher-run/bild.png` (in the tool's window, `upload bild.png "Bild"` does the same). The picture lands on the sheet, picked and on top of the heading. Move it below: `fill` the field `Y` with `40`, then `press_key` Enter.
+3. `upload_file` on the button `Bild` with `/tmp/teacher-run/bild.png` (in the tool's window, `upload bild.png "Bild"` does the same). The picture lands on the sheet, picked and under the heading. Put it at 40 mm: `fill` the field `Y` with `40`, then `press_key` Enter.
 4. Click `Tabelle`. It has 3 rows and 3 columns. In the right panel click `Eine Zeile mehr` once, so it says `4 Zeilen`, and turn `Kopfzeile` on. Place the table below the picture: `fill` the field `Y` with `115`, then `press_key` Enter.
 5. Change windows: the cells are not in the snapshot and want a double click. In the MCP page `wait_for` `Gespeichert`, click the logo, `wait_for` `Neues Blatt`. In the tool's window: `open /`, `click "TR3 Bild und Tabelle"`, and `click "Beenden"` if the tour opens.
 6. Read the first cell's place off the screenshot. `double-click X,Y` on it, then `type "Tier"`, `key Tab`, `type "Farbe"`, `key Tab`, `type "Beine"`, `key Tab`, `type "Hund"`, `key Tab`, `type "braun"`, `key Tab`, `type "4"`, `key Escape`. Tab goes to the next cell, and from a row's last cell to the next row's first. Leave the other rows empty.
