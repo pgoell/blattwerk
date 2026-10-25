@@ -199,6 +199,34 @@ def test_click_says_a_greyed_control_does_nothing(editor):
     assert "on a greyed control: nothing happens" in tool.click(page, "Rückgängig")
 
 
+def test_603_a_greyed_order_button_below_the_window_says_so(editor):
+    # Issue #603: `click "Eine nach vorn"` on a greyed button out of view scrolled the panel
+    # to it and did not say "greyed control". The front block is already in front.
+    page = editor(
+        box("a", "shape", RECT, z=1),
+        box("b", "shape", RECT, z=2),
+        box("c", "shape", RECT, z=3),
+    )
+    pick(page, "c")
+    button = page.locator(".panel").get_by_role("button", name="Eine nach vorn", exact=True)
+    expect(button).to_be_disabled()
+    button.evaluate(
+        """el => {
+            const panel = el.closest(".panel");
+            const spacer = document.createElement("div");
+            spacer.style.height = "3000px";
+            panel.insertBefore(spacer, panel.firstChild);
+            panel.scrollTop = 0;
+        }"""
+    )
+    assert button.bounding_box()["y"] >= page.evaluate("innerHeight")
+    said = tool.click(page, "Eine nach vorn")
+    assert "on a greyed control: nothing happens" in said, said
+    assert "(turned the page to it)" in said, said
+    expect(at(page, "c")).to_have_css("z-index", "3")
+    expect(at(page, "a")).to_have_css("z-index", "1")
+
+
 def test_every_verb_says_the_page_it_is_on(editor, monkeypatch):
     # Issue #430: `open` needs the sheet's number, and the output did not print it.
     page = editor(box("a", "text", ONE))

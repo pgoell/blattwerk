@@ -83,7 +83,9 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 
 ### 5. Copy of a template, title `TR5 Kopie`
 
-Three templates are built in for everyone: `Arbeitsblatt`, `Klassenarbeit`, `Beschriftungsblatt`. A teacher's own templates stand under `Meine Vorlagen`, and only that teacher sees them. A click on a template puts it in place of the whole sheet; `Rückgängig` brings the sheet back. That is how the app is meant to work.
+The tab `Vorlagen` lists the built-in templates for everyone, in the groups `Allgemein`, `Mathe`, `Deutsch` and `Organisation`. Among them are `Arbeitsblatt`, `Klassenarbeit` and `Beschriftungsblatt`. A teacher's own templates stand under `Meine Vorlagen`, and only that teacher sees them. A click on a template puts it in place of the whole sheet; `Rückgängig` brings the sheet back. That is how the app is meant to work.
+
+Only the four Rechenblätter draw new tasks each time you start from one: `Rechenblatt Klasse 1`, `Rechenblatt Klasse 2`, `Rechenblatt Klasse 3` and `Rechenblatt Klasse 4`. Where a pull request says to start from each twice and compare the tasks, start from those four twice and from every other built-in template once. `Schreibblatt Lineatur 1` is the same both times, and so is `Schreibblatt Lineatur 2`. To change the tasks on a sheet started from a Rechenblatt, pick the block and click `Neu würfeln`. That is one click, so it is not skipped for time.
 
 1. Open `TR1 Rechnen` from `Meine Blätter`. Click the tab `Vorlagen`. Under `Meine Vorlagen` it says `Noch keine`. Type `TR Vorlage` into `Name der Vorlage` and click `Dieses Blatt als Vorlage`. `TR Vorlage` now stands under `Meine Vorlagen`.
 2. Go back to `Meine Blätter`, click `Neues Blatt`, click the tab `Vorlagen`, click `TR Vorlage`. The new sheet shows the name line, the heading and the same 16 exercises with the same numbers as `TR1 Rechnen`. Set the title to `TR5 Kopie`.

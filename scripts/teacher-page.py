@@ -259,10 +259,18 @@ def shown(page: Page, did: str) -> str:
 
 
 # The control at a place, when it is greyed out: a mouse still clicks it, and nothing happens.
+# A disabled button in the panel has pointer-events: none, so elementFromPoint falls through it.
 GREYED = """([x, y]) => {
     const near = "button, input, select, textarea, [aria-disabled]";
-    const el = document.elementFromPoint(x, y)?.closest(near);
-    return !!el && (el.disabled === true || el.getAttribute("aria-disabled") === "true");
+    const grey = (el) =>
+        !!el && (el.disabled === true || el.getAttribute("aria-disabled") === "true");
+    if (grey(document.elementFromPoint(x, y)?.closest(near))) return true;
+    for (const el of document.querySelectorAll(near)) {
+        if (!grey(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y) <= 1) return true;
+    }
+    return false;
 }"""
 
 
