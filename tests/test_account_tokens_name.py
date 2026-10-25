@@ -100,7 +100,9 @@ def test_the_hint_for_the_name_sits_by_the_field_and_not_in_the_stop_paragraph(a
 
 
 def test_the_key_form_fits_a_375_px_phone(account):
-    page = account(user())
+    # "0" is a wide glyph. A random address is usually narrower, so the page
+    # scrolled only for some of them (#797).
+    page = account(user("0" * 32 + "@example.com"))
     page.set_viewport_size({"width": 375, "height": 800})
     field = page.get_by_role("textbox", name=LABEL)
     expect(field).to_be_visible()
