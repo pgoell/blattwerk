@@ -4,10 +4,9 @@ import io
 import re
 
 import httpx
-import pytest
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import BROWSER, at, box, pick, saved, user
+from ui import at, box, pick, saved, user
 
 # What a reader sees of a cell: its lines, each as the letters it holds. The text is read piece by
 # piece, a piece being the letters between two soft hyphens: a piece lies on one line, and a line
