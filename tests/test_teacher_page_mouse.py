@@ -5,6 +5,8 @@
 import pytest
 from playwright.sync_api import expect
 from test_bar import TIP
+from test_cells import GRID, cell
+from test_pages_drag import NAMES, PANEL, blatt, bottom_edge
 from test_teacher_page import (
     ONE,
     TWO,
@@ -26,6 +28,8 @@ from test_zoom import (
     scroll,
 )
 from ui import (
+    FIELD,
+    RULING,
     TABLE,
     at,
     bar,
@@ -33,6 +37,7 @@ from ui import (
     centre,
     expect_picked,
     saved,
+    thumb,
     user,
 )
 
@@ -159,6 +164,110 @@ def test_swipe_in_from_the_right_edge_opens_the_format_drawer_in_the_upright_win
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
     tool.swipe(page, "817,600", "660,600")
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
+
+
+def test_drag_holds_at_the_end_so_the_panel_scrolls(editor):
+    """#536: a drag that rests at the panel's edge scrolls it before the button goes up."""
+    page = blatt(editor, NAMES)
+    assert page.evaluate(f"() => {PANEL}.scrollTop") == 0
+    x, y = centre(thumb(page, 0))
+    end = bottom_edge(page)
+    said = tool.drag(page, f"{x:g},{y:g}", f"{end[0]:g},{end[1]:g}", "2")
+    assert "held 2s" in said
+    assert page.evaluate(f"() => {PANEL}.scrollTop") > 200
+
+
+def test_drag_refuses_a_hold_past_3_seconds(editor):
+    page = editor(box("a", "text", ONE))
+    with pytest.raises(tool.Refused, match="3 seconds"):
+        tool.drag(page, "Eins", "20,20", "4")
+
+
+def test_right_click_opens_the_cell_menu(editor):
+    """#536: the cell menu of a table, which #510 puts on the right click."""
+    page = editor(box("t", "table", GRID))
+    tool.double_click(page, xy(cell(page, "t", 0)))
+    expect(cell(page, "t", 0).locator("textarea")).to_be_focused()
+    tool.shift_click(page, xy(cell(page, "t", 4)))
+    said = tool.right_click(page, xy(cell(page, "t", 4)))
+    assert said.startswith("right-clicked at ")
+    expect(page.get_by_role("menuitem", name="Zellen verbinden", exact=True)).to_be_visible()
+
+
+# The thumbnail's hint, placed at its left edge. TIP assumes a name centred on a bar icon.
+HINT = """(el) => {
+    const tip = getComputedStyle(el, "::after");
+    if (tip.content === "none" || tip.position !== "absolute") return null;
+    const on = el.getBoundingClientRect();
+    const width = parseFloat(tip.width) + parseFloat(tip.paddingLeft) + parseFloat(tip.paddingRight);
+    const height = parseFloat(tip.height) + parseFloat(tip.paddingTop) + parseFloat(tip.paddingBottom);
+    const left = on.left + parseFloat(tip.left);
+    const top = on.top + parseFloat(tip.top);
+    const box = {left, top, right: left + width, bottom: top + height};
+    const panel = el.closest("aside").getBoundingClientRect();
+    const inside = panel.left <= left && panel.right >= box.right && panel.top <= top
+        && panel.bottom >= box.bottom && left >= 0 && top >= 0
+        && box.right <= innerWidth && box.bottom <= innerHeight;
+    return {content: tip.content, inside};
+}"""
+
+
+def test_hover_on_a_thumbnail_shows_ziehen_verschiebt_die_seite(editor):
+    """#536: the thumbnail's hint is in the page, so the tool's screenshot shows it."""
+    page = blatt(editor)
+    button = thumb(page, 0)
+    assert button.evaluate(HINT) is None
+    said = tool.hover(page, xy(button))
+    assert said.startswith("mouse at ")
+    tip = button.evaluate(HINT)
+    assert tip == {"content": '"Ziehen verschiebt die Seite"', "inside": True}
+
+
+def test_536_one_enter_on_the_font_list_picks_and_the_next_opens_the_text(editor):
+    page = editor(box("a", "text", ONE))
+    tool.click(page, "Eins")
+    font = page.get_by_label("Schriftart", exact=True)
+    was = font.input_value()
+    tool.click(page, "Schriftart")
+    expect(page.get_by_role("listbox", name="Liste: Schriftart")).to_be_visible()
+    tool.key(page, "ArrowDown")
+    tool.key(page, "Enter")
+    expect(page.locator(FIELD)).to_have_count(0)
+    expect(font).not_to_have_value(was)
+    tool.key(page, "Enter")
+    expect(page.locator(FIELD)).to_be_visible()
+
+
+def test_536_a_lineatur_font_and_its_trace_answer_to_their_names(editor):
+    page = editor(box("a", "ruling", RULING))
+    tool.click(page, xy(at(page, "a")))
+    expect_picked(page, "a")
+    with pytest.raises(tool.Refused, match="Schriftart"):
+        tool.click(page, "Schriftart")
+    tool.click(page, "Schriftart auf den Zeilen")
+    expect(page.get_by_role("listbox", name="Liste: Schriftart auf den Zeilen")).to_be_visible()
+    tool.key(page, "Escape")
+    trace = page.get_by_label("Nachspurtext", exact=True)
+    tool.click(page, "Nachspurtext")
+    expect(trace).to_be_focused()
+    tool.key(page, "ArrowDown")
+    expect(trace).to_have_value("grey")
+    area = page.locator("textarea.written")
+    expect(area).not_to_be_editable()
+    # One Enter gives the keys back. The next one opens the Lineatur.
+    tool.key(page, "Enter")
+    expect(area).not_to_be_editable()
+    tool.key(page, "Enter")
+    expect(area).to_be_editable()
+
+
+def test_536_a_table_font_is_schriftart_der_tabelle(editor):
+    page = editor(box("t", "table", TABLE))
+    tool.click(page, "H")
+    with pytest.raises(tool.Refused, match="Schriftart"):
+        tool.click(page, "Schriftart")
+    tool.click(page, "Schriftart der Tabelle")
+    expect(page.get_by_role("listbox", name="Liste: Schriftart der Tabelle")).to_be_visible()
 
 
 def test_swipe_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):

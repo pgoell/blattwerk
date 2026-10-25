@@ -5,8 +5,9 @@
     start                  opens the window, 1280 x 1024, on the stage; a second start replaces it
     stop                   shuts the window
     open PATH              goes to a path of the app: / or /blatt/12, never /admin
-    click TARGET           also: double-click TARGET, shift-click TARGET, hover TARGET
-    drag FROM TO           presses the mouse at FROM, moves it to TO and lets go
+    click TARGET           also: double-click, shift-click, right-click and hover
+    right-click TARGET     the right button, which opens the menu
+    drag FROM TO [SECONDS] moves from FROM to TO; SECONDS, at most 3, holds the button at TO
     middle-drag FROM TO    the same with the middle button held: it pans the desk
     swipe FROM TO          a finger put down at FROM, moved to TO and lifted; from an edge it
                            opens a drawer, upright only
@@ -308,7 +309,6 @@ def tidy() -> str:
 
 _ns = _load("teacher_page_ns")
 _acts = _load("teacher_page_acts")
-click = _acts.click
 double_click = _acts.double_click
 shift_click = _acts.shift_click
 hover = _acts.hover
@@ -346,9 +346,42 @@ start = _acts.start
 _ns.bind(globals())
 
 
+def quiet_select(page: Page, x: float, y: float) -> bool:
+    """Focuses a native list and leaves the browser's popup shut.
+
+    A real click opens that popup, and the key after it does not change the choice. The font
+    list is drawn by the page, so it still takes a real click and opens.
+    """
+    return page.evaluate(
+        """([x, y]) => {
+            const el = document.elementFromPoint(x, y)?.closest("select");
+            if (!el || el.closest(".fontsel")) return false;
+            const at = {bubbles: true, clientX: x, clientY: y, pointerType: "mouse"};
+            el.dispatchEvent(new PointerEvent("pointerdown", at));
+            el.focus();
+            return true;
+        }""",
+        [x, y],
+    )
+
+
+def click(page: Page, target: str) -> str:
+    x, y = point(page, target)
+    if quiet_select(page, x, y):
+        return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
+    return _acts.click(page, target)
+
+
+def right_click(page: Page, target: str) -> str:
+    x, y = point(page, target)
+    page.mouse.click(x, y, button="right")
+    return shown(page, f"right-clicked at {x:g},{y:g}")
+
+
 VERBS: dict[str, Callable[..., str]] = {
     "open": go,
     "click": click,
+    "right-click": right_click,
     "double-click": double_click,
     "shift-click": shift_click,
     "hover": hover,

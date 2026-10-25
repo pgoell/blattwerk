@@ -10,8 +10,9 @@ Allowed:
   - `click TARGET`
   - `double-click TARGET`
   - `shift-click TARGET`
+  - `right-click TARGET`: the right mouse button. It opens the menu, and on a table's picked cells that menu has `Zellen verbinden` and `Zellen teilen`.
   - `hover TARGET`
-  - `drag FROM TO`
+  - `drag FROM TO [SECONDS]`: moves from FROM to TO and lets go. With SECONDS, at most 3, it holds the button at TO before it lets go, so the panel can scroll while a drag rests at its edge.
   - `middle-drag FROM TO`: the same with the middle button held. On the desk it moves the view, as a teacher pans with the wheel's button.
   - `swipe FROM TO`: a finger put down at `FROM`, moved to `TO` and lifted, as on an iPad. The drawers open by a swipe from a window's edge only in the upright window: `resize 820 1180` first, then `swipe 817,600 660,600` opens the right one.
   - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
