@@ -1,5 +1,6 @@
 // Guide lines, and the handles on a line or a shape.
 import { useRef, type PointerEvent } from "react";
+import { flushSync } from "react-dom";
 import { adjusted, far, handleOf, type Axis, type Block, type Corner, type ShapeBlock, type TextProps } from "../../sheet";
 import { adjustable, bounds, frameOf, hull, scaledGroup, sized as resized, unfit as unfitted } from "../Format";
 import { turnedAt, KEEP, CENTRE, round } from "./palette";
@@ -100,9 +101,14 @@ export function useGuides(session: ReturnType<typeof useTable>) {
     const [fx, fy] = half > 1 ? [x + w / 2, y + h / 2] : [right ? x : x + w, low ? y : y + h];
     const [sw, sh] = [(right ? w : -w) / half, (low ? h : -h) / half];
     let s = Math.max(0.1, w && (px - fx) / sw, h && (py - fy) / sh);
+    // A pointer move is not discrete, so its render waits on the scheduler and can land after
+    // the pointer is up. The panel would then show an older width than undo restores (#716).
+    // The move is drawn before the event returns, as a block's resize is.
     if (turn) {
-      setGuide([]);
-      place(scaledGroup(start.current, s, s, [fx, fy]).map(resized), "drag");
+      flushSync(() => {
+        setGuide([]);
+        place(scaledGroup(start.current, s, s, [fx, fy]).map(resized), "drag");
+      });
       return;
     }
     // The dragged corner snaps to the guides a block drag snaps to. The group keeps its shape, so only the nearer
@@ -113,15 +119,17 @@ export function useGuides(session: ReturnType<typeof useTable>) {
     const onX = gx !== undefined && (gy === undefined || Math.abs(gx - mx) <= Math.abs(gy - my));
     if (onX) s = (gx - fx) / sw;
     else if (gy !== undefined) s = (gy - fy) / sh;
-    setGuide(onX ? [gx] : [undefined, gy]);
     // Each size comes from its block's two edges, so the edge on the guide lands exactly on it.
-    place(
-      start.current.map((b) => {
-        const [bx, by] = [round(fx + (b.x - fx) * s), round(fy + (b.y - fy) * s)];
-        return [b.id, { x: bx, y: by, w: round(fx + (b.x + b.w - fx) * s - bx), h: round(fy + (b.y + b.h - fy) * s - by), ...unfitted(b) }];
-      }),
-      "drag",
-    );
+    flushSync(() => {
+      setGuide(onX ? [gx] : [undefined, gy]);
+      place(
+        start.current.map((b) => {
+          const [bx, by] = [round(fx + (b.x - fx) * s), round(fy + (b.y - fy) * s)];
+          return [b.id, { x: bx, y: by, w: round(fx + (b.x + b.w - fx) * s - bx), h: round(fy + (b.y + b.h - fy) * s - by), ...unfitted(b) }];
+        }),
+        "drag",
+      );
+    });
   }
 
   // A new guide line starts in the middle of what the desk shows, clear of a guide already there.
