@@ -7,6 +7,7 @@
     open PATH              goes to a path of the app: / or /blatt/12, never /admin
     click TARGET           also: double-click TARGET, shift-click TARGET, hover TARGET
     drag FROM TO           presses the mouse at FROM, moves it to TO and lets go
+    key-drag KEY FROM TO   holds KEY, drags from FROM to TO and lets the key go. Space pans
     middle-drag FROM TO    the same with the middle button held: it pans the desk
     swipe FROM TO          a finger put down at FROM, moved to TO and lifted; from an edge it
                            opens a drawer, upright only
@@ -315,6 +316,23 @@ hover = _acts.hover
 ends = _acts.ends
 drag = _acts.drag
 middle_drag = _acts.middle_drag
+
+
+def key_drag(page: Page, key: str, start: str, end: str) -> str:
+    """Holds KEY, drags, and lets the key go. Space held is the hand that pans the desk."""
+    (x, y), to = ends(page, start, end)
+    # The key is down before the press, as a hand holds Space, and up again however the drag ends.
+    page.mouse.move(x, y)
+    page.keyboard.down(key)
+    try:
+        page.mouse.down()
+        page.mouse.move(*to, steps=10)
+        page.mouse.up()
+    finally:
+        page.keyboard.up(key)
+    return shown(page, f"dragged with {key} held from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
 swipe = _acts.swipe
 wheel = _acts.wheel
 key = _acts.key
@@ -353,6 +371,7 @@ VERBS: dict[str, Callable[..., str]] = {
     "shift-click": shift_click,
     "hover": hover,
     "drag": drag,
+    "key-drag": key_drag,
     "middle-drag": middle_drag,
     "swipe": swipe,
     "wheel": wheel,
