@@ -2,9 +2,11 @@
 import type { ReactNode } from "react";
 import { useSheetChrome } from "../../components/Blank";
 import { Whole, Words } from "../../sheet";
+import { useRealFonts } from "../../sheet/fontReady";
 import { useTools } from "./useTools";
 
 export default function EditorMain({ s: session, children }: { s: ReturnType<typeof useTools>; children: ReactNode }) {
+  useRealFonts();
   useSheetChrome();
   const brush = session.brush;
   const drawers = session.drawers;

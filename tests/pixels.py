@@ -12,7 +12,7 @@ import pypdfium2
 from PIL import Image, ImageChops, ImageDraw
 from PIL.ImageFilter import BoxBlur, MaxFilter, MinFilter
 from playwright.sync_api import expect
-from ui import BROWSER, sheet, tool
+from ui import BROWSER, SETTLED, sheet, tool
 
 # The side of the square around a pixel in which the other picture may have it: one pixel to
 # each side. WebKit sets every other row of a text one pixel of the page lower than Chromium,
@@ -37,15 +37,16 @@ LIMIT = 0.004 if BROWSER == "webkit" else 0.0015
 # WebKit lays rows of text up to 0.54 mm lower and ends a picture 0.4 mm short (ROWS and EDGE in
 # test_pixels.py, what the browsers round): 0.065 in a school's script and 0.062 at a picture's
 # right edge. That is more than the 0.059 of that outline and the 0.0045 of that word, so there
-# it sees neither. It sees a sentence 1 mm lower, 0.099.
-TILE = 0.07 if BROWSER == "webkit" else 0.01
+# it sees neither. It sees a sentence 1 mm lower, 0.099. A gap's line after the baseline lift is
+# 0.0705 (#504).
+TILE = 0.075 if BROWSER == "webkit" else 0.01
 # The share of a tile's ink that only one picture has, where ink is how far a pixel's red, green
 # or blue lies below white. It sees a line that is gone, 1, and a colour: #555555 for #222222 is
 # 0.25 to 0.27 in a text and a ruling, #ffe066 for #ffd43b 0.28, in both browsers. Chromium has
 # 0.196 at most, in a table, where pdfium fills every pixel a line touches. WebKit has 0.224 at
-# most, at a box's border of 0.5 mm, so it sees all three colours. CI's Chromium runs on another
-# machine's fonts than a laptop's, so its limit leaves more room.
-INK = 0.25 if BROWSER == "webkit" else 0.21
+# most, at a box's border of 0.5 mm. Once the rows agree, #555 against #222 is 0.231 (#504).
+# CI's Chromium runs on another machine's fonts than a laptop's, so its limit leaves more room.
+INK = 0.228 if BROWSER == "webkit" else 0.21
 # The ink a tile has to hold for all of it to count: a third of a hairline's, 0.3 mm wide and
 # dark, through the tile's middle. Less ink than this is measured against this much.
 FLOOR = 3
@@ -112,7 +113,9 @@ def screen_and_print(browser, server, client, sheet_id, page=0, hide_gaps=False,
             "color", "rgb(192, 57, 43)"
         )
     # As the page that is printed does: a picture and a font come in after the blocks are laid out.
+    # The lift is painted on the draw after that (#504).
     tab.evaluate(LOADED)
+    tab.evaluate(SETTLED)
     # A text's bows are drawn once its words are split and measured.
     expect(tab.locator(".sheet .unsplit")).to_have_count(0)
     screen = tab.locator(f'.sheet[data-page="{page}"]').screenshot()

@@ -156,10 +156,6 @@ export let keepsFraction: boolean | undefined;
 export const metrics = new Map<string, [number, number]>();
 // A font's descent over its size, measured large so a whole pixel of rounding is a small share of it.
 const descentRatio = new Map<string, number>();
-export function forgetMetrics() {
-  metrics.clear();
-  descentRatio.clear();
-}
 export function keepsFractions() {
   if (keepsFraction === undefined) {
     if (typeof document === "undefined") return false;
@@ -184,6 +180,7 @@ function borrowed(family: string, size: number, weight: number, italic: boolean)
   const key = `${italic}|${weight}|${family}`;
   let ratio = descentRatio.get(key);
   if (ratio === undefined) {
+    if (document.fonts.status !== "loaded") return 0;
     const ctx = document.createElement("canvas").getContext("2d")!;
     ctx.font = `${italic ? "italic" : "normal"} ${weight} 6400px "${family}"`;
     const descent = ctx.measureText("n").fontBoundingBoxDescent;
@@ -197,11 +194,14 @@ function borrowed(family: string, size: number, weight: number, italic: boolean)
   return Math.floor(at + 0.5) < at ? 1 : 0;
 }
 // How far in px to lift a line in WebKit so its baseline meets the print: the fraction past the whole pixel,
-// and the pixel Chromium borrowed. None while the font is not loaded, since the canvas would measure another.
+// and the pixel Chromium borrowed.
 export function baselineLift(family: string | undefined, size: number, lineHeight: number, weight = 400, italic = false) {
   const face = `${italic ? "italic" : "normal"} ${weight} ${size}px "${family}"`;
-  if (!family || !keepsFractions() || document.fonts.status !== "loaded" || !(document.fonts.check(face) || document.fonts.check(`${size}px "${family}"`))) return 0;
-  if (!metrics.has(face)) {
+  if (!family || !keepsFractions()) return 0;
+  // A panel font puts the status back to loading. A measured face keeps its lift (#504).
+  const seen = metrics.has(face);
+  if (!seen && (document.fonts.status !== "loaded" || !(document.fonts.check(face) || document.fonts.check(`${size}px "${family}"`)))) return 0;
+  if (!seen) {
     const ctx = document.createElement("canvas").getContext("2d")!;
     ctx.font = face;
     const n = ctx.measureText("n");
