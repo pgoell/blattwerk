@@ -2,7 +2,7 @@
 
 import pytest
 from playwright.sync_api import expect
-from test_teacher_page import pytestmark, tool  # noqa: F401
+from test_teacher_page import folder, pytestmark, tool  # noqa: F401
 from ui import FIELD, TEXT, box, maths, pick, user
 
 
@@ -66,9 +66,12 @@ def test_635_click_ganze_seite_in_the_open_list_fits_the_page(editor):
 
 
 def test_635_a_folded_zoom_is_read_after_mehr(editor):
+    # resize keeps the size in the test's folder. /tmp/teacher-run is not there on a fresh worker.
     page = editor(box("a", "text", TEXT))
     for wide, high in (("820", "1180"), ("1000", "800")):
         tool.resize(page, wide, high)
+        assert (tool.STATE / "size.json").is_file()
+        assert str(tool.STATE) != "/tmp/teacher-run"
         with pytest.raises(tool.Refused, match='it may lie under "Mehr"'):
             tool.where(page, "%")
     tool.click(page, "Mehr")
