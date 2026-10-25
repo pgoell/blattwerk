@@ -156,10 +156,17 @@ def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
 
 
 def test_a_drag_and_an_undo_after_a_typed_size_show_the_measured_size(editor):
+    """The width on screen when the drag ends is the one undo restores (#716).
+
+    A pointer move renders on the scheduler. Under load that render lands after the
+    pointer is up, so the panel still shows an older width (60.01, or 67.7 in CI)
+    while undo brings back the drag's own (69.14). The move is drawn before it returns.
+    """
     page = turned_group(editor, user(), *SHAPES)
+    # Late, as on a loaded runner: the width is read before the scheduler could paint (#716).
     page.evaluate(LATE)
     drag_se_outward(page)
-    measured = settled(page, "Breite")
+    measured = number(page, "Breite")
     field(page, "Breite").fill("80")
     # #689, #793: tells a fill that was lost from an Enter that set nothing.
     expect(field(page, "Breite")).to_have_value("80")

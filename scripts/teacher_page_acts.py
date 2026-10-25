@@ -20,12 +20,23 @@ from pathlib import Path
 
 from playwright.sync_api import Error, Page, sync_playwright
 from playwright.sync_api import TimeoutError as Late
+from teacher_page_name import read_value
 from teacher_page_ns import g
+
+# A PDF button. `click` on it used to return before the file arrived, and the browser then
+# wrote that file into Downloads (#617). `pdf` waits and saves it into the run folder.
+PRINTS = """([x, y]) => {
+    const el = document.elementFromPoint(x, y)?.closest("button");
+    const name = (el?.innerText ?? "").replace(/\\s+/g, " ").trim();
+    return name === "PDF" || name === "Lösungen";
+}"""
 
 
 def click(page: Page, target: str) -> str:
     x, y = g("point")(page, target)
     grey = g("greyed")(page, x, y)
+    if not grey and page.evaluate(PRINTS, [x, y]):
+        return pdf(page, target)
     page.mouse.click(x, y)
     return g("shown")(page, f"clicked at {x:g},{y:g}{grey}")
 
@@ -110,17 +121,6 @@ def wheel(page: Page, target: str, dy: str) -> str:
     return g("shown")(page, f"wheel turned by {dy} at {x:g},{y:g}")
 
 
-def key(page: Page, keys: str, times: str = "1") -> str:
-    for _ in range(g("number")(times)):
-        page.keyboard.press(keys)
-    return g("shown")(page, f"pressed {keys} {times} times")
-
-
-def type_(page: Page, text: str) -> str:
-    page.keyboard.type(text)
-    return g("shown")(page, f"typed {len(text)} letters")
-
-
 def where(page: Page, name: str) -> str:
     found = g("places")(page, name, part=True)
     return "\n".join(
@@ -131,13 +131,8 @@ def where(page: Page, name: str) -> str:
 
 
 def value(page: Page, name: str) -> str:
-    """What a field holds: a colour as `#rrggbb`, a slider's or a number field's number."""
-    found = page.get_by_label(name, exact=True).filter(visible=True)
-    try:
-        return f"{name} is {found.input_value(timeout=3000)}"
-    # No field of that name, several, or a button that holds nothing.
-    except Error:
-        raise g("Refused")(f'no field on the page is called "{name}"') from None
+    """What a field holds, or which button under a heading of that name is on."""
+    return read_value(page, name)
 
 
 def wanted() -> list[int]:
@@ -496,4 +491,5 @@ def start() -> str:
             said = (g("STATE") / "log").read_text().strip()[-2000:]
             raise g("Refused")(f"the window did not open on {g('BASE')}:\n{said}")
         time.sleep(0.1)
+    g("began")()
     return f"started: a window of {g('VIEW')['width']} x {g('VIEW')['height']} on {g('BASE')}"

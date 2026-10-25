@@ -125,6 +125,23 @@ def test_schliessen_shuts_the_dialog_at_once_and_gives_the_focus_back(editor):
     expect(bar_button(page)).to_be_focused()
 
 
+def test_space_opens_the_dialog_when_the_focus_leaves_before_the_key_comes_up(editor):
+    """#582: WebKit drops Space's click when the focus leaves the button before the key comes up.
+    The key still opens the dialog, as it does after Escape has put the focus back."""
+    client = user()
+    page = editor(box("m", "maths", maths(client, count=12, max=100)), client=client)
+    page.evaluate(
+        """() => addEventListener("keydown", (e) => {
+          if (e.code === "Space") document.activeElement?.blur();
+        }, true)"""
+    )
+    page.get_by_role("tab", name="Ansicht").click()
+    button = page.locator(".panel").get_by_role("button", name="Varianten drucken", exact=True)
+    button.focus()
+    page.keyboard.press("Space")
+    expect(page.get_by_role("dialog")).to_be_visible()
+
+
 def test_escape_gives_the_focus_back_to_the_panel_button(editor):
     """I5: Escape shuts the dialog and the focus goes to the panel's button that opened it."""
     client = user()

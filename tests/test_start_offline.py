@@ -57,7 +57,7 @@ def test_the_press_opens_the_app_as_signed_in(window, server):
 
 
 def test_the_network_coming_back_opens_the_app_as_signed_in(window, server):
-    """16: the online event asks again in place of the press."""
+    """16: the online event asks again in place of the press (#506)."""
     page, _ = window()
     fail(page, ME, "cut")
     page.goto(server)
@@ -69,7 +69,7 @@ def test_the_network_coming_back_opens_the_app_as_signed_in(window, server):
 
 
 def test_the_network_coming_back_as_the_failure_page_is_drawn_is_not_lost(window, server):
-    """#959: an online event in the instant the failure page is drawn, before its own listener is attached, asks anyway."""
+    """#506, #959: an online event as the failure page is drawn, before its listener is attached, asks anyway."""
     page, _ = window()
     # Fires the event in the same task as the page's first alert, before React runs the effect that adds its listener.
     page.add_init_script(
