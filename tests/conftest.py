@@ -20,7 +20,11 @@ from fixtures.hang import pytest_exception_interact as pytest_exception_interact
 from fixtures.hang import pytest_runtest_logfinish as pytest_runtest_logfinish
 from fixtures.hang import pytest_runtest_logreport as pytest_runtest_logreport
 from fixtures.hang import pytest_runtest_logstart as pytest_runtest_logstart
+from fixtures.hang import pytest_testnodeready as pytest_testnodeready
 from fixtures.hang import pytest_unconfigure as pytest_unconfigure
+from fixtures.hang import (
+    pytest_xdist_node_collection_finished as pytest_xdist_node_collection_finished,
+)
 from fixtures.hang import swept as swept
 from playwright._impl._connection import Connection as PwConnection
 from playwright.sync_api import expect

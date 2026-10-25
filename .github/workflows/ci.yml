@@ -60,7 +60,7 @@ jobs:
     # had passed. Run 39783927061, eight shards: pytest 418 s to 617 s, every shard the same
     # weight on paper, because tests/times.json had no time for most tests. Twelve shards and
     # times from that run bring the slowest step to about six minutes. The limit stays 12.
-    # A hang ends itself after three silent minutes (tests/conftest.py).
+    # A hang ends itself after three silent minutes, from configure on (tests/conftest.py).
     timeout-minutes: 12
     strategy:
       # One flaky test then costs a rerun of its own shard, not of all.
@@ -104,7 +104,7 @@ jobs:
     # takes half a minute, and on 2026-10-12 it took five to ten minutes four times, so a shard
     # whose tests had all passed was cancelled at ten (#439). The tests have a limit of their
     # own, the step's below, and a run that hangs ends itself after three silent minutes
-    # (tests/conftest.py).
+    # from configure on (tests/conftest.py).
     timeout-minutes: 25
     strategy:
       # As the shards above: a failure costs a rerun of its own shard only.
