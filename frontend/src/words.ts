@@ -1,6 +1,6 @@
 // The model of the Lernwörter: how a block takes the sheet's list, lets it go, and how a sheet lays out a ready
 // Lernwörter page. Pure functions, so the editor and the tests share them.
-import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, startOf, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock, type TextProps } from "./sheet";
+import { MARGIN, RULINGS, dir, kindOf, listOf, rowsOf, shownParas, sizeOf, startOf, stored, tall, tied, wordsIn, type Block, type Box, type Doc, type ListMode, type Page, type Ruling, type RulingBlock, type TextProps } from "./sheet";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
@@ -33,24 +33,175 @@ export function unshown(blocks: RulingBlock[], words: string[], all: RulingBlock
   return Math.max(0, ...blocks.map((b) => (runsOn(b, all) ? 0 : short(b, words))));
 }
 
+// The gap a Lernwörter-Blatt leaves between its rulings. A gap no wider than that is a stack: the rulings make room
+// for each other. A wider gap is free room, and the ruling above grows into it alone.
+const STACKED = 6.05;
+
+const overlapsX = (a: Box, b: Box) => a.x < b.x + b.w && a.x + a.w > b.x;
+
+const canGrow = (b: Block, rulings: RulingBlock[]): b is RulingBlock => b.type === "ruling" && !!listOf(b) && !b.locked && !b.angle && !runsOn(b, rulings);
+
+const rowHeight = (b: RulingBlock) => RULINGS[kindOf(b.props.kind)].row;
+
+// Linked rulings one under the next, each the first block under the one above and no further than the Blatt's gap.
+function chainsOf(blocks: Block[], rulings: RulingBlock[]): RulingBlock[][] {
+  const open = blocks.filter((b): b is RulingBlock => canGrow(b, rulings)).sort((a, b) => a.y - b.y || a.x - b.x);
+  const used = new Set<string>();
+  const chains: RulingBlock[][] = [];
+  for (const start of open) {
+    if (used.has(start.id)) continue;
+    const chain: RulingBlock[] = [start];
+    used.add(start.id);
+    for (;;) {
+      const top = chain[chain.length - 1];
+      const foot = top.y + top.h;
+      const hit = blocks
+        .filter((o) => o.id !== top.id && overlapsX(o, top) && o.y + o.h > foot + 0.01)
+        .sort((a, b) => Math.max(a.y, foot) - Math.max(b.y, foot) || a.y - b.y)[0];
+      if (!hit || hit.y < foot - 0.01 || hit.y - foot > STACKED || !canGrow(hit, rulings) || used.has(hit.id)) break;
+      chain.push(hit);
+      used.add(hit.id);
+    }
+    chains.push(chain);
+  }
+  return chains;
+}
+
+// Rows each ruling keeps when every ruling of the stack gains `extra` rows, and none shrinks or passes the list.
+function stackedRows(chain: RulingBlock[], words: string[], extra: number): number[] {
+  return chain.map((b) => {
+    const have = rowsOf(b);
+    const need = Math.max(have, words.length - startOf(b));
+    return Math.min(need, have + extra);
+  });
+}
+
+const gapsOf = (chain: RulingBlock[]) => chain.slice(1).map((b, i) => round(b.y - (chain[i].y + chain[i].h)));
+
+// Where the stack sits with `extra` new rows, or nothing when a ruling would cross the margin or another block.
+function layoutStack(chain: RulingBlock[], blocks: Block[], words: string[], extra: number, H: number): { y: number; h: number }[] | undefined {
+  const gaps = gapsOf(chain);
+  const rows = stackedRows(chain, words, extra);
+  const placed: { y: number; h: number }[] = [];
+  let y = chain[0].y;
+  for (let i = 0; i < chain.length; i++) {
+    const h = round(rows[i] * rowHeight(chain[i]));
+    const at = round(y);
+    const foot = at + h;
+    if (foot > H - MARGIN + 0.01) return undefined;
+    const hit = blocks.some((o) => o.id !== chain[i].id && !chain.some((b) => b.id === o.id) && overlapsX(o, chain[i]) && o.y < foot - 0.01 && o.y + o.h > at + 0.01);
+    if (hit) return undefined;
+    placed.push({ y: at, h });
+    y = foot + (gaps[i] ?? 0);
+  }
+  return placed;
+}
+
+// A stack grows by the same number of new rows on each ruling, and the rulings below move down to keep their gap.
+function placeStack(chain: RulingBlock[], blocks: Block[], words: string[], H: number): Map<string, RulingBlock> {
+  const out = new Map<string, RulingBlock>();
+  if (chain.length < 2 || !layoutStack(chain, blocks, words, 0, H)) return out;
+  const most = Math.max(0, ...chain.map((b) => words.length - startOf(b) - rowsOf(b)));
+  let extra = 0;
+  while (extra < most && layoutStack(chain, blocks, words, extra + 1, H)) extra++;
+  const placed = extra > 0 ? layoutStack(chain, blocks, words, extra, H) : undefined;
+  placed?.forEach(({ y, h }, i) => {
+    const b = chain[i];
+    if (y !== b.y || h !== b.h) out.set(b.id, { ...b, y, ...tall(b, h) });
+  });
+  return out;
+}
+
 // A linked ruling grows by a row for each word the list has past its rows, as far as the page margin and the top of
 // a block below it that it overlaps. A block that reaches past its foot, over it or round it, leaves it no room. It
 // never shrinks, and a turned or locked ruling, or one a run-on block among `all` (the rulings of every page) goes on
-// from, keeps its height.
+// from, keeps its height. Rulings stacked with the Blatt's gap grow together and the ones below move down, as far as
+// the page allows. Any other block stays where it is.
 export function follow(blocks: Block[], words: string[], W: number, H: number, all: Block[] = blocks): Block[] {
   const rulings = all.filter((o): o is RulingBlock => o.type === "ruling");
-  return blocks.map((b) => {
-    if (b.type !== "ruling" || !listOf(b) || b.locked || b.angle || runsOn(b, rulings)) return b;
-    const need = words.length - startOf(b);
-    if (need <= rowsOf(b)) return b;
-    const { row } = RULINGS[kindOf(b.props.kind)];
-    const foot = b.y + b.h;
-    const edge = Math.min(...blocks.filter((o) => o !== b && o.y + o.h > foot && o.x < b.x + b.w && o.x + o.w > b.x).map((o) => Math.max(o.y, foot)));
-    const room = Math.min(filled(b, W, H).h ?? b.h, edge - b.y);
-    const rows = Math.min(need, Math.floor(room / row + 0.05));
-    if (rows <= rowsOf(b)) return b;
-    return { ...b, ...tall(b, round(rows * row)) } as Block;
+  const placed = new Map<string, Block>();
+  for (const chain of chainsOf(blocks, rulings)) {
+    if (chain.length === 1) {
+      const b = chain[0];
+      const need = words.length - startOf(b);
+      if (need <= rowsOf(b)) continue;
+      const row = rowHeight(b);
+      const foot = b.y + b.h;
+      const edge = Math.min(...blocks.filter((o) => o !== b && o.y + o.h > foot && overlapsX(o, b)).map((o) => Math.max(o.y, foot)));
+      const room = Math.min(filled(b, W, H).h ?? b.h, edge - b.y);
+      const rows = Math.min(need, Math.floor(room / row + 0.05));
+      if (rows > rowsOf(b)) placed.set(b.id, { ...b, ...tall(b, round(rows * row)) });
+    } else {
+      for (const [id, grown] of placeStack(chain, blocks, words, H)) placed.set(id, grown);
+    }
+  }
+  return blocks.map((b) => placed.get(b.id) ?? b);
+}
+
+// The stack has words left and one more row on each ruling would fit a taller page, so the margin is what stops it.
+function stoppedByMargin(chain: RulingBlock[], blocks: Block[], words: string[], H: number): boolean {
+  if (chain.length < 2 || chain.every((b) => short(b, words) === 0)) return false;
+  return !layoutStack(chain, blocks, words, 1, H) && !!layoutStack(chain, blocks, words, 1, H + 1000);
+}
+
+// A new page of the rulings that still have words left, one row each, from the word after the stack's last row.
+function continuation(chain: RulingBlock[], words: string[]): RulingBlock[] {
+  const kept = chain.filter((b) => short(b, words) > 0);
+  let y = MARGIN;
+  return kept.map((b, i) => {
+    const row = rowHeight(b);
+    const next = kept[i + 1];
+    const gap = next && chain[chain.indexOf(b) + 1] === next ? round(next.y - (b.y + b.h)) : 6;
+    const block: RulingBlock = {
+      id: crypto.randomUUID(),
+      type: "ruling",
+      x: b.x,
+      y: round(y),
+      w: b.w,
+      h: round(row),
+      z: i + 1,
+      locked: false,
+      props: { ...b.props, from: startOf(b) + rowsOf(b) },
+    };
+    y += row + gap;
+    return block;
   });
+}
+
+// The first stack a page cannot hold, carried onto a new page after that page. The new page lies as the source does.
+function carry(pages: Page[], words: string[], doc: Doc): Page[] | undefined {
+  const all = pages.flatMap((p) => p.blocks).filter((b): b is RulingBlock => b.type === "ruling");
+  for (let n = 0; n < pages.length; n++) {
+    const [, H] = sizeOf({ ...doc, pages }, n);
+    for (const chain of chainsOf(pages[n].blocks, all)) {
+      if (!stoppedByMargin(chain, pages[n].blocks, words, H)) continue;
+      const blocks = continuation(chain, words);
+      if (!blocks.length) continue;
+      const page: Page = { blocks };
+      if (pages[n].landscape !== undefined) page.landscape = pages[n].landscape;
+      if (pages[n].grid !== undefined) page.grid = pages[n].grid;
+      return [...pages.slice(0, n + 1), page, ...pages.slice(n + 1)];
+    }
+  }
+  return undefined;
+}
+
+// The list changed. Every page's linked rulings grow, and a stack the page cannot hold runs on to a new page, as a
+// long Lernwörter-Blatt does. The caller makes it one step.
+export function followDoc(doc: Doc): Doc {
+  const words = wordsIn(doc);
+  let pages = doc.pages;
+  for (let guard = 0; guard <= words.length; guard++) {
+    const all = pages.flatMap((p) => p.blocks);
+    pages = pages.map((p, n) => {
+      const [W, H] = sizeOf({ ...doc, pages }, n);
+      return { ...p, blocks: follow(p.blocks, words, W, H, all) };
+    });
+    const added = carry(pages, words, doc);
+    if (!added) return { ...doc, pages };
+    pages = added;
+  }
+  return { ...doc, pages };
 }
 
 // A block takes the list in `mode`. An unlinked block that is free to grow gets a row for each word, up to the

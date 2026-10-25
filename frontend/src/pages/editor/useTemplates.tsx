@@ -4,8 +4,8 @@ import { api, post, type Refusal } from "../../api";
 import { fresh } from "../../history";
 import { attempt } from "../../fault";
 import { signed } from "../../saves";
-import { wordsIn, mathsHeight, read, sizeOf, type Block } from "../../sheet";
-import { follow as growRulings } from "../../words";
+import { mathsHeight, read, type Block } from "../../sheet";
+import { followDoc } from "../../words";
 import { made } from "../../zahlenmauer";
 import { next } from "../../cells";
 import { generate, newSeed } from "../Maths";
@@ -74,12 +74,7 @@ export function useTemplates(session: ReturnType<typeof usePrint>) {
       })),
     })));
     if (turn !== applied.current) return;
-    update((cur) => {
-      const next = { ...doc, words: doc.words ?? cur.words };
-      const words = wordsIn(next);
-      const all = pages.flatMap((p) => p.blocks);
-      return { ...next, pages: pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(next, n)[0], sizeOf(next, n)[1], all) })) };
-    });
+    update((cur) => followDoc({ ...doc, words: doc.words ?? cur.words, pages }));
     setIds([]);
   }
   async function forget(t: Template) {

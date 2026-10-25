@@ -2,8 +2,8 @@
 import { useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { fresh } from "../../history";
-import { FIELDS, K, RULINGS, wordsIn, boxed, colsOf, kindOf, rowsOf, sizeOf, squares, sum, tall, type Block, type Box, type Guides, type ListMode, type NameBlock, type TableBlock, type TextProps } from "../../sheet";
-import { blatt, follow as growRulings, linked, loose as cutLoose, looseText } from "../../words";
+import { FIELDS, K, RULINGS, boxed, colsOf, kindOf, rowsOf, sizeOf, squares, sum, tall, type Block, type Box, type Guides, type ListMode, type NameBlock, type TableBlock, type TextProps } from "../../sheet";
+import { blatt, followDoc, linked, loose as cutLoose, looseText } from "../../words";
 import { list } from "../Field";
 import { EDGE, basisOf, heightsOf, next } from "../../cells";
 import { grown } from "../../insert";
@@ -90,16 +90,11 @@ function change(fn: (blocks: Block[]) => Block[], key?: string) {
     );
   }
   // The list field of the Lernwörter tab shows the sheet's list, one word to a line. An empty field removes the list.
-  // A changed list changes every linked text on the page, which the grow effect measures. A linked ruling grows by a
-  // row for each new word, in the same step.
+  // A changed list changes every linked text on the page, which the grow effect measures. Linked rulings grow in the
+  // same step, and a stack the page cannot hold runs on to a new page.
   function listWords(value: string) {
     tight.current = true;
-    update((doc) => {
-      const next = { ...doc, words: value === "" ? undefined : value.split("\n") };
-      const words = wordsIn(next);
-      const all = doc.pages.flatMap((p) => p.blocks);
-      return { ...next, pages: doc.pages.map((p, n) => ({ ...p, blocks: growRulings(p.blocks, words, sizeOf(doc, n)[0], sizeOf(doc, n)[1], all) })) };
-    }, "words");
+    update((doc) => followDoc({ ...doc, words: value === "" ? undefined : value.split("\n") }), "words");
   }
   // The caret of the list field goes behind a paste once the paste is drawn, as React sets the value only then.
   const listField = useRef<HTMLTextAreaElement>(null);
