@@ -12,6 +12,7 @@ Allowed:
   - `shift-click TARGET`
   - `hover TARGET`
   - `drag FROM TO`
+  - `key-drag KEY FROM TO`: holds `KEY` down, as `key` spells it, drags from `FROM` to `TO` and lets the key go. `key-drag Space X,Y X2,Y2` pans the desk: the hand a teacher gets by holding Space. `key Space` leaves the desk where it is.
   - `middle-drag FROM TO`: the same with the middle button held. On the desk it moves the view, as a teacher pans with the wheel's button.
   - `swipe FROM TO`: a finger put down at `FROM`, moved to `TO` and lifted, as on an iPad. The drawers open by a swipe from a window's edge only in the upright window: `resize 820 1180` first, then `swipe 817,600 660,600` opens the right one.
   - `wheel TARGET DY`: turns the wheel by `DY` pixels; a negative number is up.
@@ -50,7 +51,7 @@ Forbidden:
 
 The tool is no way around this list: `open` takes paths of the stage only, and every ban holds in both windows.
 
-Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. The bar's `Einfügen` works in the tool's window too. Both are signed in as the same teacher. A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box that asks to confirm: answer it with `handle_dialog`. If `take_screenshot` of the MCP page hangs, as it does when the page lies behind another tab, use `take_snapshot`.
+Which window for what. The MCP page: `take_snapshot`, `wait_for`, `fill`, `upload_file`, plain clicks and reading. The tool's window: all that a mouse or a held key does (hover, drag, key-drag, Shift and click, double click, sliders, colours, lists, the wheel), and the whole hunt on the pull requests if you like. The bar's `Einfügen` works in the tool's window too. Both are signed in as the same teacher. A delete in the MCP page (a button whose name ends in `löschen`) opens a browser box that asks to confirm: answer it with `handle_dialog`. If `take_screenshot` of the MCP page hangs, as it does when the page lies behind another tab, use `take_snapshot`.
 
 A sheet is open in one of the two windows at a time. Before you change windows, wait for `Gespeichert`, go back to `Meine Blätter` in the one, then open the sheet in the other. Two windows on one sheet each hold a copy of their own: the later save meets the banner "Dieses Blatt wurde auf einem anderen Gerät geändert", and one copy's work is lost.
 
