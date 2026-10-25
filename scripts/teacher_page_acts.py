@@ -66,14 +66,19 @@ def ends(page: Page, start: str, end: str) -> tuple[tuple[float, float], tuple[f
     return (x, y), to
 
 
-def drag(page: Page, start: str, end: str) -> str:
+def drag(page: Page, start: str, end: str, rest: str = "0") -> str:
+    held = g("number")(rest, float)
+    if held < 0 or held > 3:
+        raise g("Refused")("drag holds for 0 to 3 seconds")
     (x, y), to = ends(page, start, end)
     page.mouse.move(x, y)
     page.mouse.down()
-    # The editor follows the moves between the two, not a jump.
     page.mouse.move(*to, steps=10)
+    if held:
+        time.sleep(held)
     page.mouse.up()
-    return g("shown")(page, f"dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+    note = f", held {held:g}s" if held else ""
+    return g("shown")(page, f"dragged from {x:g},{y:g} to {to[0]:g},{to[1]:g}{note}")
 
 
 def middle_drag(page: Page, start: str, end: str) -> str:
