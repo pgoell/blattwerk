@@ -27,6 +27,12 @@
 - `Abmelden` lies on `Konto` only. To sign out from another page, `open /konto` first; to end the sign-in where you are, use `expire`.
 - After any sign in, the window stays on the path it showed: a sign in after `Abmelden` on `Konto` stays on `/konto`, and one after `expire` stays on the sheet. `open /` leads to `Meine Blätter`.
 - A gap of two words: `key Enter` opens the text, `key Home` puts the caret at its start, `key Control+Shift+ArrowRight 2` picks two words, then `click "Lücke"` makes them a gap. Pick the words first: without a pick, `Lücke` gaps the word under the caret or the whole block.
+- Several pages that are not a range: `where "Seite 3"` prints the thumbnail (its words include the page's own, so the name alone is not `Seite 3`), then `ctrl-click X,Y` adds it and a second `ctrl-click` on the same place drops it. `shift-click` picks every page from the one in use to the one clicked.
+- A finger held still: `finger X,Y` on a block or a thumbnail. The menu opens when the finger lifts. A finger that moves is `swipe`, and that opens no menu.
+- Words as Word sends them: `paste-word "Ein *fett* Wort"`. `*fett*` is bold and `_schief_` is italic. A line that starts with `- ` is a bullet.
+- A passage from a web page: the live site is barred. Copy the stage's own page. `open /datenschutz`, `key Control+a`, `key Control+c`, then on the sheet `key Control+v`.
+- A picture dragged off a web page: `drop-web bild.png X,Y` lands the file as that picture. An address, `drop-web https://example.org/katze.png X,Y`, is not fetched.
+- A voice note: `mic`, then `click "Feedback"` and `click "● Aufnahme starten"`. The MCP page has no microphone. `key Escape` while it records keeps the clip.
 
 ## Two teachers
 
