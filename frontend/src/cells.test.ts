@@ -1,7 +1,7 @@
 // Properties of the merged cells of a table: what merging, splitting and adding or removing a row or column make of its grid.
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { EDGE, anchorOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Span } from "./cells";
+import { EDGE, anchorOf, basisOf, beside, evened, heightsOf, merged, next, rectOf, sized, spanAt, spansOf, unmerged, widthsOf, type Span } from "./cells";
 import { PT, spliced, type TableBlock } from "./sheet";
 
 type Table = TableBlock["props"];
@@ -216,6 +216,19 @@ describe("sizes", () => {
   it("evens a range within its sum and leaves the rest", () => {
     expect(evened([1, 2, 3, 4], 1, 2)).toStrictEqual([1, 2.5, 2.5, 4]);
     expect(evened([1, 2, 3, 4], 0, 3)).toStrictEqual([2.5, 2.5, 2.5, 2.5]);
+  });
+
+  it("scales the saved rows when a press has flattened the screen", () => {
+    // 20, 10, 10 pressed under the texts: the screen shows equal rows, the saved rows still hold 2 : 1 : 1.
+    expect(basisOf([2.37, 1.18, 1.18], [8.3, 8.3, 8.3])).toStrictEqual([2.37, 1.18, 1.18]);
+    // 10, 40, 10 pressed: the middle row still covers its text, so the screen is flatter but not equal.
+    expect(basisOf([2.46, 9.82, 2.46], [8.3, 9.82, 8.3])).toStrictEqual([2.46, 9.82, 2.46]);
+  });
+
+  it("scales the screen when a text holds a row up", () => {
+    expect(basisOf([10, 10, 10], [10, 21, 10])).toStrictEqual([10, 21, 10]);
+    // Nothing pressed and nothing held up: the screen is the saved rows, parts of a pixel aside.
+    expect(basisOf([20, 10, 10], [20, 10, 10])).toStrictEqual([20, 10, 10]);
   });
 });
 
