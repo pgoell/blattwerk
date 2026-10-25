@@ -4,10 +4,9 @@ import io
 import re
 
 import httpx
-import pytest
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import BROWSER, at, box, pick, saved, user
+from ui import at, box, pick, saved, user
 
 # What a reader sees of a cell: its lines, each as the letters it holds. The text is read piece by
 # piece, a piece being the letters between two soft hyphens: a piece lies on one line, and a line
@@ -128,12 +127,6 @@ def test_the_pdf_breaks_a_long_word_at_a_syllable_with_a_hyphen(editor, server):
     assert found and found.group(1) + found.group(2) == "Sachunterricht", text
 
 
-@pytest.mark.xfail(
-    BROWSER == "webkit",
-    reason="#753: once in WebKit CI a cell read 'Sachunterricht!', no soft hyphen left in it, "
-    "after both cells had shown one; 220 local runs, also under 8 CPU burners, all pass",
-    strict=False,
-)
 def test_a_merged_cell_and_a_narrow_cell_each_break_at_a_syllable(editor):
     props = table(
         [WEEK, ["Sachunterricht", "", "Sachunterricht", "", "", ""]],
@@ -141,8 +134,13 @@ def test_a_merged_cell_and_a_narrow_cell_each_break_at_a_syllable(editor):
         spans=[[1, 0, 1, 2]],
     )
     page = editor(box("a", "table", props))
-    expect(cell(page, 6)).to_contain_text("­")
-    expect(cell(page, 8)).to_contain_text("­")
+    # to_contain_text drops a soft hyphen, so it passes while the splitter is still on its way
+    # and the word breaks mid-letter. CI then read ['Sachunterricht!'] (#753). The text node is the signal.
+    for n in (6, 8):
+        page.wait_for_function(
+            """(n) => document.querySelector(`[data-cell="${n}"] p`).textContent.includes('\\u00ad')""",
+            arg=n,
+        )
     # Each line but the last ends at a syllable border: the narrow cell may take more lines.
     for n in (6, 8):
         lines = page.evaluate(LINES, cell(page, n).element_handle())
