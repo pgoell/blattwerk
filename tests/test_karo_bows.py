@@ -114,6 +114,18 @@ def test_k13_a_hidden_character_takes_no_square(editor):
     expect(letters.nth(4)).to_have_attribute("fill", RED)
 
 
+def test_k14_the_print_page_gives_a_hidden_character_no_square(browser, server):
+    """The page a PDF is printed from draws the same squares: no blank, and the dots on the a."""
+    text = "Fe\u00adnster Ba\u0308ume a\u200db"
+    mine = sheet(user(), [box("a", "ruling", {**KARO, "text": text, "tints": [BLUE, RED]})])["id"]
+    page = printed(browser, server, mine)
+    letters = page.locator("svg.ruling text")
+    found = letters.evaluate_all("els => els.map((el) => el.textContent)")
+    assert found == list("Fenster B\u00e4ume ab")
+    expect(letters.nth(4)).to_have_text("t")
+    expect(letters.nth(4)).to_have_attribute("fill", RED)
+
+
 def test_k11_bows_and_colours_follow_the_typing(editor):
     page = editor(box("a", "ruling", {**KARO, "tints": [BLUE, RED]}))
     at(page, "a").dblclick()
