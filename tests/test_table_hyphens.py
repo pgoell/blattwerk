@@ -63,16 +63,15 @@ def test_a_long_word_breaks_at_a_syllable_with_a_hyphen_on_screen(editor):
     assert len(lines) == 2 and lines[0] in SACH and lines[0] + lines[1] == "Sachunterricht", lines
 
 
-@pytest.mark.xfail(
-    BROWSER == "webkit",
-    reason="#767: once in WebKit CI the cell read 'Sachunterricht!' (no soft hyphen, two lines) right "
-    "after the expect saw one; 140 local runs, also under 8 CPU burners, all pass",
-    strict=False,
-)
 def test_the_teachers_breaks_mend_the_word_where_they_say(editor):
     props = table([WEEK, ["Sachunterricht", "", "", "", "", ""]], breaks={"sachunterricht": [6]})
     page = editor(box("a", "table", props))
-    expect(cell(page, 6)).to_contain_text("­")
+    # to_contain_text drops a soft hyphen, so it returns while the splitter is still on its way
+    # and the word breaks mid-letter. CI then read ['Sachunterricht!'] (#767).
+    # The text node is the signal.
+    page.wait_for_function(
+        "() => document.querySelector('[data-cell=\"6\"] p').textContent.includes('\\u00ad')"
+    )
     lines = page.evaluate(LINES, cell(page, 6).element_handle())
     assert lines == ["Sachun", "terricht"], lines
 
