@@ -89,14 +89,41 @@ def test_k7_tints_across_carry_the_colour_turn_on_from_word_to_word(editor):
 
 
 def test_k8_a_decomposed_umlaut_does_not_shift_the_colours(editor):
-    # The "a" and its dots are two code points, so two squares.
-    text = "Bäume"
+    # The dots stay on the a, so the word is five squares and "me" is still the last two.
+    text = "Ba\u0308ume"
     page = editor(box("a", "ruling", {**KARO, "text": text, "tints": [BLUE, RED]}))
-    assert syls(page, "a") == ["Bäu", "me"]
+    assert syls(page, "a") == ["Ba\u0308u", "me"]
     unpick(page)
     letters = at(page, "a").locator("svg.ruling text")
+    expect(letters).to_have_count(5)
+    assert letters.evaluate_all("els => els.map((el) => el.textContent)") == list("B\u00e4ume")
     expect(letters.nth(0)).to_have_attribute("fill", BLUE)
-    expect(letters.nth(5)).to_have_attribute("fill", RED)
+    expect(letters.nth(4)).to_have_attribute("fill", RED)
+
+
+def test_k13_a_hidden_character_takes_no_square(editor):
+    """A soft hyphen, a zero width joiner and a combining mark leave no blank square."""
+    text = "Fe\u00adnster Ba\u0308ume a\u200db"
+    page = editor(box("a", "ruling", {**KARO, "text": text, "tints": [BLUE, RED]}))
+    unpick(page)
+    letters = at(page, "a").locator("svg.ruling text")
+    found = letters.evaluate_all("els => els.map((el) => el.textContent)")
+    assert found == list("Fenster B\u00e4ume ab")
+    # "t" is the second syllable. A square for the soft hyphen would stand before it and take the colour.
+    expect(letters.nth(4)).to_have_text("t")
+    expect(letters.nth(4)).to_have_attribute("fill", RED)
+
+
+def test_k14_the_print_page_gives_a_hidden_character_no_square(browser, server):
+    """The page a PDF is printed from draws the same squares: no blank, and the dots on the a."""
+    text = "Fe\u00adnster Ba\u0308ume a\u200db"
+    mine = sheet(user(), [box("a", "ruling", {**KARO, "text": text, "tints": [BLUE, RED]})])["id"]
+    page = printed(browser, server, mine)
+    letters = page.locator("svg.ruling text")
+    found = letters.evaluate_all("els => els.map((el) => el.textContent)")
+    assert found == list("Fenster B\u00e4ume ab")
+    expect(letters.nth(4)).to_have_text("t")
+    expect(letters.nth(4)).to_have_attribute("fill", RED)
 
 
 def test_k11_bows_and_colours_follow_the_typing(editor):

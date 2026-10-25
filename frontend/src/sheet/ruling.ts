@@ -79,29 +79,42 @@ export const foldsOf = (b: RulingBlock): 2 | 3 => (b.props.folds === 3 ? 3 : 2);
 // A word moves whole to the next row when it and the space after it do not fit the rest of the row, as the field wraps
 // it; a word longer than a row breaks in place. A hyphen between a letter and a letter ends a unit too, as the field
 // breaks there ("3-4" does not). A space that finds its row full starts the next row.
+// A soft hyphen and a zero width joiner are not written. A combining mark stays on the character before it, and the
+// square shows that character composed, so neither takes a square of its own.
+const SKIPPED = new Set(["\u00AD", "\u200D"]);
+function seen(text: string): { ch: string; at: number }[] {
+  const out: { ch: string; at: number }[] = [];
+  let i = 0;
+  for (const ch of text) {
+    const prev = out.at(-1);
+    if (/^\p{M}$/u.test(ch) && prev && prev.ch !== "\n") prev.ch = (prev.ch + ch).normalize("NFC");
+    else if (!SKIPPED.has(ch)) out.push({ ch, at: i });
+    i += ch.length;
+  }
+  return out;
+}
 export function squares(text: string, cols: number) {
   const out: [number, number, string, number][] = [];
-  const chars = [...text];
+  const chars = seen(text);
   // A dash ends a unit wherever it stands, and an em dash starts one too, as the field breaks before and after it.
-  const hyphen = (j: number) => (chars[j] === "-" && j > 0 && chars[j - 1] !== " " && /\p{L}/u.test(chars[j + 1] ?? "")) || chars[j] === "–" || chars[j] === "—";
-  const before = (j: number) => chars[j] === "—" && j > 0 && chars[j - 1] !== " " && chars[j - 1] !== "\n";
-  let [x, y, i] = [0, 0, 0];
-  chars.forEach((ch, n) => {
+  const hyphen = (j: number) => (chars[j].ch === "-" && j > 0 && chars[j - 1].ch !== " " && /\p{L}/u.test(chars[j + 1]?.ch ?? "")) || chars[j].ch === "–" || chars[j].ch === "—";
+  const before = (j: number) => chars[j].ch === "—" && j > 0 && chars[j - 1].ch !== " " && chars[j - 1].ch !== "\n";
+  let [x, y] = [0, 0];
+  chars.forEach(({ ch, at }, n) => {
     if (ch === "\n") [x, y] = [0, y + 1];
-    else if (ch !== " " && (n === 0 || chars[n - 1] === " " || chars[n - 1] === "\n" || hyphen(n - 1) || before(n))) {
+    else if (ch !== " " && (n === 0 || chars[n - 1].ch === " " || chars[n - 1].ch === "\n" || hyphen(n - 1) || before(n))) {
       let len = 0;
-      for (let j = n; j < chars.length && chars[j] !== " " && chars[j] !== "\n" && !(j > n && before(j)); j++) {
+      for (let j = n; j < chars.length && chars[j].ch !== " " && chars[j].ch !== "\n" && !(j > n && before(j)); j++) {
         len = j - n + 1;
         if (hyphen(j)) break;
       }
-      const unit = len + (chars[n + len] === " " ? 1 : 0);
+      const unit = len + (chars[n + len]?.ch === " " ? 1 : 0);
       if (x > 0 && x + unit > cols) [x, y] = [0, y + 1];
     }
     if (ch !== "\n") {
       if (x === cols) [x, y] = [0, y + 1];
-      out.push([x++, y, ch, i]);
+      out.push([x++, y, ch, at]);
     }
-    i += ch.length;
   });
   return out;
 }
