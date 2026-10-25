@@ -180,6 +180,21 @@ export function sized(sizes: number[], from: number, to: number, value: number, 
   return [...sizes.slice(0, from), ...share, ...sizes.slice(to + 1)];
 }
 
+// The row heights a change of the table's height scales. `saved` is what the table stores and `screen`
+// is how tall the rows stand now. Pressed below what their texts need, the short rows stop at the text,
+// so the screen is flatter than the saved rows. Scaling the screen would make the rows equal; the saved
+// rows still hold the proportion, and a later height brings it back. A text that holds one row up makes
+// the screen less flat than the saved rows, and that is the proportion that grows.
+export function basisOf(saved: number[], screen: number[]): number[] {
+  if (saved.length !== screen.length || screen.length === 0) return screen;
+  const spread = (xs: number[]) => {
+    const lo = Math.min(...xs);
+    const hi = Math.max(...xs);
+    return lo > 0 ? hi / lo : Number.POSITIVE_INFINITY;
+  };
+  return spread(screen) + 0.05 < spread(saved) ? saved : screen;
+}
+
 // `sizes` with the entries from `from` to `to` made equal, each their share of the sum they hold.
 export function evened(sizes: number[], from: number, to: number): number[] {
   const inside = sizes.slice(from, to + 1);
