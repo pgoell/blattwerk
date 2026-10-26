@@ -13,8 +13,10 @@ dependencies = [
     "httpx>=0.28.1",
     "jsonschema>=4.26.0",
     "markdown>=3.11.1",
+    "pillow>=12.3.0",
     "playwright>=1.64.0",
     "pypdf>=6.19.0",
+    "pypdfium2>=5.14.0",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
 ]
@@ -23,8 +25,6 @@ dependencies = [
 dev = [
     "hypothesis>=6.168.5",
     "mcp>=2.3.0",
-    "pillow>=12.3.0",
-    "pypdfium2>=5.14.0",
     "pytest",
     "pytest-repeat>=0.9.4",
     "pytest-timeout>=2.4.0",
