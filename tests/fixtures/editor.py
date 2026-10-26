@@ -5,7 +5,7 @@ import os
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
-from ui import BROWSER, sheet, user
+from ui import BROWSER, SETTLED, sheet, user
 
 WEBKIT = BROWSER == "webkit"
 # The headed lane, `mise run test:native`: a real window, where a list and a colour picker open.
@@ -135,8 +135,8 @@ def editor(browser, server, playwright):
         count = len(blocks) + len(more) + sum(len(p["blocks"]) for p in pages)
         expect(page.locator(".block[data-id]")).to_have_count(count)
         # A font that comes in late moves what stands in it, and the editor measures anew then. A
-        # place read or a click sent before that is not where the text ends up (#419, #436).
-        page.evaluate("document.fonts.ready.then(() => 0)")
+        # place read or a click sent before that is not where the text ends up (#419, #436, #504).
+        page.evaluate(SETTLED)
         # The editor fits the sheet to the desk as it opens, and the desk's observer may set the
         # width anew a frame later. A place read before then is not where the block ends up.
         page.wait_for_function(MEASURED, timeout=10000)
