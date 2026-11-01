@@ -32,13 +32,16 @@ PRINTS = """([x, y]) => {
 }"""
 
 
-def click(page: Page, target: str) -> str:
+def click(page: Page, target: str, times: str = "1") -> str:
+    """Clicks the target, `times` times in this one call. Two calls cannot be that quick."""
     x, y = g("point")(page, target)
     grey = g("greyed")(page, x, y)
-    if not grey and page.evaluate(PRINTS, [x, y]):
+    if times == "1" and not grey and page.evaluate(PRINTS, [x, y]):
         return pdf(page, target)
-    page.mouse.click(x, y)
-    return g("shown")(page, f"clicked at {x:g},{y:g}{grey}")
+    for _ in range(g("number")(times)):
+        page.mouse.click(x, y)
+    extra = "" if times == "1" else f" {times} times"
+    return g("shown")(page, f"clicked at {x:g},{y:g}{extra}{grey}")
 
 
 def double_click(page: Page, target: str) -> str:

@@ -191,7 +191,7 @@ def test_every_verb_of_the_brief_is_a_verb_of_the_tool_and_has_a_test():
     spec.loader.exec_module(tool)
     # `start` and `stop` open and end the window; the tool keeps them apart from the rest.
     # `tidy` and `box` are no verb of a window: `main` takes them beside `start` and `stop`.
-    verbs = {"start", "stop", "tidy", "box", *tool.VERBS}
+    verbs = {"start", "stop", "tidy", "box", "photo", *tool.VERBS}
     listed, named = brief_verbs()
     assert len(listed) == len(set(listed))
     assert named - verbs == set()
@@ -203,6 +203,7 @@ def test_every_verb_of_the_brief_is_a_verb_of_the_tool_and_has_a_test():
     for verb in tool.VERBS:
         assert re.search(rf"^def test_{verb.replace('-', '_')}_", tests, re.M), verb
     assert re.search(r"^def test_tidy_", tests, re.M)
+    assert re.search(r"^def test_photo_", tests, re.M)
     assert re.search(r"^def test_(a_)?box_", tests, re.M)
 
 
