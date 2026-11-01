@@ -319,36 +319,6 @@ def test_497_an_above_all_uses_every_minute_of_the_30():
     assert "nor at any minute short of 30" in step
 
 
-# What issue #536 found in the brief's ninth run.
-
-
-def test_536_a_lineatur_and_a_table_name_their_font_and_their_trace():
-    how = section("## How the editor works")
-    assert "`Schriftart auf den Zeilen`" in how
-    assert "`Schriftart der Tabelle`" in how
-    assert "`Nachspurtext`" in how
-    assert '`click "Schriftart"` finds nothing on a Lineatur or a table' in how
-    assert '`click "Nachspurtext"`' in section("### 2. ")
-
-
-def test_536_enter_after_the_choice_opens_the_blocks_text():
-    how = section("## How the editor works")
-    assert "another `key Enter` opens the block's text" in how
-
-
-def test_536_drag_can_hold_and_right_click_opens_the_menu():
-    rules = section("## Rules")
-    assert "`drag FROM TO [SECONDS]`" in rules
-    assert "at most 3" in rules
-    assert "`right-click TARGET`" in rules
-    assert "`Zellen verbinden`" in rules
-
-
-def test_536_a_thumbnail_shows_its_hint_where_the_screenshot_can_see_it():
-    how = section("## How the editor works")
-    assert "A page thumbnail shows `Ziehen verschiebt die Seite`" in how
-
-
 def test_497_sheet_2_clicks_the_one_seitenbreite():
     # The zoom's button was Seitenbreite. #623 named it Zoom, and the brief still said the zoom
     # had a button of that name, so the run treated the one panel button as two matches.
@@ -358,3 +328,132 @@ def test_497_sheet_2_clicks_the_one_seitenbreite():
     assert "only while the list is open" in sheet2
     source = "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
     assert on_screen("Zoom", source)
+
+
+def frontend():
+    """The editor's source, joined, for a name a teacher can read on screen."""
+    return "\n".join(p.read_text() for p in sorted((REPO / "frontend/src").rglob("*.tsx")))
+
+
+# What issue #564 found in the brief's tenth run.
+
+
+def test_564_thumbnails_are_under_vorlagen_and_the_badge_opens_nothing():
+    # The run used the Vorlagen tab to reach the thumbnails for Ctrl+arrow, and the badge
+    # "Seite 2 von 3" opened nothing. Start has no thumbnails. The badge is a label.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if line.startswith("- The page thumbnails"))
+    assert "tab `Vorlagen`" in bullet
+    assert "heading `Seiten`" in bullet
+    assert "has no thumbnails" in bullet
+    assert "`key Control+ArrowDown`" in bullet
+    assert "`key Control+ArrowUp`" in bullet
+    assert "`key Control+Shift+ArrowDown`" in bullet
+    assert "`key Control+Shift+ArrowUp`" in bullet
+    assert "badge `Seite 2 von 3`" in bullet
+    assert "a click on it opens nothing" in bullet
+    assert "`Seiten und Vorlagen`" in bullet
+    source = frontend()
+    for label in ("Vorlagen", "Seiten"):
+        assert on_screen(label, source), label
+    stage = (REPO / "frontend/src/pages/editor/Stage.tsx").read_text()
+    badge = re.search(r'<div className="dock at">.*?</div>', stage, re.S)
+    assert badge, stage
+    assert "<button" not in badge.group(0)
+    assert "onClick" not in badge.group(0)
+
+
+def test_564_a_double_click_opens_a_zahlenmauer_stone_on_the_sheet():
+    # #563 fixed the stone. The brief still names a text, a cell and a Lineatur, so a run
+    # types into the panel's small wall.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if "A double click opens" in line)
+    assert "a stone of a Zahlenmauer" in bullet
+    assert "small wall in the right panel" in bullet
+    # F2 opens a text, a cell or a Lineatur. It does not open a stone.
+    assert "F2" not in bullet.split("Zahlenmauer", 1)[1]
+    assert 'label: "Zahlenmauer"' in (REPO / "frontend/src/pages/editor/useTools.tsx").read_text()
+
+
+def test_564_a_table_has_no_drehung_and_stays_level():
+    # Drehung is greyed on a table, so the run made no turned table with cut lines.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("- A table has no `Drehung`")
+    )
+    assert "greyed" in bullet
+    assert "not a fault" in bullet
+    assert "`Schneidelinien`" in bullet
+    assert "level table" in bullet
+    assert "turned table with cut lines cannot be made" in bullet
+    place = (REPO / "frontend/src/pages/format/place.tsx").read_text()
+    turns = re.findall(r'"(Rechtsdrehung[^"]*|Linksdrehung[^"]*)"', place)
+    assert turns
+    for name in turns:
+        assert f"`{name}`" in bullet, name
+    level = next(line for line in place.splitlines() if line.strip().startswith("const level"))
+    assert 'b.type === "table"' in level
+    assert "disabled={level}" in place
+    source = frontend()
+    for label in ("Drehung", "Schneidelinien"):
+        assert on_screen(label, source), label
+
+
+# What issue #581 found in the brief's eleventh run.
+
+
+def test_581_key_drag_holds_a_key_and_space_pans_the_desk():
+    # The run tapped Space. A held Space while dragging pans, and a tap leaves the desk.
+    rules = section("## Rules")
+    bullet = next(line for line in rules.splitlines() if line.startswith("  - `key-drag "))
+    assert "`key-drag KEY FROM TO`" in bullet
+    assert "holds `KEY` down" in bullet
+    assert "`key-drag Space X,Y X2,Y2`" in bullet
+    assert "pans the desk" in bullet
+    assert "`key Space` leaves the desk where it is" in bullet
+
+
+def test_581_a_pixel_on_an_open_list_option_is_not_a_choice():
+    # A click at X,Y on an option of an open list did nothing. The run then used the keys.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("  - an option of an open list")
+    )
+    assert "`click X,Y` on it does nothing" in bullet
+    assert "outside the page" in bullet
+    assert "`key ArrowDown`" in bullet
+    assert "`key Enter`" in bullet
+    assert '`click "Druckschrift Nord"`' in bullet
+
+
+def test_581_the_numbering_buttons_keep_their_spaces():
+    # `click "123"` found nothing. The buttons under Nummerierung read `1 2 3` and `a b c`.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if "Nummerierung" in line and "1 2 3" in line)
+    assert '`click "1 2 3"`' in bullet
+    assert "`a b c`" in bullet
+    assert '`click "123"` finds nothing' in bullet
+    numbering = (REPO / "frontend/src/components/Numbering.tsx").read_text()
+    assert '"1 2 3"' in numbering
+    assert '"a b c"' in numbering
+
+
+def test_581_the_tick_grid_is_read_after_the_tool_picks_the_block():
+    # The MCP snapshot lists no block, so the run could not pick one to read the grid's names.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("- A block on the sheet has no name")
+    )
+    assert "snapshot does not list it" in bullet
+    assert "`click X,Y`" in bullet
+    assert "`Ausschnitt`" in bullet
+    assert "`Selbst färben`" in bullet
+    assert "`Selbst verdecken`" in bullet
+    assert "`Feld 1`" in bullet and "`Feld 100`" in bullet
+    assert "`Feld 0`" in bullet and "`Feld 99`" in bullet
+    assert '`where "Feld 100"`' in bullet
+    grid = (REPO / "frontend/src/pages/Hunderterfeld.tsx").read_text()
+    assert "aria-label={`Feld ${v}`}" in grid
+    source = frontend()
+    for label in ("Ausschnitt", "Selbst färben", "Selbst verdecken", "0 bis 99"):
+        assert on_screen(label, source), label

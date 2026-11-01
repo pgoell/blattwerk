@@ -8,10 +8,9 @@ dialog. Wait with `expect`, never for a fixed time.
 import io
 import re
 
-import pytest
 from playwright.sync_api import expect
 from pypdf import PdfReader
-from ui import BROWSER, TEXT, at, box, doc, maths, pick, tool, user
+from ui import TEXT, at, box, doc, maths, pick, tool, user
 
 SUCHSEL = {
     "words": ["BLUMEN", "KERZEN", "GARTEN", "SONNEN", "WASSER", "MONDEN"],
@@ -261,12 +260,6 @@ def test_keys_in_the_dialog_do_not_reach_the_sheet(editor):
     expect(at(page, "a")).to_contain_text("Hallo")
 
 
-@pytest.mark.xfail(
-    BROWSER == "webkit",
-    reason="#582: once in WebKit CI Space on the focused button opened no dialog; 20 of 20 pass "
-    "on 16 workers and with React 100 ms late. The dialog waits for GET /api/sheets/{id} first",
-    strict=False,
-)
 def test_the_varianten_button_opens_with_enter_and_space(editor):
     """I3: Enter and Space open the dialog from the button in the panel Ansicht, the last stop of
     the panel's tab order. The bar keeps its two buttons: it has no room for a third on an iPad."""
