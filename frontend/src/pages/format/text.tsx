@@ -1,7 +1,8 @@
 // The Schrift section: face, marks, lists, trace, gaps and the words a text takes from the sheet.
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import { has } from "../../arrange";
-import { boxed, fontOf, fromOf, parasOf, stepOf, type Align, type Block, type Doc, type List, type Valign } from "../../sheet";
+import { boxed, fontOf, FONTS, fromOf, parasOf, stepOf, type Align, type Block, type Doc, type List, type Valign } from "../../sheet";
+import { Chars } from "./chars";
 import type { Marks, Picked } from "../Field";
 import { Fed } from "./fed";
 import { FontSelect, unknownFont } from "./font";
@@ -17,7 +18,7 @@ const LISTS: [List, string, LucideIcon][] = [["bullet", "Aufzählung", Bullets],
 const VALIGNS: [Valign, string, LucideIcon][] = [["top", "Oben", AlignVerticalJustifyStart], ["middle", "Mitte", AlignVerticalJustifyCenter], ["bottom", "Unten", AlignVerticalJustifyEnd]];
 
 export function TextPanel({
-  sel, part, look, style, paint, itemize, traced, link, feed, gap, every, cell, mendWord, doc, words, toList, onHelp,
+  sel, part, look, style, paint, itemize, traced, link, feed, gap, every, cell, mendWord, doc, words, toList, onInsert, onHelp,
 }: {
   sel: Block[];
   part?: Picked;
@@ -35,6 +36,7 @@ export function TextPanel({
   doc: Doc;
   words: string[];
   toList: () => void;
+  onInsert: (ch: string) => void;
   onHelp?: () => void;
 }) {
   const text = sel.map(boxed).find((p) => p);
@@ -66,6 +68,7 @@ export function TextPanel({
               </button>
             ))}
           </div>
+          <Chars family={FONTS[fontOf(text.font)][1]} onInsert={onInsert} />
           <div className="seg">
             {LISTS.map(([value, label, Icon]) => (
               <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>

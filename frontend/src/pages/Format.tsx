@@ -100,9 +100,11 @@ type Props = {
   doc: Doc;
   // Opens text help for the one selected text. Absent when that text cannot be helped.
   onHelp?: () => void;
+  // Inserts one character into the text being written, or at the end of each selected text.
+  onInsert: (ch: string) => void;
 };
 
-export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe, onHelp }: Props) {
+export default function Format({ sel, style, bump, look, mendWord, traced, link, feed, paint, itemize, gap, every, part, place, rank, cell, reach, merge, unmerge, laid, full, cramped, held, onSize, sizeCells, evenCells, lines, cutting, border, crop, cropping, spin, mirror, alone, lock, setLock, from, setFrom, size: [W, H], doc, words, lineaturen, list, toList, owe, onHelp, onInsert }: Props) {
   const schools = useSchools({ sel, style, place, H });
   const { mark } = sel[0];
   const number = (to?: string) => place(sel.map((b) => [b.id, { mark: to }]));
@@ -112,7 +114,7 @@ export default function Format({ sel, style, bump, look, mendWord, traced, link,
     <>
       <Notices sel={sel} doc={doc} full={full} cramped={cramped} held={held} W={W} H={H} paper={schools.paperHint} refused={schools.refusedType} />
       <Place sel={sel} place={place} lock={lock} setLock={setLock} from={from} setFrom={setFrom} W={W} H={H} spin={spin} onSize={onSize} alone={alone} />
-      <TextPanel sel={sel} part={part} look={look} style={style} paint={paint} itemize={itemize} traced={traced} link={link} feed={feed} gap={gap} every={every} cell={cell} mendWord={mendWord} doc={doc} words={words} toList={toList} onHelp={onHelp} />
+      <TextPanel sel={sel} part={part} look={look} style={style} paint={paint} itemize={itemize} traced={traced} link={link} feed={feed} gap={gap} every={every} cell={cell} mendWord={mendWord} doc={doc} words={words} toList={toList} onInsert={onInsert} onHelp={onHelp} />
       <RulingPanel sel={sel} style={style} place={place} words={words} lineaturen={lineaturen} list={list} toList={toList} part={part} look={look} mendWord={mendWord} doc={doc} traced={traced} W={W} H={H} />
       <TablePanel sel={sel} style={style} part={part} look={look} mendWord={mendWord} doc={doc} words={words} cell={cell} reach={reach} rank={rank} merge={merge} unmerge={unmerge} laid={laid} sizeCells={sizeCells} evenCells={evenCells} lines={lines} cutting={cutting} border={border} traced={traced} gap={gap} every={every} />
       <SchoolPanels {...schools} style={style} doc={doc} words={words} owe={owe} H={H} />
