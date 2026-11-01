@@ -107,9 +107,19 @@ def screen_and_print(browser, server, client, sheet_id, page=0, hide_gaps=False,
         tab.add_style_tag(content=".gap > span { visibility: hidden !important }")
     if solved:
         tool(tab, "Lösungen zeigen").click()
-        # A mixed word without a line shows its word as typed in the key's colour, and no gap.
-        expect(tab.locator(".sheet .gap > span, .sheet .mixkey").first).to_have_css(
-            "color", "rgb(192, 57, 43)"
+        # A gap or a mixed word turns the key's colour. A maths block has neither: it takes the
+        # class `solved`, which is what draws its answers. A picture, a name, a points line or a
+        # block this version does not know does neither, and must not be waited for (#969).
+        tab.wait_for_function(
+            """() => {
+                const word = document.querySelector('.sheet .gap > span, .sheet .mixkey');
+                if (word) return getComputedStyle(word).color === 'rgb(192, 57, 43)';
+                if (document.querySelector('.sheet .solved')) return true;
+                const pending = '.sheet .block > div:not(.picture):not(.fields)'
+                    + ':not(.points):not(.unknown)';
+                return document.querySelector(pending) === null;
+            }""",
+            timeout=5000,
         )
     # As the page that is printed does: a picture and a font come in after the blocks are laid out.
     tab.evaluate(LOADED)
