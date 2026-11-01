@@ -68,6 +68,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const copyTimer = useRef(0);
   const codeEl = useRef<HTMLElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
+  const form = useRef<HTMLFormElement>(null);
 
   function copyKey(token: string) {
     window.clearTimeout(copyTimer.current);
@@ -137,31 +138,39 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
     if (label.length > 80) return setFieldNote("Der Name ist zu lang: höchstens 80 Zeichen.");
     if (tokens.some((t) => t.name.toLowerCase() === label.toLowerCase())) return setFieldNote(TAKEN);
     busy.current = true;
-    attempt("Der Schlüssel konnte nicht erstellt werden.", async () => {
-      try {
-        const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
-        setMade({ id: fresh.id, token: fresh.token });
-        window.clearTimeout(copyTimer.current);
-        setCopy(null);
-        if (nameField.current) nameField.current.value = "";
-        setFieldNote("");
-        forget();
-        // The field is already empty. A second press of this double one must not say the name
-        // is missing. The list lacks the key until `load` is back.
-        done.current = true;
-      } catch (err) {
-        // The server's refusal: the name it already has, or a name it does not take.
-        if (status(err) === "422") {
-          const dup = (err as Refusal).detail === TAKEN;
-          return setFieldNote(dup ? TAKEN : label.length > 80 ? TOO_LONG : EMPTY);
+    // The bar submits the form again. Calling `run` posted the name this try had already
+    // read, then emptied the field over a name typed since, and its `finally` cleared
+    // `busy` under another create (#936).
+    attempt(
+      "Der Schlüssel konnte nicht erstellt werden.",
+      async () => {
+        try {
+          const fresh = await signed(post<Token & { token: string }>("/tokens", { name: label }));
+          setMade({ id: fresh.id, token: fresh.token });
+          window.clearTimeout(copyTimer.current);
+          setCopy(null);
+          if (nameField.current) nameField.current.value = "";
+          setFieldNote("");
+          forget();
+          // The field is already empty. A second press of this double one must not say the name
+          // is missing. The list lacks the key until `load` is back.
+          done.current = true;
+        } catch (err) {
+          // The server's refusal: the name it already has, or a name it does not take.
+          if (status(err) === "422") {
+            const dup = (err as Refusal).detail === TAKEN;
+            return setFieldNote(dup ? TAKEN : label.length > 80 ? TOO_LONG : EMPTY);
+          }
+          if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`, label);
+          throw err;
+        } finally {
+          busy.current = false;
         }
-        if (status(err) === "401" || (err as Error).message === "stale") leave(`Der Schlüssel „${label}“ wurde nicht erstellt: du warst abgemeldet. Erstelle ihn jetzt noch einmal.`, label);
-        throw err;
-      } finally {
-        busy.current = false;
-      }
-      await load();
-    });
+        await load();
+      },
+      undefined,
+      () => form.current?.requestSubmit(),
+    );
   }
 
   function revoke(token: Token) {
@@ -233,7 +242,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
           </a>
         </p>
         {left && <p role="status" className="notice">{left}</p>}
-        <form onSubmit={create}>
+        <form ref={form} onSubmit={create}>
           <label htmlFor="key-name">Name des Schlüssels, z. B. Laptop Schule</label>
           <input
             ref={nameField}
