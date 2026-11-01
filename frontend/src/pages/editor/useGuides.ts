@@ -86,7 +86,12 @@ export function useGuides(session: ReturnType<typeof useTable>) {
     const local: [number, number] = [raw[0], raw[1] - pullAt(b, raw)];
     const props = adjusted(p.kind, b.w, b.h, local);
     const same = new Set(sel.filter((o) => adjustable(o) && !o.locked && (o.props as TextProps).kind === p.kind).map((o) => o.id));
-    change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
+    // A pointer move is not discrete, so its render waits on the scheduler and can land after
+    // the gesture's script has returned. The next read of "Gespeichert" then takes the sheet
+    // from before the tail (#932). The move is drawn before the event returns, as a resize is.
+    flushSync(() => {
+      change((bs) => bs.map((o) => (same.has(o.id) ? ({ ...o, props: { ...o.props, ...props } } as Block) : o)), "drag");
+    });
   }
   // Resizes a group from the boxes it began with. The corner opposite the dragged one stays, or with Ctrl the middle,
   // and the group keeps its shape, as Moveable's groups do, so every line keeps its angle. A group can shrink to a
