@@ -4,7 +4,7 @@ title: "Block: shape"
 description: "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
 tags: [block, shape]
 covers: [shape]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T06:04:58Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-01T15:41:30Z }
 ---
 
 # shape
@@ -70,6 +70,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | underline | boolean |  | no | True underlines the whole text. Absent means off. |
 | color | string |  | no | Colour of the text as a hex colour, such as "#222222". Absent means #222222. |
 | spacing | number | 1 to 3 | no | Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3. |
+| tracking | number | 0 to 1 | no | Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. |
 | valign | string | `top`, `middle`, `bottom` | no | Vertical place of the text in its box: "top", "middle" or "bottom". Absent means top. |
 | opacity | number | 0 to 1 | no | How solid the fill is: 0 is invisible, 1 is solid. Absent means 1. |
 | strokeOpacity | number | 0 to 1 | no | How solid the border is: 0 is invisible, 1 is solid. Absent means 1. |

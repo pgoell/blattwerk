@@ -4,7 +4,7 @@ title: mm and pt
 description: Lengths are mm from the paper's top left, font sizes are pt, and a text box needs room for its lines.
 tags: [units, mm, pt, layout, text]
 covers: [text, maths]
-generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
+generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 ---
 
 # mm and pt
@@ -35,6 +35,12 @@ A line of text takes its size times the line spacing. The default spacing is 1.3
 | 28 pt | 36.4 | 12.8 |
 
 A box holds lines one under the other. Three lines of 14 pt need about 19.3 mm. Give the box at least that height, plus room for the spacing you want.
+
+## Zeichenabstand
+
+`tracking` on a text, a shape or a Lineatur is not a length and not a font size. It is extra space between the letters as a share of the font size, the same kind of number as line spacing. 0, or leaving it out, is the font's own spacing. 1 leaves a gap as wide as the letters are tall. Do not convert it to mm or pt.
+
+On Vereinfachte Ausgangsschrift, Schulausgangsschrift and Lateinische Ausgangsschrift that gap pulls the joins between the letters apart. Karo keeps one letter in each square and ignores `tracking`.
 
 ## Maths blocks
 

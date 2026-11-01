@@ -122,6 +122,11 @@ export type TextProps = {
    * @maximum 3
    */
   spacing?: number;
+  /** Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.
+   * @minimum 0
+   * @maximum 1
+   */
+  tracking?: number;
   /** Vertical place of the text in its box: "top", "middle" or "bottom". Absent means top. */
   valign?: Valign;
   /** Outline of the box the text sits in: "rect", "rounded", "circle", "triangle", "star" or "bubble". Absent means rect. */

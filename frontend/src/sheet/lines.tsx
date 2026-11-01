@@ -5,6 +5,7 @@ import { pairOf, useSplitter, splitting, Bows } from "./bows";
 import { useBreaks, Words } from "./context";
 import { useRealFonts } from "./fontReady";
 import { RULINGS, kindOf, rowsOf, colsOf, traceOf, fadeOf, fontScale, fontOf, writtenStyle, indentOf, bandOf, bandColorOf, houseOf, houseWidth, houseTintOf, HOUSE, fadeAt, FONTS } from "./look";
+import { withTracking } from "./tracking";
 import { type RulingBlock, listOf, foldsOf, startOf, squares } from "./ruling";
 import { classes } from "./shape";
 import { type ReactNode, useContext, useState, useEffect, useRef, useLayoutEffect, Fragment, type CSSProperties } from "react";
@@ -14,6 +15,7 @@ export function Lines({ block, k, children }: { block: RulingBlock; k: number; c
   useRealFonts();
   const { row, at, zones, size } = RULINGS[kindOf(block.props.kind)];
   const { text = "" } = block.props;
+  const spaced = (b: RulingBlock) => withTracking(writtenStyle(b, k), b.props.tracking);
   const breaks = useBreaks(block.props.breaks);
   const rows = rowsOf(block);
   const cols = colsOf(block);
@@ -131,7 +133,7 @@ export function Lines({ block, k, children }: { block: RulingBlock; k: number; c
     return () => document.fonts.removeEventListener("loadingdone", press);
   }, []);
   const listed = mode && at && (
-    <div ref={list} className="written listed" style={{ ...writtenStyle({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }, k), color: plain ? undefined : "#aaaaaa" }}>
+    <div ref={list} className="written listed" style={{ ...spaced({ ...block, props: { ...block.props, trace: undefined, fade: undefined } }), color: plain ? undefined : "#aaaaaa" }}>
       {shown.map((word, i) => (
         <p className="row" key={i} style={{ height: row * k, margin: 0 }}>
           {mode === "row"
@@ -191,12 +193,12 @@ export function Lines({ block, k, children }: { block: RulingBlock; k: number; c
         </>
       ) : (
         <>
-          {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={writtenStyle(block, k)}>{text}</p>)}
+          {children ?? (at && text && <p className="written" data-trace={traceOf(block.props)} data-fade={fadeOf(block.props)} style={spaced(block)}>{text}</p>)}
           {/* The editor's field holds the text as a value, which no bow can measure: a hidden copy of it does. */}
           {at && text && (block.props.syllables || block.props.tints) && (
             <>
               {/* With colours the copy shows and the field's letters go clear, as in a table's open cell, so the colours stay while typing. */}
-              {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...writtenStyle(block, k), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
+              {children && <p className={classes("written", "copy", pairOf(block.props.tints) && "shown")} aria-hidden="true" data-trace={traceOf(block.props)} style={{ ...spaced(block), visibility: pairOf(block.props.tints) ? undefined : "hidden" }}>{text}</p>}
               <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={block.props.syllables} tints={pairOf(block.props.tints)} tintsAcross={block.props.tintsAcross} />
             </>
           )}

@@ -4,7 +4,7 @@ title: "Operatorfelder"
 description: A heading, a name line, and four Operatorfelder of four boxes with the start number and the operators given and the other boxes to fill in.
 tags: [operatorfeld, zahlenraum-20, klasse-1]
 covers: [text, name, operatorfeld]
-generated: { by: "human:pgoell", at: 2026-10-19T08:15:00Z }
+generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 ---
 
 # Operatorfelder

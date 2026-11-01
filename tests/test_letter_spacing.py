@@ -5,12 +5,9 @@ Absent draws as the font does. A cursive script warns that the joins break. Karo
 keeps one letter in each square and has no control.
 """
 
-import io
-
 import httpx
 import pypdfium2
 import pytest
-from PIL import Image
 from playwright.sync_api import expect
 from test_painter import held, paint
 from ui import FIELD, RECT, RULING, TEXT, at, box, pick, saved, unpick, user
@@ -22,6 +19,20 @@ WIDE = {"tracking": 0.5}
 SHARE = """(el) => {
     const s = getComputedStyle(el);
     return s.letterSpacing === "normal" ? 0 : parseFloat(s.letterSpacing) / parseFloat(s.fontSize);
+}"""
+# The width "Mama" takes in the field's own font and letter spacing. A Lineatur's shot
+# also holds its rules, which run the whole width, so the letters are measured apart from them.
+ADVANCE = """(el) => {
+    const s = getComputedStyle(el);
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:pre";
+    probe.style.font = s.font;
+    probe.style.letterSpacing = s.letterSpacing;
+    probe.textContent = "Mama";
+    document.body.append(probe);
+    const w = probe.getBoundingClientRect().width;
+    probe.remove();
+    return w;
 }"""
 # The width of the word "Mama" in the block, in px of the screen.
 SPAN = """(name) => {
@@ -85,8 +96,8 @@ def test_spaced_letters_are_wider_on_the_sheet(editor, kind, props, selector):
     assert abs(share(page, "plain", selector)) < 0.02
     assert abs(share(page, "wide", selector) - 0.5) < 0.02
     if kind == "ruling":
-        plain = ink_span(Image.open(io.BytesIO(at(page, "plain").locator(selector).screenshot())))
-        wide = ink_span(Image.open(io.BytesIO(at(page, "wide").locator(selector).screenshot())))
+        plain = at(page, "plain").locator(selector).evaluate(ADVANCE)
+        wide = at(page, "wide").locator(selector).evaluate(ADVANCE)
     else:
         plain, wide = span(page, "plain"), span(page, "wide")
     assert wide > plain * 1.25, (kind, plain, wide)
@@ -135,13 +146,14 @@ def test_only_a_cursive_script_warns_that_the_joins_break(editor, font, warns):
 def test_a_cursive_lineatur_warns_and_a_print_one_does_not(editor):
     """The Lineatur's own slider warns for Schulausgangsschrift and stays quiet for Druckschrift."""
     page = editor(
-        box("print", "ruling", {**RULING, "text": WORD, "tracking": 0.2}, w=120, h=20),
+        box("print", "ruling", {**RULING, "text": WORD, "tracking": 0.2}, x=15, y=25, w=120, h=20),
         box(
             "script",
             "ruling",
             {**RULING, "text": WORD, "font": "sas", "tracking": 0.2},
             z=2,
-            y=60,
+            x=15,
+            y=70,
             w=120,
             h=20,
         ),
@@ -159,7 +171,9 @@ def test_picking_a_cursive_script_warns_until_the_spacing_is_off(editor):
     pick(page, "a")
     expect(page.locator(".panel").get_by_text(WARN)).to_have_count(0)
     page.get_by_label("Schriftart", exact=True).click()
-    page.get_by_role("option", name="Schulausgangsschrift", exact=True).click()
+    page.get_by_role("listbox", name="Liste: Schriftart").get_by_role(
+        "option", name="Schulausgangsschrift", exact=True
+    ).click()
     expect(page.locator(".panel").get_by_text(WARN)).to_be_visible()
     page.locator(".panel").get_by_label("Zeichenabstand", exact=True).fill("0")
     expect(page.locator(".panel").get_by_text(WARN)).to_have_count(0)
@@ -238,11 +252,12 @@ def test_the_brush_carries_letter_spacing_and_can_clear_it(editor):
     """Format übertragen takes the share onto a text, a shape and a Lineatur, and a plain text clears it."""
     client = user()
     page = editor(
-        box("a", "text", {**TEXT, "tracking": 0.4}),
-        box("b", "text", TEXT, z=2, x=80),
-        box("form", "shape", {**RECT, "text": "Hallo"}, z=3, y=50),
-        box("lines", "ruling", {**RULING, "text": WORD}, z=4, y=90, w=120, h=20),
-        box("set", "text", {**TEXT, "tracking": 0.4}, z=5, y=120),
+        box("a", "text", {**TEXT, "tracking": 0.4}, x=15, y=20, w=40, h=16),
+        box("b", "text", TEXT, z=2, x=70, y=20, w=40, h=16),
+        box("form", "shape", {**RECT, "text": "Hallo"}, z=3, x=125, y=20, w=50, h=24),
+        box("lines", "ruling", {**RULING, "text": WORD}, z=4, x=15, y=70, w=120, h=20),
+        box("plain", "text", TEXT, z=5, x=70, y=110, w=40, h=16),
+        box("set", "text", {**TEXT, "tracking": 0.4}, z=6, x=15, y=110, w=40, h=16),
         client=client,
     )
     paint(page, "a", "b")
@@ -250,7 +265,7 @@ def test_the_brush_carries_letter_spacing_and_can_clear_it(editor):
     paint(page, "a", "lines")
     now = held(page, client)
     assert now["b"]["tracking"] == now["form"]["tracking"] == now["lines"]["tracking"] == 0.4
-    paint(page, "b", "set")
+    paint(page, "plain", "set")
     assert "tracking" not in held(page, client)["set"]
 
 

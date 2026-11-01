@@ -715,6 +715,12 @@
           "minimum": 1,
           "maximum": 3
         },
+        "tracking": {
+          "type": "number",
+          "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+          "minimum": 0,
+          "maximum": 1
+        },
         "valign": {
           "$ref": "#/definitions/Valign",
           "description": "Vertical place of the text in its box: \"top\", \"middle\" or \"bottom\". Absent means top."
@@ -1119,6 +1125,12 @@
               "minimum": 1,
               "maximum": 3
             },
+            "tracking": {
+              "type": "number",
+              "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+              "minimum": 0,
+              "maximum": 1
+            },
             "valign": {
               "$ref": "#/definitions/Valign",
               "description": "Vertical place of the text in its box: \"top\", \"middle\" or \"bottom\". Absent means top."
@@ -1315,6 +1327,12 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "The font of the text printed on the lines. Left out, the default font is used."
+            },
+            "tracking": {
+              "type": "number",
+              "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+              "minimum": 0,
+              "maximum": 1
             },
             "trace": {
               "anyOf": [

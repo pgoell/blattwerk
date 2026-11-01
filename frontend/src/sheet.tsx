@@ -6,6 +6,7 @@ export { decimalsOf } from "./decimal";
 export { MARGIN, K, turned, dir, tall, fitWidth } from "./sheet/box";
 export type { Box, Kind, Corner, Align, Valign } from "./sheet/box";
 export { TINTS, GREYS, FONTS, fontOf, fontScale, dottedFamily, traceOf, fadeOf, fadeAt, FONT_GROUPS, RULINGS, kindOf, houseOf, houseTintOf, bandOf, bandColorOf, shade, HOUSE, houseWidth, indentOf, rowsOf, colsOf, keepsFractions, writtenStyle, textStyle, inset } from "./sheet/look";
+export { trackingOf, cursive, withTracking } from "./sheet/tracking";
 export type { Font, Ruling, Tints, Trace, Fade } from "./sheet/look";
 export { listColsOf, holesOf, lineOf, isLine, far, boxed, parasOf, shownParas, stored, listed, cleared, symbol } from "./sheet/text";
 export type { List, Run, Para, TextProps, TextBlock, ShapeBlock } from "./sheet/text";

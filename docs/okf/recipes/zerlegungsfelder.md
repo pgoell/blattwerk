@@ -4,7 +4,7 @@ title: "Zerlegungsfelder"
 description: A heading, a name line, and six Zerlegungsfelder bis 20 for the Zehnerübergang in two steps, with the first and the second number given and the split and the result to fill in.
 tags: [zerlegungsfeld, zehnerübergang, klasse-1]
 covers: [text, name, zerlegungsfeld]
-generated: { by: "human:pgoell", at: 2026-10-20T02:00:00Z }
+generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 ---
 
 # Zerlegungsfelder

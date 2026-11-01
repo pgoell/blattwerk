@@ -1,7 +1,7 @@
 // The Schrift section: face, marks, lists, trace, gaps and the words a text takes from the sheet.
 import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, List as Bullets, ListOrdered, TextAlignCenter, TextAlignEnd, TextAlignStart, type LucideIcon } from "lucide-react";
 import { has } from "../../arrange";
-import { boxed, fontOf, fromOf, parasOf, stepOf, type Align, type Block, type Doc, type List, type Valign } from "../../sheet";
+import { boxed, cursive, fontOf, fromOf, parasOf, stepOf, type Align, type Block, type Doc, type List, type Valign } from "../../sheet";
 import type { Marks, Picked } from "../Field";
 import { Fed } from "./fed";
 import { FontSelect, unknownFont } from "./font";
@@ -10,6 +10,7 @@ import { Mix } from "./mix";
 import { Num } from "./num";
 import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
+import { Tracking } from "./tracking";
 import { syllabled, worded } from "./words";
 
 const ALIGNS: [Align, string, LucideIcon][] = [["left", "Links", TextAlignStart], ["center", "Mitte", TextAlignCenter], ["right", "Rechts", TextAlignEnd]];
@@ -95,6 +96,7 @@ export function TextPanel({
             Zeilenabstand
             <input type="range" min={1} max={3} step={0.1} value={text.spacing ?? 1.3} onChange={(e) => look({ spacing: +e.target.value }, "spacing")} />
           </label>
+          <Tracking value={text.tracking} warn={sel.some((b) => cursive(boxed(b)?.font))} onChange={(n) => look({ tracking: n }, "tracking")} />
           <TraceControls props={text} font={text.font} onChange={traced} />
           <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />
           <Gaps key={`gaps-${sel.find(worded)?.id}`} sel={sel} part={part} cell={cell} look={look} style={style} gap={gap} every={every} />

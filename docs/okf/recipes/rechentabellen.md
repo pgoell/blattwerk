@@ -4,7 +4,7 @@ title: "Rechentabellen"
 description: A heading, a name line, and a Maltabelle of the 2er, 5er and 10er Reihe with the row values given and the result cells to fill in.
 tags: [rechentabelle, einmaleins, klasse-2]
 covers: [text, name, rechentabelle]
-generated: { by: "human:pgoell", at: 2026-10-19T13:30:00Z }
+generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 ---
 
 # Rechentabellen
