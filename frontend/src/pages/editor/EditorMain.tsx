@@ -1,9 +1,11 @@
 // The editor's frame: the keys, the focus, and the sheet around the panels.
 import type { ReactNode } from "react";
+import { useSheetChrome } from "../../components/Blank";
 import { Whole, Words } from "../../sheet";
 import { useTools } from "./useTools";
 
 export default function EditorMain({ s: session, children }: { s: ReturnType<typeof useTools>; children: ReactNode }) {
+  useSheetChrome();
   const brush = session.brush;
   const drawers = session.drawers;
   const drawnRight = session.drawnRight;

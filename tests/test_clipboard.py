@@ -359,14 +359,20 @@ def test_a_cut_keeps_the_order_and_the_group_and_the_paste_is_selected(editor):
 
 # The clipboard's items as the browser holds them, and the first picture's bytes in base64.
 CLIPBOARD = """async () => {
-    const items = await navigator.clipboard.read();
-    const types = items.flatMap((item) => item.types).sort();
-    const item = items.find((i) => i.types.includes("image/png"));
-    if (!item) return { types, png: null };
-    const bytes = new Uint8Array(await (await item.getType("image/png")).arrayBuffer());
-    let text = "";
-    for (const b of bytes) text += String.fromCharCode(b);
-    return { types, png: btoa(text) };
+    try {
+        const items = await navigator.clipboard.read();
+        const types = items.flatMap((item) => item.types).sort();
+        const item = items.find((i) => i.types.includes("image/png"));
+        if (!item) return { types, png: null };
+        const bytes = new Uint8Array(await (await item.getType("image/png")).arrayBuffer());
+        let text = "";
+        for (const b of bytes) text += String.fromCharCode(b);
+        return { types, png: btoa(text) };
+    } catch (e) {
+        // A copy landing between read and getType. The caller tries again.
+        if (!String(e).includes("changed")) throw e;
+        return { types: [], png: null };
+    }
 }"""
 # A PNG drawn back to pixels: its size, the red and blue pixels it has, and its top left pixel.
 PIXELS = """async (b64) => {

@@ -64,7 +64,7 @@ Write, in this order:
 3. The pull requests, one line each: the number, what you tried, what you found.
 4. The issues you opened, each with its label and its link.
 5. The faults that did not fit into the 8, one line each.
-6. The minutes you spent on the sheets, on the pull requests and in all.
+6. The minutes you spent on the sheets, on the pull requests and in all, taken from `The clock is N`, not from the shell's `date`.
 7. Whether `stage:down` ended clean.
 8. What the last `tidy` deleted, if anything.
 

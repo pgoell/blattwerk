@@ -192,10 +192,10 @@ describe("laid", () => {
     const words: string[] = [];
     for (const x of "ENISRATD") for (const y of "ENISRATD") if (x !== y) words.push(`${x}${y}E`);
     for (const seed of [1, 2]) {
-      const t = performance.now();
+      tried.runs = 0;
       const out = laid({ ...base, words, cols: 20, rows: 20, ways: "back", seed });
-      // About 150 ms on a free machine; the limit leaves room for a loaded one.
-      expect(performance.now() - t).toBeLessThan(3000);
+      // Measured 2,688,000 runs on seed 1 and 1,792,000 on seed 2; the bound is about twice the larger. The count depends on the seed, not the machine.
+      expect(tried.runs).toBeLessThan(5_400_000);
       expect(clean(out.grid, out.hidden, words, true)).toBe(true);
     }
   });

@@ -157,6 +157,21 @@ overfit.current = (id, { down: mm, across, cut }) => {
   const gripUp = () => {
     cellDrag.current = false;
   };
+  // Chrome counts a drag on `touch-action: none` as a scroll it did not run, and the next tap then
+  // ends in a touchend with no click (#723). The first move can still be cancelled, and cancelling
+  // it says the drag was the page's, so that tap clicks. React's listener is passive and could not.
+  useLayoutEffect(() => {
+    const root = sheet.current;
+    if (!root) return;
+    const stop = (e: globalThis.TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    const handles = [...root.querySelectorAll<HTMLElement>(".cell-handle")];
+    for (const el of handles) el.addEventListener("touchmove", stop, { passive: false });
+    return () => {
+      for (const el of handles) el.removeEventListener("touchmove", stop);
+    };
+  });
   useEffect(() => {
     const on = (e: Event) => overfit.current(idOf((e.target as HTMLElement).closest(".block")!), (e as CustomEvent<{ down: number; across: number; cut: boolean }>).detail);
     const desk = sheet.current!;

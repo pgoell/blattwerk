@@ -1,6 +1,6 @@
 ## 25 minutes on the last five pull requests
 
-1. Note the time with `date`. Stop after 25 minutes, wherever you are, and not before. With an "above all", stop after 30 minutes instead, and do not stop at 25.
+1. Note the time with `The clock is N` from the last verb, not with `date`: the shell's `date` can run slow against the work. Stop after 25 minutes, wherever you are, and not before. With an "above all", stop after 30 minutes instead, wherever you are, and not before. Do not stop at 25, nor at any minute short of 30.
 2. Read the titles and bodies. The lists leave out the titles that start with `ci`, `chore`, `docs`, `test`, `build` or `refactor` before they take five. A title that starts with `ci`, `chore`, `docs`, `build` or `refactor` is one a teacher does not see. A title that starts with `test` can still change the app, as #480 did:
 
    ```sh

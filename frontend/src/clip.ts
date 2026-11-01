@@ -140,9 +140,11 @@ export function onTheWay(write: Promise<unknown>) {
 }
 
 // Chrome commits a clipboard write when its blob arrives, even if a later write already finished, and the
-// earlier one then replaces the picture copied in between (#1011). Writes from this page wait their turn,
+// earlier one then replaces what was copied in between (#1011). Writes from this page wait their turn,
 // so the later one lands last. A write that Safari accepts only inside a click or a key press is marked
-// with `atOnce` and starts in that turn; the ones waiting follow it.
+// with `atOnce` and its call starts in that turn. A copy's data goes through `behind`, so it still waits
+// until the write already on its way has landed: two copies in a row would otherwise both start, and the
+// first picture would replace the second.
 let tail: Promise<unknown> = Promise.resolve();
 let straight = false;
 
@@ -153,6 +155,14 @@ export function atOnce<T>(run: () => T): T {
   } finally {
     straight = false;
   }
+}
+
+// The data of a write that is about to start. It waits for the writes already queued and not for itself:
+// the caller builds it before `write` appends this turn. A later copy then lands after the earlier one,
+// even when both calls start inside their key press.
+export function behind(value: Blob | string | Promise<Blob | string>): Promise<string | Blob> {
+  const prev = tail;
+  return prev.then(() => value, () => value);
 }
 
 const board = navigator.clipboard;

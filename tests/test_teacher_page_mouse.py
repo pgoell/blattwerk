@@ -1,4 +1,4 @@
-"""The teacher-page tool's mouse: click, drag, wheel, middle-drag and the edge swipe."""
+"""The teacher-page tool's mouse: click, drag, key-drag, wheel, middle-drag and the edge swipe."""
 # The fixtures imported below are named again as a test's arguments.
 # ruff: noqa: F811
 
@@ -120,6 +120,31 @@ def test_wheel_scrolls_the_desk_down_and_up(editor):
     page.wait_for_function("document.querySelector('.desk').scrollTop === 100")
     with pytest.raises(tool.Refused, match='"down" is not a number'):
         tool.wheel(page, "5,5", "down")
+
+
+def test_key_drag_with_space_held_pans_the_desk(editor):
+    # Issue #581: no verb held a key during a drag, so the run tapped Space.
+    page = editor(box("a", "text", ONE))
+    roomy(page)
+    left, top = scroll(page)
+    said = tool.key_drag(page, "Space", desk_at(page), desk_at(page, 110, 70))
+    assert said.startswith("dragged with Space held from "), said
+    expect_scroll(page, left - 100, top - 60)
+    expect(page.locator(".block.sel")).to_have_count(0)
+    expect(page.locator(".hand")).to_have_count(0)
+
+
+def test_key_drag_refuses_two_names_that_are_never_in_the_window_together(editor, monkeypatch):
+    page = editor(box("a", "text", ONE))
+
+    def point(page, target):
+        tool.NOTES.append("turned the page to it")
+        return 300.0, 300.0
+
+    monkeypatch.setattr(tool, "point", point)
+    with pytest.raises(tool.Refused, match="not in the window together"):
+        tool.key_drag(page, "Space", "FROM", "TO")
+    tool.NOTES.clear()
 
 
 def test_middle_drag_pans_the_desk(editor):

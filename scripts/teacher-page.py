@@ -2,40 +2,7 @@
 
     mise -C /home/pascal/Code/blattwerk run teacher:page -- <verb> [args]
 
-    start                  opens the window, 1280 x 1024, on the stage; a second start replaces it
-    stop                   shuts the window
-    open PATH              goes to a path of the app: / or /blatt/12, never /admin
-    click TARGET           also: double-click TARGET, shift-click TARGET, hover TARGET
-    drag FROM TO           presses the mouse at FROM, moves it to TO and lets go
-    middle-drag FROM TO    the same with the middle button held: it pans the desk
-    swipe FROM TO          a finger put down at FROM, moved to TO and lifted; from an edge it
-                           opens a drawer, upright only
-    wheel TARGET DY        turns the wheel over TARGET by DY px; less than 0 is up
-    key KEYS [N]           presses a key or a chord N times: Escape, ArrowRight, Control+z
-    type TEXT              types the text where the focus is
-    drop FILE TARGET       drops a file of the run folder on the page at TARGET, as from the desktop
-    upload FILE TARGET     clicks TARGET and picks a file of the run folder in the file box it opens
-    paste-elsewhere        pastes the clipboard into another app's field; says what it took
-    where NAME             prints where the name is on the page, or what holds it; changes nothing
-    value NAME             prints what the field of that name holds: a colour, a slider's number
-    resize W H             sets the window's size
-    screenshot [NAME]      writes the window to NAME.png, `screen` if none
-    pdf [TARGET]           clicks the bar's `PDF`, or `Lösungen`, and saves what comes down; the
-                           focus stays where it was
-    expire                 ends the window's sign-in, as if the session had run out; the page stays
-    box yes VERB [ARGS]    runs VERB and answers the box it meets with yes; `box no` answers no
-    tidy                   deletes each TR*.pdf and blattomat*.mcpb in ~/Downloads and each PDF
-                           in the folder, and names each with its folder; needs no window
-
-A box that a verb meets is answered no unless `box yes` asks yes, and the output names its words.
-
-A TARGET is `X,Y`, in px of the window, which are the px of the screenshot, or a name: the words
-on a control, its label, or what a hover or a screen reader says of it. A name must be on the page
-once, or once as a control beside plain text of that name. A name below or above the window turns
-the page to it when it is that one place, and a heading of the same name does not stop the turn.
-A control in an open dialog is taken over one of the same name that the dialog covers. Every verb
-that acts also writes the window to last.png and prints that path. Every verb of the window prints
-the page's path, `The page is /blatt/12`.
+The verbs, and what each one takes, are the list in docs/teacher-run/rules.md.
 
 One process, `hold`, keeps the window under xvfb-run, and each verb joins it over Chromium's
 debugging port. Python's Playwright has no `launch_server`, and a context that a client makes
@@ -220,14 +187,14 @@ def point(page: Page, target: str) -> tuple[float, float]:
     if at := XY.fullmatch(target):
         return float(at[1]), float(at[2])
     spots = places(page, target)
-    choice = meant(spots)
+    choice = meant(spots) or _name.one(page, target, Found)
     if choice is not None and not inside(page, choice.x, choice.y):
         # The one place lies below or above the window: the page turns to it. A heading of the
         # same name does not make it two places, so the turn still happens.
         choice.el.evaluate("el => el.scrollIntoView({block: 'center'})")
         NOTES.append("turned the page to it")
         spots = places(page, target)
-        choice = meant(spots)
+        choice = meant(spots) or _name.one(page, target, Found)
     seen = [spot for spot in spots if inside(page, spot.x, spot.y)]
     if choice is not None and inside(page, choice.x, choice.y):
         return choice.x, choice.y
@@ -258,10 +225,18 @@ def shown(page: Page, did: str) -> str:
 
 
 # The control at a place, when it is greyed out: a mouse still clicks it, and nothing happens.
+# A disabled button in the panel has pointer-events: none, so elementFromPoint falls through it.
 GREYED = """([x, y]) => {
     const near = "button, input, select, textarea, [aria-disabled]";
-    const el = document.elementFromPoint(x, y)?.closest(near);
-    return !!el && (el.disabled === true || el.getAttribute("aria-disabled") === "true");
+    const grey = (el) =>
+        !!el && (el.disabled === true || el.getAttribute("aria-disabled") === "true");
+    if (grey(document.elementFromPoint(x, y)?.closest(near))) return true;
+    for (const el of document.querySelectorAll(near)) {
+        if (!grey(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (Math.hypot(r.left + r.width / 2 - x, r.top + r.height / 2 - y) <= 1) return true;
+    }
+    return false;
 }"""
 
 
@@ -307,7 +282,11 @@ def tidy() -> str:
 
 
 _ns = _load("teacher_page_ns")
+_name = _load("teacher_page_name")
 _acts = _load("teacher_page_acts")
+_keys = _load("teacher_page_keys")
+_clock = _load("teacher_page_clock")
+_outside = _load("teacher_page_outside")
 click = _acts.click
 double_click = _acts.double_click
 shift_click = _acts.shift_click
@@ -315,10 +294,29 @@ hover = _acts.hover
 ends = _acts.ends
 drag = _acts.drag
 middle_drag = _acts.middle_drag
+
+
+def key_drag(page: Page, key: str, start: str, end: str) -> str:
+    """Holds KEY, drags, and lets the key go. Space held is the hand that pans the desk."""
+    (x, y), to = ends(page, start, end)
+    # The key is down before the press, as a hand holds Space, and up again however the drag ends.
+    page.mouse.move(x, y)
+    page.keyboard.down(key)
+    try:
+        page.mouse.down()
+        page.mouse.move(*to, steps=10)
+        page.mouse.up()
+    finally:
+        page.keyboard.up(key)
+    return shown(page, f"dragged with {key} held from {x:g},{y:g} to {to[0]:g},{to[1]:g}")
+
+
 swipe = _acts.swipe
 wheel = _acts.wheel
-key = _acts.key
-type_ = _acts.type_
+key = _keys.key
+type_ = _keys.type_
+began = _clock.began
+clock = _clock.clock
 where = _acts.where
 value = _acts.value
 wanted = _acts.wanted
@@ -335,6 +333,11 @@ upload = _acts.upload
 RECORD = _acts.RECORD
 close_tabs = _acts.close_tabs
 paste_elsewhere = _acts.paste_elsewhere
+ctrl_click = _outside.ctrl_click
+finger = _outside.finger
+mic = _outside.mic
+paste_word = _outside.paste_word
+drop_web = _outside.drop_web
 expire = _acts.expire
 answered = _acts.answered
 remember = _acts.remember
@@ -351,8 +354,11 @@ VERBS: dict[str, Callable[..., str]] = {
     "click": click,
     "double-click": double_click,
     "shift-click": shift_click,
+    "ctrl-click": ctrl_click,
+    "finger": finger,
     "hover": hover,
     "drag": drag,
+    "key-drag": key_drag,
     "middle-drag": middle_drag,
     "swipe": swipe,
     "wheel": wheel,
@@ -361,6 +367,9 @@ VERBS: dict[str, Callable[..., str]] = {
     "drop": drop,
     "upload": upload,
     "paste-elsewhere": paste_elsewhere,
+    "paste-word": paste_word,
+    "drop-web": drop_web,
+    "mic": mic,
     "where": where,
     "value": value,
     "resize": resize,
@@ -416,7 +425,7 @@ def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
         if not yes:
             line += f" To say yes: box yes {shlex.join([name, *args])}"
         lines.append(line)
-    return "\n".join([said, *closed, *lines, place])
+    return "\n".join([said, *closed, *lines, clock(), place])
 
 
 def main(name: str = "", *args: str) -> str:

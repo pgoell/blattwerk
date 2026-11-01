@@ -83,6 +83,22 @@ def test_a_tab_shut_with_a_save_under_way_keeps_the_newer_change_for_the_next_vi
     assert len(sent) == 1
 
 
+def test_a_save_that_fails_as_the_tab_shuts_does_not_send_the_newer_change(run):
+    """#467: the save under way is answered 503 once the tab has started to shut. pagehide then
+    sends nothing of the newer change. The browser keeps it."""
+    page, gate = start(run)
+    change(run)
+    nudge(run)
+    page.evaluate("dispatchEvent(new Event('beforeunload'))")
+    answer(run, "a", 503)
+    page.evaluate(TURNS)
+    page.evaluate("dispatchEvent(new PageTransitionEvent('pagehide', {persisted: false}))")
+    page.evaluate(TURNS)
+    assert record(page, run.ids["a"])["doc"]["pages"][0]["blocks"][0]["x"] == 17
+    assert not gate.saves
+    assert x_of(run, "a") == 15
+
+
 def test_a_save_the_browser_drops_as_the_tab_shuts_does_not_send_the_newer_change(run):
     """#390: WebKit once aborted the save under way before the tab had shut, and the next visit
     read Gespeichert. The newer change stays for that visit and is not sent beside the first."""

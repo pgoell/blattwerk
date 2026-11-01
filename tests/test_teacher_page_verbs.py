@@ -31,6 +31,7 @@ from test_teacher_page import (
 from ui import (
     PASSWORD,
     RECT,
+    RULING,
     TEXT,
     at,
     box,
@@ -155,6 +156,24 @@ def test_click_turns_the_page_to_the_one_control_below_the_window(editor):
     expect(slider(page)).to_be_focused()
 
 
+def test_497_click_seitenbreite_is_the_one_panel_button(editor):
+    # Issue #497, sheet 2: `click "Seitenbreite"` found the panel's button and the zoom's.
+    # The zoom's button is now "Zoom", and "Seitenbreite" is in its list only while that list
+    # is open. With the list shut the click is the panel's, and the ruling grows to the page.
+    page = editor(box("a", "ruling", {**RULING, "kind": "l2"}, w=80))
+    pick(page, "a")
+    button = page.locator(".panel").get_by_role("button", name="Seitenbreite", exact=True)
+    expect(button).to_be_visible()
+    expect(page.locator("dialog.menu")).to_have_count(0)
+    lines = tool.where(page, "Seitenbreite").splitlines()
+    assert lines == [line for line in lines if line.startswith("Seitenbreite at ")], lines
+    assert len(lines) == 1
+    wide = at(page, "a").evaluate("e => getComputedStyle(e).width")
+    said = tool.click(page, "Seitenbreite")
+    assert said.startswith("clicked at "), said
+    expect(at(page, "a")).not_to_have_css("width", wide)
+
+
 def test_497_click_turns_to_the_one_list_that_shares_a_headings_name(editor):
     # Issue #497: "Aufgabenfamilien" is a heading and the list. With both below the window the
     # turn to the one control and the preference for that control did not combine, and the click
@@ -178,6 +197,34 @@ def test_click_says_a_greyed_control_does_nothing(editor):
     page = editor(box("a", "text", ONE))
     expect(page.get_by_label("Rückgängig", exact=True)).to_be_disabled()
     assert "on a greyed control: nothing happens" in tool.click(page, "Rückgängig")
+
+
+def test_603_a_greyed_order_button_below_the_window_says_so(editor):
+    # Issue #603: `click "Eine nach vorn"` on a greyed button out of view scrolled the panel
+    # to it and did not say "greyed control". The front block is already in front.
+    page = editor(
+        box("a", "shape", RECT, z=1),
+        box("b", "shape", RECT, z=2),
+        box("c", "shape", RECT, z=3),
+    )
+    pick(page, "c")
+    button = page.locator(".panel").get_by_role("button", name="Eine nach vorn", exact=True)
+    expect(button).to_be_disabled()
+    button.evaluate(
+        """el => {
+            const panel = el.closest(".panel");
+            const spacer = document.createElement("div");
+            spacer.style.height = "3000px";
+            panel.insertBefore(spacer, panel.firstChild);
+            panel.scrollTop = 0;
+        }"""
+    )
+    assert button.bounding_box()["y"] >= page.evaluate("innerHeight")
+    said = tool.click(page, "Eine nach vorn")
+    assert "on a greyed control: nothing happens" in said, said
+    assert "(turned the page to it)" in said, said
+    expect(at(page, "c")).to_have_css("z-index", "3")
+    expect(at(page, "a")).to_have_css("z-index", "1")
 
 
 def test_every_verb_says_the_page_it_is_on(editor, monkeypatch):

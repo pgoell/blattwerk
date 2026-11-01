@@ -23,11 +23,16 @@ export function plan(s: Saver, ms: number) {
 // An HTTP status, or a 401 from a session that has since changed. Anything else is the browser dropping the fetch.
 const answered = (e: Refusal) => /^\d+$/.test(e.message) || e.message === "stale";
 
+// Sheets whose save was still out when the tab started to shut. An answer that arrives during the
+// shut, such as a 503, clears `flying`, and pagehide would otherwise send the newer change (#467).
+const departing = new Set<number>();
+
 // One save of a sheet at a time, always based on the saver's version. `closing` is the window that shuts.
 export function send(s: Saver, closing = false) {
   clearTimeout(s.timer);
-  // The save under way was cancelled on the way out. Another on this version would land beside it (#390).
-  if (closing && s.flying) return;
+  // The save under way was cancelled on the way out, or answered while the tab was already shutting.
+  // Another on this version would land beside it (#390, #467).
+  if (closing && (s.flying || departing.has(s.id))) return;
   if (s.dead || s.out || s.clash || s.stop || s.gone || !unsaved(s)) return;
   // A refused document is not sent again. A title changed since still goes, alone: the server keeps the document.
   const held = refusal(s);
@@ -204,7 +209,7 @@ export function attach(id: number, last: () => Kept) {
 
 // A window that shuts runs no script after this: the change is kept, and sent only where no save is under way, for
 // two saves of one sheet on one version would clash with each other. One the browser already dropped still counts:
-// it may arrive after the tab is gone (#390).
+// it may arrive after the tab is gone (#390). So does one that was out when the tab started to shut (#467).
 addEventListener("pagehide", () =>
   savers.forEach((s) => {
     send(s, true);
@@ -215,6 +220,9 @@ document.addEventListener("visibilitychange", () => document.hidden && savers.fo
 addEventListener("online", () => savers.forEach((s) => s.tries && send(s)));
 // The browser asks before the window shuts while a change is unsaved.
 addEventListener("beforeunload", (e) => {
+  for (const s of savers.values()) {
+    if (s.flying || s.out) departing.add(s.id);
+  }
   if (![...savers.values()].some(unsaved)) return;
   e.preventDefault();
   e.returnValue = true;

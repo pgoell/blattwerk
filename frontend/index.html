@@ -16,6 +16,12 @@
     <script>
       // The theme chosen on the account page, set before the first paint; without one it is Blattform.
       document.documentElement.dataset.theme = localStorage.getItem("theme") ?? "leaf";
+      // The app's bar and the footer make way on a sheet. The rule is in this script, not only in the
+      // stylesheet: the build links that file after the module, so the module can paint the bar first (#466).
+      const sheetBar = document.createElement("style");
+      sheetBar.textContent = "html[data-sheet] #root > nav, html[data-sheet] #root > footer { display: none }";
+      document.head.appendChild(sheetBar);
+      if (location.pathname.startsWith("/blatt/")) document.documentElement.dataset.sheet = "";
     </script>
   </head>
   <body>

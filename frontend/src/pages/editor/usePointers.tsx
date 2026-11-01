@@ -31,6 +31,7 @@ export function usePointers(session: ReturnType<typeof useKeyCommands>) {
   const setPan = session.setPan;
   const setPanning = session.setPanning;
   const spaced = session.spaced;
+  const spaceButton = session.spaceButton;
   const stage = session.stage;
   const desk = session.desk;
   const moveable = session.moveable;
@@ -60,21 +61,27 @@ useEffect(() => {
       if (e.type === "keyup" && e.code === "Space") {
         setPan(false);
         const open = spaced.current;
+        const button = spaceButton.current;
         spaced.current = null;
+        spaceButton.current = null;
         if (open) {
           flushSync(open);
           document.execCommand("insertText", false, " ");
-        }
+        } else if (button?.isConnected) button.click();
       }
     };
     const onBlur = () => {
       setMod(0);
       setPan(false);
       spaced.current = null;
+      spaceButton.current = null;
       setPanning(false);
     };
     // A press anywhere, on the hand or in the panel, takes the waiting space back too.
-    const onPress = () => (spaced.current = null);
+    const onPress = () => {
+      spaced.current = null;
+      spaceButton.current = null;
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
     window.addEventListener("blur", onBlur);

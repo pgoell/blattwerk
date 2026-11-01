@@ -5,7 +5,7 @@ import { fresh } from "../../history";
 import { stored, tied, type Block, type Page } from "../../sheet";
 import { landed as carried } from "../../words";
 import { pictureOf } from "../../picture";
-import { atOnce, copied, hash, onTheWay, refused as refusedWords } from "../../clip";
+import { atOnce, behind, copied, hash, onTheWay, refused as refusedWords } from "../../clip";
 import { parasFromHtml } from "../../pasted";
 import { grouped, wholeBlock, cloned } from "./palette";
 import { useInsert } from "./useInsert";
@@ -134,7 +134,7 @@ function copy(held = sel) {
     };
     let gesture: Promise<void>;
     try {
-      gesture = atOnce(() => navigator.clipboard.write([new ClipboardItem({ "image/png": png, "text/plain": text })]));
+      gesture = atOnce(() => navigator.clipboard.write([new ClipboardItem({ "image/png": behind(png), "text/plain": behind(text) })]));
     } catch {
       cancel(new Error("no write"));
       return wordsOnly();
