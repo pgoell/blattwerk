@@ -5,7 +5,7 @@ import { fresh } from "../../history";
 import { stored, tied, type Block, type Page } from "../../sheet";
 import { landed as carried } from "../../words";
 import { pictureOf } from "../../picture";
-import { atOnce, behind, copied, hash, onTheWay, refused as refusedWords } from "../../clip";
+import { atOnce, behind, copied, follow, hash, onTheWay, refused as refusedWords } from "../../clip";
 import { parasFromHtml } from "../../pasted";
 import { grouped, wholeBlock, cloned } from "./palette";
 import { useInsert } from "./useInsert";
@@ -44,6 +44,9 @@ export function useClipboard(session: ReturnType<typeof useInsert>) {
   const align = (...a: any[]) => (session as Record<string, any>).align(...a);
 function copy(held = sel) {
     if (!held.length) return;
+    // Before the browser's own copy, so a picture still being drawn for the previous one sees this
+    // copy and does not land after it (#1011).
+    const n = ++lastCopy.current;
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: carrying(held), ...(linkedAny && { words: live.current.doc.words }) }));
@@ -60,7 +63,7 @@ function copy(held = sel) {
     pending.current = null;
     copied();
     writing.current++;
-    onTheWay(toClipboard(held, words).catch(() => {}).finally(() => writing.current--));
+    onTheWay(toClipboard(held, words, n).catch(() => {}).finally(() => writing.current--));
   }
   // The words and a picture of the blocks go out together. The write starts in the key press, as Safari wants; the
   // picture is drawn after it, and a refused picture still leaves the words.
@@ -109,8 +112,7 @@ function copy(held = sel) {
   // The write starts in the key press, as Safari wants, and the picture fills it in when drawn. It is filled in
   // only while the clipboard is still this copy: a picture copied from elsewhere meanwhile stays (#1011). A write
   // this page starts in between waits until this one has landed, so it cannot be replaced by the late picture.
-  function toClipboard(held: Block[], words: string): Promise<void> {
-    const n = ++lastCopy.current;
+  function toClipboard(held: Block[], words: string, n: number): Promise<void> {
     let settle: (blob: Blob) => void = () => {};
     let cancel: (err: Error) => void = () => {};
     const png = new Promise<Blob>((res, rej) => {
@@ -130,7 +132,10 @@ function copy(held = sel) {
       if (backed || gone || n !== lastCopy.current || !navigator.clipboard?.writeText) return Promise.resolve();
       backed = true;
       countChange();
-      return navigator.clipboard.writeText(words).catch(() => dropChange());
+      // Not left off the queue: a writeText still on its way would replace the copy that came after it.
+      const job = navigator.clipboard.writeText(words).catch(() => dropChange());
+      follow(job);
+      return job;
     };
     let gesture: Promise<void>;
     try {

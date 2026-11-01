@@ -147,6 +147,11 @@ export function onTheWay(write: Promise<unknown>) {
 // first picture would replace the second.
 let tail: Promise<unknown> = Promise.resolve();
 let straight = false;
+// A write that did not go through `clipboard.write`. The next copy waits for it, so it cannot land last.
+export function follow(job: Promise<unknown>) {
+  const prev = tail;
+  tail = prev.then(() => job, () => job);
+}
 
 export function atOnce<T>(run: () => T): T {
   straight = true;
