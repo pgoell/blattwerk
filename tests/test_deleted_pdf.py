@@ -2,6 +2,7 @@
 
 from playwright.sync_api import expect
 from test_pdf_stale import pdf_button
+from test_stale import TURNS
 from ui import TEXT, box, user
 
 
@@ -52,3 +53,38 @@ def test_varianten_pdf_on_a_sheet_deleted_elsewhere_says_so(editor):
     line = page.locator("dialog.variants .clash")
     expect(line).to_contain_text("gelöscht")
     expect(line).to_contain_text("Als neues Blatt behalten")
+
+
+def test_a_late_varianten_answer_for_a_deleted_sheet_keeps_saying_so(editor):
+    """#798: the load is still out when the sheet is deleted and the Varianten PDF is pressed.
+    The 404 that arrives afterwards leaves the deleted line. It is not a failed load."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    sheet_id = int(page.url.rsplit("/", 1)[1])
+    held = []
+    page.route("**/api/sheets/*/variante/*", lambda route: held.append(route))
+    with (
+        page.expect_request("**/api/sheets/*/variante/B"),
+        page.expect_request("**/api/sheets/*/variante/C"),
+        page.expect_request("**/api/sheets/*/variante/D"),
+    ):
+        page.locator("header .top").get_by_label("Varianten drucken", exact=True).click()
+    # The request is seen before its route handler holds the route.
+    page.evaluate(TURNS)
+    assert len(held) == 3
+    assert client.delete(f"/api/sheets/{sheet_id}").status_code == 200
+
+    page.locator("dialog.variants").get_by_role("button", name="PDF", exact=True).click()
+    line = page.locator("dialog.variants .clash")
+    expect(line).to_contain_text("gelöscht")
+    with (
+        page.expect_response("**/api/sheets/*/variante/B"),
+        page.expect_response("**/api/sheets/*/variante/C"),
+        page.expect_response("**/api/sheets/*/variante/D"),
+    ):
+        for route in held:
+            route.continue_()
+    page.evaluate(TURNS)
+    expect(line).to_contain_text("gelöscht")
+    expect(line).to_contain_text("Als neues Blatt behalten")
+    expect(line).not_to_contain_text("konnten nicht geladen")

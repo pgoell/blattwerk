@@ -46,7 +46,6 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   // What a try left when the session ran out, read once here: the line, and the name typed. Taken out of storage
   // at mount, so it shows once. Only for the account that made the try.
   const [note] = useState(() => readNote(user.id));
-  const [name, setName] = useState(note?.name ?? "");
   // Under the name field: why the name was refused. Gone with the next typing.
   const [fieldNote, setFieldNote] = useState("");
   // The new key, shown once. It lives in this state only: not in storage, not in the URL.
@@ -68,6 +67,7 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   const [copy, setCopy] = useState<"done" | "failed" | null>(null);
   const copyTimer = useRef(0);
   const codeEl = useRef<HTMLElement>(null);
+  const nameField = useRef<HTMLInputElement>(null);
 
   function copyKey(token: string) {
     window.clearTimeout(copyTimer.current);
@@ -130,7 +130,9 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
   function create(e: React.FormEvent) {
     e.preventDefault();
     if (busy.current || done.current) return;
-    const label = name.trim();
+    // The field, not a copy in state: a name can be in the DOM before onChange, and Enter
+    // must make that key. The list's answer used to draw "" over it (#749).
+    const label = (nameField.current?.value ?? "").trim();
     if (!label) return setFieldNote("Gib dem Schlüssel einen Namen.");
     if (label.length > 80) return setFieldNote("Der Name ist zu lang: höchstens 80 Zeichen.");
     if (tokens.some((t) => t.name.toLowerCase() === label.toLowerCase())) return setFieldNote(TAKEN);
@@ -141,11 +143,11 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         setMade({ id: fresh.id, token: fresh.token });
         window.clearTimeout(copyTimer.current);
         setCopy(null);
-        setName("");
+        if (nameField.current) nameField.current.value = "";
         setFieldNote("");
         forget();
-        // At once: the field still holds the name until React draws it empty, and the list lacks the key until
-        // `load` is back.
+        // The field is already empty. A second press of this double one must not say the name
+        // is missing. The list lacks the key until `load` is back.
         done.current = true;
       } catch (err) {
         // The server's refusal: the name it already has, or a name it does not take.
@@ -234,12 +236,15 @@ export default function Account({ user, onGone }: { user: User; onGone: () => vo
         <form onSubmit={create}>
           <label htmlFor="key-name">Name des Schlüssels, z. B. Laptop Schule</label>
           <input
+            ref={nameField}
             id="key-name"
             type="text"
             aria-describedby="name-hint name-note"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+            // Not `value`. The list's answer draws again, and a controlled field puts ""
+            // back over a name that reached the DOM without onChange. WebKit's fill did
+            // that once: Enter made no key, and the test waited the 5 s out (#749).
+            defaultValue={note?.name ?? ""}
+            onChange={() => {
               setFieldNote("");
               done.current = false;
             }}

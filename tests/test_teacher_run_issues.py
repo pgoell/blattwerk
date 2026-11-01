@@ -397,3 +397,63 @@ def test_564_a_table_has_no_drehung_and_stays_level():
     source = frontend()
     for label in ("Drehung", "Schneidelinien"):
         assert on_screen(label, source), label
+
+
+# What issue #581 found in the brief's eleventh run.
+
+
+def test_581_key_drag_holds_a_key_and_space_pans_the_desk():
+    # The run tapped Space. A held Space while dragging pans, and a tap leaves the desk.
+    rules = section("## Rules")
+    bullet = next(line for line in rules.splitlines() if line.startswith("  - `key-drag "))
+    assert "`key-drag KEY FROM TO`" in bullet
+    assert "holds `KEY` down" in bullet
+    assert "`key-drag Space X,Y X2,Y2`" in bullet
+    assert "pans the desk" in bullet
+    assert "`key Space` leaves the desk where it is" in bullet
+
+
+def test_581_a_pixel_on_an_open_list_option_is_not_a_choice():
+    # A click at X,Y on an option of an open list did nothing. The run then used the keys.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("  - an option of an open list")
+    )
+    assert "`click X,Y` on it does nothing" in bullet
+    assert "outside the page" in bullet
+    assert "`key ArrowDown`" in bullet
+    assert "`key Enter`" in bullet
+    assert '`click "Druckschrift Nord"`' in bullet
+
+
+def test_581_the_numbering_buttons_keep_their_spaces():
+    # `click "123"` found nothing. The buttons under Nummerierung read `1 2 3` and `a b c`.
+    how = section("## How the editor works")
+    bullet = next(line for line in how.splitlines() if "Nummerierung" in line and "1 2 3" in line)
+    assert '`click "1 2 3"`' in bullet
+    assert "`a b c`" in bullet
+    assert '`click "123"` finds nothing' in bullet
+    numbering = (REPO / "frontend/src/components/Numbering.tsx").read_text()
+    assert '"1 2 3"' in numbering
+    assert '"a b c"' in numbering
+
+
+def test_581_the_tick_grid_is_read_after_the_tool_picks_the_block():
+    # The MCP snapshot lists no block, so the run could not pick one to read the grid's names.
+    how = section("## How the editor works")
+    bullet = next(
+        line for line in how.splitlines() if line.startswith("- A block on the sheet has no name")
+    )
+    assert "snapshot does not list it" in bullet
+    assert "`click X,Y`" in bullet
+    assert "`Ausschnitt`" in bullet
+    assert "`Selbst färben`" in bullet
+    assert "`Selbst verdecken`" in bullet
+    assert "`Feld 1`" in bullet and "`Feld 100`" in bullet
+    assert "`Feld 0`" in bullet and "`Feld 99`" in bullet
+    assert '`where "Feld 100"`' in bullet
+    grid = (REPO / "frontend/src/pages/Hunderterfeld.tsx").read_text()
+    assert "aria-label={`Feld ${v}`}" in grid
+    source = frontend()
+    for label in ("Ausschnitt", "Selbst färben", "Selbst verdecken", "0 bis 99"):
+        assert on_screen(label, source), label

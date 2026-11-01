@@ -26,6 +26,10 @@ function fit(doc: Doc, n: number, pages: number, room: { w: number; h: number })
 export const CLASH = "Dieses Blatt wurde auf einem anderen Gerät geändert. Wähle erst, welche Version gilt; dann druckt das PDF, was du hier siehst.";
 // A newer version saved in another window, loaded by the press (#720).
 export const NEWER = "Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät geändert. Hier steht jetzt der neue Stand.";
+// A sheet deleted elsewhere has no variants and no PDF. The dialog stays so the line can be read.
+const DELETED =
+  "Das PDF konnte nicht erstellt werden. Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät gelöscht. Schließe den Dialog und wähle „Als neues Blatt behalten“.";
+const LOAD_FAILED = "Die Varianten konnten nicht geladen werden.";
 
 type Short = { letter: string; page: number; id: string; type: string };
 type Variant = { doc: Doc; short: Short[] };
@@ -128,8 +132,13 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
     }
     return ready.current;
   }
+  // The load starts as the dialog opens, so its answer can land after a press has learned that the sheet was
+  // deleted. That answer stays the deleted line, not a failed load (#798).
+  function miss() {
+    setFailed(isGone(id) ? DELETED : LOAD_FAILED);
+  }
   useEffect(() => {
-    load().then(setGot, () => setFailed("Die Varianten konnten nicht geladen werden."));
+    load().then(setGot, miss);
   }, []);
   // A press that opened the dialog on the newer sheet prints once, at once: also where the effect runs twice.
   const printed = useRef(false);
@@ -162,7 +171,7 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
     // A sheet deleted elsewhere has no PDF: the line says so and the dialog stays for the reader.
     if (isGone(id)) {
       setBusy(false);
-      return setFailed("Das PDF konnte nicht erstellt werden. Dieses Blatt wurde in einem anderen Fenster oder auf einem anderen Gerät gelöscht. Schließe den Dialog und wähle „Als neues Blatt behalten“.");
+      return setFailed(DELETED);
     }
     setFailed("");
     try {
@@ -170,9 +179,10 @@ export default function Variants({ id, doc, count, setCount, letters, setLetters
       // A lost session goes on to the login, as below.
       const now = await load().catch((e) => {
         if (e.message === "401" || e.message === "stale") throw e;
+        miss();
         return null;
       });
-      if (!now) return setFailed("Die Varianten konnten nicht geladen werden.");
+      if (!now) return;
       setGot(now);
       if (shorts(count, doc, now)[0]) return;
       // The variants were asked for once, at the load: the server may hold an older sheet than the editor shows now.

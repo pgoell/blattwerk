@@ -142,6 +142,9 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
   const hand = useRef([0, 0, 0, 0]);
   // Space pressed on a picked text, shape, table or Lineatur: opens it at the keyup, unless the hand dragged meanwhile.
   const spaced = useRef<(() => void) | null>(null);
+  // The button, link or summary Space went down on. WebKit drops that key's click when the focus
+  // moves before the key comes up, which a dialog just shut does (#582). The keyup presses it.
+  const spaceButton = useRef<HTMLElement | null>(null);
   // The block, and the cell, that Text bearbeiten opens a moment later. A key typed before opens it at once (#640).
   const asked = useRef<{ id: string; cell?: number }>(undefined);
   useEffect(() => {
@@ -209,5 +212,5 @@ export function useLayoutState(session: ReturnType<typeof useSelectionState>) {
   }, [drawnRight]);
   const moveable = useRef<Moveable>(null);
   const picker = useRef<HTMLInputElement>(null);
-    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, templates, setTemplates, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, asked, stage, desk, dragDesk, middlePan, drawnRight, scrolledFrom, moveable, picker });
+    return Object.assign(session, { leaf, left, right, showLeft, showRight, bar, fits, setFits, feedback, focused, late, awaited, refit, tour, setTour, solved, setSolved, mod, setMod, templates, setTemplates, name, setName, guide, setGuide, draft, setDraft, shaping, setShaping, trimming, setTrimming, pdfAsk, setPdfAsk, groundFile, groundHold, room, setRoom, high, setHigh, zoom, setZoom, zoomNow, sizeNow, fitted, fitOn, fitTick, setFitTick, thumb, setThumb, pan, setPan, panning, setPanning, hand, spaced, spaceButton, asked, stage, desk, dragDesk, middlePan, drawnRight, scrolledFrom, moveable, picker });
 }
