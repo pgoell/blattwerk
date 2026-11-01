@@ -3,8 +3,8 @@
 import math
 
 import pytest
-from pixels import LOADED, dark, grey, measures, runs, screen_and_print
-from ui import RECT, TEXT, at, box, expect_picked, pick, sheet, unpick, user
+from pixels import dark, grey, measures, runs, screen_and_print
+from ui import BROWSER, RECT, SETTLED, TEXT, at, box, expect_picked, pick, sheet, unpick, user
 
 from blattwerk import pdf
 
@@ -171,8 +171,9 @@ def test_a_text_too_long_for_its_circle_is_cut_at_the_circle(browser, server):
     pictures = grey(browser, server, client, [box("a", "shape", words, x=40, y=60, **SIZE)])
     for picture in pictures:
         # Words in the circle's middle, and none in its box's corner, which lies outside it.
+        # A lifted glyph can leave one pale pixel in that corner (#504).
         assert max(dark(picture, (60, 70, 80, 80))) > 0.2
-        assert max(dark(picture, (43, 61.8, 48, 64.5))) == 0
+        assert max(dark(picture, (43, 61.8, 48, 64.5))) < 0.02
 
 
 @pytest.mark.parametrize("width", [0.5, 1])
@@ -228,9 +229,15 @@ def test_a_text_in_a_border_keeps_its_place_and_its_rows(browser, server, width)
     paper = browser.new_page(extra_http_headers={"X-Render-Token": pdf.new_token(mine)})
     paper.goto(f"{server}/druck/{mine}")
     paper.wait_for_selector("body.ready", state="attached")
-    places = [tab.evaluate(f"{LOADED}.then({PLACES})") for tab in (shown, paper)]
+    for tab in (shown, paper):
+        tab.evaluate(SETTLED)
+    places = [tab.evaluate(PLACES) for tab in (shown, paper)]
     paper.close()
     context.close()
+    # The screen and the print page in this browser. WebKit lifts both by the same pixel (#504).
+    assert len(places[0]) == len(places[1]) == 3
+    for screen, printed in zip(*places, strict=True):
+        assert screen == pytest.approx(printed, abs=0.02)
     # Where a CSS border had the text: the print laid that border out on whole pixels, rounded
     # down, and the room of a PowerPoint text box, 2.5 mm across and 1.3 mm down, inside it.
     border = max(1, int(width * K))
@@ -239,8 +246,11 @@ def test_a_text_in_a_border_keeps_its_place_and_its_rows(browser, server, width)
     for tab in places:
         assert len(tab) == 3
         for *place, height in tab:
-            # A browser lays a box out on 64ths of a pixel.
-            assert place == pytest.approx([left, top, 60 * K - 2 * left], abs=0.02)
+            # A browser lays a box out on 64ths of a pixel. WebKit lifts the paragraph onto the
+            # print's baseline, a borrowed pixel and a fraction (#504).
+            assert place[0] == pytest.approx(left, abs=0.02)
+            assert place[1] == pytest.approx(top, abs=1.25 if BROWSER == "webkit" else 0.02)
+            assert place[2] == pytest.approx(60 * K - 2 * left, abs=0.02)
             assert round(height / row) == ROWS[width]
 
 
