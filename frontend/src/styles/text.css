@@ -58,7 +58,7 @@
 .fractions .gap { background: linear-gradient(to bottom, transparent calc(50% + .5em - 1.5 * var(--gs)), currentColor 0, currentColor calc(50% + .5em - .5 * var(--gs)), transparent 0); }
 .gap > span, .gap > span * { color: #999 !important; }
 .paper .gap > span { visibility: hidden; }
-.solved .gap > span, .solved .gap > span * { color: #c0392b !important; visibility: visible; }
+.solved .gap > span, .solved .gap > span * { color: var(--key, #c0392b) !important; visibility: visible; }
 /* Lückenwörter: each hidden letter has a line of its own, with a little room between two lines. */
 .rich.holes .gap { margin: 0 .06em; padding: 0 .2em; }
 /* A scrambled word (Schüttelwörter) with a line: the line stands after the word, or under it in a column, as wide as
@@ -85,7 +85,7 @@
 :is(.listed, .lone) .mix .gap.line > svg, .mix.wide .gap.line > svg { top: calc(100% - .5lh + .5em - var(--gl)); }
 :is(.listed, .lone) .mix.under, .mix.wide.under { max-width: 100%; }
 :is(.listed, .lone) .mix.under > *, .mix.wide.under > * { max-width: 100%; }
-.mixkey, .mixkey * { color: #c0392b !important; }
+.mixkey, .mixkey * { color: var(--key, #c0392b) !important; }
 /* With gapWidth every gap is at least --gap wide, and its words stand centred in it. */
 /* A gap of many words wraps inside its box, and its line lies under each row. */
 .even .gap { display: inline-block; min-width: var(--gap); max-width: 100%; text-align: center; background: linear-gradient(to bottom, transparent calc(50% + .5em - var(--gl)), currentColor 0, currentColor calc(50% + .5em), transparent 0) 0 0 / 100% 1lh repeat-y; }

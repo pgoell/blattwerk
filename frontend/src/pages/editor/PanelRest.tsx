@@ -1,6 +1,7 @@
 // The Lernwörter and the Ansicht of the format panel.
 import { Eraser, Layers, SeparatorHorizontal, SeparatorVertical } from "lucide-react";
 import { RULINGS, type PageNumbers } from "../../sheet";
+import { KEY_RED } from "../../sheet/doc";
 import { pasted } from "../../words";
 import Format from "../Format";
 import { INSERTS } from "../../insert";
@@ -41,6 +42,21 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
   const turn = session.turn;
   const update = session.update;
   const words = session.words;
+  const keyColor = typeof hist.doc.keyColor === "string" ? hist.doc.keyColor : undefined;
+  const keyAsText = hist.doc.keyAsText === true;
+  // A picked colour stays while "Wie der Text" is on, so coming back shows it again.
+  const answers = (color: string | undefined, asText: boolean) => {
+    const next = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : undefined;
+    if (keyAsText === asText && keyColor?.toLowerCase() === next) return;
+    update((doc) => {
+      const kept = { ...doc };
+      if (asText) kept.keyAsText = true;
+      else delete kept.keyAsText;
+      if (next) kept.keyColor = next;
+      else delete kept.keyColor;
+      return kept;
+    }, "keyColor");
+  };
   return (
     <>
           {tab === "Lernwörter" && (
@@ -193,6 +209,17 @@ export default function PanelRest({ s: session }: { s: ReturnType<typeof useTool
                     <button className={folio.black ? "on" : ""} aria-pressed={folio.black} onClick={() => numbering({ black: true })}>Schwarz</button>
                   </div>
                 </>
+              )}
+              <h2>Lösungsfarbe</h2>
+              <div className="seg" role="group" aria-label="Lösungsfarbe">
+                <button className={keyAsText ? "" : "on"} aria-pressed={!keyAsText} onClick={() => answers(keyColor, false)}>Farbe</button>
+                <button className={keyAsText ? "on" : ""} aria-pressed={keyAsText} onClick={() => answers(keyColor, true)}>Wie der Text</button>
+              </div>
+              {!keyAsText && (
+                <label>
+                  Farbe
+                  <input type="color" aria-label="Farbe der Lösungen" value={(keyColor ?? KEY_RED).toLowerCase()} onChange={(e) => answers(e.target.value, false)} />
+                </label>
               )}
               {/* Here too, not only in the bar: an iPad's bar has no room for it and folds it under "Mehr". */}
               <h2>Drucken</h2>
