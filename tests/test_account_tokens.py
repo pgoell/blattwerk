@@ -36,15 +36,22 @@ def bearer(token):
     return client
 
 
-def make(page, name):
-    """Types the name and presses Enter, then gives the key as the page shows it."""
+def type_name(page, name):
+    """Types the name and waits until the field shows it.
+
+    fill() on WebKit sends insertText to whatever is focused, and that can miss this
+    field. The letters never arrive, so waiting longer does not help (#749).
+    """
     field = page.get_by_label("Name des Schlüssels")
-    # The field is a controlled input. WebKit's fill writes the DOM and often never
-    # tells React, so the next draw of the list puts the name back to empty (#749).
-    # Keys go through onChange, and a later draw keeps what was typed.
     field.click()
     field.press_sequentially(name)
     expect(field).to_have_value(name)
+    return field
+
+
+def make(page, name):
+    """Types the name and presses Enter, then gives the key as the page shows it."""
+    type_name(page, name)
     page.keyboard.press("Enter")
     shown = page.locator("[data-testid=new-token] code")
     expect(shown).to_have_text(re.compile(r"^bt_"))
@@ -103,7 +110,7 @@ def test_last_use_shows_on_the_list(account):
 
 def test_a_blank_name_makes_nothing(account):
     page = account(user())
-    page.get_by_label("Name des Schlüssels").fill("   ")
+    type_name(page, "   ")
     page.keyboard.press("Enter")
     expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
     expect(page.get_by_test_id("new-token")).to_have_count(0)
@@ -197,7 +204,7 @@ def test_a_key_not_made_when_the_session_ran_out_is_said_after_the_login(account
     expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
     page.wait_for_load_state("networkidle")
     page.context.clear_cookies()
-    page.get_by_label("Name des Schlüssels").fill("Danach")
+    type_name(page, "Danach")
     page.keyboard.press("Enter")
     expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
     cookie = {"name": "session", "value": client.cookies["session"], "url": server}
@@ -217,7 +224,7 @@ def test_the_note_of_one_teacher_never_shows_to_the_next_one_at_that_login(accou
     expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
     page.wait_for_load_state("networkidle")
     page.context.clear_cookies()
-    page.get_by_label("Name des Schlüssels").fill("Danach")
+    type_name(page, "Danach")
     page.keyboard.press("Enter")
     expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
     other = user()
@@ -237,7 +244,7 @@ def test_the_note_shows_once_and_a_reload_takes_it_away(account, server):
     expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
     page.wait_for_load_state("networkidle")
     page.context.clear_cookies()
-    page.get_by_label("Name des Schlüssels").fill("Danach")
+    type_name(page, "Danach")
     page.keyboard.press("Enter")
     expect(page.get_by_role("button", name="Anmelden")).to_be_visible()
     cookie = {"name": "session", "value": client.cookies["session"], "url": server}
@@ -253,8 +260,7 @@ def test_the_note_shows_once_and_a_reload_takes_it_away(account, server):
 
 def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
     page = account(user())
-    field = page.get_by_label("Name des Schlüssels")
-    field.fill("Doppelt")
+    field = type_name(page, "Doppelt")
     page.get_by_role("button", name="Schlüssel erstellen").dblclick()
     expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
     page.wait_for_timeout(500)
@@ -265,8 +271,7 @@ def test_a_double_press_on_erstellen_makes_one_key_and_no_more_words(account):
 
 def test_enter_pressed_twice_makes_one_key_and_no_more_words(account):
     page = account(user())
-    field = page.get_by_label("Name des Schlüssels")
-    field.fill("Doppelt")
+    field = type_name(page, "Doppelt")
     made = []
     page.on(
         "request", lambda r: r.method == "POST" and r.url.endswith("/api/tokens") and made.append(r)
@@ -280,6 +285,68 @@ def test_enter_pressed_twice_makes_one_key_and_no_more_words(account):
     expect(field).to_have_accessible_description(HINT)
 
 
+# What WebKit's fill did on the failed run: the name is in the DOM, and React was not told.
+SET_DOM = """(value) => {
+  const el = document.getElementById("key-name");
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value);
+}"""
+
+
+def test_a_name_in_the_field_stays_when_the_key_list_arrives(browser, server):
+    """The list's answer must not clear a name the field already shows (#749).
+
+    WebKit's fill once wrote that name into the field and not into React. The list
+    then drew the empty state over it, Enter made no key, and the test sat out the
+    5 s waiting for one that was never asked for.
+    """
+    client = user()
+    context = browser.new_context()
+    held = []
+
+    def hold(route):
+        if route.request.method == "GET":
+            held.append(route)
+        else:
+            route.continue_()
+
+    context.add_cookies([{"name": "session", "value": client.cookies["session"], "url": server}])
+    context.route("**/api/tokens", hold)
+    context.route("**/api/connections", hold)
+    page = context.new_page()
+    try:
+        # The effect asks for both lists after the first paint. Wait until those two are
+        # held, or a slow one arrives after we let go and the test waits on it forever.
+        with (
+            page.expect_request(lambda r: r.method == "GET" and "/api/tokens" in r.url),
+            page.expect_request(lambda r: r.method == "GET" and "/api/connections" in r.url),
+        ):
+            page.goto(f"{server}/konto")
+        field = page.get_by_label("Name des Schlüssels")
+        expect(field).to_be_visible()
+        page.evaluate(SET_DOM, "Laptop")
+        expect(field).to_have_value("Laptop")
+        with (
+            page.expect_response(lambda r: "/api/tokens" in r.url and r.request.method == "GET"),
+            page.expect_response(
+                lambda r: "/api/connections" in r.url and r.request.method == "GET"
+            ),
+        ):
+            for route in held:
+                route.continue_()
+        context.unroute("**/api/tokens", hold)
+        context.unroute("**/api/connections", hold)
+        # Both answers have been drawn. The name that was already in the field stays.
+        page.evaluate(
+            "() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))"
+        )
+        expect(field).to_have_value("Laptop")
+        field.press("Enter")
+        expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
+        expect(row(page, "Laptop")).to_be_visible()
+    finally:
+        context.close()
+
+
 def test_a_name_typed_while_the_list_loads_makes_its_key(account):
     """Review of #934: the guard against a double press lets go once the teacher types."""
     page = account(user())
@@ -287,12 +354,11 @@ def test_a_name_typed_while_the_list_loads_makes_its_key(account):
     page.route(
         "**/api/tokens", lambda r: held.append(r) if r.request.method == "GET" else r.continue_()
     )
-    field = page.get_by_label("Name des Schlüssels")
-    field.fill("Erster")
+    field = type_name(page, "Erster")
     page.keyboard.press("Enter")
     expect(page.locator("[data-testid=new-token] code")).to_have_text(re.compile(r"^bt_"))
     expect(field).to_have_value("")
-    field.fill("Zweiter")
+    type_name(page, "Zweiter")
     with page.expect_request(lambda r: r.method == "POST" and r.url.endswith("/api/tokens")):
         page.keyboard.press("Enter")
     for route in held:

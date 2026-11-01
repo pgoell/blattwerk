@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import expect
 from test_fields import enter, field, number
 from test_group_scale_turned import SHAPES, turned_group
-from ui import BROWSER, centre, drag, user
+from ui import centre, drag, user
 
 
 def drag_se_outward(page):
@@ -134,13 +134,6 @@ def test_a_percent_of_a_handle_dragged_group_shows_half_its_size(editor):
     expect(field(page, "Höhe")).to_have_value(f"{before / 2:g}".replace(".", ","))
 
 
-@pytest.mark.xfail(
-    BROWSER == "webkit",
-    reason="#793: in WebKit under CI load the typed 80 is lost and Breite keeps the drag's "
-    "69,15; 48 of 48 pass on 48 workers, and in the same CI run a fill into the key's name "
-    "was lost too (test_account_tokens), so maybe the fill and not the drag",
-    strict=False,
-)
 def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
     """Edge case: one undo takes back the one typed entry, the handle drag stays."""
     client = user()
@@ -153,6 +146,34 @@ def test_a_typed_size_is_one_undo_step_after_a_handle_drag(editor):
     expect(field(page, "Breite")).to_have_value("80")
     page.keyboard.press("Control+z")
     expect(field(page, "Breite")).not_to_have_value("80")
+
+
+# Writes 80 into the DOM and fires no input event, as WebKit's fill has done (#749).
+PLANT = """el => {
+  el.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "80");
+}"""
+
+
+def test_a_size_in_the_field_before_onchange_survives_a_redraw_after_a_handle_drag(editor):
+    """A redraw used to put the drag's size back over an 80 that had not gone through onChange (#793)."""
+    page = turned_group(editor, user(), *SHAPES)
+    drag_se_outward(page)
+    dragged = field(page, "Breite").input_value()
+    field(page, "Breite").evaluate(PLANT)
+    expect(field(page, "Breite")).to_have_value("80")
+    # The desk's size changes and the panel draws again, while the field keeps the focus.
+    width = page.evaluate("() => document.querySelector('.desk').clientWidth")
+    page.set_viewport_size({"width": 1100, "height": 800})
+    page.wait_for_function(
+        "(width) => document.querySelector('.desk').clientWidth !== width", arg=width
+    )
+    page.evaluate(TICK)
+    expect(field(page, "Breite")).to_have_value("80")
+    field(page, "Breite").press("Enter")
+    expect(field(page, "Breite")).to_have_value("80")
+    page.keyboard.press("Control+z")
+    expect(field(page, "Breite")).to_have_value(dragged)
 
 
 def test_a_drag_and_an_undo_after_a_typed_size_show_the_measured_size(editor):
