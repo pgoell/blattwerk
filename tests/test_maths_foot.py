@@ -44,6 +44,19 @@ def panel(name):
     return lambda page: page.locator(".panel").get_by_role("button", name=name, exact=True).click()
 
 
+def arrived(page, routes):
+    """A click returns before its request reaches the route.
+
+    Waits out the same 5 s as an expect, and returns as soon as the route has the request.
+    """
+
+    for _ in range(50):
+        if routes:
+            return
+        page.wait_for_timeout(100)
+    assert routes, "the maths request has not reached the route"
+
+
 def asked(action):
     """The action, and the answer to it: the new exercises have come from the server."""
 
