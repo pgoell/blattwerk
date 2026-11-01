@@ -260,7 +260,10 @@ def test_text_stands_on_the_lineatur_line(editor, kind, font):
         at(page, "typed").screenshot(), blank, {"l1": 20, "l2": 16, "l3": 11.5, "l4": 10}[kind]
     )
     baseline = {"l1": 12.5, "l2": 10, "l3": 7.5, "l4": 10}[kind]
-    assert abs(foot - baseline) <= 0.4, (kind, font, top, foot)
+    # One pixel of this shot is half a millimetre. On Lineatur 1 the print borrows a pixel, and
+    # WebKit's ink of that same place falls in the shot's pixel above the line (#504).
+    foot_limit = 0.55 if BROWSER == "webkit" and kind == "l1" else 0.4
+    assert abs(foot - baseline) <= foot_limit, (kind, font, top, foot)
     # The x-height: half the size above the baseline; for l4 the ink rises 3 mm. The x touches
     # the ruling's line there, and WebKit's line hides a row of pixels more, half a millimetre.
     x_top = {"l1": 7.5, "l2": 6, "l3": 4, "l4": 7}[kind]
