@@ -1,4 +1,5 @@
 """Eine Aufgabe weniger keeps the other exercises (issue #903); an overtaken click is not redone (issue #902).
+An owed click a later one carried and landed is not redone either (issue #908).
 
 The docstrings name the case each test proves. The session goes by `page.context.clear_cookies()`, the
 login by hand, as in test_signed_out_input.py. Plus and minus up to 100: for those the server draws a new
@@ -12,7 +13,7 @@ from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
 from test_saves import NOTICE
 from test_signed_out import expect_login, expect_sheet, login
-from ui import box, maths, pick, sheet, user
+from ui import box, maths, pick, reload, sheet, user
 
 WAITS_NOTICE = "Die letzte Änderung an „m“ ist noch nicht gespeichert. Melde dich neu an, dann wird sie gespeichert."
 LIMITS = {"ops": ["+", "-"], "max": 100, "format": "row"}
@@ -181,3 +182,42 @@ def test_902_an_overtaken_click_that_meets_a_run_out_session_is_not_redone_after
     expect_sheet(page)
     expect(page.locator(TASKS)).to_have_count(14)
     assert block_of(client, sheet_id)["count"] == 14
+
+
+def panel_count(page):
+    """The Aufgaben count between Eine Aufgabe weniger and Eine Aufgabe mehr."""
+    return (
+        page.locator(".panel .seg")
+        .filter(has=page.get_by_label("Eine Aufgabe weniger", exact=True))
+        .locator("output")
+    )
+
+
+def test_908_an_owed_mehr_is_moot_once_a_later_weniger_lands(window, server):
+    """#908: "mehr" meets a run out session and is owed as 11. Signed in again in another tab,
+    "weniger" carries that change and lands at 10. The owed "mehr" is moot: a reload keeps 10."""
+    page, client, sheet_id = maths_sheet(window, server, 10)
+    address = f"{server}/blatt/{sheet_id}"
+    held = []
+    page.route("**/api/maths", lambda route: held.append(route))
+    page.context.clear_cookies()
+    page.get_by_label("Eine Aufgabe mehr").click()
+    expect(panel_count(page)).to_have_text("11 Aufgaben")
+    # The other tab's sign-in: this tab hears nothing, and the click still out answers 401.
+    page.context.add_cookies(
+        [{"name": "session", "value": client.cookies["session"], "url": server}]
+    )
+    page.get_by_label("Eine Aufgabe weniger").click()
+    expect(panel_count(page)).to_have_text("10 Aufgaben")
+    held[0].fulfill(status=401, body="{}")
+    expect_login(page, address)
+    held[1].continue_()
+    page.wait_for_function(f"() => localStorage.getItem('owed:{sheet_id}') === null", timeout=5000)
+    page.unroute("**/api/maths")
+    reload(page, page.url)
+    expect_sheet(page)
+    pick(page, "m")
+    # A redo of the owed "mehr" would put 11 back within this wait, and the loop stops there.
+    got = wait_saved(page, client, sheet_id, lambda p: p["count"] != 10)
+    assert got["count"] == 10
+    expect(page.locator(TASKS)).to_have_count(10)

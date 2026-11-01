@@ -46,3 +46,27 @@ export function takeOwed(id: number, owner: number): Owed[] {
   tell();
   return list;
 }
+// A later click carried these and landed, so each is on the sheet. Left owed, the redo would put the old change
+// back over that answer (#908). `changes` are the objects `owe` stored: the sheet is the saver that still holds them.
+export function dropOwed(block: string, changes: Owed["change"][]) {
+  if (!changes.length) return;
+  for (const s of savers.values()) {
+    if (s.dead || !s.owed) continue;
+    const hit = s.owed.filter((e) => e.block === block && changes.some((c) => c === e.change));
+    if (!hit.length) continue;
+    const left = s.owed.filter((e) => !hit.includes(e));
+    s.owed = left.length ? left : undefined;
+    const all = owedIn(s.id);
+    if (all) {
+      const mine = all.filter((e) => e.owner === s.owner);
+      const rest = all.filter((e) => e.owner !== s.owner);
+      for (const gone of hit) {
+        const at = mine.findIndex((e) => e.block === block && JSON.stringify(e.change) === JSON.stringify(gone.change));
+        if (at >= 0) mine.splice(at, 1);
+      }
+      owedTo(s.id, [...mine, ...rest]);
+    }
+    keep(s);
+    tell();
+  }
+}
