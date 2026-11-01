@@ -3,9 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { flushSync } from "react-dom";
 import { attempt, drop } from "../../fault";
 import type { Owed } from "../../saves";
-import { dropOwed } from "../../saves/owed";
 import { decimalsOf, overFoot, scaleOf, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../../sheet";
 import { anyDigits, ask, GAPS, generate, kept, ROOMS, type Key } from "./ask";
+import { owedLanded } from "./landed";
 
 export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: string) => boolean, foot: number, owe: (entry: Owed) => void) {
   // The changed limits of the clicks still on their way, shown until the server's exercises for them are on the sheet.
@@ -112,7 +112,7 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
       // The line of an earlier failed click is moot now: its change is on the sheet with this answer.
       // So is a click the session ran out on: a redo would put it back over this one (#908).
       if (ok) {
-        if (borne.current.length) dropOwed(block.id, borne.current);
+        if (borne.current.length) owedLanded(block.id, borne.current);
         borne.current = [];
         carry.current = {};
         drop("Die Aufgaben konnten nicht erzeugt werden.");
