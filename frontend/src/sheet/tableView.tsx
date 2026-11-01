@@ -5,6 +5,7 @@ import { heightsOf, spansOf, rectOf } from "../cells";
 import { edged, linesOf, type Pen } from "../edges";
 import { pairOf, splitting, Bows } from "./bows";
 import { useBreaks } from "./context";
+import { useRealFonts } from "./fontReady";
 import { keepsFractions, textStyle, fadeOf, fadeAt, traceOf, FONTS, fontOf } from "./look";
 import { gapWidth, gapVar, classes, Bank } from "./shape";
 import type { TableBlock } from "./table";
@@ -16,6 +17,7 @@ import { type ReactNode, useRef, useLayoutEffect, useState, type CSSProperties }
 // the middle of its cell's height. The editor passes the field for the cell `at`, counted row by row: the cell's
 // own text, unseen, keeps the field as high as its lines.
 export function Table({ block, k, at, reach, solved, children }: { block: TableBlock; k: number; at?: number; reach?: number; solved: boolean; children?: ReactNode }) {
+  useRealFonts();
   const { cells, cols, line, head, syllables, breaks: own, tintsAcross, gaps } = block.props;
   const breaks = useBreaks(own);
   const tints = pairOf(block.props.tints);
