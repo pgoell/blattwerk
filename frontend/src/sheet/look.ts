@@ -152,8 +152,10 @@ export const colsOf = (b: RulingBlock) => Math.floor(b.w / RULINGS[kindOf(b.prop
 // WebKit keeps the fraction of a line's baseline, Chromium (the print) puts it on a whole pixel: the text of a
 // Lineatur then lies up to a pixel lower on the screen than in the print (issue #499). Measured once.
 export let keepsFraction: boolean | undefined;
-// Each font's whole-pixel ascent and descent by family and size, from a canvas.
+// Each font's whole-pixel ascent and descent by the canvas font string, from a canvas.
 export const metrics = new Map<string, [number, number]>();
+// A font's descent over its size, measured large so a whole pixel of rounding is a small share of it.
+const descentRatio = new Map<string, number>();
 export function keepsFractions() {
   if (keepsFraction === undefined) {
     if (typeof document === "undefined") return false;
@@ -170,21 +172,45 @@ export function keepsFractions() {
   }
   return keepsFraction;
 }
-// The fraction in px of a first row's baseline: half the line height plus half the difference of ascent and
-// descent. None while the font is not loaded, since the canvas would measure another font.
-export function baselineFraction(family: string | undefined, size: number, lineHeight: number) {
-  if (!family || !keepsFractions() || !document.fonts.check(`${size}px "${family}"`)) return 0;
-  const key = `${family}|${size}`;
-  if (!metrics.has(key)) {
+// How many whole pixels Chromium borrows from the ascent. On Linux, with geometricPrecision, Blink rounds
+// Skia's descent to a whole pixel and, when that rounded it down, takes the pixel back from the ascent
+// (AscentDescentWithHacks). WebKit does not. A descent a few thousandths past a whole pixel can still go
+// the other way: the canvas ratio is only good to half a pixel at the size it was measured.
+function borrowed(family: string, size: number, weight: number, italic: boolean) {
+  const key = `${italic}|${weight}|${family}`;
+  let ratio = descentRatio.get(key);
+  if (ratio === undefined) {
+    if (document.fonts.status !== "loaded") return 0;
     const ctx = document.createElement("canvas").getContext("2d")!;
-    ctx.font = `${size}px "${family}"`;
-    const n = ctx.measureText("n");
-    metrics.set(key, [n.fontBoundingBoxAscent, n.fontBoundingBoxDescent]);
+    ctx.font = `${italic ? "italic" : "normal"} ${weight} 6400px "${family}"`;
+    const descent = ctx.measureText("n").fontBoundingBoxDescent;
+    ratio = descent > 0 ? descent / 6400 : 0;
+    descentRatio.set(key, ratio);
   }
-  const [ascent, descent] = metrics.get(key)!;
+  const down = ratio * size;
+  // 24 pt lands a binary hair under a half, which would borrow a pixel the print does not (#504).
+  const half = Math.round(down * 2) / 2;
+  const at = Math.abs(down - half) < 1e-4 ? half : down;
+  return Math.floor(at + 0.5) < at ? 1 : 0;
+}
+// How far in px to lift a line in WebKit so its baseline meets the print: the fraction past the whole pixel,
+// and the pixel Chromium borrowed.
+export function baselineLift(family: string | undefined, size: number, lineHeight: number, weight = 400, italic = false) {
+  const face = `${italic ? "italic" : "normal"} ${weight} ${size}px "${family}"`;
+  if (!family || !keepsFractions()) return 0;
+  // A panel font puts the status back to loading. A measured face keeps its lift (#504).
+  const seen = metrics.has(face);
+  if (!seen && (document.fonts.status !== "loaded" || !(document.fonts.check(face) || document.fonts.check(`${size}px "${family}"`)))) return 0;
+  if (!seen) {
+    const ctx = document.createElement("canvas").getContext("2d")!;
+    ctx.font = face;
+    const n = ctx.measureText("n");
+    metrics.set(face, [n.fontBoundingBoxAscent, n.fontBoundingBoxDescent]);
+  }
+  const [ascent, descent] = metrics.get(face)!;
   const baseline = lineHeight / 2 + (ascent - descent) / 2;
   // A browser whose canvas does not tell a font's ascent takes nothing off.
-  return Number.isFinite(baseline) ? baseline - Math.floor(baseline) : 0;
+  return Number.isFinite(baseline) ? baseline - Math.floor(baseline) + borrowed(family, size, weight, italic) : 0;
 }
 // Where the text on a ruling lies in its block: a line of text to a row, the baseline on the row's writing line.
 // The box ends below the last row's descenders, so text past the last row is cut off.
@@ -217,7 +243,7 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
   // The text starts right of a house. Border-box keeps the padding inside the full width of the box.
   const indent = indentOf(b);
   const family = look === "dotted" ? dottedFamily(b.props.font) : font[1];
-  const fraction = baselineFraction(family, size * s * k, row * k);
+  const lift = baselineLift(family, size * s * k, row * k);
   // An outline or a dotted cut reaches past the box's left edge: the box takes `ext` px more to the left and its
   // padding takes them back, so no letter moves. Whole px, as the cut is (see `.frame` in styles.css).
   // A plain or grey text reaches as far as its font's letters (#489).
@@ -229,7 +255,7 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
     fontFamily: family,
     fontSize: size * s * k,
     lineHeight: `${row * k}px`,
-    top: top * k - fraction,
+    top: top * k - lift,
     height: (rowsOf(b) * row - top + Math.max(0, base + size / 2 - row)) * k,
     color: look === "grey" ? "#aaaaaa" : undefined,
     ...(look === "outline" && OUTLINE),
@@ -239,15 +265,23 @@ export function writtenStyle(b: RulingBlock, k: number): CSSProperties {
 export const textStyle = (p: TextProps, k: number): CSSProperties => {
   // A dotted trace is the font's own dotted cut, regular and upright, so a bold or italic setting does not smear it.
   const dotted = traceOf(p) === "dotted";
+  const family = dotted ? dottedFamily(p.font) : FONTS[fontOf(p.font)][1];
+  const size = p.size * PT * k;
+  const spacing = typeof p.spacing === "number" && Number.isFinite(p.spacing) ? p.spacing : 1.3;
+  const weight = p.bold && !dotted ? 700 : 400;
+  const italic = !!(p.italic && !dotted);
+  // WebKit only (baselineLift is 0 otherwise): the same lift a Lineatur takes, on the text and not the box (#504).
+  const lift = baselineLift(family, size, size * spacing, weight, italic);
   return {
-    fontFamily: dotted ? dottedFamily(p.font) : FONTS[fontOf(p.font)][1],
-    fontSize: p.size * PT * k,
-    fontWeight: p.bold && !dotted ? 700 : 400,
-    fontStyle: p.italic && !dotted ? "italic" : "normal",
+    fontFamily: family,
+    fontSize: size,
+    fontWeight: weight,
+    fontStyle: italic ? "italic" : "normal",
     textDecoration: p.underline ? "underline" : "none",
     textAlign: p.align,
     color: p.color,
-    lineHeight: p.spacing ?? 1.3,
+    lineHeight: spacing,
+    ...(lift > 0 && ({ "--lift": `${lift}px` } as CSSProperties)),
   };
 };
 // How far in mm a text keeps its letters from its box's edge, down and across: its border, and the room a
