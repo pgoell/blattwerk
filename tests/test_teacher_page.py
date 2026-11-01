@@ -71,8 +71,10 @@ def shape(editor, client=None):
     tool.click(page, xy(at(page, "a")))
     expect(slider(page)).to_have_value("0.5")
     assert tool.where(page, "Randstärke").endswith("(outside the window)")
-    # A heading of the panel that lies in the window: the one over the border has moved below it.
-    tool.wheel(page, "Schrift", "540")
+    # Schrift lies in the window, so the wheel turns the panel. Sonderzeichen is one control
+    # of 28px under the marks: 540 left Randstärke 2.7px below the window, and 568 brings
+    # it back in with the room it had.
+    tool.wheel(page, "Schrift", "568")
     expect(slider(page)).to_be_in_viewport(ratio=1)
     return page
 
