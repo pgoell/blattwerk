@@ -43,6 +43,7 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
   const panning = session.panning;
   const pick = session.pick;
   const scrollHeld = session.scrollHeld;
+  const wheeled = session.wheeled;
   const sel = session.sel;
   const setFinger = session.setFinger;
   const setIds = session.setIds;
@@ -91,7 +92,13 @@ export default function Stage({ s: session }: { s: ReturnType<typeof useTools> }
           // How wide the widest page lies on the desk: the room an open Format drawer adds starts past it.
           style={{ "--reach": `${widest * k}px` } as CSSProperties}
           onScroll={follow}
-          onWheel={(e) => !(e.ctrlKey || e.metaKey) && steer()}
+          // A text being typed keeps its page until it closes. The mark is taken on the wheel, while the text is
+          // still open: the scroll event can arrive after the field has closed (#579).
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) return;
+            if (editing) wheeled.current = true;
+            steer();
+          }}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
               scrollHeld.current = true;
