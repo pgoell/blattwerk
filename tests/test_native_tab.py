@@ -22,6 +22,7 @@ PLACE = ["Aufzählung", "Nummerierung", "Links", "Mitte", "Rechts", "Oben", "Mit
 TURN = [
     "Farbe",
     "Zeilenabstand",
+    "Zeichenabstand",
     "Nachspurtext",
     "Silbenbögen",
     "Silbenfarbe",

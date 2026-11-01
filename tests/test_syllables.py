@@ -230,6 +230,8 @@ def test_tab_reaches_the_switch_and_space_and_enter_press_it(editor):
     page = editor(box("a", "text", WORDS))
     pick(page, "a")
     page.get_by_label("Zeilenabstand").focus()
+    # Zeichenabstand, then Nachspurtext, then the switch.
+    page.keyboard.press("Tab")
     page.keyboard.press("Tab")
     page.keyboard.press("Tab")
     expect(switch(page)).to_be_focused()
