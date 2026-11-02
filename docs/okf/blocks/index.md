@@ -55,3 +55,5 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 * [uhr](uhr.md): The clock faces, their times and the task: read the time or draw the hands.
 
 * [selbstkontrolle](selbstkontrolle.md): The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right.
+
+* [karofeld](karofeld.md): A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry.

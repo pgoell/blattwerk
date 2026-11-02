@@ -100,6 +100,7 @@ def vary(doc: dict, letter: str) -> tuple[dict, list[dict]]:
                 "hunderterfeld",
                 "uhr",
                 "selbstkontrolle",
+                "karofeld",
             ) and whole(props.get("seed")):
                 props["seed"] = derived(props["seed"], letter)
                 # The numbers and operators a teacher typed belong to the stored ones.

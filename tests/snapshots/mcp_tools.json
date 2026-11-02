@@ -336,6 +336,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "karofeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/KarofeldBlock"
+              }
             }
           ],
           "properties": {
@@ -380,7 +392,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "karofeld"
               ],
               "type": "string"
             },
@@ -1344,6 +1357,144 @@
           ],
           "type": "object"
         },
+        "KaroMark": {
+          "enum": [
+            ",",
+            "."
+          ],
+          "type": "string"
+        },
+        "KarofeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/KarofeldProps",
+              "description": "A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry."
+            },
+            "type": {
+              "const": "karofeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "KarofeldProps": {
+          "properties": {
+            "caret": {
+              "description": "The square the next sign goes in, as [column, row] counted from 0. Left out, the first square.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cells": {
+              "description": "The squares, row by row from the top left. A missing row or square is empty.",
+              "items": {
+                "items": {
+                  "$ref": "#/definitions/Square"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "cols": {
+              "description": "Squares across the grid.",
+              "maximum": 30,
+              "minimum": 1,
+              "type": "number"
+            },
+            "look": {
+              "$ref": "#/definitions/Look",
+              "description": "What is drawn: \"karos\" the squares, \"kreise\" a circle in each square, \"punkte\" a dot in each square, \"iso\" an isometric grid."
+            },
+            "rows": {
+              "description": "Squares down the grid.",
+              "maximum": 40,
+              "minimum": 1,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Stored with the block, as the other maths blocks store a seed. The grid does not use it.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Side of one square in mm. The letter is a fixed share of it.",
+              "maximum": 16,
+              "minimum": 4,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
         "KetteTyped": {
           "description": "A number the teacher typed into a ring: the chain's index (from 0), the ring's index (from 0), the value (0 to 9999).",
           "items": {
@@ -1389,6 +1540,15 @@
             "trace",
             "row",
             "fold"
+          ],
+          "type": "string"
+        },
+        "Look": {
+          "enum": [
+            "karos",
+            "kreise",
+            "punkte",
+            "iso"
           ],
           "type": "string"
         },
@@ -3862,6 +4022,34 @@
             }
           ],
           "type": "array"
+        },
+        "Square": {
+          "properties": {
+            "fill": {
+              "description": "Background colour of the square, a six-digit hex colour such as #ffe066. Left out, none.",
+              "type": "string"
+            },
+            "line": {
+              "description": "A Lösungsstrich under the square, for the pupil to write on. Left out, none.",
+              "type": "boolean"
+            },
+            "mark": {
+              "$ref": "#/definitions/KaroMark",
+              "description": "A comma or a point attached to the digit. Left out, none."
+            },
+            "sign": {
+              "description": "The one digit or sign in the square. Left out, the square is empty.",
+              "type": "string"
+            },
+            "thick": {
+              "description": "Thick edges, in order top, right, bottom, left. Left out, every edge is thin.",
+              "items": {
+                "type": "boolean"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "SuchselBlock": {
           "properties": {
@@ -6433,6 +6621,9 @@
             },
             {
               "$ref": "#/definitions/SelbstkontrolleProps"
+            },
+            {
+              "$ref": "#/definitions/KarofeldProps"
             }
           ],
           "description": "the block's settings; partial is fine"
@@ -6468,7 +6659,8 @@
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
-            "selbstkontrolle"
+            "selbstkontrolle",
+            "karofeld"
           ]
         },
         "version": {
@@ -7021,6 +7213,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "karofeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/KarofeldBlock"
+              }
             }
           ],
           "properties": {
@@ -7065,7 +7269,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "karofeld"
               ],
               "type": "string"
             },
@@ -8057,6 +8262,151 @@
           ],
           "type": "object"
         },
+        "KaroMark": {
+          "enum": [
+            ",",
+            "."
+          ],
+          "type": "string"
+        },
+        "KarofeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/KarofeldProps",
+              "description": "A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry."
+            },
+            "type": {
+              "const": "karofeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "KarofeldProps": {
+          "properties": {
+            "caret": {
+              "description": "The square the next sign goes in, as [column, row] counted from 0. Left out, the first square.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cells": {
+              "description": "The squares, row by row from the top left. A missing row or square is empty.",
+              "items": {
+                "items": {
+                  "$ref": "#/definitions/Square"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "cols": {
+              "description": "Squares across the grid.",
+              "maximum": 30,
+              "minimum": 1,
+              "type": "number"
+            },
+            "look": {
+              "$ref": "#/definitions/Look",
+              "description": "What is drawn: \"karos\" the squares, \"kreise\" a circle in each square, \"punkte\" a dot in each square, \"iso\" an isometric grid."
+            },
+            "rows": {
+              "description": "Squares down the grid.",
+              "maximum": 40,
+              "minimum": 1,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Stored with the block, as the other maths blocks store a seed. The grid does not use it.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Side of one square in mm. The letter is a fixed share of it.",
+              "maximum": 16,
+              "minimum": 4,
+              "type": "number"
+            }
+          },
+          "required": [
+            "cols",
+            "rows",
+            "size",
+            "look",
+            "seed"
+          ],
+          "type": "object"
+        },
         "KetteTyped": {
           "description": "A number the teacher typed into a ring: the chain's index (from 0), the ring's index (from 0), the value (0 to 9999).",
           "items": {
@@ -8102,6 +8452,15 @@
             "trace",
             "row",
             "fold"
+          ],
+          "type": "string"
+        },
+        "Look": {
+          "enum": [
+            "karos",
+            "kreise",
+            "punkte",
+            "iso"
           ],
           "type": "string"
         },
@@ -10674,6 +11033,34 @@
           ],
           "type": "array"
         },
+        "Square": {
+          "properties": {
+            "fill": {
+              "description": "Background colour of the square, a six-digit hex colour such as #ffe066. Left out, none.",
+              "type": "string"
+            },
+            "line": {
+              "description": "A Lösungsstrich under the square, for the pupil to write on. Left out, none.",
+              "type": "boolean"
+            },
+            "mark": {
+              "$ref": "#/definitions/KaroMark",
+              "description": "A comma or a point attached to the digit. Left out, none."
+            },
+            "sign": {
+              "description": "The one digit or sign in the square. Left out, the square is empty.",
+              "type": "string"
+            },
+            "thick": {
+              "description": "Thick edges, in order top, right, bottom, left. Left out, every edge is thin.",
+              "items": {
+                "type": "boolean"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
         "SuchselBlock": {
           "properties": {
             "angle": {
@@ -13173,6 +13560,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "karofeld"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/KarofeldBlock"
+              }
             }
           ],
           "properties": {
@@ -13217,7 +13616,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "karofeld"
               ],
               "type": "string"
             },
@@ -14181,6 +14581,144 @@
           ],
           "type": "object"
         },
+        "KaroMark": {
+          "enum": [
+            ",",
+            "."
+          ],
+          "type": "string"
+        },
+        "KarofeldBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/KarofeldProps",
+              "description": "A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry."
+            },
+            "type": {
+              "const": "karofeld",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "KarofeldProps": {
+          "properties": {
+            "caret": {
+              "description": "The square the next sign goes in, as [column, row] counted from 0. Left out, the first square.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "cells": {
+              "description": "The squares, row by row from the top left. A missing row or square is empty.",
+              "items": {
+                "items": {
+                  "$ref": "#/definitions/Square"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "cols": {
+              "description": "Squares across the grid.",
+              "maximum": 30,
+              "minimum": 1,
+              "type": "number"
+            },
+            "look": {
+              "$ref": "#/definitions/Look",
+              "description": "What is drawn: \"karos\" the squares, \"kreise\" a circle in each square, \"punkte\" a dot in each square, \"iso\" an isometric grid."
+            },
+            "rows": {
+              "description": "Squares down the grid.",
+              "maximum": 40,
+              "minimum": 1,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Stored with the block, as the other maths blocks store a seed. The grid does not use it.",
+              "type": "number"
+            },
+            "size": {
+              "description": "Side of one square in mm. The letter is a fixed share of it.",
+              "maximum": 16,
+              "minimum": 4,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
         "KetteTyped": {
           "description": "A number the teacher typed into a ring: the chain's index (from 0), the ring's index (from 0), the value (0 to 9999).",
           "items": {
@@ -14226,6 +14764,15 @@
             "trace",
             "row",
             "fold"
+          ],
+          "type": "string"
+        },
+        "Look": {
+          "enum": [
+            "karos",
+            "kreise",
+            "punkte",
+            "iso"
           ],
           "type": "string"
         },
@@ -16699,6 +17246,34 @@
             }
           ],
           "type": "array"
+        },
+        "Square": {
+          "properties": {
+            "fill": {
+              "description": "Background colour of the square, a six-digit hex colour such as #ffe066. Left out, none.",
+              "type": "string"
+            },
+            "line": {
+              "description": "A Lösungsstrich under the square, for the pupil to write on. Left out, none.",
+              "type": "boolean"
+            },
+            "mark": {
+              "$ref": "#/definitions/KaroMark",
+              "description": "A comma or a point attached to the digit. Left out, none."
+            },
+            "sign": {
+              "description": "The one digit or sign in the square. Left out, the square is empty.",
+              "type": "string"
+            },
+            "thick": {
+              "description": "Thick edges, in order top, right, bottom, left. Left out, every edge is thin.",
+              "items": {
+                "type": "boolean"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
         },
         "SuchselBlock": {
           "properties": {
@@ -19265,6 +19840,9 @@
             },
             {
               "$ref": "#/definitions/SelbstkontrolleProps"
+            },
+            {
+              "$ref": "#/definitions/KarofeldProps"
             }
           ],
           "description": "the props to change"

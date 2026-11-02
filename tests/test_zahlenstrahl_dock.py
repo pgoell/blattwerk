@@ -216,6 +216,11 @@ ZAHLENSTRAHL = {
             },
         ),
         (
+            "Karofeld",
+            "karofeld",
+            {"cols": 10, "rows": 8, "size": 8, "look": "karos"},
+        ),
+        (
             "Selbstkontrolle",
             "selbstkontrolle",
             {

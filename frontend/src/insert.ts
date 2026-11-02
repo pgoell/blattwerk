@@ -4,6 +4,7 @@
 import { DEFAULTS as DREIECK, heightFor as heightForDreieck, sane as saneDreieck } from "./rechendreieck";
 import { DEFAULTS as STRAHL, below, sane as saneStrahl } from "./zahlenstrahl";
 import { DEFAULTS as FELD } from "./hunderterfeld";
+import { boxOf as karoBox, sane as saneKaro, DEFAULTS as KARO } from "./karofeld";
 import { DEFAULTS as UHR, heightFor as heightForUhr, sane as saneUhr } from "./uhr";
 import { DEFAULTS as SELBST, heightFor as heightForSelbst, sane as saneSelbst } from "./selbstkontrolle";
 import { heightFor as heightForMauer, sane as saneMauer } from "./zahlenmauer";
@@ -85,6 +86,7 @@ export const INSERTS = {
   rechendreieck: (seed: number): Fresh => ({ w: 180, h: 50, type: "rechendreieck", props: { ...DREIECK, seed } }),
   zahlenstrahl: (seed: number): Fresh => ({ w: 180, h: 30, type: "zahlenstrahl", props: { ...STRAHL, seed } }),
   hunderterfeld: (seed: number): Fresh => ({ w: 100, h: 100, type: "hunderterfeld", props: { ...FELD, seed } }),
+  karofeld: (seed: number): Fresh => ({ w: 80, h: 64, type: "karofeld", props: { ...KARO, seed } }),
   uhr: (seed: number): Fresh => ({ w: 180, h: 58.5, type: "uhr", props: { ...UHR, seed } }),
   selbstkontrolle: (seed: number): Fresh => ({ w: 180, h: 30, type: "selbstkontrolle", props: { ...SELBST, seed } }),
   // "Strecke": a line with ticks.
@@ -144,6 +146,12 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
 // keeps its place. `doc` is the sheet a Selbstkontrolle counts its tasks in.
 export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> {
   const foot = Math.max(b.h, H - MARGIN - b.y);
+  if (b.type === "karofeld" && next.type === "karofeld") {
+    const was = saneKaro(b.props);
+    const now = saneKaro(next.props);
+    if (was.cols === now.cols && was.rows === now.rows && was.size === now.size) return {};
+    return karoBox(now);
+  }
   if (b.type === "zahlenstrahl" && next.type === "zahlenstrahl") {
     const more = below(saneStrahl(next.props), b.w) - below(saneStrahl(b.props), b.w);
     if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
@@ -170,6 +178,13 @@ function growsTo(b: Block, next: Block) {
 // Whether a change of a GROWS block's props would grow it below the paper's edge, `H` mm down: what hangs there is
 // not printed, so the panel refuses such a change, as it does for a maths block (#911).
 export function pastPaper(b: Block, next: Block, H: number) {
+  if (b.type === "karofeld" && next.type === "karofeld") {
+    const was = saneKaro(b.props);
+    const now = saneKaro(next.props);
+    if (was.rows === now.rows && was.size === now.size) return false;
+    const low = lowest({ ...b, ...tall(b, karoBox(now).h) });
+    return low > H + 0.01 && low > lowest(b) + 0.01;
+  }
   const need = growsTo(b, next);
   if (need === undefined) return false;
   const low = lowest({ ...b, ...tall(b, need) });

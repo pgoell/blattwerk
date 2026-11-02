@@ -4,6 +4,7 @@ import { GroundView } from "../ground";
 import { PT } from "../height";
 import { uploadAddress } from "../uploadAddress";
 import { Halbschriftlich } from "./blocks/halbschriftlich";
+import { Karofeld } from "./blocks/karofeld";
 import { Hunderterfeld } from "./blocks/hunderterfeld";
 import { MagischesQuadrat } from "./blocks/magischesQuadrat";
 import { Malquadrat } from "./blocks/malquadrat";
@@ -37,7 +38,7 @@ import type { ReactNode, CSSProperties } from "react";
 
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
-export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
+export function Draw({ block, k, solved = false, at, reach, onSquare, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; onSquare?: (col: number, row: number) => void; children?: ReactNode }) {
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
@@ -55,6 +56,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;
   if (block.type === "hunderterfeld") return <Hunderterfeld block={block} k={k} solved={solved} />;
+  if (block.type === "karofeld") return <Karofeld block={block} onSquare={onSquare} />;
   if (block.type === "uhr") return <Uhr block={block} k={k} solved={solved} />;
   if (block.type === "selbstkontrolle") return <Selbstkontrolle block={block} k={k} solved={solved} />;
   if (block.type === "table") return <Table block={block} k={k} at={at} reach={reach} solved={solved}>{children}</Table>;

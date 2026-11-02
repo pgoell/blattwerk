@@ -18,7 +18,7 @@ export { SIGNS } from "./sheet/maths";
 export type { Op, Range, Grid, Calc, Side, Compare, Exercise, Limits, Made, MathsProps, MathsBlock } from "./sheet/maths";
 export { sum, spliced } from "./sheet/table";
 export type { TableBlock } from "./sheet/table";
-export type { Ways, SuchselProps, SuchselBlock, Typed, ZahlenmauerProps, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock } from "./sheet/tasks";
+export type { Ways, SuchselProps, SuchselBlock, Typed, ZahlenmauerProps, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, KarofeldBlock } from "./sheet/tasks";
 export { LOOKS, lookOf, counts, numbers, Count } from "./sheet/numbering";
 export { Words, Whole, useBreaks } from "./sheet/context";
 export { reachOf, lowest, rightmost, overFoot, stepOf, fromOf, tailOf, tailReach, innerOf, tipOf, fitOf, radiusOf, handleOf, adjusted } from "./sheet/shape";

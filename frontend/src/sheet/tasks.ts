@@ -1,6 +1,7 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
 import type { HalbschriftlichProps } from "../halbschriftlich";
+import type { KarofeldProps } from "../karofeld";
 import type { HunderterfeldProps } from "../hunderterfeld";
 import type { MagischesQuadratProps } from "../magischesquadrat";
 import type { MalquadratProps } from "../malquadrat";
@@ -190,4 +191,10 @@ export type SelbstkontrolleBlock = Box & {
   type: "selbstkontrolle";
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
+};
+// A Karofeld: its stored shape is the contract at the top of karofeld.ts.
+export type KarofeldBlock = Box & {
+  type: "karofeld";
+  /** A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry. */
+  props: KarofeldProps;
 };
