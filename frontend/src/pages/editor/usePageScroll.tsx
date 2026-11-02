@@ -106,15 +106,37 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // out of view hands it on to the page in view once the desk rests, so a new block never lands out of sight (#805).
   // A scroll of the editor's own ends on the page in use, so it keeps it.
   const resting = useRef(0);
+  // Set on a wheel while a text is open. The scroll event can arrive after the field has closed, and the page in
+  // view still takes over then (#579). A pick on its own leaves this unset, so the wheel keeps that page (#815).
+  const wheeled = useRef(false);
   useEffect(() => () => clearTimeout(resting.current), []);
+  // Runs `stray` of the latest render once the desk has been still for `ms`. A wheel's scroll can
+  // outlast the steer window.
+  function rest(ms: number) {
+    resting.current = window.setTimeout(() => calm(() => strayNow.current()), ms);
+  }
   function follow() {
     clearTimeout(resting.current);
     // The editor's own scroll has brought the page in use into view: from here on it counts as any other.
     if (heading.current && !lost()) heading.current = 0;
+    const gliding = performance.now() <= steered.current || scrollHeld.current;
+    // A wheel taken while a text was open. The scroll can arrive after the field has closed, and WebKit
+    // sends it as many events: the first still shows the page the text was on. Taking the page there, and
+    // clearing the mark, left the picked text holding that page (#579). The mark stays until the desk rests.
+    if (wheeled.current && !editing) {
+      inView();
+      rest(Math.max(150, steered.current - performance.now() + 150));
+      return;
+    }
     // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
-    if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(() => strayNow.current()), 150));
+    if (!gliding) return void rest(150);
+    // A wheel or the scroll bar hands the page on at once. A picked block keeps its page, as a zoom does, so the
+    // selection and the Format panel stay (#815).
     if (editing) lagged.current = true;
-    else inView();
+    else if (!ids.length) {
+      lagged.current = false;
+      inView();
+    }
   }
   // Whether no part of the page in use lies in the desk's view.
   function lost() {
@@ -133,6 +155,12 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // A text being typed is picked too, so it keeps its page here as well. The timer runs the stray of the latest
   // render: a pick dropped meanwhile counts.
   function stray() {
+    if (wheeled.current && !editing) {
+      wheeled.current = false;
+      lagged.current = false;
+      inView();
+      return;
+    }
     if (!strayed() || ids.length) return;
     inView();
   }
@@ -141,7 +169,11 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
   const looked = () => (strayed() ? inView() : page);
   useEffect(() => {
-    if (editing || !lagged.current) return;
+    if (editing) return;
+    // The wheel's scroll may still be on its way, or still moving. `follow` keeps postponing the rest.
+    if (wheeled.current) return void rest(Math.max(0, steered.current - performance.now()) + 150);
+    // A scroll that was not that wheel, such as the bar, has already arrived.
+    if (!lagged.current) return;
     lagged.current = false;
     inView();
   }, [editing]);
@@ -206,5 +238,5 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
       window.removeEventListener("pointercancel", lift, true);
     };
   }, []);
-    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, follow, lost, heading, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
+    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, wheeled, follow, lost, heading, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
 }

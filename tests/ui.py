@@ -54,6 +54,26 @@ from blattwerk.app import STATIC, app
 # The browser the suite runs in: chromium, or webkit as `mise run test:webkit` sets it. Not
 # BROWSER: a desktop sets that for xdg-open.
 BROWSER = os.environ.get("BLATTWERK_BROWSER", "chromium")
+# The lift is drawn again once the fonts are in (#504). The render that computed it sets
+# data-baselines, so a place read then is where the text stays.
+SETTLED = """async () => {
+    await document.fonts.ready;
+    const ready = () => document.documentElement.dataset.baselines === "1";
+    if (ready()) return;
+    // The lift is in the DOM on the render that sets this (#504).
+    await new Promise((done) => {
+        const look = new MutationObserver(() => {
+            if (!ready()) return;
+            look.disconnect();
+            done();
+        });
+        look.observe(document.documentElement, { attributes: true, attributeFilter: ["data-baselines"] });
+        if (ready()) {
+            look.disconnect();
+            done();
+        }
+    });
+}"""
 PASSWORD = "richtig-geheim"
 MATHS = {"ops": ["+"], "max": 20, "count": 3, "seed": 7}
 RED = b"\xff\x00\x00"

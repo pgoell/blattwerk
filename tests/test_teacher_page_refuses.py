@@ -48,7 +48,7 @@ def test_click_refuses_a_name_that_is_there_twice_and_lists_the_places(editor):
     "words, said",
     [
         (["click", "PDF"], "no page is running: start it first, with the verb `start`\n"),
-        (["click"], "click takes: TARGET\n"),
+        (["click"], "click takes: TARGET TIMES\n"),
         (["press", "Enter"], 'no verb "press": there are start, stop, open, click'),
         ([], 'no verb "": there are start, stop, open, click'),
     ],
