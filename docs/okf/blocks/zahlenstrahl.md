@@ -4,7 +4,7 @@ title: "Block: zahlenstrahl"
 description: "The number line (Zahlenstrahl): its range, ticks and the tasks on it."
 tags: [block, zahlenstrahl]
 covers: [zahlenstrahl]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:57:44Z }
 ---
 
 # zahlenstrahl
@@ -44,6 +44,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | labels | string | `all`, `major`, `ends`, `none` | yes | Which ticks show their number. "all": every tick. "major": the long ticks. "ends": the first and the last tick. "none": no tick. Default "major". |
 | size | number | 8 to 24 | yes | Font size of the numbers, in pt. Does not change with the block's size. Default 12. |
 | cut | boolean |  | yes | Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false. |
+| point | boolean |  | no | Replaces the last tick with the arrow head. The line ends on that arrow. Default false. |
+| under | boolean |  | no | Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false. |
 | tasks | string | `random`, `free` | yes | "random": boxes and arrows go on ticks chosen from the seed. "free": the ticks in `marks` get their task. Default "random". |
 | boxes | number | 0 to 12 | yes | Number of boxes placed on the line with `tasks` "random". Default 3. |
 | arrows | number | 0 to 6 | yes | Number of arrows placed on the line with `tasks` "random". Default 0. |

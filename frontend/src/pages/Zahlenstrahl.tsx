@@ -84,6 +84,14 @@ export default function Zahlenstrahl({ block, apply }: { block: ZahlenstrahlBloc
         <input type="checkbox" aria-label="Bruchstelle" checked={p.cut} disabled={p.start === 0} onChange={() => apply({ cut: !p.cut })} />
         Bruchstelle
       </label>
+      <label>
+        <input type="checkbox" aria-label="Pfeil am Ende" checked={p.point} onChange={() => apply({ point: !p.point })} />
+        Pfeil am Ende
+      </label>
+      <label>
+        <input type="checkbox" aria-label="Striche durchgehend" checked={p.under} onChange={() => apply({ under: !p.under })} />
+        Striche durchgehend
+      </label>
       <select aria-label="Aufgaben" value={p.tasks} onChange={(e) => apply({ tasks: e.target.value as ZahlenstrahlProps["tasks"] })}>
         <option value="random">Zufällig</option>
         <option value="free">Selbst wählen</option>

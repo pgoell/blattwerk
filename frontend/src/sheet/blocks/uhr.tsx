@@ -1,6 +1,6 @@
 // Draws one Uhr block.
 
-import { sane as saneUhr, timesOf, CELL_W, CELL_H, hands, written, INK as UHR_INK, RED } from "../../uhr";
+import { sane as saneUhr, timesOf, CELL_W, CELL_H, hands, written, handStroke, INK as UHR_INK, RED } from "../../uhr";
 import { useLetters, LetterBox } from "../context";
 import type { UhrBlock } from "../tasks";
 
@@ -22,7 +22,11 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
           const [hx, hy] = polar(p.ring && p.numbers !== "none" ? 13 : 25, hourDeg);
           const [mx, my] = polar(40, minuteDeg);
           const text = written(t, p);
-          const size = Math.min(10, 180 / text.length);
+          const lines = text.split("\n");
+          const two = lines.length > 1;
+          const sizeOf = (line: string) => Math.min(two ? 9 : 10, 180 / line.length);
+          const hourInk = handStroke("hour", p, solved);
+          const minuteInk = handStroke("minute", p, solved);
           const numbers = p.numbers === "all" ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : p.numbers === "quarters" ? [3, 6, 9, 12] : [];
           const ring = p.ring && p.numbers !== "none" ? [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24] : [];
           return (
@@ -56,41 +60,40 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
               })}
               {p.task === "read" && (
                 <>
-                  <line className="hour" x1={50} y1={50} x2={hx} y2={hy} stroke={UHR_INK} strokeWidth={4.5} strokeLinecap="round" />
-                  <line className="minute" x1={50} y1={50} x2={mx} y2={my} stroke={UHR_INK} strokeWidth={1.6} strokeLinecap="round" />
+                  <line className="hour" x1={50} y1={50} x2={hx} y2={hy} stroke={hourInk} strokeWidth={4.5} strokeLinecap="round" />
+                  <line className="minute" x1={50} y1={50} x2={mx} y2={my} stroke={minuteInk} strokeWidth={1.6} strokeLinecap="round" />
                 </>
               )}
               {p.task === "draw" && solved && (
                 <>
-                  <line className="hour answer" x1={50} y1={50} x2={hx} y2={hy} stroke={RED} strokeWidth={4.5} strokeLinecap="round" />
-                  <line className="minute answer" x1={50} y1={50} x2={mx} y2={my} stroke={RED} strokeWidth={1.6} strokeLinecap="round" />
+                  <line className="hour answer" x1={50} y1={50} x2={hx} y2={hy} stroke={hourInk} strokeWidth={4.5} strokeLinecap="round" />
+                  <line className="minute answer" x1={50} y1={50} x2={mx} y2={my} stroke={minuteInk} strokeWidth={1.6} strokeLinecap="round" />
                 </>
               )}
               <circle className="hub" cx={50} cy={50} r={2.5} fill={UHR_INK} />
               {letters && p.task === "read" && <LetterBox x={84} y={2} side={14} task={i} letter={letters[i] ?? ""} solved={solved} />}
-              {p.task === "draw" && (
-                <text className="task" x={50} y={120} fontSize={size} textAnchor="middle" fill={UHR_INK}>
-                  {text}
-                </text>
-              )}
-              {p.task === "read" && p.answer === "box" && !solved && (
-                <text className="task" x={50} y={120} fontSize={10} textAnchor="middle" fill={UHR_INK}>
-                  __:__ Uhr
-                </text>
-              )}
-              {p.task === "read" && p.answer === "box" && solved && (
-                <text className="answer" x={50} y={120} fontSize={size} textAnchor="middle" fill={RED}>
-                  {text}
-                </text>
-              )}
-              {p.task === "read" && p.answer === "line" && (
-                <line className="answer" x1={12} y1={122} x2={88} y2={122} stroke={UHR_INK} strokeWidth={0.6} />
-              )}
-              {p.task === "read" && p.answer === "line" && solved && (
-                <text className="answer" x={50} y={120} fontSize={size} textAnchor="middle" fill={RED}>
-                  {text}
-                </text>
-              )}
+              {p.task === "draw" &&
+                lines.map((line, n) => (
+                  <text key={n} className="task" x={50} y={two ? 110 + n * 12 : 120} fontSize={sizeOf(line)} textAnchor="middle" fill={UHR_INK}>
+                    {line}
+                  </text>
+                ))}
+              {p.task === "read" && p.answer === "box" && !solved &&
+                (two ? ["__:__ Uhr", "__:__ Uhr"] : ["__:__ Uhr"]).map((line, n) => (
+                  <text key={n} className="task" x={50} y={two ? 110 + n * 12 : 120} fontSize={10} textAnchor="middle" fill={UHR_INK}>
+                    {line}
+                  </text>
+                ))}
+              {p.task === "read" && solved &&
+                lines.map((line, n) => (
+                  <text key={n} className="answer" x={50} y={two ? 110 + n * 12 : 120} fontSize={sizeOf(line)} textAnchor="middle" fill={RED}>
+                    {line}
+                  </text>
+                ))}
+              {p.task === "read" && p.answer === "line" &&
+                (two ? [112, 124] : [122]).map((yy) => (
+                  <line key={yy} className="answer" x1={12} y1={yy} x2={88} y2={yy} stroke={UHR_INK} strokeWidth={0.6} />
+                ))}
             </g>
           );
         })}

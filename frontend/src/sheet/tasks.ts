@@ -1,5 +1,6 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
+import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { KarofeldProps } from "../karofeld";
 import type { HunderterfeldProps } from "../hunderterfeld";
@@ -64,8 +65,8 @@ export type SuchselBlock = Box & {
 // come from `seed` alone, so every draw gives the same ones.
 export type Typed = [number, number, number];
 export type ZahlenmauerProps = {
-  /** Number of stones in the lowest row of each wall: 3, 4 or 5. */
-  base: 3 | 4 | 5;
+  /** Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6. */
+  base: 2 | 3 | 4 | 5 | 6;
   /** Number of walls in the block.
    * @minimum 1
    * @maximum 12
@@ -197,4 +198,10 @@ export type KarofeldBlock = Box & {
   type: "karofeld";
   /** A free squared grid: one digit or sign to a square, for Kopfrechnen, Rechenwege and geometry. */
   props: KarofeldProps;
+};
+// A Geobrett: its stored shape is the contract at the top of geobrett.ts.
+export type GeobrettBlock = Box & {
+  type: "geobrett";
+  /** The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves. */
+  props: GeobrettProps;
 };
