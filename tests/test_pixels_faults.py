@@ -173,6 +173,42 @@ def test_a_measure_over_its_limit_names_its_tile_and_its_number():
     assert found["tile"][0] > 0.1 > found["page"][0]
 
 
+# One Zehnerfeld, as the editor inserts it: no gap text, so the key has no word to turn red (#969).
+ZEHNER = {
+    "count": 4,
+    "columns": 2,
+    "field": "zwanzig",
+    "op": "+",
+    "task": "dots",
+    "max": 20,
+    "cross": "any",
+    "lines": True,
+    "colors": "color",
+    "manual": False,
+    "seed": 7,
+}
+
+
+def test_shot_of_the_key_needs_no_gap_text(tmp_path):
+    """#969: a sheet of one Zehnerfeld has no gap text, and `shot --loesungen` still finishes."""
+    pages = tmp_path / "pages.json"
+    pages.write_text(json.dumps([[box("k", "zehnerfeld", ZEHNER, w=127, h=53)]]))
+    out = tmp_path / "out"
+    run = subprocess.run(
+        [sys.executable, str(SHOT), str(pages), str(out), "--loesungen"],
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr
+    assert {p.name for p in out.iterdir()} == {"screen.png", "pdf.png", "diff.png"}
+    assert f"In {BROWSER}:" in run.stdout
+    found = re.search(
+        r"([\d.]+) % of the pixels differ, within the limit of ([\d.]+) %", run.stdout
+    )
+    assert found, run.stdout
+    assert float(found[1]) < LIMIT * 100 and float(found[2]) == LIMIT * 100
+
+
 def test_shot_writes_the_diff_and_prints_the_share(tmp_path):
     pages = tmp_path / "pages.json"
     pages.write_text(json.dumps([[box("a", "text", TEXT)]]))
