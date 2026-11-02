@@ -1,5 +1,5 @@
 // What can be inserted, and the commands the bar folds under Mehr.
-import { ArrowRightLeft, BrickWall, Calculator, Sigma, CircleHelp, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightLeft, BrickWall, Calculator, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -91,6 +91,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
     { label: "Rechendreieck", icon: TriangleDashed, run: () => addInsert(INSERTS.rechendreieck(newSeed())) },
     { label: "Zahlenstrahl", icon: MoveRight, run: () => addInsert(INSERTS.zahlenstrahl(newSeed())) },
     { label: "Hunderterfeld", icon: Grid3x3, run: () => addInsert(INSERTS.hunderterfeld(newSeed())) },
+    { label: "Geobrett", icon: DraftingCompass, run: () => addInsert(INSERTS.geobrett(newSeed())) },
     { label: "Uhr", icon: Clock3, run: () => addInsert(INSERTS.uhr(newSeed())) },
     { label: "Selbstkontrolle", icon: ListChecks, run: () => addInsert(INSERTS.selbstkontrolle(newSeed())) },
   ];

@@ -213,6 +213,7 @@ WRONG = {
     "hunderterfeld": {**HUNDERTERFELD, "from": "x"},
     "uhr": {**UHR, "count": "x"},
     "selbstkontrolle": {**SELBSTKONTROLLE, "size": "x"},
+    "geobrett": {"cols": "x", "rows": 5, "bands": [], "task": "leer", "seed": 3},
 }
 
 

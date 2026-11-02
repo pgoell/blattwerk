@@ -36,7 +36,7 @@ export function Place({
   const shownOwn = (side: "w" | "h") => (typed && typed.sig === signature(sel) && typed[side] !== undefined ? typed[side] : round(own[side]));
   const shared = (of: (b: Block) => number) => (whole ? undefined : sel.every((b) => of(b) === of(sel[0])) ? of(sel[0]) : undefined);
   // A picture, a symbol and a Hunderterfeld always keep their shape.
-  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
+  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" || b.type === "geobrett");
   const keep = lock || shaped;
   const move = (axis: Axis, to: number) => place(sel.map((b) => [b.id, { [axis]: whole ? round(b[axis] + to - box[axis]) : to }]));
   // The distance from the page's corner to where X and Y count from: nothing, or half the page in Mitte.
