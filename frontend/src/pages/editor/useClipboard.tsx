@@ -10,6 +10,14 @@ import { parasFromHtml } from "../../pasted";
 import { grouped, wholeBlock, cloned } from "./palette";
 import { useInsert } from "./useInsert";
 
+// A 1x1 png. A copy that a newer one has replaced finishes its write with this, so Chrome does not
+// keep waiting on a rejected blob, and the real picture of the old copy is never written (#1011).
+const BLANK_PNG = Uint8Array.from(
+  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="),
+  (c) => c.charCodeAt(0),
+);
+const blankPng = () => new Blob([BLANK_PNG], { type: "image/png" });
+
 export function useClipboard(session: ReturnType<typeof useInsert>) {
   const user = session.user;
   const live = session.live;
@@ -45,8 +53,11 @@ export function useClipboard(session: ReturnType<typeof useInsert>) {
 function copy(held = sel) {
     if (!held.length) return;
     // Before the browser's own copy, so a picture still being drawn for the previous one sees this
-    // copy and does not land after it (#1011).
+    // copy and does not land after it (#1011). Finish that write now: rejecting its blob hangs
+    // Chrome, and settling the real picture later puts the old words back over this copy.
     const n = ++lastCopy.current;
+    finishPrev.current();
+    finishPrev.current = () => {};
     // A linked Lineatur is drawn from the sheet's list, so the list goes along with it.
     const linkedAny = held.some(tied);
     localStorage.setItem("clip", JSON.stringify({ owner: user.id, blocks: carrying(held), ...(linkedAny && { words: live.current.doc.words }) }));
@@ -70,6 +81,8 @@ function copy(held = sel) {
   // A copy made while an earlier one's picture is still drawn wins: the earlier write is called off.
   // So does a picture copied from elsewhere while this one is still drawn: the late write would replace it (#1011).
   const lastCopy = useRef(0);
+  // Ends the clipboard write still open, so the next copy can land after it.
+  const finishPrev = useRef<() => void>(() => {});
   // clipboardchange events this page is about to cause. One it did not cause means the clipboard moved on.
   const credited = useRef(0);
   const listens = useRef(false);
@@ -123,10 +136,23 @@ function copy(held = sel) {
     const text = new Blob([words], { type: "text/plain" });
     let gone = false;
     let backed = false;
+    let settled = false;
+    const finish = (blob: Blob) => {
+      if (settled) return;
+      settled = true;
+      countChange();
+      settle(blob);
+    };
+    // The next block copy calls this before its own write. The real picture is dropped.
+    const dropReal = () => {
+      gone = true;
+      finish(blankPng());
+    };
+    finishPrev.current = dropReal;
     const giveUp = () => {
       if (lastCopy.current === n) lastCopy.current++;
       gone = true;
-      cancel(new Error("clipboard moved"));
+      if (!settled) cancel(new Error("clipboard moved"));
     };
     // A cut in a field while this picture is still drawn calls it off. Once the bytes are handed over, Chrome may
     // still commit them afterwards: the paste and the repair below put the field's words back (#1016).
@@ -150,16 +176,16 @@ function copy(held = sel) {
     }
     const drawn = pictureOf(held, live.current.doc, page)
       .then(async (blob) => {
-        if (n !== lastCopy.current) {
-          cancel(new Error("newer copy"));
-          return;
-        }
-        if (!(await stillHolds(words)) || n !== lastCopy.current) {
+        if (settled || gone || n !== lastCopy.current) return;
+        const holds = await stillHolds(words);
+        if (settled || gone || n !== lastCopy.current) return;
+        // A browser with clipboardchange reports someone else's copy by moving lastCopy. A miss here is
+        // this page's previous write, still on the clipboard, which this picture replaces (#1011).
+        if (!holds && !listens.current) {
           giveUp();
           return;
         }
-        countChange();
-        settle(blob);
+        finish(blob);
       })
       .catch(() => {
         cancel(new Error("no picture"));
