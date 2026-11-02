@@ -4,6 +4,7 @@ from playwright.sync_api import expect
 from test_maths_foot import (
     FOOT,
     FRAMES,
+    arrived,
     asked,
     click,
     height,
@@ -132,14 +133,22 @@ def test_i1e_a_retried_old_click_does_not_land_over_a_newer_one(editor):
     page.get_by_label("Eine Aufgabe mehr").click()
     again = page.get_by_role("button", name="Erneut versuchen")
     expect(again).to_be_visible()
-    held = []
+    sent = []
+
+    def hold(route):
+        # Only the first request waits. A later one goes on, also after this one is released.
+        sent.append(route)
+        if len(sent) > 1:
+            route.continue_()
+
     page.unroute("**/api/maths")
-    page.route("**/api/maths", lambda route: held.append(route) if not held else route.continue_())
+    page.route("**/api/maths", hold)
     again.click()
     asked(click("Eine Aufgabe weniger"))(page)
     expect(at(page, "m").locator(".maths > div")).to_have_count(9)
+    arrived(page, sent)
     with page.expect_response(lambda r: r.url.endswith("/api/maths")):
-        held.pop().continue_()
+        sent[0].continue_()
     page.evaluate(FRAMES)
     page.evaluate(FRAMES)
     expect(at(page, "m").locator(".maths > div")).to_have_count(9)
@@ -202,6 +211,7 @@ def test_i1g_a_limit_click_before_a_refused_answer_drops_the_refused_count(edito
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe mehr").click()
     page.get_by_role("button", name="Neu würfeln").click()
+    arrived(page, sent)
     sent[0].continue_()
     expect(page.locator('[data-foot="full"]')).to_be_hidden()
     expect(at(page, "m").locator(".maths > div")).to_have_count(12)
@@ -232,6 +242,7 @@ def test_i1h_a_failed_clicks_line_goes_when_a_later_click_lands(editor):
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe mehr").click()
     page.get_by_label("Eine Aufgabe weniger").click()
+    arrived(page, sent)
     sent[0].abort()
     expect(at(page, "m").locator(".maths > div")).to_have_count(9)
     expect(tasks(page).first).to_have_text("9 Aufgaben")
@@ -260,6 +271,7 @@ def test_i1j_a_failed_clicks_change_rides_on_the_next_click(editor):
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe mehr").click()
     page.get_by_role("button", name="Neu würfeln").click()
+    arrived(page, sent)
     sent[0].abort()
     expect(at(page, "m").locator(".maths > div")).to_have_count(10)
     expect(tasks(page).first).to_have_text("10 Aufgaben")

@@ -10,6 +10,7 @@ set for every count, so a test that keeps the old exercises fails where the bloc
 
 from playwright.sync_api import expect
 from test_loading import window  # noqa: F401
+from test_maths_foot import arrived
 from test_saves import NOTICE
 from test_signed_out import expect_login, expect_sheet, login
 from ui import box, maths, pick, sheet, user
@@ -73,15 +74,15 @@ def test_903_weniger_on_families_drops_the_last_family_whole(editor):
 def test_903_two_quick_weniger_clicks_drop_the_last_two_in_order(editor):
     """#903: two quick "weniger" clicks, the first answer held: the last two go, the others stay in order."""
     page, client, sheet_id, old = fewer_sheet(editor)
-    held = []
+    sent = []
 
     def hold(route):
-        # The first answer waits until the second click is sent; then both go on.
-        if held:
-            held.pop().continue_()
+        # The first answer waits until the second click is sent; then both go on, and later ones too.
+        sent.append(route)
+        if len(sent) == 2:
+            sent[0].continue_()
+        if len(sent) > 1:
             route.continue_()
-        else:
-            held.append(route)
 
     page.route("**/api/maths", hold)
     page.get_by_label("Eine Aufgabe weniger").click()
@@ -164,8 +165,15 @@ def test_902_an_overtaken_click_that_meets_a_run_out_session_is_not_redone_after
     again = page.get_by_role("button", name="Erneut versuchen")
     expect(again).to_be_visible()
     page.unroute("**/api/maths")
-    held = []
-    page.route("**/api/maths", lambda route: held.append(route) if not held else route.continue_())
+    sent = []
+
+    def hold(route):
+        # Only the retry waits. A later request goes on, also after the retry is released.
+        sent.append(route)
+        if len(sent) > 1:
+            route.continue_()
+
+    page.route("**/api/maths", hold)
     again.click()
     with page.expect_response(lambda r: r.url.endswith("/api/maths")):
         page.get_by_label("Eine Aufgabe weniger").click()
@@ -173,7 +181,8 @@ def test_902_an_overtaken_click_that_meets_a_run_out_session_is_not_redone_after
     expect(page.get_by_text("Die Aufgaben konnten nicht erzeugt werden.")).to_have_count(0)
     expect(page.locator(TASKS)).to_have_count(14)
     page.context.clear_cookies()
-    held.pop().fulfill(status=401, body="{}")
+    arrived(page, sent)
+    sent[0].fulfill(status=401, body="{}")
     expect_login(page, address)
     # The browser's record of owed clicks holds none: the overtaken click is not redone.
     assert page.evaluate(f"() => localStorage.getItem('owed:{sheet_id}')") is None
