@@ -235,6 +235,24 @@ ZAHLENSTRAHL = {
             "geobrett",
             {"cols": 5, "rows": 5, "bands": [], "task": "leer"},
         ),
+        (
+            "Diagramm",
+            "diagramm",
+            {
+                "kind": "saeulen",
+                "points": [
+                    {"value": "4", "label": "A", "color": "#c0392b"},
+                    {"value": "6", "label": "B", "color": "#1f6feb"},
+                    {"value": "2", "label": "C", "color": "#1a7f37"},
+                ],
+                "legend": True,
+                "values": "aussen",
+                "axes": "beide",
+                "xTitle": "",
+                "yTitle": "",
+                "grid": "haupt",
+            },
+        ),
     ],
 )
 def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, kind, defaults):

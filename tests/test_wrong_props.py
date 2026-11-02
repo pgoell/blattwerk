@@ -214,6 +214,17 @@ WRONG = {
     "uhr": {**UHR, "count": "x"},
     "selbstkontrolle": {**SELBSTKONTROLLE, "size": "x"},
     "geobrett": {"cols": "x", "rows": 5, "bands": [], "task": "leer", "seed": 3},
+    "diagramm": {
+        "kind": 5,
+        "points": [],
+        "legend": True,
+        "values": "keine",
+        "axes": "keine",
+        "xTitle": "",
+        "yTitle": "",
+        "grid": "keine",
+        "seed": 3,
+    },
 }
 
 
