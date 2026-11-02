@@ -106,6 +106,9 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // out of view hands it on to the page in view once the desk rests, so a new block never lands out of sight (#805).
   // A scroll of the editor's own ends on the page in use, so it keeps it.
   const resting = useRef(0);
+  // Set on a wheel while a text is open. The scroll event can arrive after the field has closed, and the page in
+  // view still takes over then (#579). A pick on its own leaves this unset, so the wheel keeps that page (#815).
+  const wheeled = useRef(false);
   useEffect(() => () => clearTimeout(resting.current), []);
   function follow() {
     clearTimeout(resting.current);
@@ -113,8 +116,16 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
     if (heading.current && !lost()) heading.current = 0;
     // A drag that scrolls the desk at its edge keeps its page until the pointer is up.
     if (performance.now() > steered.current && !scrollHeld.current) return void (resting.current = window.setTimeout(() => calm(() => strayNow.current()), 150));
-    if (editing) lagged.current = true;
-    else inView();
+    // A wheel or the scroll bar hands the page on at once. A picked block keeps its page, as a zoom does, so the
+    // selection and the Format panel stay (#815). A wheel taken while a text was open still hands its page on.
+    if (editing) {
+      lagged.current = true;
+      wheeled.current = false;
+    } else if (wheeled.current || !ids.length) {
+      wheeled.current = false;
+      lagged.current = false;
+      inView();
+    }
   }
   // Whether no part of the page in use lies in the desk's view.
   function lost() {
@@ -133,6 +144,12 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // A text being typed is picked too, so it keeps its page here as well. The timer runs the stray of the latest
   // render: a pick dropped meanwhile counts.
   function stray() {
+    if (wheeled.current && !editing) {
+      wheeled.current = false;
+      lagged.current = false;
+      inView();
+      return;
+    }
     if (!strayed() || ids.length) return;
     inView();
   }
@@ -141,7 +158,8 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
   // The page a new block goes to: the page in use, or the page in view when the page in use is out of sight.
   const looked = () => (strayed() ? inView() : page);
   useEffect(() => {
-    if (editing || !lagged.current) return;
+    // The wheel's own scroll has not arrived yet: it hands the page on when it does.
+    if (editing || !lagged.current || wheeled.current) return;
     lagged.current = false;
     inView();
   }, [editing]);
@@ -206,5 +224,5 @@ export function usePageScroll(session: ReturnType<typeof usePages>) {
       window.removeEventListener("pointercancel", lift, true);
     };
   }, []);
-    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, follow, lost, heading, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
+    return Object.assign(session, { pageKey, pageOf, seen, steer, resting, wheeled, follow, lost, heading, seek, strayed, stray, strayNow, looked, inView, mark, land, pressed, due, calm });
 }
