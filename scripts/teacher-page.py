@@ -381,11 +381,18 @@ def quiet_select(page: Page, x: float, y: float) -> bool:
     )
 
 
-def click(page: Page, target: str) -> str:
+def click(page: Page, target: str, times: str = "1") -> str:
+    """One click, or `times` clicks in this call. Two calls cannot be that quick."""
+    if times == "1":
+        x, y = point(page, target)
+        if quiet_select(page, x, y):
+            return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
+        return _acts.click(page, target)
     x, y = point(page, target)
-    if quiet_select(page, x, y):
-        return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
-    return _acts.click(page, target)
+    grey = greyed(page, x, y)
+    for _ in range(number(times)):
+        page.mouse.click(x, y)
+    return shown(page, f"clicked at {x:g},{y:g} {times} times{grey}")
 
 
 def right_click(page: Page, target: str) -> str:
