@@ -3,6 +3,7 @@
 import { PT } from "../height";
 import { pairOf, useSplitter, splitting, Bows } from "./bows";
 import { useBreaks, Words } from "./context";
+import { useRealFonts } from "./fontReady";
 import { RULINGS, kindOf, rowsOf, colsOf, traceOf, fadeOf, fontScale, fontOf, writtenStyle, indentOf, bandOf, bandColorOf, houseOf, houseWidth, houseTintOf, HOUSE, fadeAt, FONTS } from "./look";
 import { type RulingBlock, listOf, foldsOf, startOf, squares } from "./ruling";
 import { classes } from "./shape";
@@ -10,6 +11,7 @@ import { type ReactNode, useContext, useState, useEffect, useRef, useLayoutEffec
 
 // Drawn in mm: the SVG's own scale takes it to the block's size. The editor passes the field the text is typed in.
 export function Lines({ block, k, children }: { block: RulingBlock; k: number; children?: ReactNode }) {
+  useRealFonts();
   const { row, at, zones, size } = RULINGS[kindOf(block.props.kind)];
   const { text = "" } = block.props;
   const breaks = useBreaks(block.props.breaks);
