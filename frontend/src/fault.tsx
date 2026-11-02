@@ -33,8 +33,15 @@ export const why = (s: string) =>
 // shown. `own` gives the whole line for a refusal that is the action's own, a file the server does not take, say:
 // that line has no button, for the same try would end the same. It gets the refusal too, and null from it says
 // nothing at all. Once the teacher has gone on to another page the line still says so, with no button: the try
-// would act where the action no longer is.
-export async function attempt<T>(what: string, run: () => Promise<T>, own?: (status: string, e: unknown) => string | null | undefined): Promise<T | undefined> {
+// would act where the action no longer is. `again`, where the press gives one, is what the button runs
+// instead of `run`: the press can read something `run` already closed over, and it can carry a guard
+// `run` does not (#936).
+export async function attempt<T>(
+  what: string,
+  run: () => Promise<T>,
+  own?: (status: string, e: unknown) => string | null | undefined,
+  again?: () => void,
+): Promise<T | undefined> {
   drop(what);
   const page = location.pathname;
   try {
@@ -44,7 +51,7 @@ export async function attempt<T>(what: string, run: () => Promise<T>, own?: (sta
     if (s === "401" || (e as Error)?.message === "stale") return;
     const text = location.pathname === page ? own?.(s, e) : `${what} ${why(s)}`;
     if (text === null) return;
-    const fault = text ? { what, text } : { what, text: `${what} ${why(s)}`, retry: () => void attempt(what, run, own) };
+    const fault = text ? { what, text } : { what, text: `${what} ${why(s)}`, retry: () => void (again ? again() : attempt(what, run, own)) };
     show([...faults.filter((f) => f.what !== what), fault]);
   }
 }
