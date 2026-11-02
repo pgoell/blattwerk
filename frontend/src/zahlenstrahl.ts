@@ -14,6 +14,9 @@
 // - `size`: the numbers' font size in pt, 8 to 24 (default 12). It does not change with the block's size.
 // - `cut`: a break mark (two short slanted strokes) across the line left of the first tick. Drawn only when
 //   `start > 0` (default false).
+// - `point`: the arrow head stands at the last tick and that tick's stroke is left out, so the line ends in the
+//   arrow (default false). Off, the last tick is drawn and the arrow sits past it.
+// - `under`: each tick runs from the line downward only, one stroke (default false). Off, a tick crosses the line.
 // - `tasks`: "random" places `boxes` boxes and `arrows` arrows from the seed; "free" takes the ticks of `marks`
 //   (default "random"). `boxes` 0 to 12 (default 3), `arrows` 0 to 6 (default 0).
 // - `marks`: the ticks the teacher clicked, each `[number, "box" | "arrow"]`; only used with "free". An entry not on
@@ -53,6 +56,7 @@
 // The panel (pages/Zahlenstrahl.tsx), by aria-label: "Anfang", "Ende", "Schritt kleine Striche", "Schritt lange
 // Striche" (number inputs), "Zahlen" (select: "all" Bei jedem Strich, "major" Bei langen Strichen, "ends" Anfang
 // und Ende, "none" Keine), "Schriftgröße" (number input), "Bruchstelle" (checkbox, disabled while start is 0),
+// "Pfeil am Ende" and "Striche durchgehend" (checkboxes),
 // "Aufgaben" (select: "random" Zufällig, "free" Selbst wählen); for "random": "Ein Kästchen weniger", "Ein Kästchen
 // mehr", "Ein Pfeil weniger", "Ein Pfeil mehr", "Neu würfeln"; for "free": a button per tick, "Strich <v>", that
 // cycles none, Kästchen, Pfeil, with `data-task` "box" or "arrow" when set; "Sprungbögen" (checkbox), and while on
@@ -94,6 +98,10 @@ export type ZahlenstrahlProps = {
   size: number;
   /** Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false. */
   cut: boolean;
+  /** Replaces the last tick with the arrow head. The line ends on that arrow. Default false. */
+  point?: boolean;
+  /** Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false. */
+  under?: boolean;
   /** "random": boxes and arrows go on ticks chosen from the seed. "free": the ticks in `marks` get their task. Default "random". */
   tasks: "random" | "free";
   /** Number of boxes placed on the line with `tasks` "random". Default 3.
@@ -133,6 +141,8 @@ export const DEFAULTS: Omit<ZahlenstrahlProps, "seed"> = {
   labels: "major",
   size: 12,
   cut: false,
+  point: false,
+  under: false,
   tasks: "random",
   boxes: 3,
   arrows: 0,
@@ -146,6 +156,18 @@ export const LEFT = 6;
 export const RIGHT = 10;
 // mm from the line to the block's bottom.
 export const BELOW = 18;
+
+// A tick's stroke. The last tick is omitted when `point` puts the arrow there. `under` hangs the stroke below the line.
+export function tickLine(under: boolean, long: boolean, y: number, last: boolean, point: boolean): { y1: number; y2: number } | undefined {
+  if (last && point) return undefined;
+  const reach = long ? 3 : 1.5;
+  return { y1: under ? y : y - reach, y2: y + reach };
+}
+
+// The arrow tip's x: at the last tick when `point`, otherwise one mm in from the block's right edge.
+export function arrowTip(point: boolean, lastX: number, w: number): number {
+  return point ? lastX : w - 1;
+}
 
 // The x of tick i of n in a block w mm wide. One tick stands at LEFT.
 export function xOf(i: number, n: number, w: number): number {
@@ -238,6 +260,8 @@ export function sane(p: ZahlenstrahlProps): ZahlenstrahlProps {
     labels: pick(r.labels, ["all", "major", "ends", "none"] as const, DEFAULTS.labels),
     size: whole(r.size, 8, 24, DEFAULTS.size),
     cut: typeof r.cut === "boolean" ? r.cut : DEFAULTS.cut,
+    point: typeof r.point === "boolean" ? r.point : DEFAULTS.point,
+    under: typeof r.under === "boolean" ? r.under : DEFAULTS.under,
     tasks: pick(r.tasks, ["random", "free"] as const, DEFAULTS.tasks),
     boxes: whole(r.boxes, 0, 12, DEFAULTS.boxes),
     arrows: whole(r.arrows, 0, 6, DEFAULTS.arrows),

@@ -187,7 +187,7 @@ export type TextBlock = Box & {
 };
 // A shape can hold text: centred and in the middle unless set otherwise. A line or arrow runs from the corner
 // `from` of its box to the opposite one. It can have a tick at each end and say how long it is, on the sheet
-// ("show") or on the answer key alone ("key").
+// ("show") or on the answer key alone ("key"). As a Lineal it carries centimetre ticks and numbers on one side.
 export type ShapeBlock = Box & { type: "shape";
   /** The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too. */
   props: Partial<TextProps> & {
@@ -206,6 +206,10 @@ export type ShapeBlock = Box & { type: "shape";
   from?: Corner;
   /** True puts a short cross stroke at each end of a line. Absent means no ticks. */
   ticks?: boolean;
+  /** Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off. */
+  ruler?: boolean;
+  /** Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`. */
+  mm?: boolean;
   /** Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. */
   label?: "show" | "key";
 } };

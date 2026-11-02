@@ -147,7 +147,7 @@ function join() {
         const along = c >= s ? side : other;
         const across = along === "w" ? "h" : "w";
         const k = to / outline(b)[side];
-        const sized = b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
+        const sized = b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" || b.type === "geobrett" ? { ...b, w: b.w * k, h: b.h * k } : { ...b, [along]: (to - b[across] * Math.min(c, s)) / Math.max(c, s) };
         const [was, now] = [outline(b), outline(sized)];
         return [b, { x: sized.x + was.x - now.x, y: sized.y + was.y - now.y, w: sized.w, h: sized.h }];
       }),

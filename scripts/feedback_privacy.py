@@ -29,7 +29,7 @@ BLOCK_NAMES = set(
     Rechenrad Rechenräder Rechentabelle Rechentabellen Magisches Magische Quadrat Quadrate
     Malquadrat Malquadrate Zerlegungsfeld Zerlegungsfelder Halbschriftlich
     Textaufgabe Textaufgaben
-    Hunderterfeld Hunderterfelder Uhr Uhren Selbstkontrolle
+    Hunderterfeld Hunderterfelder Geobrett Geobretter Uhr Uhren Selbstkontrolle
     Selbstkontrollen Namenszeile Namenszeilen Punkte Punkteblöcke Rechnen Rechenblöcke
     Form Formen Tabelle Tabellen""".split()  # noqa: SIM905 (a word list reads better than a literal)
 )

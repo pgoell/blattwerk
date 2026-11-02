@@ -231,6 +231,7 @@ WRONG = {
     "uhr": {**UHR, "count": "x"},
     "selbstkontrolle": {**SELBSTKONTROLLE, "size": "x"},
     "textaufgabe": {**TEXTAUFGABE, "max": "x"},
+    "geobrett": {"cols": "x", "rows": 5, "bands": [], "task": "leer", "seed": 3},
 }
 
 

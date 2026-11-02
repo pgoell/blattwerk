@@ -1,6 +1,6 @@
 // Draws one Zahlenstrahl block.
 
-import { sane as saneStrahl, made as drawnStrahl, xOf, below, arrowXs, LEFT as STRAHL_LEFT, boxUnder } from "../../zahlenstrahl";
+import { sane as saneStrahl, made as drawnStrahl, xOf, below, arrowXs, arrowTip, tickLine, LEFT as STRAHL_LEFT, boxUnder } from "../../zahlenstrahl";
 import type { ZahlenstrahlBlock } from "../tasks";
 
 // A Zahlenstrahl, drawn in the block's mm as the contract at the top of zahlenstrahl.ts says.
@@ -19,6 +19,8 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
   const h = Math.max(block.h, room + Math.max(3.5, ...arcs.map((a) => rise(a) + 2 + 0.8 * FS)));
   const y = h - room;
   const cut = p.cut && p.start > 0;
+  const lastX = ticks.length ? xOf(ticks.length - 1, ticks.length, w) : w - 1;
+  const tip = arrowTip(p.point === true && ticks.length > 0, lastX, w);
   const axs = arrowXs(arrows.length, ticks.length, w);
   // An arrow's number stands on the baseline y - 7.6, raised when its digits would pass the block's top; its stub
   // runs from under the digits to y - 5, and is left out where a short block leaves no room for it.
@@ -26,8 +28,8 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
   return (
     <div className={`zahlenstrahl${solved ? " solved" : ""}`}>
       <svg viewBox={`0 0 ${w} ${h}`}>
-        <line className="axis" x1={cut ? 0.5 : STRAHL_LEFT - 2} y1={y} x2={w - 2.5} y2={y} stroke="#222" strokeWidth={0.4} />
-        <path className="head" d={`M ${w - 3.2} ${y - 1.2} L ${w - 1} ${y} L ${w - 3.2} ${y + 1.2} Z`} fill="#222" />
+        <line className="axis" x1={cut ? 0.5 : STRAHL_LEFT - 2} y1={y} x2={tip - 1.5} y2={y} stroke="#222" strokeWidth={0.4} />
+        <path className="head" d={`M ${tip - 2.2} ${y - 1.2} L ${tip} ${y} L ${tip - 2.2} ${y + 1.2} Z`} fill="#222" />
         {cut && (
           <g className="cut" stroke="#222" strokeWidth={0.4}>
             <line x1={2.1} y1={y + 1.6} x2={2.9} y2={y - 1.6} />
@@ -36,7 +38,8 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
         )}
         {ticks.map((t, i) => {
           const x = xOf(i, ticks.length, w);
-          const reach = t.long ? 3 : 1.5;
+          const stroke = tickLine(p.under === true, t.long, y, i === ticks.length - 1, p.point === true);
+          const stem = stroke ? stroke.y2 : y;
           // The box's size, and a box that would cover a number shown beside it, which goes one row lower.
           const { bw, bh, covers, dy } = t.task === "box" ? boxUnder(ticks, i, w, p.size) : { bw: 0, bh: 0, covers: false, dy: 0 };
           const top = y + dy;
@@ -47,16 +50,16 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
           const gapBottom = y + 5 + 0.75 * FS + 0.5;
           return (
             <g key={t.value} className={`tick${t.long ? " long" : ""}`} data-value={t.value}>
-              <line x1={x} y1={y - reach} x2={x} y2={y + reach} stroke="#222" strokeWidth={0.4} />
+              {stroke && <line x1={x} y1={stroke.y1} x2={x} y2={stroke.y2} stroke="#222" strokeWidth={0.4} />}
               {t.label && !t.task && (
                 <text className="label" x={x} y={y + 5} fontSize={FS} textAnchor="middle" dominantBaseline="hanging" fill="#222">{t.value}</text>
               )}
               {t.task === "box" && (
                 <g className="box">
-                  {covers && !through && <line x1={x} y1={y + reach} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
+                  {covers && !through && <line x1={x} y1={stem} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />}
                   {covers && through && (
                     <>
-                      <line x1={x} y1={y + reach} x2={x} y2={gapTop} stroke="#222" strokeWidth={0.2} />
+                      <line x1={x} y1={stem} x2={x} y2={gapTop} stroke="#222" strokeWidth={0.2} />
                       <line x1={x} y1={gapBottom} x2={x} y2={top} stroke="#222" strokeWidth={0.2} />
                     </>
                   )}
