@@ -139,8 +139,20 @@ export type Doc = {
     /** Prints the number in black. Left out, it is grey. */
     black?: boolean;
   };
+  /** The colour the answers print in, as "#rrggbb". Left out, they are red. Has no effect while `keyAsText` is set. */
+  keyColor?: string;
+  /** Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`. */
+  keyAsText?: boolean;
 };
 export type PageNumbers = NonNullable<Doc["pageNumbers"]>;
+// The red the answers have always used. "Wie der Text" draws in #222222, the sheet's own ink.
+export const KEY_RED = "#c0392b";
+const HEX = /^#[0-9a-fA-F]{6}$/;
+// The ink the answers draw with, or none when the sheet keeps the red. "Wie der Text" is the sheet's own ink.
+export function keyVar(doc: { keyColor?: unknown; keyAsText?: unknown }): string | undefined {
+  if (doc.keyAsText === true) return "#222222";
+  return typeof doc.keyColor === "string" && HEX.test(doc.keyColor) ? doc.keyColor : undefined;
+}
 // The server counts a sheet's saved documents in `version`.
 export type Sheet = { id: number; user_id: number; title: string; updated: string; version: number; doc: Doc };
 // A page's width and height in mm: A4, upright or on its side.
@@ -160,7 +172,7 @@ export function whole(b: Block): Block {
   return { ...b, props: { ...b.props, a: b.props.a ?? any, b: b.props.b ?? any } };
 }
 // Templates saved before sheets had pages hold one page's blocks.
-export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks }: Doc & { blocks?: Block[] }): Doc => ({
+export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumbers, breaks, keyColor, keyAsText }: Doc & { blocks?: Block[] }): Doc => ({
   pages: (pages ?? [{ blocks: blocks! }]).map((page) => ({ ...page, blocks: page.blocks.map(whole) })),
   // A sheet from the API may lack its guides and grid, or hold them wrong: then it has none.
   guides: guides && typeof guides === "object" && Array.isArray(guides.x) && Array.isArray(guides.y) ? guides : { x: [], y: [] },
@@ -170,6 +182,9 @@ export const read = ({ pages, blocks, guides, grid, landscape, words, pageNumber
   pageNumbers,
   // A sheet may come from anywhere: only a plain object of mends is kept.
   breaks: breaks && typeof breaks === "object" && !Array.isArray(breaks) ? breaks : undefined,
+  // A colour the editor did not write is dropped, so the answers stay red.
+  keyColor: typeof keyColor === "string" && HEX.test(keyColor) ? keyColor : undefined,
+  keyAsText: keyAsText === true ? true : undefined,
 });
 // The Lernwörter a sheet's blocks print: an entry holds one word, or several split by commas or semicolons. Blanks
 // around a word go, and so does an entry with no word. A list that is no list of texts holds no word.

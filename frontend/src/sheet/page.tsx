@@ -23,7 +23,7 @@ import { Zehnerfeld } from "./blocks/zehnerfeld";
 import { Zerlegungsfeld } from "./blocks/zerlegungsfeld";
 import { flipped, K, turned } from "./box";
 import { Words, Whole } from "./context";
-import { type Block, FIELDS, type Doc, sizeOf, read, wordsIn } from "./doc";
+import { type Block, FIELDS, type Doc, sizeOf, read, wordsIn, keyVar } from "./doc";
 import { Frame, Line } from "./frame";
 import { Lines } from "./lines";
 import { textStyle, inset } from "./look";
@@ -167,10 +167,11 @@ export function Paper({ doc, k, page = 0, solved = false, letter }: { doc: Doc; 
   const ns = numbers(all);
   const [w, h] = sizeOf(all, page);
   const moved = solved && folioOf(all, page)?.at === "top";
+  const ink = keyVar(all);
   return (
     <Words.Provider value={wordsIn(all)}>
     <Whole.Provider value={all}>
-    <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k }}>
+    <div className={w > h ? "paper wide" : "paper"} style={{ width: w * k, height: h * k, ...(ink ? { "--key": ink } : {}) }}>
       <div className="scaled" style={{ width: w * K, height: h * K, transform: k === K ? undefined : `scale(${k / K})` }}>
         {all.pages[page].ground && (
           <div className="ground-clip">
