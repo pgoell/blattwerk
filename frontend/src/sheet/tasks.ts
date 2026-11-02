@@ -1,5 +1,6 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
+import type { GeobrettProps } from "../geobrett";
 import type { HalbschriftlichProps } from "../halbschriftlich";
 import type { HunderterfeldProps } from "../hunderterfeld";
 import type { MagischesQuadratProps } from "../magischesquadrat";
@@ -190,4 +191,10 @@ export type SelbstkontrolleBlock = Box & {
   type: "selbstkontrolle";
   /** The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right. */
   props: SelbstkontrolleProps;
+};
+// A Geobrett: its stored shape is the contract at the top of geobrett.ts.
+export type GeobrettBlock = Box & {
+  type: "geobrett";
+  /** The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves. */
+  props: GeobrettProps;
 };

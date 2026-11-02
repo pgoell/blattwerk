@@ -11,6 +11,72 @@
           ],
           "type": "string"
         },
+        "Aufgabe": {
+          "enum": [
+            "leer",
+            "spiegel",
+            "achsen",
+            "drehung",
+            "winkel",
+            "parallelen",
+            "flaeche",
+            "umfang",
+            "koordinaten"
+          ],
+          "type": "string"
+        },
+        "Axis": {
+          "properties": {
+            "at": {
+              "description": "Where the axis sits: the column or row from 0, or the diagonal's constant. With `mid`, the gap after that nail.",
+              "type": "number"
+            },
+            "dir": {
+              "description": "The line: \"v\" a column, \"h\" a row, \"d\" the diagonal where row - column = `at`, \"a\" the diagonal where row + column = `at`.",
+              "enum": [
+                "v",
+                "h",
+                "d",
+                "a"
+              ],
+              "type": "string"
+            },
+            "mid": {
+              "description": "True when a \"v\" or \"h\" axis lies in the gap after nail `at` instead of on the nail.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "dir",
+            "at"
+          ],
+          "type": "object"
+        },
+        "Band": {
+          "properties": {
+            "color": {
+              "description": "Colour of the band, `#` and six hex digits.",
+              "type": "string"
+            },
+            "fill": {
+              "description": "Whether the polygon the nails enclose is filled. False draws a line from nail to nail.",
+              "type": "boolean"
+            },
+            "nails": {
+              "description": "Nails the band visits, in order. Each pair is [column, row], from 0 at the top left. A filled band closes back to its first nail.",
+              "items": {
+                "$ref": "#/definitions/Nail"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "nails",
+            "color",
+            "fill"
+          ],
+          "type": "object"
+        },
         "Block": {
           "allOf": [
             {
@@ -336,6 +402,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "geobrett"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/GeobrettBlock"
+              }
             }
           ],
           "properties": {
@@ -380,7 +458,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "geobrett"
               ],
               "type": "string"
             },
@@ -726,6 +805,131 @@
             "sum"
           ],
           "type": "string"
+        },
+        "GeobrettBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/GeobrettProps",
+              "description": "The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves."
+            },
+            "type": {
+              "const": "geobrett",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "GeobrettProps": {
+          "properties": {
+            "axis": {
+              "$ref": "#/definitions/Axis",
+              "description": "The mirror line of task \"spiegel\"."
+            },
+            "bands": {
+              "description": "The rubber bands, in the order they are drawn.",
+              "items": {
+                "$ref": "#/definitions/Band"
+              },
+              "type": "array"
+            },
+            "centre": {
+              "$ref": "#/definitions/Nail",
+              "description": "The nail a task \"drehung\" turns about, [column, row]."
+            },
+            "cols": {
+              "description": "Nails across the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "figure": {
+              "description": "Which starting figure of `task` the bands came from, from 0. Absent when the teacher drew the bands.",
+              "type": "number"
+            },
+            "rows": {
+              "description": "Nails down the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The board does not roll from it.",
+              "type": "number"
+            },
+            "task": {
+              "$ref": "#/definitions/Aufgabe",
+              "description": "The task. \"leer\" is an empty board the pupil draws on. The others ask for the mirror image, the axes, a quarter turn, the right angles, the parallel sides, the area, the perimeter or the coordinates."
+            }
+          },
+          "type": "object"
         },
         "Grid": {
           "properties": {
@@ -2006,6 +2210,14 @@
             }
           },
           "type": "object"
+        },
+        "Nail": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "NameBlock": {
           "properties": {
@@ -3677,6 +3889,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -3689,6 +3905,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -5990,6 +6210,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -6002,6 +6226,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -6456,6 +6684,9 @@
             },
             {
               "$ref": "#/definitions/SelbstkontrolleProps"
+            },
+            {
+              "$ref": "#/definitions/GeobrettProps"
             }
           ],
           "description": "the block's settings; partial is fine"
@@ -6491,7 +6722,8 @@
             "zahlenstrahl",
             "hunderterfeld",
             "uhr",
-            "selbstkontrolle"
+            "selbstkontrolle",
+            "geobrett"
           ]
         },
         "version": {
@@ -6718,6 +6950,72 @@
             "right"
           ],
           "type": "string"
+        },
+        "Aufgabe": {
+          "enum": [
+            "leer",
+            "spiegel",
+            "achsen",
+            "drehung",
+            "winkel",
+            "parallelen",
+            "flaeche",
+            "umfang",
+            "koordinaten"
+          ],
+          "type": "string"
+        },
+        "Axis": {
+          "properties": {
+            "at": {
+              "description": "Where the axis sits: the column or row from 0, or the diagonal's constant. With `mid`, the gap after that nail.",
+              "type": "number"
+            },
+            "dir": {
+              "description": "The line: \"v\" a column, \"h\" a row, \"d\" the diagonal where row - column = `at`, \"a\" the diagonal where row + column = `at`.",
+              "enum": [
+                "v",
+                "h",
+                "d",
+                "a"
+              ],
+              "type": "string"
+            },
+            "mid": {
+              "description": "True when a \"v\" or \"h\" axis lies in the gap after nail `at` instead of on the nail.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "dir",
+            "at"
+          ],
+          "type": "object"
+        },
+        "Band": {
+          "properties": {
+            "color": {
+              "description": "Colour of the band, `#` and six hex digits.",
+              "type": "string"
+            },
+            "fill": {
+              "description": "Whether the polygon the nails enclose is filled. False draws a line from nail to nail.",
+              "type": "boolean"
+            },
+            "nails": {
+              "description": "Nails the band visits, in order. Each pair is [column, row], from 0 at the top left. A filled band closes back to its first nail.",
+              "items": {
+                "$ref": "#/definitions/Nail"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "nails",
+            "color",
+            "fill"
+          ],
+          "type": "object"
         },
         "Block": {
           "allOf": [
@@ -7044,6 +7342,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "geobrett"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/GeobrettBlock"
+              }
             }
           ],
           "properties": {
@@ -7088,7 +7398,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "geobrett"
               ],
               "type": "string"
             },
@@ -7434,6 +7745,138 @@
             "sum"
           ],
           "type": "string"
+        },
+        "GeobrettBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/GeobrettProps",
+              "description": "The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves."
+            },
+            "type": {
+              "const": "geobrett",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "GeobrettProps": {
+          "properties": {
+            "axis": {
+              "$ref": "#/definitions/Axis",
+              "description": "The mirror line of task \"spiegel\"."
+            },
+            "bands": {
+              "description": "The rubber bands, in the order they are drawn.",
+              "items": {
+                "$ref": "#/definitions/Band"
+              },
+              "type": "array"
+            },
+            "centre": {
+              "$ref": "#/definitions/Nail",
+              "description": "The nail a task \"drehung\" turns about, [column, row]."
+            },
+            "cols": {
+              "description": "Nails across the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "figure": {
+              "description": "Which starting figure of `task` the bands came from, from 0. Absent when the teacher drew the bands.",
+              "type": "number"
+            },
+            "rows": {
+              "description": "Nails down the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The board does not roll from it.",
+              "type": "number"
+            },
+            "task": {
+              "$ref": "#/definitions/Aufgabe",
+              "description": "The task. \"leer\" is an empty board the pupil draws on. The others ask for the mirror image, the axes, a quarter turn, the right angles, the parallel sides, the area, the perimeter or the coordinates."
+            }
+          },
+          "required": [
+            "cols",
+            "rows",
+            "bands",
+            "task",
+            "seed"
+          ],
+          "type": "object"
         },
         "Grid": {
           "properties": {
@@ -8774,6 +9217,14 @@
             "size"
           ],
           "type": "object"
+        },
+        "Nail": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "NameBlock": {
           "properties": {
@@ -10511,6 +10962,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -10523,6 +10978,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -12894,6 +13353,72 @@
           ],
           "type": "string"
         },
+        "Aufgabe": {
+          "enum": [
+            "leer",
+            "spiegel",
+            "achsen",
+            "drehung",
+            "winkel",
+            "parallelen",
+            "flaeche",
+            "umfang",
+            "koordinaten"
+          ],
+          "type": "string"
+        },
+        "Axis": {
+          "properties": {
+            "at": {
+              "description": "Where the axis sits: the column or row from 0, or the diagonal's constant. With `mid`, the gap after that nail.",
+              "type": "number"
+            },
+            "dir": {
+              "description": "The line: \"v\" a column, \"h\" a row, \"d\" the diagonal where row - column = `at`, \"a\" the diagonal where row + column = `at`.",
+              "enum": [
+                "v",
+                "h",
+                "d",
+                "a"
+              ],
+              "type": "string"
+            },
+            "mid": {
+              "description": "True when a \"v\" or \"h\" axis lies in the gap after nail `at` instead of on the nail.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "dir",
+            "at"
+          ],
+          "type": "object"
+        },
+        "Band": {
+          "properties": {
+            "color": {
+              "description": "Colour of the band, `#` and six hex digits.",
+              "type": "string"
+            },
+            "fill": {
+              "description": "Whether the polygon the nails enclose is filled. False draws a line from nail to nail.",
+              "type": "boolean"
+            },
+            "nails": {
+              "description": "Nails the band visits, in order. Each pair is [column, row], from 0 at the top left. A filled band closes back to its first nail.",
+              "items": {
+                "$ref": "#/definitions/Nail"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "nails",
+            "color",
+            "fill"
+          ],
+          "type": "object"
+        },
         "Block": {
           "allOf": [
             {
@@ -13219,6 +13744,18 @@
               "then": {
                 "$ref": "#/definitions/SelbstkontrolleBlock"
               }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "geobrett"
+                  }
+                }
+              },
+              "then": {
+                "$ref": "#/definitions/GeobrettBlock"
+              }
             }
           ],
           "properties": {
@@ -13263,7 +13800,8 @@
                 "zahlenstrahl",
                 "hunderterfeld",
                 "uhr",
-                "selbstkontrolle"
+                "selbstkontrolle",
+                "geobrett"
               ],
               "type": "string"
             },
@@ -13609,6 +14147,131 @@
             "sum"
           ],
           "type": "string"
+        },
+        "GeobrettBlock": {
+          "properties": {
+            "angle": {
+              "description": "Turn of the block about its centre, in degrees clockwise. 0 is upright, 90 a quarter turn. Absent means 0.",
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            "flipX": {
+              "description": "True mirrors the block from left to right inside its box, so a picture or a symbol faces the other way. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "flipY": {
+              "description": "True mirrors the block from top to bottom inside its box. Absent means not mirrored.",
+              "type": "boolean"
+            },
+            "group": {
+              "description": "The ids of the groups the block belongs to, the outermost group first. Absent when the block is in no group.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "h": {
+              "description": "Height of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "id": {
+              "description": "Unique id of the block on its sheet.",
+              "type": "string"
+            },
+            "keep": {
+              "description": "True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off.",
+              "type": "boolean"
+            },
+            "locked": {
+              "description": "True when the block is locked, so the editor does not move, resize or turn it. Absent means not locked.",
+              "type": "boolean"
+            },
+            "mark": {
+              "description": "Numbering printed before the block on paper, such as \"1.\", \"a)\" or \"(1)\", or a symbol's code. Absent means none.",
+              "type": "string"
+            },
+            "props": {
+              "$ref": "#/definitions/GeobrettProps",
+              "description": "The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves."
+            },
+            "type": {
+              "const": "geobrett",
+              "type": "string"
+            },
+            "w": {
+              "description": "Width of the block in mm, before any turn.",
+              "type": "number"
+            },
+            "x": {
+              "description": "Distance in mm from the left edge of the page to the left edge of the block, before any turn. The page is 210 mm wide upright.",
+              "type": "number"
+            },
+            "y": {
+              "description": "Distance in mm from the top edge of the page to the top edge of the block, before any turn. The page is 297 mm tall upright.",
+              "type": "number"
+            },
+            "z": {
+              "description": "Stacking order on the page: a block with a higher z lies over one with a lower z.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "h",
+            "id",
+            "locked",
+            "props",
+            "type",
+            "w",
+            "x",
+            "y",
+            "z"
+          ],
+          "type": "object"
+        },
+        "GeobrettProps": {
+          "properties": {
+            "axis": {
+              "$ref": "#/definitions/Axis",
+              "description": "The mirror line of task \"spiegel\"."
+            },
+            "bands": {
+              "description": "The rubber bands, in the order they are drawn.",
+              "items": {
+                "$ref": "#/definitions/Band"
+              },
+              "type": "array"
+            },
+            "centre": {
+              "$ref": "#/definitions/Nail",
+              "description": "The nail a task \"drehung\" turns about, [column, row]."
+            },
+            "cols": {
+              "description": "Nails across the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "figure": {
+              "description": "Which starting figure of `task` the bands came from, from 0. Absent when the teacher drew the bands.",
+              "type": "number"
+            },
+            "rows": {
+              "description": "Nails down the board.",
+              "maximum": 12,
+              "minimum": 2,
+              "type": "number"
+            },
+            "seed": {
+              "description": "Kept so a sheet made with the other maths blocks still carries a seed. The board does not roll from it.",
+              "type": "number"
+            },
+            "task": {
+              "$ref": "#/definitions/Aufgabe",
+              "description": "The task. \"leer\" is an empty board the pupil draws on. The others ask for the mirror image, the axes, a quarter turn, the right angles, the parallel sides, the area, the perimeter or the coordinates."
+            }
+          },
+          "type": "object"
         },
         "Grid": {
           "properties": {
@@ -14889,6 +15552,14 @@
             }
           },
           "type": "object"
+        },
+        "Nail": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
         },
         "NameBlock": {
           "properties": {
@@ -16560,6 +17231,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -16572,6 +17247,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -18868,6 +19547,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -18880,6 +19563,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -19334,6 +20021,9 @@
             },
             {
               "$ref": "#/definitions/SelbstkontrolleProps"
+            },
+            {
+              "$ref": "#/definitions/GeobrettProps"
             }
           ],
           "description": "the props to change"

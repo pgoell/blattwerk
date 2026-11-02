@@ -230,6 +230,11 @@ ZAHLENSTRAHL = {
                 "turn": "none",
             },
         ),
+        (
+            "Geobrett",
+            "geobrett",
+            {"cols": 5, "rows": 5, "bands": [], "task": "leer"},
+        ),
     ],
 )
 def test_the_menu_adds_each_maths_block_with_its_default_props(editor, label, kind, defaults):

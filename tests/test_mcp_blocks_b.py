@@ -30,6 +30,7 @@ LABEL = {
     "hunderterfeld": "Hunderterfeld",
     "uhr": "Uhr",
     "selbstkontrolle": "Selbstkontrolle",
+    "geobrett": "Geobrett",
 }
 DOCK = ("maths", "suchsel")
 KINDS = list(LABEL)
@@ -55,6 +56,7 @@ CHANGES = {
     "hunderterfeld": ({"look": "punkte"}, False),
     "uhr": ({"count": 8}, True),
     "selbstkontrolle": ({"form": "word", "word": "HUND"}, False),
+    "geobrett": ({"cols": 6}, False),
 }
 
 

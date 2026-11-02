@@ -21,6 +21,7 @@ import Zehnerfeld from "../Zehnerfeld";
 import Rechendreieck from "../Rechendreieck";
 import Zahlenstrahl from "../Zahlenstrahl";
 import Hunderterfeld from "../Hunderterfeld";
+import Geobrett from "../Geobrett";
 import Uhr from "../Uhr";
 import Selbstkontrolle from "../Selbstkontrolle";
 
@@ -79,6 +80,7 @@ export function useSchools({
   const dreieck = sel.length === 1 && sel[0].type === "rechendreieck" ? sel[0] : undefined;
   const strahl = sel.length === 1 && sel[0].type === "zahlenstrahl" ? sel[0] : undefined;
   const feld = sel.length === 1 && sel[0].type === "hunderterfeld" ? sel[0] : undefined;
+  const brett = sel.length === 1 && sel[0].type === "geobrett" ? sel[0] : undefined;
   const uhr = sel.length === 1 && sel[0].type === "uhr" ? sel[0] : undefined;
   const skb = sel.length === 1 && sel[0].type === "selbstkontrolle" ? sel[0] : undefined;
   // A maths block's height follows its exercises when they need more or less room than before. A change that would
@@ -90,11 +92,11 @@ export function useSchools({
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], key);
     return true;
   };
-  return { paperHint, refusedType: refusedBlock?.type, maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, uhr, skb, calc, grows };
+  return { paperHint, refusedType: refusedBlock?.type, maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows };
 }
 
 export function SchoolPanels({
-  maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, uhr, skb, calc, grows, style, doc, words, owe, H,
+  maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows, style, doc, words, owe, H,
 }: ReturnType<typeof useSchools> & {
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   doc: Doc;
@@ -121,6 +123,7 @@ export function SchoolPanels({
       {dreieck && <Rechendreieck key={dreieck.id} block={dreieck} apply={(props, key) => grows("rechendreieck", props, key)} />}
       {strahl && <Zahlenstrahl key={strahl.id} block={strahl} apply={(props, key) => style("zahlenstrahl", props, key)} />}
       {feld && <Hunderterfeld key={feld.id} block={feld} apply={(props, key) => style("hunderterfeld", props, key)} />}
+      {brett && <Geobrett key={brett.id} block={brett} apply={(props, key) => style("geobrett", props, key)} />}
       {uhr && <Uhr key={uhr.id} block={uhr} apply={(props, key, back) => grows("uhr", props, key, back)} />}
       {skb && <Selbstkontrolle key={skb.id} block={skb} doc={doc} apply={(props, key) => style("selbstkontrolle", props, key)} />}
     </>
