@@ -25,7 +25,7 @@ export const TEMPLATES = [
   { name: "Potenz", source: "2^3" },
   { name: "Wurzel", source: "sqrt(16)" },
   { name: "Index", source: "x_2" },
-  { name: "Lücke", source: "\\ " },
+  { name: "Leerstelle", source: "\\ " },
 ] as const;
 
 const OPS: Record<string, string> = { "+": "+", "-": "\u2212", "\u2212": "\u2212", "=": "=", "*": "\u00B7", "\u00B7": "\u00B7", "\u00D7": "\u00B7", ":": ":" };

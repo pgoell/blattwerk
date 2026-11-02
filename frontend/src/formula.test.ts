@@ -94,7 +94,7 @@ describe("inline", () => {
 
 describe("gallery", () => {
   it("offers the six templates and each one parses as a formula", () => {
-    expect(TEMPLATES.map((t) => t.name)).toEqual(["Bruch", "Gemischt", "Potenz", "Wurzel", "Index", "Lücke"]);
+    expect(TEMPLATES.map((t) => t.name)).toEqual(["Bruch", "Gemischt", "Potenz", "Wurzel", "Index", "Leerstelle"]);
     expect(TEMPLATES.map((t) => t.source)).toEqual(["3/4", "1 3/4", "2^3", "sqrt(16)", "x_2", "\\ "]);
     for (const t of TEMPLATES) expect(parse(t.source).k).not.toBe("text");
   });
