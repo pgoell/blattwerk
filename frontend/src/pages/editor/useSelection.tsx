@@ -214,7 +214,7 @@ const mergeKey = useRef("");
   // Loose blocks show the box round their turned outlines, as PowerPoint does, where their handles stand.
   const group = frame && (turnedLine ? bounds(frame.level) : hull(sel));
   // A picture, a symbol and a Hunderterfeld always keep their shape, so only their corners have handles.
-  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld");
+  const shaped = sel.some((b) => b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" || b.type === "geobrett");
   const keep = (mod & KEEP) > 0 || shaped || sel.some((b) => b.keep);
   // The selection's size in px. An edge has a handle too, as in PowerPoint, once the 14 px handles of its corners
   // leave room for a third. The edges come last, so they lie on top where the areas a finger can hit overlap.

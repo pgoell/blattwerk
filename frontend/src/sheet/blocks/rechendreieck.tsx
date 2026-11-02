@@ -1,6 +1,6 @@
 // Draws one Rechendreieck block.
 
-import { sane as saneRechen, made as drawnRechen, layout, FIELDS as RECHEN_FIELDS } from "../../rechendreieck";
+import { sane as saneRechen, made as drawnRechen, layout, signOf, FIELDS as RECHEN_FIELDS } from "../../rechendreieck";
 import { useLetters, LetterBox } from "../context";
 import type { RechendreieckBlock } from "../tasks";
 
@@ -10,7 +10,7 @@ import type { RechendreieckBlock } from "../tasks";
 export function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k: number; solved: boolean }) {
   const p = saneRechen(block.props);
   const { triangles } = drawnRechen(p);
-  const { GAP, RING, BOX, corner, inner, outer, minX, cellW, cellH, cols, vbW, vbH } = layout(p);
+  const { GAP, RING, BOX, corner, centre, inner, outer, minX, cellW, cellH, cols, vbW, vbH } = layout(p);
   const letters = useLetters(block.id);
   // A wrong triangle gives no task, and a block with `empty` none: the letter boxes number the triangles that have one.
   let next = 0;
@@ -24,6 +24,11 @@ export function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k:
           return (
             <g key={t} className={`triangle${tri.wrong ? " wrong" : ""}`} data-triangle={t} transform={`translate(${x} ${y})`}>
               <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
+              {p.op === "*" && (
+                <text className="op" x={centre[0]} y={centre[1]} fontSize={8} textAnchor="middle" dominantBaseline="central" fill="#222">
+                  {signOf(p.op)}
+                </text>
+              )}
               {/* The box stands at the top left of the triangle's cell, its side the height of an outer field. */}
               {letters && task[t] >= 0 && <LetterBox x={minX} y={0} side={BOX[1]} task={task[t]} letter={letters[task[t]] ?? ""} solved={solved} />}
               {Array.from({ length: RECHEN_FIELDS }, (_, j) => {

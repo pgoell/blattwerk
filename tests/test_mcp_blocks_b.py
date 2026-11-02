@@ -30,6 +30,7 @@ LABEL = {
     "hunderterfeld": "Hunderterfeld",
     "uhr": "Uhr",
     "selbstkontrolle": "Selbstkontrolle",
+    "geobrett": "Geobrett",
     "karofeld": "Karofeld",
 }
 DOCK = ("maths", "suchsel")
@@ -56,6 +57,7 @@ CHANGES = {
     "hunderterfeld": ({"look": "punkte"}, False),
     "uhr": ({"count": 8}, True),
     "selbstkontrolle": ({"form": "word", "word": "HUND"}, False),
+    "geobrett": ({"cols": 6}, False),
     "karofeld": ({"look": "kreise"}, False),
 }
 

@@ -328,6 +328,14 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                       onChange={(e) => +e.target.value > 0 && extend(+e.target.value * 10)}
                     />
                   </label>
+                  <button className={rulers[0].props.ruler ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.ruler} onClick={() => style("shape", { ruler: !rulers[0].props.ruler })}>
+                    Lineal
+                  </button>
+                  {rulers[0].props.ruler && (
+                    <button className={rulers[0].props.mm ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.mm} onClick={() => style("shape", { mm: !rulers[0].props.mm })}>
+                      Millimeter
+                    </button>
+                  )}
                   <button className={rulers[0].props.ticks ? "wide on" : "wide"} aria-pressed={!!rulers[0].props.ticks} onClick={() => style("shape", { ticks: !rulers[0].props.ticks })}>
                     Striche an den Enden
                   </button>

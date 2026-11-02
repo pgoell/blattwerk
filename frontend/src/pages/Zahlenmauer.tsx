@@ -36,8 +36,8 @@ export default function Zahlenmauer({ block, apply }: { block: ZahlenmauerBlock;
       {/* Each list says what it sets, as "4 Mauern" does (#899). */}
       <label>
         Grundsteine
-        <select aria-label="Grundsteine" value={p.base} onChange={(e) => apply({ base: Number(e.target.value) as 3 | 4 | 5, free: undefined, typed: undefined })}>
-          {[3, 4, 5].map((n) => (
+        <select aria-label="Grundsteine" value={p.base} onChange={(e) => apply({ base: Number(e.target.value) as 2 | 3 | 4 | 5 | 6, free: undefined, typed: undefined })}>
+          {[2, 3, 4, 5, 6].map((n) => (
             <option key={n} value={n}>
               {n}
             </option>

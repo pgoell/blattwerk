@@ -392,7 +392,7 @@ function lay(p: ZahlenmauerProps): Made {
   const loosen: Loosen[] = [];
   if (walls.length < p.count) {
     if (p.max !== 1000) loosen.push("max");
-    if (p.base !== 3) loosen.push("base");
+    if (p.base > 2) loosen.push("base");
   }
   return { walls, loosen };
 }
