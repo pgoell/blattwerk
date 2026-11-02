@@ -19,6 +19,7 @@ import os
 import posixpath
 import re
 import shlex
+import shutil
 import sys
 import time
 from collections.abc import Callable
@@ -281,6 +282,19 @@ def tidy() -> str:
     return "\n".join(f"deleted {path.parent.name}/{path.name}" for path in found)
 
 
+# A real photograph. The shell the brief allows cannot copy one into the run folder.
+PHOTO = Path(__file__).resolve().parents[1] / "docs/experiments/94-wasserkreislauf/04-wolke.jpg"
+
+
+def photo() -> str:
+    """Copies that photograph into the run folder. It needs no window."""
+    if not PHOTO.is_file():
+        raise Refused(f"the photograph is missing: {PHOTO.name}")
+    dest = STATE / "photo.jpg"
+    shutil.copyfile(PHOTO, dest)
+    return str(dest)
+
+
 _ns = _load("teacher_page_ns")
 _name = _load("teacher_page_name")
 _acts = _load("teacher_page_acts")
@@ -367,11 +381,18 @@ def quiet_select(page: Page, x: float, y: float) -> bool:
     )
 
 
-def click(page: Page, target: str) -> str:
+def click(page: Page, target: str, times: str = "1") -> str:
+    """One click, or `times` clicks in this call. Two calls cannot be that quick."""
+    if times == "1":
+        x, y = point(page, target)
+        if quiet_select(page, x, y):
+            return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
+        return _acts.click(page, target)
     x, y = point(page, target)
-    if quiet_select(page, x, y):
-        return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
-    return _acts.click(page, target)
+    grey = greyed(page, x, y)
+    for _ in range(number(times)):
+        page.mouse.click(x, y)
+    return shown(page, f"clicked at {x:g},{y:g} {times} times{grey}")
 
 
 def right_click(page: Page, target: str) -> str:
@@ -428,7 +449,7 @@ def joined():
 def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     """Runs a verb of the window. Each box it meets is answered, and the output names it."""
     if name not in VERBS:
-        known = ", ".join(["start", "stop", *VERBS, "box", "tidy"])
+        known = ", ".join(["start", "stop", *VERBS, "box", "tidy", "photo"])
         raise Refused(f'no verb "{name}": there are {known}')
     try:
         inspect.signature(VERBS[name]).bind(None, *args)
@@ -470,6 +491,10 @@ def main(name: str = "", *args: str) -> str:
         return "stopped" if stop() else "no page was running"
     if name == "tidy":
         return tidy()
+    if name == "photo":
+        if args:
+            raise Refused("photo takes nothing and writes photo.jpg into the run folder")
+        return photo()
     if name == "box":
         if len(args) < 2 or args[0] not in ("yes", "no"):
             raise Refused('box takes yes or no, then a verb: box yes click "Löschen"')

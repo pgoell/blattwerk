@@ -54,7 +54,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 
 ### 3. Picture with table, title `TR3 Bild und Tabelle`
 
-1. Make the picture, a red and a blue half in a dark frame, 240 by 160:
+1. Make the picture, a red and a blue half in a dark frame, 240 by 160. It is a drawn PNG. A photograph cannot be copied in by the shell: the verb `photo` writes `/tmp/teacher-run/photo.jpg` when a claim needs one. This sheet uses the drawn file:
 
    ```sh
    python3 -c "import zlib,struct;w,h=240,160;row=lambda y:b'\0'+b''.join((b'\x22\x22\x22' if x<6 or y<6 or x>=w-6 or y>=h-6 else b'\xd0\x30\x30' if x<w//2 else b'\x30\x60\xd0') for x in range(w));c=lambda t,d:struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d));open('/tmp/teacher-run/bild.png','wb').write(b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+c(b'IDAT',zlib.compress(b''.join(row(y) for y in range(h))))+c(b'IEND',b''))"

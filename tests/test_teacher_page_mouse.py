@@ -187,7 +187,8 @@ def test_swipe_in_from_the_right_edge_opens_the_format_drawer_in_the_upright_win
     page = editor(box("a", "text", ONE))
     tool.resize(page, "820", "1180")
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "false")
-    tool.swipe(page, "817,600", "660,600")
+    # 817 lies on the upright window's scrollbar (#814). 800 still starts at the edge.
+    tool.swipe(page, "800,600", "660,600")
     expect(bar(page, "right")).to_have_attribute("aria-pressed", "true")
 
 
