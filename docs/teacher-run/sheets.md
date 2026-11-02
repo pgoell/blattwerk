@@ -48,7 +48,7 @@ Build each one on a new sheet from `Meine Blätter`, in this order, with exactly
 1. Click `Namenszeile`.
 2. Click `Überschrift`, type `Schreibe den Satz ab`.
 3. Click `Lineatur`. In the right panel set `Art der Lineatur` to `Lineatur 2 (Klasse 2)`, click `Eine Zeile mehr` until it says `8 Zeilen`, and click `Seitenbreite`. With the zoom's list shut that is the right panel's button: the zoom's own button is `Zoom`, and its list shows `Seitenbreite` only while the list is open.
-4. Double-click the Lineatur and type `Oma malt im Garten.` Press Escape. Turn `Nachspurtext` on.
+4. Double-click the Lineatur and type `Oma malt im Garten.` Press Escape. `click "Nachspurtext"`, then `key ArrowDown` once, so it says Grau. Do not press Enter: another Enter opens the Lineatur's text.
 5. Check on screen: 8 rows, each with its four lines, the sentence on the first row between the lines, in grey to trace over.
 6. Export and compare. Look hard at where the letters sit on the lines.
 

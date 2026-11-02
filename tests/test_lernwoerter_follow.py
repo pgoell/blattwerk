@@ -78,6 +78,67 @@ def test_undo_takes_back_the_word_and_its_row_in_one_step(editor):
     assert len(stored["words"]) == 6
 
 
+FIVE = ["Hund", "Katze", "Maus", "Reh", "Igel"]
+
+
+def rows_of(block):
+    """Rows of a Lineatur 3 ruling, whose row is 11.5 mm."""
+    return round(block["h"] / 11.5)
+
+
+def test_a_word_added_to_the_blatt_reaches_copy_trace_and_row(editor):
+    """#739: five words leave room once the lower rulings move down, so the sixth reaches every ruling."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, FIVE)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    before = sorted(linked(doc(page, client), 1), key=lambda b: b["y"])
+    assert [b["props"]["kind"] for b in before] == ["l3", "l3", "l3"]
+    assert [rows_of(b) for b in before] == [5, 5, 5]
+    add_word(page, "Garten")
+    stored = doc(page, client)
+    lines = sorted(linked(stored, 1), key=lambda b: b["y"])
+    assert [rows_of(b) for b in lines] == [6, 6, 6]
+    assert lines[0]["y"] == before[0]["y"]
+    assert lines[1]["y"] > before[1]["y"]
+    assert lines[2]["y"] > before[2]["y"]
+    assert lines[2]["y"] + lines[2]["h"] <= 282
+    for upper, lower in pairwise(lines):
+        assert upper["y"] + upper["h"] <= lower["y"]
+    assert len(stored["pages"]) == 2
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    undo(page)
+    back = doc(page, client)
+    assert len(back["pages"]) == 2
+    assert [rows_of(b) for b in sorted(linked(back, 1), key=lambda b: b["y"])] == [5, 5, 5]
+    assert len(back["words"]) == 5
+
+
+def test_a_word_past_the_blatt_page_runs_on_for_every_ruling(editor):
+    """#739: six words already fill the page. The seventh is a new page of copy, trace and row."""
+    client = user()
+    page = editor(box("a", "text", TEXT), client=client)
+    store_words(page, client, SIX)
+    list_tab(page)
+    page.get_by_role("button", name="Lernwörter-Blatt").click()
+    add_word(page, "Garten")
+    stored = doc(page, client)
+    first = sorted(linked(stored, 1), key=lambda b: b["y"])
+    assert [rows_of(b) for b in first] == [6, 6, 6]
+    assert len(stored["pages"]) == 3
+    second = sorted(linked(stored, 2), key=lambda b: b["y"])
+    assert [b["props"]["list"] for b in second] == ["copy", "trace", "row"]
+    assert [b["props"].get("from") for b in second] == [6, 6, 6]
+    assert [rows_of(b) for b in second] == [1, 1, 1]
+    assert second[-1]["y"] + second[-1]["h"] <= 282
+    expect(page.locator(".panel [role=status]")).to_have_count(0)
+    undo(page)
+    back = doc(page, client)
+    assert len(back["pages"]) == 2
+    assert len(back["words"]) == 6
+
+
 def test_the_lernwoerter_blatt_rulings_do_not_overlap_when_a_word_comes(editor):
     client = user()
     page = editor(box("a", "text", TEXT), client=client)
