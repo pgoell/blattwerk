@@ -99,9 +99,9 @@ export type ZahlenstrahlProps = {
   /** Draws a break mark (two short slanted strokes) left of the first tick. Only shown when `start` is above 0. Default false. */
   cut: boolean;
   /** Replaces the last tick with the arrow head. The line ends on that arrow. Default false. */
-  point: boolean;
+  point?: boolean;
   /** Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false. */
-  under: boolean;
+  under?: boolean;
   /** "random": boxes and arrows go on ticks chosen from the seed. "free": the ticks in `marks` get their task. Default "random". */
   tasks: "random" | "free";
   /** Number of boxes placed on the line with `tasks` "random". Default 3.

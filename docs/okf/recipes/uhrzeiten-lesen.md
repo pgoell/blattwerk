@@ -4,7 +4,7 @@ title: "Uhrzeiten lesen"
 description: A heading, a name line, and six clocks with full and half hours to read, the time written under each.
 tags: [uhr, uhrzeit, klasse-1]
 covers: [text, name, uhr]
-generated: { by: "human:pgoell", at: 2026-11-02T21:45:00Z }
+generated: { by: "human:pgoell", at: 2026-11-02T22:00:00Z }
 ---
 
 # Uhrzeiten lesen

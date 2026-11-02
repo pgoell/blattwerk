@@ -100,7 +100,7 @@ export type UhrProps = {
   /** How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "both": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. "words": in words, such as "halb vier". Default "12". */
   format: "12" | "24" | "words" | "both";
   /** Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false. */
-  colours: boolean;
+  colours?: boolean;
   /** The form of the time in words, with format "words". "nach": "viertel nach drei" and "viertel vor vier". "viertel": "viertel vier" and "dreiviertel vier". Default "nach". */
   region: "nach" | "viertel";
   /** Number of clocks on the sheet, 1 to 12. Default 4.

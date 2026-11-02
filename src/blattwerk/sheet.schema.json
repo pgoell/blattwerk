@@ -3166,7 +3166,6 @@
         "max",
         "given",
         "empty",
-        "op",
         "seed"
       ]
     },
@@ -5354,8 +5353,6 @@
         "labels",
         "size",
         "cut",
-        "point",
-        "under",
         "tasks",
         "boxes",
         "arrows",
@@ -5807,7 +5804,6 @@
         "task",
         "answer",
         "format",
-        "colours",
         "region",
         "count",
         "cols",

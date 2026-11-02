@@ -9548,7 +9548,6 @@
             "max",
             "given",
             "empty",
-            "op",
             "seed"
           ],
           "type": "object"
@@ -11651,7 +11650,6 @@
             "task",
             "answer",
             "format",
-            "colours",
             "region",
             "count",
             "cols",
@@ -12342,8 +12340,6 @@
             "labels",
             "size",
             "cut",
-            "point",
-            "under",
             "tasks",
             "boxes",
             "arrows",

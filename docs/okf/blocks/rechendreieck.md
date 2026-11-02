@@ -4,7 +4,7 @@ title: "Block: rechendreieck"
 description: "The calculation triangles (Rechendreiecke) and which of their fields are given."
 tags: [block, rechendreieck]
 covers: [rechendreieck]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:33:44Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:57:44Z }
 ---
 
 # rechendreieck
@@ -43,7 +43,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | given | string | `inner`, `mix`, `outer`, `free` | yes | Which fields show their number. "inner": the three inner fields (easy). "mix": two inner fields and one outer field (medium). "outer": the three outer fields (hard). "free": the fields flagged in `free`. Default "inner". |
 | free | list of boolean |  | no | With `given` "free": one flag per field, index 0 to 5 (inner 0 to 2, outer 3 to 5). A flagged field shows its number. Missing or invalid: the three inner fields. |
 | empty | boolean |  | yes | When true, no field shows a number, so the pupil fills in every field. Default false. |
-| op | string | `+`, `*` | yes | How an outer field is made from the two inner fields of its side. "+" the sum, "*" the product. Default "+". |
+| op | string | `+`, `*` | no | How an outer field is made from the two inner fields of its side. "+" the sum, "*" the product. Default "+". |
 | seed | number |  | yes | Seed for the random triangles. The same seed always gives the same triangles. |
 | typed | list of list of number |  | no | Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers. |
 

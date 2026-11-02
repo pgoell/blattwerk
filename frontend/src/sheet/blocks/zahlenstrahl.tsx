@@ -20,7 +20,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
   const y = h - room;
   const cut = p.cut && p.start > 0;
   const lastX = ticks.length ? xOf(ticks.length - 1, ticks.length, w) : w - 1;
-  const tip = arrowTip(p.point && ticks.length > 0, lastX, w);
+  const tip = arrowTip(p.point === true && ticks.length > 0, lastX, w);
   const axs = arrowXs(arrows.length, ticks.length, w);
   // An arrow's number stands on the baseline y - 7.6, raised when its digits would pass the block's top; its stub
   // runs from under the digits to y - 5, and is left out where a short block leaves no room for it.
@@ -38,7 +38,7 @@ export function Zahlenstrahl({ block, solved }: { block: ZahlenstrahlBlock; k: n
         )}
         {ticks.map((t, i) => {
           const x = xOf(i, ticks.length, w);
-          const stroke = tickLine(p.under, t.long, y, i === ticks.length - 1, p.point);
+          const stroke = tickLine(p.under === true, t.long, y, i === ticks.length - 1, p.point === true);
           const stem = stroke ? stroke.y2 : y;
           // The box's size, and a box that would cover a number shown beside it, which goes one row lower.
           const { bw, bh, covers, dy } = t.task === "box" ? boxUnder(ticks, i, w, p.size) : { bw: 0, bh: 0, covers: false, dy: 0 };

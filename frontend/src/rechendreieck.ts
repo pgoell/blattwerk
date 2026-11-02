@@ -60,7 +60,7 @@ export type RechendreieckProps = {
   /** When true, no field shows a number, so the pupil fills in every field. Default false. */
   empty: boolean;
   /** How an outer field is made from the two inner fields of its side. "+" the sum, "*" the product. Default "+". */
-  op: "+" | "*";
+  op?: "+" | "*";
   /** Seed for the random triangles. The same seed always gives the same triangles. */
   seed: number;
   /** Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers. */
