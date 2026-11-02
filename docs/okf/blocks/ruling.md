@@ -4,7 +4,7 @@ title: "Block: ruling"
 description: "The Lineatur's kind and colour, and the words it may show on its rows."
 tags: [block, ruling]
 covers: [ruling]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-17T20:43:14Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-01T15:41:30Z }
 ---
 
 # ruling
@@ -41,6 +41,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | color | string |  | yes | The colour of the lines, as a six digit hex colour such as #1a56db. |
 | text | string |  | no | Text printed on the lines, in the block's font. Left out, the lines stand alone. |
 | font | string | `andika`, `nord`, `sued`, `grund`, `urff`, `va`, `sas`, `la` | no | The font of the text printed on the lines. Left out, the default font is used. |
+| tracking | number | 0 to 1 | no | Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this. |
 | trace | boolean or string | `outline` or `dotted` | no | Trace text the pupil writes over: true for grey, "outline" or "dotted". Left out, no trace. |
 | fade | string | `row`, `rows` | no | How the trace fades as the pupil writes on: "row" along each row, "rows" from row to row. Left out, it does not fade. |
 | list | string | `copy`, `trace`, `row`, `fold` | no | Takes its words from the sheet's words to learn (Lernwörter), one to a row, in the way the mode says. Left out, no list. |
