@@ -1002,6 +1002,14 @@
               "type": "boolean",
               "description": "True puts a short cross stroke at each end of a line. Absent means no ticks."
             },
+            "ruler": {
+              "type": "boolean",
+              "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off."
+            },
+            "mm": {
+              "type": "boolean",
+              "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`."
+            },
             "label": {
               "type": "string",
               "enum": [

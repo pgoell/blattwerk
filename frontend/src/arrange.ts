@@ -1,4 +1,5 @@
 // Where a selection sits once it is turned, scaled or mirrored, and which looks the picked words share.
+import { NUMBER_GAP, NUMBER_PT, ticksOf } from "./ruler";
 import { PT, boxed, dir, far, isLine, parasOf, type Axis, type Block, type Box, type Corner, type ShapeBlock } from "./sheet";
 import type { Picked } from "./pages/Field";
 
@@ -61,6 +62,18 @@ export const inked = (b: Block): Box => {
     // Ticks stand 1.5 mm to each side of the ends (`Line` in sheet.tsx draws them).
     ...(b.props.ticks ? [s, e].flatMap((end) => [at(end, 0, 1.5), at(end, 0, -1.5)]) : []),
   ];
+  // A Lineal's ticks and numbers stand on the side that reads upright, as `RulerMarks` draws them.
+  if (b.props.ruler) {
+    const side = u[0] < 0 ? -1 : 1;
+    const fs = NUMBER_PT * PT;
+    for (const t of ticksOf(len, b.props.mm === true)) {
+      points.push(at(s, t.at, side * -t.reach));
+      if (t.n === undefined) continue;
+      const half = (String(t.n).length * 0.6 * fs) / 2;
+      const base = t.reach + NUMBER_GAP;
+      for (const along of [t.at - half, t.at + half]) for (const across of [-(base + 0.8 * fs), -(base - 0.25 * fs)]) points.push(at(s, along, side * across));
+    }
+  }
   // The length stands 2 mm over the middle, on the side that reads upright: its em box, with a char at most 0.6 em.
   if (b.props.label) {
     const fs = 12 * PT;
