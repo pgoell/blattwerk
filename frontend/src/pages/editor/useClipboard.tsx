@@ -176,9 +176,19 @@ function copy(held = sel) {
     }
     const drawn = pictureOf(held, live.current.doc, page)
       .then(async (blob) => {
-        if (settled || gone || n !== lastCopy.current) return;
+        // Someone else's copy moved the clipboard. Reject the blob so this write ends and does not
+        // replace their picture. Our own next copy has already finished this write with a blank image.
+        if (settled) return;
+        if (gone || n !== lastCopy.current) {
+          giveUp();
+          return;
+        }
         const holds = await stillHolds(words);
-        if (settled || gone || n !== lastCopy.current) return;
+        if (settled) return;
+        if (gone || n !== lastCopy.current) {
+          giveUp();
+          return;
+        }
         // A browser with clipboardchange reports someone else's copy by moving lastCopy. A miss here is
         // this page's previous write, still on the clipboard, which this picture replaces (#1011).
         if (!holds && !listens.current) {
