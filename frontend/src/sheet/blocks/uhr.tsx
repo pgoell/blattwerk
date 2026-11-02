@@ -62,8 +62,8 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
               )}
               {p.task === "draw" && solved && (
                 <>
-                  <line className="hour" x1={50} y1={50} x2={hx} y2={hy} stroke={RED} strokeWidth={4.5} strokeLinecap="round" />
-                  <line className="minute" x1={50} y1={50} x2={mx} y2={my} stroke={RED} strokeWidth={1.6} strokeLinecap="round" />
+                  <line className="hour answer" x1={50} y1={50} x2={hx} y2={hy} stroke={RED} strokeWidth={4.5} strokeLinecap="round" />
+                  <line className="minute answer" x1={50} y1={50} x2={mx} y2={my} stroke={RED} strokeWidth={1.6} strokeLinecap="round" />
                 </>
               )}
               <circle className="hub" cx={50} cy={50} r={2.5} fill={UHR_INK} />

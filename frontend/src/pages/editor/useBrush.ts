@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { fresh } from "../../history";
 import { TextSelection } from "prosemirror-state";
 import { bandOf, boxed, cleared, isLine, listOf, listed, mathsHeight, overFoot, parasOf, sizeOf, stored, tall, type Block, type List } from "../../sheet";
+import { added } from "../../chars";
 import { hole, list, tint, type Marks } from "../Field";
 import { allCells, allGaps, everyNth, everyNthCell } from "../../gaps";
 import { next } from "../../cells";
@@ -254,6 +255,26 @@ export function useBrush(session: ReturnType<typeof useBlockStyle>) {
       "",
     );
   }
+  // A character from the text bar goes where the caret is. With the text closed it is added at the end.
+  // A text that draws the Lernwörter has no words of its own to add to.
+  function typeChar(ch: string) {
+    const view = field.current;
+    if (view) {
+      view.focus();
+      view.dispatch(view.state.tr.insertText(ch).scrollIntoView());
+      return;
+    }
+    const own = (b: Block) => {
+      const text = boxed(b);
+      return !!text && text.list !== true;
+    };
+    if (!sel.some(own)) return;
+    tight.current = true;
+    change(
+      (bs) => bs.map((b) => (ids.includes(b.id) && own(b) ? ({ ...b, props: { ...b.props, ...added(boxed(b)!, ch) } } as Block) : b)),
+      "",
+    );
+  }
   // Gives the selected lines a length in mm. Each keeps its angle and the top left corner of its box.
   function extend(to: number) {
     place(
@@ -291,5 +312,5 @@ export function useBrush(session: ReturnType<typeof useBlockStyle>) {
     const [on, view] = [sheet.current!.getBoundingClientRect(), desk.current!.getBoundingClientRect()];
     if (n !== page || on.bottom <= view.top || on.top >= view.bottom) seek();
   }
-    return Object.assign(session, { look, fadePicture, traced, paint, dip, wordPaint, brushDrag, daub, itemize, wordy, gapping, gapEvery, extend, steered, scrollHeld, lagged, show });
+    return Object.assign(session, { look, fadePicture, traced, paint, dip, wordPaint, brushDrag, daub, itemize, wordy, gapping, gapEvery, typeChar, extend, steered, scrollHeld, lagged, show });
 }

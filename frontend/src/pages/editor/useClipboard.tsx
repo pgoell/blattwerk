@@ -5,7 +5,7 @@ import { fresh } from "../../history";
 import { stored, tied, type Block, type Page } from "../../sheet";
 import { landed as carried } from "../../words";
 import { pictureOf } from "../../picture";
-import { atOnce, behind, copied, follow, hash, onTheWay, refused as refusedWords } from "../../clip";
+import { atOnce, behind, copied, follow, hash, onNewerCopy, onTheWay, refused as refusedWords, takenWords } from "../../clip";
 import { parasFromHtml } from "../../pasted";
 import { grouped, wholeBlock, cloned } from "./palette";
 import { useInsert } from "./useInsert";
@@ -128,6 +128,9 @@ function copy(held = sel) {
       gone = true;
       cancel(new Error("clipboard moved"));
     };
+    // A cut in a field while this picture is still drawn calls it off. Once the bytes are handed over, Chrome may
+    // still commit them afterwards: the paste and the repair below put the field's words back (#1016).
+    const dropListen = onNewerCopy(giveUp);
     const wordsOnly = () => {
       if (backed || gone || n !== lastCopy.current || !navigator.clipboard?.writeText) return Promise.resolve();
       backed = true;
@@ -142,6 +145,7 @@ function copy(held = sel) {
       gesture = atOnce(() => navigator.clipboard.write([new ClipboardItem({ "image/png": behind(png), "text/plain": behind(text) })]));
     } catch {
       cancel(new Error("no write"));
+      dropListen();
       return wordsOnly();
     }
     const drawn = pictureOf(held, live.current.doc, page)
@@ -161,7 +165,20 @@ function copy(held = sel) {
         cancel(new Error("no picture"));
         return wordsOnly();
       });
-    return Promise.all([gesture.catch(() => wordsOnly()), drawn]).then(() => {});
+    return Promise.all([gesture.catch(() => wordsOnly()), drawn])
+      .then(async () => {
+        // The picture landed last and put this copy's words back over a field's. Write the field's words now, so
+        // they land after the picture and Chrome cannot put the picture over them.
+        const newer = takenWords();
+        if (!newer || newer === words || !navigator.clipboard?.readText || !navigator.clipboard.writeText) return;
+        try {
+          const got = (await navigator.clipboard.readText()).replace(/\r\n/g, "\n");
+          if (got === words && takenWords() === newer) await navigator.clipboard.writeText(newer);
+        } catch {
+          // A browser that will not read still pastes the field's words from the paste listener.
+        }
+      })
+      .finally(dropListen);
   }
   // Only what is free goes. With nothing free the clipboard keeps what it held.
   function cut() {

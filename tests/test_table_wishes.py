@@ -53,9 +53,12 @@ def test_a_finger_drags_the_bottom_right_handle_over_cells_and_they_are_picked(e
 
 def tap_open(page, n):
     """A finger's two taps on a cell: the first picks the table, the second opens the cell."""
-    for _ in range(2):
-        with finger(page, centre(cell(page, "t", n))):
-            pass
+    # finger() lifts a round trip after the press. Once that trip runs past the half-second
+    # hold, the lift opens the menu and the cell stays shut, so the handles never stand (#935).
+    # A tap sends the press and the lift together, and the second waits until the first has picked.
+    cell(page, "t", n).tap()
+    expect(at(page, "t")).to_have_class("block sel")
+    cell(page, "t", n).tap()
 
 
 def test_a_finger_drags_the_top_left_handle_and_the_range_grows_the_other_way(editor):

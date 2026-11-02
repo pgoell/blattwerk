@@ -35,7 +35,7 @@ export function Line({ block, k, solved }: { block: ShapeBlock; k: number; solve
         {tail > 0 && <polygon stroke="none" fillOpacity={strokeOpacity} points={`0,0 ${tail},${-tail / 2} ${tail},${tail / 2}`} />}
         {ticks && [...(tail ? [] : [0]), ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
         {(label === "show" || (label === "key" && solved)) && (
-          <text x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
+          <text className={label === "key" ? "answer" : undefined} x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
             {(Math.round(length * 10) / 100).toLocaleString("de")} cm
           </text>
         )}

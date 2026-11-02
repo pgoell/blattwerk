@@ -131,15 +131,25 @@ def draw_comparisons(
     equal_one: bool,
     rng: random.Random,
 ) -> list[dict]:
-    """Up to `want` different comparisons, all with equal sides or all with unequal ones."""
+    """Up to `want` different comparisons, all with equal sides or all with unequal ones.
+
+    A draw that brings nothing new 200 times in a row has no more to give: tight limits leave
+    few comparisons, and the rest of the tries would all be spent.
+    """
     # A dict keeps the order they were found in, so a seed gives the same comparisons again.
     found: dict[tuple, dict] = {}
+    idle = 0
     for _ in range(tries):
-        if len(found) == want:
+        if len(found) == want or idle == 200:
             break
         e = comparison(s, ops, top, equal_one, rng)
         if e is not None:
-            found.setdefault((tuple(e["left"].items()), tuple(e["right"].items())), e)
+            key = (tuple(e["left"].items()), tuple(e["right"].items()))
+            if key not in found:
+                found[key] = e
+                idle = 0
+                continue
+        idle += 1
     return list(found.values())
 
 

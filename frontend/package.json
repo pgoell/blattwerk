@@ -20,19 +20,19 @@
     "@fontsource-variable/playwrite-de-la": "^5.3.0",
     "@fontsource-variable/playwrite-de-sas": "^5.3.0",
     "@fontsource-variable/playwrite-de-va": "^5.3.0",
-    "@modelcontextprotocol/sdk": "1.32.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "hyphen": "^1.14.1",
-    "lucide-react": "^1.61.0",
+    "lucide-react": "^1.65.0",
     "modern-screenshot": "^4.7.0",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-model": "^1.25.12",
     "prosemirror-state": "^1.4.4",
-    "prosemirror-view": "^1.42.7",
+    "prosemirror-view": "^1.42.8",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-moveable": "^0.56.0",
-    "react-router": "^8.5.0",
+    "react-router": "^8.5.1",
     "react-selecto": "^1.26.3"
   },
   "devDependencies": {
@@ -44,7 +44,7 @@
     "fast-check": "^4.10.2",
     "ts-json-schema-generator": "2.9.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }

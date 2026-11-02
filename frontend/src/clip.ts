@@ -8,7 +8,18 @@ export const hash = (words: string) => String([...words].reduce((h, c) => (h * 3
 // Whether this page put the last copy there: a copy in one of its fields comes here as a copy too, and is no longer
 // the editor's. The editor's own sets it after its copy. A copy in another app since is not seen.
 let ours = false;
-export const copied = () => ((ours = true), made());
+// Words cut or copied in a field after the editor's last block copy. A block copy clears them: it is the newer one.
+let taken = "";
+// Called with the block copy's way to give up, so a field copy can call that picture off while it still can.
+let newerCopy = () => {};
+export function onNewerCopy(fn: () => void) {
+  newerCopy = fn;
+  return () => {
+    if (newerCopy === fn) newerCopy = () => {};
+  };
+}
+export const takenWords = () => taken;
+export const copied = () => ((ours = true), (taken = ""), made());
 addEventListener("copy", () => (ours = false), true);
 
 // Who is signed in, set by the app: the copied words are only the account's whose blocks lie in the store.
@@ -85,22 +96,54 @@ for (const kind of ["copy", "cut"]) {
           ? el.value.slice(el.selectionStart, el.selectionEnd ?? 0)
           : String(getSelection() ?? "");
     }
-    if (words.trim()) mark(words);
+    if (!words.trim()) return;
+    // A field's own words. The block picture may still land and put the block's words back over them (#1016).
+    if (el instanceof Element && el.closest("textarea, input, .ProseMirror")) {
+      taken = words.replace(/\r\n/g, "\n");
+      newerCopy();
+    }
+    mark(words);
   });
 }
 
+// Puts `words` into the field that is pasting. A textarea takes them as its own input; a text's field takes
+// the command the browser would use for a paste.
+function putTaken(field: Element, words: string) {
+  if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) {
+    const start = field.selectionStart ?? 0;
+    const end = field.selectionEnd ?? start;
+    const next = field.value.slice(0, start) + words + field.value.slice(end);
+    const proto = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const set = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    if (!set) return;
+    set.call(field, next);
+    field.selectionStart = field.selectionEnd = start + words.length;
+    field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: words }));
+    return;
+  }
+  document.execCommand("insertText", false, words);
+}
 // Another account's copy, or one made before a logout, pastes into no field on any page. Caught on the way down,
 // before the editor or a field takes it.
 addEventListener(
   "paste",
   (e) => {
+    const plain = (e.clipboardData?.getData("text/plain") ?? "").replace(/\r\n/g, "\n");
     const mark = localStorage.getItem("copied");
-    if (refused(e.clipboardData?.getData("text/plain") ?? "")) {
+    if (refused(plain)) {
       e.preventDefault();
       e.stopImmediatePropagation();
       return;
     }
-    if (!mark || hash((e.clipboardData?.getData("text/plain") ?? "").replace(/\r\n/g, "\n")) !== mark) return;
+    // The block picture landed after the field was cut and put the block's words back. The field pastes its own (#1016).
+    const field = e.target instanceof Element ? e.target.closest("textarea, input, .ProseMirror") : null;
+    if (field && taken && taken !== plain && mark && hash(plain) === mark) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      putTaken(field, taken);
+      return;
+    }
+    if (!mark || hash(plain) !== mark) return;
     let owner: unknown;
     try {
       owner = JSON.parse(localStorage.getItem("clip") ?? "null")?.owner;

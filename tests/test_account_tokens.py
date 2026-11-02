@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from playwright.sync_api import expect
+from test_stale import TURNS
 from ui import PASSWORD, reload, user
 
 from blattwerk.app import app
@@ -345,6 +346,56 @@ def test_a_name_in_the_field_stays_when_the_key_list_arrives(browser, server):
         expect(row(page, "Laptop")).to_be_visible()
     finally:
         context.close()
+
+
+def test_a_retry_of_a_failed_key_posts_the_name_typed_since(account):
+    """The fault bar's retry of a key create takes the guard and the name as they stand (#936).
+
+    A retry used to call the failed try's request: it posted that name, then emptied the
+    field over a name typed since, and it never set `busy`, so a press beside it sent
+    another key and the retry's `finally` could clear the flag under that press.
+    """
+    page = account(user())
+    expect(page.get_by_role("button", name="Schlüssel erstellen")).to_be_visible()
+    page.wait_for_load_state("networkidle")
+    field = type_name(page, "Alt")
+    page.context.set_offline(True)
+    with page.expect_event(
+        "requestfailed", lambda req: req.method == "POST" and req.url.endswith("/api/tokens")
+    ):
+        page.keyboard.press("Enter")
+    line = page.get_by_role("alert")
+    expect(line).to_contain_text("Der Schlüssel konnte nicht erstellt werden.")
+    expect(line).to_contain_text("Prüfe deine Verbindung")
+    page.context.set_offline(False)
+    field.press("Control+a")
+    field.press_sequentially("Neu")
+    expect(field).to_have_value("Neu")
+    held = []
+
+    def hold(route):
+        if route.request.method == "POST":
+            held.append(route)
+        else:
+            route.continue_()
+
+    page.route("**/api/tokens", hold)
+    with page.expect_request(lambda req: req.method == "POST" and req.url.endswith("/api/tokens")):
+        line.get_by_role("button", name="Erneut versuchen").click()
+    page.get_by_role("button", name="Schlüssel erstellen").click()
+    page.evaluate(TURNS)
+    assert [route.request.post_data_json["name"] for route in held] == ["Neu"]
+    # The name stays until the create that posted it lands. The old retry wiped it on the way out.
+    expect(field).to_have_value("Neu")
+    with page.expect_response(
+        lambda res: res.request.method == "POST" and res.url.endswith("/api/tokens")
+    ):
+        held[0].continue_()
+    page.unroute("**/api/tokens", hold)
+    expect(row(page, "Neu")).to_have_count(1)
+    expect(row(page, "Alt")).to_have_count(0)
+    expect(field).to_have_value("")
+    expect(page.get_by_role("alert")).to_have_count(0)
 
 
 def test_a_name_typed_while_the_list_loads_makes_its_key(account):

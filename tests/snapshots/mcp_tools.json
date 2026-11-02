@@ -548,6 +548,14 @@
               "$ref": "#/definitions/Guides",
               "description": "The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge."
             },
+            "keyAsText": {
+              "description": "Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`.",
+              "type": "boolean"
+            },
+            "keyColor": {
+              "description": "The colour the answers print in, as \"#rrggbb\". Left out, they are red. Has no effect while `keyAsText` is set.",
+              "type": "string"
+            },
             "landscape": {
               "description": "Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright.",
               "type": "boolean"
@@ -7225,6 +7233,14 @@
               "$ref": "#/definitions/Guides",
               "description": "The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge."
             },
+            "keyAsText": {
+              "description": "Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`.",
+              "type": "boolean"
+            },
+            "keyColor": {
+              "description": "The colour the answers print in, as \"#rrggbb\". Left out, they are red. Has no effect while `keyAsText` is set.",
+              "type": "string"
+            },
             "landscape": {
               "description": "Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright.",
               "type": "boolean"
@@ -13368,6 +13384,14 @@
             "guides": {
               "$ref": "#/definitions/Guides",
               "description": "The guide lines on every page, in mm: `x` for the upright lines, `y` for the flat ones, each from the paper's edge."
+            },
+            "keyAsText": {
+              "description": "Prints the answers in the sheet's text colour, the same ink as the tasks. Left out, the answers use `keyColor`.",
+              "type": "boolean"
+            },
+            "keyColor": {
+              "description": "The colour the answers print in, as \"#rrggbb\". Left out, they are red. Has no effect while `keyAsText` is set.",
+              "type": "string"
             },
             "landscape": {
               "description": "Lays the A4 sheet on its side, 297 by 210 mm, for every page that has no format of its own. Left out, upright.",

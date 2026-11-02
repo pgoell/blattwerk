@@ -19,6 +19,7 @@ import os
 import posixpath
 import re
 import shlex
+import shutil
 import sys
 import time
 from collections.abc import Callable
@@ -281,13 +282,25 @@ def tidy() -> str:
     return "\n".join(f"deleted {path.parent.name}/{path.name}" for path in found)
 
 
+# A real photograph. The shell the brief allows cannot copy one into the run folder.
+PHOTO = Path(__file__).resolve().parents[1] / "docs/experiments/94-wasserkreislauf/04-wolke.jpg"
+
+
+def photo() -> str:
+    """Copies that photograph into the run folder. It needs no window."""
+    if not PHOTO.is_file():
+        raise Refused(f"the photograph is missing: {PHOTO.name}")
+    dest = STATE / "photo.jpg"
+    shutil.copyfile(PHOTO, dest)
+    return str(dest)
+
+
 _ns = _load("teacher_page_ns")
 _name = _load("teacher_page_name")
 _acts = _load("teacher_page_acts")
 _keys = _load("teacher_page_keys")
 _clock = _load("teacher_page_clock")
 _outside = _load("teacher_page_outside")
-click = _acts.click
 double_click = _acts.double_click
 shift_click = _acts.shift_click
 hover = _acts.hover
@@ -349,9 +362,49 @@ start = _acts.start
 _ns.bind(globals())
 
 
+def quiet_select(page: Page, x: float, y: float) -> bool:
+    """Focuses a native list and leaves the browser's popup shut.
+
+    A real click opens that popup, and the key after it does not change the choice. The font
+    list is drawn by the page, so it still takes a real click and opens.
+    """
+    return page.evaluate(
+        """([x, y]) => {
+            const el = document.elementFromPoint(x, y)?.closest("select");
+            if (!el || el.closest(".fontsel")) return false;
+            const at = {bubbles: true, clientX: x, clientY: y, pointerType: "mouse"};
+            el.dispatchEvent(new PointerEvent("pointerdown", at));
+            el.focus();
+            return true;
+        }""",
+        [x, y],
+    )
+
+
+def click(page: Page, target: str, times: str = "1") -> str:
+    """One click, or `times` clicks in this call. Two calls cannot be that quick."""
+    if times == "1":
+        x, y = point(page, target)
+        if quiet_select(page, x, y):
+            return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
+        return _acts.click(page, target)
+    x, y = point(page, target)
+    grey = greyed(page, x, y)
+    for _ in range(number(times)):
+        page.mouse.click(x, y)
+    return shown(page, f"clicked at {x:g},{y:g} {times} times{grey}")
+
+
+def right_click(page: Page, target: str) -> str:
+    x, y = point(page, target)
+    page.mouse.click(x, y, button="right")
+    return shown(page, f"right-clicked at {x:g},{y:g}")
+
+
 VERBS: dict[str, Callable[..., str]] = {
     "open": go,
     "click": click,
+    "right-click": right_click,
     "double-click": double_click,
     "shift-click": shift_click,
     "ctrl-click": ctrl_click,
@@ -396,7 +449,7 @@ def joined():
 def verb(name: str, args: tuple[str, ...], yes: bool) -> str:
     """Runs a verb of the window. Each box it meets is answered, and the output names it."""
     if name not in VERBS:
-        known = ", ".join(["start", "stop", *VERBS, "box", "tidy"])
+        known = ", ".join(["start", "stop", *VERBS, "box", "tidy", "photo"])
         raise Refused(f'no verb "{name}": there are {known}')
     try:
         inspect.signature(VERBS[name]).bind(None, *args)
@@ -438,6 +491,10 @@ def main(name: str = "", *args: str) -> str:
         return "stopped" if stop() else "no page was running"
     if name == "tidy":
         return tidy()
+    if name == "photo":
+        if args:
+            raise Refused("photo takes nothing and writes photo.jpg into the run folder")
+        return photo()
     if name == "box":
         if len(args) < 2 or args[0] not in ("yes", "no"):
             raise Refused('box takes yes or no, then a verb: box yes click "Löschen"')
