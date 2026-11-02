@@ -92,6 +92,78 @@ def test_in_a_field_the_keys_work_on_the_words_alone(editor, kind):
     assert (pasted["type"], pasted["props"]["text"]) == ("text", word)
 
 
+# The picture write's bytes stay pending, so its commit can be let go after a cut in a field.
+LATE_COPY = """() => {
+    const Orig = window.ClipboardItem;
+    let hold = true;
+    window.heldItems = [];
+    window.ClipboardItem = class extends Orig {
+        constructor(items, options) {
+            if (!hold) {
+                super(items, options);
+                return;
+            }
+            const delayed = {};
+            for (const [type, value] of Object.entries(items)) {
+                delayed[type] = new Promise((res, rej) => {
+                    window.heldItems.push(() => Promise.resolve(value).then(res, rej));
+                });
+            }
+            super(delayed, options);
+        }
+    };
+    const write = navigator.clipboard.write.bind(navigator.clipboard);
+    window.copyLanded = false;
+    navigator.clipboard.write = (items) => {
+        const done = write(items);
+        window.writeDone = done.then(
+            () => (window.copyLanded = true),
+            () => (window.copyLanded = true),
+        );
+        return done;
+    };
+    window.releaseCopy = () => {
+        hold = false;
+        const held = window.heldItems;
+        window.heldItems = [];
+        for (const go of held) go();
+        return window.writeDone;
+    };
+}"""
+
+
+def test_a_cell_cut_keeps_its_word_when_the_block_picture_lands_after(editor):
+    """#1016: the picture of a copied shape lands after the cell was cut, and the paste is still the cell."""
+    client = user()
+    page = editor(box("a", "shape", RECT), box("b", "table", TABLE, z=2), client=client)
+    page.evaluate(LATE_COPY)
+    pick(page, "a")
+    page.keyboard.press("Control+c")
+    pick(page, "b")
+    page.keyboard.press("Enter")
+    field = page.locator(".block textarea:focus")
+    expect(field).to_have_value("H")
+    page.keyboard.press("Control+x")
+    expect(field).to_have_value("")
+    # The picture write is still open: letting it go now is the late commit.
+    assert page.evaluate("window.copyLanded") is False
+    page.evaluate("window.releaseCopy()")
+    page.keyboard.press("Control+v")
+    expect(field).to_have_value("H")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Control+c")
+    page.keyboard.press("ArrowRight")
+    page.keyboard.press("Control+v")
+    expect(field).to_have_value("HH")
+    expect(blocks(page)).to_have_count(2)
+    page.keyboard.press("Escape")
+    unpick(page)
+    page.keyboard.press("Control+v")
+    expect(blocks(page)).to_have_count(3)
+    pasted = shapes(saved(page, client))[-1]
+    assert (pasted["type"], pasted["props"]["text"]) == ("text", "H")
+
+
 @pytest.mark.parametrize("kind", ["text", "table", "ruling"])
 def test_a_picture_pasted_while_typing_lands_on_the_sheet(editor, kind):
     """The field has no place for a picture; its words stay as typed."""
