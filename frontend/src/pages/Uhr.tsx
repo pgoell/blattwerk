@@ -104,6 +104,10 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
         <input type="checkbox" aria-label="13 bis 24" checked={p.ring} disabled={p.numbers === "none"} onChange={() => apply({ ring: !p.ring })} />
         13 bis 24
       </label>
+      <label>
+        <input type="checkbox" aria-label="Zeiger färben" checked={p.colours} onChange={() => apply({ colours: !p.colours })} />
+        Zeiger färben
+      </label>
       <select aria-label="Aufgabe" value={p.task} onChange={(e) => apply({ task: e.target.value as UhrProps["task"] })}>
         <option value="read">Uhrzeit ablesen</option>
         <option value="draw">Zeiger einzeichnen</option>
@@ -117,6 +121,7 @@ export default function Uhr({ block, apply }: { block: UhrBlock; apply: Apply })
       <select aria-label="Schreibweise" value={p.format} onChange={(e) => apply({ format: e.target.value as UhrProps["format"] })}>
         <option value="12">3:30 Uhr</option>
         <option value="24">15:30 Uhr</option>
+        <option value="both">3:30 und 15:30</option>
         <option value="words">In Worten</option>
       </select>
       {p.format === "words" && (

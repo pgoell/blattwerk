@@ -16,6 +16,8 @@ ZAHLENSTRAHL = {
     "labels": "major",
     "size": 12,
     "cut": False,
+    "point": False,
+    "under": False,
     "tasks": "random",
     "boxes": 3,
     "arrows": 0,
@@ -133,7 +135,7 @@ ZAHLENSTRAHL = {
         (
             "Rechendreieck",
             "rechendreieck",
-            {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False},
+            {"count": 4, "columns": 4, "max": 20, "given": "inner", "empty": False, "op": "+"},
         ),
         ("Zahlenstrahl", "zahlenstrahl", ZAHLENSTRAHL),
         (
@@ -208,6 +210,7 @@ ZAHLENSTRAHL = {
                 "task": "read",
                 "answer": "box",
                 "format": "12",
+                "colours": False,
                 "region": "nach",
                 "count": 4,
                 "cols": 4,

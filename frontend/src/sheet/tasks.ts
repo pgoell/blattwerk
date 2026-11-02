@@ -64,8 +64,8 @@ export type SuchselBlock = Box & {
 // come from `seed` alone, so every draw gives the same ones.
 export type Typed = [number, number, number];
 export type ZahlenmauerProps = {
-  /** Number of stones in the lowest row of each wall: 3, 4 or 5. */
-  base: 3 | 4 | 5;
+  /** Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6. */
+  base: 2 | 3 | 4 | 5 | 6;
   /** Number of walls in the block.
    * @minimum 1
    * @maximum 12

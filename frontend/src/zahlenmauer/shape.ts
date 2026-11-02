@@ -16,7 +16,7 @@ export const at = (base: number, row: number, col: number) => row * base - (row 
 
 // The settings as a wall can take them, whatever a stored sheet holds.
 export function sane(p: ZahlenmauerProps): ZahlenmauerProps {
-  const base = p.base === 4 || p.base === 5 ? p.base : 3;
+  const base = p.base === 2 || p.base === 4 || p.base === 5 || p.base === 6 ? p.base : 3;
   const n = stones(base);
   const free = Array.isArray(p.free) && p.free.length === n && p.free.every((f) => typeof f === "boolean") ? p.free : Array.from({ length: n }, (_, i) => i < base);
   const count = Number.isInteger(p.count) && p.count >= 1 && p.count <= 12 ? p.count : 4;

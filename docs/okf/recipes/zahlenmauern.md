@@ -4,7 +4,7 @@ title: "Zahlenmauern"
 description: A heading, a name line, and four Zahlenmauern with the sums above the given foot stones to fill in.
 tags: [zahlenmauer, zahlen, klasse-1]
 covers: [text, name, zahlenmauer]
-generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-02T21:45:00Z }
 ---
 
 # Zahlenmauern
@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 When a teacher asks for: "Ein Blatt mit Zahlenmauern zum Rechnen, Zahlen bis 20."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* The zahlenmauer block draws four walls with three stones at the foot of each, every stone above is the sum of the two under it. The foot stones are given, the rest is for the pupil to fill in.
+* The zahlenmauer block draws four walls with three stones at the foot of each, every stone above is the sum of the two under it. The foot stones are given, the rest is for the pupil to fill in. `base` can be 2 stones for beginners or 6 for a strong group. This sheet uses 3.
 * In the editor the walls are the button "Zahlenmauer" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe".
 * See [zahlenmauer](../blocks/zahlenmauer.md) for the other props.
 

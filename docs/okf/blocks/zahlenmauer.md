@@ -4,7 +4,7 @@ title: "Block: zahlenmauer"
 description: "The wall block's settings: the stones, the walls and the numbers shown."
 tags: [block, zahlenmauer]
 covers: [zahlenmauer]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:33:44Z }
 ---
 
 # zahlenmauer
@@ -37,7 +37,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
-| base | number | `3`, `4`, `5` | yes | Number of stones in the lowest row of each wall: 3, 4 or 5. |
+| base | number | `2`, `3`, `4`, `5`, `6` | yes | Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6. |
 | count | number | 1 to 12 | yes | Number of walls in the block. |
 | columns | number | 1 to 4 | yes | Number of walls standing side by side. |
 | max | number |  | yes | The Zahlenraum: no stone lies above it. One of 10, 20, 100 or 1000. |

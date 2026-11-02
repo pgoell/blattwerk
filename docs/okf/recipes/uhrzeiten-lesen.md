@@ -4,7 +4,7 @@ title: "Uhrzeiten lesen"
 description: A heading, a name line, and six clocks with full and half hours to read, the time written under each.
 tags: [uhr, uhrzeit, klasse-1]
 covers: [text, name, uhr]
-generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-02T22:00:00Z }
 ---
 
 # Uhrzeiten lesen
@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
 When a teacher asks for: "Ein Blatt mit Uhrzeiten zum Lesen, volle und halbe Stunden."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* The uhr block draws six clocks in three columns, each with a time on the hour or the half hour, from the seed. The pupil writes the time in the box under each clock.
+* The uhr block draws six clocks in three columns, each with a time on the hour or the half hour, from the seed. The pupil writes the time in the box under each clock. `colours` paints the hour hand blue and the minute hand red. `format` `"both"` writes both times of the same hands under the clock, such as `3:30 Uhr` and `15:30 Uhr`. This sheet leaves the hands one colour and writes one 12-hour time.
 * In the editor the clocks are the button "Uhr" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe".
 * See [uhr](../blocks/uhr.md) for the other props.
 
@@ -67,6 +67,7 @@ Pass this to `replace_doc` (after `create_sheet`), or build it block by block wi
             "task": "read",
             "answer": "box",
             "format": "12",
+            "colours": false,
             "region": "nach",
             "count": 6,
             "cols": 3,

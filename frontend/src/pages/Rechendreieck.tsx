@@ -60,6 +60,14 @@ export default function Rechendreieck({ block, apply }: { block: RechendreieckBl
           </option>
         ))}
       </select>
+      <div className="seg">
+        <button className={p.op === "+" ? "on" : ""} aria-pressed={p.op === "+"} onClick={() => apply({ op: "+" })}>
+          Plus
+        </button>
+        <button className={p.op === "*" ? "on" : ""} aria-pressed={p.op === "*"} onClick={() => apply({ op: "*" })}>
+          Mal
+        </button>
+      </div>
       <select aria-label="Gegebene Felder" value={p.given} onChange={(e) => apply({ given: e.target.value as RechendreieckProps["given"] })}>
         {Object.entries(GIVEN).map(([given, label]) => (
           <option key={given} value={given}>
