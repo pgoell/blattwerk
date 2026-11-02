@@ -14,7 +14,8 @@
 // - `seed` alone gives the triangles, so every draw gives the same ones.
 //
 // A field's index: 0 to 2 the inner fields at the corners (top, bottom left, bottom right), 3 to 5 the outer fields
-// beside the sides (left, bottom, right). Outer field 3 + s is the sum of the inner fields SIDES[s].
+// beside the sides (left, bottom, right). With `op` "+" outer field 3 + s is the sum of the inner fields SIDES[s];
+// with "*" it is their product, and the drawing puts a × in the middle of the triangle.
 //
 // A generated triangle has whole inner numbers from 1 up (two inner fields of one triangle may hold the same number),
 // no two triangles of a block have the same inner numbers, and a block always gets all `count` triangles (bis 10 has
@@ -33,6 +34,7 @@
 // `g.field[data-field=j]`, its number a `text.given` (#222) when the field is given, or a `text.answer` (#c0392b) in
 // the answer key when it is not. With `empty` no text at all. The dock adds a block of 180 by 50 mm.
 
+import { fillTimes } from "./rechendreieck/times";
 import { rng } from "./zahlenmauer";
 
 /** A number the teacher typed into a field: the triangle's index (from 0), the field's index (0 to 5), the value (0 to 9999). */
@@ -57,6 +59,8 @@ export type RechendreieckProps = {
   free?: boolean[];
   /** When true, no field shows a number, so the pupil fills in every field. Default false. */
   empty: boolean;
+  /** How an outer field is made from the two inner fields of its side. "+" the sum, "*" the product. Default "+". */
+  op: "+" | "*";
   /** Seed for the random triangles. The same seed always gives the same triangles. */
   seed: number;
   /** Numbers the teacher typed into fields. Each entry is [triangle index from 0, field index 0 to 5, value 0 to 9999]. The triangles are then built to hold these numbers. */
@@ -78,7 +82,12 @@ export const SIDES: [number, number][] = [
 // A field's name in the panel, by field index.
 export const NAMES = ["innen oben", "innen links", "innen rechts", "außen links", "außen unten", "außen rechts"];
 export const ZAHLENRAUM = [10, 20, 100, 1000];
-export const DEFAULTS: Omit<RechendreieckProps, "seed"> = { count: 4, columns: 4, max: 20, given: "inner", empty: false };
+export const DEFAULTS: Omit<RechendreieckProps, "seed"> = { count: 4, columns: 4, max: 20, given: "inner", empty: false, op: "+" };
+
+// The sign in the middle of a triangle. Plus draws none; times draws ×.
+export function signOf(op: "+" | "*"): string {
+  return op === "*" ? "\u00d7" : "";
+}
 
 // The settings as a triangle block can take them, whatever a stored sheet holds: a wrong value gives its default,
 // `free` of another length or with a value not a boolean gives the inner fields, a `typed` entry that is not three
@@ -104,6 +113,7 @@ export function sane(p: RechendreieckProps): RechendreieckProps {
     given: p.given === "mix" || p.given === "outer" || p.given === "free" ? p.given : "inner",
     free,
     empty: p.empty === true,
+    op: p.op === "*" ? "*" : "+",
     seed: Number.isFinite(p.seed) ? p.seed : 0,
     ...(kept.length ? { typed: kept } : {}),
   };
@@ -134,7 +144,7 @@ export function layout(p: Pick<RechendreieckProps, "count" | "columns">) {
   const rows = Math.max(1, Math.ceil(p.count / cols));
   const vbW = cols * cellW + (cols - 1) * GAP + 1;
   const vbH = rows * cellH + (rows - 1) * GAP + 1;
-  return { SIDE, H, GAP, RING, BOX, corner, inner, outer, minX, cellW, cellH, cols, vbW, vbH };
+  return { SIDE, H, GAP, RING, BOX, corner, centre, inner, outer, minX, cellW, cellH, cols, vbW, vbH };
 }
 
 // The default block (4 in a row, 180 by 50 mm) draws its triangles at the scale s0. A block of width w draws them at
@@ -238,7 +248,7 @@ function fill(typed: Map<number, number>, gen: number[]): number[] | undefined {
 export function made(props: RechendreieckProps): Made {
   const p = sane(props);
   const next = rng(p.seed);
-  const half = Math.floor(p.max / 2);
+  const half = p.op === "*" ? Math.max(1, Math.floor(Math.sqrt(p.max))) : Math.floor(p.max / 2);
   const gen: number[][] = [];
   const givens: boolean[][] = [];
   const seen = new Set<string>();
@@ -268,12 +278,13 @@ export function made(props: RechendreieckProps): Made {
   for (let t = 0; t < p.count; t++) {
     const T = typedOf(t);
     if (T.size === 0) continue;
-    const best = fill(T, gen[t]);
+    const best = p.op === "*" ? fillTimes(T, gen[t]) : fill(T, gen[t]);
     if (best) finals[t] = best;
     else wrong[t] = true;
   }
   const triangles = finals.map((inner, t): Triangle => {
-    const numbers = [...inner, ...sums(inner)];
+    const outer = p.op === "*" ? SIDES.map(([x, y]) => inner[x] * inner[y]) : sums(inner);
+    const numbers = [...inner, ...outer];
     for (const [f, v] of typedOf(t)) numbers[f] = v;
     return { numbers, given: givens[t], wrong: wrong[t] };
   });

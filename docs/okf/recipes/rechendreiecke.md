@@ -4,7 +4,7 @@ title: "Rechendreiecke"
 description: A heading, a name line, and four Rechendreiecke with some fields given and the rest to fill in.
 tags: [rechendreieck, zahlenraum-20, klasse-1]
 covers: [text, name, rechendreieck]
-generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
+generated: { by: "human:pgoell", at: 2026-11-02T21:45:00Z }
 ---
 
 # Rechendreiecke
@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 When a teacher asks for: "Ein Blatt mit Rechendreiecken bis 20, einige Zahlen gegeben."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the triangles are the button "Rechendreieck" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `given` says which fields show their number: "mix" gives two inner fields and one outer field.
+* In the editor the triangles are the button "Rechendreieck" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `given` says which fields show their number: "mix" gives two inner fields and one outer field. `op` `"+"` adds the two inner fields of a side; `"*"` multiplies them and draws a × in the middle. This sheet adds.
 * See [rechendreieck](../blocks/rechendreieck.md) for the other props.
 
 # Doc
@@ -65,6 +65,7 @@ Pass this to `replace_doc` (after `create_sheet`), or build it block by block wi
             "max": 20,
             "given": "mix",
             "empty": false,
+            "op": "+",
             "seed": 5
           }
         }

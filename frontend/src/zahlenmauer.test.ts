@@ -136,7 +136,7 @@ function stepByStep(base: number, given: boolean[]): boolean {
 }
 
 const seeds = fc.integer({ min: -(2 ** 31), max: 2 ** 31 - 1 });
-const base = fc.constantFrom(3, 4, 5);
+const base = fc.constantFrom(2, 3, 4, 5, 6);
 const op = fc.constantFrom<"+" | "*">("+", "*");
 const max = fc.constantFrom(10, 20, 100, 1000);
 const given = fc.constantFrom<"base" | "mix">("base", "mix");

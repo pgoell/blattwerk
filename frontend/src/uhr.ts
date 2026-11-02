@@ -12,7 +12,10 @@
 //   the clock and the face has no hands (default "read").
 // - `answer`, the empty answer of "read": "box" a digital box `__:__ Uhr`, "line" a writing line (default "box").
 // - `format`, how a time is written: "12" `3:30 Uhr` (hours 1 to 12), "24" `15:30 Uhr` (hours 0 to 23), "words"
-//   in words (default "12"). Minutes have two digits.
+//   in words, "both" the 12-hour form and the other time of the same hands (`3:30 Uhr` over `15:30 Uhr`, or
+//   `12:00 Uhr` over `0:00 Uhr`) (default "12"). Minutes have two digits.
+// - `colours`: the hour hand #1a56db and the minute hand #e02424, on the sheet and in the key. Off, both are the
+//   ink, and in the key of "draw" both are #c0392b (default false).
 // - `region`, the words' form (only with "words"): "nach" says "viertel nach drei" and "viertel vor vier", "viertel"
 //   says "viertel vier" and "dreiviertel vier" (default "nach"). Everything else reads alike in both: see `inWords`.
 // - `count`: how many clocks, 1 to 12 (default 4). `cols`: clocks per row, 1 to 6 (default 4); the rows fill from
@@ -50,7 +53,9 @@
 //   Both with round caps.
 // - Under the face, centred at x 50, baseline 120: "read" with "box" the text `__:__ Uhr` and "line" a line from
 //   (12, 122) to (88, 122), stroke 0.6; "draw" the written time. The font size is 10, or 180 / (letters of the text)
-//   where that is less, so a long time in words stays inside its cell.
+//   where that is less, so a long time in words stays inside its cell. Format "both" uses two lines, baselines 110
+//   and 122, font size 9 or less: the 12-hour time, then the other one. "read" with "box" shows two `__:__ Uhr`;
+//   with "line", two writing lines, at y 112 and 124.
 //
 // The answer key (`solved`): "read" writes the time (`written`) in #c0392b at the same place (over the line, or
 // in place of `__:__ Uhr`); "draw" draws both hands in #c0392b.
@@ -67,8 +72,9 @@
 // The panel (pages/Uhr.tsx), by aria-label: "Zahlen" (select: "all" 1 bis 12, "quarters" 12, 3, 6, 9, "none"
 // Keine), "Minutenstriche" (checkbox), "13 bis 24" (checkbox, disabled with "none"), "Aufgabe" (select: "read"
 // Uhrzeit ablesen, "draw" Zeiger einzeichnen), for "read" "Antwort" (select: "box" __:__ Uhr, "line" Linie),
-// "Schreibweise" (select: "12" 3:30 Uhr, "24" 15:30 Uhr, "words" In Worten), for "words" "Form" (select: "nach"
-// viertel nach drei, "viertel" viertel vier), "Uhren" and "Spalten" (number inputs), "Zeiten" (select: "random"
+// "Schreibweise" (select: "12" 3:30 Uhr, "24" 15:30 Uhr, "both" 3:30 und 15:30, "words" In Worten), "Zeiger färben"
+// (checkbox), for "words" "Form" (select: "nach" viertel nach drei, "viertel" viertel vier), "Uhren" and "Spalten"
+// (number inputs), "Zeiten" (select: "random"
 // Zufällig, "free" Selbst wählen), for "random" "Schritte" (select: "60" Volle Stunden, "30" Halbe Stunden, "15"
 // Viertelstunden, "5" 5 Minuten, "1" 1 Minute) and "Neu würfeln"; for "free" a text input per clock, "Uhr <i>" from
 // 1, holding `h:mm` (hours 0 to 23); a time that does not parse is not stored and the input shows it red
@@ -91,8 +97,10 @@ export type UhrProps = {
   task: "read" | "draw";
   /** The empty answer under a clock with task "read". "box": a digital box `__:__ Uhr`. "line": a writing line. Default "box". */
   answer: "box" | "line";
-  /** How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "words": in words, such as "halb vier". Default "12". */
-  format: "12" | "24" | "words";
+  /** How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "both": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. "words": in words, such as "halb vier". Default "12". */
+  format: "12" | "24" | "words" | "both";
+  /** Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false. */
+  colours: boolean;
   /** The form of the time in words, with format "words". "nach": "viertel nach drei" and "viertel vor vier". "viertel": "viertel vier" and "dreiviertel vier". Default "nach". */
   region: "nach" | "viertel";
   /** Number of clocks on the sheet, 1 to 12. Default 4.
@@ -122,6 +130,7 @@ export const DEFAULTS: Omit<UhrProps, "seed"> = {
   task: "read",
   answer: "box",
   format: "12",
+  colours: false,
   region: "nach",
   count: 4,
   cols: 4,
@@ -153,7 +162,8 @@ export function sane(p: UhrProps): UhrProps {
     ring: typeof r.ring === "boolean" ? r.ring : DEFAULTS.ring,
     task: pick(r.task, ["read", "draw"] as const, DEFAULTS.task),
     answer: pick(r.answer, ["box", "line"] as const, DEFAULTS.answer),
-    format: pick(r.format, ["12", "24", "words"] as const, DEFAULTS.format),
+    format: pick(r.format, ["12", "24", "words", "both"] as const, DEFAULTS.format),
+    colours: typeof r.colours === "boolean" ? r.colours : DEFAULTS.colours,
     region: pick(r.region, ["nach", "viertel"] as const, DEFAULTS.region),
     count: whole(r.count, 1, 12, DEFAULTS.count),
     cols: whole(r.cols, 1, 6, DEFAULTS.cols),
@@ -248,9 +258,26 @@ export function inWords(t: number, region: UhrProps["region"]): string {
   return k === 1 ? `1 Minute vor ${N}` : `${k} Minuten vor ${N}`;
 }
 
-// The time as `p.format` writes it: `3:30 Uhr`, `15:30 Uhr`, or in words.
+// The sheet's two tint colours: the hour hand and the minute hand when `colours` is on.
+export const HOUR_COLOUR = "#1a56db";
+export const MINUTE_COLOUR = "#e02424";
+
+// The hand's ink. Coloured hands keep their two colours in the answer key, so the pupil can tell them apart.
+export function handStroke(which: "hour" | "minute", p: Pick<UhrProps, "colours" | "task">, solved: boolean): string {
+  if (p.colours) return which === "hour" ? HOUR_COLOUR : MINUTE_COLOUR;
+  return solved && p.task === "draw" ? RED : INK;
+}
+
+// The time as `p.format` writes it: `3:30 Uhr`, `15:30 Uhr`, both of those for the same hands, or in words.
 export function written(t: number, p: Pick<UhrProps, "format" | "region">): string {
   if (p.format === "words") return inWords(t, p.region);
+  if (p.format === "both") {
+    const minute = String(t % 60).padStart(2, "0");
+    const h12 = Math.floor(t / 60) % 12;
+    const face = h12 === 0 ? 12 : h12;
+    const other = h12 === 0 ? 0 : h12 + 12;
+    return `${face}:${minute} Uhr\n${other}:${minute} Uhr`;
+  }
   const h = Math.floor(t / 60);
   const hour = p.format === "24" ? h : h % 12 || 12;
   return `${hour}:${String(t % 60).padStart(2, "0")} Uhr`;

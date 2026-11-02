@@ -4,7 +4,7 @@ title: "Block: uhr"
 description: "The clock faces, their times and the task: read the time or draw the hands."
 tags: [block, uhr]
 covers: [uhr]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:33:44Z }
 ---
 
 # uhr
@@ -42,7 +42,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | ring | boolean |  | yes | Draws a second ring with 13 to 24 inside the numbers. Not drawn when `numbers` is "none". Default false. |
 | task | string | `read`, `draw` | yes | "read": the hands are drawn and the pupil writes the time under the clock. "draw": no hands, the time is written under the clock and the pupil draws the hands. Default "read". |
 | answer | string | `box`, `line` | yes | The empty answer under a clock with task "read". "box": a digital box `__:__ Uhr`. "line": a writing line. Default "box". |
-| format | string | `12`, `24`, `words` | yes | How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "words": in words, such as "halb vier". Default "12". |
+| format | string | `12`, `24`, `words`, `both` | yes | How the time is written under the clock. "12": `3:30 Uhr`, hours 1 to 12. "24": `15:30 Uhr`, hours 0 to 23. "both": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. "words": in words, such as "halb vier". Default "12". |
+| colours | boolean |  | yes | Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false. |
 | region | string | `nach`, `viertel` | yes | The form of the time in words, with format "words". "nach": "viertel nach drei" and "viertel vor vier". "viertel": "viertel vier" and "dreiviertel vier". Default "nach". |
 | count | number | 1 to 12 | yes | Number of clocks on the sheet, 1 to 12. Default 4. |
 | cols | number | 1 to 6 | yes | Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4. |

@@ -2761,6 +2761,14 @@
               "description": "The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20.",
               "type": "number"
             },
+            "op": {
+              "description": "How an outer field is made from the two inner fields of its side. \"+\" the sum, \"*\" the product. Default \"+\".",
+              "enum": [
+                "+",
+                "*"
+              ],
+              "type": "string"
+            },
             "seed": {
               "description": "Seed for the random triangles. The same seed always gives the same triangles.",
               "type": "number"
@@ -4726,6 +4734,10 @@
               ],
               "type": "string"
             },
+            "colours": {
+              "description": "Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false.",
+              "type": "boolean"
+            },
             "cols": {
               "description": "Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.",
               "maximum": 6,
@@ -4747,11 +4759,12 @@
               "type": "string"
             },
             "format": {
-              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"words\": in words, such as \"halb vier\". Default \"12\".",
+              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"both\": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. \"words\": in words, such as \"halb vier\". Default \"12\".",
               "enum": [
                 "12",
                 "24",
-                "words"
+                "words",
+                "both"
               ],
               "type": "string"
             },
@@ -5207,11 +5220,13 @@
         "ZahlenmauerProps": {
           "properties": {
             "base": {
-              "description": "Number of stones in the lowest row of each wall: 3, 4 or 5.",
+              "description": "Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6.",
               "enum": [
+                2,
                 3,
                 4,
-                5
+                5,
+                6
               ],
               "type": "number"
             },
@@ -5423,6 +5438,10 @@
               "minimum": 1,
               "type": "number"
             },
+            "point": {
+              "description": "Replaces the last tick with the arrow head. The line ends on that arrow. Default false.",
+              "type": "boolean"
+            },
             "seed": {
               "description": "Seed for the random tasks. The same seed always gives the same tasks.",
               "type": "number"
@@ -5446,6 +5465,10 @@
                 "free"
               ],
               "type": "string"
+            },
+            "under": {
+              "description": "Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false.",
+              "type": "boolean"
             }
           },
           "type": "object"
@@ -9499,6 +9522,14 @@
               "description": "The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20.",
               "type": "number"
             },
+            "op": {
+              "description": "How an outer field is made from the two inner fields of its side. \"+\" the sum, \"*\" the product. Default \"+\".",
+              "enum": [
+                "+",
+                "*"
+              ],
+              "type": "string"
+            },
             "seed": {
               "description": "Seed for the random triangles. The same seed always gives the same triangles.",
               "type": "number"
@@ -9517,6 +9548,7 @@
             "max",
             "given",
             "empty",
+            "op",
             "seed"
           ],
           "type": "object"
@@ -11522,6 +11554,10 @@
               ],
               "type": "string"
             },
+            "colours": {
+              "description": "Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false.",
+              "type": "boolean"
+            },
             "cols": {
               "description": "Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.",
               "maximum": 6,
@@ -11543,11 +11579,12 @@
               "type": "string"
             },
             "format": {
-              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"words\": in words, such as \"halb vier\". Default \"12\".",
+              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"both\": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. \"words\": in words, such as \"halb vier\". Default \"12\".",
               "enum": [
                 "12",
                 "24",
-                "words"
+                "words",
+                "both"
               ],
               "type": "string"
             },
@@ -11614,6 +11651,7 @@
             "task",
             "answer",
             "format",
+            "colours",
             "region",
             "count",
             "cols",
@@ -12035,11 +12073,13 @@
         "ZahlenmauerProps": {
           "properties": {
             "base": {
-              "description": "Number of stones in the lowest row of each wall: 3, 4 or 5.",
+              "description": "Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6.",
               "enum": [
+                2,
                 3,
                 4,
-                5
+                5,
+                6
               ],
               "type": "number"
             },
@@ -12261,6 +12301,10 @@
               "minimum": 1,
               "type": "number"
             },
+            "point": {
+              "description": "Replaces the last tick with the arrow head. The line ends on that arrow. Default false.",
+              "type": "boolean"
+            },
             "seed": {
               "description": "Seed for the random tasks. The same seed always gives the same tasks.",
               "type": "number"
@@ -12284,6 +12328,10 @@
                 "free"
               ],
               "type": "string"
+            },
+            "under": {
+              "description": "Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false.",
+              "type": "boolean"
             }
           },
           "required": [
@@ -12294,6 +12342,8 @@
             "labels",
             "size",
             "cut",
+            "point",
+            "under",
             "tasks",
             "boxes",
             "arrows",
@@ -15550,6 +15600,14 @@
               "description": "The Zahlenraum: the largest number any outer field of a generated triangle shows. One of 10, 20, 100 or 1000. Default 20.",
               "type": "number"
             },
+            "op": {
+              "description": "How an outer field is made from the two inner fields of its side. \"+\" the sum, \"*\" the product. Default \"+\".",
+              "enum": [
+                "+",
+                "*"
+              ],
+              "type": "string"
+            },
             "seed": {
               "description": "Seed for the random triangles. The same seed always gives the same triangles.",
               "type": "number"
@@ -17515,6 +17573,10 @@
               ],
               "type": "string"
             },
+            "colours": {
+              "description": "Paints the hour hand blue and the minute hand red. Off, both hands are one colour. Default false.",
+              "type": "boolean"
+            },
             "cols": {
               "description": "Number of clocks per row, 1 to 6. The rows fill from the top left. Default 4.",
               "maximum": 6,
@@ -17536,11 +17598,12 @@
               "type": "string"
             },
             "format": {
-              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"words\": in words, such as \"halb vier\". Default \"12\".",
+              "description": "How the time is written under the clock. \"12\": `3:30 Uhr`, hours 1 to 12. \"24\": `15:30 Uhr`, hours 0 to 23. \"both\": both times of the same hands, `3:30 Uhr` and `15:30 Uhr`. \"words\": in words, such as \"halb vier\". Default \"12\".",
               "enum": [
                 "12",
                 "24",
-                "words"
+                "words",
+                "both"
               ],
               "type": "string"
             },
@@ -17996,11 +18059,13 @@
         "ZahlenmauerProps": {
           "properties": {
             "base": {
-              "description": "Number of stones in the lowest row of each wall: 3, 4 or 5.",
+              "description": "Number of stones in the lowest row of each wall: 2, 3, 4, 5 or 6.",
               "enum": [
+                2,
                 3,
                 4,
-                5
+                5,
+                6
               ],
               "type": "number"
             },
@@ -18212,6 +18277,10 @@
               "minimum": 1,
               "type": "number"
             },
+            "point": {
+              "description": "Replaces the last tick with the arrow head. The line ends on that arrow. Default false.",
+              "type": "boolean"
+            },
             "seed": {
               "description": "Seed for the random tasks. The same seed always gives the same tasks.",
               "type": "number"
@@ -18235,6 +18304,10 @@
                 "free"
               ],
               "type": "string"
+            },
+            "under": {
+              "description": "Draws each tick from the line downward, one stroke. Off, a tick crosses the line, above and below. Default false.",
+              "type": "boolean"
             }
           },
           "type": "object"

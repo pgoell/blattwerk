@@ -3,7 +3,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { FIELDS, SIDES, fixes, heightFor, made, type RechendreieckProps, type FieldTyped as Typed } from "./rechendreieck";
 
-const P = (over: Partial<RechendreieckProps> = {}): RechendreieckProps => ({ count: 4, columns: 4, max: 20, given: "inner", empty: false, seed: 1, ...over });
+const P = (over: Partial<RechendreieckProps> = {}): RechendreieckProps => ({ count: 4, columns: 4, max: 20, given: "inner", empty: false, op: "+", seed: 1, ...over });
 
 const SUMS = SIDES.map(([x, y]) => [x, y] as const);
 

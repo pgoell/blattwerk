@@ -4,7 +4,7 @@ title: "Zahlenstrahl bis 100"
 description: A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 tags: [zahlenstrahl, zahlenraum-100, klasse-2]
 covers: [text, name, zahlenstrahl]
-generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
+generated: { by: "human:pgoell", at: 2026-11-02T21:45:00Z }
 ---
 
 # Zahlenstrahl bis 100
@@ -12,7 +12,7 @@ generated: { by: "human:pgoell", at: 2026-10-19T06:10:00Z }
 When a teacher asks for: "Ein Blatt mit einem Zahlenstrahl bis 100, mit Kästchen zum Ausfüllen."
 
 * The heading is a text block at 20 pt. The name line is a name block for the pupil.
-* In the editor the line is the button "Zahlenstrahl" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `tasks` "random" puts the boxes and arrows on ticks chosen from `seed`. `major` sets the long ticks, and `labels` "major" prints their numbers.
+* In the editor the line is the button "Zahlenstrahl" in the menu "Mathe-Blöcke" in the insert bar, group "Mathe". `tasks` "random" puts the boxes and arrows on ticks chosen from `seed`. `major` sets the long ticks, and `labels` "major" prints their numbers. `point` replaces the last tick with the arrow. `under` draws each tick below the line. This sheet leaves both off.
 * See [zahlenstrahl](../blocks/zahlenstrahl.md) for the other props.
 
 # Doc
@@ -67,6 +67,8 @@ Pass this to `replace_doc` (after `create_sheet`), or build it block by block wi
             "labels": "major",
             "size": 12,
             "cut": false,
+            "point": false,
+            "under": false,
             "tasks": "random",
             "boxes": 3,
             "arrows": 1,
