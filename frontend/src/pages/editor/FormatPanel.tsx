@@ -104,6 +104,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
   const title = session.title;
   const tour = session.tour;
   const traced = session.traced;
+  const typeChar = session.typeChar;
   const unmerge = session.unmerge;
   const update = session.update;
   const words = session.words;
@@ -180,6 +181,7 @@ export default function FormatPanel({ s: session }: { s: ReturnType<typeof useTo
                 link={takeText}
                 feed={feed}
                 onHelp={canHelp(sel) ? () => setHelp({ id: sel[0].id, page }) : undefined}
+                onInsert={typeChar}
                 toList={() => setTab("Lernwörter")}
               />
               {helping && help && (

@@ -42,12 +42,14 @@ DASH = ["Randstärke", "Durchgezogen", "Gestrichelt", "Gepunktet"]
 ORDER = {
     # A text alone has the switch of the line numbers after the solution words and Schüttelwörter.
     # Text anpassen is the first control of the text, after the place and the size.
+    # Sonderzeichen stands between Unterstrichen and Aufzählung, on a text and on a shape.
     "text": (
         TEXT,
         [
             *START,
             "Text anpassen",
             *FONT,
+            "Sonderzeichen",
             *PLACE,
             *TURN[:-2],
             "Zeilennummern",
@@ -64,6 +66,7 @@ ORDER = {
         [
             *START,
             *FONT,
+            "Sonderzeichen",
             *PLACE,
             *TURN,
             *FLIP,
