@@ -3,13 +3,18 @@ import { useEffect, useRef, useState } from "react";
 import { NEWER } from "../../components/Variants";
 import type { Hist } from "../../history";
 import { drop as dropFault, note } from "../../fault";
-import { newer, onNewer, owe, takeOwed, useSaves } from "../../saves";
+import { dropOwed, newer, onNewer, owe, takeOwed, useSaves } from "../../saves";
 import { lengthened, mathsHeight, overFoot, sizeOf, tall, type Block, type MathsProps, type Page } from "../../sheet";
 import { made } from "../../zahlenmauer";
 import { generate, kept as keptMaths } from "../Maths";
+import { onOwedLanded } from "../maths/landed";
 import type { Opened } from "./palette";
 import { step } from "./palette";
 import type { EditorProps } from "./props";
+
+// Drops the owed maths clicks a later click carried, so the effect that calls `takeOwed` does not redo them (#908).
+// The maths page does not import this: the sheet model tests load it in node, and the saver reads `window` as it loads.
+onOwedLanded(dropOwed);
 
 export function useDocument(session: EditorProps) {
   const file = session.file;

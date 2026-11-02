@@ -5,6 +5,7 @@ import { attempt, drop } from "../../fault";
 import type { Owed } from "../../saves";
 import { decimalsOf, overFoot, scaleOf, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../../sheet";
 import { anyDigits, ask, GAPS, generate, kept, ROOMS, type Key } from "./ask";
+import { owedLanded } from "./landed";
 
 export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: string) => boolean, foot: number, owe: (entry: Owed) => void) {
   // The changed limits of the clicks still on their way, shown until the server's exercises for them are on the sheet.
@@ -30,6 +31,8 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
   // The block's own limits as it has them now, and the changes of clicks that failed: the next click carries them.
   const stored = useRef(block.props);
   const carry = useRef<Partial<Limits>>({});
+  // Clicks a run-out session owed from here. A later click that lands carried them, so their record is moot (#908).
+  const borne = useRef<Partial<Limits>[]>([]);
   const p = pending ? ({ ...block.props, ...pending } as MathsProps) : block.props;
   // The scale the block draws at: its tasks may be too wide for its columns.
   const scale = useSyncExternalStore(subscribe, () => scaleOf(block.id));
@@ -63,7 +66,10 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
     applying.current = attempt("Die Aufgaben konnten nicht erzeugt werden.", async () => {
       // The session ran out: the saver keeps the change, so the red bar shows and the editor redoes it after the login.
       const owed = (e: unknown) => {
-        if ((e as Error).message === "401") owe({ block: block.id, change });
+        if ((e as Error).message === "401") {
+          owe({ block: block.id, change });
+          borne.current = [...borne.current, change];
+        }
       };
       // A failed click keeps its change for the next click to carry.
       const miss = (e: unknown) => {
@@ -104,7 +110,10 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
       let ok = false;
       flushSync(() => void (ok = latest.current({ ...base(), ...kept(stored.current, base(), made!) }, `maths ${n}`)));
       // The line of an earlier failed click is moot now: its change is on the sheet with this answer.
+      // So is a click the session ran out on: a redo would put it back over this one (#908).
       if (ok) {
+        if (borne.current.length) owedLanded(block.id, borne.current);
+        borne.current = [];
         carry.current = {};
         drop("Die Aufgaben konnten nicht erzeugt werden.");
       }
