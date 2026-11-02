@@ -67,6 +67,7 @@ def test_the_bar_tool_adds_a_rechendreieck_with_the_default_props(editor):
         "max": 20,
         "given": "inner",
         "empty": False,
+        "op": "+",
     }
     assert isinstance(props["seed"], int)
 

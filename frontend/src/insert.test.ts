@@ -34,6 +34,7 @@ describe("INSERTS", () => {
     expect(INSERTS.rechendreieck(7)).toMatchObject({ w: 180, h: 50, type: "rechendreieck", props: { seed: 7 } });
     expect(INSERTS.zahlenstrahl(7)).toMatchObject({ w: 180, h: 30, type: "zahlenstrahl", props: { seed: 7 } });
     expect(INSERTS.hunderterfeld(7)).toMatchObject({ w: 100, h: 100, type: "hunderterfeld", props: { seed: 7 } });
+    expect(INSERTS.geobrett(7)).toMatchObject({ w: 100, h: 100, type: "geobrett", props: { cols: 5, rows: 5, bands: [], task: "leer", seed: 7 } });
     expect(INSERTS.uhr(7)).toMatchObject({ w: 180, h: 58.5, type: "uhr", props: { count: 4, cols: 4, seed: 7 } });
     expect(INSERTS.selbstkontrolle(7)).toMatchObject({ w: 180, h: 30, type: "selbstkontrolle", props: { seed: 7 } });
   });

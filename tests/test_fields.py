@@ -352,10 +352,11 @@ def test_fields_that_cannot_change_are_off(editor):
     expect(field(page, "Drehung")).to_be_disabled()
     for label in ("X", "Y", "Breite", "Höhe"):
         expect(field(page, label)).to_be_enabled()
-    # A line turns and grows by its ends.
+    # A line grows by its ends. Drehung types the direction of those ends.
     pick(page, "line")
-    for label in ("Breite", "Höhe", "Drehung"):
+    for label in ("Breite", "Höhe"):
         expect(field(page, label)).to_be_disabled()
+    expect(field(page, "Drehung")).to_be_enabled()
     for label in ("X", "Y"):
         expect(field(page, label)).to_be_enabled()
     # A picture always keeps its ratio.

@@ -393,7 +393,8 @@ def test_564_a_table_has_no_drehung_and_stays_level():
         assert f"`{name}`" in bullet, name
     level = next(line for line in place.splitlines() if line.strip().startswith("const level"))
     assert 'b.type === "table"' in level
-    assert "disabled={level}" in place
+    # A table is in `level`, so Drehung stays grey. A line is not: Drehung types its ends.
+    assert "disabled={level && !linesOnly || fixed}" in place
     source = frontend()
     for label in ("Drehung", "Schneidelinien"):
         assert on_screen(label, source), label
