@@ -139,7 +139,7 @@ export const sized = (b: Block): [string, Partial<Box>] => [b.id, { x: b.x, y: b
 // A box fitted to its text that the teacher sizes by hand keeps that size: its fit goes off in the same step.
 export const unfit = (b: Block): Partial<Box> => (boxed(b)?.fit === true ? ({ props: { ...b.props, fit: undefined } } as Partial<Box>) : {});
 // A block that keeps its own shape: its lock, or a picture, a symbol and a Hunderterfeld.
-export const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld";
+export const kept = (b: Block) => !!b.keep ||b.type === "image" || b.type === "symbol" || b.type === "hunderterfeld" || b.type === "geobrett";
 // The blocks mirrored as one, across for `x` and down for `y`, about the middle of the box around them: each goes
 // to the other side, and the box stays. A picture, a symbol, a shape and a text in an outline are mirrored in
 // themselves too, as the page shows them, and their angle with them. A line's start changes corners instead. A
