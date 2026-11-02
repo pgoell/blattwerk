@@ -301,7 +301,6 @@ _acts = _load("teacher_page_acts")
 _keys = _load("teacher_page_keys")
 _clock = _load("teacher_page_clock")
 _outside = _load("teacher_page_outside")
-click = _acts.click
 double_click = _acts.double_click
 shift_click = _acts.shift_click
 hover = _acts.hover
@@ -363,9 +362,42 @@ start = _acts.start
 _ns.bind(globals())
 
 
+def quiet_select(page: Page, x: float, y: float) -> bool:
+    """Focuses a native list and leaves the browser's popup shut.
+
+    A real click opens that popup, and the key after it does not change the choice. The font
+    list is drawn by the page, so it still takes a real click and opens.
+    """
+    return page.evaluate(
+        """([x, y]) => {
+            const el = document.elementFromPoint(x, y)?.closest("select");
+            if (!el || el.closest(".fontsel")) return false;
+            const at = {bubbles: true, clientX: x, clientY: y, pointerType: "mouse"};
+            el.dispatchEvent(new PointerEvent("pointerdown", at));
+            el.focus();
+            return true;
+        }""",
+        [x, y],
+    )
+
+
+def click(page: Page, target: str) -> str:
+    x, y = point(page, target)
+    if quiet_select(page, x, y):
+        return shown(page, f"clicked at {x:g},{y:g}{greyed(page, x, y)}")
+    return _acts.click(page, target)
+
+
+def right_click(page: Page, target: str) -> str:
+    x, y = point(page, target)
+    page.mouse.click(x, y, button="right")
+    return shown(page, f"right-clicked at {x:g},{y:g}")
+
+
 VERBS: dict[str, Callable[..., str]] = {
     "open": go,
     "click": click,
+    "right-click": right_click,
     "double-click": double_click,
     "shift-click": shift_click,
     "ctrl-click": ctrl_click,

@@ -10,8 +10,9 @@ Allowed:
   - `click TARGET [N]`: `N` times in the one call, fast enough that the second click leaves before the first answer. `click "Eine Aufgabe mehr" 2` is two quick maths clicks. Two calls cannot do that: each call is a step of its own (#794). With no `N`, it clicks once.
   - `double-click TARGET`
   - `shift-click TARGET`
+  - `right-click TARGET`: the right mouse button. It opens the menu, and on a table's picked cells that menu has `Zellen verbinden` and `Zellen teilen`.
   - `hover TARGET`
-  - `drag FROM TO`
+  - `drag FROM TO [SECONDS]`: moves from FROM to TO and lets go. With SECONDS, at most 3, it holds the button at TO before it lets go, so the panel can scroll while a drag rests at its edge.
   - `key-drag KEY FROM TO`: holds `KEY` down, as `key` spells it, drags from `FROM` to `TO` and lets the key go. `key-drag Space X,Y X2,Y2` pans the desk: the hand a teacher gets by holding Space. `key Space` leaves the desk where it is.
   - `middle-drag FROM TO`: the same with the middle button held. On the desk it moves the view, as a teacher pans with the wheel's button.
   - `swipe FROM TO`: a finger put down at `FROM`, moved to `TO` and lifted, as on an iPad. The drawers open by a swipe from a window's edge only in the upright window: `resize 820 1180` first, then `swipe 800,600 660,600` opens the right one. x 817 lies on the scrollbar, and that swipe never starts.
