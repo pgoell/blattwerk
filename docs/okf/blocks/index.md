@@ -55,3 +55,5 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 * [uhr](uhr.md): The clock faces, their times and the task: read the time or draw the hands.
 
 * [selbstkontrolle](selbstkontrolle.md): The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right.
+
+* [textaufgabe](textaufgabe.md): Word problems (Textaufgaben): a story, a question, a Rechnung on squared paper and an Antwort line.

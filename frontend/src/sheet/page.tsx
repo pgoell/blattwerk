@@ -4,6 +4,7 @@ import { GroundView } from "../ground";
 import { PT } from "../height";
 import { uploadAddress } from "../uploadAddress";
 import { Halbschriftlich } from "./blocks/halbschriftlich";
+import { Textaufgabe } from "./blocks/textaufgabe";
 import { Hunderterfeld } from "./blocks/hunderterfeld";
 import { MagischesQuadrat } from "./blocks/magischesQuadrat";
 import { Malquadrat } from "./blocks/malquadrat";
@@ -51,6 +52,7 @@ export function Draw({ block, k, solved = false, at, reach, children }: { block:
   if (block.type === "malquadrat") return <Malquadrat block={block} solved={solved} />;
   if (block.type === "zerlegungsfeld") return <Zerlegungsfeld block={block} solved={solved} />;
   if (block.type === "halbschriftlich") return <Halbschriftlich block={block} solved={solved} />;
+  if (block.type === "textaufgabe") return <Textaufgabe block={block} k={k} solved={solved} />;
   if (block.type === "zehnerfeld") return <Zehnerfeld block={block} solved={solved} />;
   if (block.type === "rechendreieck") return <Rechendreieck block={block} k={k} solved={solved} />;
   if (block.type === "zahlenstrahl") return <Zahlenstrahl block={block} k={k} solved={solved} />;

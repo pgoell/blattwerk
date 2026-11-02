@@ -18,6 +18,7 @@ import { DEFAULTS as MALQ, heightFor as heightForMalq, sane as saneMalq } from "
 import { DEFAULTS as ZERL, heightFor as heightForZerl, sane as saneZerl } from "./zerlegungsfeld";
 import { DEFAULTS as HALB, heightFor as heightForHalb, sane as saneHalb, widthFor as widthForHalb } from "./halbschriftlich";
 import { DEFAULTS as ZEHN, heightFor as heightForZehn, sane as saneZehn, widthFor as widthForZehn } from "./zehnerfeld";
+import { DEFAULTS as TEXTAUFGABE, heightFor as heightForText, sane as saneText } from "./textaufgabe";
 import { MARGIN, dir, lowest, tall, type Block, type Box, type Doc, type Kind } from "./sheet";
 
 // A new block's type and settings with its size; `add` in the editor gives it its place.
@@ -76,6 +77,10 @@ export const INSERTS = {
     const props = { ...HALB, seed };
     const w = round(widthForHalb(props));
     return { w, h: round(heightForHalb(saneHalb(props), w)), type: "halbschriftlich", props };
+  },
+  textaufgabe: (seed: number): Fresh => {
+    const props = { ...TEXTAUFGABE, seed };
+    return { w: 180, h: round(heightForText(saneText(props), 180)), type: "textaufgabe", props };
   },
   zehnerfeld: (seed: number): Fresh => {
     const props = { ...ZEHN, seed };
@@ -137,6 +142,7 @@ const GROWS: Partial<Record<Block["type"], [(props: any, w: number) => number, s
   zerlegungsfeld: [(p, w) => heightForZerl(saneZerl(p), w), ["count", "columns"]],
   halbschriftlich: [(p, w) => heightForHalb(saneHalb(p), w), ["count", "columns", "head", "digits", "max", "typed"]],
   zehnerfeld: [(p, w) => heightForZehn(saneZehn(p), w), ["count", "columns", "field"]],
+  textaufgabe: [(p, w) => heightForText(saneText(p), w), ["count", "steps", "sketch", "rows"]],
   uhr: [(p, w) => heightForUhr(saneUhr(p), w), ["count", "cols"]],
 };
 // A maths block grows downward when a change in its panel needs more room, to the page's foot at most (`H`, the page's

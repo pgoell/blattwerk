@@ -175,6 +175,23 @@ UHR = {
     "fill": "random",
     "seed": 3,
 }
+TEXTAUFGABE = {
+    "count": 2,
+    "themes": ["sach"],
+    "ops": ["+"],
+    "steps": 1,
+    "max": 20,
+    "numbers": "whole",
+    "carry": "any",
+    "frage": True,
+    "rechnung": False,
+    "antwort": False,
+    "sketch": False,
+    "rows": "auto",
+    "manual": False,
+    "zeit": "both",
+    "seed": 3,
+}
 SELBSTKONTROLLE = {
     "form": "mixed",
     "links": [],
@@ -213,6 +230,7 @@ WRONG = {
     "hunderterfeld": {**HUNDERTERFELD, "from": "x"},
     "uhr": {**UHR, "count": "x"},
     "selbstkontrolle": {**SELBSTKONTROLLE, "size": "x"},
+    "textaufgabe": {**TEXTAUFGABE, "max": "x"},
 }
 
 

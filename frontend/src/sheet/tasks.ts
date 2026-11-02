@@ -1,6 +1,7 @@
 // The stored form of the task blocks. Suchsel and Zahlenmauer keep their props here; the others point at the module that makes them.
 
 import type { HalbschriftlichProps } from "../halbschriftlich";
+import type { TextaufgabeProps } from "../textaufgabe";
 import type { HunderterfeldProps } from "../hunderterfeld";
 import type { MagischesQuadratProps } from "../magischesquadrat";
 import type { MalquadratProps } from "../malquadrat";
@@ -160,6 +161,12 @@ export type HalbschriftlichBlock = Box & {
   type: "halbschriftlich";
   /** The Halbschriftlich tasks (semi-written addition and subtraction): each task a + b = r and its steps place by place, the highest place first; Karo or plain, place letters, tint, signs of the steps for the pupils. */
   props: HalbschriftlichProps;
+};
+// A Textaufgabe: its stored shape is the contract at the top of textaufgabe.ts.
+export type TextaufgabeBlock = Box & {
+  type: "textaufgabe";
+  /** Word problems (Textaufgaben): a story, a question, a Rechnung on squared paper and an Antwort line. The numbers come from a text pool, or the teacher writes all four parts. */
+  props: TextaufgabeProps;
 };
 // A Zehnerfeld block: its stored shape is the contract at the top of zehnerfeld.ts.
 export type ZehnerfeldBlock = Box & {
