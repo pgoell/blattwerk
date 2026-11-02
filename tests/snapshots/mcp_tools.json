@@ -3282,6 +3282,12 @@
                     }
                   ],
                   "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 }
               },
               "required": [
@@ -3751,6 +3757,12 @@
                     }
                   ],
                   "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "underline": {
                   "description": "True underlines the whole text. Absent means off.",
@@ -4592,6 +4604,12 @@
                 }
               ],
               "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+            },
+            "tracking": {
+              "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "underline": {
               "description": "True underlines the whole text. Absent means off.",
@@ -6038,6 +6056,12 @@
                   ],
                   "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
                 },
+                "tracking": {
+                  "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "underline": {
                   "description": "True underlines the whole text. Absent means off.",
                   "type": "boolean"
@@ -6138,6 +6162,12 @@
                     }
                   ],
                   "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 }
               },
               "type": "object"
@@ -10054,6 +10084,12 @@
                     }
                   ],
                   "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 }
               },
               "required": [
@@ -10532,6 +10568,12 @@
                     }
                   ],
                   "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "underline": {
                   "description": "True underlines the whole text. Absent means off.",
@@ -11383,6 +11425,12 @@
                 }
               ],
               "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+            },
+            "tracking": {
+              "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "underline": {
               "description": "True underlines the whole text. Absent means off.",
@@ -16071,6 +16119,12 @@
                     }
                   ],
                   "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 }
               },
               "required": [
@@ -16540,6 +16594,12 @@
                     }
                   ],
                   "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 },
                 "underline": {
                   "description": "True underlines the whole text. Absent means off.",
@@ -17381,6 +17441,12 @@
                 }
               ],
               "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
+            },
+            "tracking": {
+              "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
             },
             "underline": {
               "description": "True underlines the whole text. Absent means off.",
@@ -18822,6 +18888,12 @@
                   ],
                   "description": "Nachspuren: the text prints in grey to write over. true is plain grey, \"outline\" a thin outline of the letters, \"dotted\" dotted letters (in fonts that have them, else grey). Absent means no trace text."
                 },
+                "tracking": {
+                  "description": "Extra space between the letters (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "underline": {
                   "description": "True underlines the whole text. Absent means off.",
                   "type": "boolean"
@@ -18922,6 +18994,12 @@
                     }
                   ],
                   "description": "Trace text the pupil writes over: true for grey, \"outline\" or \"dotted\". Left out, no trace."
+                },
+                "tracking": {
+                  "description": "Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.",
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
                 }
               },
               "type": "object"

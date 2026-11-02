@@ -13,14 +13,14 @@ export function alike(a: unknown, b: unknown): boolean {
   return x.length === y.length && Object.keys({ ...x, ...y }).every((key) => alike(x[key], y[key]));
 }
 // What a text or a shape is drawn with, and the panel shows, where it names nothing. A shape's words say more.
-const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, strokeWidth: 0.5, opacity: 1 };
+const SHOWN = { valign: "top", kind: "rect", font: "andika", color: "#222222", spacing: 1.3, tracking: 0, strokeWidth: 0.5, opacity: 1 };
 // The props that change a block. One the block does not name, set to what the block shows there, is left out:
 // a press on "Oben" for a text that stands at the top is no change. Of any other block only the script is known,
 // and the colour of a table's words, which is the sheet's: a line or a Lineatur made elsewhere that names no width
 // or colour is drawn by the browser's own.
 export const fresh = (b: Block, props: object) => {
   const text = boxed(b);
-  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika", ...(b.type === "table" && { color: "#222222" }) };
+  const shown: Record<string, unknown> = text ? { ...SHOWN, ...text } : { font: "andika", tracking: 0, ...(b.type === "table" && { color: "#222222" }) };
   return Object.fromEntries(Object.entries(props).filter(([name, to]) => (b.props as Record<string, unknown>)[name] !== undefined || to !== shown[name]));
 };
 // The sheet without the props that a block of `start` does not name and shows as they are set: a colour moved
