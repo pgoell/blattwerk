@@ -9,6 +9,7 @@ import { useBreaks, Words } from "./context";
 import { linesIn, fitText, leastOf, cutAt, textIn } from "./fit";
 import { useRealFonts } from "./fontReady";
 import { inset, fontOf, traceOf, INK, FONTS, SIDE, DOTTED_SIDE, fadeOf, fadeMask, textStyle } from "./look";
+import { withTracking } from "./tracking";
 import { Rich } from "./rich";
 import { RulerMarks } from "./ruler";
 import { dashes, gapWidth, fitOf, OUTLINES, tailReach, radiusOf, Bank, classes, gapVar, clear, tint, Dashes, POINTS, Outline, Ring } from "./shape";
@@ -213,7 +214,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
       data-cut={cut !== undefined ? "true" : undefined}
       title={cut !== undefined ? "Text passt nicht ganz hinein" : undefined}
       style={{
-        ...textStyle(p, k),
+        ...withTracking(textStyle(p, k), p.tracking),
         ...(inside && { fontSize: `calc(${p.size * PT * k}px * var(--fit, 1))` }),
         ...(inside && cut !== undefined && { "--cut": `${cut}px` } as CSSProperties),
         ...(tight && { "--ink-up": level ? `calc(${above}em + ${fringe}px)` : "0px", "--ink-down": level ? `calc(${below}em + ${fringe}px)` : "0px", "--ink-side": side > 0 ? `calc(${side}em + 1px)` : "0px" }),

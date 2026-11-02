@@ -4,6 +4,7 @@ import type { Breaks } from "../syllables";
 import { type Box, K, tall } from "./box";
 import type { Block, Doc } from "./doc";
 import { type Ruling, type Font, type Fade, type Tints, RULINGS, kindOf, colsOf, writtenStyle, rowsOf } from "./look";
+import { withTracking } from "./tracking";
 import { boxed } from "./text";
 
 // As many rows as fit the block's height are drawn. `text` is written on the rows, on Karo a character to a
@@ -26,6 +27,11 @@ export type RulingBlock = Box & {
     text?: string;
     /** The font of the text printed on the lines. Left out, the default font is used. */
     font?: Font;
+    /** Extra space between the letters on the lines (Zeichenabstand), as a share of the font size. 0 is the font's own spacing and 1 leaves a gap as wide as the letters are tall. Absent means 0. On a cursive script the joins between the letters break. Karo keeps one letter in each square and does not use this.
+     * @minimum 0
+     * @maximum 1
+     */
+    tracking?: number;
     /** Trace text the pupil writes over: true for grey, "outline" or "dotted". Left out, no trace. */
     trace?: boolean | "outline" | "dotted";
     /** How the trace fades as the pupil writes on: "row" along each row, "rows" from row to row. Left out, it does not fade. */
@@ -132,7 +138,7 @@ export function rowsNeeded(b: RulingBlock): number {
   Object.assign(block.style, { position: "absolute", visibility: "hidden", left: "0", top: "0", width: `${b.w * K}px` });
   const p = document.createElement("p");
   p.className = "written";
-  const style = Object.fromEntries(Object.entries(writtenStyle(b, K)).map(([name, v]) => [name, typeof v === "number" ? `${v}px` : v]));
+  const style = Object.fromEntries(Object.entries(withTracking(writtenStyle(b, K), b.props.tracking)).map(([name, v]) => [name, typeof v === "number" ? `${v}px` : v]));
   Object.assign(p.style, style, { height: "auto" });
   p.textContent = text;
   block.append(p);

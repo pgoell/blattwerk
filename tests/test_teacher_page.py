@@ -71,10 +71,10 @@ def shape(editor, client=None):
     tool.click(page, xy(at(page, "a")))
     expect(slider(page)).to_have_value("0.5")
     assert tool.where(page, "Randstärke").endswith("(outside the window)")
-    # Schrift lies in the window, so the wheel turns the panel. Sonderzeichen is one control
-    # of 28px under the marks: 540 left Randstärke 2.7px below the window, and 568 brings
-    # it back in with the room it had.
-    tool.wheel(page, "Schrift", "568")
+    # Schrift lies in the window, so the wheel turns the panel. Sonderzeichen is 28px under
+    # the marks and Zeichenabstand is one row of 40px under Zeilenabstand: 540 left
+    # Randstärke short by both, and 608 brings it back in with the room it had.
+    tool.wheel(page, "Schrift", "608")
     expect(slider(page)).to_be_in_viewport(ratio=1)
     return page
 

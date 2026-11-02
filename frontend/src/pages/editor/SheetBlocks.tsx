@@ -1,6 +1,6 @@
 // The blocks of one page, scaled as the PDF draws them.
 import type { CSSProperties } from "react";
-import { Draw, K, keepsFractions, Mark, Numbers, PageNumber, ScoreInput, boxed, fadeOf, listOf, stepOf, sum, traceOf, turned, writtenStyle, type Page } from "../../sheet";
+import { Draw, K, keepsFractions, Mark, Numbers, PageNumber, ScoreInput, boxed, fadeOf, listOf, stepOf, sum, traceOf, turned, withTracking, writtenStyle, type Page } from "../../sheet";
 import Field from "../Field";
 import { GroundView } from "../../ground";
 import { EDGE, heightsOf, next } from "../../cells";
@@ -110,7 +110,7 @@ export default function SheetBlocks({ s: session, p, n }: { s: ReturnType<typeof
                           readOnly={editing !== b.id}
                           // Tab from a field of the panel does not stop at a Lineatur that is not written in.
                           tabIndex={editing === b.id ? undefined : -1}
-                          style={writtenStyle(b, K)}
+                          style={withTracking(writtenStyle(b, K), b.props.tracking)}
                           onChange={(e) => typeRuling(b, e.target.value, e.currentTarget)}
                           // Tab types nothing and stays here: the browser's would end the writing. Escape and F2 end
                           // it themselves: after a press in the panel the blur would not.

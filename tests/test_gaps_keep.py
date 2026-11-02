@@ -136,7 +136,8 @@ def test_tab_reaches_the_gap_controls_and_space_and_enter_press_them(editor):
     page = editor(box("a", "text", WORDY), client=client)
     pick(page, "a")
     page.get_by_label("Zeilenabstand").focus()
-    for _ in range(4):
+    # Zeichenabstand sits between Zeilenabstand and Nachspurtext.
+    for _ in range(5):
         page.keyboard.press("Tab")
     expect(panel(page, "Lücke")).to_be_focused()
     page.keyboard.press("Space")

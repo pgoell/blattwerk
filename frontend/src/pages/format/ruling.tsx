@@ -1,11 +1,12 @@
 // A Lineatur's rows, its width across the page, and the Lernwörter it writes.
 import { round } from "../../arrange";
-import { MARGIN, RULINGS, bandColorOf, bandOf, boxed, dir, foldsOf, fontOf, houseOf, houseTintOf, kindOf, listOf, lowest, rowsNeeded, rowsOf, shade, tall, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock } from "../../sheet";
+import { MARGIN, RULINGS, bandColorOf, bandOf, boxed, cursive, dir, foldsOf, fontOf, houseOf, houseTintOf, kindOf, listOf, lowest, rowsNeeded, rowsOf, shade, tall, type Block, type Box, type Doc, type ListMode, type Ruling, type RulingBlock } from "../../sheet";
 import { filled, room, unshown } from "../../words";
 import type { Picked } from "../Field";
 import { FontSelect, unknownFont } from "./font";
 import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
+import { Tracking } from "./tracking";
 import { syllabled } from "./words";
 
 export function RulingPanel({
@@ -139,7 +140,10 @@ export function RulingPanel({
           {mode && <button onClick={toList}>Lernwörter bearbeiten</button>}
           {!mode && <p className="hint">Lineatur anklicken und lostippen, um auf die Zeilen zu schreiben.</p>}
           {RULINGS[kindOf(rulings[0].props.kind)].at && (
-            <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} unknown={unknownFont(rulings.map((b) => b.props.font))} onChange={(font) => style("ruling", { font })} />
+            <>
+              <FontSelect label="Schriftart auf den Zeilen" value={fontOf(rulings[0].props.font)} unknown={unknownFont(rulings.map((b) => b.props.font))} onChange={(font) => style("ruling", { font })} />
+              <Tracking value={rulings[0].props.tracking} warn={rulings.some((b) => RULINGS[kindOf(b.props.kind)].at && cursive(b.props.font))} onChange={(n) => style("ruling", { tracking: n }, "tracking", rulings.filter((b) => RULINGS[kindOf(b.props.kind)].at).map((b) => b.id))} />
+            </>
           )}
           {!mode && (
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
