@@ -8,6 +8,7 @@ const NO_DOC = {} as Doc;
 describe("INSERTS", () => {
   it("text, heading, symbol, table, ruling, name, points", () => {
     expect(INSERTS.text()).toEqual({ w: 80, h: 12, type: "text", props: { text: "", size: 14, align: "left" } });
+    expect(INSERTS.formula()).toEqual({ w: 40, h: 18, type: "formula", props: { source: "3/4", size: 18, align: "center" } });
     expect(INSERTS.heading()).toEqual({ w: 180, h: 14, type: "text", props: { text: "", size: 24, align: "center", bold: true } });
     expect(INSERTS.symbol()).toEqual({ w: 20, h: 20, type: "symbol", props: { code: "270F" } });
     expect(INSERTS.table()).toEqual({ w: 180, h: 30, type: "table", props: { cells: [["", "", ""], ["", "", ""], ["", "", ""]], cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } });

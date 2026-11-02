@@ -35,6 +35,7 @@ const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 
 // are made where they are added.
 export const INSERTS = {
   text: (): Fresh => ({ w: 80, h: 12, type: "text", props: { text: "", size: 14, align: "left" } }),
+  formula: (): Fresh => ({ w: 40, h: 18, type: "formula", props: { source: "3/4", size: 18, align: "center" } }),
   heading: (): Fresh => ({ w: 180, h: 14, type: "text", props: { text: "", size: 24, align: "center", bold: true } }),
   symbol: (): Fresh => ({ w: 20, h: 20, type: "symbol", props: { code: "270F" } }),
   table: (): Fresh => ({ w: 180, h: 30, type: "table", props: { cells: Array.from({ length: 3 }, () => ["", "", ""]), cols: [1, 1, 1], size: 14, align: "center", line: "#222222" } }),

@@ -3,6 +3,7 @@ import { AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJusti
 import { has } from "../../arrange";
 import { boxed, cursive, fontOf, FONTS, fromOf, parasOf, stepOf, type Align, type Block, type Doc, type List, type Valign } from "../../sheet";
 import { Chars } from "./chars";
+import { FormulaInsert } from "./formula";
 import type { Marks, Picked } from "../Field";
 import { Fed } from "./fed";
 import { FontSelect, unknownFont } from "./font";
@@ -70,6 +71,7 @@ export function TextPanel({
             ))}
           </div>
           <Chars family={FONTS[fontOf(text.font)][1]} onInsert={onInsert} />
+          <FormulaInsert onInsert={onInsert} />
           <div className="seg">
             {LISTS.map(([value, label, Icon]) => (
               <button key={value} className={kind === value ? "on" : ""} aria-label={label} title={label} aria-pressed={kind === value} onClick={() => itemize(value)}>

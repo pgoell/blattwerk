@@ -24,6 +24,7 @@ import Hunderterfeld from "../Hunderterfeld";
 import Geobrett from "../Geobrett";
 import Uhr from "../Uhr";
 import Selbstkontrolle from "../Selbstkontrolle";
+import { FormulaPanel } from "./formula";
 
 export function useSchools({
   sel, style, place, H,
@@ -35,6 +36,7 @@ export function useSchools({
 }) {
   // The generator's limits belong to one block.
   const maths = sel.length === 1 && sel[0].type === "maths" ? sel[0] : undefined;
+  const formula = sel.length === 1 && sel[0].type === "formula" ? sel[0] : undefined;
   const suchsel = sel.length === 1 && sel[0].type === "suchsel" ? sel[0] : undefined;
   // A maths drawing that would grow past the paper's edge keeps its props, and the panel says why (#911).
   // The change refused, the block it was for, and that block's props and height at the refusal: the hint stays while the block is as it was (#911).
@@ -92,11 +94,11 @@ export function useSchools({
     if (mathsHeight(props) !== mathsHeight(maths!.props)) place([[maths!.id, tall(maths!, mathsHeight(props))]], key);
     return true;
   };
-  return { paperHint, refusedType: refusedBlock?.type, maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows };
+  return { paperHint, refusedType: refusedBlock?.type, maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows };
 }
 
 export function SchoolPanels({
-  maths, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows, style, doc, words, owe, H,
+  maths, formula, suchsel, wall, haus, kette, pfeil, opfeld, rad, rtab, magisch, malq, zerl, halb, zehn, dreieck, strahl, feld, brett, uhr, skb, calc, grows, style, doc, words, owe, H,
 }: ReturnType<typeof useSchools> & {
   style: (type: Block["type"], props: object, key?: string, only?: string[]) => void;
   doc: Doc;
@@ -107,6 +109,7 @@ export function SchoolPanels({
   return (
     <>
       {maths && <Maths key={maths.id} block={maths} apply={calc} foot={H} owe={owe} />}
+      {formula && <FormulaPanel key={formula.id} block={formula} apply={(props, key) => style("formula", props, key)} />}
       {suchsel && <Suchsel key={suchsel.id} block={suchsel} words={words} apply={(props, key) => style("suchsel", props, key)} />}
       {wall && <Zahlenmauer key={wall.id} block={wall} apply={(props, key) => grows("zahlenmauer", props, key)} />}
       {haus && <Zahlenhaus key={haus.id} block={haus} apply={(props, key) => grows("zahlenhaus", props, key)} />}

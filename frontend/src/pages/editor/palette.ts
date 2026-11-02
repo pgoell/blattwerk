@@ -36,7 +36,7 @@ export const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "
 export type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 export const takes = (b: Block): readonly (keyof Coat)[] => {
-  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "tracking", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "tracking", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : [];
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "tracking", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "tracking", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : b.type === "formula" ? ["size", "color", "align"] : [];
   return [...(isLine(b) ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
@@ -94,6 +94,7 @@ export const NAMES: Record<Block["type"], string> = {
   name: "Namenszeile",
   points: "Punkte",
   maths: "Rechnen",
+  formula: "Formel",
   shape: "Form",
   table: "Tabelle",
 };
@@ -124,6 +125,7 @@ export const PLURALS: Record<Block["type"], string> = {
   name: "Namenszeilen",
   points: "Punkteblöcke",
   maths: "Rechenblöcke",
+  formula: "Formeln",
   shape: "Formen",
   table: "Tabellen",
 };

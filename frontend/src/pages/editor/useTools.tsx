@@ -1,5 +1,5 @@
 // What can be inserted, and the commands the bar folds under Mehr.
-import { ArrowRightLeft, BrickWall, Calculator, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightLeft, BrickWall, Calculator, Sigma, CircleHelp, DraftingCompass, Eye, Grid3x3, Clock3, ListChecks, Fullscreen, Layers, Heading, House, ImagePlus, Link2, MessageSquare, Disc3, Table2, Grid2x2Plus, Split, LayoutGrid, Orbit, Paintbrush, Radical, Rows3, Ruler, Smile, SquareDashedMousePointer, SquareSlash, Table, TriangleDashed, MoveRight, Type, UserPen, ZoomIn, ZoomOut } from "lucide-react";
 import type { Item } from "../../components/Menu";
 import { newSeed } from "../Maths";
 import { INSERTS } from "../../insert";
@@ -76,6 +76,7 @@ export function useTools(session: ReturnType<typeof useMenus>) {
   const inBar = (label: string) => !more.some((item) => item.label === label);
   // The maths blocks, picked from the "Mathe-Blöcke" menu.
   const mathBlocks: Item[] = [
+    { label: "Formel", icon: Radical, run: () => addInsert(INSERTS.formula()) },
     { label: "Zahlenmauer", icon: BrickWall, run: () => addInsert(INSERTS.zahlenmauer(newSeed())) },
     { label: "Zahlenhaus", icon: House, run: () => addInsert(INSERTS.zahlenhaus(newSeed())) },
     { label: "Zahlenkette", icon: Link2, run: () => addInsert(INSERTS.zahlenkette(newSeed())) },

@@ -25,6 +25,7 @@ import { Zerlegungsfeld } from "./blocks/zerlegungsfeld";
 import { flipped, K, turned } from "./box";
 import { Words, Whole } from "./context";
 import { type Block, FIELDS, type Doc, sizeOf, read, wordsIn, keyVar } from "./doc";
+import { FormulaBox } from "./formulaView";
 import { Frame, Line } from "./frame";
 import { Lines } from "./lines";
 import { textStyle, inset } from "./look";
@@ -39,6 +40,7 @@ import type { ReactNode, CSSProperties } from "react";
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
 export function Draw({ block, k, solved = false, at, reach, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; children?: ReactNode }) {
+  if (block.type === "formula") return <FormulaBox block={block} k={k} />;
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;
   if (block.type === "zahlenmauer") return <Zahlenmauer block={block} k={k} solved={solved} />;
