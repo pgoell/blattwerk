@@ -10,6 +10,7 @@ import { linesIn, fitText, leastOf, cutAt, textIn } from "./fit";
 import { useRealFonts } from "./fontReady";
 import { inset, fontOf, traceOf, INK, FONTS, SIDE, DOTTED_SIDE, fadeOf, fadeMask, textStyle } from "./look";
 import { Rich } from "./rich";
+import { RulerMarks } from "./ruler";
 import { dashes, gapWidth, fitOf, OUTLINES, tailReach, radiusOf, Bank, classes, gapVar, clear, tint, Dashes, POINTS, Outline, Ring } from "./shape";
 import { type ShapeBlock, far, type TextBlock, boxed, parasOf, shownParas, listColsOf, holesOf, lineOf } from "./text";
 import { type ReactNode, useContext, useRef, useState, useLayoutEffect, useEffect, type CSSProperties } from "react";
@@ -33,6 +34,7 @@ export function Line({ block, k, solved }: { block: ShapeBlock; k: number; solve
         {head > 0 && <polygon stroke="none" fillOpacity={strokeOpacity} points={`${length},0 ${length - head},${-head / 2} ${length - head},${head / 2}`} />}
         {tail > 0 && <polygon stroke="none" fillOpacity={strokeOpacity} points={`0,0 ${tail},${-tail / 2} ${tail},${tail / 2}`} />}
         {ticks && [...(tail ? [] : [0]), ...(head ? [] : [length])].map((at) => <line key={at} x1={at} x2={at} y1={-1.5} y2={1.5} />)}
+        {block.props.ruler && <RulerMarks length={length} mm={block.props.mm === true} angle={angle} />}
         {(label === "show" || (label === "key" && solved)) && (
           <text className={label === "key" ? "answer" : undefined} x={length / 2} y={-2} transform={Math.abs(angle) > 90 ? `rotate(180 ${length / 2} 0)` : undefined} textAnchor="middle" fontFamily="Andika" fontSize={12 * PT} stroke="none" fill={label === "key" ? "#c0392b" : undefined}>
             {(Math.round(length * 10) / 100).toLocaleString("de")} cm

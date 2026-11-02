@@ -4,7 +4,7 @@ title: "Block: shape"
 description: "The shape's form, fill and border, and the text it may hold: every field of a text block may stand here too."
 tags: [block, shape]
 covers: [shape]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-19T06:04:58Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-02T21:31:39Z }
 ---
 
 # shape
@@ -43,6 +43,8 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | strokeWidth | number | at most 3 | yes | Width of the border in mm. Absent means 0.5. |
 | from | string | `nw`, `ne`, `sw`, `se` | no | For a line or an arrow: the corner of the box where it starts, "nw" top left, "ne" top right, "sw" bottom left, "se" bottom right. The line runs to the opposite corner. Absent means "nw". |
 | ticks | boolean |  | no | True puts a short cross stroke at each end of a line. Absent means no ticks. |
+| ruler | boolean |  | no | Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off. |
+| mm | boolean |  | no | Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`. |
 | label | string | `show`, `key` | no | Prints the length of a line: "show" on the sheet, "key" on the answer key only. Absent means no length. |
 | text | string |  | no | The words of the text as one plain string, with no look of their own. Always the same words as `rich`. |
 | rich | list of object |  | no | The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it. |

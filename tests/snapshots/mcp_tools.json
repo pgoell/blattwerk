@@ -3663,6 +3663,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -3675,6 +3679,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -5949,6 +5957,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -5961,6 +5973,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -10444,6 +10460,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -10456,6 +10476,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -16452,6 +16476,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -16464,6 +16492,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",
@@ -18733,6 +18765,10 @@
                   ],
                   "type": "string"
                 },
+                "mm": {
+                  "description": "Millimetre ticks between the centimetre ticks of a Lineal, shorter, on the same side, with a longer tick at each half centimetre. Absent means centimetres only. Needs `ruler`.",
+                  "type": "boolean"
+                },
                 "opacity": {
                   "description": "How solid the fill is: 0 is invisible, 1 is solid. Absent means 1.",
                   "maximum": 1,
@@ -18745,6 +18781,10 @@
                     "$ref": "#/definitions/Para"
                   },
                   "type": "array"
+                },
+                "ruler": {
+                  "description": "Lineal: centimetre ticks with their numbers along one side of a line, on the side that reads upright. Absent means off.",
+                  "type": "boolean"
                 },
                 "size": {
                   "description": "Font size of the text in pt (points).",

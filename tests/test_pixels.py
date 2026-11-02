@@ -30,8 +30,8 @@ FULLER += ["syllables", "tints", "line numbers"]
 BLUE_RED = ["#1a56db", "#e02424"]
 BLACK_GREY = ["#000000", "#707070"]
 KINDS = ["text", "shape", "line", "picture", "table", "ruling", "maths", "group", "name", "points"]
-# A table and a line stay level: the panel Format shuts "Drehung" for them and the selection has
-# no handle to turn them by. A line points where its two ends are.
+# A table stays level: the panel shuts "Drehung" and the selection has no handle to turn it.
+# A line has no turn handle and no `angle`. It points where its two ends are; Drehung types that.
 TURNED = [kind for kind in KINDS if kind not in ("table", "line")]
 
 

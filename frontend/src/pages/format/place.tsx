@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Lock, LockOpen, FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw, type LucideIcon } from "lucide-react";
 import { bounds, drawn, frameOf, kept, norm, round, scaledGroup, signature, sized, unfit } from "../../arrange";
-import { isLine, type Axis, type Block, type Box } from "../../sheet";
+import { aimed, shownAngle } from "../../ruler";
+import { isLine, type Axis, type Block, type Box, type ShapeBlock } from "../../sheet";
 import { Num } from "./num";
 
 const TURNS: [string, LucideIcon, number][] = [["Rechtsdrehung 90°", RotateCw, 90], ["Linksdrehung 90°", RotateCcw, -90], ["Horizontal spiegeln", FlipHorizontal2, 0], ["Vertikal spiegeln", FlipVertical2, 0]];
@@ -92,7 +93,20 @@ export function Place({
   };
   const turned = sel.find((b) => !isLine(b));
   const angle = whole ? turned?.angle ?? 0 : shared((b) => b.angle ?? 0);
-  const turn = (to: number) => norm(to) !== angle && (whole ? spin(norm(to) - (angle ?? 0)) : place(sel.map((b) => [b.id, { angle: norm(to) }])));
+  // A line has no angle: Drehung types the direction of its ends, and the centre and the length stay.
+  const loose = sel.filter((b): b is ShapeBlock => isLine(b) && alone(b));
+  const linesOnly = loose.length > 0 && loose.length === sel.length;
+  const pointed = linesOnly && loose.every((b) => shownAngle(b) === shownAngle(loose[0])) ? shownAngle(loose[0]) : undefined;
+  const turn = (to: number) => {
+    if (linesOnly) {
+      place(loose.map((b) => {
+        const next = aimed(b, to);
+        return [b.id, { x: next.x, y: next.y, w: next.w, h: next.h, props: next.props } as Partial<Box>];
+      }));
+      return;
+    }
+    if (norm(to) !== angle) whole ? spin(norm(to) - (angle ?? 0)) : place(sel.map((b) => [b.id, { angle: norm(to) }]));
+  };
   return (
       <div className="geo">
         <h2>Position und Größe in mm</h2>
@@ -109,7 +123,7 @@ export function Place({
         <Num label="Y" units value={shownAt("y", whole ? box.y : shared((b) => b.y))} disabled={fixed} onCommit={(n) => move("y", n + offset("y"))} />
         <Num label="Breite" units value={whole ? shownOwn("w") : shared((b) => b.w)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("w", n)} />
         <Num label="Höhe" units value={whole ? shownOwn("h") : shared((b) => b.h)} disabled={fixed || sel.some((b) => isLine(b) && alone(b))} onCommit={(n) => resize("h", n)} />
-        <Num label="Drehung" value={angle} disabled={level} onCommit={turn} />
+        <Num label="Drehung" value={linesOnly ? pointed : angle} disabled={level && !linesOnly || fixed} onCommit={turn} />
         <span>
           °
           <button className={keep ? "ib on" : "ib"} aria-label="Seitenverhältnis sperren" title="Seitenverhältnis sperren" aria-pressed={keep} disabled={fixed || shaped} onClick={() => setLock(!lock)}>
