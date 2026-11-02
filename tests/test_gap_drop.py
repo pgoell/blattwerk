@@ -16,6 +16,7 @@ import pytest
 from playwright.sync_api import expect
 from test_desk_scroll import PAGE, on_page, press
 from test_fix_blatt import pdf_pages
+from test_height_turned import corners
 from ui import (
     LINE,
     RECT,
@@ -360,6 +361,22 @@ def test_896_one_undo_takes_the_move_to_page_2_back(editor):
     saved = doc(page, client)["pages"]
     assert saved[0]["blocks"] == before
     assert saved[1]["blocks"] == []
+
+
+def test_907_a_turned_text_moved_onto_page_2_keeps_every_corner_inside_the_margin(editor):
+    """#907: a text 150 mm wide, turned 45 degrees, near the foot of page 1 and dragged onto page 2
+    so its top hangs above that page, lands with every corner inside the 15 mm margin."""
+    client = user()
+    page = sheets(editor, client, {**box("a", "text", TEXT), "w": 150, "h": 20, "angle": 45})
+    drop_near_page_2(page)
+    expect(page.locator(PAGE.format(1)).locator('.block[data-id="a"]')).to_have_count(1)
+    (moved,) = doc(page, client)["pages"][1]["blocks"]
+    assert moved["angle"] == 45 and moved["w"] == 150
+    places = corners(moved, 0)
+    assert all(15 - 0.01 <= x <= 195 + 0.01 and 15 - 0.01 <= y <= 282 + 0.01 for x, y in places), (
+        places,
+        moved,
+    )
 
 
 def test_896_a_block_moved_from_a_landscape_page_to_an_upright_one_lands_inside_the_margin(
