@@ -5,6 +5,7 @@ import random
 from fastapi import APIRouter
 
 from blattwerk.auth import Teacher
+from blattwerk.maths.carry import NAMES
 from blattwerk.maths.chains import chained
 from blattwerk.maths.compare import compared
 from blattwerk.maths.model import Settings, gaps_of, loosened, places, scaled, three
@@ -12,6 +13,24 @@ from blattwerk.maths.pairs import groups, kin, loose
 from blattwerk.maths.written import written
 
 router = APIRouter(prefix="/api")
+
+
+def further(
+    s: Settings, kind: str, index: int, size: int, op: str, a: int, b: int, hide: str
+) -> str | None:
+    """The extra number the last task hides when the family is not shown complete.
+
+    It is the number the package changes, or the first number of a swap or a reverse. When the
+    gap already hides that number, the other one is hidden, so the task loses a number more.
+    """
+    if s.full or size < 2 or index != size - 1:
+        return None
+    want = s.moves if kind in ("neighbour", "analogy") else "a"
+    other = "b" if want == "a" else "a"
+    for key in (want, other):
+        if key != hide and not loose(op, a, b, key):
+            return key
+    return None
 
 
 def exercise_of(s: Settings, op: str, a: int, b: int, d: int, rng: random.Random) -> dict:
@@ -54,17 +73,21 @@ def generate(s: Settings) -> dict:
     rng = random.Random(s.seed)
     drawn = groups(s, s.max)
     exercises = []
+    kind = kin(s)
     for n, family in enumerate(drawn):
-        for op, a, b in family:
+        for i, (op, a, b) in enumerate(family):
             exercise = exercise_of(s, op, a, b, d, rng)
-            if kin(s) != "none":
+            if kind != "none":
                 exercise["family"] = n
+                extra = further(s, kind, i, len(family), op, a, b, exercise.get("hide", "result"))
+                if extra:
+                    exercise["also"] = extra
             exercises.append(exercise)
     if len(drawn) == s.count:
         return {"exercises": exercises, "loosen": None}
     table = loosened(s)
     names = (
-        "carry",
+        *NAMES,
         "rest",
         "a",
         "b",

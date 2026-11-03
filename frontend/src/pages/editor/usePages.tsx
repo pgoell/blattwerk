@@ -115,7 +115,7 @@ function undo() {
           const all = hull(p.blocks.filter((o) => unit(o) === unit(b)));
           // Only a single block that is not turned stretches.
           // A circle, a triangle and a star keep their shape.
-          const single = !b.group && (b.angle ?? 0) % 180 === 0 && !(b.type === "shape" && ["circle", "triangle", "star"].includes(b.props.kind));
+          const single = !b.group && (b.angle ?? 0) % 180 === 0 && !(b.type === "shape" && ["circle", "triangle", "star", "diamond", "polygon", "pie"].includes(b.props.kind));
           const [mx, sw] = along(all.x, all.w, ow, w, single && across.has(b.type), true, 15);
           const [my, sh] = along(all.y, all.h, oh, h, single && down.has(b.type), false, 0);
           const [dx, dy] = [back(all.x + mx, all.w + sw, w), back(all.y + my, all.h + sh, h)];

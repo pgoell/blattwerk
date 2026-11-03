@@ -14,11 +14,12 @@ from blattwerk.maths import (
     Settings,
     below,
     calm,
-    carries,
     generate,
     nth,
     written,
 )
+from blattwerk.maths.carry import crosses_at
+from blattwerk.maths.carry import keeps as place_keeps
 
 place = st.tuples(st.integers(0, 9), st.integers(0, 9)).map(sorted).map(tuple)
 places = st.lists(place, max_size=7)
@@ -36,10 +37,6 @@ limits = st.builds(
 )
 
 
-def digit_sum(n):
-    return sum(map(int, str(n)))
-
-
 def in_places(n, ranges):
     return all(lo <= n // 10**i % 10 <= hi for i, (lo, hi) in enumerate(ranges))
 
@@ -50,11 +47,8 @@ def keeps(s, e, top=None):
     ok = op in s.ops and 0 <= a <= s.max and 0 <= b <= s.max
     ok = ok and in_places(a, s.a) and in_places(b, s.b) and 0 <= e["result"] <= (top or s.max)
     if op in "+-":
-        # Each carry takes ten from one place and gives one to the next: nine less in the digits.
-        big, parts = (a + b, [a, b]) if op == "+" else (a, [a - b, b])
-        carried = sum(map(digit_sum, parts)) > digit_sum(big)
         ok = ok and e["result"] == (a + b if op == "+" else a - b) and e["rest"] == 0
-        return ok and (s.carry == "either" or carried == (s.carry == "required"))
+        return ok and place_keeps(s.carry, s.max, op, a, b)
     if op == "*":
         return ok and e["result"] == a * b and e["rest"] == 0
     return ok and b > 0 and e["result"] * b + e["rest"] == a and 0 <= e["rest"] < b
@@ -140,11 +134,12 @@ def test_calm_digits_never_carry(ranges, other, op, first):
     narrowed = calm(ranges, other, op, first)
 
     def carry_free(x):
+        width = max(len(ranges), len(str(other)))
         if op == "+":
-            return not any(carries("+", x, other))
+            return not any(crosses_at("+", x, other, i) for i in range(width))
         if first:
-            return not any(carries("-", x, other))
-        return not any(carries("-", other, x))
+            return not any(crosses_at("-", x, other, i) for i in range(width))
+        return not any(crosses_at("-", other, x, i) for i in range(width))
 
     if narrowed is None:
         # Brute force over the numbers of at most three places, for the cases the spec names.
@@ -201,9 +196,10 @@ def settings_for(**limits):
 
 
 def test_names_the_limit_to_loosen():
-    high = [(5, 9), (0, 9), (0, 9)]
-    out = generate(settings_for(a=high, b=high, carry="none"))
-    assert out == {"exercises": [], "loosen": ["carry", "a", "b"]}
+    # Ones digits 6 to 9 sum past 10, so Ohne Zehnerübergang leaves no task and names that rule.
+    out = generate(settings_for(a=[(6, 9)], b=[(6, 9)], carry="none"))
+    assert out["exercises"] == []
+    assert out["loosen"][:3] == ["zehner", "a", "b"]
     out = generate(settings_for(a=[(0, 9), (6, 9)], b=[(0, 9), (6, 9)]))
     assert out == {"exercises": [], "loosen": ["a", "b", "max"]}
     # The divisor is 1, so a remainder is impossible. Rest, the divisor and Rest 0 vermeiden

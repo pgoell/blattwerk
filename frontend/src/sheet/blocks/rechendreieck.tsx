@@ -2,6 +2,7 @@
 
 import { sane as saneRechen, made as drawnRechen, layout, signOf, FIELDS as RECHEN_FIELDS } from "../../rechendreieck";
 import { useLetters, LetterBox } from "../context";
+import { SvgInk } from "../places";
 import type { RechendreieckBlock } from "../tasks";
 
 // A Rechendreieck: its triangles in columns, in its own units. A triangle has sides of 60 units: its inner fields
@@ -26,7 +27,7 @@ export function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k:
               <polygon points={corner.map((c) => c.join(",")).join(" ")} fill="none" stroke="#222" strokeWidth={0.6} />
               {p.op === "*" && (
                 <text className="op" x={centre[0]} y={centre[1]} fontSize={8} textAnchor="middle" dominantBaseline="central" fill="#222">
-                  {signOf(p.op)}
+                  <SvgInk text={signOf(p.op)} />
                 </text>
               )}
               {/* The box stands at the top left of the triangle's cell, its side the height of an outer field. */}
@@ -41,7 +42,7 @@ export function Rechendreieck({ block, solved }: { block: RechendreieckBlock; k:
                       : <rect x={cx - BOX[0] / 2} y={cy - BOX[1] / 2} width={BOX[0]} height={BOX[1]} fill="white" stroke="#222" strokeWidth={0.4} />}
                     {shows && (
                       <text x={cx} y={cy} fontSize={5.5} textAnchor="middle" dominantBaseline="central"
-                        fill={tri.given[j] ? "#222" : "#c0392b"} className={tri.given[j] ? "given" : "answer"}>{tri.numbers[j]}</text>
+                        fill={tri.given[j] ? "#222" : "#c0392b"} className={tri.given[j] ? "given" : "answer"}><SvgInk text={tri.numbers[j]} /></text>
                     )}
                   </g>
                 );

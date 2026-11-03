@@ -2,6 +2,7 @@
 
 import { sane as saneTable, made as tableMade, layout as tableLayout, TINT as tableTint, opLabel as tableLabel } from "../../rechentabelle";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { RechentabelleBlock } from "../tasks";
 
 // A Rechentabelle: its tables side by side. Each has the operator in its corner, the row values down the left, the column
@@ -22,14 +23,14 @@ export function Rechentabelle({ block, solved }: { block: RechentabelleBlock; so
           const text = (n: number, x: number, y: number, state: "given" | "answer" | null) =>
             state && (
               <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(n).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
-                fill={state === "given" ? "#222" : "#c0392b"} className={state}>{n}</text>
+                fill={state === "given" ? "#222" : "#c0392b"} className={state}><SvgInk text={n} /></text>
             );
           return (
             <g key={i} className={`table${t.wrong ? " wrong" : ""}`} data-table={i}>
               <g className="corner">
                 <rect x={x0} y={y0} width={CELL} height={CELL} fill={tint ? tint[1] : "white"} stroke="#222" strokeWidth={0.4} />
                 <text x={x0 + CELL / 2} y={y0 + CELL / 2} fontSize={numberSize(1, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
-                  fill="#222" className="given">{tableLabel(p.op)}</text>
+                  fill="#222" className="given"><SvgInk text={tableLabel(p.op)} /></text>
               </g>
               {t.cols.map((n, j) => {
                 const [x, y] = [x0 + (j + 1) * CELL, y0];

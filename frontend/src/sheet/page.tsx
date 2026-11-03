@@ -33,6 +33,7 @@ import { Frame, Line } from "./frame";
 import { Lines } from "./lines";
 import { textStyle, inset } from "./look";
 import { Maths } from "./mathsView";
+import { PlaceScope } from "./places";
 import { Count, numbers } from "./numbering";
 import { NUMBER_EM, Numbers } from "./rich";
 import { stepOf } from "./shape";
@@ -40,9 +41,17 @@ import { Table } from "./tableView";
 import { isLine, symbol, boxed } from "./text";
 import type { ReactNode, CSSProperties } from "react";
 
+// Maths blocks take the sheet's place colours. A text, a table or a line does not, so its digits stay black.
+const PLACED = new Set<Block["type"]>(["formula", "maths", "zahlenmauer", "zahlenhaus", "zahlenkette", "pfeilbild", "operatorfeld", "rechenrad", "rechentabelle", "magischesquadrat", "malquadrat", "zerlegungsfeld", "halbschriftlich", "textaufgabe", "zehnerfeld", "rechendreieck", "zahlenstrahl", "hunderterfeld", "karofeld", "uhr", "selbstkontrolle", "geobrett", "diagramm"]);
+
 // What a block shows, at `k` pixels per mm. Sizes inside a block are in em of a font size set to the scale.
 // `solved` fills in the answers of the maths exercises. `at` is the cell of a table that the editor's field is for.
-export function Draw({ block, k, solved = false, at, reach, onSquare, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; onSquare?: (col: number, row: number) => void; children?: ReactNode }) {
+export function Draw(props: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; onSquare?: (col: number, row: number) => void; children?: ReactNode }) {
+  const node = drawn(props);
+  return PLACED.has(props.block.type) ? <PlaceScope>{node}</PlaceScope> : node;
+}
+
+function drawn({ block, k, solved = false, at, reach, onSquare, children }: { block: Block; k: number; solved?: boolean; at?: number; reach?: number; onSquare?: (col: number, row: number) => void; children?: ReactNode }) {
   if (block.type === "formula") return <FormulaBox block={block} k={k} />;
   if (block.type === "maths") return <Maths block={block} k={k} solved={solved} />;
   if (block.type === "suchsel") return <Suchsel block={block} k={k} solved={solved} />;

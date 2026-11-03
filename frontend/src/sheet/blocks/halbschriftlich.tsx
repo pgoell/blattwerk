@@ -1,6 +1,7 @@
 // Draws one Halbschriftlich block.
 
 import { sane as saneHalb, made as halbMade, layout as halbLayout, opLabel as halbOp } from "../../halbschriftlich";
+import { SvgInk, usePlaces } from "../places";
 import type { HalbschriftlichBlock } from "../tasks";
 
 // A Halbschriftlich: its tasks side by side, in squares of Q units. A task has a line for the task (a + b = r), one line
@@ -8,6 +9,7 @@ import type { HalbschriftlichBlock } from "../tasks";
 export const HEAD_LETTERS = ["T", "H", "Z", "E"];
 export function Halbschriftlich({ block, solved }: { block: HalbschriftlichBlock; solved: boolean }) {
   const p = saneHalb(block.props);
+  const places = usePlaces();
   const { tasks, S, D } = halbMade(p);
   const { Q, CG, RG, TW, TH, across, vbW, vbH, headRows } = halbLayout(p);
   // The columns of a line: a, the sign, b, the =, r; a number starts at these squares.
@@ -39,14 +41,14 @@ export function Halbschriftlich({ block, solved }: { block: HalbschriftlichBlock
               const x = x0 + at[pos] * Q;
               const y = y0 + (headRows + l) * Q;
               const digits = value === null ? "" : String(value);
-              const xs = [...digits].map((_, j) => x + (D - digits.length + j + 0.5) * Q).join(" ");
+              const positions = [...digits].map((_, j) => x + (D - digits.length + j + 0.5) * Q);
               return (
                 <g key={pos} className="slot" data-line={l} data-pos={pos}>
                   {!p.grid && <rect x={x} y={y} width={D * Q} height={Q} fill="white" stroke="#222" strokeWidth={0.3} />}
                   {p.tint && pos === 1 && <rect className="tint" x={x} y={y} width={D * Q} height={Q} fill="#9cc3f5" fillOpacity={0.35} />}
                   {k && (
-                    <text className={k} x={xs} y={y + Q / 2} fontSize={Q * 0.75} fill={k === "given" ? "#222" : "#c0392b"} textAnchor="middle" dominantBaseline="central">
-                      {digits}
+                    <text className={k} x={places ? undefined : positions.join(" ")} y={y + Q / 2} fontSize={Q * 0.75} fill={k === "given" ? "#222" : "#c0392b"} textAnchor="middle" dominantBaseline="central">
+                      <SvgInk text={digits} xs={places ? positions : undefined} />
                     </text>
                   )}
                 </g>

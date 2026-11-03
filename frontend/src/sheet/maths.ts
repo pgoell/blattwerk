@@ -34,6 +34,8 @@ export type Calc = {
   rest: number;
   /** The number a gap stands for: "a", "b", "c" or "rest". "rest" hides the remainder of a division and no other number. Left out, the gap hides the result. */
   hide?: "a" | "b" | "c" | "rest";
+  /** A second gap, besides hide: "a" or "b". Set on the last task of a family that is not shown complete. Left out, the task has one gap. */
+  also?: "a" | "b";
   /** The working on squared paper for this task. Left out, the task has none. */
   grid?: Grid;
   /** The second operation of a task of three numbers, between b and c. Left out for a task of two numbers. */
@@ -72,12 +74,13 @@ export type Exercise = Calc | Compare;
 // vor Strich, and `brackets` the mit Klammern that goes with it. Blocks saved before have none of these.
 // `decimals` and `money` set the places after the comma (see decimalsOf), and `af`, `bf` and `cf` hold the digits
 // of those places for the first, second and third number, Zehntel first. `family` makes families of two or three tasks
-// (none by default), and `moves` says which number of a Nachbaraufgabe moves, "a" by default. `gaps` says what a
-// gap may hide: the numbers "a", "b" and "c", the "result", or the "rest". `zero` lets 0 in as a number and as a
-// result, `one` lets 1 in as a factor and as a divisor, and `distinct` keeps equal numbers out. `reihen` picks the
-// Einmaleins-Reihen, and `avoid0` keeps a remainder of 0 out. `pa`, `pb` and `pr` are patterns for the first
-// number, the second and the result. `nil` says whether the digit 0 may occur, per operation family. Blocks saved
-// before have none of these: the gap hides any number and never the result, and 0, 1 and equal numbers are in.
+// (none by default). `moves` says which number of a Nachbaraufgabe moves, or an Analogieaufgabe grows, "a" by default.
+// `full` is Vollständig anzeigen, on by default. `gaps` says what a gap may hide: the numbers "a", "b" and "c",
+// the "result", or the "rest". `zero` lets 0 in as a number and as a result, `one` lets 1 in as a factor and as a
+// divisor, and `distinct` keeps equal numbers out. `reihen` picks the Einmaleins-Reihen, and `avoid0` keeps a
+// remainder of 0 out. `pa`, `pb` and `pr` are patterns for the first number, the second and the result. `nil` says
+// whether the digit 0 may occur, per operation family. Blocks saved before have none of these: the gap hides any
+// number and never the result, and 0, 1 and equal numbers are in.
 export type Limits = {
   /** The operations the tasks may use: "+" plus, "-" minus, "*" times and "/" divided by. At least one. */
   ops: Op[];
@@ -92,8 +95,12 @@ export type Limits = {
   b: Range[];
   /** The digits the third number may have, one range of 0 to 9 per place, units first, for tasks of three numbers. Left out, any digit. */
   c?: Range[];
-  /** Whether a plus or minus task must carry (Übertrag): "none" never, "required" always, "either" both kinds. */
-  carry: "none" | "required" | "either";
+  /** Plus and Minus: the Übertrag per place, smallest place first, [Zehnerübergang, Hunderterübergang, Tausenderübergang]. Each is "none" (that place does not cross), "required" (it does) or "either" (no rule). A place counts when the Zahlenraum goes past it: the Zehner past 10, the Hunderter past 100, the Tausender past 1000. With places after the comma the list starts at the smallest place (one decimal: Einerübergang, then Zehnerübergang). Plus crosses a place when its digits sum to more than 10 (7 + 3 and 17 + 23 do not). A carry does not run on, so 395 + 7 does not cross a hundred. Minus crosses when that digit of the first number is smaller than the second's. "none" at the top place that counts also rules out every place above it. An older single "none", "required" or "either" is read as every place, only the smallest place, or no rule. Default ["either", "either", "either"]. */
+  carry:
+    | ["none" | "required" | "either", "none" | "required" | "either", "none" | "required" | "either"]
+    | "none"
+    | "required"
+    | "either";
   /** Whether a division leaves a remainder. false, the default, gives even divisions only. */
   rest: boolean;
   /** How each task is written: "row" as a line of numbers, "gap" as a line with a gap to fill, "written" as a column calculation on squared paper, "compare" as comparisons with a ring to fill. */
@@ -127,10 +134,12 @@ export type Limits = {
   bf?: Range[];
   /** The digits of the third number's places after the comma, tenths first, one range of 0 to 9 per place. Left out, any digit. */
   cf?: Range[];
-  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks. A family has two or three tasks. Default "none". */
-  family?: "none" | "swap" | "reverse" | "neighbour";
-  /** Which number a neighbouring task moves: "a" the first, the default, or "b" the second. */
+  /** Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks, "analogy" a package whose first or second number grows by ten. A family has two or three tasks. Default "none". */
+  family?: "none" | "swap" | "reverse" | "neighbour" | "analogy";
+  /** Which number a neighbouring task moves, or an Analogieaufgabe grows: "a" the first, the default, or "b" the second. */
   moves?: "a" | "b";
+  /** Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. */
+  full?: boolean;
   /** What a gap may hide: any of the numbers "a", "b" and "c", the "result", or the "rest" of a division. "rest" hides no number. Left out, a gap hides any number and never the result. */
   gaps?: ("a" | "b" | "c" | "result" | "rest")[];
   /** Whether 0 may be a number and a result. Default true. */
@@ -163,7 +172,7 @@ export type Limits = {
 export type Made = {
   /** The exercises the server made for the limits, in the order they stand on the sheet. */
   exercises: Exercise[];
-  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "carry". null when the count is met. */
+  /** The limits in the way when fewer exercises came than asked for, by name, such as "max" or "zehner". null when the count is met. */
   loosen: string[] | null;
 };
 // `numbering` counts the exercises of the block; `size` is the font size of a row or a gap in points.

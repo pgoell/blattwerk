@@ -4,7 +4,7 @@ title: "Rechenräder"
 description: A heading, a name line, and four Rechenräder of two rings with the centre's number given and the outer ring to fill in.
 tags: [rechenrad, zahlenraum-20, klasse-1]
 covers: [text, name, rechenrad]
-generated: { by: "human:pgoell", at: 2026-11-01T15:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
 ---
 
 # Rechenräder

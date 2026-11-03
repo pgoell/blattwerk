@@ -55,6 +55,10 @@ describe("tasksOf", () => {
     expect(tasksOf(maths("a", [{ op: "+", a: 3, b: 4, result: 7, rest: 0, hide: "a" }]))).toEqual([[{ text: "3", value: 3 }]]);
   });
 
+  it("gives the extra hidden number of a family task after the gap (#841)", () => {
+    expect(tasksOf(maths("a", [{ op: "+", a: 23, b: 4, result: 27, rest: 0, also: "a" }]))).toEqual([[{ text: "27", value: 27 }, { text: "23", value: 23 }]]);
+  });
+
   it("gives the quotient and its rest as text, the quotient as value", () => {
     expect(tasksOf(maths("a", [{ op: "+", a: 17, b: 5, result: 3, rest: 2 }]))).toEqual([[{ text: "3 R 2", value: 3 }]]);
   });

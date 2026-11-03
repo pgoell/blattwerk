@@ -1,6 +1,7 @@
 // Draws one Zehnerfeld block.
 
 import { sane as saneZehn, made as zehnMade, acts as zehnActs, colorsOf as zehnColors, layout as zehnLayout, opLabel as zehnOp } from "../../zehnerfeld";
+import { SvgInk } from "../places";
 import type { ZehnerfeldBlock } from "../tasks";
 
 // A Zehnerfeld: its tasks side by side, each a field of dots with its task line under it (a box, the sign, a box, the
@@ -101,7 +102,7 @@ export function Zehnerfeld({ block, solved }: { block: ZehnerfeldBlock; solved: 
                           textAnchor="middle"
                           dominantBaseline="central"
                         >
-                          {v.value}
+                          <SvgInk text={v.value} />
                         </text>
                       )}
                     </g>

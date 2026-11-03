@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { attempt, drop } from "../../fault";
 import type { Owed } from "../../saves";
 import { decimalsOf, overFoot, scaleOf, subscribe, type Limits, type Made, type MathsBlock, type MathsProps, type Op, type Range } from "../../sheet";
-import { anyDigits, ask, GAPS, generate, kept, ROOMS, type Key } from "./ask";
+import { anyDigits, asCarry, ask, GAPS, generate, kept, ROOMS, shiftCarry, type Key } from "./ask";
 import { owedLanded } from "./landed";
 
 export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: string) => boolean, foot: number, owe: (entry: Owed) => void) {
@@ -59,6 +59,10 @@ export function useFlight(block: MathsBlock, apply: (props: MathsProps, key?: st
     return all;
   }
   function limit(change: Partial<Limits>) {
+    const from = decimalsOf(p);
+    const to = decimalsOf({ ...p, ...change });
+    // A place rule stays on the place it was set for when the comma moves.
+    if (from !== to && change.carry === undefined) change = { ...change, carry: shiftCarry(asCarry(p.carry), from, to) };
     const n = ++asked.current;
     onWay.current.set(n, change);
     const sent = { ...stored.current, ...wish() };

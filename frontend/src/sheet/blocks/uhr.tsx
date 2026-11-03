@@ -2,6 +2,7 @@
 
 import { sane as saneUhr, timesOf, CELL_W, CELL_H, hands, written, handStroke, INK as UHR_INK, RED } from "../../uhr";
 import { useLetters, LetterBox } from "../context";
+import { SvgInk } from "../places";
 import type { UhrBlock } from "../tasks";
 
 // An Uhr, drawn as the contract at the top of uhr.ts says: one svg, a cell of 100 by 130 per clock.
@@ -46,7 +47,7 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
                 const [x, y] = hour(n, 33);
                 return (
                   <text key={`n${n}`} className="number" data-n={n} x={x} y={y} fontSize={10} textAnchor="middle" dominantBaseline="central" fill={UHR_INK}>
-                    {n}
+                    <SvgInk text={n} />
                   </text>
                 );
               })}
@@ -54,7 +55,7 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
                 const [x, y] = hour(n, 22);
                 return (
                   <text key={`r${n}`} className="number" data-n={n} x={x} y={y} fontSize={5.5} textAnchor="middle" dominantBaseline="central" fill={UHR_INK}>
-                    {n}
+                    <SvgInk text={n} />
                   </text>
                 );
               })}
@@ -75,19 +76,19 @@ export function Uhr({ block, solved }: { block: UhrBlock; k: number; solved: boo
               {p.task === "draw" &&
                 lines.map((line, n) => (
                   <text key={n} className="task" x={50} y={two ? 110 + n * 12 : 120} fontSize={sizeOf(line)} textAnchor="middle" fill={UHR_INK}>
-                    {line}
+                    <SvgInk text={line} />
                   </text>
                 ))}
               {p.task === "read" && p.answer === "box" && !solved &&
                 (two ? ["__:__ Uhr", "__:__ Uhr"] : ["__:__ Uhr"]).map((line, n) => (
                   <text key={n} className="task" x={50} y={two ? 110 + n * 12 : 120} fontSize={10} textAnchor="middle" fill={UHR_INK}>
-                    {line}
+                    <SvgInk text={line} />
                   </text>
                 ))}
               {p.task === "read" && solved &&
                 lines.map((line, n) => (
                   <text key={n} className="answer" x={50} y={two ? 110 + n * 12 : 120} fontSize={sizeOf(line)} textAnchor="middle" fill={RED}>
-                    {line}
+                    <SvgInk text={line} />
                   </text>
                 ))}
               {p.task === "read" && p.answer === "line" &&

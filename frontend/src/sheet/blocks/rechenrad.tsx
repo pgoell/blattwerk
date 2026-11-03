@@ -2,6 +2,7 @@
 
 import { sane as saneWheel, made as wheelMade, layout as wheelLayout, edgeAngle, cellAt, opLabel as wheelLabel } from "../../rechenrad";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { RechenradBlock } from "../tasks";
 
 // A Rechenrad: its wheels in columns. Each wheel has a centre with its operator and number, and rings of segments; a
@@ -35,7 +36,7 @@ export function Rechenrad({ block, solved }: { block: RechenradBlock; solved: bo
                       <path d={path} fill="white" stroke="#222" strokeWidth={0.4} />
                       {shows && (
                         <text x={tx} y={ty} fontSize={numberSize(digits, Math.min(chord, W) * 0.8, 4.4)} textAnchor="middle" dominantBaseline="central"
-                          fill={wheel.given[ri][s] ? "#222" : "#c0392b"} className={wheel.given[ri][s] ? "given" : "answer"}>{n}</text>
+                          fill={wheel.given[ri][s] ? "#222" : "#c0392b"} className={wheel.given[ri][s] ? "given" : "answer"}><SvgInk text={n} /></text>
                       )}
                     </g>
                   );
@@ -44,7 +45,7 @@ export function Rechenrad({ block, solved }: { block: RechenradBlock; solved: bo
               <g className="centre">
                 <circle cx={cx} cy={cy} r={C0} fill="white" stroke="#222" strokeWidth={0.4} />
                 <text x={cx} y={cy} fontSize={numberSize(wheelLabel(p.op, wheel.centre).length, 2 * C0 * 0.75, 4.6)} textAnchor="middle" dominantBaseline="central"
-                  fill="#222" className="given">{wheelLabel(p.op, wheel.centre)}</text>
+                  fill="#222" className="given"><SvgInk text={wheelLabel(p.op, wheel.centre)} /></text>
               </g>
             </g>
           );

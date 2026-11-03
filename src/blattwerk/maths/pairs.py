@@ -6,6 +6,7 @@ from collections import Counter
 from functools import lru_cache
 from math import isqrt
 
+from blattwerk.maths.carry import keeps
 from blattwerk.maths.model import (
     SMALL,
     Settings,
@@ -14,6 +15,7 @@ from blattwerk.maths.model import (
     gaps_of,
     nth,
     pick,
+    places,
     three,
 )
 from blattwerk.maths.pattern import for_op, operands, result_ok
@@ -77,7 +79,7 @@ def valid(s: Settings, op: str, a: int, b: int, top: int) -> bool:
     if only and all(loose(op, a, b, k) for k in only):
         return False
     if op in "+-":
-        if s.carry != "either" and (s.carry == "required") != any(carries(op, a, b)):
+        if not keeps(s.carry, s.max, op, a, b):
             return False
         if not (a + b <= top if op == "+" else b <= a):
             return False
@@ -350,6 +352,12 @@ def relatives(s: Settings, op: str, a: int, b: int) -> list[tuple[str, int, int]
         return [(op, a, b), (op, b, a)] if a != b else []
     if kind == "reverse":
         return [(op, a, b), (REVERSE[op], result(op, a, b), b)]
+    if kind == "analogy":
+        # Ten, as the pupil reads it. One place after the comma stores tenths, so ten is 100.
+        step = 10 * 10 ** places(s)
+        if s.moves == "a":
+            return [(op, a, b), (op, a + step, b), (op, a + 2 * step, b)]
+        return [(op, a, b), (op, a, b + step), (op, a, b + 2 * step)]
     if op == "/" and s.moves == "a":
         return [(op, a, b), (op, a - b, b), (op, a + b, b)]
     if s.moves == "a":

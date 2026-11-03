@@ -18,11 +18,17 @@ export function tasksOf(b: Block): Result[][] | undefined {
       const tasks = (Array.isArray(p.exercises) ? p.exercises : []).filter(
         (e) => !!e && typeof e === "object" && ("sign" in e || typeof e[e.hide ?? "result"] === "number"),
       );
+      // `also` is a second gap on the last task of a family that is not shown complete.
+      const more = (e: { also?: string; hide?: string; a?: number; b?: number }): Result[] => {
+        if ((e.also !== "a" && e.also !== "b") || e.also === (e.hide ?? "result")) return [];
+        const v = e[e.also];
+        return typeof v === "number" ? [{ text: decimal(v, d, money) + euro, value: v }] : [];
+      };
       return tasks.map((e): Result[] => {
         if ("sign" in e) return [{ text: String(e.sign) }];
-        if (e.rest > 0) return [{ text: `${decimal(e.result, d, money)}${euro} R ${decimal(e.rest, 0)}`, value: e.result }];
+        if (e.rest > 0) return [{ text: `${decimal(e.result, d, money)}${euro} R ${decimal(e.rest, 0)}`, value: e.result }, ...more(e)];
         const v = e[e.hide ?? "result"] as number;
-        return [{ text: decimal(v, d, money) + euro, value: v }];
+        return [{ text: decimal(v, d, money) + euro, value: v }, ...more(e)];
       });
     }
     case "zahlenmauer": {
