@@ -6,7 +6,7 @@ import { RULINGS, kindOf, rowsOf } from "./look";
 import type { MathsBlock, Range } from "./maths";
 import { type RulingBlock, listOf, rowsNeeded } from "./ruling";
 import type { TableBlock } from "./table";
-import type { SuchselBlock, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, GeobrettBlock } from "./tasks";
+import type { SuchselBlock, ZahlenmauerBlock, RechendreieckBlock, ZahlenhausBlock, ZahlenketteBlock, PfeilbildBlock, OperatorfeldBlock, RechenradBlock, RechentabelleBlock, MagischesQuadratBlock, MalquadratBlock, ZerlegungsfeldBlock, HalbschriftlichBlock, ZehnerfeldBlock, ZahlenstrahlBlock, HunderterfeldBlock, UhrBlock, SelbstkontrolleBlock, GeobrettBlock, DiagrammBlock } from "./tasks";
 import type { TextBlock, ShapeBlock } from "./text";
 
 // The words of a name line, as a new one has them. A line's `fields` replace them.
@@ -58,7 +58,7 @@ export type ImageBlock = Box & {
     opacity?: number;
   };
 };
-export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZerlegungsfeldBlock | HalbschriftlichBlock | ZehnerfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock | GeobrettBlock;
+export type Block = TextBlock | ShapeBlock | RulingBlock | NameBlock | PointsBlock | SymbolBlock | ImageBlock | MathsBlock | TableBlock | SuchselBlock | ZahlenmauerBlock | RechendreieckBlock | ZahlenhausBlock | ZahlenketteBlock | PfeilbildBlock | OperatorfeldBlock | RechenradBlock | RechentabelleBlock | MagischesQuadratBlock | MalquadratBlock | ZerlegungsfeldBlock | HalbschriftlichBlock | ZehnerfeldBlock | ZahlenstrahlBlock | HunderterfeldBlock | UhrBlock | SelbstkontrolleBlock | GeobrettBlock | DiagrammBlock;
 export type Axis = "x" | "y";
 // The teacher's own guide lines, in mm.
 export type Guides = {

@@ -31,6 +31,7 @@ LABEL = {
     "uhr": "Uhr",
     "selbstkontrolle": "Selbstkontrolle",
     "geobrett": "Geobrett",
+    "diagramm": "Diagramm",
 }
 DOCK = ("maths", "suchsel")
 KINDS = list(LABEL)
@@ -57,6 +58,7 @@ CHANGES = {
     "uhr": ({"count": 8}, True),
     "selbstkontrolle": ({"form": "word", "word": "HUND"}, False),
     "geobrett": ({"cols": 6}, False),
+    "diagramm": ({"kind": "kreis"}, False),
 }
 
 

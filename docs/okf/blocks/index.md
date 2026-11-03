@@ -57,3 +57,5 @@ Each page lists one block type's props, generated from the sheet's schema by `fr
 * [selbstkontrolle](selbstkontrolle.md): The self-check (Selbstkontrolle): a key that tells the pupil whether the answers of the linked blocks are right.
 
 * [geobrett](geobrett.md): The geoboard (Geobrett): nails, rubber bands and the geometry task the pupil solves.
+
+* [diagramm](diagramm.md): A chart (Diagramm) of bars, columns or a pie, drawn from a few values.
