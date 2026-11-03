@@ -4,7 +4,7 @@ title: "Ein Blatt quer"
 description: A sheet turned landscape, with a heading and a table across its full width.
 tags: [quer, tabelle, wochentage, klasse-1]
 covers: [text, table]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Ein Blatt quer

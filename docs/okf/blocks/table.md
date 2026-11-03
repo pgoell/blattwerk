@@ -4,7 +4,7 @@ title: "Block: table"
 description: "The table's text, layout and lines."
 tags: [block, table]
 covers: [table]
-generated: { by: "process:frontend/okf.mjs", at: 2026-10-16T00:00:00Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T05:37:31Z }
 ---
 
 # table
@@ -53,6 +53,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | breaks | object |  | no | The teacher's own syllable breaks: each word in lower case as the key, with the places it breaks at as the value. |
 | tints | list of string |  | no | The two colours the syllables take in turn, first then second. |
 | tintsAcross | boolean |  | no | Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour. |
+| marks | object |  | no | Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. |
 | gaps | list of list of boolean |  | no | Per cell, true makes the whole cell a gap to fill in, a row of columns at a time as cells does. |
 | gapWidth | number | at least 5 | no | Width of the gaps in mm, all the same. The editor takes 5 mm or more. |
 | bank | number |  | no | A word bank printed under the table for the gaps. Left out, there is none. |

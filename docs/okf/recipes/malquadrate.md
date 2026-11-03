@@ -4,7 +4,7 @@ title: "Malquadrate"
 description: A heading, a name line, and two Malquadrate for the Einmaleins with the factors given at the edges and the products to fill in.
 tags: [malquadrat, einmaleins, klasse-3]
 covers: [text, name, malquadrat]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Malquadrate

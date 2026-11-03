@@ -696,6 +696,10 @@
           "type": "boolean",
           "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour."
         },
+        "marks": {
+          "$ref": "#/definitions/LetterMarks",
+          "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
+        },
         "gapWidth": {
           "type": "number",
           "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -1028,6 +1032,70 @@
       "minItems": 2,
       "maxItems": 2
     },
+    "LetterMarks": {
+      "type": "object",
+      "properties": {
+        "vowels": {
+          "type": "string",
+          "description": "Colour of the vowels a, e, i, o and u, as a hex colour such as \"#e02424\". Absent means those vowels are not coloured. Umlauts are not vowels here."
+        },
+        "umlauts": {
+          "type": "string",
+          "description": "Colour of the umlauts ä, ö and ü, as a hex colour such as \"#1a56db\". Absent means the umlauts are not coloured."
+        },
+        "consonants": {
+          "type": "string",
+          "description": "Colour of every other letter, as a hex colour such as \"#2f9e44\". Absent means those letters are not coloured."
+        },
+        "first": {
+          "type": "string",
+          "description": "Colour of the first letter of each word, as a hex colour such as \"#f08c00\". Absent means the first letter is not coloured for its place."
+        },
+        "last": {
+          "type": "string",
+          "description": "Colour of the last letter of each word, as a hex colour such as \"#7048e8\". Absent means the last letter is not coloured for its place."
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LetterGroup"
+          },
+          "description": "Up to three groups of letters, each with a place and a colour. A fourth group and any group after it are left out."
+        }
+      },
+      "description": "Which letters of a text are coloured, and in which colour. Absent fields colour nothing."
+    },
+    "LetterGroup": {
+      "type": "object",
+      "properties": {
+        "letters": {
+          "type": "string",
+          "description": "The letters to colour, such as \"sch\" or \"ei\". Capitals do not matter. A space or a mark is left out when matching."
+        },
+        "where": {
+          "$ref": "#/definitions/Where",
+          "description": "Where the letters match: \"any\" anywhere in a word, \"start\" at a word's start, \"end\" at a word's end."
+        },
+        "color": {
+          "type": "string",
+          "description": "Colour of the letters as a hex colour, such as \"#e02424\"."
+        }
+      },
+      "required": [
+        "letters",
+        "where",
+        "color"
+      ],
+      "description": "One group of letters the teacher named, such as \"sch\", with where it matches and its colour."
+    },
+    "Where": {
+      "type": "string",
+      "enum": [
+        "any",
+        "start",
+        "end"
+      ]
+    },
     "Align": {
       "type": "string",
       "enum": [
@@ -1192,6 +1260,10 @@
             "tintsAcross": {
               "type": "boolean",
               "description": "True carries the colour turn on from word to word through the text. Absent means each word starts again with the first colour."
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             },
             "gapWidth": {
               "type": "number",
@@ -1610,6 +1682,10 @@
             "tintsAcross": {
               "type": "boolean",
               "description": "Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again."
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             }
           },
           "required": [
@@ -2760,6 +2836,10 @@
             "tintsAcross": {
               "type": "boolean",
               "description": "Whether the colours of the syllables turn on from word to word through the text. Left out, each word starts with the first colour."
+            },
+            "marks": {
+              "$ref": "#/definitions/LetterMarks",
+              "description": "Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as \"sch\". Absent means no letters are coloured this way. Punctuation is not coloured."
             },
             "gaps": {
               "type": "array",

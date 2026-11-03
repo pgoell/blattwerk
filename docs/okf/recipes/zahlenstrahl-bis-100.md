@@ -4,7 +4,7 @@ title: "Zahlenstrahl bis 100"
 description: A heading, a name line, and a Zahlenstrahl from 0 to 100 with boxes to fill in.
 tags: [zahlenstrahl, zahlenraum-100, klasse-2]
 covers: [text, name, zahlenstrahl]
-generated: { by: "human:pgoell", at: 2026-11-03T00:42:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Zahlenstrahl bis 100

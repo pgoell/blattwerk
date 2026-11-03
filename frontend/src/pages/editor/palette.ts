@@ -29,22 +29,22 @@ export const CORNERS = ["nw", "ne", "sw", "se"];
 // too, and its Nachspuren, `trace`, and a maths block its size and the numbering of its exercises. A Lineatur 1, 2 or 3 also
 // gives and takes its houses, `house` and `houseTint`, and its middle band, `band` and `bandColor`. Every block
 // gives and takes the numbering before it, `mark`. The Silbenbögen and the Silbenfarbe go along, `syllables`, `tints`
-// and `tintsAcross`, but not the words split by hand, `breaks`: they belong to the words.
-export const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "tracking", "align", "valign", "syllables", "tints", "tintsAcross", "trace", "fade", "fill", "opacity", "stroke", "strokeOpacity", "strokeWidth", "dash"] as const;
+// and `tintsAcross`, and the letter colours, `marks`, but not the words split by hand, `breaks`: they belong to the words.
+export const LOOK = ["font", "size", "bold", "italic", "underline", "color", "spacing", "tracking", "align", "valign", "syllables", "tints", "tintsAcross", "marks", "trace", "fade", "fill", "opacity", "stroke", "strokeOpacity", "strokeWidth", "dash"] as const;
 // The part of it that belongs to the words, with the breaks set by hand, the gaps and the solution words, and the
 // Schüttelwörter with their settings: a line takes none of these.
-export const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "tracking", "align", "valign", "syllables", "tints", "tintsAcross", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
+export const WORDS: string[] = ["font", "size", "bold", "italic", "underline", "color", "spacing", "tracking", "align", "valign", "syllables", "tints", "tintsAcross", "marks", "breaks", "gapWidth", "bank", "mix", "mixFirst", "mixCaps", "mixLine", "list", "listCols", "holes", "holeSeed"];
 export type Coat = Partial<TextProps> & { mark?: string; rule?: string; trace?: boolean | "outline" | "dotted"; fade?: Fade; numbering?: string; house?: boolean; houseTint?: "room" | "all"; band?: boolean; bandColor?: string; motif?: Motif; scale?: number; mono?: boolean; paper?: Graph };
 // Karo is always in print, and a written exercise is as large as its squares: they have no script and no size.
 export const takes = (b: Block): readonly (keyof Coat)[] => {
-  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "tracking", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "tracking", "rule", "trace", "fade"] : ["rule", "trace", "fade"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : b.type === "formula" ? ["size", "color", "align"] : [];
+  const school: (keyof Coat)[] = b.type === "ruling" ? (RULINGS[kindOf(b.props.kind)].zones ? ["font", "tracking", "rule", "trace", "fade", "house", "houseTint", "band", "bandColor", "marks"] : RULINGS[kindOf(b.props.kind)].at ? ["font", "tracking", "rule", "trace", "fade", "marks"] : ["rule", "trace", "fade", "marks"]) : b.type === "maths" ? (b.props.format === "written" ? ["numbering"] : ["size", "numbering"]) : b.type === "formula" ? ["size", "color", "align"] : [];
   // A line gives its stroke. Any other shape gives the frame's look and its Muster or Lineatur. `isLine` as a
   // predicate would take every shape out of the other branch, so the kind is read here.
   if (b.type === "shape") {
     const line = b.props.kind === "line" || b.props.kind === "arrow" || b.props.kind === "double";
     return [...(line ? (["stroke", "strokeOpacity", "strokeWidth", "dash"] as const) : ([...LOOK, "motif", "scale", "mono", "paper"] as const)), "mark"];
   }
-  return [...(b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
+  return [...(b.type === "table" ? (["font", "size", "color", "align", "syllables", "tints", "tintsAcross", "marks", "rule", "trace", "fade"] as const) : (boxed(b) && LOOK) || school), "mark"];
 };
 // What a shape gets where the brush brings none: its fill, stroke and width must be set, and a text with no
 // `valign` stands at the top, where a shape's would stand in the middle.

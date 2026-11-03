@@ -5,6 +5,7 @@ import { FormulaText } from "./formulaView";
 import { heightsOf, spansOf, rectOf } from "../cells";
 import { edged, linesOf, type Pen } from "../edges";
 import { pairOf, splitting, Bows } from "./bows";
+import { Inks, sane } from "./inks";
 import { useBreaks } from "./context";
 import { useRealFonts } from "./fontReady";
 import { keepsFractions, textStyle, fadeOf, fadeAt, traceOf, FONTS, fontOf } from "./look";
@@ -207,7 +208,7 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
     return r >= area[0] && r <= area[2] && c >= area[1] && c <= area[3];
   };
   return (
-    <div ref={host} className={classes("table", tints && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
+    <div ref={host} className={classes("table", (tints || sane(block.props.marks)) && "tinted", solved && "solved", width && "even", styled && "edged")} data-trace={traceOf(block.props)} data-fade={fade} style={style as CSSProperties}>
       {cells.flat().map((text, i) => {
         const span = anchors.get(i);
         if (covered.has(i)) return null;
@@ -219,6 +220,7 @@ export function Table({ block, k, at, reach, solved, children }: { block: TableB
       })}
       <span ref={mark} className={pending ? "unsplit" : undefined} hidden />
       {(syllables || tints) && <Bows block={block} base={FONTS[fontOf(block.props.font)][2]} breaks={breaks} syllables={syllables} tints={tints} tintsAcross={tintsAcross} solved={solved} />}
+      {sane(block.props.marks) && <Inks marks={block.props.marks} />}
       {words.length > 0 && <Bank words={words} seed={block.props.bank!} />}
       {/* Each grid position: its top and left line, and at the rim the bottom and right ones. The scissors sit at the top left. */}
       {styled && cells.flatMap((_, r) => cols.map((_c, c) => (

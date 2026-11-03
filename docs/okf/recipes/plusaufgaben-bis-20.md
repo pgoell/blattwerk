@@ -4,7 +4,7 @@ title: "Plusaufgaben bis 20 mit Selbstkontrolle"
 description: A heading, a name line, twelve addition sums to 20 with a fixed seed, and a self-check that lists the results shuffled.
 tags: [maths, selbstkontrolle, klasse-1]
 covers: [text, name, maths, selbstkontrolle]
-generated: { by: "human:pgoell", at: 2026-11-03T02:31:00Z }
+generated: { by: "human:pgoell", at: 2026-11-03T05:45:00Z }
 ---
 
 # Plusaufgaben bis 20 mit Selbstkontrolle

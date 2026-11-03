@@ -4,6 +4,7 @@ import { MARGIN, RULINGS, bandColorOf, bandOf, boxed, cursive, dir, foldsOf, fon
 import { filled, room, unshown } from "../../words";
 import type { Picked } from "../Field";
 import { FontSelect, unknownFont } from "./font";
+import { Letters } from "./letters";
 import { Syllables } from "./syllables";
 import { TraceControls } from "./trace";
 import { Tracking } from "./tracking";
@@ -149,6 +150,7 @@ export function RulingPanel({
             <TraceControls props={rulings[0].props} font={RULINGS[kindOf(rulings[0].props.kind)].at ? fontOf(rulings[0].props.font) : "andika"} onChange={traced} />
           )}
           {!text && !tables.length && <Syllables key={sel.find(syllabled)?.id} sel={sel} part={part} look={look} style={style} mendWord={mendWord} doc={doc} words={words} />}
+          {!text && !tables.length && <Letters sel={sel} look={look} style={style} />}
     </>
   );
 }

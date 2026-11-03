@@ -4,6 +4,7 @@ import { entries } from "../bank";
 import { PT } from "../height";
 import { mixed } from "../scramble";
 import { pairOf, Bows } from "./bows";
+import { Inks, sane } from "./inks";
 import { flipped } from "./box";
 import { useBreaks, Words } from "./context";
 import { linesIn, fitText, leastOf, cutAt, textIn } from "./fit";
@@ -59,6 +60,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
   const p = boxed(block)!;
   const breaks = useBreaks(p.breaks);
   const tints = pairOf(p.tints);
+  const marks = sane(p.marks);
   const width = gapWidth(p.gapWidth);
   // A linked text draws the sheet's Lernwörter, one to a paragraph, in columns, and grows to hold them. Its own text
   // rests, and so do the solution words of that text.
@@ -271,6 +273,7 @@ export function Frame({ block, k, solved, children }: { block: TextBlock | Shape
       {/* A bubble's text and its solution words stand in its body one under the other, as in any other frame. */}
       {tailed ? <div className="body" style={{ justifyContent: UP[p.valign ?? "top"] }}>{text}</div> : text}
       {(p.syllables || tints) && <Bows block={block} base={FONTS[fontOf(p.font)][2]} breaks={breaks} syllables={p.syllables} tints={tints} tintsAcross={p.tintsAcross} solved={solved} />}
+      {marks && <Inks marks={p.marks} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // A lineatur's word list, its squares, and the rows its text needs.
 
+import type { LetterMarks } from "../letters";
 import type { Breaks } from "../syllables";
 import { type Box, K, tall } from "./box";
 import type { Block, Doc } from "./doc";
@@ -66,6 +67,8 @@ export type RulingBlock = Box & {
     tints?: Tints;
     /** Carries the colour turn on from word to word, instead of starting again with each word. On the lines or in the squares. Left out, it starts again. */
     tintsAcross?: boolean;
+    /** Colours letters by kind: the vowels a, e, i, o, u, the umlauts ä, ö, ü, the other letters, the first or last letter of a word, and up to three letter groups such as "sch". Absent means no letters are coloured this way. Punctuation is not coloured. */
+    marks?: LetterMarks;
   };
 };
 // The index of the first word a Lineatur shows: 0 unless it has a whole, non-negative `from`.
