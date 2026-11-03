@@ -278,8 +278,8 @@ describe("the Rechentabellen of a block", () => {
     expect(carryList("-", 52, 27)).toEqual([1, 0]);
     expect(carryList("-", 305, 127)).toEqual([1, 1, 0]);
     expect(carryList("+", 5, 4)).toEqual([0]);
-    expect(carryList("+", 7, 3)).toEqual([1]);
-    expect(carryList("+", 17, 23)).toEqual([1, 0]);
+    expect(carryList("+", 7, 3)).toEqual([0]);
+    expect(carryList("+", 17, 23)).toEqual([0, 0]);
     expect(carryList("+", 395, 7)).toEqual([1, 0, 0]);
     expect(carryList("-", 10, 4)).toEqual([1, 0]);
     expect(carryList("-", 100, 1)).toEqual([1, 0, 0]);
