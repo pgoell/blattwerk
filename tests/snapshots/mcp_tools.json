@@ -2023,7 +2023,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -4301,6 +4308,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -4309,6 +4322,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -4327,6 +4346,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -4338,6 +4363,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -4361,6 +4394,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -4377,7 +4414,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -4461,6 +4498,12 @@
                   ],
                   "type": "string"
                 },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "rich": {
                   "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
                   "items": {
@@ -4486,6 +4529,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -5239,6 +5288,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -5247,6 +5302,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -5265,6 +5326,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -5276,6 +5343,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -5295,6 +5370,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -5311,7 +5390,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -5359,6 +5438,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -5374,6 +5459,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -6930,6 +7021,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -6938,6 +7035,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -6956,6 +7059,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -6967,6 +7076,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -6990,6 +7107,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -7006,7 +7127,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -7090,6 +7211,12 @@
                   ],
                   "type": "string"
                 },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "rich": {
                   "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
                   "items": {
@@ -7115,6 +7242,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -9912,7 +10045,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -12288,6 +12428,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -12296,6 +12442,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -12314,6 +12466,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -12325,6 +12483,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -12348,6 +12514,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -12364,7 +12534,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -12448,6 +12618,12 @@
                   ],
                   "type": "string"
                 },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "rich": {
                   "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
                   "items": {
@@ -12473,6 +12649,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -13236,6 +13418,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -13244,6 +13432,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -13262,6 +13456,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -13273,6 +13473,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -13292,6 +13500,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -13308,7 +13520,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -13356,6 +13568,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -13371,6 +13589,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -17142,7 +17366,14 @@
             "bubble",
             "line",
             "arrow",
-            "double"
+            "double",
+            "diamond",
+            "polygon",
+            "arc",
+            "bow",
+            "thought",
+            "pie",
+            "bars"
           ],
           "type": "string"
         },
@@ -19420,6 +19651,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -19428,6 +19665,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -19446,6 +19689,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -19457,6 +19706,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -19480,6 +19737,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -19496,7 +19757,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -19580,6 +19841,12 @@
                   ],
                   "type": "string"
                 },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "rich": {
                   "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
                   "items": {
@@ -19605,6 +19872,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {
@@ -20358,6 +20631,12 @@
               "$ref": "#/definitions/Breaks",
               "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
             },
+            "bulge": {
+              "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+              "maximum": 1,
+              "minimum": -1,
+              "type": "number"
+            },
             "color": {
               "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
               "type": "string"
@@ -20366,6 +20645,12 @@
               "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
               "maximum": 0.5,
               "minimum": 0,
+              "type": "number"
+            },
+            "corners": {
+              "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+              "maximum": 15,
+              "minimum": 5,
               "type": "number"
             },
             "dash": {
@@ -20384,6 +20669,12 @@
               "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
               "type": "string"
             },
+            "filled": {
+              "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+              "maximum": 50,
+              "minimum": 0,
+              "type": "number"
+            },
             "fit": {
               "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
               "type": "boolean"
@@ -20395,6 +20686,14 @@
             "font": {
               "$ref": "#/definitions/Font",
               "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+            },
+            "form": {
+              "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+              "enum": [
+                "square",
+                "round"
+              ],
+              "type": "string"
             },
             "gapWidth": {
               "description": "Every gap in the text is at least this many mm wide, so a pupil has room to write. Absent or 0 means each gap is only as wide as its word. Capped at 200 mm.",
@@ -20414,6 +20713,10 @@
               ],
               "type": "string"
             },
+            "hub": {
+              "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+              "type": "boolean"
+            },
             "inner": {
               "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
               "maximum": 0.9,
@@ -20430,7 +20733,7 @@
             },
             "kind": {
               "$ref": "#/definitions/Kind",
-              "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+              "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
             },
             "lines": {
               "description": "Numbers the lines of the text as they break, in the margin. 1 numbers every line, 5 every fifth line. Absent means no numbers.",
@@ -20478,6 +20781,12 @@
               "minimum": 0,
               "type": "number"
             },
+            "parts": {
+              "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+              "maximum": 50,
+              "minimum": 2,
+              "type": "number"
+            },
             "rich": {
               "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
               "items": {
@@ -20493,6 +20802,12 @@
               "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
               "maximum": 3,
               "minimum": 1,
+              "type": "number"
+            },
+            "spikes": {
+              "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+              "maximum": 35,
+              "minimum": 3,
               "type": "number"
             },
             "stroke": {
@@ -22044,6 +22359,12 @@
                   "$ref": "#/definitions/Breaks",
                   "description": "The words the teacher split by hand into syllables. Absent means the program alone splits the words."
                 },
+                "bulge": {
+                  "description": "How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65.",
+                  "maximum": 1,
+                  "minimum": -1,
+                  "type": "number"
+                },
                 "color": {
                   "description": "Colour of the text as a hex colour, such as \"#222222\". Absent means #222222.",
                   "type": "string"
@@ -22052,6 +22373,12 @@
                   "description": "How round a rounded box's corners are: the corner's radius as a share of the box's shorter side, 0 square, 0.5 half the shorter side. Absent means a radius of 4 mm.",
                   "maximum": 0.5,
                   "minimum": 0,
+                  "type": "number"
+                },
+                "corners": {
+                  "description": "How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6.",
+                  "maximum": 15,
+                  "minimum": 5,
                   "type": "number"
                 },
                 "dash": {
@@ -22070,6 +22397,12 @@
                   "description": "Colour inside the box as a hex colour. \"none\" or absent means no fill.",
                   "type": "string"
                 },
+                "filled": {
+                  "description": "How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1.",
+                  "maximum": 50,
+                  "minimum": 0,
+                  "type": "number"
+                },
                 "fit": {
                   "description": "True fits the box to its text (An Text anpassen): as wide as its longest line, up to the page's right margin, and as high as its lines, growing and shrinking as the text changes. For a box of outline rect, rounded or bubble. Absent means off: the box keeps its width and only grows.",
                   "type": "boolean"
@@ -22081,6 +22414,14 @@
                 "font": {
                   "$ref": "#/definitions/Font",
                   "description": "Typeface, one of the keys of FONTS, such as \"andika\" (the school print). Absent means andika."
+                },
+                "form": {
+                  "description": "\"square\" draws the shape in the centred square of its box (Quadratisch). \"round\" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box.",
+                  "enum": [
+                    "square",
+                    "round"
+                  ],
+                  "type": "string"
                 },
                 "from": {
                   "$ref": "#/definitions/Corner",
@@ -22104,6 +22445,10 @@
                   ],
                   "type": "string"
                 },
+                "hub": {
+                  "description": "True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark.",
+                  "type": "boolean"
+                },
                 "inner": {
                   "description": "How deep a star's points cut in: the distance of its inner corners from the middle, as a share of its points'. Absent means 0.38.",
                   "maximum": 0.9,
@@ -22120,7 +22465,7 @@
                 },
                 "kind": {
                   "$ref": "#/definitions/Kind",
-                  "description": "Outline of the box the text sits in: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\" or \"bubble\". Absent means rect."
+                  "description": "Outline of the box: \"rect\", \"rounded\", \"circle\", \"triangle\", \"star\", \"bubble\", \"diamond\" (Raute), \"polygon\" (Vieleck), \"thought\" (Gedankenwolke), \"pie\" (Bruchkreis), \"bars\" (Bruchrechteck), \"arc\" (Bogen), \"bow\" (a curved arrow), \"line\", \"arrow\" or \"double\". Absent means rect."
                 },
                 "label": {
                   "description": "Prints the length of a line: \"show\" on the sheet, \"key\" on the answer key only. Absent means no length.",
@@ -22204,6 +22549,12 @@
                   ],
                   "type": "string"
                 },
+                "parts": {
+                  "description": "How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4.",
+                  "maximum": 50,
+                  "minimum": 2,
+                  "type": "number"
+                },
                 "rich": {
                   "description": "The paragraphs with their own looks. Absent when one look covers the whole text: `text` then holds all of it.",
                   "items": {
@@ -22229,6 +22580,12 @@
                   "description": "Distance from one line of the text to the next, as a multiple of the font size. Absent means 1.3.",
                   "maximum": 3,
                   "minimum": 1,
+                  "type": "number"
+                },
+                "spikes": {
+                  "description": "How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star.",
+                  "maximum": 35,
+                  "minimum": 3,
                   "type": "number"
                 },
                 "stroke": {

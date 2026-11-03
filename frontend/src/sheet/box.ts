@@ -37,8 +37,9 @@ export type Box = {
   /** True keeps the width in proportion to the height when the block is resized, as PowerPoint's Lock aspect ratio does. Absent means off. */
   keep?: boolean;
 };
-// "double" is an arrow with a head at both ends.
-export type Kind = "rect" | "rounded" | "circle" | "triangle" | "star" | "bubble" | "line" | "arrow" | "double";
+// "double" is an arrow with a head at both ends. "diamond" is a Raute, "polygon" a Vieleck, "arc" a Bogen,
+// "bow" a curved arrow, "thought" a Gedankenwolke, "pie" a Bruchkreis and "bars" a Bruchrechteck.
+export type Kind = "rect" | "rounded" | "circle" | "triangle" | "star" | "bubble" | "line" | "arrow" | "double" | "diamond" | "polygon" | "arc" | "bow" | "thought" | "pie" | "bars";
 export type Corner = "nw" | "ne" | "sw" | "se";
 export type Align = "left" | "center" | "right";
 export type Valign = "top" | "middle" | "bottom";

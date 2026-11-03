@@ -37,7 +37,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 
 | Prop | Type | Values | Required | Description |
 | --- | --- | --- | --- | --- |
-| kind | string | `rect`, `rounded`, `circle`, `triangle`, `star`, `bubble`, `line`, `arrow`, `double` | yes | Outline of the box the text sits in: "rect", "rounded", "circle", "triangle", "star" or "bubble". Absent means rect. |
+| kind | string | `rect`, `rounded`, `circle`, `triangle`, `star`, `bubble`, `line`, `arrow`, `double`, `diamond`, `polygon`, `arc`, `bow`, `thought`, `pie`, `bars` | yes | Outline of the box: "rect", "rounded", "circle", "triangle", "star", "bubble", "diamond" (Raute), "polygon" (Vieleck), "thought" (Gedankenwolke), "pie" (Bruchkreis), "bars" (Bruchrechteck), "arc" (Bogen), "bow" (a curved arrow), "line", "arrow" or "double". Absent means rect. |
 | fill | string |  | yes | Colour inside the box as a hex colour. "none" or absent means no fill. |
 | stroke | string |  | yes | Colour of the border as a hex colour. "none" or absent means no border. |
 | strokeWidth | number | at most 3 | yes | Width of the border in mm. Absent means 0.5. |
@@ -90,6 +90,13 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | dash | string | `dashed`, `dotted` | no | Style of the border: "dashed" for dashes, "dotted" for dots. Absent means a solid border. |
 | trace | boolean or string | `outline` or `dotted` | no | Nachspuren: the text prints in grey to write over. true is plain grey, "outline" a thin outline of the letters, "dotted" dotted letters (in fonts that have them, else grey). Absent means no trace text. |
 | fade | string | `row`, `rows` | no | How the grey of a trace text fades: "row" fades each row from left to right, "rows" fades the rows step by step down the block. Absent means no fade. Needs `trace`. |
+| corners | number | 5 to 15 | no | How many corners a polygon (Vieleck) has. A whole number from 5 to 15. Absent means 6. |
+| spikes | number | 3 to 35 | no | How many points a star has (Zacken). A whole number from 3 to 35. Absent means 5, the five-point star. |
+| bulge | number | -1 to 1 | no | How far an arc or a curved arrow bends, as a share of the room above and below its middle. 0 is straight, 1 bends to the top and -1 to the foot. Absent means 0.65. |
+| parts | number | 2 to 50 | no | How many equal parts a fraction circle or fraction bar is split into. A whole number from 2 to 50. Absent means 4. |
+| filled | number | 0 to 50 | no | How many of those parts are filled, from the top of a circle going clockwise, or from the left of a bar. A whole number from 0 to 50, and never more than `parts`. Absent means 1. |
+| hub | boolean |  | no | True marks the centre of a circle with a small cross (Mittelpunkt). Absent means no mark. |
+| form | string | `square`, `round` | no | "square" draws the shape in the centred square of its box (Quadratisch). "round" draws a circle in that square (Kreisförmig). Absent stretches the shape to the whole box. |
 
 # Examples
 

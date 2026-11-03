@@ -30,9 +30,12 @@ export type Fresh<B = Block> = B extends Block ? Pick<B, "type" | "props"> & { w
 const round = (n: number) => Math.round(n * 100) / 100;
 
 // The shapes that frame a text: they hold it inside their outline (#128).
+// The outlines the format panel offers. The rest of the framed shapes are inserted from "Weitere Formen".
 export const FRAMES: Kind[] = ["rect", "rounded", "circle", "triangle", "star", "bubble"];
-// A new shape's width in mm, where it is not 60.
-const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 40 };
+const HOLDS_TEXT: Kind[] = [...FRAMES, "diamond", "polygon", "thought", "pie", "bars"];
+// A new shape's width in mm, where it is not 60. An arc is shorter than a frame; a fraction bar is a strip.
+const WIDTHS: Partial<Record<Kind, number>> = { circle: 40, triangle: 40, star: 40, diamond: 40, polygon: 40, pie: 40 };
+const HEIGHTS: Partial<Record<Kind, number>> = { arc: 30, bow: 30, bars: 18 };
 
 // What each insert button adds. The maths block (its exercises come from the server) and the picture (from an upload)
 // are made where they are added.
@@ -102,8 +105,23 @@ export const INSERTS = {
   // "Strecke": a line with ticks.
   strecke: (): Fresh => ({ w: 50, h: 0, type: "shape", props: { kind: "line", fill: "none", stroke: "#222222", strokeWidth: 0.5, ticks: true } }),
   shape: (kind: Kind): Fresh => {
-    const frame = FRAMES.includes(kind);
-    return { w: WIDTHS[kind] ?? 60, h: frame ? 40 : 0, type: "shape", props: { kind, fill: "none", stroke: "#222222", strokeWidth: 0.5, ...(frame && { inside: true, floor: true }) } };
+    const frame = HOLDS_TEXT.includes(kind);
+    const fraction = kind === "pie" || kind === "bars";
+    return {
+      w: WIDTHS[kind] ?? 60,
+      h: HEIGHTS[kind] ?? (frame ? 40 : 0),
+      type: "shape",
+      props: {
+        kind,
+        fill: fraction ? "#ffd43b" : "none",
+        stroke: "#222222",
+        strokeWidth: 0.5,
+        ...(frame && { inside: true, floor: true }),
+        ...(kind === "polygon" && { corners: 6 }),
+        ...(fraction && { parts: 4, filled: 1 }),
+        ...((kind === "arc" || kind === "bow") && { bulge: 0.65 }),
+      },
+    };
   },
   // The Lernwörter-Liste, a ruling of page width that folds the words, a row for each word that fits.
   wordList: (words: number, [W, H]: number[], row: number): Fresh => ({

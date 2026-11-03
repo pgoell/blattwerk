@@ -3,6 +3,7 @@
 import { shuffled } from "../bank";
 import { mathsHeight } from "../height";
 import { type Box, dir, tall, type Kind } from "./box";
+import { arcHandle, bulgeFrom, bulgeOf, spikesOf, starInnerAt, starPoints, THOUGHT_TAIL } from "./formen";
 import type { MathsBlock, MathsProps } from "./maths";
 import type { TextProps } from "./text";
 import type { CSSProperties, SVGAttributes } from "react";
@@ -93,21 +94,15 @@ export function Dashes({ way, edge, p, ...look }: { way: number[][]; edge: numbe
 
 // The outlines CSS cannot draw, in a box `w` by `h` mm and `e` mm inside it, so the stroke stays in the box. Each
 // one's way round as points, which its dashes go along. The triangle has its tip at the top. The star is a
-// five-point one stretched to the box. The bubble is a round box over the top three quarters, with a tail down to
-// the lower left. The props `tip`, `inner` and `tail` move the tip, the inner corners and the tail (see the validators).
+// five-point one stretched to the box, unless `spikes` asks for another count. The bubble is a round box over the
+// top three quarters, with a tail down to the lower left. The props `tip`, `inner` and `tail` move the tip, the
+// inner corners and the tail (see the validators).
 export const POINTS: Partial<Record<Kind, (w: number, h: number, e: number, p: Partial<TextProps>) => number[][]>> = {
   triangle: (w, h, e, p) => {
     const tip = tipOf(p);
     return [[tip === undefined ? w / 2 : clamp(tip * w, e, w - e), e], [w - e, h - e], [e, h - e]];
   },
-  star: (w, h, e, p) => {
-    const inner = innerOf(p) ?? 0.38;
-    return Array.from({ length: 10 }, (_, i) => {
-      const [r, a] = [i % 2 ? inner : 1, (i * Math.PI) / 5];
-      // An upright star reaches sin 72° to each side, and cos 36° below its middle.
-      return [e + (w - 2 * e) * (0.5 + (r * Math.sin(a)) / 1.902), e + ((h - 2 * e) * (1 - r * Math.cos(a))) / 1.809];
-    });
-  },
+  star: (w, h, e, p) => starPoints(w, h, e, p),
   bubble: (w, h, e, p) => {
     const [r, low] = [Math.min(4, w / 5, h / 4), e + 0.75 * (h - 2 * e)];
     const { edge, pts } = bubbleTail(w, h, e, r, low, tailOf(p));
@@ -175,12 +170,14 @@ export function tailOf(p: Partial<TextProps>): [number, number] | undefined {
 export const inBody = (x: number, y: number): [number, number] => [x, x >= 0 && x <= 1 && y >= 0 && y < 0.75 ? 0.75 : y];
 // How far a bubble's tail reaches past its box, in mm: top, right, bottom and left. None for a tail inside the box.
 export function tailReach(b: { w: number; h: number; props: Partial<TextProps>; flipX?: boolean; flipY?: boolean }): [number, number, number, number] {
-  if (b.props.kind !== "bubble") return [0, 0, 0, 0];
-  const [tx, ty] = tailOf(b.props) ?? [0.2, 1];
-  // The stroke stands half its width round the tip: a whole width covers its join.
+  if (b.props.kind !== "bubble" && b.props.kind !== "thought") return [0, 0, 0, 0];
+  const [tx, ty] = tailOf(b.props) ?? (b.props.kind === "thought" ? THOUGHT_TAIL : [0.2, 1]);
+  // The stroke stands half its width round the tip: a whole width covers its join. A thought's bubbles
+  // are up to 2.4 mm across the tip, so the clip keeps them.
   const stroke = typeof b.props.strokeWidth === "number" && Number.isFinite(b.props.strokeWidth) ? b.props.strokeWidth : 0.5;
   const out = (mm: number) => (mm > 0 ? mm + stroke : 0);
-  const [up, right, down, left] = [out(-ty * b.h), out((tx - 1) * b.w), out((ty - 1) * b.h), out(-tx * b.w)];
+  const bubbles = b.props.kind === "thought" ? 2.4 : 0;
+  const [up, right, down, left] = [out(-ty * b.h) + bubbles, out((tx - 1) * b.w) + bubbles, out((ty - 1) * b.h) + bubbles, out(-tx * b.w) + bubbles];
   // Flipped, the outline is drawn mirrored in the box: its reach swaps sides with it.
   return [b.flipY ? down : up, b.flipX ? left : right, b.flipY ? up : down, b.flipX ? right : left];
 }
@@ -197,14 +194,28 @@ export function tipOf(p: Partial<TextProps>): number | undefined {
 // points. Flipped top to bottom, the top and the bottom swap; flipped left to right, a triangle's tip moved off the
 // middle swaps its sides.
 export function fitOf(kind: Kind | undefined, w: number, h: number, flipY?: boolean, p?: Partial<TextProps>, flipX?: boolean): [number, number, number, number] {
+  const form = p?.form === "square" || p?.form === "round" ? p.form : undefined;
+  if (form) {
+    const s = Math.min(w, h);
+    const [x, y] = [(w - s) / 2, (h - s) / 2];
+    const inset = (s * (1 - Math.SQRT1_2)) / 2;
+    const inner = form === "round" ? ([inset, inset, inset, inset] as [number, number, number, number]) : fitOf(kind, s, s, false, { ...p, form: undefined }, false);
+    let placed: [number, number, number, number] = [y + inner[0], x + inner[1], y + inner[2], x + inner[3]];
+    if (flipX) placed = [placed[0], placed[3], placed[2], placed[1]];
+    return flipY ? [placed[2], placed[1], placed[0], placed[3]] : placed;
+  }
   let fit: [number, number, number, number] = [0, 0, 0, 0];
-  if (kind === "circle") {
+  if (kind === "circle" || kind === "pie") {
     const [across, down] = [(w * (1 - Math.SQRT1_2)) / 2, (h * (1 - Math.SQRT1_2)) / 2];
     fit = [down, across, down, across];
   } else if (kind === "triangle") {
     // The tip's share of the width sets the two sides of the base's half: the middle gives w / 4 each.
     const tip = tipOf(p ?? {}) ?? 0.5;
     fit = [h / 2, ((1 - tip) * w) / 2, 0, (tip * w) / 2];
+  } else if (kind === "diamond") {
+    fit = [h / 4, w / 4, h / 4, w / 4];
+  } else if (kind === "polygon") {
+    fit = [h * 0.22, w * 0.22, h * 0.22, w * 0.22];
   } else if (kind === "star") {
     const inner = POINTS.star!(w, h, 0, p ?? {}).filter((_, i) => i % 2 === 1);
     const [xs, ys] = [inner.map(([x]) => x), inner.map(([, y]) => y)];
@@ -221,22 +232,26 @@ export function handleOf(kind: Kind | undefined, w: number, h: number, p: Partia
   if (kind === "triangle") return [(tipOf(p) ?? 0.5) * w, 0];
   if (kind === "rounded") return [radiusOf(p, w, h), 0];
   if (kind === "star") {
-    const [x, y] = POINTS.star!(w, h, 0, p)[9]!;
-    return [x, y];
+    const pts = POINTS.star!(w, h, 0, p);
+    const pt = pts[spikesOf(p) === 5 ? 9 : 2 * spikesOf(p) - 1];
+    return pt ? [pt[0]!, pt[1]!] : undefined;
   }
-  if (kind === "bubble") {
-    const [tx, ty] = tailOf(p) ?? [0.2, 1];
+  if (kind === "bubble" || kind === "thought") {
+    const [tx, ty] = tailOf(p) ?? (kind === "thought" ? THOUGHT_TAIL : [0.2, 1]);
     return [tx * w, ty * h];
   }
+  if (kind === "arc" || kind === "bow") return arcHandle(w, h, 0, bulgeOf(p));
   return undefined;
 }
 // The inverse of `handleOf`: the prop that puts the handle at `at` in the same frame, kept in range and rounded.
-export function adjusted(kind: Kind | undefined, w: number, h: number, at: [number, number]): Partial<TextProps> {
+export function adjusted(kind: Kind | undefined, w: number, h: number, at: [number, number], p: Partial<TextProps> = {}): Partial<TextProps> {
   const [x, y] = at;
   const thou = (v: number) => Math.round(v * 1000) / 1000;
   if (kind === "triangle") return { tip: thou(clamp(x / w, 0, 1)) };
   if (kind === "rounded") return { corner: thou(clamp(x / Math.min(w, h), 0, 0.5)) };
-  if (kind === "bubble") return { tail: inBody(thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))) };
+  if (kind === "bubble" || kind === "thought") return { tail: inBody(thou(clamp(x / w, -1, 2)), thou(clamp(y / h, -1, 2))) };
+  if (kind === "arc" || kind === "bow") return { bulge: thou(bulgeFrom(w, h, 0, y)) };
+  if (kind === "star" && spikesOf(p) !== 5) return { inner: Math.round(starInnerAt(w, h, x, y, spikesOf(p)) * 100) / 100 };
   if (kind === "star") {
     // The point in POINTS.star's unit square, projected on the ray from its middle through inner corner 9.
     const [u, v] = [(x / w - 0.5) * 1.902, 1 - (y * 1.809) / h];

@@ -1,6 +1,6 @@
 // The names, the shapes and the small geometry the editor shares.
 import { memo, type TouchEvent } from "react";
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowRight, Circle, MessageSquare, Minus, MoveHorizontal, Square, Squircle, Star, Triangle, type LucideIcon } from "lucide-react";
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal, AlignStartVertical, ArrowRight, ChartPie, Circle, Cloud, Diamond, Hexagon, IterationCw, MessageSquare, Minus, MoveHorizontal, Spline, Square, SquareSplitHorizontal, Squircle, Star, Triangle, type LucideIcon } from "lucide-react";
 import { DRAWERS } from "../../components/Blank";
 import { fresh } from "../../history";
 import { newer } from "../../saves";
@@ -64,6 +64,16 @@ export const SHAPES: [Kind, string, LucideIcon][] = [
   ["line", "Linie", Minus],
   ["arrow", "Pfeil", ArrowRight],
   ["double", "Doppelpfeil", MoveHorizontal],
+];
+// The Formen from #835. They open from "Weitere Formen", so the dock stays one row.
+export const MORE_SHAPES: [Kind, string, LucideIcon][] = [
+  ["diamond", "Raute", Diamond],
+  ["polygon", "Vieleck", Hexagon],
+  ["arc", "Bogen", Spline],
+  ["bow", "Gebogener Pfeil", IterationCw],
+  ["thought", "Gedankenwolke", Cloud],
+  ["pie", "Bruchkreis", ChartPie],
+  ["bars", "Bruchrechteck", SquareSplitHorizontal],
 ];
 // The six ways to line blocks up: the axis, the share of the room a block leaves before it, and the name.
 export const ALIGNS: [Axis, number, string, LucideIcon][] = [
