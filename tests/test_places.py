@@ -7,6 +7,7 @@ decimal.
 
 from playwright.sync_api import expect
 from test_hunderterfeld import TAFEL
+from test_selbstkontrolle import SK
 from ui import TEXT, at, box, doc, maths, user
 
 from blattwerk import pdf
@@ -79,3 +80,40 @@ def test_a_sheet_colours_digits_by_place(editor, browser, server):
     expect(paper.get_by_text("Zahl 48").locator("[data-place]")).to_have_count(0)
     expect(paper.locator(".maths").nth(2).locator("[data-place]")).to_have_count(0)
     paper.context.close()
+
+
+def test_selbstkontrolle_colours_its_answers_in_the_list_the_sum_and_a_shape(editor):
+    """Place colours reach the answers a Selbstkontrolle draws, in every form the merge kept.
+
+    The tick list and the sum are HTML, the snake is SVG, and the Lösungswort table is HTML.
+    """
+    client = user()
+    row = task(maths(client, max=100, count=1, seed=1), 12, 34, 46)
+    linked = {**SK, "links": ["m"]}
+    page = editor(
+        box("m", "maths", row, y=12, h=24),
+        box("t", "selbstkontrolle", linked, y=40, h=32),
+        box("u", "selbstkontrolle", {**linked, "form": "sum", "title": ""}, y=76, h=20),
+        box("n", "selbstkontrolle", {**linked, "look": "snake", "title": ""}, y=100, h=48),
+        box(
+            "w",
+            "selbstkontrolle",
+            {**linked, "form": "word", "word": "A", "title": ""},
+            y=152,
+            h=28,
+        ),
+        client=client,
+    )
+    page.get_by_role("tab", name="Ansicht").click()
+    group = page.get_by_role("group", name="Stellenwerte")
+    group.get_by_role("button", name="Gefärbt", exact=True).click()
+
+    expect(at(page, "t").locator("ul.mixed [data-place='einer']").first).to_have_css("color", GREEN)
+    expect(at(page, "t").locator("ul.mixed [data-place='zehner']").first).to_have_css("color", BLUE)
+    expect(at(page, "u").locator("ul.sums [data-place='einer']").first).to_have_css("color", GREEN)
+    expect(at(page, "n").locator("svg.snake [data-place='einer']").first).to_have_css("fill", GREEN)
+    expect(at(page, "n").locator("svg.snake [data-place='zehner']").first).to_have_css("fill", BLUE)
+    expect(at(page, "w").locator("table.word [data-place='einer']").first).to_have_css(
+        "color", GREEN
+    )
+    expect(at(page, "m").locator("[data-place='zehner']").first).to_have_css("color", BLUE)

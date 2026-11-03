@@ -188,7 +188,7 @@ export function grown(b: Block, next: Block, doc: Doc, H: number): Partial<Box> 
     if (more > 0) return tall(b, round(Math.min(b.h + more, foot)));
   }
   // A Selbstkontrolle grows with its form, its links or its word, as its content needs, and needs the sheet to count its tasks.
-  if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (["form", "links", "word", "size", "title", "turn"] as const).some((key) => next.props[key] !== b.props[key])) {
+  if (b.type === "selbstkontrolle" && next.type === "selbstkontrolle" && (["form", "links", "word", "size", "title", "turn", "wrongs", "look"] as const).some((key) => next.props[key] !== b.props[key])) {
     const need = round(Math.min(heightForSelbst(saneSelbst(next.props), doc, b.w), foot));
     if (need > b.h) return tall(b, need);
   }

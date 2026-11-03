@@ -2,7 +2,7 @@
 // maths blocks of the sheet that it checks.
 import { useEffect, useState } from "react";
 import type { Block, Doc, SelbstkontrolleBlock } from "../sheet";
-import { checked, labelOf, ordered, sane, tasksOf, worded, type SelbstkontrolleProps } from "../selbstkontrolle";
+import { checked, labelOf, ordered, sane, tasksOf, worded, type MixLook, type SelbstkontrolleProps } from "../selbstkontrolle";
 import { newSeed } from "./Maths";
 
 type Apply = (props: Partial<SelbstkontrolleProps>, key?: string) => void;
@@ -24,6 +24,28 @@ function Size({ value, apply }: { value: number; apply: Apply }) {
           const text = e.target.value;
           setDraft(text);
           if (/^\d+$/.test(text) && Number(text) >= 8 && Number(text) <= 24) apply({ size: Number(text) }, "size");
+        }}
+        onBlur={() => setDraft(null)}
+      />
+    </label>
+  );
+}
+
+function Count({ value, apply }: { value: number; apply: Apply }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  useEffect(() => setDraft(null), [value]);
+  return (
+    <label>
+      Falsche Lösungen
+      <input
+        type="number"
+        inputMode="numeric"
+        aria-label="Falsche Lösungen"
+        value={draft ?? String(value)}
+        onChange={(e) => {
+          const text = e.target.value;
+          setDraft(text);
+          if (/^\d+$/.test(text) && Number(text) <= 20) apply({ wrongs: Number(text) }, "wrongs");
         }}
         onBlur={() => setDraft(null)}
       />
@@ -62,7 +84,7 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
       ))}
       {maths.length === 0 && lost.length === 0 && (
         <p className="hint">
-          Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst Aufgaben ein: Rechnen, Zahlenmauer, Rechendreieck, Zahlenstrahl, Hunderterfeld oder Uhr.
+          Auf dem Blatt ist noch kein Aufgabenblock. Füge zuerst einen Aufgabenblock ein.
         </p>
       )}
       <label>
@@ -74,6 +96,16 @@ export default function Selbstkontrolle({ block, doc, apply }: { block: Selbstko
         <option value="word">Lösungswort</option>
         <option value="sum">Kontrollsumme</option>
       </select>
+      {p.form === "mixed" && (
+        <select aria-label="Darstellung" value={p.look} onChange={(e) => apply({ look: e.target.value as MixLook })}>
+          <option value="ticks">Häkchenliste</option>
+          <option value="snake">Zahlenschlange</option>
+          <option value="caterpillar">Raupe</option>
+          <option value="train">Zug</option>
+          <option value="box">Kästchen</option>
+        </select>
+      )}
+      {p.form === "mixed" && <Count value={p.wrongs} apply={apply} />}
       {p.form === "word" && (
         <label>
           Lösungswort

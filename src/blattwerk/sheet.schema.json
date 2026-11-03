@@ -6401,7 +6401,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Ids of the linked maths blocks of the sheet, in the order the teacher ticked them. Default none."
+          "description": "Ids of the linked task blocks of the sheet, in the order the teacher ticked them. Default none."
         },
         "word": {
           "type": "string",
@@ -6424,6 +6424,16 @@
         "seed": {
           "type": "number",
           "description": "Seed for the shuffle of form \"mixed\" and of the table of form \"word\". The same seed always gives the same order."
+        },
+        "wrongs": {
+          "type": "number",
+          "description": "How many wrong answers to mix into the shuffled list of form \"mixed\". They are numbers that are not among the results, written the same way (decimals, euro). Default 0. A sheet from before this field counts as 0.",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "look": {
+          "$ref": "#/definitions/MixLook",
+          "description": "How form \"mixed\" draws the shuffled answers. \"ticks\": a list, each result with a box to tick. \"snake\": a winding snake of circles. \"caterpillar\": a caterpillar of circles, the first one its head. \"train\": a train, the first wagon its engine. \"box\": the results in a plain box, no ticks. Default \"ticks\". A sheet from before this field counts as \"ticks\"."
         }
       },
       "required": [
@@ -6450,6 +6460,16 @@
         "none",
         "upside",
         "fold"
+      ]
+    },
+    "MixLook": {
+      "type": "string",
+      "enum": [
+        "ticks",
+        "snake",
+        "caterpillar",
+        "train",
+        "box"
       ]
     },
     "TextaufgabeBlock": {

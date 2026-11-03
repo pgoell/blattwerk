@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
-# Seconds without a finished test before the run counts as hung. The slowest tests have 120 s of
-# their own (SLOW), and a report comes at each phase, so a run that is only slow never gets here.
+# Seconds without a finished test before the run counts as hung. The slowest test has 150 s of its
+# own (SLOWER), the others in SLOW have 120 s, and a report comes at each phase, so a run that is
+# only slow never gets here.
 HANG_AFTER = float(os.environ.get("BLATTWERK_HANG", "180"))
 # A test sets a short limit so a silence after a report ends at once. Importing the workers on a
 # loaded runner takes longer than that short limit and is not a hang, so until the first worker
