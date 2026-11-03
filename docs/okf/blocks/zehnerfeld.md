@@ -4,7 +4,7 @@ title: "Block: zehnerfeld"
 description: "The Zehnerfeld tasks: Plus and Minus on a Zehnerfeld, Zwanzigerfeld or Hunderterfeld of dots, the task line under each field; Aufgabentyp, Zahlenraum, Zehnerübergang, Trennlinien, Farben, dots set by hand."
 tags: [block, zehnerfeld]
 covers: [zehnerfeld]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:26:52Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T01:37:58Z }
 ---
 
 # zehnerfeld
@@ -43,7 +43,7 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | op | string | `+`, `-` | yes | The Rechenart: "+" (Plus: the first number's dots in colour 1, the second number's in colour 2) or "-" (Minus: the first number's dots in colour 1, the second number's of them struck through). Default "+". |
 | task | string | `dots`, `write`, `mixed` | yes | The Aufgabentyp: "dots" the field shows the dots and the pupil writes the task; "write" the task's two numbers show and the pupil paints the dots and writes the result; "mixed" the two by turns, starting with "dots". Default "dots". |
 | max | number |  | yes | The Zahlenraum: 5, 10, 20, 50 or 100, at most the field's size (10, 20 or 100). Plus results and Minus first numbers stay within it. Default 20. |
-| cross | string | `any`, `yes`, `no` | yes | The Zehnerübergang: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to 10 or more, as 8 + 5 and 6 + 4, and 6 + 3 does not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), "no" none does, "any" either. Counts only with the Zwanziger- and Hunderterfeld. Default "any". |
+| cross | string | `any`, `yes`, `no` | yes | The Zehnerübergang: "yes" every task crosses a ten (Plus: the Einer of both numbers sum to more than 10, as 8 + 5, and 6 + 4 and 7 + 3 do not; Minus: the first number's Einer is smaller than the second's, so it would go below 0, as 13 - 5 and 10 - 4, and 16 - 4 does not), "no" none does, "any" either. Counts only with the Zwanziger- and Hunderterfeld. Default "any". |
 | lines | boolean |  | yes | Trennlinien: true draws a strong line after each five dots, across and down. Default true. |
 | colors | string | `color`, `grey`, `own` | yes | Farben: "color" red and blue, "grey" Graustufen (black and grey, for black and white copies), "own" the colours `color1` and `color2`. Default "color". |
 | color1 | string |  | no | The first colour with `colors` "own", as "#rrggbb". Default "#e3463b". |

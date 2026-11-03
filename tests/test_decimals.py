@@ -153,10 +153,10 @@ def test_uebertrag_counts_across_the_comma(editor):
     pick(page, "m")
     props = changed(page, client, lambda: ctl(page, "Mit").click())
     assert props["carry"] == ["required", "either", "either"]
-    # One decimal: the smallest place is the Zehntel, so Mit means those digits sum to 10 or more.
-    assert all((e["a"] % 10) + (e["b"] % 10) >= 10 for e in props["exercises"])
+    # One decimal: the smallest place is the Zehntel, so Mit means those digits sum past 10.
+    assert all((e["a"] % 10) + (e["b"] % 10) > 10 for e in props["exercises"])
     props = changed(page, client, lambda: ctl(page, "Ohne").click())
-    assert all((e["a"] % 10) + (e["b"] % 10) < 10 for e in props["exercises"])
+    assert all((e["a"] % 10) + (e["b"] % 10) <= 10 for e in props["exercises"])
 
 
 def test_times_or_divide_grey_the_setting_and_it_counts_for_nothing(editor):
