@@ -2,6 +2,7 @@
 
 import { sane as saneMalquadrat, made as malquadratMade, layout as malquadratLayout, opLabel as malquadratOp } from "../../malquadrat";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { MalquadratBlock } from "../tasks";
 
 // A Malquadrat: its squares side by side. The factors sit at the edges, the products inside, the sums outside and the
@@ -24,7 +25,7 @@ export function Malquadrat({ block, solved }: { block: MalquadratBlock; solved: 
               <g className="corner">
                 <rect x={x0} y={y0} width={CELL} height={CELL} fill="#eeeeee" stroke="#222" strokeWidth={0.4} />
                 <text className="op" x={x0 + CELL / 2} y={y0 + CELL / 2} fontSize={CELL * 0.7} textAnchor="middle" dominantBaseline="central">
-                  {malquadratOp(s.op)}
+                  <SvgInk text={malquadratOp(s.op)} />
                 </text>
               </g>
               {s.cells.map((row, r) =>
@@ -39,7 +40,7 @@ export function Malquadrat({ block, solved }: { block: MalquadratBlock; solved: 
                       <rect x={x} y={y} width={CELL} height={CELL} fill={r === 0 || c === 0 ? "#eeeeee" : "white"} stroke="#222" strokeWidth={sum ? 0.8 : 0.4} />
                       {state && (
                         <text x={x + CELL / 2} y={y + CELL / 2} fontSize={numberSize(String(v).length, CELL * 0.85, 5)} textAnchor="middle" dominantBaseline="central"
-                          fill={state === "given" ? "#222" : "#c0392b"} className={state}>{v}</text>
+                          fill={state === "given" ? "#222" : "#c0392b"} className={state}><SvgInk text={v} /></text>
                       )}
                     </g>
                   );

@@ -3,6 +3,7 @@
 import { PT } from "../../height";
 import { sane as saneSelbst, checked } from "../../selbstkontrolle";
 import { Whole } from "../context";
+import { HtmlInk } from "../places";
 import type { SelbstkontrolleBlock } from "../tasks";
 import { useContext, useRef, useLayoutEffect } from "react";
 
@@ -47,13 +48,13 @@ export function Selbstkontrolle({ block, k, solved }: { block: SelbstkontrolleBl
       {whole && p.turn === "fold" && <div className="fold">Hier umknicken</div>}
       <div className="inner">
         {whole && p.title && <h3 className="title">{p.title}</h3>}
-        {whole && p.form === "mixed" && <ul className="mixed">{check.mixed.map((text, i) => <li key={i}><span className="tick" />{text}</li>)}</ul>}
-        {whole && p.form === "sum" && <ul className="sums">{check.sums.map(([label, text], i) => <li key={i}>{`${label}: ${text}`}</li>)}</ul>}
+        {whole && p.form === "mixed" && <ul className="mixed">{check.mixed.map((text, i) => <li key={i}><span className="tick" /><HtmlInk text={text} /></li>)}</ul>}
+        {whole && p.form === "sum" && <ul className="sums">{check.sums.map(([label, text], i) => <li key={i}><HtmlInk text={`${label}: ${text}`} /></li>)}</ul>}
         {whole && p.form === "word" && !check.fault && (
           <>
             <table className="word">
               <tbody>
-                <tr className="results">{check.table.map(([text], i) => <td key={i}>{text}</td>)}</tr>
+                <tr className="results">{check.table.map(([text], i) => <td key={i}><HtmlInk text={text} /></td>)}</tr>
                 <tr className="letters">{check.table.map(([, letter], i) => <td key={i}>{letter}</td>)}</tr>
               </tbody>
             </table>

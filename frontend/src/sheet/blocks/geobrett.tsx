@@ -1,6 +1,7 @@
 // Draws one Geobrett block, on screen and in print.
 
 import { ASK, boardBox, centreOf, dotAt, sane, segments, solution, type Axis, type Band, type Nail } from "../../geobrett";
+import { SvgInk } from "../places";
 import type { GeobrettBlock } from "../tasks";
 
 const KEY = "#c0392b";
@@ -90,18 +91,18 @@ export function Geobrett({ block, solved }: { block: GeobrettBlock; k: number; s
           return <circle key={i} className="nail" data-c={c} data-r={r} cx={x} cy={y} r={1.15} fill="#222" />;
         })}
         {p.task === "koordinaten" && Array.from({ length: p.cols }, (_, c) => (
-          <text key={`c${c}`} className="coord" x={dotAt(c, 0)[0]} y={dotAt(0, p.rows - 1)[1] + 5} textAnchor="middle" fontSize={3.2} fill="#222">{c}</text>
+          <text key={`c${c}`} className="coord" x={dotAt(c, 0)[0]} y={dotAt(0, p.rows - 1)[1] + 5} textAnchor="middle" fontSize={3.2} fill="#222"><SvgInk text={c} /></text>
         ))}
         {p.task === "koordinaten" && Array.from({ length: p.rows }, (_, r) => (
-          <text key={`r${r}`} className="coord" x={dotAt(0, 0)[0] - 2} y={dotAt(0, r)[1]} textAnchor="end" dominantBaseline="central" fontSize={3.2} fill="#222">{p.rows - 1 - r}</text>
+          <text key={`r${r}`} className="coord" x={dotAt(0, 0)[0] - 2} y={dotAt(0, r)[1]} textAnchor="end" dominantBaseline="central" fontSize={3.2} fill="#222"><SvgInk text={p.rows - 1 - r} /></text>
         ))}
         {solved && answer.kind === "koordinaten" && answer.nails.map(([c, row], i) => (
-          <text key={`k${i}`} className="answer" x={dotAt(c, p.rows - 1 - row)[0] + 1.6} y={dotAt(c, p.rows - 1 - row)[1] - 1.6} fontSize={3.2} fill={KEY}>{c}|{row}</text>
+          <text key={`k${i}`} className="answer" x={dotAt(c, p.rows - 1 - row)[0] + 1.6} y={dotAt(c, p.rows - 1 - row)[1] - 1.6} fontSize={3.2} fill={KEY}><SvgInk text={`${c}|${row}`} /></text>
         ))}
         {caption && (
           <text className="ask" x={w / 2} y={h - 2.5} textAnchor="middle" fontSize={4} fill="#222">
             {ASK[p.task]}
-            {solved && shown && <tspan className="answer" fill={KEY}> {shown}</tspan>}
+            {solved && shown && <tspan className="answer" fill={KEY}> <SvgInk text={shown} /></tspan>}
           </text>
         )}
       </svg>

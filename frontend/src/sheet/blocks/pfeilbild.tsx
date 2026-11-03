@@ -2,6 +2,7 @@
 
 import { sane as saneArrow, made as arrowMade, layout as arrowLayout, opLabel, inverse, noted as arrowNoted } from "../../pfeilbild";
 import { numberSize } from "../../zahlenhaus";
+import { SvgInk } from "../places";
 import type { PfeilbildBlock } from "../tasks";
 
 // A Pfeilbild: its pictures in columns, in its own units. The boxes stand in a row, and each arrow arches over two
@@ -39,7 +40,7 @@ export function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number;
               {p.drawOps && <ellipse cx={at[0]} cy={at[1]} rx={5} ry={2.6} fill="white" stroke="#222" strokeWidth={0.3} />}
               {shows && (
                 <text x={at[0]} y={at[1]} fontSize={3.2} textAnchor="middle" dominantBaseline="central"
-                  fill={given ? "#222" : "#c0392b"} className={given ? "op" : "answer"}>{text}</text>
+                  fill={given ? "#222" : "#c0392b"} className={given ? "op" : "answer"}><SvgInk text={text} /></text>
               )}
             </>
           );
@@ -52,7 +53,7 @@ export function Pfeilbild({ block, solved }: { block: PfeilbildBlock; k: number;
                     <rect x={left(j)} y={y + A} width={D} height={D} fill="white" stroke="#222" strokeWidth={0.4} />
                     {shows && (
                       <text x={mid(j)} y={y + A + D / 2} fontSize={numberSize(String(n).length, D, 0.55 * D)} textAnchor="middle" dominantBaseline="central"
-                        fill={pic.given[j] ? "#222" : "#c0392b"} className={pic.given[j] ? "given" : "answer"}>{n}</text>
+                        fill={pic.given[j] ? "#222" : "#c0392b"} className={pic.given[j] ? "given" : "answer"}><SvgInk text={n} /></text>
                     )}
                   </g>
                 );

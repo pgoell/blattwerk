@@ -1,6 +1,7 @@
 // Draws one Hunderterfeld block.
 
 import { sane as saneFeld, made as drawnFeld, dotAt, TINT } from "../../hunderterfeld";
+import { SvgInk } from "../places";
 import type { HunderterfeldBlock } from "../tasks";
 
 // A Hunderterfeld, drawn as the contract at the top of hunderterfeld.ts says. Its lines are 0.3 and its outer frame
@@ -39,12 +40,12 @@ export function Hunderterfeld({ block, solved }: { block: HunderterfeldBlock; k:
                     <rect x={x} y={y} width={10} height={10} fill={c.tint ? TINT[c.tint] : "none"} stroke="#222" strokeWidth={line} />
                     {c.shown && (
                       <text className="given" x={x + 5} y={y + 5} fontSize={4} textAnchor="middle" dominantBaseline="central" fill="#222">
-                        {c.value}
+                        <SvgInk text={c.value} />
                       </text>
                     )}
                     {!c.shown && solved && (
                       <text className="answer" x={x + 5} y={y + 5} fontSize={4} textAnchor="middle" dominantBaseline="central" fill="#c0392b">
-                        {c.value}
+                        <SvgInk text={c.value} />
                       </text>
                     )}
                   </g>
