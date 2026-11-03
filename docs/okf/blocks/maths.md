@@ -4,7 +4,7 @@ title: "Block: maths"
 description: "The maths block's limits, layout and exercises."
 tags: [block, maths]
 covers: [maths]
-generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T02:30:37Z }
+generated: { by: "process:frontend/okf.mjs", at: 2026-11-03T02:32:46Z }
 ---
 
 # maths
@@ -66,11 +66,13 @@ Every block has the box fields of the [page model](../page-model.md). This page 
 | family | string | `none`, `swap`, `reverse`, `neighbour`, `analogy` | no | Families of related tasks: "none" makes single tasks, "swap" a task with its swapped numbers, "reverse" with its opposite operation, "neighbour" with its neighbouring tasks, "analogy" a package whose first or second number grows by ten. A family has two or three tasks. Default "none". |
 | moves | string | `a`, `b` | no | Which number a neighbouring task moves, or an Analogieaufgabe grows: "a" the first, the default, or "b" the second. |
 | full | boolean |  | no | Whether a family shows every number (Vollständig anzeigen). Off, the last task of a family hides one more number, so the pupil uses the pattern. Default true. |
-| gaps | list of string | `a`, `b`, `c`, `result` | no | What a gap may hide: any of the numbers "a", "b" and "c", or the "result". Left out, a gap hides any number and never the result. |
+| gaps | list of string | `a`, `b`, `c`, `result`, `rest` | no | What a gap may hide: any of the numbers "a", "b" and "c", the "result", or the "rest" of a division. "rest" hides no number. Left out, a gap hides any number and never the result. |
 | zero | boolean |  | no | Whether 0 may be a number and a result. Default true. |
 | one | boolean |  | no | Whether 1 may be a factor or a divisor in times and divide tasks. Default true. |
 | distinct | boolean |  | no | Whether tasks with equal numbers are left out. Default false. |
 | small | boolean |  | no | Whether times and divide tasks stay in the small one-times table (Kleines Einmaleins): every factor, divisor and quotient from 1 to 10. Default false. |
+| reihen | list of number |  | no | Einmaleins-Reihen: the rows a times or divide task may use, distinct numbers from 1 to 10. Empty, the default, leaves the rows free. A times task takes one factor from the rows and the other from 1 to 10. A divide task takes its divisor from the rows and its quotient from 1 to 10. |
+| avoid0 | boolean |  | no | Geteilt mit Rest: whether a division that may leave a remainder leaves none of 0. Default true. |
 | pa | string |  | no | Pattern of the first number: "X" is any digit, a digit is fixed, and the length is the number of digits, as in "X0" or "20". Empty means no pattern. At most two of the first number, the second and the result are fixed, with no "X". |
 | pb | string |  | no | Pattern of the second number, as for the first. Empty means no pattern. |
 | pr | string |  | no | Pattern of the result, as for the first number, as in "100". Empty means no pattern. A comparison has no result pattern. |

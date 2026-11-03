@@ -205,6 +205,8 @@ def compared(s: Settings) -> dict:
         "one",
         "distinct",
         "small",
+        "reihen",
+        "avoid0",
     )
     # A limit already at its loosest changes nothing, so it is not tried again.
     return {
