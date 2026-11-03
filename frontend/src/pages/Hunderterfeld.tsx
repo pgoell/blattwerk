@@ -1,7 +1,7 @@
 // The format panel's settings for a Hunderterfeld block: its look, its numbers, its tints and its cut-out.
 import { useEffect, useState } from "react";
 import type { HunderterfeldBlock } from "../sheet";
-import { sane, STARTS, MUSTER_NAMES, type HunderterfeldProps, type MusterName } from "../hunderterfeld";
+import { sane, MUSTER_NAMES, type HunderterfeldProps, type MusterName } from "../hunderterfeld";
 import { cutOf } from "../hunderterfeld-shape";
 import { newSeed } from "./Maths";
 
@@ -104,11 +104,17 @@ export default function Hunderterfeld({ block, apply }: { block: HunderterfeldBl
         <option value="punkte">Punktefeld</option>
       </select>
       <select aria-label="Erste Zahl" value={p.from} onChange={(e) => apply({ from: Number(e.target.value) as HunderterfeldProps["from"] })}>
-        {STARTS.map((n) => (
-          <option key={n} value={n}>
-            {n === 0 ? "0 bis 99" : `${n} bis ${n + 99}`}
-          </option>
-        ))}
+        <option value="0">0 bis 99</option>
+        <option value="1">1 bis 100</option>
+        <option value="101">101 bis 200</option>
+        <option value="201">201 bis 300</option>
+        <option value="301">301 bis 400</option>
+        <option value="401">401 bis 500</option>
+        <option value="501">501 bis 600</option>
+        <option value="601">601 bis 700</option>
+        <option value="701">701 bis 800</option>
+        <option value="801">801 bis 900</option>
+        <option value="901">901 bis 1000</option>
       </select>
       {tafel ? (
         <>
